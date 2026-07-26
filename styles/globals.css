@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Theme Variables
+   Single source of truth for the design system. Colors are expressed as
+   HSL triplets (no hsl() wrapper) so Tailwind can apply opacity modifiers,
+   e.g. `bg-primary/10`. Keeping every token here makes future theming
+   (light mode, white-label, per-tenant branding) a config-only change.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 240 10% 3.9%;
+    --background-secondary: 222 47% 11%;
+    --card: 240 4% 10%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Text */
+    --foreground: 0 0% 100%;
+    --foreground-secondary: 240 5% 65%;
+    --foreground-tertiary: 240 4% 46%;
+    --foreground-disabled: 240 4% 32%;
+
+    /* Brand */
+    --primary: 247 87% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Feedback */
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --danger: 0 84% 60%;
+    --info: 199 89% 48%;
+
+    /* Structure */
+    --border: 0 0% 100%;
+    --input: 240 4% 16%;
+    --ring: 247 87% 67%;
+
+    /* Radius scale — every radius in the app derives from this one value */
+    --radius: 1rem;
+
+    /* Shadows */
+    --shadow-color: 0 0% 0%;
+    --shadow-soft: 0 4px 24px hsl(var(--shadow-color) / 0.25);
+    --shadow-elevated: 0 12px 48px hsl(var(--shadow-color) / 0.35);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
+    --shadow-glow-sm: 0 0 20px hsl(var(--primary) / 0.1);
+
+    /* Glass / blur surfaces */
+    --glass-bg: 240 4% 10%;
+    --glass-border: var(--border);
+
+    /* Layout */
+    --header-height: 4rem;
+    --container-max-width: 80rem;
+  }
+
+  * {
+    @apply border-border/[0.08];
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-glass/60 backdrop-blur-glass border border-glass-border/[0.06];
+  }
+
+  .glass-card {
+    @apply glass rounded-lg shadow-soft;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animate-delay-400 {
+    animation-delay: 400ms;
+  }
+  .animate-delay-500 {
+    animation-delay: 500ms;
+  }
+  .animate-delay-600 {
+    animation-delay: 600ms;
+  }
+}
