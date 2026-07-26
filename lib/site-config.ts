@@ -5,6 +5,7 @@
  */
 export const siteConfig = {
   name: "MoonX",
-  description: "MoonX — a modern SaaS platform.",
+  description:
+    "MoonX is a premium prediction intelligence platform combining forecasting frameworks, market structure, historical evidence, and verification.",
   url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 } as const;

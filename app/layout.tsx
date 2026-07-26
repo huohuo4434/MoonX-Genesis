@@ -1,11 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { Footer, Navbar } from "@/components/layout";
+import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { siteConfig } from "@/lib/site-config";
+import { runResearchDataValidation } from "@/lib/research/run-validation";
 import "@/styles/globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -29,14 +39,24 @@ export const viewport: Viewport = {
   themeColor: "#09090b",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  if (process.env.NODE_ENV !== "production") {
+    await runResearchDataValidation();
+  }
+
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>{children}</body>
+    <html lang={DEFAULT_LOCALE}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+        <LocaleProvider>
+          <Navbar />
+          {children}
+          <Footer />
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

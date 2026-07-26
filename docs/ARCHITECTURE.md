@@ -9,7 +9,9 @@ structure and conventions only — no product features have been built yet.
 - **UI**: React 19
 - **Language**: TypeScript (strict mode)
 - **Styling**: TailwindCSS 3, driven entirely by CSS theme variables
-- **Font**: Inter, loaded via `next/font/google`
+- **Fonts**: Inter (UI text) and JetBrains Mono (numeric/data text), both loaded via `next/font/google`
+- **Component primitives**: [Radix UI](https://www.radix-ui.com/primitives) for headless, accessible interactive components (Dialog, Select, Tabs, Tooltip, Dropdown Menu, Checkbox, Switch, Avatar, Toast)
+- **Styling utilities**: [`class-variance-authority`](https://cva.style/docs) for typed variant/size APIs, [`tailwindcss-animate`](https://github.com/jamiebuilds/tailwindcss-animate) for Radix state-driven enter/exit animation
 
 ## Folder Structure
 
@@ -19,10 +21,11 @@ MoonX-Genesis/
 │   ├── layout.tsx           # Root layout — fonts, metadata, <html>/<body>
 │   └── page.tsx             # Temporary foundation-check page
 ├── components/
-│   ├── ui/                  # Design-system primitives (Button, Card, Section, ...)
+│   ├── ui/                  # Design-system primitives (Button, Card, Dialog, Select, ...)
+│   ├── data/                # Presentational data primitives (Price, Percentage, StatusBadge, ...)
 │   ├── layout/              # Shared page chrome (Navbar, Footer, AppShell) — empty for now
 │   ├── cards/                # Domain-specific card components — empty for now
-│   ├── charts/               # Chart/visualization primitives — empty for now
+│   ├── charts/               # Chart chrome (ChartContainer, ChartPlaceholder, ChartSkeleton) — no charting library yet
 │   └── icons/                # Generic SVG icon library
 ├── hooks/                   # Reusable client hooks (useMediaQuery, useLocalStorage, ...)
 ├── lib/
@@ -44,9 +47,12 @@ ones below it:
 1. **`lib/`, `hooks/`, `types/`** — pure, framework-light building blocks.
 2. **`components/ui/`** — presentational primitives styled with design
    tokens. No business logic, no data fetching.
-3. **`components/{layout,cards,charts,icons}/`** — composed, feature-aware
+3. **`components/data/`** — presentational, prop-driven data-display
+   primitives (prices, percentages, status/risk/confidence badges). Still
+   part of the design system layer — no mock data or API calls live here.
+4. **`components/{layout,cards,charts,icons}/`** — composed, feature-aware
    components built out of `components/ui/` primitives.
-4. **`app/`** — routes that compose components and own data fetching.
+5. **`app/`** — routes that compose components and own data fetching.
 
 Never import "up" the stack (e.g. a `ui/` primitive must not import from
 `app/`).
@@ -97,3 +103,31 @@ The foundation is deliberately unopinionated about backend/auth providers.
 When ready, integrate them behind a thin wrapper (e.g. `lib/db.ts`,
 `lib/auth.ts`) so the rest of the app depends on an interface, not a
 specific vendor SDK.
+
+## Database-Ready Data Layer Pattern
+
+Feature data modules under `lib/data/` (e.g. `research-intelligence.ts`)
+follow a consistent shape so mock data can be swapped for a real database
+with no changes anywhere else in the app:
+
+1. **Types mirror future tables.** Every entity has a stable `id`, explicit
+   field types, and (where relevant) an `updatedAt`/`date` timestamp — the
+   same shape a Postgres/Supabase table would have.
+2. **Mock arrays stay private to the module.** They are not exported;
+   nothing outside the file touches them directly.
+3. **Access only through `async` accessor functions** (`listX`, `getX`).
+   These resolve synchronously today but are already `async`, and every
+   call site already `await`s them — usually from an `async` Server
+   Component in `app/`. Pointing a function body at a real query later is a
+   one-file change.
+
+```ts
+// lib/data/<feature>.ts
+export interface Thing { id: string; /* ... */ }
+
+const things: Thing[] = [/* mock rows */];
+
+export async function listThings(): Promise<Thing[]> {
+  return things; // swap for `db.query(...)` later — call sites don't change
+}
+```

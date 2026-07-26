@@ -1,0 +1,222 @@
+/**
+ * Research Intelligence module — data layer.
+ *
+ * MoonX aggregates a broad range of external market commentary and price
+ * signal, classifies it, then reconciles it through a fixed set of internal
+ * analysis frameworks. External sources are never named or exposed; only
+ * MoonX's own internal framework names appear anywhere in this module.
+ *
+ * "Database-ready" pattern: every type below is shaped like a future
+ * database table (stable `id`, explicit field types, an `updatedAt`
+ * timestamp), and the mock arrays are only ever read through the `list*`/
+ * `get*` accessor functions at the bottom of this file. Nothing else in the
+ * app imports the arrays directly. That means swapping the function bodies
+ * for real queries (e.g. Supabase) later is a one-file change — no call
+ * site anywhere else needs to know the data used to be static.
+ */
+import type { ForecastDirection } from "./demo-content";
+
+export type FrameworkCategory = "Symbolic Systems" | "Price Structure" | "Time & Cycle" | "Flow & Risk" | "Macro";
+
+/**
+ * The closed set of anonymous MoonX framework names. This is the only
+ * vocabulary allowed anywhere framework evidence is cited — external
+ * analyst identities are never used.
+ */
+export type MoonXFrameworkName =
+  | "Oracle Six Yao"
+  | "Cycle Structure"
+  | "Gann Structure"
+  | "Harmonic Structure"
+  | "Market Flow & Risk"
+  | "Macro Capital Cycle"
+  | "Technical Structure";
+
+/** Maps 1:1 to the eventual `analyst_frameworks` database table. */
+export interface AnalystFramework {
+  id: string;
+  name: MoonXFrameworkName;
+  category: FrameworkCategory;
+  /** 0–100, backtested reliability of this framework's calls historically. */
+  reliabilityScore: number;
+  /** 0–100, contribution weight applied when reconciling frameworks into a MoonX consensus. */
+  weight: number;
+  description: string;
+  updatedAt: string;
+}
+
+const analystFrameworkDatabase: AnalystFramework[] = [
+  {
+    id: "oracle-six-yao",
+    name: "Oracle Six Yao",
+    category: "Symbolic Systems",
+    reliabilityScore: 70,
+    weight: 20,
+    description:
+      "A structured symbolic framework MoonX uses to model cyclical change and transition points in market structure.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "cycle-structure",
+    name: "Cycle Structure",
+    category: "Time & Cycle",
+    reliabilityScore: 72,
+    weight: 20,
+    description:
+      "Studies recurring temporal intervals — peaks, troughs, and turning windows — across historical data.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "gann-structure",
+    name: "Gann Structure",
+    category: "Time & Cycle",
+    reliabilityScore: 68,
+    weight: 12,
+    description: "Applies geometric time-and-price cycle analysis to frame potential inflection windows.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "harmonic-structure",
+    name: "Harmonic Structure",
+    category: "Price Structure",
+    reliabilityScore: 65,
+    weight: 10,
+    description:
+      "Identifies repeating structural wave and harmonic patterns in price action to contextualize potential turning points.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "market-flow-risk",
+    name: "Market Flow & Risk",
+    category: "Flow & Risk",
+    reliabilityScore: 63,
+    weight: 13,
+    description:
+      "Tracks fund flow, positioning, and ETF/institutional activity to flag risk that may conflict with other frameworks.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "macro-capital-cycle",
+    name: "Macro Capital Cycle",
+    category: "Macro",
+    reliabilityScore: 66,
+    weight: 10,
+    description: "Assesses macro capital allocation and sector rotation trends behind broader market moves.",
+    updatedAt: "2026-07-26",
+  },
+  {
+    id: "technical-structure",
+    name: "Technical Structure",
+    category: "Price Structure",
+    reliabilityScore: 74,
+    weight: 15,
+    description: "Classical price-and-volume structure analysis used to cross-check signals from other frameworks.",
+    updatedAt: "2026-07-26",
+  },
+];
+
+export interface DailyIntelligenceReport {
+  id: string;
+  asset: string;
+  symbol: string;
+  /** ISO date this report was generated. */
+  date: string;
+  marketConsensus: ForecastDirection;
+  /** 0–100 */
+  bullishScore: number;
+  /** 0–100 */
+  bearishScore: number;
+  keyFactors: string[];
+  riskFactors: string[];
+  finalView: string;
+}
+
+const dailyIntelligenceReports: DailyIntelligenceReport[] = [
+  {
+    id: "btc-2026-07-26",
+    asset: "Bitcoin",
+    symbol: "BTC",
+    date: "2026-07-26",
+    marketConsensus: "up",
+    bullishScore: 71,
+    bearishScore: 29,
+    keyFactors: [
+      "Technical Structure flags a higher-low structure holding above key support.",
+      "Harmonic Structure places price in an early impulsive phase.",
+      "Cycle Structure flags this week as a historically favorable window.",
+    ],
+    riskFactors: [
+      "Macro liquidity conditions remain a wildcard heading into quarter-end.",
+      "Gann Structure flags a short-term timing conflict worth monitoring.",
+    ],
+    finalView:
+      "MoonX's internal frameworks lean bullish for Bitcoin over the near term, with the strongest agreement across Technical and Harmonic Structure. Confidence is moderate given mixed macro signals.",
+  },
+];
+
+export interface ResearchPipelineStage {
+  id: string;
+  order: number;
+  title: string;
+  description: string;
+}
+
+const researchPipelineStages: ResearchPipelineStage[] = [
+  {
+    id: "signals",
+    order: 1,
+    title: "External Signals",
+    description: "Raw commentary, data, and price action are ingested from a broad set of external sources.",
+  },
+  {
+    id: "classification",
+    order: 2,
+    title: "AI Classification",
+    description: "Signals are parsed and classified by asset, theme, and directional bias before entering any framework.",
+  },
+  {
+    id: "weighting",
+    order: 3,
+    title: "Framework Weighting",
+    description: "Classified signals are scored against each internal framework, weighted by historical reliability.",
+  },
+  {
+    id: "consensus",
+    order: 4,
+    title: "MoonX Consensus",
+    description: "Weighted framework outputs are reconciled into a single internal consensus view.",
+  },
+  {
+    id: "output",
+    order: 5,
+    title: "Forecast Output",
+    description: "The consensus is published as a structured, versioned MoonX forecast.",
+  },
+];
+
+/**
+ * Data-access layer.
+ *
+ * These resolve synchronously today, but are written `async` on purpose —
+ * every call site already `await`s them, so pointing them at a real
+ * database later is a drop-in change.
+ */
+export async function listAnalystFrameworks(): Promise<AnalystFramework[]> {
+  return analystFrameworkDatabase;
+}
+
+export async function getAnalystFramework(id: string): Promise<AnalystFramework | undefined> {
+  return analystFrameworkDatabase.find((framework) => framework.id === id);
+}
+
+export async function listDailyIntelligenceReports(): Promise<DailyIntelligenceReport[]> {
+  return dailyIntelligenceReports;
+}
+
+export async function getDailyIntelligenceReport(id: string): Promise<DailyIntelligenceReport | undefined> {
+  return dailyIntelligenceReports.find((report) => report.id === id);
+}
+
+export async function listResearchPipelineStages(): Promise<ResearchPipelineStage[]> {
+  return [...researchPipelineStages].sort((a, b) => a.order - b.order);
+}

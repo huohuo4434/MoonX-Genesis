@@ -2,28 +2,37 @@ import { cn } from "@/lib/utils";
 import { HTMLAttributes, forwardRef } from "react";
 
 type HeadingLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-type HeadingSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
+export type HeadingSize = "display" | "h1" | "h2" | "h3";
 
 export interface HeadingProps extends HTMLAttributes<HTMLHeadingElement> {
-  /** Semantic tag rendered to the DOM. Decoupled from `size` on purpose. */
+  /** Semantic tag rendered to the DOM. Decoupled from `size` on purpose —
+   *  e.g. a page can have exactly one visual "display" heading rendered
+   *  as an `<h1>` for SEO/accessibility while looking bigger than any
+   *  other heading on the page. */
   as?: HeadingLevel;
-  /** Visual scale — pick this independently of the semantic level. */
+  /** Visual scale from the typography system. */
   size?: HeadingSize;
-  /** Apply the brand gradient text treatment. */
+  /** Apply the brand gradient text treatment. Use sparingly. */
   gradient?: boolean;
 }
 
 const sizeClasses: Record<HeadingSize, string> = {
-  xs: "text-heading-sm",
-  sm: "text-heading-md",
-  md: "text-heading-lg",
-  lg: "text-display-sm",
-  xl: "text-display-md",
-  "2xl": "text-display-lg",
+  display: "text-display",
+  h1: "text-h1",
+  h2: "text-h2",
+  h3: "text-h3",
+};
+
+const defaultElementForSize: Record<HeadingSize, HeadingLevel> = {
+  display: "h1",
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
 };
 
 const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
-  ({ as: Component = "h2", size = "md", gradient = false, className, children, ...props }, ref) => {
+  ({ as, size = "h2", gradient = false, className, children, ...props }, ref) => {
+    const Component = as ?? defaultElementForSize[size];
     return (
       <Component
         ref={ref}

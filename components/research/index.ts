@@ -1,0 +1,24 @@
+/** Research Intelligence module components — see `lib/data/research-intelligence.ts` for the data layer. */
+export { FrameworkDatabaseTable } from "./FrameworkDatabaseTable";
+export type { FrameworkDatabaseTableProps } from "./FrameworkDatabaseTable";
+export { PipelineFlow } from "./PipelineFlow";
+export type { PipelineFlowProps } from "./PipelineFlow";
+export { DailyIntelligenceReport } from "./DailyIntelligenceReport";
+export type { DailyIntelligenceReportProps } from "./DailyIntelligenceReport";
+export { AssetIntelligenceCard } from "./AssetIntelligenceCard";
+export type { AssetIntelligenceCardProps } from "./AssetIntelligenceCard";
+export { CrossAssetConsensusSection } from "./CrossAssetConsensusSection";
+export type { CrossAssetConsensusSectionProps } from "./CrossAssetConsensusSection";
+export { LongRangeTimeline } from "./LongRangeTimeline";
+export type { LongRangeTimelineProps } from "./LongRangeTimeline";
+export { ResearchRecordCard } from "./ResearchRecordCard";
+export type { ResearchRecordCardProps } from "./ResearchRecordCard";
+export { ResearchRecordDetail } from "./ResearchRecordDetail";
+export { ResearchLibraryExplorer } from "./ResearchLibraryExplorer";
+export { ConsensusCard } from "./ConsensusCard";
+export type { ConsensusCardProps } from "./ConsensusCard";
+export { WatchlistCard } from "./WatchlistCard";
+export type { WatchlistCardProps } from "./WatchlistCard";
+export { TimelineExplorer } from "./TimelineExplorer";
+export { MoonXDataStatusPanel } from "./MoonXDataStatusPanel";
+export type { MoonXDataStatusPanelProps } from "./MoonXDataStatusPanel";

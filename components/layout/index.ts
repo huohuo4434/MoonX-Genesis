@@ -1,6 +1,5 @@
-/**
- * Shared page chrome (Navbar, Footer, Sidebar, AppShell, etc.) lives here.
- * Intentionally empty until the first real page is built — see
- * docs/ARCHITECTURE.md for the layering convention.
- */
-export {};
+/** Shared page chrome — mounted once per route layout. */
+export { Navbar } from "./Navbar";
+export { Footer } from "./Footer";
+export { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
+export { PageHeaderIntl } from "./PageHeaderIntl";

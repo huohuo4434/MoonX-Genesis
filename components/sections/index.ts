@@ -1,0 +1,18 @@
+/** Homepage sections — each owns its own layout and pulls demo data from `lib/data`. */
+export { HeroSection } from "./HeroSection";
+export { HeroDataOrbit } from "./HeroDataOrbit";
+export { TodaysMoonXViewSection } from "./TodaysMoonXViewSection";
+export { TodaysIntelligenceSection } from "./TodaysIntelligenceSection";
+export { BitcoinForecastPathSection } from "./BitcoinForecastPathSection";
+export { ConsensusOverviewSection } from "./ConsensusOverviewSection";
+export { ChinaEquityLongRangeSection } from "./ChinaEquityLongRangeSection";
+export { StrategicWatchlistSection } from "./StrategicWatchlistSection";
+export { UpcomingTurningWindowsSection } from "./UpcomingTurningWindowsSection";
+export { AssetCategoriesSection } from "./AssetCategoriesSection";
+export { FeaturedForecastsSection } from "./FeaturedForecastsSection";
+export { ForecastDetailPreviewSection } from "./ForecastDetailPreviewSection";
+export { MethodologySection } from "./MethodologySection";
+export { AnalystFrameworkSection } from "./AnalystFrameworkSection";
+export { VerificationSection } from "./VerificationSection";
+export { ResearchSection } from "./ResearchSection";
+export { FinalCtaSection } from "./FinalCtaSection";
