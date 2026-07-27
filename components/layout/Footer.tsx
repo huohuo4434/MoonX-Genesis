@@ -14,7 +14,7 @@ const footerColumns: FooterColumn[] = [
     titleKey: "footer.product",
     links: [
       { labelKey: "footer.todaysIntelligence", href: "/#markets" },
-      { labelKey: "footer.forecasts", href: "/#forecasts" },
+      { labelKey: "footer.forecasts", href: "/forecasts/daily" },
       { labelKey: "footer.assetCategories", href: "/#categories" },
       { labelKey: "footer.researchIntelligence", href: "/research" },
       { labelKey: "footer.intelligenceSnapshot", href: "/research/intelligence-snapshot" },

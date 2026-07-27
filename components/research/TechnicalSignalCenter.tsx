@@ -54,7 +54,8 @@ export function TechnicalSignalCenter({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="观察中" value={stats.totalSignals - stats.completedVerifications - signals.filter((signal) => signal.status === "invalidated" || signal.status === "expired").length} />
         <StatCard label={t("technical.currentWarnings")} value={signals.filter((signal) => signal.status === "warning").length} />
         <StatCard label={t("technical.confirmedSignals")} value={signals.filter((signal) => signal.status === "confirmed").length} />
         <StatCard label={t("technical.awaitingVerification")} value={signals.filter((signal) => Boolean(signal.verificationDate) && !signal.outcome).length} />

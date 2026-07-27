@@ -3,6 +3,7 @@ import {
   BitcoinForecastPathSection,
   ChinaEquityLongRangeSection,
   ConsensusOverviewSection,
+  DailyMarketForecastSection,
   HeroSection,
   MacroRiskCalendarSection,
   StrategicWatchlistSection,
@@ -17,6 +18,7 @@ export default function HomePage() {
     <main>
       <HeroSection />
       <TodaysMoonXViewSection />
+      <DailyMarketForecastSection />
       <ConsensusOverviewSection />
       <TechnicalSignalsHomeSection />
       <MacroRiskCalendarSection />

@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 export default async function TechnicalSignalPage() {
   const [allSignals, accessLevel] = await Promise.all([listTechnicalSignals(), getAccessLevel()]);
   const signals = accessLevel === "member" ? allSignals : allSignals.slice(0, 3);
-  const assetIds = [...new Set(signals.map((signal) => signal.assetId))];
-  const conflictCount = assetIds.filter((assetId) => aggregateTechnicalSignals(signals.filter((signal) => signal.assetId === assetId)).conflictLevel !== "none").length;
+  const assetIds = [...new Set(allSignals.map((signal) => signal.assetId))];
+  const conflictCount = assetIds.filter((assetId) => aggregateTechnicalSignals(allSignals.filter((signal) => signal.assetId === assetId)).conflictLevel !== "none").length;
 
   return (
     <main>
@@ -23,7 +23,7 @@ export default async function TechnicalSignalPage() {
         <PageHeaderIntl titleKey="technical.title" subtitleKey="technical.subtitle" badgeKey="nav.research" />
       </Section>
       <Section spacing="lg" className="border-t border-border/[0.06]">
-        <TechnicalSignalCenter signals={signals} stats={calculateTechnicalVerificationStats(signals)} conflictCount={conflictCount} totalSignalCount={allSignals.length} isMember={accessLevel === "member"} />
+        <TechnicalSignalCenter signals={signals} stats={calculateTechnicalVerificationStats(allSignals)} conflictCount={conflictCount} totalSignalCount={allSignals.length} isMember={accessLevel === "member"} />
       </Section>
     </main>
   );

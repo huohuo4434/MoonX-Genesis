@@ -20,3 +20,4 @@ export { AltcoinRotationHomeSection } from "./AltcoinRotationHomeSection";
 export { AltcoinRotationMonitorSection } from "./AltcoinRotationMonitorSection";
 export { TechnicalSignalsHomeSection } from "./TechnicalSignalsHomeSection";
 export { MacroRiskCalendarSection } from "./MacroRiskCalendarSection";
+export { DailyMarketForecastSection } from "./DailyMarketForecastSection";

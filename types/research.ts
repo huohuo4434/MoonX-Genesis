@@ -69,6 +69,17 @@ export interface ResearchRecord {
   expiresAt?: string;
   /** Short-lived external observations must not affect long-horizon consensus. */
   excludeFromLongTermConsensus?: boolean;
+  sourcePublishedAt?: string | null;
+  sourcePublishedAtVerified?: boolean;
+  ingestedAt?: string;
+  verificationEligibility?: "formal" | "provisional";
+  retrospectiveNotes?: LocalizedText[];
+  sourceSymbol?: string;
+  sourceAssetId?: string;
+  appliedAssetId?: string;
+  mappingType?: "correlated_asset_timing_proxy";
+  mappingConfidence?: "low" | "low_to_medium";
+  derivedFromWeeklyPath?: boolean;
   forecastStart?: string;
   forecastEnd?: string;
   assetId: string;

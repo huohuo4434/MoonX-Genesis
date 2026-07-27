@@ -14,7 +14,7 @@ interface NavLink {
 
 const navLinks: NavLink[] = [
   { key: "nav.markets", href: "/#markets" },
-  { key: "nav.forecasts", href: "/#forecasts" },
+  { key: "nav.forecasts", href: "/forecasts/daily" },
   { key: "nav.research", href: "/research" },
   { key: "nav.researchLibrary", href: "/research/library" },
   { key: "nav.watchlist", href: "/markets/watchlist" },
