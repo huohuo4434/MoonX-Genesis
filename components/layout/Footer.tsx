@@ -9,13 +9,13 @@ interface FooterColumn {
   links: { labelKey: string; href: string }[];
 }
 
+/** Primary footer columns — keep hrefs aligned with V2.5 homepage anchors. */
 const footerColumns: FooterColumn[] = [
   {
     titleKey: "footer.product",
     links: [
-      { labelKey: "footer.todaysIntelligence", href: "/#markets" },
+      { labelKey: "footer.todaysIntelligence", href: "/#moonx-view" },
       { labelKey: "footer.forecasts", href: "/forecasts/daily" },
-      { labelKey: "footer.assetCategories", href: "/#categories" },
       { labelKey: "footer.researchIntelligence", href: "/research" },
       { labelKey: "footer.intelligenceSnapshot", href: "/research/intelligence-snapshot" },
       { labelKey: "footer.researchLibrary", href: "/research/library" },
@@ -26,9 +26,7 @@ const footerColumns: FooterColumn[] = [
   {
     titleKey: "footer.company",
     links: [
-      { labelKey: "footer.aboutMoonx", href: "#" },
-      { labelKey: "footer.latestResearch", href: "/#research" },
-      { labelKey: "footer.contact", href: "#" },
+      { labelKey: "footer.latestResearch", href: "/#latest-research" },
     ],
   },
   {
@@ -37,8 +35,7 @@ const footerColumns: FooterColumn[] = [
       { labelKey: "footer.methodology", href: "/#methodology" },
       { labelKey: "footer.researchPipeline", href: "/research/pipeline" },
       { labelKey: "footer.timeline", href: "/timeline" },
-      { labelKey: "footer.verification", href: "/#verification" },
-      { labelKey: "footer.riskDisclosure", href: "#" },
+      { labelKey: "footer.verification", href: "/research/pipeline" },
     ],
   },
   {

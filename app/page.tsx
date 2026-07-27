@@ -1,33 +1,25 @@
 import {
-  AltcoinRotationHomeSection,
-  BitcoinForecastPathSection,
-  ChinaEquityLongRangeSection,
-  ConsensusOverviewSection,
-  DailyMarketForecastSection,
-  HeroSection,
-  MacroRiskCalendarSection,
-  StrategicWatchlistSection,
-  TechnicalSignalsHomeSection,
-  TodaysMoonXViewSection,
-  UpcomingTurningWindowsSection,
-  VerificationSection,
-} from "@/components/sections";
+  HomeTodaySection,
+  HomeScenarioChartSection,
+  LatestResearchSection,
+  LongTermOutlookSection,
+  MethodologyEntry,
+  StrategicWatchlistPreview,
+  WeeklyForecastStrip,
+} from "@/components/home";
+import { HeroSection } from "@/components/sections";
 
 export default function HomePage() {
   return (
     <main>
       <HeroSection />
-      <TodaysMoonXViewSection />
-      <DailyMarketForecastSection />
-      <ConsensusOverviewSection />
-      <TechnicalSignalsHomeSection />
-      <MacroRiskCalendarSection />
-      <BitcoinForecastPathSection />
-      <ChinaEquityLongRangeSection />
-      <AltcoinRotationHomeSection />
-      <StrategicWatchlistSection />
-      <UpcomingTurningWindowsSection />
-      <VerificationSection />
+      <HomeTodaySection />
+      <WeeklyForecastStrip />
+      <HomeScenarioChartSection />
+      <LatestResearchSection />
+      <LongTermOutlookSection />
+      <StrategicWatchlistPreview />
+      <MethodologyEntry />
     </main>
   );
 }

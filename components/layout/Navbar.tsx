@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Container } from "@/components/ui";
+import { Button, Container, Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui";
 import { CloseIcon, MenuIcon } from "@/components/icons";
 import { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
@@ -12,13 +12,20 @@ interface NavLink {
   href: string;
 }
 
-const navLinks: NavLink[] = [
-  { key: "nav.markets", href: "/#markets" },
+const primaryLinks: NavLink[] = [
+  { key: "nav.home", href: "/" },
+  { key: "nav.todayView", href: "/#moonx-view" },
   { key: "nav.forecasts", href: "/forecasts/daily" },
-  { key: "nav.research", href: "/research" },
   { key: "nav.researchLibrary", href: "/research/library" },
   { key: "nav.watchlist", href: "/markets/watchlist" },
+  { key: "nav.verification", href: "/research/pipeline" },
+];
+
+const moreLinks: NavLink[] = [
+  { key: "nav.research", href: "/research" },
   { key: "nav.timeline", href: "/timeline" },
+  { key: "nav.pricing", href: "/pricing" },
+  { key: "nav.technical", href: "/research/technical" },
 ];
 
 /** Sticky primary navigation. Client component only because of the mobile menu toggle. */
@@ -41,7 +48,7 @@ export function Navbar() {
           </Link>
 
           <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
-            {navLinks.map((link) => (
+            {primaryLinks.map((link) => (
               <a
                 key={link.key}
                 href={link.href}
@@ -50,6 +57,18 @@ export function Navbar() {
                 {t(link.key)}
               </a>
             ))}
+            <Dropdown>
+              <DropdownTrigger className="rounded-md px-3 py-2 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring">
+                {t("nav.more")}
+              </DropdownTrigger>
+              <DropdownContent align="end">
+                {moreLinks.map((link) => (
+                  <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
+                    {t(link.key)}
+                  </DropdownItem>
+                ))}
+              </DropdownContent>
+            </Dropdown>
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
@@ -79,7 +98,7 @@ export function Navbar() {
         <div id="mobile-nav" className="border-t border-border/[0.08] bg-background lg:hidden">
           <Container size="lg">
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-4">
-              {navLinks.map((link) => (
+              {[...primaryLinks, ...moreLinks].map((link) => (
                 <a
                   key={link.key}
                   href={link.href}

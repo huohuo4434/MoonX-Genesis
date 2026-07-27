@@ -1,11 +1,16 @@
 {
   "nav": {
+    "home": "首頁",
+    "todayView": "今日觀點",
     "markets": "市場",
     "forecasts": "預測",
     "research": "研究",
     "researchLibrary": "研究庫",
     "timeline": "時間線",
-    "watchlist": "戰略觀察名單",
+    "watchlist": "戰略觀察",
+    "verification": "驗證記錄",
+    "technical": "技術分析",
+    "more": "更多",
     "replay": "回放",
     "pricing": "定價",
     "signIn": "登入",

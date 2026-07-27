@@ -11,9 +11,9 @@ export function HeroSection() {
   const t = useTranslations();
 
   return (
-    <Section id="hero" spacing="lg" className="relative overflow-hidden">
-      <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        <div className="flex flex-col items-start gap-6">
+    <Section id="hero" spacing="md" className="relative overflow-hidden">
+      <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="flex flex-col items-start gap-5">
           <div className="flex flex-col gap-1">
             <span className="text-label uppercase tracking-[0.2em] text-primary">MoonX</span>
             <span className="text-caption text-foreground-tertiary">{t("hero.eyebrow")}</span>
@@ -29,7 +29,7 @@ export function HeroSection() {
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" variant="primary">
-              <a href="#markets">{t("hero.ctaExplore")}</a>
+              <a href="#moonx-view">{t("hero.ctaExplore")}</a>
             </Button>
             <Button asChild size="lg" variant="outline">
               <a href="/timeline">{t("hero.ctaTimeline")}</a>
@@ -45,9 +45,6 @@ export function HeroSection() {
             ))}
           </div>
 
-          <Text variant="caption" color="tertiary" className="max-w-md">
-            {t("hero.disclaimer")}
-          </Text>
         </div>
 
         <div className="flex justify-center lg:justify-end">
