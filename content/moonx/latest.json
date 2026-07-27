@@ -4514,6 +4514,57 @@
         "oracle"
       ],
       "verification": "pending"
+    },
+    {
+      "id": "oil-hormuz-weakening-2026",
+      "start": "2026-07-28",
+      "end": "2026-08-17",
+      "title": {
+        "zhCN": "霍尔木兹海峡恢复与油价转弱观察窗口",
+        "zhTW": "霍爾木茲海峽恢復與油價轉弱觀察窗口",
+        "en": "Hormuz Recovery & Oil Softening Watch Window"
+      },
+      "description": {
+        "zhCN": "立秋及申月前后，供应恢复力量增强，油价可能加速消化战争溢价。框架：六爻。状态：待验证。时间窗口允许前后约10天偏差。关联：MX-OIL-20260602-0903-LIUYAO-001。",
+        "zhTW": "立秋及申月前後，供應恢復力量增強，油價可能加速消化戰爭溢價。框架：六爻。狀態：待驗證。時間窗口允許前後約10天偏差。",
+        "en": "After Start of Autumn / Shen month, supply recovery may fade war premium. Framework: six-yao. Status: pending. ±~10 day timing tolerance. Linked: MX-OIL-20260602-0903-LIUYAO-001."
+      },
+      "categories": ["commodity", "oracle"],
+      "verification": "pending"
+    },
+    {
+      "id": "oil-normalization-window-2026",
+      "start": "2026-08-07",
+      "end": "2026-09-03",
+      "title": {
+        "zhCN": "国际油价向正常区间回归窗口",
+        "zhTW": "國際油價向正常區間回歸窗口",
+        "en": "Oil Normalization Band Window"
+      },
+      "description": {
+        "zhCN": "核心情景向70至75美元附近回归；85至95美元属于地缘溢价尚未完全消退的替代情景。框架：六爻。状态：待验证。关联：MX-OIL-20260602-0903-LIUYAO-001。",
+        "zhTW": "核心情景向70至75美元附近回歸；85至95美元屬於地緣溢價尚未完全消退的替代情景。",
+        "en": "Base scenario toward $70–75; $85–95 alternative if premium persists. Framework: six-yao. Pending. Linked: MX-OIL-20260602-0903-LIUYAO-001."
+      },
+      "categories": ["commodity", "oracle"],
+      "verification": "pending"
+    },
+    {
+      "id": "sse-h2-direction-conflict-2026",
+      "start": "2026-08-12",
+      "end": "2026-09-10",
+      "title": {
+        "zhCN": "A股下半年方向分歧裁决窗口",
+        "zhTW": "A股下半年方向分歧裁決窗口",
+        "en": "A-Share H2 Direction Resolution Window"
+      },
+      "description": {
+        "zhCN": "年度六爻偏弱判断与奇门、中期六爻偏多判断在此窗口接受市场宽度、成交量和突破结构验证。关联：CONFLICT-SSE-2026-H2-001。",
+        "zhTW": "年度六爻偏弱判斷與奇門、中期六爻偏多判斷在此窗口接受市場寬度、成交量和突破結構驗證。",
+        "en": "Annual soft-bias vs Qimen/mid-term bullish views resolve via breadth, volume, and breakout structure. Linked: CONFLICT-SSE-2026-H2-001."
+      },
+      "categories": ["china-equity", "oracle", "qimen"],
+      "verification": "pending"
     }
   ],
   "marketThemes": [

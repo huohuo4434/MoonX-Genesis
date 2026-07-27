@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { Badge, DialogDescription, DialogHeader, DialogTitle, Text } from "@/components/ui";
+import { getResearchConflictForRecord } from "@/lib/data/research-conflicts";
 import { getSourceProfile } from "@/lib/data/source-profiles";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { directionBadgeVariant, statusBadgeVariant } from "@/lib/research/research-utils";
 import { formatDate } from "@/lib/utils";
 import type { ResearchRecord } from "@/types/research";
+import { ResearchConflictPanel } from "./ResearchConflictPanel";
 
 function DetailList({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
@@ -60,6 +63,7 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
   const reliability = record.sourceReliability ?? profile?.sourceReliability;
   const reliabilityMethods = reliability?.methods ?? profile?.sourceReliability.methods;
   const verification = record.verificationResult;
+  const conflict = getResearchConflictForRecord(record.id);
 
   return (
     <div className="flex max-h-[75vh] flex-col gap-5 overflow-y-auto pr-1">
@@ -75,6 +79,8 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
           {record.symbol ? ` · ${record.symbol}` : ""} · {pickLocalized(record.publicSourceLabel, locale)}
         </DialogDescription>
       </DialogHeader>
+
+      {conflict && <ResearchConflictPanel conflict={conflict} />}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-foreground-tertiary">
         <span>{t("researchLibrary.publishedOn", { date: formatDate(record.publishedAt) })}</span>
@@ -199,6 +205,64 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
           <Text variant="body-sm" color="secondary">
             {pickLocalized(record.forwardDirection, locale)}
           </Text>
+        </div>
+      )}
+
+      {record.expectedPath && record.expectedPath.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            预期运行路径
+          </Text>
+          <ul className="flex flex-col gap-1.5">
+            {record.expectedPath.map((segment) => (
+              <li key={`${segment.start}-${segment.end}`} className="rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Text variant="caption" weight="medium" className="text-foreground">
+                    {pickLocalized(segment.title, locale)}
+                  </Text>
+                  <Badge variant="outline">{pickLocalized(segment.direction, locale)}</Badge>
+                </div>
+                <Text variant="caption" color="tertiary" className="mt-1 block font-mono">
+                  {formatDate(segment.start)} – {formatDate(segment.end)}
+                </Text>
+                {segment.description && (
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {pickLocalized(segment.description, locale)}
+                  </Text>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {record.priceScenarios && record.priceScenarios.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            价格情景（编辑权重，非统计概率）
+          </Text>
+          <ul className="flex flex-col gap-1.5">
+            {record.priceScenarios.map((scenario, index) => (
+              <li key={index} className="rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <Text variant="caption" weight="medium" className="text-foreground">
+                    {pickLocalized(scenario.name, locale)}
+                  </Text>
+                  <Badge variant="outline">{scenario.probability}%</Badge>
+                </div>
+                {scenario.range && (
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    区间：{pickLocalized(scenario.range, locale)}
+                  </Text>
+                )}
+                {scenario.description && (
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {pickLocalized(scenario.description, locale)}
+                  </Text>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -468,6 +532,27 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
         <DetailList title={t("researchLibrary.catalysts")} items={record.catalysts.map((item) => pickLocalized(item, locale))} />
       )}
       {record.risks && <DetailList title={t("researchLibrary.risks")} items={record.risks.map((item) => pickLocalized(item, locale))} />}
+
+      {record.notes && record.notes.length > 0 && (
+        <DetailList title="研究备注" items={record.notes.map((item) => pickLocalized(item, locale))} />
+      )}
+
+      {record.relatedRecordIds && record.relatedRecordIds.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            关联研究
+          </Text>
+          <ul className="flex flex-col gap-1">
+            {record.relatedRecordIds.map((id) => (
+              <li key={id}>
+                <Link href={`/research/library#${id}`} className="text-body-sm text-primary hover:underline">
+                  {id}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {record.verificationChecklist && record.verificationChecklist.length > 0 && (
         <DetailList

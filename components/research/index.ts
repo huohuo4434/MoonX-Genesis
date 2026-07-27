@@ -11,6 +11,7 @@ export { CrossAssetConsensusSection } from "./CrossAssetConsensusSection";
 export type { CrossAssetConsensusSectionProps } from "./CrossAssetConsensusSection";
 export { LongRangeTimeline } from "./LongRangeTimeline";
 export type { LongRangeTimelineProps } from "./LongRangeTimeline";
+export { ResearchConflictPanel } from "./ResearchConflictPanel";
 export { ResearchRecordCard } from "./ResearchRecordCard";
 export type { ResearchRecordCardProps } from "./ResearchRecordCard";
 export { ResearchRecordDetail } from "./ResearchRecordDetail";

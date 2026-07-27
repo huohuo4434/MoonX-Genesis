@@ -1,4 +1,6 @@
 import { LongTermOutlookClient } from "@/components/home/LongTermOutlookClient";
+import { ResearchConflictPanel } from "@/components/research/ResearchConflictPanel";
+import { getResearchConflictForAsset } from "@/lib/data/research-conflicts";
 import { getResearchRecord } from "@/lib/data/research-records";
 import { lt } from "@/lib/i18n/config";
 
@@ -9,9 +11,10 @@ const DISCLAIMER = lt(
 );
 
 export async function LongTermOutlookSection() {
-  const [aShares, hstech] = await Promise.all([
+  const [aShares, hstech, sseConflict] = await Promise.all([
     getResearchRecord("A-SH-2026-0727-ORACLE-001"),
     getResearchRecord("HSTECH-2026-0727-ORACLE-001"),
+    Promise.resolve(getResearchConflictForAsset("shanghai-composite")),
   ]);
   if (!aShares || !hstech) return null;
 
@@ -63,6 +66,11 @@ export async function LongTermOutlookSection() {
           },
         ]}
       />
+      {sseConflict && (
+        <div className="mx-auto mt-8 w-full max-w-container px-4 sm:px-6 lg:px-8">
+          <ResearchConflictPanel conflict={sseConflict} />
+        </div>
+      )}
     </section>
   );
 }

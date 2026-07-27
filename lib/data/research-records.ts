@@ -22,6 +22,7 @@ import {
 import { chinaEquityOracle0727Records } from "@/lib/data/china-equity-oracle-0727";
 import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
+import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import {
   preciousMetalsCryptoCollections,
   preciousMetalsCryptoOracleRecords,
@@ -1401,6 +1402,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...chinaEquityOracle0727Records,
     ...preciousMetalsCryptoOracleRecords,
     ...annualRiskEquityRecords,
+    ...oilSseLiuyao2026Records,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
@@ -1411,6 +1413,10 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
 export async function getResearchRecord(id: string): Promise<ResearchRecord | undefined> {
   const records = await listResearchRecords();
   return records.find((record) => record.id === id || record.aliases?.includes(id));
+}
+
+export async function countResearchRecords(): Promise<number> {
+  return (await listResearchRecords()).length;
 }
 
 export async function listResearchCollections(): Promise<ResearchCollection[]> {

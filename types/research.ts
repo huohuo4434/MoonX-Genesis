@@ -211,6 +211,47 @@ export interface ResearchRecord {
     verificationEnd?: string;
     note?: LocalizedText;
   }>;
+  /** Mid-term path segments (e.g. oil six-yao phases). */
+  expectedPath?: Array<{
+    start: string;
+    end: string;
+    direction: LocalizedText;
+    title: LocalizedText;
+    description?: LocalizedText;
+  }>;
+  /** Named price scenarios with editorial probability weights. */
+  priceScenarios?: Array<{
+    name: LocalizedText;
+    probability: number;
+    range?: LocalizedText;
+    description?: LocalizedText;
+  }>;
+  relatedRecordIds?: string[];
+  notes?: LocalizedText[];
+  verificationDate?: string;
+  forecastType?: LocalizedText;
+  category?: LocalizedText;
+}
+
+export type ResearchConflictStatus = "观察中" | "已裁决" | "仍有分歧";
+
+/** Cross-framework disagreement for a single asset — never averages opposing views. */
+export interface ResearchConflict {
+  id: string;
+  assetId: string;
+  title: LocalizedText;
+  status: ResearchConflictStatus;
+  records: Array<{
+    recordId: string;
+    framework: LocalizedText;
+    direction: LocalizedText;
+    summary: LocalizedText;
+  }>;
+  resolutionWindow: { start: string; end: string };
+  bullishConfirmation: LocalizedText[];
+  bearishConfirmation: LocalizedText[];
+  currentMoonXView: LocalizedText;
+  resolvedRecordId?: string;
 }
 
 /** Staged verification for multi-window annual research — never mark full-year hit early. */
