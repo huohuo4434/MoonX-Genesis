@@ -5,7 +5,9 @@ export type ForecastHorizon = "strategic" | "tactical" | "execution";
 export type ForecastDirection =
   | "strong_bullish"
   | "bullish"
+  | "slightly_bullish"
   | "neutral"
+  | "slightly_bearish"
   | "bearish"
   | "strong_bearish"
   | "pending";
@@ -15,6 +17,9 @@ export interface ForecastLayer {
   periodStart?: string;
   periodEnd?: string;
   direction: ForecastDirection;
+  /** Optional Chinese/English label overriding the generic direction key. */
+  directionLabelZhCN?: string;
+  directionLabelEn?: string;
   summaryZhCN: string;
   summaryEn: string;
   confidenceLabel?: "low" | "medium" | "high";

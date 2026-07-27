@@ -7,26 +7,7 @@ import { CloseIcon, MenuIcon } from "@/components/icons";
 import { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
-interface NavLink {
-  key: string;
-  href: string;
-}
-
-const primaryLinks: NavLink[] = [
-  { key: "nav.home", href: "/" },
-  { key: "nav.todayView", href: "/#moonx-view" },
-  { key: "nav.forecasts", href: "/forecasts/daily" },
-  { key: "nav.researchLibrary", href: "/research/library" },
-  { key: "nav.watchlist", href: "/markets/watchlist" },
-  { key: "nav.verification", href: "/research/pipeline" },
-];
-
-const moreLinks: NavLink[] = [
-  { key: "nav.research", href: "/research" },
-  { key: "nav.timeline", href: "/timeline" },
-  { key: "nav.pricing", href: "/pricing" },
-  { key: "nav.technical", href: "/research/technical" },
-];
+import { primaryNav, moreNav } from "@/lib/navigation";
 
 /** Sticky primary navigation. Client component only because of the mobile menu toggle. */
 export function Navbar() {
@@ -48,7 +29,7 @@ export function Navbar() {
           </Link>
 
           <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
-            {primaryLinks.map((link) => (
+            {primaryNav.map((link) => (
               <a
                 key={link.key}
                 href={link.href}
@@ -62,7 +43,7 @@ export function Navbar() {
                 {t("nav.more")}
               </DropdownTrigger>
               <DropdownContent align="end">
-                {moreLinks.map((link) => (
+                {moreNav.map((link) => (
                   <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
                     {t(link.key)}
                   </DropdownItem>
@@ -98,7 +79,7 @@ export function Navbar() {
         <div id="mobile-nav" className="border-t border-border/[0.08] bg-background lg:hidden">
           <Container size="lg">
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-4">
-              {[...primaryLinks, ...moreLinks].map((link) => (
+              {[...primaryNav, ...moreNav].map((link) => (
                 <a
                   key={link.key}
                   href={link.href}

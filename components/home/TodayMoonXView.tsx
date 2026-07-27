@@ -11,7 +11,9 @@ import type { AssetForecastSummary, ForecastDirection } from "@/types/forecast-h
 const DIRECTION_KEY: Record<ForecastDirection, string> = {
   strong_bullish: "horizon.strongBullish",
   bullish: "horizon.bullish",
+  slightly_bullish: "horizon.slightlyBullish",
   neutral: "horizon.neutral",
+  slightly_bearish: "horizon.slightlyBearish",
   bearish: "horizon.bearish",
   strong_bearish: "horizon.strongBearish",
   pending: "horizon.pending",
@@ -37,7 +39,7 @@ export function TodayMoonXView({
           subtitle={t("home.todaySubtitle")}
         />
         <Text variant="caption" color="tertiary" className="mb-6 block">
-          {t("horizon.lastUpdated")} ? {formatLocalizedDate(updatedAt, locale)}
+          {t("horizon.lastUpdated")} {formatLocalizedDate(updatedAt, locale)}
         </Text>
 
         {assets.length === 0 ? (
@@ -45,11 +47,33 @@ export function TodayMoonXView({
             {t("horizon.awaitingUpdate")}
           </Text>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {assets.map((asset) => {
               const strategic = asset.layers.find((layer) => layer.horizon === "strategic");
               const tactical = asset.layers.find((layer) => layer.horizon === "tactical");
               const execution = asset.layers.find((layer) => layer.horizon === "execution");
+              const isGold = asset.assetId === "gold";
+              const badgeLabel =
+                isGold && strategic?.directionLabelZhCN
+                  ? isChinese
+                    ? strategic.directionLabelZhCN
+                    : (strategic.directionLabelEn ?? t(DIRECTION_KEY[asset.direction]))
+                  : t(DIRECTION_KEY[asset.direction]);
+              const supportFallback = strategic
+                ? t("horizon.longerHorizonActive")
+                : t("horizon.awaitingUpdate");
+              const resistanceFallback =
+                asset.assetId === "crude-oil" ? t("horizon.resistancePending") : supportFallback;
+
+              const strategicPrefix =
+                isGold && strategic?.directionLabelZhCN
+                  ? `${isChinese ? strategic.directionLabelZhCN : strategic.directionLabelEn} - `
+                  : "";
+              const tacticalPrefix =
+                isGold && tactical?.directionLabelZhCN
+                  ? `${isChinese ? tactical.directionLabelZhCN : tactical.directionLabelEn} - `
+                  : "";
+
               return (
                 <Link
                   key={asset.assetId}
@@ -65,25 +89,42 @@ export function TodayMoonXView({
                         {asset.symbol}
                       </Text>
                     </div>
-                    <Badge variant="outline">{t(DIRECTION_KEY[asset.direction])}</Badge>
+                    <Badge variant="outline">{badgeLabel}</Badge>
                   </div>
                   <div className="flex flex-col gap-1.5 text-body-sm text-foreground-secondary">
                     <p>
                       <span className="text-foreground-tertiary">{t("horizon.strategicTrend")}: </span>
+                      {strategicPrefix}
                       {isChinese ? strategic?.summaryZhCN : strategic?.summaryEn}
                     </p>
                     <p>
                       <span className="text-foreground-tertiary">{t("horizon.weeklyRhythm")}: </span>
+                      {tacticalPrefix}
                       {isChinese ? tactical?.summaryZhCN : tactical?.summaryEn}
                     </p>
-                    <p>
-                      <span className="text-foreground-tertiary">{t("horizon.support")}: </span>
-                      {execution?.supportLevels?.[0] ?? t("horizon.awaitingUpdate")}
-                    </p>
-                    <p>
-                      <span className="text-foreground-tertiary">{t("horizon.resistance")}: </span>
-                      {execution?.resistanceLevels?.[0] ?? t("horizon.awaitingUpdate")}
-                    </p>
+                    {isGold ? (
+                      <p>
+                        <span className="text-foreground-tertiary">{t("horizon.shortPriceScenario")}: </span>
+                        {isChinese ? execution?.confirmationZhCN : execution?.confirmation}
+                        {execution?.supportLevels?.[0]
+                          ? ` | ${t("horizon.support")} ${execution.supportLevels[0]}`
+                          : ""}
+                        {execution?.resistanceLevels?.[0]
+                          ? ` | ${t("horizon.resistance")} ${execution.resistanceLevels[0]}`
+                          : ""}
+                      </p>
+                    ) : (
+                      <>
+                        <p>
+                          <span className="text-foreground-tertiary">{t("horizon.support")}: </span>
+                          {execution?.supportLevels?.[0] ?? supportFallback}
+                        </p>
+                        <p>
+                          <span className="text-foreground-tertiary">{t("horizon.resistance")}: </span>
+                          {execution?.resistanceLevels?.[0] ?? resistanceFallback}
+                        </p>
+                      </>
+                    )}
                     {asset.nextObservation && (
                       <p>
                         <span className="text-foreground-tertiary">{t("horizon.nextObservation")}: </span>

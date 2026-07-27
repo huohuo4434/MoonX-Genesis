@@ -10,7 +10,9 @@ import type { AssetForecastSummary, ForecastDirection } from "@/types/forecast-h
 const DIRECTION_KEY: Record<ForecastDirection, string> = {
   strong_bullish: "horizon.strongBullish",
   bullish: "horizon.bullish",
+  slightly_bullish: "horizon.slightlyBullish",
   neutral: "horizon.neutral",
+  slightly_bearish: "horizon.slightlyBearish",
   bearish: "horizon.bearish",
   strong_bearish: "horizon.strongBearish",
   pending: "horizon.pending",
@@ -22,7 +24,26 @@ const CONFIDENCE_KEY = {
   high: "horizon.confidenceHigh",
 } as const;
 
-export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[] }) {
+type HorizonOutlookCard = {
+  titleZhCN: string;
+  titleEn: string;
+  summaryZhCN: string;
+  summaryEn: string;
+  noteZhCN: string;
+  noteEn: string;
+};
+
+export function MultiHorizonSummary({
+  assets,
+  bitcoinAnnualOutlook,
+  bitcoinAnnualRiskNote,
+  usEquityAnnualOutlook,
+}: {
+  assets: AssetForecastSummary[];
+  bitcoinAnnualOutlook?: HorizonOutlookCard;
+  bitcoinAnnualRiskNote?: HorizonOutlookCard;
+  usEquityAnnualOutlook?: HorizonOutlookCard;
+}) {
   const { locale } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
@@ -43,6 +64,9 @@ export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[]
   const strategic = selected.layers.find((layer) => layer.horizon === "strategic");
   const tactical = selected.layers.find((layer) => layer.horizon === "tactical");
   const execution = selected.layers.find((layer) => layer.horizon === "execution");
+  const showBtcAnnual = selected.assetId === "bitcoin" && bitcoinAnnualOutlook;
+  const showBtcRisk = selected.assetId === "bitcoin" && bitcoinAnnualRiskNote;
+  const showUsAnnual = selected.assetId === "nasdaq-100" && usEquityAnnualOutlook;
 
   return (
     <section id="multi-horizon" className="border-t border-border/[0.06] py-12 lg:py-16">
@@ -73,7 +97,11 @@ export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[]
         <div className="grid gap-4 lg:grid-cols-3">
           <Card padding="lg" className="flex flex-col gap-3">
             <Text variant="label" color="secondary">{t("horizon.strategic")}</Text>
-            <Text variant="body" weight="semibold">{t(DIRECTION_KEY[strategic?.direction ?? "pending"])}</Text>
+            <Text variant="body" weight="semibold">
+              {isChinese
+                ? strategic?.directionLabelZhCN ?? t(DIRECTION_KEY[strategic?.direction ?? "pending"])
+                : strategic?.directionLabelEn ?? t(DIRECTION_KEY[strategic?.direction ?? "pending"])}
+            </Text>
             <Text variant="caption" color="tertiary">
               {strategic?.periodStart
                 ? formatLocalizedDateRange(strategic.periodStart, strategic.periodEnd, locale)
@@ -91,10 +119,19 @@ export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[]
 
           <Card padding="lg" className="flex flex-col gap-3">
             <Text variant="label" color="secondary">{t("horizon.tactical")}</Text>
-            <Text variant="body" weight="semibold">{t(DIRECTION_KEY[tactical?.direction ?? "pending"])}</Text>
+            <Text variant="body" weight="semibold">
+              {isChinese
+                ? tactical?.directionLabelZhCN ?? t(DIRECTION_KEY[tactical?.direction ?? "pending"])
+                : tactical?.directionLabelEn ?? t(DIRECTION_KEY[tactical?.direction ?? "pending"])}
+            </Text>
             <Text variant="body-sm" color="secondary">
               {isChinese ? tactical?.summaryZhCN : tactical?.summaryEn}
             </Text>
+            {tactical?.periodStart && (
+              <Text variant="caption" color="tertiary">
+                {formatLocalizedDateRange(tactical.periodStart, tactical.periodEnd, locale)}
+              </Text>
+            )}
             {tactical?.keyDates?.[0] && (
               <Text variant="caption" color="tertiary">
                 {t("horizon.keyWindow")}: {formatLocalizedDateRange(tactical.keyDates[0], tactical.keyDates[0], locale)}
@@ -104,7 +141,14 @@ export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[]
           </Card>
 
           <Card padding="lg" className="flex flex-col gap-3">
-            <Text variant="label" color="secondary">{t("horizon.execution")}</Text>
+            <Text variant="label" color="secondary">
+              {selected.assetId === "gold" ? t("horizon.shortPriceScenario") : t("horizon.execution")}
+            </Text>
+            {selected.assetId === "gold" && (
+              <Text variant="body-sm" color="secondary">
+                {isChinese ? execution?.summaryZhCN : execution?.summaryEn}
+              </Text>
+            )}
             <Text variant="body-sm" color="secondary">
               {t("horizon.support")}: {execution?.supportLevels?.join(" / ") || t("horizon.awaitingUpdate")}
             </Text>
@@ -122,6 +166,48 @@ export function MultiHorizonSummary({ assets }: { assets: AssetForecastSummary[]
             <Text variant="caption" color="tertiary">{t("horizon.executionNote")}</Text>
           </Card>
         </div>
+
+        {showBtcAnnual && bitcoinAnnualOutlook && (
+          <Card padding="lg" className="mt-4 flex flex-col gap-2">
+            <Text variant="label" color="secondary">
+              {isChinese ? bitcoinAnnualOutlook.titleZhCN : bitcoinAnnualOutlook.titleEn}
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              {isChinese ? bitcoinAnnualOutlook.summaryZhCN : bitcoinAnnualOutlook.summaryEn}
+            </Text>
+            <Text variant="caption" color="tertiary">
+              {isChinese ? bitcoinAnnualOutlook.noteZhCN : bitcoinAnnualOutlook.noteEn}
+            </Text>
+          </Card>
+        )}
+
+        {showBtcRisk && bitcoinAnnualRiskNote && (
+          <Card padding="lg" className="mt-4 flex flex-col gap-2">
+            <Text variant="label" color="secondary">
+              {isChinese ? bitcoinAnnualRiskNote.titleZhCN : bitcoinAnnualRiskNote.titleEn}
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              {isChinese ? bitcoinAnnualRiskNote.summaryZhCN : bitcoinAnnualRiskNote.summaryEn}
+            </Text>
+            <Text variant="caption" color="tertiary">
+              {isChinese ? bitcoinAnnualRiskNote.noteZhCN : bitcoinAnnualRiskNote.noteEn}
+            </Text>
+          </Card>
+        )}
+
+        {showUsAnnual && usEquityAnnualOutlook && (
+          <Card padding="lg" className="mt-4 flex flex-col gap-2">
+            <Text variant="label" color="secondary">
+              {isChinese ? usEquityAnnualOutlook.titleZhCN : usEquityAnnualOutlook.titleEn}
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              {isChinese ? usEquityAnnualOutlook.summaryZhCN : usEquityAnnualOutlook.summaryEn}
+            </Text>
+            <Text variant="caption" color="tertiary">
+              {isChinese ? usEquityAnnualOutlook.noteZhCN : usEquityAnnualOutlook.noteEn}
+            </Text>
+          </Card>
+        )}
       </div>
     </section>
   );

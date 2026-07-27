@@ -115,6 +115,127 @@ export interface ResearchRecord {
   collectionId?: string;
   /** Long-range speculative scenarios (multi-year) are styled/labeled distinctly. */
   isLongRange?: boolean;
+  /** Forecast hierarchy for homepage / weekly edition wiring. */
+  layer?: "strategic" | "tactical" | "execution";
+  parentRecordId?: string;
+  derivedFromRecordIds?: string[];
+  sourceStatus?: "raw_source_saved" | "summary_only" | "source_image_pending_relink";
+  /** Original teacher / source text kept separate from MoonX interpretation. */
+  rawSource?: LocalizedText;
+  moonxInterpretation?: LocalizedText;
+  hexagramPrimary?: LocalizedText;
+  hexagramChanged?: LocalizedText;
+  movingLinesNote?: LocalizedText;
+  /** Stable alias IDs used by curated import docs (do not duplicate cards). */
+  aliases?: string[];
+  /** Editorial research score (0–100) when distinct from confidence framing. */
+  researchScore?: number;
+  ratingDisplay?: LocalizedText;
+  researchAttribute?: LocalizedText;
+  trendConsistency?: { score: number; max: number; note: LocalizedText };
+  shortHorizonSummary?: LocalizedText;
+  mediumHorizonSummary?: LocalizedText;
+  disclaimer?: LocalizedText;
+  /** Anonymous public source profile id (never expose real name). */
+  sourceProfileId?: string;
+  /** Qualitative source reliability — not a statistical hit rate. */
+  sourceReliability?: {
+    overall?: LocalizedText;
+    strengths?: LocalizedText[];
+    weaknesses?: LocalizedText[];
+    note?: LocalizedText;
+    methods?: LocalizedText[];
+  };
+  /** Structured hexagram evidence (optional; keeps legacy hexagramPrimary/Changed). */
+  hexagramDetail?: {
+    primary?: LocalizedText;
+    mutual?: LocalizedText;
+    transformed?: LocalizedText;
+    movingLine?: number;
+    worldLine?: LocalizedText;
+    structureNotes?: LocalizedText[];
+  };
+  /** Editorial scenario weights (0–100); not statistical probabilities. */
+  scenarios?: Array<{
+    name: LocalizedText;
+    probability: number;
+    description?: LocalizedText;
+    start?: string;
+    end?: string;
+  }>;
+  /** Pending technical levels when six-yao does not supply prices. */
+  levelsPendingLabel?: LocalizedText;
+  /** Actual-result / verification payload for completed weeks. */
+  verificationResult?: {
+    actualDirection?: LocalizedText;
+    actualChangePct?: number;
+    actualClose?: number;
+    dailyResults?: Array<{ date: string; changePct: number; close: number }>;
+    conclusion?: LocalizedText;
+    scoreEligible?: boolean;
+    scoreNote?: LocalizedText;
+  };
+  /** Hide from homepage today / weekly strips when true. */
+  excludeFromHomeViews?: boolean;
+  /** Month-branch activation chain for annual six-yao outlooks. */
+  monthlyActivation?: Array<{
+    period: string;
+    earthlyBranch: string;
+    mechanism: string;
+    expectedEffect: string;
+    signalDirectness: "直接" | "半直接" | "间接";
+    reliability: "高" | "中高" | "中" | "中低" | "低";
+  }>;
+  /** Risk-nature research (not a price-direction call). */
+  researchKind?: "price" | "risk" | "verification-review";
+  /** Surface on strategic watchlist when true. */
+  watchlistEligible?: boolean;
+  /** Forward-looking bias within a longer annual path. */
+  forwardDirection?: LocalizedText;
+  riskAssessment?: {
+    systemicRisk?: LocalizedText;
+    nonSystemicEventRisk?: LocalizedText;
+    primaryRisks?: LocalizedText[];
+  };
+  annualPath?: Array<{
+    start: string;
+    end: string;
+    direction: LocalizedText;
+    title: LocalizedText;
+    description?: LocalizedText;
+  }>;
+  verificationStages?: Array<{
+    title: LocalizedText;
+    status: VerificationStageStatus;
+    verificationStart?: string;
+    verificationEnd?: string;
+    note?: LocalizedText;
+  }>;
+}
+
+/** Staged verification for multi-window annual research — never mark full-year hit early. */
+export type VerificationStageStatus =
+  | "待回填验证"
+  | "待验证"
+  | "阶段命中"
+  | "阶段部分命中"
+  | "阶段未命中"
+  | "已失效";
+
+/** Anonymous public source profile for public display. */
+export interface SourceProfile {
+  id: string;
+  label: LocalizedText;
+  sourceType: LocalizedText;
+  anonymity: true;
+  sourceReliability: {
+    overall: LocalizedText;
+    strengths: LocalizedText[];
+    weaknesses: LocalizedText[];
+    note: LocalizedText;
+    /** Optional methodology bullets for private mentors. */
+    methods?: LocalizedText[];
+  };
 }
 
 /** A named grouping of related records, e.g. "China Equity Long-Range Scenario — H2 2026". */

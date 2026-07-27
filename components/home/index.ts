@@ -1,4 +1,6 @@
+export { HomeTomorrowSection } from "./HomeTomorrowSection";
 export { HomeTodaySection } from "./HomeTodaySection";
+export { HomeMultiHorizonSection } from "./HomeMultiHorizonSection";
 export { WeeklyForecastStrip } from "./WeeklyForecastStrip";
 export { HomeScenarioChartSection } from "./HomeScenarioChartSection";
 export { LatestResearchSection } from "./LatestResearchSection";

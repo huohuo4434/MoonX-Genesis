@@ -15,6 +15,7 @@ export { ResearchRecordCard } from "./ResearchRecordCard";
 export type { ResearchRecordCardProps } from "./ResearchRecordCard";
 export { ResearchRecordDetail } from "./ResearchRecordDetail";
 export { ResearchLibraryExplorer } from "./ResearchLibraryExplorer";
+export { ResearchLibraryGroups } from "./ResearchLibraryGroups";
 export { ConsensusCard } from "./ConsensusCard";
 export type { ConsensusCardProps } from "./ConsensusCard";
 export { WatchlistCard } from "./WatchlistCard";

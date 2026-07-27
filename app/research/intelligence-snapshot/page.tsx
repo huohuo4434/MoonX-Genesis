@@ -7,9 +7,9 @@ import {
   LongRangeTimeline,
   MoonXDataStatusPanel,
 } from "@/components/research";
-import { ScenarioForecastExplorer } from "@/components/charts";
 import { ConsensusOverviewSection } from "@/components/sections";
-import { Badge, Heading, Section, Text } from "@/components/ui";
+import { Badge, Button, Heading, Section, Text } from "@/components/ui";
+import { getMemberUserContext } from "@/lib/access/member-preview";
 import {
   getCrossAssetConsensus,
   getRiskDisclaimer,
@@ -17,26 +17,27 @@ import {
   listAssetIntelligenceSnapshots,
   listNasdaqLongRangeTimeline,
 } from "@/lib/data/intelligence-snapshot";
-import { listForecastChartScenarios } from "@/lib/data/forecast-chart-scenarios";
 import { loadMoonXResearchAsync } from "@/lib/moonx/load-research";
-import { formatDate } from "@/lib/utils";
+import { routes } from "@/lib/navigation";
+import { formatLocalizedDate } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Intelligence Snapshot",
-  description:
-    "MoonX's first curated Intelligence Snapshot — a structured synthesis of Oracle signals, market cycles, technical structure and risk evidence across five assets.",
+  description: "MoonX curated intelligence snapshot — public direction and summary; member details gated server-side.",
 };
 
 export default async function IntelligenceSnapshotPage() {
-  const [snapshot, assets, consensus, timeline, forecastScenarios, riskDisclaimer, moonx] = await Promise.all([
+  const [user, snapshot, assets, consensus, timeline, riskDisclaimer, moonx] = await Promise.all([
+    getMemberUserContext(),
     getSnapshotMetadata(),
     listAssetIntelligenceSnapshots(),
     getCrossAssetConsensus(),
     listNasdaqLongRangeTimeline(),
-    listForecastChartScenarios(),
     getRiskDisclaimer(),
     loadMoonXResearchAsync(),
   ]);
+  const isMember = user.isMember;
+  const snapshotDateLabel = formatLocalizedDate(snapshot.snapshotDate, "zh-CN");
 
   return (
     <main>
@@ -44,9 +45,9 @@ export default async function IntelligenceSnapshotPage() {
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="warning">{snapshot.statusLabel}</Badge>
-            <Badge variant="outline">Curated data — not live</Badge>
+            <Badge variant="outline">精选数据 — 非实时</Badge>
             <Badge variant="neutral" className="font-mono">
-              Snapshot: {formatDate(snapshot.snapshotDate)}
+              快照：{snapshotDateLabel}
             </Badge>
           </div>
 
@@ -62,33 +63,33 @@ export default async function IntelligenceSnapshotPage() {
           )}
 
           <Heading as="h1" size="display" className="max-w-3xl text-h1 lg:text-display">
-            MoonX Intelligence Snapshot
+            MoonX 情报快照
           </Heading>
 
           <Text variant="body-sm" color="tertiary" className="max-w-2xl">
             {snapshot.dataType} — {snapshot.dataSourceDisclosure}
           </Text>
 
+          {!isMember && (
+            <Text variant="body-sm" color="secondary" className="max-w-2xl rounded-md border border-primary/20 bg-primary/5 p-4">
+              公开页仅展示综合方向与摘要。完整目标价、支撑压力、情景路径与详细证据为会员权益。
+            </Text>
+          )}
+
           <div className="flex flex-wrap gap-3">
-            <Link
-              href="/research"
-              className="inline-flex items-center gap-1.5 rounded-sm text-body-sm text-foreground-secondary transition-colors hover:text-primary focus-ring"
-            >
-              Framework Database
+            <Link href={routes.research} className="inline-flex items-center gap-1.5 text-body-sm text-foreground-secondary hover:text-primary focus-ring">
+              研究框架库
               <ArrowRightIcon size={14} />
             </Link>
-            <Link
-              href="/research/pipeline"
-              className="inline-flex items-center gap-1.5 rounded-sm text-body-sm text-foreground-secondary transition-colors hover:text-primary focus-ring"
-            >
-              Research Pipeline
+            <Link href={routes.researchVerification} className="inline-flex items-center gap-1.5 text-body-sm text-foreground-secondary hover:text-primary focus-ring">
+              历史验证
               <ArrowRightIcon size={14} />
             </Link>
           </div>
 
           <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border/[0.08] bg-surface/60 p-lg">
             <Text variant="label" color="secondary" className="uppercase tracking-wide">
-              Main MoonX Conclusion
+              MoonX 综合结论
             </Text>
             {snapshot.mainConclusion.map((paragraph) => (
               <Text key={paragraph} variant="body-sm" color="secondary">
@@ -109,40 +110,41 @@ export default async function IntelligenceSnapshotPage() {
       <Section spacing="lg" className="border-t border-border/[0.06]">
         <div className="mb-10 flex flex-col gap-3">
           <Text variant="label" color="secondary" className="uppercase tracking-wide">
-            Daily Intelligence Overview
+            资产概览
           </Text>
           <Heading as="h2" size="h2" className="max-w-2xl">
-            MoonX Daily Intelligence
+            MoonX 每日情报概览
           </Heading>
-          <Text variant="body" color="secondary" className="max-w-2xl">
-            A structured synthesis of Oracle signals, market cycles, technical structure and risk
-            evidence.
-          </Text>
         </div>
-
         <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           {assets.map((asset) => (
-            <AssetIntelligenceCard key={asset.id} asset={asset} verificationStatusLabel={snapshot.statusLabel} />
+            <AssetIntelligenceCard
+              key={asset.id}
+              asset={asset}
+              verificationStatusLabel={snapshot.statusLabel}
+              publicTeaser={!isMember}
+            />
           ))}
         </div>
+        {!isMember && (
+          <div className="mt-6">
+            <Button asChild variant="primary">
+              <Link href={routes.pricing}>解锁完整情报与明日预测</Link>
+            </Button>
+          </div>
+        )}
       </Section>
 
-      <Section id="moonx-scenario-charts" spacing="lg" className="border-t border-border/[0.06]">
-        <div className="mb-8 flex flex-col gap-3">
-          <Text variant="label" color="secondary" className="uppercase tracking-wide">
-            Scenario Forecast System
-          </Text>
-          <Heading as="h2" size="h2" className="max-w-2xl">
-            MoonX Scenario Charts
-          </Heading>
-          <Text variant="body" color="secondary" className="max-w-2xl">
-            Visual scenario paths derived from the current intelligence snapshot.
-          </Text>
-        </div>
-        <ScenarioForecastExplorer scenarios={forecastScenarios} verificationStatusLabel={snapshot.statusLabel} defaultAssetId="bitcoin" />
-      </Section>
-
-      <ConsensusOverviewSection />
+      {isMember ? (
+        <>
+          <Section id="moonx-scenario-charts" spacing="lg" className="border-t border-border/[0.06]">
+            <Text variant="body-sm" color="secondary" className="mb-4">
+              情景图表与完整路径为会员内容（当前预览模式）。
+            </Text>
+          </Section>
+          <ConsensusOverviewSection />
+        </>
+      ) : null}
 
       <Section spacing="lg" className="border-t border-border/[0.06]">
         <CrossAssetConsensusSection consensus={consensus} />
@@ -150,12 +152,6 @@ export default async function IntelligenceSnapshotPage() {
 
       <Section spacing="lg" className="border-t border-border/[0.06]">
         <LongRangeTimeline periods={timeline} />
-      </Section>
-
-      <Section spacing="md" className="border-t border-border/[0.06]">
-        <Text variant="caption" color="tertiary" className="max-w-2xl">
-          {riskDisclaimer}
-        </Text>
       </Section>
     </main>
   );

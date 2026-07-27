@@ -2,50 +2,8 @@
 
 import { Container } from "@/components/ui";
 import { siteConfig } from "@/lib/site-config";
+import { footerColumns } from "@/lib/navigation";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
-
-interface FooterColumn {
-  titleKey: string;
-  links: { labelKey: string; href: string }[];
-}
-
-/** Primary footer columns — keep hrefs aligned with V2.5 homepage anchors. */
-const footerColumns: FooterColumn[] = [
-  {
-    titleKey: "footer.product",
-    links: [
-      { labelKey: "footer.todaysIntelligence", href: "/#moonx-view" },
-      { labelKey: "footer.forecasts", href: "/forecasts/daily" },
-      { labelKey: "footer.researchIntelligence", href: "/research" },
-      { labelKey: "footer.intelligenceSnapshot", href: "/research/intelligence-snapshot" },
-      { labelKey: "footer.researchLibrary", href: "/research/library" },
-      { labelKey: "footer.watchlist", href: "/markets/watchlist" },
-      { labelKey: "footer.pricing", href: "/pricing" },
-    ],
-  },
-  {
-    titleKey: "footer.company",
-    links: [
-      { labelKey: "footer.latestResearch", href: "/#latest-research" },
-    ],
-  },
-  {
-    titleKey: "footer.resources",
-    links: [
-      { labelKey: "footer.methodology", href: "/#methodology" },
-      { labelKey: "footer.researchPipeline", href: "/research/pipeline" },
-      { labelKey: "footer.timeline", href: "/timeline" },
-      { labelKey: "footer.verification", href: "/research/pipeline" },
-    ],
-  },
-  {
-    titleKey: "footer.legal",
-    links: [
-      { labelKey: "footer.privacyPolicy", href: "#" },
-      { labelKey: "footer.termsOfService", href: "#" },
-    ],
-  },
-];
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -72,12 +30,12 @@ export function Footer() {
               </span>
               <ul className="flex flex-col gap-2.5">
                 {column.links.map((link) => (
-                  <li key={link.labelKey}>
+                  <li key={link.key}>
                     <a
                       href={link.href}
                       className="rounded-sm text-body-sm text-foreground-secondary transition-colors hover:text-foreground focus-ring"
                     >
-                      {t(link.labelKey)}
+                      {t(link.key)}
                     </a>
                   </li>
                 ))}

@@ -9,7 +9,8 @@ async function enablePreview(formData: FormData) {
   if (!key || formData.get("previewKey") !== key) redirect("/member-preview?error=1");
   const cookieStore = await cookies();
   cookieStore.set(MEMBER_PREVIEW_COOKIE, key, { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
-  redirect("/research/technical");
+  // Preview unlocks member tomorrow forecasts (real login/payment not connected yet).
+  redirect("/member/tomorrow");
 }
 
 async function disablePreview() {

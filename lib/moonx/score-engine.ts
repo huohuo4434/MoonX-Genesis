@@ -14,16 +14,28 @@ export function clampScore(value: number, min = -100, max = 100): number {
 }
 
 export function directionToFallbackScore(
-  direction: "strong-bullish" | "bullish" | "neutral" | "bearish" | "strong-bearish" | "watch"
+  direction:
+    | "strong-bullish"
+    | "bullish"
+    | "slightly-bullish"
+    | "neutral"
+    | "slightly-bearish"
+    | "bearish"
+    | "strong-bearish"
+    | "watch"
 ): number {
   switch (direction) {
     case "strong-bullish":
       return 75;
     case "bullish":
       return 45;
+    case "slightly-bullish":
+      return 25;
     case "neutral":
     case "watch":
       return 0;
+    case "slightly-bearish":
+      return -25;
     case "bearish":
       return -45;
     case "strong-bearish":

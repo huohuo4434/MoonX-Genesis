@@ -2,7 +2,14 @@ import { StrategicWatchlistPreviewClient } from "@/components/home/StrategicWatc
 import { listWatchlistEntries } from "@/lib/data/strategic-watchlist";
 import { loadMoonXResearchAsync } from "@/lib/moonx/load-research";
 
-const PREFERRED_IDS = ["changxin-technology", "alibaba", "tencent", "bitcoin", "nasdaq-100"] as const;
+const PREFERRED_IDS = [
+  "changxin-technology",
+  "alibaba",
+  "tencent",
+  "bitcoin",
+  "nasdaq-100",
+  "hang-seng",
+] as const;
 
 const FOCUS_FALLBACKS: Record<
   string,
@@ -16,14 +23,22 @@ const FOCUS_FALLBACKS: Record<
   alibaba: {
     assetName: { zhCN: "阿里巴巴", zhTW: "阿里巴巴", en: "Alibaba" },
     symbol: "BABA",
-    horizon: { zhCN: "中期观察", zhTW: "中期觀察", en: "Medium-term watch" },
-    nextEvent: { zhCN: "等待研究更新", zhTW: "等待研究更新", en: "Awaiting research update" },
+    horizon: { zhCN: "2026 Q3–Q4", zhTW: "2026 Q3–Q4", en: "2026 Q3–Q4" },
+    nextEvent: {
+      zhCN: "恒生科技指数修复情景下的重点跟踪对象；等待个股战术更新。",
+      zhTW: "恆生科技指數修復情景下的重點跟蹤對象；等待個股戰術更新。",
+      en: "Focus name under the Hang Seng TECH repair scenario; stock-level tactical update pending.",
+    },
   },
   tencent: {
     assetName: { zhCN: "腾讯", zhTW: "騰訊", en: "Tencent" },
     symbol: "0700.HK",
-    horizon: { zhCN: "中期观察", zhTW: "中期觀察", en: "Medium-term watch" },
-    nextEvent: { zhCN: "等待研究更新", zhTW: "等待研究更新", en: "Awaiting research update" },
+    horizon: { zhCN: "2026 Q3–Q4", zhTW: "2026 Q3–Q4", en: "2026 Q3–Q4" },
+    nextEvent: {
+      zhCN: "恒生科技指数成分重点跟踪；等待个股战术更新。",
+      zhTW: "恆生科技指數成分重點跟蹤；等待個股戰術更新。",
+      en: "Hang Seng TECH constituent focus tracking; stock-level tactical update pending.",
+    },
   },
 };
 
@@ -73,7 +88,7 @@ export async function StrategicWatchlistPreview() {
       rating: "neutral" as const,
       hasFormalRating: false as const,
     };
-  }).filter((row): row is NonNullable<typeof row> => Boolean(row));
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
 
   return (
     <section id="watchlist" className="border-t border-border/[0.06] py-12 lg:py-16">

@@ -161,36 +161,59 @@ export interface ResearchPipelineStage {
   description: string;
 }
 
+export interface SixYaoFinancialRule {
+  id: string;
+  order: number;
+  text: string;
+}
+
 const researchPipelineStages: ResearchPipelineStage[] = [
   {
     id: "signals",
     order: 1,
-    title: "External Signals",
-    description: "Raw commentary, data, and price action are ingested from a broad set of external sources.",
+    title: "人工收集外部信息",
+    description: "用户人工整理分析师观点、原始卦盘、市场事件和技术资料。",
   },
   {
     id: "classification",
     order: 2,
-    title: "AI Classification",
-    description: "Signals are parsed and classified by asset, theme, and directional bias before entering any framework.",
+    title: "AI结构化整理",
+    description: "按资产、周期、方向、价格、时间、来源和证据类型进行分类。",
   },
   {
     id: "weighting",
     order: 3,
-    title: "Framework Weighting",
-    description: "Classified signals are scored against each internal framework, weighted by historical reliability.",
+    title: "多框架校准",
+    description: "分别评估六爻、技术面、宏观事件和分析师历史可靠性。",
   },
   {
     id: "consensus",
     order: 4,
-    title: "MoonX Consensus",
-    description: "Weighted framework outputs are reconciled into a single internal consensus view.",
+    title: "人工审核",
+    description: "MoonX结论必须由用户确认，不允许模型或技术信号自动发布。",
   },
   {
     id: "output",
     order: 5,
-    title: "Forecast Output",
-    description: "The consensus is published as a structured, versioned MoonX forecast.",
+    title: "发布与验证",
+    description: "发布结构化、带版本号和验证日期的预测；到期记录命中、部分命中、失效或失败。",
+  },
+];
+
+const sixYaoFinancialRules: SixYaoFinancialRule[] = [
+  { id: "rule-01", order: 1, text: "卦名和卦辞权重原则上低于20%。" },
+  { id: "rule-02", order: 2, text: "价格以妻财为第一用神、子孙为第二用神。" },
+  { id: "rule-03", order: 3, text: "黑天鹅重点看官鬼。" },
+  { id: "rule-04", order: 4, text: "政策、监管、平台规则重点看父母。" },
+  { id: "rule-05", order: 5, text: "世爻代表标的自身，应爻代表外部环境。" },
+  { id: "rule-06", order: 6, text: "财爻临值、出空、出伏属于直接高权重信号。" },
+  { id: "rule-07", order: 7, text: "通过兄弟旺、父母生兄弟推导的低点属于间接信号。" },
+  { id: "rule-08", order: 8, text: "长期卦重趋势，具体节气窗口允许提前或推迟约10天。" },
+  { id: "rule-09", order: 9, text: "六神主要描述事件性质，不单独决定涨跌。" },
+  {
+    id: "rule-10",
+    order: 10,
+    text: "不同问题必须重新确定用神，禁止所有金融问题机械套用同一套财爻规则。",
   },
 ];
 
@@ -219,4 +242,8 @@ export async function getDailyIntelligenceReport(id: string): Promise<DailyIntel
 
 export async function listResearchPipelineStages(): Promise<ResearchPipelineStage[]> {
   return [...researchPipelineStages].sort((a, b) => a.order - b.order);
+}
+
+export async function listSixYaoFinancialRules(): Promise<SixYaoFinancialRule[]> {
+  return [...sixYaoFinancialRules].sort((a, b) => a.order - b.order);
 }

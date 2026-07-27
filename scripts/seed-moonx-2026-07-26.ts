@@ -616,9 +616,9 @@ const document = {
     },
     {
       id: "shanghai-composite",
-      symbol: "SHCOMP",
+      symbol: "SSE",
       category: "china-equity" as const,
-      localizedName: lt("上证指数 / A股", "上證指數 / A股", "Shanghai Composite / A-Shares"),
+      localizedName: lt("上证指数", "上證指數", "Shanghai Composite"),
       localizedSummary: lt("长期看涨：7月底–8月初左侧布局，年底及春节前或再走强。", "長期看漲：7月底–8月初左側佈局，年底及春節前或再走強。", "Long-term bullish: left-side positioning late Jul–early Aug; year-end / pre-Spring-Festival advance possible."),
       shortView: lt("长期看涨", "長期看漲", "Long-term Bullish"),
       status: "Left-side accumulation / H2 advance scenario",
@@ -673,10 +673,10 @@ const document = {
     },
     {
       id: "hang-seng",
-      symbol: "HSI",
+      symbol: "HSTECH",
       category: "hong-kong-equity" as const,
-      localizedName: lt("恒生指数 / 恒生科技", "恒生指數 / 恒生科技", "Hang Seng Index / Hang Seng Tech"),
-      localizedSummary: lt("Q3修复，Q4政策支持；A股走强时港股或同步受益。", "Q3修復，Q4政策支持；A股走強時港股或同步受益。", "Q3 recovery and Q4 policy support; Hong Kong may benefit if A-shares strengthen."),
+      localizedName: lt("恒生科技指数", "恆生科技指數", "Hang Seng TECH Index"),
+      localizedSummary: lt("短期与中期方向高度一致，情绪修复和科技成长动能强于A股。", "短期與中期方向高度一致，情緒修復和科技成長動能強於A股。", "Short- and medium-term direction highly aligned; sentiment repair and tech-growth momentum appear stronger than A-shares."),
       shortView: lt("看涨修复", "看漲修復", "Bullish Recovery"),
       status: "Q3 Recovery / Q4 Policy Support",
       researchDate: RESEARCH_DATE,
@@ -695,7 +695,7 @@ const document = {
         { id: "hk-q4", startDate: "2026-10-01", endDate: "2026-12-31", label: lt("Q4政策支持", "Q4政策支持", "Q4 policy support") },
       ],
       frameworkFactors: [
-        { id: "hk-qimen", framework: "Qimen Structure", directionScore: 55, weight: 45, confidence: 78, status: "Waiting" as const, explanation: lt("港股前期调整较充分，Q3有望进入较强修复。", "港股前期調整較充分，Q3有望進入較強修復。", "Hong Kong equities have corrected sufficiently, with Q3 2026 poised for a stronger recovery phase.") },
+        { id: "hk-qimen", framework: "Qimen Structure", directionScore: 55, weight: 45, confidence: 78, status: "Waiting" as const, explanation: lt("恒生科技指数前期调整较充分，Q3有望进入较强修复。", "恆生科技指數前期調整較充分，Q3有望進入較強修復。", "Hang Seng TECH Index has corrected sufficiently, with Q3 2026 poised for a stronger recovery phase.") },
         { id: "hk-china-narrative", framework: "Macro Capital Cycle", directionScore: 50, weight: 35, confidence: 75, status: "Partially Confirmed" as const, explanation: lt("恒生科技或受益于中国科技叙事；A股走强时资金或回流。", "恒生科技或受益於中國科技敘事；A股走強時資金或回流。", "Hang Seng Tech may benefit from the China technology narrative. Improving risk appetite for China assets may drive capital inflows.") },
         { id: "hk-global", framework: "Market Flow & Risk", directionScore: -25, weight: 20, confidence: 70, status: "Active" as const, explanation: lt("全球流动性、美股科技回调与政策落地不确定性。", "全球流動性、美股科技回調與政策落地不確定性。", "Global liquidity conditions, US technology correction risk, and policy implementation uncertainty.") },
       ],
@@ -710,9 +710,9 @@ const document = {
       verificationStatus: "draft-pending-verification" as const,
       verificationChecklist: [lt("Q3是否进入较强修复？", "Q3是否進入較強修復？", "Does Q3 enter a stronger recovery phase?")],
       trendPath: [lt("阿里巴巴等大型互联网资产为重点观察对象。", "阿里巴巴等大型互聯網資產為重點觀察對象。", "Large internet names such as Alibaba are key names to watch.")],
-      themes: [lt("港股修复", "港股修復", "Hong Kong recovery"), lt("恒生科技", "恒生科技", "Hang Seng Tech"), lt("中国资产风险偏好", "中國資產風險偏好", "China asset risk appetite")],
+      themes: [lt("恒生科技修复", "恆生科技修復", "Hang Seng TECH recovery"), lt("恒生科技", "恒生科技", "Hang Seng Tech"), lt("中国资产风险偏好", "中國資產風險偏好", "China asset risk appetite")],
       relevantFrameworks: ["Qimen Structure", "Macro Capital Cycle", "Market Flow & Risk"],
-      tags: ["hong-kong", "hsi", "qimen"],
+      tags: ["hang-seng-tech", "hstech", "qimen"],
     },
     {
       id: "changxin-technology",
@@ -830,7 +830,7 @@ Seed sources for \`content/moonx/latest.json\` (snapshot \`${VERSION}\`):
 
 - \`lib/data/intelligence-snapshot.ts\` — asset scores, framework evidence, main conclusion, risk disclaimer
 - \`lib/data/forecast-chart-scenarios.ts\` — chart waypoints, levels, zones, turning windows, scenario paths (bitcoin, nasdaq-100, semiconductors-storage, gold, crude-oil)
-- \`lib/data/research-records.ts\` — Qimen long-range A-share and Hong Kong research (shanghai-composite, hang-seng)
+- \`lib/data/research-records.ts\` — Qimen long-range A-share and Hang Seng TECH research (shanghai-composite, hang-seng)
 - \`lib/data/long-range-forecasts.ts\` — unified timeline events (ChangXin IPO event replaced with speculative IPO watch window)
 - \`lib/data/strategic-watchlist.ts\` — ChangXin pre-IPO watchlist metrics and offshore derivative warning
 

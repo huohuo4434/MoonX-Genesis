@@ -1,8 +1,8 @@
 {
   "version": "2026-07-26-v2",
   "snapshotId": "2026-07-26-v2",
-  "researchDate": "2026-07-26",
-  "lastUpdated": "2026-07-26T10:00:00.000Z",
+  "researchDate": "2026-07-27",
+  "lastUpdated": "2026-07-27T14:30:00.000+08:00",
   "status": "draft-pending-verification",
   "statusLabel": {
     "zhCN": "草稿 — 待验证",
@@ -161,9 +161,9 @@
             "en": "September High / Turning-Risk Window"
           },
           "note": {
-            "zhCN": "下半年主要高点与转折风险观察窗口（六爻 ORACLE-0009）",
-            "zhTW": "下半年主要高點與轉折風險觀察窗口（Oracle Six Yao ORACLE-0009）",
-            "en": "Main second-half high and turning-risk observation window (Oracle Six Yao ORACLE-0009)"
+            "zhCN": "下半年主要高点或转折风险观察窗口（ORACLE-0009）。高点月份判断权重较高；低点窗口仅辅助观察。定性历史评价，尚非正式统计准确率。",
+            "zhTW": "下半年主要高點或轉折風險觀察窗口（ORACLE-0009）。高點月份判斷權重較高；低點窗口僅輔助觀察。定性歷史評價，尚非正式統計準確率。",
+            "en": "H2 main-high or turn-risk window (ORACLE-0009). Higher weight on high-month timing; low windows are auxiliary. Qualitative evaluation — not official statistical accuracy."
           }
         }
       ],
@@ -1810,25 +1810,25 @@
         "en": "International Gold"
       },
       "localizedSummary": {
-        "zhCN": "震荡修复，8月7日前突破4200难度较大。",
-        "zhTW": "震盪修復，8月7日前突破4200難度較大。",
-        "en": "Range-bound recovery — breaking 4,200 before August 7 faces meaningful difficulty."
+        "zhCN": "上半年重要高位可能已经形成，2026年下半年进入高波动和逐渐转弱阶段。",
+        "zhTW": "上半年重要高位可能已經形成，2026年下半年進入高波動和逐漸轉弱階段。",
+        "en": "The key H1 high zone may already be in place; H2 2026 enters higher volatility and gradual softening."
       },
       "shortView": {
-        "zhCN": "压力下震荡",
-        "zhTW": "壓力下震盪",
-        "en": "Range Below Resistance"
+        "zhCN": "前高后低：周初可能高位震荡或试探前高，周中后获利兑现和回落风险增加。",
+        "zhTW": "前高後低：週初可能高位震盪或試探前高，週中後獲利兌現和回落風險增加。",
+        "en": "High-then-soft: early week may chop high or probe highs; mid/late week profit-taking and fade risk rises."
       },
-      "status": "Neutral to Slightly Bullish Below Major Resistance",
-      "researchDate": "2026-07-26",
-      "lastUpdated": "2026-07-26T12:00:00.000Z",
+      "status": "年度中性偏空 / 本周前高后低 / 短期4200情景 / 验证中",
+      "researchDate": "2026-07-27",
+      "lastUpdated": "2026-07-27T12:00:00.000Z",
       "forecastHorizon": {
-        "zhCN": "2026-07-26 至 2026-08-07",
-        "zhTW": "2026-07-26 至 2026-08-07",
-        "en": "2026-07-26 to 2026-08-07"
+        "zhCN": "年度：2026全年 · 战术：2026-07-27至2026-07-31 · 短期情景至2026-08-07",
+        "zhTW": "年度：2026全年 · 戰術：2026-07-27至2026-07-31 · 短期情景至2026-08-07",
+        "en": "Annual: full year 2026 · Tactical: 2026-07-27 to 2026-07-31 · Short scenario through 2026-08-07"
       },
-      "direction": "neutral",
-      "confidence": 61,
+      "direction": "slightly-bearish",
+      "confidence": 63,
       "scenarioWeights": {
         "base": 50,
         "bull": 28,
@@ -1861,18 +1861,33 @@
       ],
       "turningWindows": [
         {
-          "id": "gold-support-retest",
-          "startDate": "2026-08-03",
-          "endDate": "2026-08-07",
+          "id": "xau-week-probe",
+          "startDate": "2026-07-27",
+          "endDate": "2026-07-28",
           "label": {
-            "zhCN": "转折窗口",
-            "zhTW": "轉折窗口",
-            "en": "Turning Window"
-          },
-          "note": {
-            "zhCN": "可能支撑回测窗口",
-            "zhTW": "可能支撐回測窗口",
-            "en": "Possible support retest window"
+            "zhCN": "高位试探",
+            "zhTW": "高位試探",
+            "en": "High-range probe"
+          }
+        },
+        {
+          "id": "xau-week-turn",
+          "startDate": "2026-07-29",
+          "endDate": "2026-07-30",
+          "label": {
+            "zhCN": "主要转折窗口",
+            "zhTW": "主要轉折窗口",
+            "en": "Main turn window"
+          }
+        },
+        {
+          "id": "xau-week-soft-close",
+          "startDate": "2026-07-31",
+          "endDate": "2026-07-31",
+          "label": {
+            "zhCN": "周内低点或弱势收盘观察",
+            "zhTW": "週內低點或弱勢收盤觀察",
+            "en": "In-week low or soft-close watch"
           }
         }
       ],
@@ -1880,39 +1895,39 @@
         {
           "id": "gold-oracle",
           "framework": "Oracle Six Yao",
-          "directionScore": -15,
-          "weight": 35,
-          "confidence": 61,
+          "directionScore": -35,
+          "weight": 45,
+          "confidence": 70,
           "explanation": {
-            "zhCN": "8月7日前突破4,200 概率较低；near 压力 中性至略偏空。",
-            "zhTW": "8月7日前突破4,200 probability considered low；near resistance neutral-to-slightly-bearish。",
-            "en": "The probability of breaking 4,200 before August 7 is considered low. The signal is neutral to slightly bearish near resistance."
+            "zhCN": "年度口径略微看跌：上半年重要高位可能已形成，下半年高波动转弱；本周战术前高后低。",
+            "zhTW": "年度口徑略微看跌：上半年重要高位可能已形成，下半年高波動轉弱；本週戰術前高後低。",
+            "en": "Annual framing slightly bearish: H1 high zone may be set, H2 high-vol softening; this week tactical high-then-soft."
           },
           "status": "Active"
         },
         {
           "id": "gold-gann",
           "framework": "Gann Structure",
-          "directionScore": 25,
-          "weight": 35,
-          "confidence": 65,
+          "directionScore": -5,
+          "weight": 30,
+          "confidence": 60,
           "explanation": {
-            "zhCN": "从3,942 反弹 可能大于 普通反弹；守住4,060 维持上行空间。",
-            "zhTW": "從3,942 rebound 可能大於 simple bounce；守住4,060 preserve upside。",
-            "en": "The rebound from 3,942 may be larger than a simple short bounce. Holding above 4,060 preserves upside momentum."
+            "zhCN": "既有技术位保留：支撑4060、压力4200；六爻不单独编造价位。",
+            "zhTW": "既有技術位保留：支撐4060、壓力4200；六爻不單獨編造價位。",
+            "en": "Keep existing technical levels: support 4060, resistance 4200; six-yao does not invent prices alone."
           },
           "status": "Partially Confirmed"
         },
         {
           "id": "gold-cycle",
           "framework": "Cycle Structure",
-          "directionScore": 10,
-          "weight": 30,
-          "confidence": 60,
+          "directionScore": -10,
+          "weight": 25,
+          "confidence": 58,
           "explanation": {
-            "zhCN": "6月底/7月初 weekly 低点；9月底或 another larger 低点。",
-            "zhTW": "6月底/7月初 weekly trough；9月底或 another larger trough。",
-            "en": "Gold formed an important weekly trough around late June or early July. Another larger trough may occur around late September."
+            "zhCN": "下半年重点观察高位转弱与波动放大，而非单边主升延续。",
+            "zhTW": "下半年重點觀察高位轉弱與波動放大，而非單邊主升延續。",
+            "en": "H2 focus is high-zone softening and volatility expansion, not a one-way advance extension."
           },
           "status": "Waiting"
         }
@@ -1927,9 +1942,10 @@
       ],
       "sourceReferences": [
         "lib/data/intelligence-snapshot.ts",
-        "lib/data/forecast-chart-scenarios.ts"
+        "lib/data/forecast-chart-scenarios.ts",
+        "lib/data/precious-metals-crypto-oracle-0727.ts"
       ],
-      "verificationStatus": "draft-pending-verification",
+      "verificationStatus": "pending",
       "verificationChecklist": [
         {
           "zhCN": "8月7日前是否 维持在…下方 4,200？",
@@ -1939,9 +1955,9 @@
       ],
       "trendPath": [
         {
-          "zhCN": "从重要支撑 区域尝试 修复。",
-          "zhTW": "從重要支撐 area attempting recovery。",
-          "en": "Gold is attempting to recover from an important support area."
+          "zhCN": "战略略微看跌：高位转弱与下半年高波动；本周前高后低。",
+          "zhTW": "戰略略微看跌：高位轉弱與下半年高波動；本週前高後低。",
+          "en": "Strategic slightly bearish: high-zone softening and H2 volatility; this week high-then-soft."
         }
       ],
       "themes": [
@@ -2171,7 +2187,187 @@
       },
       "tags": [
         "gold",
-        "commodity"
+        "commodity",
+        "weekly",
+        "oracle-six-yao"
+      ],
+      "mainSupportLabel": {
+        "zhCN": "周度路径未提供新支撑位",
+        "zhTW": "週度路徑未提供新支撐位",
+        "en": "Weekly path does not add new support levels"
+      },
+      "mainResistanceLabel": {
+        "zhCN": "周度路径未提供新压力位",
+        "zhTW": "週度路徑未提供新壓力位",
+        "en": "Weekly path does not add new resistance levels"
+      }
+    },
+    {
+      "id": "silver",
+      "symbol": "SLV",
+      "category": "commodity",
+      "localizedName": {
+        "zhCN": "白银",
+        "zhTW": "白銀",
+        "en": "Silver"
+      },
+      "localizedSummary": {
+        "zhCN": "本周可能形成双峰结构，7月30日冲高后需要防范转弱，7月31日关注周内低点。",
+        "zhTW": "本週可能形成雙峰結構，7月30日衝高後需要防範轉弱，7月31日關注週內低點。",
+        "en": "A twin-peak week is possible; watch for a fade after the July 30 probe; July 31 watches an in-week low."
+      },
+      "shortView": {
+        "zhCN": "高波动、震荡偏空",
+        "zhTW": "高波動、震盪偏空",
+        "en": "High volatility, range-soft"
+      },
+      "status": "Weekly twin-peak then soft / pending verification 2026-07-31",
+      "researchDate": "2026-07-27",
+      "lastUpdated": "2026-07-27T12:00:00.000Z",
+      "forecastHorizon": {
+        "zhCN": "2026-07-27 至 2026-07-31",
+        "zhTW": "2026-07-27 至 2026-07-31",
+        "en": "2026-07-27 to 2026-07-31"
+      },
+      "direction": "bearish",
+      "confidence": 74,
+      "scenarioWeights": {
+        "base": 45,
+        "bull": 20,
+        "bear": 35
+      },
+      "supportLevels": [],
+      "resistanceLevels": [],
+      "targetLevels": [],
+      "invalidationLevels": [],
+      "consolidationZones": [],
+      "turningWindows": [
+        {
+          "id": "slv-peak2",
+          "startDate": "2026-07-30",
+          "endDate": "2026-07-30",
+          "label": {
+            "zhCN": "第二高点及反转窗口",
+            "zhTW": "第二高點及反轉窗口",
+            "en": "Second high and reversal window"
+          }
+        },
+        {
+          "id": "slv-week-low",
+          "startDate": "2026-07-31",
+          "endDate": "2026-07-31",
+          "label": {
+            "zhCN": "周内低点候选",
+            "zhTW": "週內低點候選",
+            "en": "In-week low candidate"
+          }
+        }
+      ],
+      "frameworkFactors": [
+        {
+          "id": "slv-sixyao-weekly",
+          "framework": "Oracle Six Yao",
+          "directionScore": -35,
+          "weight": 70,
+          "confidence": 74,
+          "explanation": {
+            "zhCN": "本卦天雷无妄，互卦风山渐，变卦火雷噬嗑；路径倾向双峰后转弱。",
+            "zhTW": "本卦天雷無妄，互卦風山漸，變卦火雷噬嗑；路徑傾向雙峰後轉弱。",
+            "en": "Primary Wuwang, mutual Jian, changed Shike; path leans twin peaks then soft."
+          },
+          "status": "Waiting"
+        },
+        {
+          "id": "slv-flow",
+          "framework": "Market Flow & Risk",
+          "directionScore": -20,
+          "weight": 30,
+          "confidence": 60,
+          "explanation": {
+            "zhCN": "高波动周度结构，过程中急跌风险需观察。",
+            "zhTW": "高波動週度結構，過程中急跌風險需觀察。",
+            "en": "High-volatility weekly structure; sharp downside risk needs watching."
+          },
+          "status": "Active"
+        }
+      ],
+      "confirmationConditions": [],
+      "riskConditions": [
+        {
+          "zhCN": "高波动；周四冲高后转弱与周五急跌风险。",
+          "zhTW": "高波動；週四衝高後轉弱與週五急跌風險。",
+          "en": "High volatility; fade after Thursday probe and Friday sharp-drop risk."
+        }
+      ],
+      "sourceReferences": [
+        "lib/data/precious-metals-crypto-oracle-0727.ts"
+      ],
+      "verificationStatus": "pending",
+      "verificationChecklist": [
+        {
+          "zhCN": "2026-07-31：是否形成周内低点或弱势收盘？",
+          "zhTW": "2026-07-31：是否形成週內低點或弱勢收盤？",
+          "en": "2026-07-31: Did an in-week low or soft close form?"
+        }
+      ],
+      "trendPath": [
+        {
+          "zhCN": "周一高点候选",
+          "zhTW": "週一高點候選",
+          "en": "Monday high candidate"
+        },
+        {
+          "zhCN": "周二止跌企稳",
+          "zhTW": "週二止跌企穩",
+          "en": "Tuesday stabilize"
+        },
+        {
+          "zhCN": "周三震荡修复",
+          "zhTW": "週三震盪修復",
+          "en": "Wednesday range repair"
+        },
+        {
+          "zhCN": "周四冲高后转弱",
+          "zhTW": "週四衝高後轉弱",
+          "en": "Thursday probe then fade"
+        },
+        {
+          "zhCN": "周五低点观察",
+          "zhTW": "週五低點觀察",
+          "en": "Friday low watch"
+        }
+      ],
+      "themes": [
+        {
+          "zhCN": "双峰后转弱",
+          "zhTW": "雙峰後轉弱",
+          "en": "Twin peaks then soft"
+        },
+        {
+          "zhCN": "高波动",
+          "zhTW": "高波動",
+          "en": "High volatility"
+        }
+      ],
+      "relevantFrameworks": [
+        "Oracle Six Yao",
+        "Market Flow & Risk"
+      ],
+      "mainSupportLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      },
+      "mainResistanceLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      },
+      "tags": [
+        "silver",
+        "slv",
+        "weekly",
+        "oracle-six-yao"
       ]
     },
     {
@@ -2211,9 +2407,7 @@
       "supportLevels": [
         68
       ],
-      "resistanceLevels": [
-        78
-      ],
+      "resistanceLevels": [],
       "targetLevels": [],
       "invalidationLevels": [
         68
@@ -2529,33 +2723,33 @@
     },
     {
       "id": "shanghai-composite",
-      "symbol": "SHCOMP",
+      "symbol": "SSE",
       "category": "china-equity",
       "localizedName": {
-        "zhCN": "上证指数 / A股",
-        "zhTW": "上證指數 / A股",
-        "en": "Shanghai Composite / A-Shares"
+        "zhCN": "上证指数",
+        "zhTW": "上證指數",
+        "en": "Shanghai Composite"
       },
       "localizedSummary": {
-        "zhCN": "长期看涨：7月底–8月初左侧布局，年底及春节前或再走强。",
-        "zhTW": "長期看漲：7月底–8月初左側佈局，年底及春節前或再走強。",
-        "en": "Long-term bullish: left-side positioning late Jul–early Aug; year-end / pre-Spring-Festival advance possible."
+        "zhCN": "短期蓄势，中期震荡上行，8月中下旬是重要验证窗口。",
+        "zhTW": "短期蓄勢，中期震盪上行，8月中下旬是重要驗證窗口。",
+        "en": "Near-term digestion, medium-term oscillating advance; mid-to-late August is a key verification window."
       },
       "shortView": {
-        "zhCN": "长期看涨",
-        "zhTW": "長期看漲",
-        "en": "Long-term Bullish"
+        "zhCN": "看涨",
+        "zhTW": "看漲",
+        "en": "Bullish"
       },
-      "status": "Left-side accumulation / H2 advance scenario",
-      "researchDate": "2026-07-26",
-      "lastUpdated": "2026-07-26T12:00:00.000Z",
+      "status": "Digestion then oscillating advance / pending verification 2026-09-07",
+      "researchDate": "2026-07-27",
+      "lastUpdated": "2026-07-27T12:00:00.000Z",
       "forecastHorizon": {
-        "zhCN": "2026年8月至2027年2月",
-        "zhTW": "2026年8月至2027年2月",
-        "en": "August 2026 to February 2027"
+        "zhCN": "短期至07-31；中期至2026-09-07",
+        "zhTW": "短期至07-31；中期至2026-09-07",
+        "en": "Short-term through 07-31; medium-term through 2026-09-07"
       },
-      "direction": "strong-bullish",
-      "confidence": 80,
+      "direction": "bullish",
+      "confidence": 76,
       "scenarioWeights": {
         "base": 50,
         "bull": 35,
@@ -2707,9 +2901,10 @@
       ],
       "sourceReferences": [
         "lib/data/research-records.ts",
-        "lib/data/long-range-forecasts.ts"
+        "lib/data/long-range-forecasts.ts",
+        "lib/data/china-equity-oracle-0727.ts"
       ],
-      "verificationStatus": "draft-pending-verification",
+      "verificationStatus": "pending",
       "verificationChecklist": [
         {
           "zhCN": "8月22日前后上涨动能是否增强？",
@@ -2759,44 +2954,57 @@
       "relevantFrameworks": [
         "Qimen Structure",
         "Macro Capital Cycle",
-        "Market Flow & Risk"
+        "Market Flow & Risk",
+        "Oracle Six Yao"
       ],
       "isLongRange": true,
       "tags": [
         "a-shares",
         "china-equity",
-        "qimen"
-      ]
+        "qimen",
+        "oracle-six-yao",
+        "sse"
+      ],
+      "mainSupportLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      },
+      "mainResistanceLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      }
     },
     {
       "id": "hang-seng",
-      "symbol": "HSI",
+      "symbol": "HSTECH",
       "category": "hong-kong-equity",
       "localizedName": {
-        "zhCN": "恒生指数 / 恒生科技",
-        "zhTW": "恒生指數 / 恒生科技",
-        "en": "Hang Seng Index / Hang Seng Tech"
+        "zhCN": "恒生科技指数",
+        "zhTW": "恆生科技指數",
+        "en": "Hang Seng TECH Index"
       },
       "localizedSummary": {
-        "zhCN": "Q3修复，Q4政策支持；A股走强时港股或同步受益。",
-        "zhTW": "Q3修復，Q4政策支持；A股走強時港股或同步受益。",
-        "en": "Q3 recovery and Q4 policy support; Hong Kong may benefit if A-shares strengthen."
+        "zhCN": "短期与中期方向高度一致，情绪修复和科技成长动能强于A股。",
+        "zhTW": "短期與中期方向高度一致，情緒修復和科技成長動能強於A股。",
+        "en": "Short- and medium-term direction highly aligned; sentiment repair and tech-growth momentum appear stronger than A-shares."
       },
       "shortView": {
-        "zhCN": "看涨修复",
-        "zhTW": "看漲修復",
-        "en": "Bullish Recovery"
+        "zhCN": "强势看涨",
+        "zhTW": "強勢看漲",
+        "en": "Strong Bullish"
       },
-      "status": "Q3 Recovery / Q4 Policy Support",
-      "researchDate": "2026-07-26",
-      "lastUpdated": "2026-07-26T12:00:00.000Z",
+      "status": "Strong bullish resonance / pending verification 2026-09-07",
+      "researchDate": "2026-07-27",
+      "lastUpdated": "2026-07-27T12:00:00.000Z",
       "forecastHorizon": {
-        "zhCN": "2026年Q3–Q4",
-        "zhTW": "2026年Q3–Q4",
-        "en": "Q3–Q4 2026"
+        "zhCN": "至2026-09-07",
+        "zhTW": "至2026-09-07",
+        "en": "Through 2026-09-07"
       },
-      "direction": "bullish",
-      "confidence": 78,
+      "direction": "strong-bullish",
+      "confidence": 82,
       "scenarioWeights": {
         "base": 50,
         "bull": 35,
@@ -2809,63 +3017,83 @@
       "consolidationZones": [],
       "turningWindows": [
         {
-          "id": "hk-q3",
-          "startDate": "2026-07-01",
-          "endDate": "2026-09-30",
+          "id": "hstech-short",
+          "startDate": "2026-07-27",
+          "endDate": "2026-07-31",
           "label": {
-            "zhCN": "Q3修复及走强",
-            "zhTW": "Q3修復及走強",
-            "en": "Q3 recovery and strengthening"
+            "zhCN": "短期资金承接",
+            "zhTW": "短期資金承接",
+            "en": "Near-term capital absorption"
           }
         },
         {
-          "id": "hk-q4",
-          "startDate": "2026-10-01",
-          "endDate": "2026-12-31",
+          "id": "hstech-aug-strengthen",
+          "startDate": "2026-08-01",
+          "endDate": "2026-08-15",
           "label": {
-            "zhCN": "Q4政策支持",
-            "zhTW": "Q4政策支持",
-            "en": "Q4 policy support"
+            "zhCN": "情绪与趋势强化",
+            "zhTW": "情緒與趨勢強化",
+            "en": "Sentiment and trend strengthening"
+          }
+        },
+        {
+          "id": "hstech-aug22",
+          "startDate": "2026-08-22",
+          "endDate": "2026-08-22",
+          "label": {
+            "zhCN": "观察上涨是否加速",
+            "zhTW": "觀察上漲是否加速",
+            "en": "Watch whether the advance accelerates"
+          }
+        },
+        {
+          "id": "hstech-verify",
+          "startDate": "2026-09-07",
+          "endDate": "2026-09-07",
+          "label": {
+            "zhCN": "阶段验证",
+            "zhTW": "階段驗證",
+            "en": "Phase verification"
           }
         }
       ],
       "frameworkFactors": [
         {
-          "id": "hk-qimen",
-          "framework": "Qimen Structure",
-          "directionScore": 55,
-          "weight": 45,
-          "confidence": 78,
+          "id": "hstech-sixyao",
+          "framework": "Oracle Six Yao",
+          "directionScore": 70,
+          "weight": 55,
+          "confidence": 82,
           "explanation": {
-            "zhCN": "港股前期调整较充分，Q3有望进入较强修复。",
-            "zhTW": "港股前期調整較充分，Q3有望進入較強修復。",
-            "en": "Hong Kong equities have corrected sufficiently, with Q3 2026 poised for a stronger recovery phase."
+            "zhCN": "短期地泽临→兑为泽，中期雷地豫→火地晋；方向高度一致，倾向震荡上行与情绪修复。",
+            "zhTW": "短期地澤臨→兌為澤，中期雷地豫→火地晉；方向高度一致，傾向震盪上行與情緒修復。",
+            "en": "Short-term Lin→Dui and medium-term Yu→Jin are highly aligned, favoring an oscillating advance and sentiment repair."
           },
           "status": "Waiting"
         },
         {
-          "id": "hk-china-narrative",
+          "id": "hstech-china-narrative",
           "framework": "Macro Capital Cycle",
-          "directionScore": 50,
-          "weight": 35,
+          "directionScore": 55,
+          "weight": 25,
           "confidence": 75,
           "explanation": {
-            "zhCN": "恒生科技或受益于中国科技叙事；A股走强时资金或回流。",
-            "zhTW": "恒生科技或受益於中國科技敘事；A股走強時資金或回流。",
-            "en": "Hang Seng Tech may benefit from the China technology narrative. Improving risk appetite for China assets may drive capital inflows."
+            "zhCN": "恒生科技指数或受益于中国科技叙事与资金回流观察。",
+            "zhTW": "恆生科技指數或受益於中國科技敘事與資金回流觀察。",
+            "en": "Hang Seng TECH Index may benefit from the China technology narrative and capital-return watch."
           },
           "status": "Partially Confirmed"
         },
         {
-          "id": "hk-global",
+          "id": "hstech-us-link",
           "framework": "Market Flow & Risk",
-          "directionScore": -25,
+          "directionScore": -30,
           "weight": 20,
           "confidence": 70,
           "explanation": {
-            "zhCN": "全球流动性、美股科技回调与政策落地不确定性。",
-            "zhTW": "全球流動性、美股科技回調與政策落地不確定性。",
-            "en": "Global liquidity conditions, US technology correction risk, and policy implementation uncertainty."
+            "zhCN": "科技股与美股科技板块存在联动风险；高波动洗盘可能出现。",
+            "zhTW": "科技股與美股科技板塊存在聯動風險；高波動洗盤可能出現。",
+            "en": "Tech names carry US-tech linkage risk; high-volatility washouts remain possible."
           },
           "status": "Active"
         }
@@ -2873,71 +3101,174 @@
       "confirmationConditions": [],
       "riskConditions": [
         {
-          "zhCN": "全球流动性环境。",
-          "zhTW": "全球流動性環境。",
-          "en": "Global liquidity conditions."
+          "zhCN": "中途可能出现快速下跌和高波动洗盘。",
+          "zhTW": "中途可能出現快速下跌和高波動洗盤。",
+          "en": "Fast declines and high-volatility washouts may occur mid-path."
         },
         {
-          "zhCN": "美股科技回调风险。",
-          "zhTW": "美股科技回調風險。",
-          "en": "US technology correction risk."
+          "zhCN": "科技股与美股科技板块存在联动风险。",
+          "zhTW": "科技股與美股科技板塊存在聯動風險。",
+          "en": "Tech names carry linkage risk with US technology."
         },
         {
-          "zhCN": "中美市场联动风险。",
-          "zhTW": "中美市場聯動風險。",
-          "en": "China-US market linkage risk."
-        },
-        {
-          "zhCN": "政策落地的不确定性。",
-          "zhTW": "政策落地的不確定性。",
-          "en": "Policy implementation uncertainty."
+          "zhCN": "若资金回流不持续，强势评级需要下调。",
+          "zhTW": "若資金回流不持續，強勢評級需要下調。",
+          "en": "If capital return is not sustained, the strong-bullish rating should be downgraded."
         }
       ],
       "sourceReferences": [
+        "lib/data/china-equity-oracle-0727.ts",
         "lib/data/research-records.ts"
       ],
-      "verificationStatus": "draft-pending-verification",
+      "verificationStatus": "pending",
       "verificationChecklist": [
         {
-          "zhCN": "Q3是否进入较强修复？",
-          "zhTW": "Q3是否進入較強修復？",
-          "en": "Does Q3 enter a stronger recovery phase?"
+          "zhCN": "2026-09-07阶段验证：偏强表现是否维持？",
+          "zhTW": "2026-09-07階段驗證：偏強表現是否維持？",
+          "en": "2026-09-07 phase check: does relative strength hold?"
         }
       ],
       "trendPath": [
         {
-          "zhCN": "阿里巴巴等大型互联网资产为重点观察对象。",
-          "zhTW": "阿里巴巴等大型互聯網資產為重點觀察對象。",
-          "en": "Large internet names such as Alibaba are key names to watch."
+          "zhCN": "短期震荡后逐步走强",
+          "zhTW": "短期震盪後逐步走強",
+          "en": "Near-term digestion then gradual strength"
+        },
+        {
+          "zhCN": "资金承接改善",
+          "zhTW": "資金承接改善",
+          "en": "Capital absorption improves"
+        },
+        {
+          "zhCN": "8月进入主要强化阶段",
+          "zhTW": "8月進入主要強化階段",
+          "en": "August enters the main strengthening phase"
+        },
+        {
+          "zhCN": "中途可能出现快速回撤",
+          "zhTW": "中途可能出現快速回撤",
+          "en": "Fast pullbacks may occur mid-path"
+        },
+        {
+          "zhCN": "9月初进行趋势验证",
+          "zhTW": "9月初進行趨勢驗證",
+          "en": "Early September trend verification"
         }
       ],
       "themes": [
         {
-          "zhCN": "港股修复",
-          "zhTW": "港股修復",
-          "en": "Hong Kong recovery"
+          "zhCN": "恒生科技情绪修复",
+          "zhTW": "恆生科技情緒修復",
+          "en": "HSTECH sentiment repair"
         },
         {
-          "zhCN": "恒生科技",
-          "zhTW": "恒生科技",
-          "en": "Hang Seng Tech"
+          "zhCN": "科技成长动能",
+          "zhTW": "科技成長動能",
+          "en": "Tech-growth momentum"
         },
         {
-          "zhCN": "中国资产风险偏好",
-          "zhTW": "中國資產風險偏好",
-          "en": "China asset risk appetite"
+          "zhCN": "中国科技资产风险偏好",
+          "zhTW": "中國科技資產風險偏好",
+          "en": "China tech risk appetite"
         }
       ],
       "relevantFrameworks": [
-        "Qimen Structure",
+        "Oracle Six Yao",
         "Macro Capital Cycle",
         "Market Flow & Risk"
       ],
       "tags": [
-        "hong-kong",
-        "hsi",
-        "qimen"
-      ]
+        "hang-seng-tech",
+        "hstech",
+        "oracle-six-yao"
+      ],
+      "mainSupportLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      },
+      "mainResistanceLabel": {
+        "zhCN": "待技术分析补充",
+        "zhTW": "待技術分析補充",
+        "en": "Pending technical analysis"
+      },
+      "strategicWatchlistSettings": {
+        "enabled": true,
+        "rating": "strong-bullish",
+        "ratingLabel": {
+          "zhCN": "强势看涨",
+          "zhTW": "強勢看漲",
+          "en": "Strong bullish"
+        },
+        "status": "active",
+        "statusLabel": {
+          "zhCN": "重点跟踪",
+          "zhTW": "重點跟蹤",
+          "en": "Priority focus"
+        },
+        "horizon": {
+          "zhCN": "至2026-09-07",
+          "zhTW": "至2026-09-07",
+          "en": "Through 2026-09-07"
+        },
+        "mainThemes": [
+          {
+            "zhCN": "科技股资金回流",
+            "zhTW": "科技股資金回流",
+            "en": "Tech capital return"
+          },
+          {
+            "zhCN": "美股科技联动",
+            "zhTW": "美股科技聯動",
+            "en": "US tech linkage"
+          },
+          {
+            "zhCN": "8月趋势强化",
+            "zhTW": "8月趨勢強化",
+            "en": "August trend strengthening"
+          },
+          {
+            "zhCN": "9月初验证",
+            "zhTW": "9月初驗證",
+            "en": "Early-September verification"
+          }
+        ],
+        "thesis": {
+          "zhCN": "恒生科技指数短期与中期方向高度一致，倾向震荡上行；不编造价格点位，技术位待补充。",
+          "zhTW": "恆生科技指數短期與中期方向高度一致，傾向震盪上行；不編造價格點位，技術位待補充。",
+          "en": "HSTECH short- and medium-term direction highly align toward an oscillating advance; no invented price levels — technicals pending."
+        },
+        "risks": [
+          {
+            "zhCN": "中途可能出现快速下跌和高波动洗盘。",
+            "zhTW": "中途可能出現快速下跌和高波動洗盤。",
+            "en": "Fast declines and high-volatility washouts may occur."
+          },
+          {
+            "zhCN": "科技股与美股科技板块存在联动风险。",
+            "zhTW": "科技股與美股科技板塊存在聯動風險。",
+            "en": "US tech linkage risk."
+          }
+        ],
+        "nextEvent": {
+          "zhCN": "8月趋势强化观察；9月初阶段验证。",
+          "zhTW": "8月趨勢強化觀察；9月初階段驗證。",
+          "en": "August strengthening watch; early-September phase verification."
+        },
+        "nextEventDate": "2026-09-07",
+        "listingStatus": "n/a",
+        "levelsPendingLabel": {
+          "zhCN": "待技术分析补充",
+          "zhTW": "待技術分析補充",
+          "en": "Pending technical analysis"
+        },
+        "trackMetrics": [
+          "Capital return",
+          "US tech linkage",
+          "August strengthening",
+          "Early-September verification"
+        ]
+      }
     },
     {
       "id": "changxin-technology",
@@ -3665,9 +3996,9 @@
         "en": "Fed Hawkish-Intention Observation Window"
       },
       "description": {
-        "zhCN": "六爻 ORACLE-0008：鹰派 表态 可能在8月7日后增强。",
-        "zhTW": "Oracle Six Yao ORACLE-0008：鷹派 rhetoric 可能在8月7日後增強。",
-        "en": "Oracle Six Yao ORACLE-0008: Hawkish rhetoric may strengthen after August 7."
+        "zhCN": "六爻 ORACLE-0008：鹰派表态可能在8月7日后增强。",
+        "zhTW": "六爻 ORACLE-0008：鷹派表態可能在8月7日後增強。",
+        "en": "Oracle Six Yao ORACLE-0008: Hawkish statements may strengthen after August 7."
       },
       "categories": [
         "us-equity",
@@ -3707,9 +4038,9 @@
         "en": "Bitcoin September High / Turning-Risk Window"
       },
       "description": {
-        "zhCN": "六爻 ORACLE-0009：9月或现下半年主要高点；85,000基准 / 90,000 看涨情景。",
-        "zhTW": "Oracle Six Yao ORACLE-0009：9月或現下半年主要高點；85,000基準 / 90,000 bull-case。",
-        "en": "Oracle Six Yao ORACLE-0009: September may produce the main second-half high; 85,000 base / 90,000 bull-case targets."
+        "zhCN": "ORACLE-0009：9月主要高点或转折风险窗口（约78%）；保留85,000可达 / 90,000可能目标。来源可靠性：高点月份判断相对较强，低点窗口仅辅助；定性历史评价，尚非正式统计准确率。",
+        "zhTW": "ORACLE-0009：9月主要高點或轉折風險窗口（約78%）；保留85,000可達 / 90,000可能目標。來源可靠性：高點月份判斷相對較強，低點窗口僅輔助；定性歷史評價，尚非正式統計準確率。",
+        "en": "ORACLE-0009: September main-high or turn-risk (~78%); keep 85k achievable / 90k possible targets. Source reliability: high-month timing stronger; low windows auxiliary. Qualitative evaluation — not official statistical accuracy."
       },
       "categories": [
         "crypto",
@@ -3808,13 +4139,38 @@
       "verification": "pending"
     },
     {
+      "id": "us-equity-autumn-soften-2026",
+      "start": "2026-08-07",
+      "end": "2026-08-31",
+      "title": {
+        "zhCN": "美股立秋后转弱观察窗口",
+        "zhTW": "美股立秋後轉弱觀察窗口",
+        "en": "US equity post–Start of Autumn softening watch"
+      },
+      "description": {
+        "zhCN": "上半年财旺行情进入重要分界，立秋及申月后外部环境影响增强，利好后劲可能逐渐下降（置信约74%）。关联：MX-US-EQUITY-2026-ANNUAL-001。框架：六爻。状态：待验证。",
+        "zhTW": "上半年財旺行情進入重要分界，立秋及申月後外部環境影響增強，利好後勁可能逐漸下降（置信約74%）。關聯：MX-US-EQUITY-2026-ANNUAL-001。框架：六爻。狀態：待驗證。",
+        "en": "H1 wealth-strength phase reaches a key divide; after Start of Autumn / Shen month external influence rises and catalyst edges may fade (~74%). Linked: MX-US-EQUITY-2026-ANNUAL-001. Framework: six-yao. Status: pending."
+      },
+      "categories": [
+        "us-equity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
       "id": "nasdaq-low-window-1",
       "start": "2026-11-01",
       "end": "2026-12-31",
       "title": {
-        "zhCN": "纳斯达克可能低点窗口",
-        "zhTW": "納斯達克可能低點窗口",
-        "en": "Nasdaq Possible Low Window"
+        "zhCN": "美股 / 纳斯达克冬季相对低位窗口",
+        "zhTW": "美股 / 納斯達克冬季相對低位窗口",
+        "en": "US equity / Nasdaq winter relative low window"
+      },
+      "description": {
+        "zhCN": "合并观察：美股综合年度路径（MX-US-EQUITY-2026-ANNUAL-001）冬季相对低位，与纳斯达克可能低点窗口一致。六合与旺财限制极端暴跌；置信约68%。关联研究：美股年度路径 + 既有纳指周期研究。框架：六爻。状态：待验证。",
+        "zhTW": "合併觀察：美股綜合年度路徑（MX-US-EQUITY-2026-ANNUAL-001）冬季相對低位，與納斯達克可能低點窗口一致。六合與旺財限制極端暴跌；置信約68%。關聯研究：美股年度路徑 + 既有納指週期研究。框架：六爻。狀態：待驗證。",
+        "en": "Merged watch: US equity annual path (MX-US-EQUITY-2026-ANNUAL-001) winter relative low aligns with the Nasdaq possible low window. Six-harmony and strong wealth limit crash extremes (~68%). Linked: US annual path + existing Nasdaq cycle research. Framework: six-yao. Status: pending."
       },
       "categories": [
         "us-equity",
@@ -3931,6 +4287,223 @@
       ],
       "verification": "pending",
       "isLongRange": true
+    },
+    {
+      "id": "ashares-week-research-start-2026-07-27",
+      "date": "2026-07-27",
+      "title": {
+        "zhCN": "A股本周研究启动",
+        "zhTW": "A股本週研究啟動",
+        "en": "A-share weekly research started"
+      },
+      "description": {
+        "zhCN": "方向：偏多。短期水天需→水风井；中期地泽临。",
+        "zhTW": "方向：偏多。短期水天需→水風井；中期地澤臨。",
+        "en": "Bias: slightly bullish. Short-term Xu→Jing; medium-term Lin."
+      },
+      "categories": [
+        "china-equity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "hstech-week-research-start-2026-07-27",
+      "date": "2026-07-27",
+      "title": {
+        "zhCN": "恒生科技指数本周研究启动",
+        "zhTW": "恆生科技指數本週研究啟動",
+        "en": "Hang Seng TECH Index weekly research started"
+      },
+      "description": {
+        "zhCN": "方向：偏多。短期地泽临→兑为泽；中期豫→晋。",
+        "zhTW": "方向：偏多。短期地澤臨→兌為澤；中期豫→晉。",
+        "en": "Bias: slightly bullish. Short-term Lin→Dui; medium-term Yu→Jin."
+      },
+      "categories": [
+        "hong-kong-equity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "china-equity-aug22-window-2026",
+      "date": "2026-08-22",
+      "title": {
+        "zhCN": "A股与恒生科技关键观察窗口",
+        "zhTW": "A股與恆生科技關鍵觀察窗口",
+        "en": "A-share and Hang Seng TECH key observation window"
+      },
+      "description": {
+        "zhCN": "观察上证指数与恒生科技指数是否进入更强阶段。",
+        "zhTW": "觀察上證指數與恆生科技指數是否進入更強階段。",
+        "en": "Watch whether SSE and HSTECH enter a stronger phase."
+      },
+      "categories": [
+        "china-equity",
+        "hong-kong-equity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "china-equity-sep07-verify-2026",
+      "date": "2026-09-07",
+      "title": {
+        "zhCN": "A股与恒生科技阶段验证",
+        "zhTW": "A股與恆生科技階段驗證",
+        "en": "A-share and Hang Seng TECH phase verification"
+      },
+      "description": {
+        "zhCN": "上证指数与恒生科技指数阶段验证日。",
+        "zhTW": "上證指數與恆生科技指數階段驗證日。",
+        "en": "Phase verification date for SSE and HSTECH."
+      },
+      "categories": [
+        "china-equity",
+        "hong-kong-equity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "gold-high-probe-2026-07-27",
+      "start": "2026-07-27",
+      "end": "2026-07-28",
+      "title": {
+        "zhCN": "黄金高位惯性与试高窗口",
+        "zhTW": "黃金高位慣性與試高窗口",
+        "en": "Gold high-range inertia / probe window"
+      },
+      "description": {
+        "zhCN": "前段可能维持高位震荡或试探前高，仅为低权重时间路径（置信约55%）。框架：六爻。状态：待验证。",
+        "zhTW": "前段可能維持高位震盪或試探前高，僅為低權重時間路徑（置信約55%）。框架：六爻。狀態：待驗證。",
+        "en": "Early segment may hold high-range chop or probe highs — low-weight timing path (~55%). Framework: six-yao. Status: pending."
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "xau-week-turn-2026-07-29",
+      "start": "2026-07-29",
+      "end": "2026-07-30",
+      "title": {
+        "zhCN": "黄金冲高回落风险窗口",
+        "zhTW": "黃金衝高回落風險窗口",
+        "en": "Gold probe-and-fade risk window"
+      },
+      "description": {
+        "zhCN": "随着兄弟爻发动并化进，周中后获利兑现和回落风险上升（置信约60%）。框架：六爻。状态：待验证。",
+        "zhTW": "隨著兄弟爻發動並化進，週中後獲利兌現和回落風險上升（置信約60%）。框架：六爻。狀態：待驗證。",
+        "en": "As sibling line activates and advances, mid/late-week profit-taking and fade risk rises (~60%). Framework: six-yao. Status: pending."
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "slv-second-peak-2026-07-30",
+      "date": "2026-07-30",
+      "title": {
+        "zhCN": "白银第二高点及反转观察窗口",
+        "zhTW": "白銀第二高點及反轉觀察窗口",
+        "en": "Silver second-high and reversal watch window"
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "gold-soft-close-2026-07-31",
+      "start": "2026-07-31",
+      "end": "2026-07-31",
+      "title": {
+        "zhCN": "黄金周线弱势收尾观察",
+        "zhTW": "黃金週線弱勢收尾觀察",
+        "en": "Gold soft weekly close watch"
+      },
+      "description": {
+        "zhCN": "偏向低位震荡、探低企稳或弱势收尾，不断言必然形成周内最低点（置信约55%）。框架：六爻。状态：待验证。",
+        "zhTW": "偏向低位震盪、探低企穩或弱勢收尾，不斷言必然形成週內最低點（置信約55%）。框架：六爻。狀態：待驗證。",
+        "en": "Leans low-range chop, probe-stabilize, or soft close — does not assert a certain weekly low (~55%). Framework: six-yao. Status: pending."
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "xau-slv-week-verify-2026-07-31",
+      "date": "2026-07-31",
+      "title": {
+        "zhCN": "黄金周度预测验证",
+        "zhTW": "黃金週度預測驗證",
+        "en": "Gold weekly forecast verification"
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "gold-h2-soften-2026",
+      "start": "2026-07-01",
+      "end": "2026-12-31",
+      "title": {
+        "zhCN": "黄金下半年高位转弱观察窗口",
+        "zhTW": "黃金下半年高位轉弱觀察窗口",
+        "en": "Gold H2 high-zone softening watch"
+      },
+      "description": {
+        "zhCN": "上半年主要高位可能已经形成，下半年重点观察高波动和逐步转弱情景（置信约70%）。框架：六爻。状态：待验证。",
+        "zhTW": "上半年主要高位可能已經形成，下半年重點觀察高波動和逐步轉弱情景（置信約70%）。框架：六爻。狀態：待驗證。",
+        "en": "H1 main high zone may already be set; H2 watches high volatility and gradual softening (~70%). Framework: six-yao. Status: pending."
+      },
+      "categories": [
+        "commodity",
+        "oracle"
+      ],
+      "verification": "pending",
+      "isLongRange": true
+    },
+    {
+      "id": "xau-btc-annual-verify-2026-12-31",
+      "date": "2026-12-31",
+      "title": {
+        "zhCN": "黄金与比特币年度预测阶段验证",
+        "zhTW": "黃金與比特幣年度預測階段驗證",
+        "en": "Gold and Bitcoin annual forecast phase verification"
+      },
+      "categories": [
+        "commodity",
+        "crypto",
+        "oracle"
+      ],
+      "verification": "pending"
+    },
+    {
+      "id": "btc-cross-year-high-2027-01",
+      "start": "2027-01-01",
+      "end": "2027-01-31",
+      "title": {
+        "zhCN": "比特币跨年度高点观察窗口",
+        "zhTW": "比特幣跨年度高點觀察窗口",
+        "en": "Bitcoin cross-year high-watch window"
+      },
+      "categories": [
+        "crypto",
+        "oracle"
+      ],
+      "verification": "pending"
     }
   ],
   "marketThemes": [

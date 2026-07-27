@@ -38,7 +38,9 @@ export type MoonXProcessedMarketTheme = MoonXProcessedDocument["marketThemes"][n
 export type MoonXDirection =
   | "strong-bullish"
   | "bullish"
+  | "slightly-bullish"
   | "neutral"
+  | "slightly-bearish"
   | "bearish"
   | "strong-bearish"
   | "watch";

@@ -15,8 +15,18 @@
  * Always display `publicSourceLabel` instead.
  */
 import { lt } from "@/lib/i18n/config";
-import type { ResearchCollection, ResearchRecord } from "@/types/research";
+import {
+  annualRiskEquityCollections,
+  annualRiskEquityRecords,
+} from "@/lib/data/annual-risk-equity-2026";
+import { chinaEquityOracle0727Records } from "@/lib/data/china-equity-oracle-0727";
+import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
+import {
+  preciousMetalsCryptoCollections,
+  preciousMetalsCryptoOracleRecords,
+} from "@/lib/data/precious-metals-crypto-oracle-0727";
+import type { ResearchCollection, ResearchRecord } from "@/types/research";
 
 export const researchCollections: ResearchCollection[] = [
   {
@@ -27,9 +37,9 @@ export const researchCollections: ResearchCollection[] = [
       "China Equity Long-Range Scenario — H2 2026"
     ),
     description: lt(
-      "私人导师研究，基于奇门遁甲与宏观周期框架，覆盖A股、港股、美股科技与中国科技的下半年情景。",
-      "私人導師研究，基於奇門遁甲與宏觀週期框架，涵蓋A股、港股、美股科技與中國科技的下半年情境。",
-      "Private teacher research using Qimen and macro-cycle frameworks, covering A-shares, Hong Kong, US tech, and China tech scenarios for H2 2026."
+      "私人导师研究，基于奇门遁甲与宏观周期框架，覆盖上证指数、恒生科技指数、美股科技与中国科技的下半年情景。",
+      "私人導師研究，基於奇門遁甲與宏觀週期框架，涵蓋上證指數、恆生科技指數、美股科技與中國科技的下半年情境。",
+      "Private teacher research using Qimen and macro-cycle frameworks, covering Shanghai Composite, Hang Seng TECH Index, US tech, and China tech scenarios for H2 2026."
     ),
     frameworks: ["qimen", "macro"],
     sourceType: "private-teacher",
@@ -37,6 +47,8 @@ export const researchCollections: ResearchCollection[] = [
     forecastStart: "2026-08-01",
     forecastEnd: "2027-02-04",
   },
+  ...preciousMetalsCryptoCollections,
+  ...annualRiskEquityCollections,
 ];
 
 const researchRecords: ResearchRecord[] = [
@@ -45,6 +57,7 @@ const researchRecords: ResearchRecord[] = [
   // ================================================================
   {
     id: "ORACLE-0001",
+    aliases: ["oracle-ndx-2026-07-21-2026-08-21"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2026-08-21",
@@ -58,12 +71,24 @@ const researchRecords: ResearchRecord[] = [
     direction: "slightly-bearish",
     editorialConfidence: 72,
     consensusEligible: true,
-    horizon: lt("短期至中期", "短期至中期", "Short to medium term"),
+    layer: "strategic",
+    sourceStatus: "summary_only",
+    horizon: lt("2026-07-21 至 2026-08-21", "2026-07-21 至 2026-08-21", "2026-07-21 to 2026-08-21"),
     title: lt("纳斯达克缓慢回落情景", "納斯達克緩慢回落情境", "Nasdaq Gradual Decline Scenario"),
+    rawSource: lt(
+      "整体属于缓慢下行，不属于快速崩盘。下跌过程中存在阶段反弹和逐步布局机会。",
+      "整體屬於緩慢下行，不屬於快速崩盤。下跌過程中存在階段反彈和逐步佈局機會。",
+      "Overall gradual decline, not a crash. Stage rebounds and staged accumulation opportunities may appear."
+    ),
     summary: lt(
-      "纳斯达克处于缓慢回落情景，倾向震荡下行而非快速崩盘。回落过程可能逐渐形成分批观察和布局机会。",
-      "納斯達克處於緩慢回落情境，傾向震盪下行而非快速崩盤。回落過程可能逐漸形成分批觀察和布局機會。",
-      "Nasdaq is in a gradual-decline scenario, with an oscillating pullback rather than an immediate crash. The decline may gradually create staged observation and accumulation opportunities."
+      "大方向偏缓慢调整，期间可能反复反弹。重点不是追逐单日涨跌，而是观察7月底至8月初的转折窗口。中文方向：缓慢偏空。",
+      "大方向偏緩慢調整，期間可能反覆反彈。重點不是追逐單日漲跌，而是觀察7月底至8月初的轉折窗口。中文方向：緩慢偏空。",
+      "Higher-horizon bias is gradual digestion with intermittent rebounds. Focus on late-July to early-August turn windows rather than single-day moves. Display direction: gradually bearish."
+    ),
+    moonxInterpretation: lt(
+      "缓慢偏空。关键窗口：2026-07-27至07-28；2026-07-31至08-07。",
+      "緩慢偏空。關鍵窗口：2026-07-27至07-28；2026-07-31至08-07。",
+      "Gradually bearish. Key windows: 2026-07-27–07-28; 2026-07-31–08-07."
     ),
     thesis: [
       lt(
@@ -77,11 +102,18 @@ const researchRecords: ResearchRecord[] = [
         "The decline may gradually create staged observation and accumulation opportunities."
       ),
     ],
-    status: "pending",
-    tags: ["nasdaq", "oracle-six-yao", "gradual-decline"],
+    turningWindows: [
+      { id: "ndx-jul27-28", start: "2026-07-27", end: "2026-07-28", label: lt("短暂反弹窗口", "短暫反彈窗口", "Brief rebound window") },
+      { id: "ndx-jul31-aug7", start: "2026-07-31", end: "2026-08-07", label: lt("重要转折 / 可能低点", "重要轉折 / 可能低點", "Important turn / possible low") },
+    ],
+    supports: [7315, 7212],
+    resistances: [7420, 7450],
+    status: "active",
+    tags: ["nasdaq", "oracle-six-yao", "gradual-decline", "strategic"],
   },
   {
     id: "ORACLE-0002",
+    aliases: ["oracle-ndx-one-year-2026-2027"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2027-07-31",
@@ -95,12 +127,14 @@ const researchRecords: ResearchRecord[] = [
     direction: "neutral",
     editorialConfidence: 65,
     consensusEligible: true,
+    layer: "strategic",
+    sourceStatus: "summary_only",
     horizon: lt("未来一年", "未來一年", "One-year outlook"),
     title: lt("纳斯达克年度低点窗口研究", "納斯達克年度低點窗口研究", "Nasdaq Annual Low-Window Study"),
     summary: lt(
-      "未来一年可能存在两轮重要低点窗口：2026年11月至12月，以及2027年2月至3月。2027年4月至7月偏向修复。",
-      "未來一年可能存在兩輪重要低點窗口：2026年11月至12月，以及2027年2月至3月。2027年4月至7月偏向修復。",
-      "Over the next year there may be two important low windows: November–December 2026 and February–March 2027. April–July 2027 leans toward recovery."
+      "一年周期内可能经历两次重要低点，随后于2027年第二季度至第三季度逐渐修复。方向：mixed。",
+      "一年週期內可能經歷兩次重要低點，隨後於2027年第二季度至第三季度逐漸修復。方向：mixed。",
+      "The one-year path may include two important lows, then gradual repair through 2027 Q2–Q3. Direction: mixed."
     ),
     thesis: [
       lt(
@@ -139,30 +173,33 @@ const researchRecords: ResearchRecord[] = [
         label: lt("修复窗口", "修復窗口", "Recovery window"),
       },
     ],
-    status: "pending",
-    tags: ["nasdaq", "oracle-six-yao", "long-range"],
+    status: "active",
+    tags: ["nasdaq", "oracle-six-yao", "long-range", "strategic"],
   },
   {
     id: "ORACLE-0003",
+    aliases: ["oracle-semiconductor-2026-08-07"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2026-09-30",
     assetId: "semiconductors-storage",
-    assetName: lt("半导体ETF", "半導體ETF", "Semiconductor ETF"),
+    assetName: lt("半导体与存储", "半導體與儲存", "Semiconductors & Storage"),
     symbol: "SOX",
     market: "semiconductor",
     framework: "oracle-six-yao",
     sourceType: "internal-research",
     publicSourceLabel: lt("六爻研究", "六爻研究", "Oracle Research"),
-    direction: "slightly-bearish",
+    direction: "neutral",
     editorialConfidence: 73,
     consensusEligible: true,
+    layer: "strategic",
+    sourceStatus: "summary_only",
     horizon: lt("短期至中期", "短期至中期", "Short to medium term"),
     title: lt("半导体8月转折情景", "半導體8月轉折情境", "Semiconductor August Turning Scenario"),
     summary: lt(
-      "半导体板块在2026年8月7日前维持偏弱情景，8月7日之后可能逐步修复。",
-      "半導體板塊在2026年8月7日前維持偏弱情境，8月7日之後可能逐步修復。",
-      "The semiconductor sector remains weak into 2026-08-07, with a gradual recovery possible afterward."
+      "短期偏弱，中期等待8月上旬后的修复，9月至10月关注更大级别低点。方向：mixed。",
+      "短期偏弱，中期等待8月上旬後的修復，9月至10月關注更大級別低點。方向：mixed。",
+      "Near-term soft, then repair after early August; September–October watches a larger low. Direction: mixed."
     ),
     thesis: [
       lt(
@@ -175,6 +212,11 @@ const researchRecords: ResearchRecord[] = [
         "8月7日之後可能逐步修復。",
         "A gradual recovery is possible after August 7."
       ),
+      lt(
+        "9月至10月仍需要观察二次调整或更大底部窗口。",
+        "9月至10月仍需要觀察二次調整或更大底部窗口。",
+        "September–October still watches a secondary digestion or larger trough window."
+      ),
     ],
     turningWindows: [
       {
@@ -182,31 +224,40 @@ const researchRecords: ResearchRecord[] = [
         date: "2026-08-07",
         label: lt("可能修复转折点", "可能修復轉折點", "Possible recovery turning point"),
       },
+      {
+        id: "oracle-0003-sep-oct",
+        start: "2026-09-01",
+        end: "2026-10-31",
+        label: lt("二次调整 / 更大底部观察", "二次調整 / 更大底部觀察", "Secondary digestion / larger trough watch"),
+      },
     ],
-    status: "pending",
-    tags: ["semiconductor", "oracle-six-yao"],
+    status: "active",
+    tags: ["semiconductor", "oracle-six-yao", "strategic"],
   },
   {
     id: "ORACLE-0004",
+    aliases: ["oracle-sandisk-2026-h2"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2026-10-31",
     assetId: "semiconductors-storage",
-    assetName: lt("闪迪 / 存储", "閃迪 / 儲存", "Sandisk / Storage"),
+    assetName: lt("闪迪", "閃迪", "Sandisk"),
     symbol: "SNDK",
     market: "semiconductor",
     framework: "oracle-six-yao",
     sourceType: "internal-research",
     publicSourceLabel: lt("六爻研究", "六爻研究", "Oracle Research"),
-    direction: "slightly-bullish",
+    direction: "bullish",
     editorialConfidence: 70,
     consensusEligible: true,
+    layer: "strategic",
+    sourceStatus: "summary_only",
     horizon: lt("中期", "中期", "Medium term"),
-    title: lt("存储板块修复情景", "儲存板塊修復情境", "Storage-Sector Recovery Scenario"),
+    title: lt("闪迪周期：先弱后强", "閃迪週期：先弱後強", "Sandisk Cycle: Weak Then Strong"),
     summary: lt(
-      "闪迪及存储方向在8月7日前偏弱，随后可能缓慢回升，9月7日后上涨动能可能增强。",
-      "閃迪及儲存方向在8月7日前偏弱，隨後可能緩慢回升，9月7日後上漲動能可能增強。",
-      "Sandisk and the broader storage segment are weak into August 7, followed by a possible slow recovery, with upside momentum potentially strengthening after September 7."
+      "8月7日前偏弱；之后缓慢回升；9月7日后上涨力量可能增强。显示方向：先弱后强。",
+      "8月7日前偏弱；之後緩慢回升；9月7日後上漲力量可能增強。顯示方向：先弱後強。",
+      "Weak into August 7; slow recovery afterward; upside may strengthen after September 7. Display: weak then strong."
     ),
     thesis: [
       lt(
@@ -237,8 +288,8 @@ const researchRecords: ResearchRecord[] = [
         label: lt("可能加速窗口", "可能加速窗口", "Possible acceleration window"),
       },
     ],
-    status: "pending",
-    tags: ["storage", "sandisk", "oracle-six-yao"],
+    status: "active",
+    tags: ["storage", "sandisk", "oracle-six-yao", "strategic"],
   },
   {
     id: "ORACLE-0005",
@@ -282,6 +333,7 @@ const researchRecords: ResearchRecord[] = [
   },
   {
     id: "ORACLE-0006",
+    aliases: ["oracle-btc-2026-07-21-2026-08-15"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2026-08-15",
@@ -295,12 +347,24 @@ const researchRecords: ResearchRecord[] = [
     direction: "bullish",
     editorialConfidence: 76,
     consensusEligible: true,
-    horizon: lt("短期", "短期", "Short term"),
-    title: lt("比特币70000美元挑战情景", "比特幣70000美元挑戰情境", "Bitcoin 70,000 Challenge Scenario"),
+    layer: "strategic",
+    sourceStatus: "summary_only",
+    horizon: lt("2026-07-21 至 2026-08-15", "2026-07-21 至 2026-08-15", "2026-07-21 to 2026-08-15"),
+    title: lt("比特币中期六爻：70000挑战情景", "比特幣中期六爻：70000挑戰情境", "Bitcoin Medium-Term Six Yao: 70,000 Challenge"),
+    rawSource: lt(
+      "8月15日前，比特币突破或触及70000美元的可能性较高。",
+      "8月15日前，比特幣突破或觸及70000美元的可能性較高。",
+      "Before August 15, Bitcoin has a relatively high probability of breaking or reaching $70,000."
+    ),
     summary: lt(
-      "原始研究结论认为，比特币在2026年8月15日前存在挑战或突破70,000美元的较高可能性。",
-      "原始研究結論認為，比特幣在2026年8月15日前存在挑戰或突破70,000美元的較高可能性。",
-      "The original research conclusion sees a relatively high probability of Bitcoin challenging or breaking through $70,000 before 2026-08-15."
+      "中期总体偏多，短期允许出现回调和震荡。大周期方向偏向向上测试70000附近，但必须结合关键支撑、突破确认和失效条件观察。不代表价格会直线上涨，也不代表每日都收涨。",
+      "中期總體偏多，短期允許出現回調與震盪。大週期方向偏向上測試70000附近，但必須結合關鍵支撐、突破確認和失效條件觀察。不代表價格會直線上漲，也不代表每日都收漲。",
+      "Medium-term bias is bullish with room for near-term pullbacks. Higher-horizon path leans toward testing ~70,000, subject to support, breakout confirmation, and invalidation. Not a straight-line or every-day-up call."
+    ),
+    moonxInterpretation: lt(
+      "战略预测 · bullish。关键目标 70000。验证中。",
+      "戰略預測 · bullish。關鍵目標 70000。驗證中。",
+      "Strategic · bullish. Key target 70000. Active verification."
     ),
     thesis: [
       lt(
@@ -308,8 +372,15 @@ const researchRecords: ResearchRecord[] = [
         "8月15日前存在挑戰或突破70,000美元的較高可能性。",
         "A relatively high probability of challenging or breaking $70,000 before August 15."
       ),
+      lt(
+        "这是中期趋势预测，不代表价格会直线上涨，也不代表每日都收涨。",
+        "這是中期趨勢預測，不代表價格會直線上漲，也不代表每日都收漲。",
+        "This is a medium-term trend forecast — not a straight-line advance or every-day-up path."
+      ),
     ],
+    targets: [70000],
     resistances: [70000],
+    supports: [64650, 63412],
     risks: [
       lt(
         "若关键支撑持续失守，该情景需要重新评估。",
@@ -317,11 +388,12 @@ const researchRecords: ResearchRecord[] = [
         "If key support levels continue to fail, this scenario would need to be reassessed."
       ),
     ],
-    status: "pending",
-    tags: ["bitcoin", "oracle-six-yao", "70000-target"],
+    status: "active",
+    tags: ["bitcoin", "oracle-six-yao", "70000-target", "strategic"],
   },
   {
     id: "ORACLE-0007",
+    aliases: ["oracle-gold-before-2026-08-07"],
     publishedAt: "2026-07-21",
     forecastStart: "2026-07-21",
     forecastEnd: "2026-08-07",
@@ -335,12 +407,14 @@ const researchRecords: ResearchRecord[] = [
     direction: "neutral",
     editorialConfidence: 68,
     consensusEligible: true,
-    horizon: lt("短期", "短期", "Short term"),
+    layer: "strategic",
+    sourceStatus: "summary_only",
+    horizon: lt("截至2026-08-07", "截至2026-08-07", "Through 2026-08-07"),
     title: lt("黄金4200压力情景", "黃金4200壓力情境", "Gold 4,200 Resistance Scenario"),
     summary: lt(
-      "黄金在2026年8月7日前突破4,200的难度较大，整体偏震荡或轻微承压。",
-      "黃金在2026年8月7日前突破4,200的難度較大，整體偏震盪或輕微承壓。",
-      "Gold faces meaningful difficulty breaking above 4,200 before 2026-08-07, leaning toward range-bound trade or mild pressure."
+      "8月7日前突破4200的难度较大，整体偏中性或略偏空。震荡观察区 4060–4200。点位属于研究情景快照，不是实时行情。",
+      "8月7日前突破4200的難度較大，整體偏中性或略偏空。震盪觀察區 4060–4200。點位屬於研究情景快照，不是即時行情。",
+      "Breaking 4200 before August 7 is difficult; bias is neutral to slightly soft. Range watch 4060–4200. Levels are research snapshots, not live prices."
     ),
     thesis: [
       lt(
@@ -348,10 +422,13 @@ const researchRecords: ResearchRecord[] = [
         "8月7日前突破4,200的難度較大。",
         "Breaking above 4,200 before August 7 faces meaningful difficulty."
       ),
+      lt("支撑位：4060、3942。", "支撐位：4060、3942。", "Supports: 4060, 3942."),
+      lt("压力位：4200、4303至4333。", "壓力位：4200、4303至4333。", "Resistance: 4200, 4303–4333."),
     ],
-    resistances: [4200],
-    status: "pending",
-    tags: ["gold", "oracle-six-yao"],
+    supports: [4060, 3942],
+    resistances: [4200, 4303, 4333],
+    status: "active",
+    tags: ["gold", "oracle-six-yao", "strategic"],
   },
   {
     id: "ORACLE-0008",
@@ -374,15 +451,15 @@ const researchRecords: ResearchRecord[] = [
       "Federal Reserve H2 2026 Rate-Hike Risk"
     ),
     summary: lt(
-      "鹰派 rhetoric 可能在2026年8月7日后增强；若年底前实际加息，主要风险窗口在10–11月。实际紧缩并非基准情景，市场恐惧可能强于最终政策行动。",
-      "鷹派 rhetoric 可能在2026年8月7日後增強；若年底前實際加息，主要風險窗口在10–11月。實際緊縮並非基準情境，市場恐懼可能強於最終政策行動。",
-      "Hawkish rhetoric may strengthen after approximately 2026-08-07. If an actual rate increase occurs before year-end, the main risk window is October to November 2026. Actual tightening is not the base case; market fear may be stronger than the final policy action."
+      "鹰派表态可能在2026年8月7日后增强；若年底前实际加息，主要风险窗口在10–11月。实际紧缩并非基准情景，市场恐惧可能强于最终政策行动。",
+      "鷹派表態可能在2026年8月7日後增強；若年底前實際加息，主要風險窗口在10–11月。實際緊縮並非基準情境，市場恐懼可能強於最終政策行動。",
+      "Hawkish policy rhetoric may strengthen after approximately 2026-08-07. If an actual rate increase occurs before year-end, the main risk window is October to November 2026. Actual tightening is not the base case; market fear may be stronger than the final policy action."
     ),
     thesis: [
       lt(
-        "鹰派 rhetoric 可能在2026年8月7日后增强。",
-        "鷹派 rhetoric 可能在2026年8月7日後增強。",
-        "Hawkish rhetoric may strengthen after approximately 2026-08-07."
+        "鹰派表态可能在2026年8月7日后增强。",
+        "鷹派表態可能在2026年8月7日後增強。",
+        "Hawkish policy rhetoric may strengthen after approximately 2026-08-07."
       ),
       lt(
         "若年底前实际加息，主要风险窗口在2026年10–11月。",
@@ -429,7 +506,7 @@ const researchRecords: ResearchRecord[] = [
       },
     ],
     verificationChecklist: [
-      lt("8月7日后 Fed rhetoric 是否转鹰？", "8月7日後 Fed rhetoric 是否轉鷹？", "Did Fed rhetoric become more hawkish after August 7?"),
+      lt("8月7日后美联储表态是否转鹰？", "8月7日後美聯儲表態是否轉鷹？", "Did Fed statements become more hawkish after August 7?"),
       lt("通胀是否加速？", "通脹是否加速？", "Did inflation accelerate?"),
       lt("美债收益率是否上升？", "美債收益率是否上升？", "Did Treasury yields rise?"),
       lt("是否讨论实际加息？", "是否討論實際加息？", "Was an actual rate increase discussed?"),
@@ -441,6 +518,7 @@ const researchRecords: ResearchRecord[] = [
   },
   {
     id: "ORACLE-0009",
+    aliases: ["BTC-2026-ANNUAL-ORACLE-001", "MX-BTC-2026-ANNUAL-001"],
     publishedAt: "2026-07-01",
     forecastStart: "2026-07-01",
     forecastEnd: "2026-12-31",
@@ -449,75 +527,169 @@ const researchRecords: ResearchRecord[] = [
     symbol: "BTC",
     market: "crypto",
     framework: "oracle-six-yao",
-    sourceType: "internal-research",
-    publicSourceLabel: lt("六爻研究", "六爻研究", "Oracle Research"),
-    direction: "bullish",
+    sourceType: "private-teacher",
+    publicSourceLabel: lt("私人导师01", "私人導師01", "Private Mentor 01"),
+    sourceProfileId: "PRIVATE-MENTOR-01",
+    sourceReliability: {
+      overall: lt("中高", "中高", "Medium-high"),
+      strengths: [
+        lt("年度大方向", "年度大方向", "Annual big-picture direction"),
+        lt("高点月份", "高點月份", "High months"),
+        lt("上涨目标判断", "上漲目標判斷", "Upside target judgment"),
+        lt("重大转折窗口", "重大轉折窗口", "Major turning windows"),
+      ],
+      weaknesses: [
+        lt("精确低点月份", "精確低點月份", "Exact low months"),
+        lt("下跌目标价格判断", "下跌目標價格判斷", "Downside target-price judgment"),
+        lt("极短线逐日点位", "極短線逐日點位", "Ultra-short daily price points"),
+      ],
+      note: lt(
+        "用户复核其2024年至2026年历史研究后形成的定性评价。高点月份、年度结构及风险事件性质相对较强，低点和下跌目标准确性较弱；尚未完成正式样本统计，不得显示为百分比历史准确率。",
+        "用戶複核其2024年至2026年歷史研究後形成的定性評價。高點月份、年度結構及風險事件性質相對較強，低點和下跌目標準確性較弱；尚未完成正式樣本統計，不得顯示為百分比歷史準確率。",
+        "Qualitative evaluation after reviewing 2024–2026 history. Stronger on high months, annual structure, and risk-event character; weaker on lows and downside targets. Formal sample stats incomplete — do not show as a percentage hit rate."
+      ),
+    },
+    direction: "neutral",
     editorialConfidence: 74,
+    researchScore: 74,
     consensusEligible: true,
+    layer: "strategic",
+    isLongRange: true,
+    sourceStatus: "summary_only",
+    collectionId: "crypto-long-range-research-2026",
+    ratingDisplay: lt("中性", "中性", "Neutral"),
+    researchAttribute: lt("传统象数研究", "傳統象數研究", "Traditional symbolic research"),
     horizon: lt(
-      "至2026年9月及年底目标验证",
-      "至2026年9月及年底目標驗證",
-      "Through September 2026 and year-end target verification"
+      "至2026年9月及年底目标验证（延伸至2027年1月）",
+      "至2026年9月及年底目標驗證（延伸至2027年1月）",
+      "Through September 2026 and year-end verification (extends to Jan 2027)"
     ),
     title: lt(
-      "比特币2026年下半年反弹路径",
-      "比特幣2026年下半年反彈路徑",
-      "Bitcoin 2026 Second-Half Rebound"
+      "比特币2026年偏弱格局中的7月至9月阶段性反弹",
+      "比特幣2026年偏弱格局中的7月至9月階段性反彈",
+      "Bitcoin 2026: staged Jul–Sep rebound inside a softer year"
     ),
     summary: lt(
-      "原老师结论：3月与6月为重要低点窗口；7月初或现局部低点（已过）；下半年仍看反弹，9月或现主要高点；85,000可达，90,000可能，95,000概率较低；反弹偏积极但非极端爆发。",
-      "原老師結論：3月與6月為重要低點窗口；7月初或現局部低點（已過）；下半年仍看反彈，9月或現主要高點；85,000可達，90,000可能，95,000機率較低；反彈偏積極但非極端爆發。",
-      "Original teacher conclusion: March and June were important Bitcoin low windows. Bitcoin was still expected to rebound during the second half of 2026, with September as a possible main high. $85,000 was considered achievable; $90,000 possible; $95,000 relatively unlikely. The rebound was expected to be positive but not extremely explosive."
+      "研究认为BTC在2026年整体强度弱于2025年，不太像持续爆发的大牛市；3月及5月至6月属于潜在低点窗口，7月至8月偏向缓慢反弹，9月可能形成下半年主要高点或转折，2027年1月可能出现次级高点或反弹。",
+      "研究認為BTC在2026年整體強度弱於2025年，不太像持續爆發的大牛市；3月及5月至6月屬於潛在低點窗口，7月至8月偏向緩慢反彈，9月可能形成下半年主要高點或轉折，2027年1月可能出現次級高點或反彈。",
+      "Research sees BTC’s 2026 strength weaker than 2025 — less like a sustained explosive bull. March and May–June are potential low windows; July–August lean slow rebound; September may form the H2 main high or turn; January 2027 may bring a secondary high or rebound."
+    ),
+    moonxInterpretation: lt(
+      "保留既有价格目标证据：85,000可达、90,000可能、95,000概率较低。低点窗口仅为辅助观察，编辑置信度不超过50%，不得宣传为已经完全命中。",
+      "保留既有價格目標證據：85,000可達、90,000可能、95,000機率較低。低點窗口僅為輔助觀察，編輯置信度不超過50%，不得宣傳為已經完全命中。",
+      "Keep existing target evidence: 85k achievable, 90k possible, 95k less likely. Low windows are auxiliary only (≤50% editorial weight) and must not be promoted as fully hit."
     ),
     thesis: [
-      lt(
-        "【历史预测窗口 — 已过】7月初或现局部低点。",
-        "【歷史預測窗口 — 已過】7月初或現局部低點。",
-        "Historical forecast window — already passed: Another local low was possible near the beginning of July."
-      ),
-      lt(
-        "3月与6月为重要比特币低点窗口。",
-        "3月與6月為重要比特幣低點窗口。",
-        "March and June were important Bitcoin low windows."
-      ),
-      lt(
-        "比特币在2026年下半年仍预期反弹。",
-        "比特幣在2026年下半年仍預期反彈。",
-        "Bitcoin was still expected to rebound during the second half of 2026."
-      ),
-      lt(
-        "9月或产生下半年主要高点。",
-        "9月或產生下半年主要高點。",
-        "September may produce the main second-half high."
-      ),
-      lt(
-        "85,000美元被认为可达。",
-        "85,000美元被認為可達。",
-        "$85,000 was considered achievable."
-      ),
-      lt(
-        "90,000美元被认为可能。",
-        "90,000美元被認為可能。",
-        "$90,000 was considered possible."
-      ),
-      lt(
-        "95,000美元可能但相对不太可能。",
-        "95,000美元可能但相對不太可能。",
-        "$95,000 was possible but relatively unlikely."
-      ),
-      lt(
-        "反弹预期偏积极但非极端爆发。",
-        "反彈預期偏積極但非極端爆發。",
-        "The rebound was expected to be positive but not extremely explosive."
-      ),
+      lt("兄弟巳火持世，限制2026年上涨效率", "兄弟巳火持世，限制2026年上漲效率", "Sibling Si-Fire holds self — limits 2026 upside efficiency"),
+      lt("子孙辰土临应，长期外部环境和未来潜力仍然存在", "子孫辰土臨應，長期外部環境和未來潛力仍然存在", "Child Chen-Earth on response — longer-term environment and future potential remain"),
+      lt("世爻生应爻，标的能量更多流向未来环境，而非当年价格立即兑现", "世爻生應爻，標的能量更多流向未來環境，而非當年價格立即兌現", "Self generates response — energy flows more to future environment than same-year immediate price release"),
+      lt("妻财酉金伏于子孙未土之下", "妻財酉金伏於子孫未土之下", "Wealth You-Metal hides under child Wei-Earth"),
+      lt("起卦时申酉空，财爻既伏藏又旬空", "起卦時申酉空，財爻既伏藏又旬空", "At cast time Shen–You are empty — wealth is both hidden and decade-empty"),
+      lt("未月子孙生财，申月帮财，酉月财爻临值，形成7月至9月逐步走强路径", "未月子孫生財，申月幫財，酉月財爻臨值，形成7月至9月逐步走強路徑", "Wei month: child generates wealth; Shen helps wealth; You month wealth is on value — Jul–Sep gradual strengthening path"),
+      lt("【历史待复盘 · 低权重≤50%】3月及5月至6月潜在低点窗口，不作确定命中宣传。", "【歷史待復盤 · 低權重≤50%】3月及5月至6月潛在低點窗口，不作確定命中宣傳。", "Historical pending review · low weight ≤50%: Mar and May–Jun potential low windows — do not promote as confirmed hits."),
+      lt("原老师价格目标证据保留：85,000可达；90,000可能；95,000相对不太可能。", "原老師價格目標證據保留：85,000可達；90,000可能；95,000相對不太可能。", "Retain teacher price targets: 85k achievable; 90k possible; 95k relatively unlikely."),
+    ],
+    monthlyActivation: [
+      {
+        period: "2026年3月附近",
+        earthlyBranch: "卯月",
+        mechanism: "父母卯木临值并生旺兄弟巳火、午火，兄弟增强后不利妻财酉金。",
+        expectedEffect: "低点或弱势窗口候选。",
+        signalDirectness: "间接",
+        reliability: "中低",
+      },
+      {
+        period: "2026年5月至6月",
+        earthlyBranch: "巳月、午月",
+        mechanism: "兄弟巳火持世并在巳月临值，兄弟午火在午月临值，兄弟旺而耗财、制约财酉金。",
+        expectedEffect: "全年主要弱势或低位窗口候选。",
+        signalDirectness: "间接",
+        reliability: "中",
+      },
+      {
+        period: "2026年7月",
+        earthlyBranch: "未月",
+        mechanism: "子孙未土临值，直接生扶伏藏的妻财酉金。",
+        expectedEffect: "价格开始缓慢修复上涨。",
+        signalDirectness: "半直接",
+        reliability: "中高",
+      },
+      {
+        period: "2026年8月",
+        earthlyBranch: "申月",
+        mechanism: "申金与财酉金同类相助，同时申酉空逐渐得到填实。",
+        expectedEffect: "反弹延续，但受兄弟持世限制，涨势仍可能偏疲软。",
+        signalDirectness: "半直接",
+        reliability: "中高",
+      },
+      {
+        period: "2026年9月",
+        earthlyBranch: "酉月",
+        mechanism: "伏藏的妻财酉金临值、填实并获得最直接月令。",
+        expectedEffect: "2026年下半年主要高点或重要转折窗口。",
+        signalDirectness: "直接",
+        reliability: "高",
+      },
+      {
+        period: "2027年1月",
+        earthlyBranch: "丑月",
+        mechanism: "丑土生财酉金，并可能与世爻巳火、财爻酉金形成巳酉丑三合金局。",
+        expectedEffect: "次级高点或较强反弹窗口。",
+        signalDirectness: "半直接",
+        reliability: "中高",
+      },
+    ],
+    scenarios: [
+      {
+        name: lt("7月至8月缓慢反弹", "7月至8月緩慢反彈", "Jul–Aug slow rebound"),
+        probability: 65,
+        start: "2026-07-01",
+        end: "2026-08-31",
+      },
+      {
+        name: lt("9月主要高点或转折风险窗口", "9月主要高點或轉折風險窗口", "September main high / turn risk"),
+        probability: 78,
+        start: "2026-09-01",
+        end: "2026-09-30",
+      },
+      {
+        name: lt("2027年1月次级高点或反弹窗口", "2027年1月次級高點或反彈窗口", "Jan 2027 secondary high / rebound"),
+        probability: 60,
+        start: "2027-01-01",
+        end: "2027-01-31",
+      },
     ],
     targets: [70000, 85000, 90000, 95000],
     turningWindows: [
       {
+        id: "oracle-0009-mar-low",
+        start: "2026-03-01",
+        end: "2026-03-31",
+        label: lt("潜在低点窗口（低权重·待复盘）", "潛在低點窗口（低權重·待復盤）", "Potential low window (low weight · pending review)"),
+      },
+      {
+        id: "oracle-0009-may-jun-low",
+        start: "2026-05-01",
+        end: "2026-06-30",
+        label: lt("潜在低点窗口（低权重·待复盘）", "潛在低點窗口（低權重·待復盤）", "Potential low window (low weight · pending review)"),
+      },
+      {
+        id: "oracle-0009-jul-aug-rebound",
+        start: "2026-07-01",
+        end: "2026-08-31",
+        label: lt("7月至8月缓慢反弹", "7月至8月緩慢反彈", "Jul–Aug slow rebound"),
+      },
+      {
         id: "oracle-0009-sep-high",
         start: "2026-09-01",
         end: "2026-09-30",
-        label: lt("下半年主要高点窗口", "下半年主要高點窗口", "Main second-half high window"),
+        label: lt("9月主要高点或转折风险窗口", "9月主要高點或轉折風險窗口", "September main high / turn risk"),
+      },
+      {
+        id: "oracle-0009-jan-2027",
+        start: "2027-01-01",
+        end: "2027-01-31",
+        label: lt("2027年1月次级高点或反弹窗口", "2027年1月次級高點或反彈窗口", "Jan 2027 secondary high / rebound"),
       },
     ],
     verificationChecklist: [
@@ -530,7 +702,12 @@ const researchRecords: ResearchRecord[] = [
       lt("反弹前最大回撤是多少？", "反彈前最大回撤是多少？", "What was the maximum drawdown before the rebound?"),
     ],
     status: "pending",
-    tags: ["bitcoin", "oracle-six-yao", "85000-target", "oracle-0009"],
+    tags: ["bitcoin", "oracle-six-yao", "85000-target", "oracle-0009", "annual", "private-mentor-01"],
+    disclaimer: lt(
+      "传统象数研究属于非科学验证框架，仅作为研究记录与后续复盘样本，不构成投资建议。",
+      "傳統象數研究屬於非科學驗證框架，僅作為研究記錄與後續復盤樣本，不構成投資建議。",
+      "Traditional symbolic research is a non-scientific verification framework and does not constitute investment advice."
+    ),
   },
 
   // ================================================================
@@ -538,12 +715,13 @@ const researchRecords: ResearchRecord[] = [
   // ================================================================
   {
     id: "QIMEN-A-SHARES-2026-H2",
+    aliases: ["research-a-share-2026-h2"],
     publishedAt: "2026-07-26",
-    forecastStart: "2026-08-01",
-    forecastEnd: "2027-02-04",
+    forecastStart: "2026-07-27",
+    forecastEnd: "2027-01-31",
     assetId: "shanghai-composite",
-    assetName: lt("上证指数 / A股", "上證指數 / A股", "Shanghai Composite / A-Shares"),
-    symbol: "SHCOMP",
+    assetName: lt("上证指数", "上證指數", "Shanghai Composite"),
+    symbol: "SSE",
     market: "china-equity",
     framework: "qimen",
     sourceType: "private-teacher",
@@ -552,16 +730,18 @@ const researchRecords: ResearchRecord[] = [
     editorialConfidence: 80,
     consensusEligible: true,
     collectionId: "qimen-china-equity-h2-2026",
-    horizon: lt("2026年8月至2027年2月", "2026年8月至2027年2月", "August 2026 to February 2027"),
+    layer: "strategic",
+    sourceStatus: "summary_only",
+    horizon: lt("2026年7月底至2027年1月", "2026年7月底至2027年1月", "Late July 2026 to January 2027"),
     title: lt(
       "A股左侧布局与年底行情长期情景",
       "A股左側佈局與年底行情長期情境",
       "A-Shares Left-Side Positioning & Year-End Rally Scenario"
     ),
     summary: lt(
-      "研究观点认为，A股在7月底至8月初可能形成左侧布局窗口，8月22日前后上涨动能增强，9月趋势延续，10月波动和轮动增加，11月至次年1月可能再次进入年底及春节前行情。",
-      "研究觀點認為，A股在7月底至8月初可能形成左側佈局窗口，8月22日前後上漲動能增強，9月趨勢延續，10月波動和輪動增加，11月至次年1月可能再次進入年底及春節前行情。",
-      "The research view holds that A-shares may form a left-side positioning window from late July to early August, with upside momentum strengthening around August 22, the trend continuing in September, volatility and rotation increasing in October, and a year-end / pre-Spring-Festival advance possible from November through January."
+      "中长期偏多。7–8月震荡与左侧布局；8月22日前后重要上涨观察；9月趋势强化；10月高波动并存在向4500附近运行的情景；11月至次年1月年底行情，长期情景观察5000。4500与5000为老师情景目标，非MoonX保证目标。",
+      "中長期偏多。7–8月震盪與左側佈局；8月22日前後重要上漲觀察；9月趨勢強化；10月高波動並存在向4500附近運行的情景；11月至次年1月年底行情，長期情景觀察5000。4500與5000為老師情景目標，非MoonX保證目標。",
+      "Medium-to-long-term bullish. Jul–Aug digestion and left-side positioning; Aug 22 advance watch; September trend strength; October volatility with a 4500 scenario; Nov–Jan year-end path with 5000 long-range scenario. 4500/5000 are teacher scenario targets, not MoonX guarantees."
     ),
     thesis: [
       lt(
@@ -616,17 +796,18 @@ const researchRecords: ResearchRecord[] = [
       { id: "qimen-ashares-oct", start: "2026-10-01", end: "2026-10-31", label: lt("冲击4500情景目标，波动增加", "衝擊4500情境目標，波動增加", "4,500 scenario target attempt, volatility increases") },
       { id: "qimen-ashares-nov-jan", start: "2026-11-01", end: "2027-01-31", label: lt("年底及春节前上涨窗口，长期观察5000点", "年底及春節前上漲窗口，長期觀察5000點", "Year-end / pre-Spring-Festival advance window; 5,000 long-range watch") },
     ],
-    status: "pending",
-    tags: ["a-shares", "qimen", "china-equity", "star-50", "csi-a500"],
+    status: "active",
+    tags: ["a-shares", "qimen", "china-equity", "star-50", "csi-a500", "strategic"],
   },
   {
     id: "QIMEN-HONG-KONG-2026-H2",
+    aliases: ["research-hong-kong-2026-h2"],
     publishedAt: "2026-07-26",
-    forecastStart: "2026-08-01",
-    forecastEnd: "2027-02-04",
+    forecastStart: "2026-07-01",
+    forecastEnd: "2026-12-31",
     assetId: "hang-seng",
-    assetName: lt("恒生指数 / 恒生科技", "恒生指數 / 恒生科技", "Hang Seng Index / Hang Seng Tech"),
-    symbol: "HSI",
+    assetName: lt("恒生科技指数", "恆生科技指數", "Hang Seng TECH Index"),
+    symbol: "HSTECH",
     market: "hong-kong-equity",
     framework: "qimen",
     sourceType: "private-teacher",
@@ -635,18 +816,40 @@ const researchRecords: ResearchRecord[] = [
     editorialConfidence: 78,
     consensusEligible: true,
     collectionId: "qimen-china-equity-h2-2026",
+    layer: "strategic",
+    sourceStatus: "summary_only",
     horizon: lt("2026年第三季度至第四季度", "2026年第三季度至第四季度", "Q3–Q4 2026"),
-    title: lt("港股修复与政策支持情景", "港股修復與政策支持情境", "Hong Kong Recovery & Policy-Support Scenario"),
+    title: lt(
+      "恒生科技指数修复与政策支持情景",
+      "恆生科技指數修復與政策支持情境",
+      "Hang Seng TECH Index Recovery & Policy-Support Scenario"
+    ),
     summary: lt(
-      "研究观点认为港股前期调整较充分，第三季度有望进入较强修复阶段，第四季度仍可能获得政策和资金支持。如果A股整体走强，港股可能同步受益。",
-      "研究觀點認為港股前期調整較充分，第三季度有望進入較強修復階段，第四季度仍可能獲得政策和資金支持。如果A股整體走強，港股可能同步受益。",
-      "The research view holds that Hong Kong equities have corrected sufficiently, with Q3 2026 poised for a stronger recovery phase, and Q4 potentially continuing to receive policy and liquidity support. If A-shares strengthen broadly, Hong Kong may benefit in tandem."
+      "恒生科技指数此前调整可能已较充分；第三季度较好修复；第四季度仍可能获政策支持。互联网平台为重点跟踪；阿里、腾讯属重点观察。若上证指数四季度走强，恒生科技指数或同步受益。主要风险：美股科技年底调整及A股—美股科技联动。",
+      "恆生科技指數此前調整可能已較充分；第三季度較好修復；第四季度仍可能獲政策支持。互聯網平台為重點跟蹤；阿里、騰訊屬重點觀察。若上證指數四季度走強，恆生科技指數或同步受益。主要風險：美股科技年底調整及A股—美股科技聯動。",
+      "Prior Hang Seng TECH digestion may be adequate; Q3 repair favored; Q4 may still see policy support. Internet platforms are focus names (Alibaba, Tencent as focus tracking). If the Shanghai Composite strengthens in Q4, HSTECH may co-move. Main risk: year-end US tech digestion and A-share/US-tech linkage."
     ),
     thesis: [
-      lt("港股估值和调整幅度提供修复空间。", "港股估值和調整幅度提供修復空間。", "Hong Kong valuations and the extent of the prior correction provide room to recover."),
-      lt("恒生科技可能受益于中国科技叙事。", "恒生科技可能受益於中國科技敘事。", "Hang Seng Tech may benefit from the China technology narrative."),
-      lt("中国资产整体风险偏好改善可能推动资金回流。", "中國資產整體風險偏好改善可能推動資金回流。", "Improving risk appetite for China assets broadly may drive capital inflows."),
-      lt("阿里巴巴等大型互联网资产属于重点观察对象。", "阿里巴巴等大型互聯網資產屬於重點觀察對象。", "Large internet names such as Alibaba are key names to watch."),
+      lt(
+        "恒生科技指数估值和调整幅度提供修复空间。",
+        "恆生科技指數估值和調整幅度提供修復空間。",
+        "Hang Seng TECH valuations and the extent of the prior correction provide room to recover."
+      ),
+      lt(
+        "恒生科技指数可能受益于中国科技叙事。",
+        "恆生科技指數可能受益於中國科技敘事。",
+        "Hang Seng TECH Index may benefit from the China technology narrative."
+      ),
+      lt(
+        "中国科技资产风险偏好改善可能推动资金回流。",
+        "中國科技資產風險偏好改善可能推動資金回流。",
+        "Improving risk appetite for China tech assets may drive capital inflows."
+      ),
+      lt(
+        "阿里巴巴等大型互联网资产属于重点观察对象。",
+        "阿里巴巴等大型互聯網資產屬於重點觀察對象。",
+        "Large internet names such as Alibaba are key names to watch."
+      ),
     ],
     risks: [
       lt("全球流动性环境。", "全球流動性環境。", "Global liquidity conditions."),
@@ -655,11 +858,11 @@ const researchRecords: ResearchRecord[] = [
       lt("政策落地的不确定性。", "政策落地的不確定性。", "Policy implementation uncertainty."),
     ],
     turningWindows: [
-      { id: "qimen-hk-q3", start: "2026-07-01", end: "2026-09-30", label: lt("修复及走强窗口", "修復及走強窗口", "Recovery and strengthening window") },
-      { id: "qimen-hk-q4", start: "2026-10-01", end: "2026-12-31", label: lt("可能持续获得政策支持", "可能持續獲得政策支持", "Possible continued policy support") },
+      { id: "qimen-hstech-q3", start: "2026-07-01", end: "2026-09-30", label: lt("修复及走强窗口", "修復及走強窗口", "Recovery and strengthening window") },
+      { id: "qimen-hstech-q4", start: "2026-10-01", end: "2026-12-31", label: lt("可能持续获得政策支持", "可能持續獲得政策支持", "Possible continued policy support") },
     ],
-    status: "pending",
-    tags: ["hong-kong", "qimen", "hang-seng-tech", "alibaba", "tencent"],
+    status: "active",
+    tags: ["hang-seng-tech", "hstech", "qimen", "alibaba", "tencent", "strategic"],
   },
   {
     id: "QIMEN-US-TECH-2026-H2",
@@ -1190,11 +1393,24 @@ const researchRecords: ResearchRecord[] = [
 ];
 
 export async function listResearchRecords(): Promise<ResearchRecord[]> {
-  return [...researchRecords, ...externalObservations];
+  const byId = new Map<string, ResearchRecord>();
+  for (const record of [
+    ...researchRecords,
+    ...externalObservations,
+    ...curatedImportRecords,
+    ...chinaEquityOracle0727Records,
+    ...preciousMetalsCryptoOracleRecords,
+    ...annualRiskEquityRecords,
+  ]) {
+    // Later packs win on same id; aliases resolve at lookup.
+    byId.set(record.id, record);
+  }
+  return [...byId.values()];
 }
 
 export async function getResearchRecord(id: string): Promise<ResearchRecord | undefined> {
-  return [...researchRecords, ...externalObservations].find((record) => record.id === id);
+  const records = await listResearchRecords();
+  return records.find((record) => record.id === id || record.aliases?.includes(id));
 }
 
 export async function listResearchCollections(): Promise<ResearchCollection[]> {

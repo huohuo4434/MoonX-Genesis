@@ -1,5 +1,7 @@
 import {
   HomeTodaySection,
+  HomeTomorrowSection,
+  HomeMultiHorizonSection,
   HomeScenarioChartSection,
   LatestResearchSection,
   LongTermOutlookSection,
@@ -13,8 +15,10 @@ export default function HomePage() {
   return (
     <main>
       <HeroSection />
+      <HomeTomorrowSection />
       <HomeTodaySection />
       <WeeklyForecastStrip />
+      <HomeMultiHorizonSection />
       <HomeScenarioChartSection />
       <LatestResearchSection />
       <LongTermOutlookSection />

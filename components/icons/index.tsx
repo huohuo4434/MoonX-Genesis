@@ -184,6 +184,15 @@ export const ShieldIcon = createIcon(
   <path d="M8 1.5l5 2v4c0 3.5-2.1 6-5 7-2.9-1-5-3.5-5-7v-4l5-2z" {...stroke} />
 );
 
+export const LockIcon = createIcon(
+  "LockIcon",
+  "0 0 16 16",
+  <path
+    d="M4.5 7V5.5a3.5 3.5 0 017 0V7M3.5 7h9v6.5a1 1 0 01-1 1h-7a1 1 0 01-1-1V7z"
+    {...stroke}
+  />
+);
+
 export const LayersIcon = createIcon(
   "LayersIcon",
   "0 0 16 16",

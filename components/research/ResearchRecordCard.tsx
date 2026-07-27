@@ -3,8 +3,8 @@
 import { Badge, Button, Card, Progress, Text } from "@/components/ui";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
-import { directionBadgeVariant } from "@/lib/research/research-utils";
-import { formatDate } from "@/lib/utils";
+import { directionBadgeVariant, researchStatusLabelKey } from "@/lib/research/research-utils";
+import { formatLocalizedDate } from "@/lib/utils";
 import type { ResearchRecord } from "@/types/research";
 
 export interface ResearchRecordCardProps {
@@ -15,6 +15,8 @@ export interface ResearchRecordCardProps {
 export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCardProps) {
   const { locale } = useLocale();
   const t = useTranslations();
+  const verification = record.verificationResult;
+  const showVerificationExtras = record.status === "verified" && verification;
 
   return (
     <Card padding="md" hover className="flex flex-col gap-3">
@@ -29,15 +31,17 @@ export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCard
           </Text>
         </div>
         <Badge variant={directionBadgeVariant(record.direction)} className="shrink-0">
-          {t(`directions.${record.direction}`)}
+          {record.ratingDisplay
+            ? pickLocalized(record.ratingDisplay, locale)
+            : t(`directions.${record.direction}`)}
         </Badge>
       </div>
 
       {record.forecastStart && record.forecastEnd && (
         <Text variant="caption" color="tertiary">
           {t("researchLibrary.forecastWindowLabel", {
-            start: formatDate(record.forecastStart),
-            end: formatDate(record.forecastEnd),
+            start: formatLocalizedDate(record.forecastStart, locale),
+            end: formatLocalizedDate(record.forecastEnd, locale),
           })}
         </Text>
       )}
@@ -46,12 +50,30 @@ export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCard
         {pickLocalized(record.summary, locale)}
       </Text>
 
-      {record.direction !== "insufficient-evidence" && (
+      {showVerificationExtras && (
+        <div className="flex flex-col gap-1">
+          {typeof verification.actualChangePct === "number" && (
+            <Text variant="caption" color="secondary">
+              {t("researchLibrary.actualChange")}: {verification.actualChangePct > 0 ? "+" : ""}
+              {verification.actualChangePct}%
+            </Text>
+          )}
+          <Text variant="caption" color="tertiary">
+            {verification.scoreEligible === false
+              ? t("researchLibrary.scoreNotEligible")
+              : verification.conclusion
+                ? pickLocalized(verification.conclusion, locale)
+                : t("researchLibrary.verificationConclusion")}
+          </Text>
+        </div>
+      )}
+
+      {record.direction !== "insufficient-evidence" && record.editorialConfidence > 0 && (
         <Progress value={record.editorialConfidence} label={t("researchLibrary.editorialConfidence")} />
       )}
 
       <div className="mt-1 flex items-center justify-between gap-2">
-        <Badge variant="outline">{t(`status.${record.status}`)}</Badge>
+        <Badge variant="outline">{t(researchStatusLabelKey(record.status))}</Badge>
         <Button variant="ghost" size="sm" onClick={() => onViewDetails(record)}>
           {t("common.viewDetails")}
         </Button>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { ResearchLibraryExplorer } from "@/components/research";
+import { ResearchLibraryExplorer, ResearchLibraryGroups } from "@/components/research";
 import { PageHeaderIntl } from "@/components/layout";
 import { Section } from "@/components/ui";
-import { listResearchRecords } from "@/lib/data/research-records";
+import { redactResearchRecordsForPublic } from "@/lib/data/research-access";
+import { listResearchCollections, listResearchRecords } from "@/lib/data/research-records";
 
 export const metadata: Metadata = {
   title: "Research Library",
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ResearchLibraryPage() {
-  const records = await listResearchRecords();
+  const [rawRecords, collections] = await Promise.all([listResearchRecords(), listResearchCollections()]);
+  const records = redactResearchRecordsForPublic(rawRecords);
 
   return (
     <main>
@@ -19,7 +21,10 @@ export default async function ResearchLibraryPage() {
       </Section>
 
       <Section spacing="lg" className="border-t border-border/[0.06]">
-        <ResearchLibraryExplorer records={records} />
+        <ResearchLibraryGroups collections={collections} records={records} />
+        <div id="research-library-filters">
+          <ResearchLibraryExplorer records={records} />
+        </div>
       </Section>
     </main>
   );

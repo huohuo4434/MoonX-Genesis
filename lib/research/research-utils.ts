@@ -244,20 +244,50 @@ export function directionBadgeVariant(direction: ResearchDirection): BadgeVarian
   }
 }
 
-export function statusBadgeVariant(status: ResearchStatus): BadgeVariant {
+export function statusBadgeVariant(status: ResearchStatus | string): BadgeVariant {
   switch (status) {
     case "verified":
       return "success";
     case "partially-verified":
+    case "partially_verified":
       return "info";
     case "active":
+    case "published":
+    case "in_progress":
       return "default";
     case "pending":
+    case "reviewed":
       return "warning";
     case "invalidated":
       return "danger";
     case "archived":
+    case "draft":
+      return "outline";
     default:
       return "neutral";
   }
+}
+
+/** Maps record status to i18n key; unknown statuses fall back safely. */
+export function researchStatusLabelKey(status: string): string {
+  const normalized = status.replace(/_/g, "-");
+  const known: Record<string, string> = {
+    draft: "status.draft",
+    reviewed: "status.reviewed",
+    published: "status.published",
+    pending: "status.pending",
+    active: "status.active",
+    "in-progress": "status.verifying",
+    verifying: "status.verifying",
+    "partially-verified": "status.partially-verified",
+    verified: "status.verified",
+    invalidated: "status.invalidated",
+    archived: "status.archived",
+    "draft-pending-verification": "status.draft-pending-verification",
+  };
+  const key = known[normalized];
+  if (!key && process.env.NODE_ENV !== "production") {
+    console.warn(`[MoonX] Unknown research status: ${status}`);
+  }
+  return key ?? "status.unknown";
 }

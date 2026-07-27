@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, DialogDescription, DialogHeader, DialogTitle, Text } from "@/components/ui";
+import { getSourceProfile } from "@/lib/data/source-profiles";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { directionBadgeVariant, statusBadgeVariant } from "@/lib/research/research-utils";
@@ -47,6 +48,18 @@ function NumberList({ title, values }: { title: string; values?: number[] }) {
 export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
   const { locale } = useLocale();
   const t = useTranslations();
+  const levelsPending = record.levelsPendingLabel
+    ? pickLocalized(record.levelsPendingLabel, locale)
+    : t("researchLibrary.levelsPending");
+  const hasNumericLevels =
+    (record.supports?.length ?? 0) > 0 ||
+    (record.resistances?.length ?? 0) > 0 ||
+    (record.targets?.length ?? 0) > 0;
+  const hexagram = record.hexagramDetail;
+  const profile = record.sourceProfileId ? getSourceProfile(record.sourceProfileId) : undefined;
+  const reliability = record.sourceReliability ?? profile?.sourceReliability;
+  const reliabilityMethods = reliability?.methods ?? profile?.sourceReliability.methods;
+  const verification = record.verificationResult;
 
   return (
     <div className="flex max-h-[75vh] flex-col gap-5 overflow-y-auto pr-1">
@@ -79,23 +92,248 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
 
       <div className="flex flex-col gap-1.5">
         <Text variant="label" color="tertiary" className="uppercase tracking-wide">
-          {t("researchLibrary.summary")}
+          {t("researchLibrary.coreConclusion")}
         </Text>
         <Text variant="body-sm" color="secondary">
           {pickLocalized(record.summary, locale)}
         </Text>
+        {record.moonxInterpretation && (
+          <Text variant="caption" color="tertiary">
+            {pickLocalized(record.moonxInterpretation, locale)}
+          </Text>
+        )}
       </div>
 
-      <DetailList title={t("researchLibrary.thesis")} items={record.thesis.map((item) => pickLocalized(item, locale))} />
-      {record.catalysts && (
-        <DetailList title={t("researchLibrary.catalysts")} items={record.catalysts.map((item) => pickLocalized(item, locale))} />
+      {record.scenarios && record.scenarios.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.scenarios")}
+          </Text>
+          <ul className="flex flex-col gap-1.5">
+            {record.scenarios.map((scenario, index) => (
+              <li key={index} className="rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <Text variant="caption" weight="medium" className="text-foreground">
+                    {pickLocalized(scenario.name, locale)}
+                  </Text>
+                  <Badge variant="outline">{scenario.probability}%</Badge>
+                </div>
+                {scenario.description && (
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    {pickLocalized(scenario.description, locale)}
+                  </Text>
+                )}
+                {(scenario.start || scenario.end) && (
+                  <Text variant="caption" color="tertiary" className="mt-1 block font-mono">
+                    {formatDate(scenario.start ?? "")}
+                    {scenario.end ? ` – ${formatDate(scenario.end)}` : ""}
+                  </Text>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      {record.risks && <DetailList title={t("researchLibrary.risks")} items={record.risks.map((item) => pickLocalized(item, locale))} />}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <NumberList title={t("researchLibrary.supports")} values={record.supports} />
-        <NumberList title={t("researchLibrary.resistances")} values={record.resistances} />
-        <NumberList title={t("researchLibrary.targets")} values={record.targets} />
+      {record.turningWindows && record.turningWindows.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.timePath")}
+          </Text>
+          <ul className="flex flex-col gap-1.5">
+            {record.turningWindows.map((window_) => (
+              <li key={window_.id} className="flex flex-col gap-0.5 rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <Text variant="caption" weight="medium" className="text-foreground">
+                  {pickLocalized(window_.label, locale)}
+                </Text>
+                <Text variant="caption" color="tertiary" className="font-mono">
+                  {window_.date
+                    ? formatDate(window_.date)
+                    : `${formatDate(window_.start ?? "")} – ${formatDate(window_.end ?? "")}`}
+                </Text>
+                {window_.note && (
+                  <Text variant="caption" color="tertiary">
+                    {pickLocalized(window_.note, locale)}
+                  </Text>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {record.riskAssessment && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border/[0.08] bg-muted/30 p-3">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.riskAssessment")}
+          </Text>
+          {record.researchKind === "risk" && (
+            <Text variant="caption" color="tertiary">
+              {t("researchLibrary.riskNotPrice")}
+            </Text>
+          )}
+          {record.riskAssessment.systemicRisk && (
+            <Text variant="body-sm" color="secondary">
+              {t("researchLibrary.systemicRisk")}: {pickLocalized(record.riskAssessment.systemicRisk, locale)}
+            </Text>
+          )}
+          {record.riskAssessment.nonSystemicEventRisk && (
+            <Text variant="body-sm" color="secondary">
+              {t("researchLibrary.nonSystemicRisk")}: {pickLocalized(record.riskAssessment.nonSystemicEventRisk, locale)}
+            </Text>
+          )}
+          {record.riskAssessment.primaryRisks && (
+            <DetailList
+              title={t("researchLibrary.primaryRisks")}
+              items={record.riskAssessment.primaryRisks.map((item) => pickLocalized(item, locale))}
+            />
+          )}
+        </div>
+      )}
+
+      {record.forwardDirection && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.forwardDirection")}
+          </Text>
+          <Text variant="body-sm" color="secondary">
+            {pickLocalized(record.forwardDirection, locale)}
+          </Text>
+        </div>
+      )}
+
+      {record.annualPath && record.annualPath.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.annualPath")}
+          </Text>
+          <ul className="flex flex-col gap-1.5">
+            {record.annualPath.map((segment) => (
+              <li key={`${segment.start}-${segment.end}`} className="rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Text variant="caption" weight="medium" className="text-foreground">
+                    {pickLocalized(segment.title, locale)}
+                  </Text>
+                  <Badge variant="outline">{pickLocalized(segment.direction, locale)}</Badge>
+                </div>
+                <Text variant="caption" color="tertiary" className="mt-1 block font-mono">
+                  {formatDate(segment.start)} – {formatDate(segment.end)}
+                </Text>
+                {segment.description && (
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {pickLocalized(segment.description, locale)}
+                  </Text>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {record.monthlyActivation && record.monthlyActivation.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.monthlyActivation")}
+          </Text>
+          <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
+            <Text variant="caption" weight="medium" className="mb-1.5 block text-foreground">
+              {t("researchLibrary.signalDirectness")}
+            </Text>
+            <ul className="mb-2 flex flex-col gap-1 text-caption text-foreground-tertiary">
+              <li>{t("researchLibrary.signalDirect")}</li>
+              <li>{t("researchLibrary.signalSemiDirect")}</li>
+              <li>{t("researchLibrary.signalIndirect")}</li>
+            </ul>
+            <Text variant="caption" color="tertiary" className="mb-3 block">
+              {t("researchLibrary.signalWeightNote")}
+            </Text>
+            <ul className="flex flex-col gap-2">
+              {record.monthlyActivation.map((item) => (
+                <li key={`${item.period}-${item.earthlyBranch}`} className="rounded-md border border-border/[0.08] bg-card/60 p-2.5">
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                    <Text variant="caption" weight="medium" className="text-foreground">
+                      {item.period}
+                    </Text>
+                    <Badge variant="outline">{item.signalDirectness}</Badge>
+                    <Badge variant="outline">
+                      {t("researchLibrary.reliabilityLabel")} · {item.reliability}
+                    </Badge>
+                  </div>
+                  <Text variant="caption" color="tertiary" className="block">
+                    {t("researchLibrary.earthlyBranch")}: {item.earthlyBranch}
+                  </Text>
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {t("researchLibrary.mechanism")}: {item.mechanism}
+                  </Text>
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {t("researchLibrary.expectedEffect")}: {item.expectedEffect}
+                  </Text>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {(hexagram || record.hexagramPrimary || record.thesis.length > 0) && (
+        <details className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
+          <summary className="cursor-pointer text-caption text-foreground-secondary">
+            {t("researchLibrary.hexagramCollapsedHint")}
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">
+            <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+              {t("researchLibrary.hexagramEvidence")}
+            </Text>
+            {(hexagram?.primary || record.hexagramPrimary) && (
+              <Text variant="body-sm" color="secondary">
+                {pickLocalized(hexagram?.primary ?? record.hexagramPrimary!, locale)}
+                {(hexagram?.transformed || record.hexagramChanged) &&
+                  ` → ${pickLocalized(hexagram?.transformed ?? record.hexagramChanged!, locale)}`}
+              </Text>
+            )}
+            {hexagram?.mutual && (
+              <Text variant="caption" color="tertiary">
+                {pickLocalized(hexagram.mutual, locale)}
+              </Text>
+            )}
+            {hexagram?.worldLine && (
+              <Text variant="caption" color="tertiary">
+                {pickLocalized(hexagram.worldLine, locale)}
+              </Text>
+            )}
+            {typeof hexagram?.movingLine === "number" && (
+              <Text variant="caption" color="tertiary">
+                {hexagram.movingLine}
+              </Text>
+            )}
+            {hexagram?.structureNotes && (
+              <DetailList
+                title={t("researchLibrary.thesis")}
+                items={hexagram.structureNotes.map((item) => pickLocalized(item, locale))}
+              />
+            )}
+            {!hexagram?.structureNotes && (
+              <DetailList title={t("researchLibrary.thesis")} items={record.thesis.map((item) => pickLocalized(item, locale))} />
+            )}
+          </div>
+        </details>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+          {t("researchLibrary.technicalLevels")}
+        </Text>
+        {hasNumericLevels ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <NumberList title={t("researchLibrary.supports")} values={record.supports} />
+            <NumberList title={t("researchLibrary.resistances")} values={record.resistances} />
+            <NumberList title={t("researchLibrary.targets")} values={record.targets} />
+          </div>
+        ) : (
+          <Text variant="body-sm" color="secondary">
+            {levelsPending}
+          </Text>
+        )}
       </div>
 
       {record.invalidation && (
@@ -109,25 +347,127 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
         </div>
       )}
 
-      {record.turningWindows && record.turningWindows.length > 0 && (
+      {reliability && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border/[0.08] bg-muted/30 p-3">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.sourceReliability")}
+          </Text>
+          <Text variant="caption" color="tertiary">
+            {t("researchLibrary.sourceReliabilityDisclaimer")}
+          </Text>
+          {reliability.overall && (
+            <Text variant="body-sm" color="secondary">
+              {pickLocalized(reliability.overall, locale)}
+            </Text>
+          )}
+          {reliability.strengths && reliability.strengths.length > 0 && (
+            <DetailList
+              title={t("researchLibrary.sourceStrengths")}
+              items={reliability.strengths.map((item) => pickLocalized(item, locale))}
+            />
+          )}
+          {reliability.weaknesses && reliability.weaknesses.length > 0 && (
+            <DetailList
+              title={t("researchLibrary.sourceWeaknesses")}
+              items={reliability.weaknesses.map((item) => pickLocalized(item, locale))}
+            />
+          )}
+          {reliability.note && (
+            <Text variant="caption" color="tertiary">
+              {pickLocalized(reliability.note, locale)}
+            </Text>
+          )}
+          {reliabilityMethods && reliabilityMethods.length > 0 && (
+            <DetailList
+              title={t("researchLibrary.mentorMethods")}
+              items={reliabilityMethods.map((item) => pickLocalized(item, locale))}
+            />
+          )}
+        </div>
+      )}
+
+      {record.verificationStages && record.verificationStages.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <Text variant="label" color="tertiary" className="uppercase tracking-wide">
-            {t("researchLibrary.turningWindows")}
+            {t("researchLibrary.verificationStages")}
+          </Text>
+          <Text variant="caption" color="tertiary">
+            {t("researchLibrary.noFullYearHitEarly")}
           </Text>
           <ul className="flex flex-col gap-1.5">
-            {record.turningWindows.map((window_) => (
-              <li key={window_.id} className="flex flex-col gap-0.5 rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
-                <Text variant="caption" weight="medium" className="text-foreground">
-                  {pickLocalized(window_.label, locale)}
-                </Text>
-                <Text variant="caption" color="tertiary" className="font-mono">
-                  {window_.date ? formatDate(window_.date) : `${formatDate(window_.start ?? "")} – ${formatDate(window_.end ?? "")}`}
-                </Text>
+            {record.verificationStages.map((stage, index) => (
+              <li key={`${pickLocalized(stage.title, locale)}-${index}`} className="rounded-md border border-border/[0.08] bg-muted/40 p-2.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Text variant="caption" weight="medium" className="text-foreground">
+                    {pickLocalized(stage.title, locale)}
+                  </Text>
+                  <Badge variant="outline">{stage.status}</Badge>
+                </div>
+                {(stage.verificationStart || stage.verificationEnd) && (
+                  <Text variant="caption" color="tertiary" className="mt-1 block font-mono">
+                    {stage.verificationStart ? formatDate(stage.verificationStart) : "…"}
+                    {" – "}
+                    {stage.verificationEnd ? formatDate(stage.verificationEnd) : "…"}
+                  </Text>
+                )}
+                {stage.note && (
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    {pickLocalized(stage.note, locale)}
+                  </Text>
+                )}
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      {verification && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border/[0.08] bg-muted/30 p-3">
+          <Text variant="label" color="tertiary" className="uppercase tracking-wide">
+            {t("researchLibrary.verificationResult")}
+          </Text>
+          {typeof verification.actualChangePct === "number" && (
+            <Text variant="body-sm" color="secondary">
+              {t("researchLibrary.actualChange")}: {verification.actualChangePct > 0 ? "+" : ""}
+              {verification.actualChangePct}%
+            </Text>
+          )}
+          {verification.actualDirection && (
+            <Text variant="caption" color="tertiary">
+              {pickLocalized(verification.actualDirection, locale)}
+              {verification.actualClose != null ? ` · ${verification.actualClose}` : ""}
+            </Text>
+          )}
+          {verification.conclusion && (
+            <Text variant="body-sm" color="secondary">
+              {t("researchLibrary.verificationConclusion")}: {pickLocalized(verification.conclusion, locale)}
+            </Text>
+          )}
+          {verification.scoreEligible === false && (
+            <Badge variant="outline">{t("researchLibrary.scoreNotEligible")}</Badge>
+          )}
+          {verification.scoreNote && (
+            <Text variant="caption" color="tertiary">
+              {pickLocalized(verification.scoreNote, locale)}
+            </Text>
+          )}
+          {verification.dailyResults && verification.dailyResults.length > 0 && (
+            <ul className="mt-1 flex flex-col gap-1">
+              {verification.dailyResults.map((day) => (
+                <li key={day.date} className="font-mono text-caption text-foreground-tertiary">
+                  {formatDate(day.date)} · {day.changePct > 0 ? "+" : ""}
+                  {day.changePct}% · {day.close}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {record.catalysts && (
+        <DetailList title={t("researchLibrary.catalysts")} items={record.catalysts.map((item) => pickLocalized(item, locale))} />
+      )}
+      {record.risks && <DetailList title={t("researchLibrary.risks")} items={record.risks.map((item) => pickLocalized(item, locale))} />}
 
       {record.verificationChecklist && record.verificationChecklist.length > 0 && (
         <DetailList
