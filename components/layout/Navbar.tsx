@@ -54,11 +54,11 @@ export function Navbar() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <LanguageSwitcher />
-            <Button variant="ghost" size="sm">
-              {t("nav.signIn")}
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">{t("nav.signIn")}</Link>
             </Button>
-            <Button variant="primary" size="sm">
-              {t("nav.getStarted")}
+            <Button variant="primary" size="sm" asChild>
+              <Link href="/pricing">{t("nav.getStarted")}</Link>
             </Button>
           </div>
 
@@ -93,11 +93,11 @@ export function Navbar() {
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">
-                <Button variant="ghost" className="justify-center">
-                  {t("nav.signIn")}
+                <Button variant="ghost" className="justify-center" asChild>
+                  <Link href="/login">{t("nav.signIn")}</Link>
                 </Button>
-                <Button variant="primary" className="justify-center">
-                  {t("nav.getStarted")}
+                <Button variant="primary" className="justify-center" asChild>
+                  <Link href="/pricing">{t("nav.getStarted")}</Link>
                 </Button>
               </div>
             </div>

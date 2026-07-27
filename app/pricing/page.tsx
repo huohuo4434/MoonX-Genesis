@@ -1,25 +1,71 @@
 import Link from "next/link";
-import { Button, Card, Heading, Section, Text } from "@/components/ui";
+import { Heading, Section, Text } from "@/components/ui";
+import { PricingPlansClient } from "@/components/payments/PricingPlansClient";
+import { getPaymentConfig } from "@/lib/payments/config";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { MembershipPlan } from "@/types/membership";
 
-const internalMonthlyPriceUsdt = 30;
+const FALLBACK_PLANS: MembershipPlan[] = [
+  {
+    id: "1",
+    code: "MONTHLY",
+    name: "月度会员",
+    duration_days: 30,
+    price_usdt: null,
+    access_level: "member",
+    active: false,
+    sort_order: 1,
+  },
+  {
+    id: "2",
+    code: "QUARTERLY",
+    name: "季度会员",
+    duration_days: 90,
+    price_usdt: null,
+    access_level: "member",
+    active: false,
+    sort_order: 2,
+  },
+  {
+    id: "3",
+    code: "YEARLY",
+    name: "年度会员",
+    duration_days: 365,
+    price_usdt: null,
+    access_level: "member",
+    active: false,
+    sort_order: 3,
+  },
+];
 
-export default function PricingPage() {
+async function loadPlans(): Promise<MembershipPlan[]> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return FALLBACK_PLANS;
+  const { data } = await admin.from("membership_plans").select("*").order("sort_order");
+  return (data as MembershipPlan[])?.length ? (data as MembershipPlan[]) : FALLBACK_PLANS;
+}
+
+export default async function PricingPage() {
+  const cfg = getPaymentConfig();
+  const plans = await loadPlans();
+
   return (
     <main>
       <Section spacing="lg" className="flex flex-col items-center gap-6">
         <div className="max-w-2xl text-center">
           <Heading as="h1" size="display">
-            MoonX研究会员
+            MoonX 研究会员
           </Heading>
           <Text variant="body" color="secondary" className="mt-3">
-            封闭内测，暂未开放公开购买。
+            邮箱登录 → 链上 USDT 支付 → 自动核验 → 开通会员
           </Text>
         </div>
-        <Card padding="lg" className="max-w-lg">
+
+        <div className="max-w-lg text-left">
           <Text variant="body" weight="semibold">
-            内测研究权益
+            会员权益
           </Text>
-          <ol className="mt-3 list-decimal space-y-1 pl-5 text-body-sm text-foreground-secondary">
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-body-sm text-foreground-secondary">
             <li>提前查看下一交易日完整预测</li>
             <li>方向、概率与预计运行路径</li>
             <li>精确支撑、压力与失效条件</li>
@@ -27,21 +73,19 @@ export default function PricingPage() {
             <li>历史预测验证明细</li>
             <li>完整重点观察池</li>
           </ol>
-          <Text variant="caption" color="tertiary" className="mt-4 block">
-            内测参考价：{internalMonthlyPriceUsdt} USDT / 30天。支付功能尚未开放；本页不提供付款、钱包连接或自动开通。
-          </Text>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button asChild>
-              <a href="mailto:moonx@example.com?subject=MoonX%20Beta%20Application">申请内测资格</a>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/member/tomorrow">了解明日预测</Link>
-            </Button>
-          </div>
-          <Text variant="caption" color="tertiary" className="mt-4 block">
-            MoonX提供结构化研究观点、技术观察与情景推演，不构成针对任何个人的投资建议，不承诺收益，也不保证预测结果。用户应独立判断并承担相应风险。
-          </Text>
-        </Card>
+        </div>
+
+        <PricingPlansClient plans={plans} bep20Enabled={cfg.bep20Enabled} supportEmail={cfg.supportEmail} />
+
+        <Text variant="caption" color="tertiary" className="max-w-lg text-center">
+          支付网络：USDT-TRC20（已开放）
+          {cfg.bep20Enabled ? " · Binance-Peg BSC-USD（已开放）" : " · BEP20 待管理员确认后开放"}
+          。价格由后台配置，未启用套餐显示「即将开放」，不会显示 0 USDT。
+        </Text>
+
+        <Link href="/login" className="text-body-sm text-primary hover:underline">
+          已有账户？登录
+        </Link>
       </Section>
     </main>
   );
