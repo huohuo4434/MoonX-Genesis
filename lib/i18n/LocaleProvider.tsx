@@ -10,8 +10,8 @@ type Dictionary = typeof zhCN;
 
 const DICTIONARIES: Record<Locale, Dictionary> = {
   "zh-CN": zhCN,
-  "zh-TW": zhTW as Dictionary,
-  en: en as Dictionary,
+  "zh-TW": zhTW as unknown as Dictionary,
+  en: en as unknown as Dictionary,
 };
 
 type TranslateVars = Record<string, string | number>;

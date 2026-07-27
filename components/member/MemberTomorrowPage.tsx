@@ -21,7 +21,13 @@ function isPending(f: DailyForecast) {
   return f.confidence <= 0 || f.summary === "研究尚未完成" || f.status === "draft";
 }
 
-export function MemberTomorrowLockedPage({ summary }: { summary: TomorrowForecastPublicSummary }) {
+export function MemberTomorrowLockedPage({
+  summary,
+  showPreviewGate = false,
+}: {
+  summary: TomorrowForecastPublicSummary;
+  showPreviewGate?: boolean;
+}) {
   const { locale } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
@@ -52,13 +58,12 @@ export function MemberTomorrowLockedPage({ summary }: { summary: TomorrowForecas
             <Button asChild variant="primary">
               <Link href="/pricing">{t("home.tomorrowUnlockCta")}</Link>
             </Button>
-            <Button asChild variant="outline">
-              <Link href="/member-preview">{t("memberTomorrow.previewGate")}</Link>
-            </Button>
+            {showPreviewGate && (
+              <Button asChild variant="outline">
+                <Link href="/member-preview">{t("memberTomorrow.previewGate")}</Link>
+              </Button>
+            )}
           </div>
-          <Text variant="caption" color="tertiary">
-            {t("memberTomorrow.authNote")}
-          </Text>
         </Card>
       </Section>
     </main>

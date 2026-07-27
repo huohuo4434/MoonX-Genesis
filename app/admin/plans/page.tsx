@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, Heading, Section, Text } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth/membership";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export default async function AdminPlansPage() {
-  const adminProfile = await requireAdmin();
-  if (!adminProfile) redirect("/login");
+  if (!(await requireAdmin())) redirect("/login?next=/admin/plans");
 
   const admin = createSupabaseAdminClient();
   const { data: plans } = await admin?.from("membership_plans").select("*").order("sort_order") ?? { data: [] };
@@ -14,11 +14,12 @@ export default async function AdminPlansPage() {
   return (
     <main>
       <Section spacing="lg">
+        <AdminNav current="/admin/plans" />
         <Heading as="h1" size="h2">
-          套餐管理（管理员）
+          套餐管理
         </Heading>
         <Text variant="body-sm" color="secondary" className="mb-4">
-          在 Supabase 控制台或通过 SQL 更新 price_usdt 与 active。未配置价格前不得启用购买。
+          生产套餐：月度 50 / 季度 120 / 年度 400 USDT。价格通过数据库 migration 002 维护。
         </Text>
         <div className="flex flex-col gap-3">
           {(plans ?? []).map((p) => (
@@ -27,7 +28,8 @@ export default async function AdminPlansPage() {
                 {p.name} ({p.code})
               </Text>
               <Text variant="caption" color="tertiary">
-                {p.duration_days} 天 · 价格：{p.price_usdt ?? "未配置"} · {p.active ? "已启用" : "未启用"}
+                {p.duration_days} 天 · 价格：{p.price_usdt ?? "未配置"} USDT ·{" "}
+                {p.active ? "已启用" : "未启用"}
               </Text>
             </Card>
           ))}

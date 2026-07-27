@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -20,7 +21,9 @@ function translateAuthError(message: string): string {
   return "登录请求失败，请稍后重试或联系客服。";
 }
 
-export function LoginForm() {
+export function LoginForm({ next = "/account" }: { next?: string }) {
+  const searchParams = useSearchParams();
+  const redirectNext = searchParams.get("next") ?? next;
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +39,8 @@ export function LoginForm() {
       setLoading(false);
       return;
     }
-    const redirectTo = `${window.location.origin}/auth/callback?next=/account`;
+    const safeNext = redirectNext.startsWith("/") && !redirectNext.startsWith("//") ? redirectNext : "/account";
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`;
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: redirectTo },

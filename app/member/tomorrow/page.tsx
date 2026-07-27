@@ -11,9 +11,11 @@ export const metadata = {
 
 export default async function MemberTomorrowRoute() {
   const payload = await getMemberTomorrowPagePayload();
+  const showPreviewGate =
+    process.env.NODE_ENV !== "production" && process.env.VERCEL_ENV !== "production";
 
   if (payload.mode === "locked") {
-    return <MemberTomorrowLockedPage summary={payload.summary} />;
+    return <MemberTomorrowLockedPage summary={payload.summary} showPreviewGate={showPreviewGate} />;
   }
 
   return <MemberTomorrowFullPage forecasts={payload.forecasts} />;

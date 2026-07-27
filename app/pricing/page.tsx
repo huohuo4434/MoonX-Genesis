@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Heading, Section, Text } from "@/components/ui";
 import { PricingPlansClient } from "@/components/payments/PricingPlansClient";
+import { getCurrentUser } from "@/lib/auth/membership";
 import { getPaymentConfig } from "@/lib/payments/config";
 import { getPaymentReadiness } from "@/lib/payments/readiness";
 import { OFFICIAL_PLAN_PRICES } from "@/lib/payments/plan-display";
@@ -62,6 +63,7 @@ async function loadPlans(): Promise<MembershipPlan[]> {
 
 export default async function PricingPage() {
   const cfg = getPaymentConfig();
+  const user = await getCurrentUser();
   const [plans, readiness] = await Promise.all([loadPlans(), getPaymentReadiness()]);
 
   return (
@@ -95,23 +97,45 @@ export default async function PricingPage() {
           bep20Enabled={readiness.bep20Open}
           trc20Open={readiness.trc20Open}
           supportEmail={cfg.supportEmail}
+          isLoggedIn={Boolean(user)}
         />
 
-        <div className="max-w-lg space-y-2 text-center">
-          <Text variant="caption" color="tertiary">
-            支付流程：邮箱登录 → 创建订单 → 链上支付 → 确认到账后自动开通
-          </Text>
-          <Text variant="caption" color="tertiary">
-            {readiness.trc20Open ? "USDT-TRC20 已开放" : "USDT-TRC20 即将开放"}
-            {" · "}
-            BEP20 待管理员确认
-          </Text>
-          <Text variant="caption" color="tertiary">
-            少付、错链、错币种、无法唯一匹配的付款将进入人工审核。
-          </Text>
-          <Text variant="caption" color="tertiary">
-            链上转账不可撤销，请付款前仔细核对网络、币种、合约和收款地址。
-          </Text>
+        <div className="max-w-lg space-y-4 text-left">
+          <div>
+            <Text variant="body-sm" weight="semibold">
+              支付流程
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block">
+              邮箱登录 → 创建订单 → 链上支付 → 确认到账后自动开通
+            </Text>
+          </div>
+          <div>
+            <Text variant="body-sm" weight="semibold">
+              支付网络
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block">
+              USDT-TRC20：{readiness.trc20Open ? "已开放" : "支付系统维护中"}
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block">
+              BEP20：待管理员确认
+            </Text>
+          </div>
+          <div>
+            <Text variant="body-sm" weight="semibold">
+              异常付款
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block">
+              少付、错链、错币种或无法唯一匹配的付款将进入人工审核。
+            </Text>
+          </div>
+          <div>
+            <Text variant="body-sm" weight="semibold">
+              风险提示
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block">
+              链上转账不可撤销，请付款前仔细核对网络、币种、合约和收款地址。
+            </Text>
+          </div>
         </div>
 
         <Link href="/login" className="text-body-sm text-primary hover:underline">

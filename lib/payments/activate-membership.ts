@@ -141,6 +141,8 @@ export async function expireMemberships(now = new Date()): Promise<number> {
     .from("profiles")
     .update({ membership_status: "expired" })
     .eq("membership_status", "active")
+    .neq("role", "admin")
+    .not("membership_expires_at", "is", null)
     .lte("membership_expires_at", iso)
     .select("id");
   if (error) throw new Error(error.message);

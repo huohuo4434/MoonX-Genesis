@@ -8,14 +8,17 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 export function CheckoutClient({
   orderNumber,
   supportEmail,
+  recipientAddress,
 }: {
   orderNumber: string;
   supportEmail: string;
+  recipientAddress: string;
 }) {
   const [txHash, setTxHash] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -25,6 +28,12 @@ export function CheckoutClient({
     }
     supabase.auth.getUser().then(({ data }) => setLoggedIn(Boolean(data.user)));
   }, []);
+
+  async function copyAddress() {
+    await navigator.clipboard.writeText(recipientAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   async function verifyPayment() {
     setLoading(true);
@@ -48,7 +57,7 @@ export function CheckoutClient({
       <Card padding="md">
         <Text variant="body-sm" color="secondary">
           请先{" "}
-          <Link href="/login" className="text-primary underline">
+          <Link href={`/login?next=/checkout/${orderNumber}`} className="text-primary underline">
             登录
           </Link>{" "}
           后再验证付款。
@@ -60,8 +69,11 @@ export function CheckoutClient({
   return (
     <Card padding="lg" className="flex flex-col gap-4">
       <Text variant="body-sm" color="secondary">
-        付款完成后，粘贴链上交易哈希并点击验证。仅监控公开收款地址入账，MoonX 不需要您的钱包私钥。
+        仅通过 TRON 网络发送官方 USDT-TRC20。请勿发送 TRX、其他代币或使用其他网络。错链或错币种无法自动找回。
       </Text>
+      <Button type="button" variant="outline" size="sm" onClick={copyAddress}>
+        {copied ? "地址已复制" : "复制收款地址"}
+      </Button>
       <input
         value={txHash}
         onChange={(e) => setTxHash(e.target.value)}

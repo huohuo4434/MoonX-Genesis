@@ -35,12 +35,39 @@ export interface MembershipStatusResult {
   role: ProfileRole;
 }
 
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+}
+
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user?.email) return null;
   return { id: data.user.id, email: data.user.email };
+}
+
+export async function getCurrentProfile(): Promise<Profile | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return getProfile(user.id);
+}
+
+export async function isAdmin(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  return profile?.role === "admin";
+}
+
+export async function isActiveMember(): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const membership = await getMembershipStatus(user.id);
+  return membership.isActive;
+}
+
+export async function canAccessMemberForecast(): Promise<boolean> {
+  const ctx = await getMemberUserContext();
+  return ctx.isMember || ctx.isAdmin;
 }
 
 export async function getMembershipStatus(userId: string): Promise<MembershipStatusResult> {
@@ -62,7 +89,19 @@ export async function getMembershipStatus(userId: string): Promise<MembershipSta
 
   if (!profile) return fallback;
 
+  const role = profile.role as ProfileRole;
   const expiresAt = profile.membership_expires_at as string | null;
+
+  if (role === "admin") {
+    return {
+      isActive: true,
+      status: "active",
+      expiresAt: null,
+      accessLevel: "premium",
+      role: "admin",
+    };
+  }
+
   const now = Date.now();
   const active =
     profile.membership_status === "active" &&
@@ -70,14 +109,14 @@ export async function getMembershipStatus(userId: string): Promise<MembershipSta
     new Date(profile.membership_expires_at).getTime() > now;
 
   const accessLevel: "member" | "premium" =
-    profile.role === "premium" || profile.role === "admin" ? "premium" : "member";
+    profile.role === "premium" ? "premium" : "member";
 
   return {
     isActive: Boolean(active),
     status: profile.membership_status as MembershipStatus,
     expiresAt,
     accessLevel,
-    role: profile.role as ProfileRole,
+    role,
   };
 }
 
@@ -97,6 +136,7 @@ export async function requireAdmin(): Promise<Profile | null> {
 }
 
 async function previewGateContext(): Promise<MemberUserContext | null> {
+  if (isProduction()) return null;
   if (process.env.MOONX_MEMBER_PREVIEW === "true") {
     return { plan: "member", isMember: true, isPremium: false, isPreviewGate: true, isAdmin: false };
   }
@@ -121,19 +161,19 @@ export async function getMemberUserContext(): Promise<MemberUserContext> {
   if (user) {
     const membership = await getMembershipStatus(user.id);
     const profile = await getProfile(user.id);
-    const isAdmin = profile?.role === "admin";
-    if (membership.isActive || isAdmin) {
-      const isPremium = membership.accessLevel === "premium" || isAdmin;
+    const isAdminUser = profile?.role === "admin";
+    if (membership.isActive || isAdminUser) {
+      const isPremium = membership.accessLevel === "premium" || isAdminUser;
       return {
         plan: isPremium ? "premium" : "member",
         isMember: true,
         isPremium,
         isPreviewGate: false,
-        isAdmin,
+        isAdmin: isAdminUser,
         userId: user.id,
         email: user.email,
-        membershipStatus: membership.status,
-        membershipExpiresAt: membership.expiresAt,
+        membershipStatus: isAdminUser ? "active" : membership.status,
+        membershipExpiresAt: isAdminUser ? null : membership.expiresAt,
       };
     }
     return {
@@ -142,7 +182,7 @@ export async function getMemberUserContext(): Promise<MemberUserContext> {
       email: user.email,
       membershipStatus: membership.status,
       membershipExpiresAt: membership.expiresAt,
-      isAdmin,
+      isAdmin: isAdminUser,
     };
   }
 

@@ -84,14 +84,17 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     orderNumber,
-    chain: body.chain,
-    tokenName: tokenMeta.tokenName,
-    tokenSymbol: tokenMeta.tokenSymbol,
+    planName: plan.name,
+    durationDays: plan.duration_days,
     expectedAmount,
+    tokenSymbol: tokenMeta.tokenSymbol,
+    network: tokenMeta.networkLabel,
     recipientAddress: tokenMeta.recipientAddress,
     expiresAt: expiresAt.toISOString(),
+    checkoutUrl: `/checkout/${orderNumber}`,
+    chain: body.chain,
+    tokenName: tokenMeta.tokenName,
     paymentQRCodeData: paymentQrPayload(body.chain as PaymentChain, tokenMeta.recipientAddress, expectedAmount),
     warningText: tokenMeta.warningText,
-    checkoutUrl: `/checkout/${orderNumber}`,
   });
 }

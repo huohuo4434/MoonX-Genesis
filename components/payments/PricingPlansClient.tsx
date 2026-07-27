@@ -11,17 +11,24 @@ export function PricingPlansClient({
   bep20Enabled,
   trc20Open,
   supportEmail,
+  isLoggedIn,
 }: {
   plans: MembershipPlan[];
   bep20Enabled: boolean;
   trc20Open: boolean;
   supportEmail: string;
+  isLoggedIn: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function buy(planCode: string, chain: "TRON" | "BSC") {
+    if (!isLoggedIn) {
+      router.push(`/login?next=${encodeURIComponent("/pricing")}&plan=${planCode}`);
+      return;
+    }
+
     setError(null);
     setLoading(`${planCode}-${chain}`);
     const res = await fetch("/api/payments/create-order", {
@@ -33,7 +40,7 @@ export function PricingPlansClient({
     setLoading(null);
     if (!res.ok) {
       if (res.status === 401) {
-        router.push("/login?next=/pricing");
+        router.push(`/login?next=${encodeURIComponent("/pricing")}&plan=${planCode}`);
         return;
       }
       setError(json.error ?? "创建订单失败");
@@ -57,8 +64,7 @@ export function PricingPlansClient({
               {meta?.badge ? <Badge variant="default">{meta.badge}</Badge> : null}
             </div>
             <Text variant="body-sm" color="secondary">
-              {plan.duration_days} 天 ·{" "}
-              {hasPrice ? `${plan.price_usdt} USDT` : "即将开放"}
+              {plan.duration_days} 天 · {hasPrice ? `${plan.price_usdt} USDT` : "即将开放"}
             </Text>
             {meta?.savingText ? (
               <Text variant="caption" color="tertiary">
@@ -73,9 +79,9 @@ export function PricingPlansClient({
               >
                 {loading === `${plan.code}-TRON`
                   ? "创建中…"
-                  : trc20Open
-                    ? "USDT-TRC20 支付"
-                    : "USDT-TRC20 即将开放"}
+                  : canBuy
+                    ? "使用USDT-TRC20购买"
+                    : "支付系统维护中"}
               </Button>
               <Button
                 size="sm"

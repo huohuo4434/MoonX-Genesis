@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Container, Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui";
+import { Container, Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui";
 import { CloseIcon, MenuIcon } from "@/components/icons";
 import { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
+import { NavbarSession } from "./NavbarSession";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
 import { primaryNav, moreNav } from "@/lib/navigation";
@@ -54,12 +55,7 @@ export function Navbar() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <LanguageSwitcher />
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">{t("nav.signIn")}</Link>
-            </Button>
-            <Button variant="primary" size="sm" asChild>
-              <Link href="/pricing">{t("nav.getStarted")}</Link>
-            </Button>
+            <NavbarSession />
           </div>
 
           <button
@@ -93,13 +89,8 @@ export function Navbar() {
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">
-                <Button variant="ghost" className="justify-center" asChild>
-                  <Link href="/login">{t("nav.signIn")}</Link>
-                </Button>
-                <Button variant="primary" className="justify-center" asChild>
-                  <Link href="/pricing">{t("nav.getStarted")}</Link>
-                </Button>
-              </div>
+              <NavbarSession />
+            </div>
             </div>
           </Container>
         </div>

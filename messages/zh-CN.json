@@ -619,9 +619,8 @@
   "memberTomorrow": {
     "title": "下一交易日完整预测",
     "subtitle": "全部会员预测：按市场与资产筛选，含版本、路径、价位、催化与风险。",
-    "lockedBody": "完整下一交易日预测为会员专享。公开页仅展示日期、资产覆盖与更新状态，不包含方向与价位细节。",
-    "previewGate": "站长预览入口",
-    "authNote": "真实登录与支付尚未接入；当前仅支持服务端会员预览口令或 MOONX_MEMBER_PREVIEW=true。",
+    "lockedBody": "完整下一交易日预测为会员专享。登录并开通会员后，可查看方向、概率、关键价位与风险条件。",
+    "previewGate": "开发预览",
     "filterAsset": "按资产筛选",
     "evidence": "关联研究证据",
     "initialVersion": "初始版本",
