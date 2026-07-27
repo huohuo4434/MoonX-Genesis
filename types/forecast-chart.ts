@@ -127,4 +127,6 @@ export interface ForecastChartToggles {
   showForecastPath: boolean;
   showTurningWindows: boolean;
   showConsolidationZones: boolean;
+  /** Only surfaces when curated technical-signal records exist for the selected asset. */
+  showTechnicalSignals: boolean;
 }

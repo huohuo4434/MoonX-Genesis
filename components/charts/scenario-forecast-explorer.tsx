@@ -28,6 +28,7 @@ const DEFAULT_TOGGLES: ForecastChartToggles = {
   showForecastPath: true,
   showTurningWindows: true,
   showConsolidationZones: true,
+  showTechnicalSignals: false,
 };
 
 /**

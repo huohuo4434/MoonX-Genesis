@@ -33,6 +33,7 @@ export interface ForecastChartToolbarProps {
   toggles: ForecastChartToggles;
   onToggleChange: (key: keyof ForecastChartToggles, value: boolean) => void;
   onReset: () => void;
+  hasTechnicalSignals?: boolean;
   className?: string;
 }
 
@@ -49,9 +50,13 @@ export function ForecastChartToolbar({
   toggles,
   onToggleChange,
   onReset,
+  hasTechnicalSignals = false,
   className,
 }: ForecastChartToolbarProps) {
   const t = useTranslations();
+  const toggleConfig = hasTechnicalSignals
+    ? [...TOGGLE_CONFIG, { key: "showTechnicalSignals" as const, labelKey: "technical.showTechnicalSignals" }]
+    : TOGGLE_CONFIG;
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <div className="flex flex-wrap items-center gap-3">
@@ -94,7 +99,7 @@ export function ForecastChartToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        {TOGGLE_CONFIG.map(({ key, labelKey }) => (
+        {toggleConfig.map(({ key, labelKey }) => (
           <label key={key} className="flex cursor-pointer items-center gap-2">
             <Switch
               checked={toggles[key]}

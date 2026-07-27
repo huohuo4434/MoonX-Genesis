@@ -5,6 +5,7 @@ import {
   ConsensusOverviewSection,
   HeroSection,
   StrategicWatchlistSection,
+  TechnicalSignalsHomeSection,
   TodaysMoonXViewSection,
   UpcomingTurningWindowsSection,
   VerificationSection,
@@ -16,6 +17,7 @@ export default function HomePage() {
       <HeroSection />
       <TodaysMoonXViewSection />
       <ConsensusOverviewSection />
+      <TechnicalSignalsHomeSection />
       <BitcoinForecastPathSection />
       <ChinaEquityLongRangeSection />
       <AltcoinRotationHomeSection />

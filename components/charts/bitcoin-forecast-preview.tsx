@@ -41,7 +41,7 @@ export function BitcoinForecastPreview({ scenario, fullChartHref }: BitcoinForec
         scenario={scenario}
         scenarioId="base"
         timeframe="1D"
-        toggles={{ showLevels: true, showForecastPath: true, showTurningWindows: false, showConsolidationZones: false }}
+        toggles={{ showLevels: true, showForecastPath: true, showTurningWindows: false, showConsolidationZones: false, showTechnicalSignals: false }}
         height={260}
         compact
         visibleLevelIds={PREVIEW_LEVEL_IDS}

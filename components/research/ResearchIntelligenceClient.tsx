@@ -32,6 +32,9 @@ export function ResearchIntelligenceClient({
           <Button asChild variant="outline" size="md" className="mt-2 self-start">
             <Link href="/research/pipeline">{t("ui.researchPipeline")}<ArrowRightIcon size={14} /></Link>
           </Button>
+                 <Button asChild variant="ghost" size="md" className="self-start">
+                   <Link href="/research/technical">{t("technical.title")}<ArrowRightIcon size={14} /></Link>
+                 </Button>
         </div>
       </Section>
       <Section spacing="lg" className="border-t border-border/[0.06]">

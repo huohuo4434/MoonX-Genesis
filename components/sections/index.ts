@@ -18,3 +18,4 @@ export { ResearchSection } from "./ResearchSection";
 export { FinalCtaSection } from "./FinalCtaSection";
 export { AltcoinRotationHomeSection } from "./AltcoinRotationHomeSection";
 export { AltcoinRotationMonitorSection } from "./AltcoinRotationMonitorSection";
+export { TechnicalSignalsHomeSection } from "./TechnicalSignalsHomeSection";
