@@ -22,3 +22,5 @@ export type { WatchlistCardProps } from "./WatchlistCard";
 export { TimelineExplorer } from "./TimelineExplorer";
 export { MoonXDataStatusPanel } from "./MoonXDataStatusPanel";
 export type { MoonXDataStatusPanelProps } from "./MoonXDataStatusPanel";
+export { RotationPhaseIndicator } from "./RotationPhaseIndicator";
+export { AltcoinObservationCard } from "./AltcoinObservationCard";

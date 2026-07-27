@@ -5,7 +5,7 @@ import { Badge, Card, EmptyState, Text } from "@/components/ui";
 import { SearchIcon } from "@/components/icons";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatLocalizedDateRange } from "@/lib/utils";
 import type { TimelineCategory, TimelineEvent, TimelineVerificationState } from "@/types/research";
 
 type FilterId = "all" | TimelineCategory | TimelineVerificationState;
@@ -101,7 +101,9 @@ export function TimelineExplorer({ events }: { events: TimelineEvent[] }) {
               />
               <div className="flex shrink-0 flex-col gap-0.5 sm:w-56">
                 <Text variant="body-sm" weight="semibold" className="text-foreground">
-                  {event.date ? formatDate(event.date) : `${formatDate(event.start ?? "")} – ${formatDate(event.end ?? "")}`}
+                  {event.date
+                    ? formatLocalizedDateRange(event.date, event.date, locale)
+                    : formatLocalizedDateRange(event.start ?? "", event.end ?? "", locale)}
                 </Text>
                 {event.isLongRange && (
                   <Badge variant="outline" className="w-fit border-dashed text-foreground-tertiary">

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Merge Tailwind class names safely, resolving conflicting utilities
@@ -33,6 +34,43 @@ export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOpt
     year: "numeric",
     ...options,
   }).format(parsed);
+}
+
+/** Format a date for the active MoonX locale without leaking English dates into Chinese views. */
+export function formatLocalizedDate(date: Date | string, locale: Locale): string {
+  const parsed = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(parsed.getTime())) return "";
+  if (locale === "zh-CN") {
+    return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(parsed);
+  }
+  if (locale === "zh-TW") {
+    return new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "long", day: "numeric" }).format(parsed);
+  }
+  return formatDate(parsed);
+}
+
+/** Format a date range compactly while retaining English output for the English locale. */
+export function formatLocalizedDateRange(start: Date | string, end?: Date | string, locale: Locale = "en"): string {
+  if (!end) return formatLocalizedDate(start, locale);
+  const from = typeof start === "string" ? new Date(start) : start;
+  const to = typeof end === "string" ? new Date(end) : end;
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
+  if (locale === "zh-CN" || locale === "zh-TW") {
+    const language = locale === "zh-CN" ? "zh-CN" : "zh-TW";
+    const sameDay = from.toDateString() === to.toDateString();
+    if (sameDay) return new Intl.DateTimeFormat(language, { year: "numeric", month: "long", day: "numeric" }).format(from);
+    const sameYear = from.getFullYear() === to.getFullYear();
+    const sameMonth = sameYear && from.getMonth() === to.getMonth();
+    const format = (value: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, options).format(value);
+    if (sameMonth) {
+      return `${format(from, { year: "numeric", month: "long", day: "numeric" })}至${format(to, { day: "numeric" })}`;
+    }
+    if (sameYear) {
+      return `${format(from, { year: "numeric", month: "long", day: "numeric" })}至${format(to, { month: "long", day: "numeric" })}`;
+    }
+    return `${format(from, { year: "numeric", month: "long", day: "numeric" })}至${format(to, { year: "numeric", month: "long", day: "numeric" })}`;
+  }
+  return `${formatDate(from)} – ${formatDate(to)}`;
 }
 
 /** Relative time string, e.g. "3h ago", "in 2d". */

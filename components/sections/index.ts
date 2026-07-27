@@ -16,3 +16,5 @@ export { AnalystFrameworkSection } from "./AnalystFrameworkSection";
 export { VerificationSection } from "./VerificationSection";
 export { ResearchSection } from "./ResearchSection";
 export { FinalCtaSection } from "./FinalCtaSection";
+export { AltcoinRotationHomeSection } from "./AltcoinRotationHomeSection";
+export { AltcoinRotationMonitorSection } from "./AltcoinRotationMonitorSection";

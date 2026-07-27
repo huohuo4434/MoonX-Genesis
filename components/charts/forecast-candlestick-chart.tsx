@@ -28,6 +28,7 @@ import {
   unixSecondsToIso,
 } from "@/lib/forecast-candles";
 import { hslToken, levelColor, levelWidth, readChartThemeTokens, zoneColor } from "@/lib/chart-theme";
+import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import type {
   AssetChartScenario,
   ChartTimeframe,
@@ -151,6 +152,8 @@ export function ForecastCandlestickChart({
   visibleLevelIds,
   resetToken,
 }: ForecastCandlestickChartProps) {
+  const { locale } = useLocale();
+  const t = useTranslations();
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dividerElRef = useRef<HTMLDivElement | null>(null);
@@ -310,7 +313,7 @@ export function ForecastCandlestickChart({
         lineWidth: 1,
         lineStyle: LineStyle.Dotted,
         axisLabelVisible: true,
-        title: "Reference",
+        title: t("chart.reference"),
       });
 
       const levelLines = visibleLevels.map((level) => ({
@@ -322,7 +325,7 @@ export function ForecastCandlestickChart({
           lineStyle: level.kind === "invalidation" ? LineStyle.LargeDashed : LineStyle.Dashed,
           lineVisible: toggles.showLevels,
           axisLabelVisible: toggles.showLevels,
-          title: level.labelZh ? `${level.label} / ${level.labelZh}` : level.label,
+          title: locale === "zh-CN" ? level.labelZh ?? level.label : level.label,
         }),
       }));
 
@@ -389,7 +392,7 @@ export function ForecastCandlestickChart({
         chartApiRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [processed, height, compact, scenario.pricePrecision, scenario.referencePrice]);
+    }, [processed, height, compact, scenario.pricePrecision, scenario.referencePrice, locale, t]);
 
     // Lightweight toggle effect — flips visibility without recreating the chart.
     useEffect(() => {
@@ -429,7 +432,7 @@ export function ForecastCandlestickChart({
           >
             {!compact && (
               <span className="absolute -left-[1px] top-1 whitespace-nowrap rounded-sm border border-border/[0.12] bg-card/90 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground-secondary">
-                Forecast Starts / 预测起点
+                {t("chart.forecastStarts")}
               </span>
             )}
           </div>
@@ -451,7 +454,7 @@ export function ForecastCandlestickChart({
                 >
                   {!compact && (
                     <span className="absolute left-1 top-0.5 whitespace-nowrap text-[10px] font-medium text-foreground-tertiary">
-                      {zone.label}
+                      {locale === "zh-CN" ? zone.labelZh ?? zone.label : zone.label}
                     </span>
                   )}
                 </div>
@@ -477,7 +480,7 @@ export function ForecastCandlestickChart({
                 }}
               >
                 <span className="absolute left-1 top-1 whitespace-nowrap rounded-sm bg-card/80 px-1 text-[10px] font-medium text-warning">
-                  {window_.labelZh ? `${window_.label} / ${window_.labelZh}` : window_.label}
+                  {locale === "zh-CN" ? window_.labelZh ?? window_.label : window_.label}
                 </span>
               </div>
             ))}
@@ -500,7 +503,7 @@ export function ForecastCandlestickChart({
                   hoverInfo.kind === "historical" ? "bg-foreground-tertiary/15 text-foreground-secondary" : "bg-warning/15 text-warning"
                 )}
               >
-                {hoverInfo.kind === "historical" ? "Historical" : "Forecast"}
+                {hoverInfo.kind === "historical" ? t("chart.historical") : t("chart.forecast")}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-foreground-secondary">
@@ -509,11 +512,10 @@ export function ForecastCandlestickChart({
               <span>L {formatNumber(hoverInfo.low)}</span>
               <span>C {formatNumber(hoverInfo.close)}</span>
             </div>
-            <div className="text-foreground-tertiary">Scenario: {scenarioLabel}</div>
+            <div className="text-foreground-tertiary">{t("chart.scenario")}：{scenarioLabel}</div>
             {hoverInfo.nearbyLevel && (
               <div className="text-foreground-tertiary">
-                Near {hoverInfo.nearbyLevel.label}
-                {hoverInfo.nearbyLevel.labelZh ? ` / ${hoverInfo.nearbyLevel.labelZh}` : ""} ({formatNumber(hoverInfo.nearbyLevel.price)})
+                {t("chart.near")} {locale === "zh-CN" ? hoverInfo.nearbyLevel.labelZh ?? hoverInfo.nearbyLevel.label : hoverInfo.nearbyLevel.label} ({formatNumber(hoverInfo.nearbyLevel.price)})
               </div>
             )}
             {hoverInfo.nearbyWindow && (

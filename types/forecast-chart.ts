@@ -72,6 +72,7 @@ export interface ScenarioPath {
   label: string;
   /** One-line summary shown on the scenario selector. */
   summary: string;
+  summaryZh?: string;
   waypoints: ForecastWaypoint[];
   /** Fraction of price used as deterministic noise amplitude, e.g. 0.01 = ~1%. */
   volatility: number;
@@ -79,13 +80,16 @@ export interface ScenarioPath {
   scenarioWeight: number;
   /** "Base Case Logic" / "Bull Case Trigger" / "Bear Case Trigger" copy. */
   logic: string;
+  logicZh?: string;
 }
 
 export interface AssetChartScenario {
   id: string;
   asset: string;
+  assetZh?: string;
   symbol: string;
   chartTitle: string;
+  chartTitleZh?: string;
   forecastWindow: { start: string; end: string };
   /** Approximate price the illustrative historical path leads into. */
   referencePrice: number;
@@ -103,12 +107,19 @@ export interface AssetChartScenario {
   scenarios: Record<ForecastScenarioId, ScenarioPath>;
   relevantFrameworks: MoonXFrameworkName[];
   currentView: string;
+  currentViewZh?: string;
   mainSupport: string;
+  mainSupportZh?: string;
   mainResistance: string;
+  mainResistanceZh?: string;
   invalidationLevel: string;
+  invalidationLevelZh?: string;
   nextTurningWindow: string;
+  nextTurningWindowZh?: string;
   keyRisks: string[];
+  keyRisksZh?: string[];
   verificationChecklist: string[];
+  verificationChecklistZh?: string[];
 }
 
 export interface ForecastChartToggles {

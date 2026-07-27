@@ -14,11 +14,16 @@ import type { MoonXLocalizedText, MoonXProcessedAsset, MoonXProcessedDocument } 
 
 const KNOWN_FRAMEWORKS = new Set<string>([
   "Oracle Six Yao",
+  "Oracle Six Yao Timing",
   "Cycle Structure",
   "Gann Structure",
   "Harmonic Structure",
   "Market Flow & Risk",
+  "Market Risk and Sentiment",
   "Macro Capital Cycle",
+  "Macro Liquidity Rotation",
+  "Altcoin Risk Appetite",
+  "ETF and Stablecoin Flows",
   "Technical Structure",
 ]);
 
@@ -38,10 +43,14 @@ export function toSnapshotMetadata(doc: MoonXProcessedDocument): SnapshotMetadat
   return {
     snapshotDate: doc.researchDate,
     dataType: en(doc.dataType),
+    dataTypeZh: zh(doc.dataType),
     dataSourceDisclosure: en(doc.dataSourceDisclosure),
+    dataSourceDisclosureZh: zh(doc.dataSourceDisclosure),
     status: doc.status,
     statusLabel: en(doc.statusLabel),
+    statusLabelZh: zh(doc.statusLabel),
     mainConclusion: doc.mainConclusion.map((p) => en(p)),
+    mainConclusionZh: doc.mainConclusion.map((p) => zh(p) ?? en(p)),
   };
 }
 
@@ -62,6 +71,7 @@ export function toAssetIntelligenceSnapshot(asset: MoonXProcessedAsset): AssetIn
   return {
     id: asset.id,
     asset: en(asset.localizedName),
+    assetZh: zh(asset.localizedName),
     symbol: asset.symbol,
     currentView: en(asset.localizedSummary),
     summaryZh: zh(asset.localizedSummary),
@@ -78,13 +88,21 @@ export function toAssetIntelligenceSnapshot(asset: MoonXProcessedAsset): AssetIn
       confidence: asset.confidence,
     },
     shortView: en(asset.shortView),
+    shortViewZh: zh(asset.shortView),
     keyLevelsSummary: [
       supports.length ? `Support ${supports.slice(0, 2).join(" / ")}` : null,
       resistances.length ? `Resistance ${resistances.slice(0, 2).join(" / ")}` : null,
     ]
       .filter(Boolean)
       .join(" · "),
+    keyLevelsSummaryZh: [
+      supports.length ? `支撑位 ${supports.slice(0, 2).join(" / ")}` : null,
+      resistances.length ? `压力位 ${resistances.slice(0, 2).join(" / ")}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
     trendPath: asset.trendPath.map((t) => en(t)),
+    trendPathZh: asset.trendPath.map((t) => zh(t) ?? en(t)),
     keySupport: supports.length ? supports : undefined,
     keyResistance: resistances.length ? resistances : undefined,
     frameworkEvidence: asset.frameworkFactors.map((factor) => ({
@@ -92,9 +110,12 @@ export function toAssetIntelligenceSnapshot(asset: MoonXProcessedAsset): AssetIn
         ? factor.framework
         : "Macro Capital Cycle") as MoonXFrameworkName,
       commentary: en(factor.explanation),
+      commentaryZh: zh(factor.explanation),
     })),
     primaryRisk: en(asset.riskConditions[0]) || "See research notes.",
+    primaryRiskZh: zh(asset.riskConditions[0]) ?? en(asset.riskConditions[0]) ?? "请参阅研究说明。",
     verificationItems: asset.verificationChecklist.map((item) => en(item)),
+    verificationItemsZh: asset.verificationChecklist.map((item) => zh(item) ?? en(item)),
   };
 }
 
@@ -114,9 +135,11 @@ export function toAssetChartScenario(asset: MoonXProcessedAsset): AssetChartScen
       id,
       label: id === "base" ? "Base Case" : id === "bull" ? "Bull Case" : "Bear Case",
       summary: en(path.summary),
+      summaryZh: zh(path.summary),
       volatility: path.volatility,
       scenarioWeight: weights[id],
       logic: en(path.logic),
+      logicZh: zh(path.logic),
       waypoints: path.waypoints,
     };
   };
@@ -124,8 +147,10 @@ export function toAssetChartScenario(asset: MoonXProcessedAsset): AssetChartScen
   return {
     id: asset.id,
     asset: en(asset.localizedName),
+    assetZh: zh(asset.localizedName),
     symbol: asset.symbol,
     chartTitle: en(chart.chartTitle),
+    chartTitleZh: zh(chart.chartTitle),
     forecastWindow: chart.forecastWindow,
     referencePrice: chart.referencePrice,
     pricePrecision: chart.pricePrecision,
@@ -163,12 +188,19 @@ export function toAssetChartScenario(asset: MoonXProcessedAsset): AssetChartScen
     },
     relevantFrameworks: toFrameworkNames(asset.relevantFrameworks),
     currentView: en(asset.localizedSummary),
+    currentViewZh: zh(asset.localizedSummary),
     mainSupport: en(asset.mainSupportLabel) || asset.supportLevels[0]?.toLocaleString("en-US") || "—",
+    mainSupportZh: zh(asset.mainSupportLabel) ?? asset.supportLevels[0]?.toLocaleString("en-US") ?? "—",
     mainResistance: en(asset.mainResistanceLabel) || asset.resistanceLevels[0]?.toLocaleString("en-US") || "—",
+    mainResistanceZh: zh(asset.mainResistanceLabel) ?? asset.resistanceLevels[0]?.toLocaleString("en-US") ?? "—",
     invalidationLevel: en(asset.invalidationLabel) || "—",
+    invalidationLevelZh: zh(asset.invalidationLabel) ?? "—",
     nextTurningWindow: en(asset.nextTurningWindowLabel) || "—",
+    nextTurningWindowZh: zh(asset.nextTurningWindowLabel) ?? "—",
     keyRisks: asset.riskConditions.map((r) => en(r)),
+    keyRisksZh: asset.riskConditions.map((r) => zh(r) ?? en(r)),
     verificationChecklist: asset.verificationChecklist.map((v) => en(v)),
+    verificationChecklistZh: asset.verificationChecklist.map((v) => zh(v) ?? en(v)),
   };
 }
 

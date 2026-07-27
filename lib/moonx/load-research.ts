@@ -85,6 +85,20 @@ function processDocument(doc: MoonXDocument, sourceFile: string): MoonXProcessed
     };
   });
 
+  const marketThemes = (doc.marketThemes ?? []).map((theme) => {
+    const normalizedScenarioWeights = normalizeScenarioWeights(theme.scenarioWeights);
+    const calculatedScore = calculateWeightedResearchScore(theme.frameworkFactors, {
+      direction: theme.direction,
+    });
+    const ratingLabel = scoreToRatingLabel(calculatedScore);
+    return {
+      ...theme,
+      normalizedScenarioWeights,
+      calculatedScore,
+      ratingLabel,
+    };
+  });
+
   return {
     version: doc.version,
     snapshotId: doc.snapshotId,
@@ -97,6 +111,7 @@ function processDocument(doc: MoonXDocument, sourceFile: string): MoonXProcessed
     mainConclusion: doc.mainConclusion,
     riskDisclaimer: doc.riskDisclaimer,
     assets,
+    marketThemes,
     timeline: doc.timeline,
     meta: {
       assetCount: assets.length,

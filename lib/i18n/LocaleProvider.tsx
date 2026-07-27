@@ -71,7 +71,19 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback(
     (key: string, vars?: TranslateVars) => {
       const raw = getByPath(DICTIONARIES[locale], key);
-      let str = typeof raw === "string" ? raw : key;
+      const englishFallback = getByPath(DICTIONARIES.en, key);
+      // Never expose implementation keys to end users. Locale dictionaries
+      // are kept in sync, but English is a useful last-resort fallback.
+      let str =
+        typeof raw === "string"
+          ? raw
+          : typeof englishFallback === "string"
+            ? englishFallback
+            : locale === "zh-CN"
+              ? "内容暂不可用"
+              : locale === "zh-TW"
+                ? "內容暫不可用"
+                : "Content unavailable";
       if (vars) {
         for (const [varKey, value] of Object.entries(vars)) {
           str = str.replace(new RegExp(`\\{${varKey}\\}`, "g"), String(value));

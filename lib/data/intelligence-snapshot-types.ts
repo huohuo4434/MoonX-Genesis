@@ -10,15 +10,20 @@ export type SnapshotStatus = "draft-pending-verification" | "verified" | "archiv
 export interface SnapshotMetadata {
   snapshotDate: string;
   dataType: string;
+  dataTypeZh?: string;
   dataSourceDisclosure: string;
+  dataSourceDisclosureZh?: string;
   status: SnapshotStatus;
   statusLabel: string;
+  statusLabelZh?: string;
   mainConclusion: string[];
+  mainConclusionZh?: string[];
 }
 
 export interface FrameworkEvidenceEntry {
   framework: MoonXFrameworkName;
   commentary: string;
+  commentaryZh?: string;
 }
 
 export interface ObservationZone {
@@ -38,14 +43,18 @@ export interface AssetIntelligenceScores {
 export interface AssetIntelligenceSnapshot {
   id: string;
   asset: string;
+  assetZh?: string;
   symbol: string;
   currentView: string;
   summaryZh?: string;
   forecastWindow: { start: string; end: string };
   scores: AssetIntelligenceScores;
   shortView: string;
+  shortViewZh?: string;
   keyLevelsSummary: string;
+  keyLevelsSummaryZh?: string;
   trendPath: string[];
+  trendPathZh?: string[];
   keySupport?: string[];
   keyResistance?: string[];
   observationZones?: ObservationZone[];
@@ -53,16 +62,24 @@ export interface AssetIntelligenceSnapshot {
   frameworkEvidence: FrameworkEvidenceEntry[];
   conflictingView?: string;
   primaryRisk: string;
+  primaryRiskZh?: string;
   verificationItems: string[];
+  verificationItemsZh?: string[];
 }
 
 export interface CrossAssetConsensus {
   mainConclusion: string;
+  mainConclusionZh?: string;
   beforeWindow: string[];
+  beforeWindowZh?: string[];
   afterWindow: string[];
+  afterWindowZh?: string[];
   caveat: string;
+  caveatZh?: string;
   strongestEvidence: string[];
+  strongestEvidenceZh?: string[];
   mainConflicts: string[];
+  mainConflictsZh?: string[];
 }
 
 export interface LongRangeTimelinePeriod {

@@ -1,17 +1,10 @@
 import {
-  AnalystFrameworkSection,
-  AssetCategoriesSection,
+  AltcoinRotationHomeSection,
   BitcoinForecastPathSection,
   ChinaEquityLongRangeSection,
   ConsensusOverviewSection,
-  FeaturedForecastsSection,
-  FinalCtaSection,
-  ForecastDetailPreviewSection,
   HeroSection,
-  MethodologySection,
-  ResearchSection,
   StrategicWatchlistSection,
-  TodaysIntelligenceSection,
   TodaysMoonXViewSection,
   UpcomingTurningWindowsSection,
   VerificationSection,
@@ -23,19 +16,12 @@ export default function HomePage() {
       <HeroSection />
       <TodaysMoonXViewSection />
       <ConsensusOverviewSection />
-      <TodaysIntelligenceSection />
       <BitcoinForecastPathSection />
       <ChinaEquityLongRangeSection />
+      <AltcoinRotationHomeSection />
       <StrategicWatchlistSection />
       <UpcomingTurningWindowsSection />
-      <AssetCategoriesSection />
-      <FeaturedForecastsSection />
-      <ForecastDetailPreviewSection />
-      <MethodologySection />
-      <AnalystFrameworkSection />
       <VerificationSection />
-      <ResearchSection />
-      <FinalCtaSection />
     </main>
   );
 }

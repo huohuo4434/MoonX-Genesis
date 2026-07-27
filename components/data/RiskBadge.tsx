@@ -1,6 +1,9 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { AlertTriangleIcon, ShieldIcon } from "@/components/icons";
 import { HTMLAttributes } from "react";
+import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 
@@ -9,12 +12,12 @@ export interface RiskBadgeProps extends Omit<HTMLAttributes<HTMLSpanElement>, "c
   label?: string;
 }
 
-const riskConfig: Record<RiskLevel, { text: string; classes: string; icon: typeof ShieldIcon }> = {
-  low: { text: "Low Risk", classes: "bg-success/10 text-success border-success/20", icon: ShieldIcon },
-  medium: { text: "Medium Risk", classes: "bg-warning/10 text-warning border-warning/20", icon: ShieldIcon },
-  high: { text: "High Risk", classes: "bg-danger/10 text-danger border-danger/20", icon: AlertTriangleIcon },
+const riskConfig: Record<RiskLevel, { key: string; classes: string; icon: typeof ShieldIcon }> = {
+  low: { key: "badges.lowRisk", classes: "bg-success/10 text-success border-success/20", icon: ShieldIcon },
+  medium: { key: "badges.mediumRisk", classes: "bg-warning/10 text-warning border-warning/20", icon: ShieldIcon },
+  high: { key: "badges.highRisk", classes: "bg-danger/10 text-danger border-danger/20", icon: AlertTriangleIcon },
   critical: {
-    text: "Critical Risk",
+    key: "badges.criticalRisk",
     classes: "bg-danger/20 text-danger border-danger/30",
     icon: AlertTriangleIcon,
   },
@@ -22,7 +25,8 @@ const riskConfig: Record<RiskLevel, { text: string; classes: string; icon: typeo
 
 /** Risk-level indicator for forecasts, positions, or assets. */
 export function RiskBadge({ level, label, className, ...props }: RiskBadgeProps) {
-  const { text, classes, icon: Icon } = riskConfig[level];
+  const t = useTranslations();
+  const { key, classes, icon: Icon } = riskConfig[level];
   return (
     <span
       className={cn(
@@ -33,7 +37,7 @@ export function RiskBadge({ level, label, className, ...props }: RiskBadgeProps)
       {...props}
     >
       <Icon size={11} />
-      {label ?? text}
+      {label ?? t(key)}
     </span>
   );
 }

@@ -31,18 +31,18 @@
       "en": "1. Late July to early August: US indexes, semiconductors and oil remain under pressure."
     },
     {
-      "zhCN": "2. 8月初转折窗口后：可能出现短 修复，但8月底至10月仍是 较大回调 与 布局 窗口。",
+      "zhCN": "2. 8月初转折窗口后：可能出现短 recovery，但8月底至10月仍是 major correction 与 accumulation 窗口。",
       "zhTW": "2. 8月初轉折窗口後：可能出現短 recovery，但8月底至10月仍是 major correction 與 accumulation 窗口。",
       "en": "2. After the early-August turning window: a short recovery may begin, but late August through October remains a major risk and accumulation window."
     },
     {
-      "zhCN": "比特币相对其他风险资产更强。近端结构支持8月15日前再次尝试70,000，但 周期 模型 提示 8月初反弹后回调 风险。",
+      "zhCN": "比特币相对其他风险资产更强。近端结构支持8月15日前再次尝试70,000，但 cycle 模型 warn 8月初反弹后 correction 风险。",
       "zhTW": "比特幣相對其他風險資產更強。近端結構支持8月15日前再次嘗試70,000，但 cycle 模型 warn 8月初反彈後 correction 風險。",
       "en": "Bitcoin is relatively stronger than other risk assets. The near-term structure supports another attempt toward 70,000 before August 15, but cycle models warn of renewed correction risk after the early-August rebound."
     }
   ],
   "riskDisclaimer": {
-    "zhCN": "本快照为仅供教育目的的研究合成，属草稿，尚未与实际结果验证，不构成投资建议。不应将其解读为保证、已验证 历史记录 或交易建议。",
+    "zhCN": "本快照为仅供教育目的的研究合成，属草稿，尚未与实际结果验证，不构成投资建议。不应将其解读为保证、已验证 track record 或交易建议。",
     "zhTW": "本快照為僅供教育目的的研究合成，屬草稿，尚未與實際結果驗證，不構成投資建議。不應將其解讀為保證、已驗證 track record 或交易建議。",
     "en": "This snapshot is a research synthesis for educational purposes only. It is a draft, has not been verified against actual outcomes, and does not constitute financial advice. Nothing here should be read as a guarantee, a verified track record, or a recommendation to trade."
   },
@@ -161,7 +161,7 @@
             "en": "September High / Turning-Risk Window"
           },
           "note": {
-            "zhCN": "下半年主要高点与转折风险观察窗口（六爻 ORACLE-0009）",
+            "zhCN": "下半年主要高点与转折风险观察窗口（Oracle Six Yao ORACLE-0009）",
             "zhTW": "下半年主要高點與轉折風險觀察窗口（Oracle Six Yao ORACLE-0009）",
             "en": "Main second-half high and turning-risk observation window (Oracle Six Yao ORACLE-0009)"
           }
@@ -207,12 +207,12 @@
               "en": "Stablecoin aggregate supply expands."
             },
             {
-              "zhCN": "美股科技/半导体结束短线 回调。",
+              "zhCN": "美股科技/半导体结束短线 correction。",
               "zhTW": "美股科技/半導體結束短線 correction。",
               "en": "US tech / semiconductor equities end their near-term correction."
             },
             {
-              "zhCN": "比特币 有效突破67,300或66,956压力。",
+              "zhCN": "比特币 decisively 突破67,300或66,956压力。",
               "zhTW": "比特幣 decisively 突破67,300或66,956壓力。",
               "en": "Bitcoin breaks decisively through 67,300 or 66,956 resistance."
             }
@@ -225,7 +225,7 @@
           "weight": 15,
           "confidence": 68,
           "explanation": {
-            "zhCN": "六爻 timing 支持2026年下半年反弹：首破目标70,000，基准长期目标85,000，看涨情景 90,000，极端上行95,000（低权重）；9月或现主要高点与转折风险。",
+            "zhCN": "六爻 timing 支持2026年下半年反弹：首破目标70,000，基准长期目标85,000，bull-case 90,000，极端上行95,000（低权重）；9月或现主要高点与转折风险。",
             "zhTW": "六爻 timing 支持2026年下半年反彈：首破目標70,000，基準長期目標85,000，bull-case 90,000，極端上行95,000（低權重）；9月或現主要高點與轉折風險。",
             "en": "Oracle Six Yao timing supports a second-half 2026 rebound: first breakout target 70,000, base long-range target 85,000, bull-case 90,000, extreme upside 95,000 with low scenario weight; September as a potential high and turning-risk window."
           },
@@ -238,7 +238,7 @@
           "weight": 20,
           "confidence": 65,
           "explanation": {
-            "zhCN": "现货ETF净流入与稳定币供应扩张为看涨流动性信号；当前净流出与机构转账 带来 近端 下行风险。",
+            "zhCN": "现货ETF净流入与稳定币供应扩张为看涨流动性信号；当前净流出与机构转账 create 近端 downside risk。",
             "zhTW": "現貨ETF淨流入與穩定幣供應擴張為看漲流動性信號；當前淨流出與機構轉賬 create 近端 downside risk。",
             "en": "Spot ETF inflows and stablecoin supply expansion are bullish liquidity signals; current net outflows and institutional transfers create near-term downside risk."
           },
@@ -251,7 +251,7 @@
           "weight": 20,
           "confidence": 65,
           "explanation": {
-            "zhCN": "从66,956的下跌视为63,412上方的回调；守住64,650 有利；若四小时 更低支撑 守住，上升趋势可延续。",
+            "zhCN": "从66,956的下跌视为63,412上方的回调；守住64,650 constructive；若四小时 lower support 守住，上升趋势可延续。",
             "zhTW": "從66,956的下跌視為63,412上方的回調；守住64,650 constructive；若四小時 lower support 守住，上升趨勢可延續。",
             "en": "The decline from 66,956 is treated as a pullback while price remains above 63,412. Holding 64,650 is constructive; if four-hour lower support holds, the uptrend can continue."
           },
@@ -264,7 +264,7 @@
           "weight": 10,
           "confidence": 65,
           "explanation": {
-            "zhCN": "8月初或现 反弹高点；9月或现下半年主要高点，随后转折风险上升。",
+            "zhCN": "8月初或现 rebound high；9月或现下半年主要高点，随后转折风险上升。",
             "zhTW": "8月初或現 rebound high；9月或現下半年主要高點，隨後轉折風險上升。",
             "en": "A rebound high may occur around early August. September may produce the main second-half high, followed by rising turning risk."
           },
@@ -277,7 +277,7 @@
           "weight": 5,
           "confidence": 70,
           "explanation": {
-            "zhCN": "ETF净流出、机构转账及美联储2026 H2加息风险（ORACLE-0008）带来 近端情绪与宏观 下行风险。",
+            "zhCN": "ETF净流出、机构转账及美联储2026 H2加息风险（ORACLE-0008）create 近端情绪与宏观 downside risk。",
             "zhTW": "ETF淨流出、機構轉賬及美聯儲2026 H2加息風險（ORACLE-0008）create 近端情緒與宏觀 downside risk。",
             "en": "ETF net outflows, institutional transfers, and Federal Reserve H2 2026 rate-hike risk (ORACLE-0008) create near-term sentiment and macro downside risk."
           },
@@ -290,7 +290,7 @@
           "weight": 5,
           "confidence": 65,
           "explanation": {
-            "zhCN": "DOGE/SHIB 早期强度或暗示 投机性 风险偏好 改善；需 broader 参与确认；孤立 迷因 强度不足以确认全面流动性 周期。",
+            "zhCN": "DOGE/SHIB 早期强度或暗示 speculative risk appetite 改善；需 broader 参与确认；孤立 meme 强度不足以确认全面流动性 cycle。",
             "zhTW": "DOGE/SHIB 早期強度或暗示 speculative risk appetite 改善；需 broader 參與確認；孤立 meme 強度不足以確認全面流動性 cycle。",
             "en": "Early DOGE and SHIB strength may indicate improving speculative risk appetite; broad participation would provide stronger confirmation; isolated meme-token strength alone is insufficient to confirm a full liquidity cycle."
           },
@@ -324,12 +324,12 @@
           "en": "Stablecoin aggregate supply expands."
         },
         {
-          "zhCN": "美股科技/半导体结束短线 回调。",
+          "zhCN": "美股科技/半导体结束短线 correction。",
           "zhTW": "美股科技/半導體結束短線 correction。",
           "en": "US tech / semiconductor equities end their near-term correction."
         },
         {
-          "zhCN": "比特币 有效突破67,300或66,956压力。",
+          "zhCN": "比特币 decisively 突破67,300或66,956压力。",
           "zhTW": "比特幣 decisively 突破67,300或66,956壓力。",
           "en": "Bitcoin breaks decisively through 67,300 or 66,956 resistance."
         }
@@ -341,12 +341,12 @@
           "en": "ETF net outflow and institutional transfers conflict with the bullish Oracle signal."
         },
         {
-          "zhCN": " 有效跌破63,412将 偏弱en 反弹结构。",
+          "zhCN": " decisively 跌破63,412将 weaken 反弹结构。",
           "zhTW": " decisively 跌破63,412將 weaken 反彈結構。",
           "en": "A decisive break below 63,412 would weaken the rebound structure."
         },
         {
-          "zhCN": "8月初 反弹高点 后 回调 风险增加。",
+          "zhCN": "8月初 rebound high 后 correction 风险增加。",
           "zhTW": "8月初 rebound high 後 correction 風險增加。",
           "en": "Correction risk increases after the early-August rebound or local peak."
         }
@@ -374,7 +374,7 @@
           "en": "Does 63,412 remain supported?"
         },
         {
-          "zhCN": "8月初反弹后是否开始新 回调？",
+          "zhCN": "8月初反弹后是否开始新 correction？",
           "zhTW": "8月初反彈後是否開始新 correction？",
           "en": "Does a new correction begin after the early-August rebound?"
         },
@@ -401,17 +401,17 @@
       ],
       "trendPath": [
         {
-          "zhCN": "短线回调或 盘整 可能继续。",
+          "zhCN": "短线回调或 consolidation 可能继续。",
           "zhTW": "短線回調或 consolidation 可能繼續。",
           "en": "A short-term pullback or consolidation may continue first."
         },
         {
-          "zhCN": "若63,412–64,650保持支撑，更大 反弹 结构 完好。",
+          "zhCN": "若63,412–64,650保持支撑，更大 rebound 结构 intact。",
           "zhTW": "若63,412–64,650保持支撐，更大 rebound 結構 intact。",
           "en": "If 63,412 to 64,650 remains supported, the larger rebound structure remains intact."
         },
         {
-          "zhCN": "首破目标70,000；基准长期目标85,000；看涨情景 90,000；极端上行95,000（低情景权重）。",
+          "zhCN": "首破目标70,000；基准长期目标85,000；bull-case 90,000；极端上行95,000（低情景权重）。",
           "zhTW": "首破目標70,000；基準長期目標85,000；bull-case 90,000；極端上行95,000（低情境權重）。",
           "en": "First breakout target 70,000; base long-range target 85,000; bull-case 90,000; extreme upside 95,000 with low scenario weight."
         },
@@ -452,7 +452,7 @@
         "en": "66,956"
       },
       "invalidationLabel": {
-        "zhCN": " 有效跌破63,412",
+        "zhCN": " decisively 跌破63,412",
         "zhTW": " decisively 跌破63,412",
         "en": "Decisive break below 63,412"
       },
@@ -732,12 +732,12 @@
           },
           "bull": {
             "summary": {
-              "zhCN": "突破67,300后延续至90,000 看涨情景，9月高点后转折风险。",
+              "zhCN": "突破67,300后延续至90,000 bull-case，9月高点后转折风险。",
               "zhTW": "突破67,300後延續至90,000 bull-case，9月高點後轉折風險。",
               "en": "Breaks 67,300 and extends toward the 90,000 bull-case target, with turning risk after the September high."
             },
             "logic": {
-              "zhCN": "比特币守住64,650且无深度回测， 明确地突破67,300及70,000，延续至9月 看涨情景 目标90,000（95,000为低权重极端上行）；9月高点后转折风险上升。",
+              "zhCN": "比特币守住64,650且无深度回测， decisively突破67,300及70,000，延续至9月 bull-case 目标90,000（95,000为低权重极端上行）；9月高点后转折风险上升。",
               "zhTW": "比特幣守住64,650且無深度回測， decisively突破67,300及70,000，延續至9月 bull-case 目標90,000（95,000為低權重極端上行）；9月高點後轉折風險上升。",
               "en": "Bitcoin holds above 64,650, breaks 67,300 and 70,000, and extends toward the 90,000 bull-case target in September (95,000 as low-weight extreme upside). Turning risk rises after the September high."
             },
@@ -795,7 +795,7 @@
               "en": "Fails near 66,956–67,300, breaks the 63,412 invalidation, and risks a move toward 58,000."
             },
             "logic": {
-              "zhCN": "反弹尝试在66,956至67,300附近失败。 明确地跌破63,412失效位将打开向61,500的移动，若卖压持续则更深风险指向58,000强支撑。",
+              "zhCN": "反弹尝试在66,956至67,300附近失败。 decisively跌破63,412失效位将打开向61,500的移动，若卖压持续则更深风险指向58,000强支撑。",
               "zhTW": "反彈嘗試在66,956至67,300附近失敗。 decisively跌破63,412失效位將打開向61,500的移動，若賣壓持續則更深風險指向58,000強支撐。",
               "en": "The rebound attempt fails near 66,956 to 67,300. A decisive break below the 63,412 invalidation level opens a move toward 61,500, with deeper risk toward the 58,000 major support if selling pressure continues."
             },
@@ -865,12 +865,12 @@
         },
         "risks": [
           {
-            "zhCN": " 有效跌破63,412将使情景失效。",
+            "zhCN": " decisively 跌破63,412将使情景失效。",
             "zhTW": " decisively 跌破63,412將使情境失效。",
             "en": "A decisive break below 63,412 invalidates the scenario."
           },
           {
-            "zhCN": "8月初反弹后回调 风险增加。",
+            "zhCN": "8月初反弹后 correction 风险增加。",
             "zhTW": "8月初反彈後 correction 風險增加。",
             "en": "Correction risk increases after the early-August rebound."
           }
@@ -987,7 +987,7 @@
           "weight": 30,
           "confidence": 72,
           "explanation": {
-            "zhCN": "7月21日至8月21日纳斯达克 预期 缓慢 有限下跌。",
+            "zhCN": "7月21日至8月21日纳斯达克 expected 缓慢 limited decline。",
             "zhTW": "7月21日至8月21日納斯達克 expected 緩慢 limited decline。",
             "en": "From July 21 to August 21, the Nasdaq is expected to move gradually lower through a slow and limited decline."
           },
@@ -1000,7 +1000,7 @@
           "weight": 25,
           "confidence": 70,
           "explanation": {
-            "zhCN": "美指或达 小周期 高点；8月初 低点 后 short 反弹。",
+            "zhCN": "美指或达 small-cycle peak；8月初 trough 后 short rebound。",
             "zhTW": "美指或達 small-cycle peak；8月初 trough 後 short rebound。",
             "en": "The US index has likely reached a small-cycle peak. A trough is expected around early August, followed by a short rebound."
           },
@@ -1013,7 +1013,7 @@
           "weight": 20,
           "confidence": 68,
           "explanation": {
-            "zhCN": "7月27–28 短暂 反弹 后或再 下跌 至7月31–8月7窗口。",
+            "zhCN": "7月27–28 brief rebound 后或再 decline 至7月31–8月7窗口。",
             "zhTW": "7月27–28 brief rebound 後或再 decline 至7月31–8月7窗口。",
             "en": "A brief rebound around July 27 to July 28 may be followed by another decline into the July 31 to August 7 turning window."
           },
@@ -1036,7 +1036,7 @@
       "confirmationConditions": [],
       "riskConditions": [
         {
-          "zhCN": "关键支撑失败或扩大为更大 回调。",
+          "zhCN": "关键支撑失败或扩大为更大 correction。",
           "zhTW": "關鍵支撐失敗或擴大為更大 correction。",
           "en": "If key support fails, a normal slow decline could expand into a larger correction."
         }
@@ -1048,19 +1048,19 @@
       "verificationStatus": "draft-pending-verification",
       "verificationChecklist": [
         {
-          "zhCN": "8月21日前是否维持缓慢 下跌？",
+          "zhCN": "8月21日前是否维持缓慢 decline？",
           "zhTW": "8月21日前是否維持緩慢 decline？",
           "en": "Does the index remain in a slow decline through August 21?"
         },
         {
-          "zhCN": "7月27–28是否出现 短暂反弹？",
+          "zhCN": "7月27–28是否出现 temporary rebound？",
           "zhTW": "7月27–28是否出現 temporary rebound？",
           "en": "Does a temporary rebound occur around July 27 to July 28?"
         }
       ],
       "trendPath": [
         {
-          "zhCN": "一个月趋势 预期 缓慢 lower。",
+          "zhCN": "一个月趋势 expected 缓慢 lower。",
           "zhTW": "一個月趨勢 expected 緩慢 lower。",
           "en": "The broader one-month trend is expected to remain gradually lower."
         }
@@ -1190,7 +1190,7 @@
               "en": "Slow oscillating decline with a temporary early-August rebound that may not hold."
             },
             "logic": {
-              "zhCN": "整体趋势缓慢走低。7月27–28可能出现短暂反弹，随后在7月31–8月7转折窗口再度走低。8月初低点后或有短 修复，但可能只是暂时的。",
+              "zhCN": "整体趋势缓慢走低。7月27–28可能出现短暂反弹，随后在7月31–8月7转折窗口再度走低。8月初低点后或有短 recovery，但可能只是暂时的。",
               "zhTW": "整體趨勢緩慢走低。7月27–28可能出現短暫反彈，隨後在7月31–8月7轉折窗口再度走低。8月初低點後或有短 recovery，但可能只是暫時的。",
               "en": "The broader trend stays gradually lower — a slow oscillating decline rather than a crash. A brief rebound may appear around July 27–28 before a renewed decline into the July 31–August 7 turning window. A short recovery can follow the early-August low, but it may remain only temporary."
             },
@@ -1273,7 +1273,7 @@
               "en": "7,315 fails and price moves toward the lower 7,212–7,262 observation zone."
             },
             "logic": {
-              "zhCN": "7,315下行观察区未能守住，跌势延伸至7,212–7,262更低观察区，且无 显著 8月初反弹。",
+              "zhCN": "7,315下行观察区未能守住，跌势延伸至7,212–7,262更低观察区，且无 meaningful 8月初反弹。",
               "zhTW": "7,315下行觀察區未能守住，跌勢延伸至7,212–7,262更低觀察區，且無 meaningful 8月初反彈。",
               "en": "The 7,315 downside observation zone fails to hold, and the decline extends toward the 7,212–7,262 lower observation zone without a meaningful early-August rebound."
             },
@@ -1421,7 +1421,7 @@
           "weight": 25,
           "confidence": 75,
           "explanation": {
-            "zhCN": "半导体ETF 6月17日至8月7日 偏弱/declining；8月7日后 逐步 修复。",
+            "zhCN": "半导体ETF 6月17日至8月7日 weak/declining；8月7日后 gradual recovery。",
             "zhTW": "半導體ETF 6月17日至8月7日 weak/declining；8月7日後 gradual recovery。",
             "en": "Semiconductor ETF: the trend from June 17 to August 7 is weak or declining. After August 7, the sector may gradually recover."
           },
@@ -1434,7 +1434,7 @@
           "weight": 15,
           "confidence": 70,
           "explanation": {
-            "zhCN": "Sandisk 约8月7日前 偏弱，9月7日后 更强的看涨阶段。",
+            "zhCN": "Sandisk 约8月7日前 weak，9月7日后 stronger bullish phase。",
             "zhTW": "Sandisk 約8月7日前 weak，9月7日後 stronger bullish phase。",
             "en": "Sandisk: remains weak until approximately August 7, then gradually rises. A stronger bullish phase may begin after September 7."
           },
@@ -1447,7 +1447,7 @@
           "weight": 25,
           "confidence": 73,
           "explanation": {
-            "zhCN": "存储或达7月底 小周期 高点；9–10月或 form 更重要 bottom。",
+            "zhCN": "存储或达7月底 small-cycle peak；9–10月或 form 更重要 bottom。",
             "zhTW": "儲存或達7月底 small-cycle peak；9–10月或 form 更重要 bottom。",
             "en": "Memory may reach a small-cycle peak near the end of July, then decline toward a trough in mid-to-late August. The broader semiconductor sector may form a more important bottom between September and mid-October."
           },
@@ -1460,7 +1460,7 @@
           "weight": 20,
           "confidence": 72,
           "explanation": {
-            "zhCN": "科技与半导体 资金持续流出。",
+            "zhCN": "科技与半导体 funds continued outflows。",
             "zhTW": "科技與半導體 funds continued outflows。",
             "en": "Technology and semiconductor funds are showing continued outflows."
           },
@@ -1473,7 +1473,7 @@
           "weight": 15,
           "confidence": 70,
           "explanation": {
-            "zhCN": "AI 基础设施投资节奏 受质疑；硬件产业链 承压。",
+            "zhCN": "AI infrastructure spending pace 受质疑；hardware chain 承压。",
             "zhTW": "AI infrastructure spending pace 受質疑；hardware chain 承壓。",
             "en": "The market is questioning whether AI infrastructure spending can continue at the same pace. High capital expenditure, weaker free cash flow and shareholder resistance could pressure the hardware chain."
           },
@@ -1483,7 +1483,7 @@
       "confirmationConditions": [],
       "riskConditions": [
         {
-          "zhCN": "8月7日后 修复 可能只是 短暂反弹。",
+          "zhCN": "8月7日后 recovery 可能只是 temporary rebound。",
           "zhTW": "8月7日後 recovery 可能只是 temporary rebound。",
           "en": "The recovery after August 7 may be only a temporary rebound rather than a new sustained uptrend."
         }
@@ -1495,14 +1495,14 @@
       "verificationStatus": "draft-pending-verification",
       "verificationChecklist": [
         {
-          "zhCN": "8月7日前 疲弱 是否 持续？",
+          "zhCN": "8月7日前 weakness 是否 persist？",
           "zhTW": "8月7日前 weakness 是否 persist？",
           "en": "Does semiconductor weakness persist until approximately August 7?"
         }
       ],
       "trendPath": [
         {
-          "zhCN": "板块约8月7日前维持 偏弱。",
+          "zhCN": "板块约8月7日前维持 weak。",
           "zhTW": "板塊約8月7日前維持 weak。",
           "en": "The sector remains weak into approximately August 7."
         }
@@ -1677,7 +1677,7 @@
               "en": "Weak into approximately August 7, then a gradual but unstable recovery with a larger trough ahead."
             },
             "logic": {
-              "zhCN": "板块约8月7日前维持弱势，之后 逐步 反弹但不稳定，可能再次 回调。9月至10月中旬或形成更大 板块低点。",
+              "zhCN": "板块约8月7日前维持弱势，之后 gradual 反弹但不稳定，可能再次 correction。9月至10月中旬或形成更大 sector trough。",
               "zhTW": "板塊約8月7日前維持弱勢，之後 gradual 反彈但不穩定，可能再次 correction。9月至10月中旬或形成更大 sector trough。",
               "en": "The sector stays weak into roughly August 7. A gradual rebound begins afterward but remains unstable, and another correction may occur. A larger sector trough may still form between September and mid-October before a more durable recovery."
             },
@@ -1723,7 +1723,7 @@
               "en": "Support holds through August and recovery strengthens meaningfully after September 7."
             },
             "logic": {
-              "zhCN": "670–810支撑区未深度破位，9月7日后 Sandisk 及 更广泛的存储板块 进入 更强的看涨阶段。",
+              "zhCN": "670–810支撑区未深度破位，9月7日后 Sandisk 及 wider memory complex 进入 stronger bullish phase。",
               "zhTW": "670–810支撐區未深度破位，9月7日後 Sandisk 及 wider memory complex 進入 stronger bullish phase。",
               "en": "The 670–810 support zone holds without a deeper breakdown, and the recovery strengthens meaningfully after September 7 as Sandisk and the wider memory complex enter a stronger bullish phase."
             },
@@ -1754,12 +1754,12 @@
           },
           "bear": {
             "summary": {
-              "zhCN": "8月初修复失败，更大 低点 延迟且更深。",
+              "zhCN": "8月初修复失败，更大 trough 延迟且更深。",
               "zhTW": "8月初修復失敗，更大 trough 延遲且更深。",
               "en": "The early-August recovery fails and the larger trough is delayed and deeper, into September or October."
             },
             "logic": {
-              "zhCN": "8月初反弹尝试 outright 失败，更大 低点 延迟至9月或10月并 undercut 670 重要支撑。",
+              "zhCN": "8月初反弹尝试 outright 失败，更大 trough 延迟至9月或10月并 undercut 670 major support。",
               "zhTW": "8月初反彈嘗試 outright 失敗，更大 trough 延遲至9月或10月並 undercut 670 major support。",
               "en": "The early-August recovery attempt fails outright. The larger trough is delayed further into September or October and undercuts the 670 major support, consistent with the fundamental-risk view that the storage investment narrative may be deteriorating."
             },
@@ -1884,7 +1884,7 @@
           "weight": 35,
           "confidence": 61,
           "explanation": {
-            "zhCN": "8月7日前突破4,200 概率较低；near 压力 中性至略偏空。",
+            "zhCN": "8月7日前突破4,200 probability considered low；near resistance neutral-to-slightly-bearish。",
             "zhTW": "8月7日前突破4,200 probability considered low；near resistance neutral-to-slightly-bearish。",
             "en": "The probability of breaking 4,200 before August 7 is considered low. The signal is neutral to slightly bearish near resistance."
           },
@@ -1897,7 +1897,7 @@
           "weight": 35,
           "confidence": 65,
           "explanation": {
-            "zhCN": "从3,942 反弹 可能大于 普通反弹；守住4,060 维持上行空间。",
+            "zhCN": "从3,942 rebound 可能大于 simple bounce；守住4,060 preserve upside。",
             "zhTW": "從3,942 rebound 可能大於 simple bounce；守住4,060 preserve upside。",
             "en": "The rebound from 3,942 may be larger than a simple short bounce. Holding above 4,060 preserves upside momentum."
           },
@@ -1910,7 +1910,7 @@
           "weight": 30,
           "confidence": 60,
           "explanation": {
-            "zhCN": "6月底/7月初 weekly 低点；9月底或 another larger 低点。",
+            "zhCN": "6月底/7月初 weekly trough；9月底或 another larger trough。",
             "zhTW": "6月底/7月初 weekly trough；9月底或 another larger trough。",
             "en": "Gold formed an important weekly trough around late June or early July. Another larger trough may occur around late September."
           },
@@ -1932,14 +1932,14 @@
       "verificationStatus": "draft-pending-verification",
       "verificationChecklist": [
         {
-          "zhCN": "8月7日前是否 维持在…下方 4,200？",
+          "zhCN": "8月7日前是否 remain below 4,200？",
           "zhTW": "8月7日前是否 remain below 4,200？",
           "en": "Does gold remain below 4,200 before August 7?"
         }
       ],
       "trendPath": [
         {
-          "zhCN": "从重要支撑 区域尝试 修复。",
+          "zhCN": "从重要支撑 area attempting recovery。",
           "zhTW": "從重要支撐 area attempting recovery。",
           "en": "Gold is attempting to recover from an important support area."
         }
@@ -2066,7 +2066,7 @@
               "en": "Range-bound recovery below 4,200, with repeated pressure and a possible support retest."
             },
             "logic": {
-              "zhCN": "黄金从支撑修复但在4,200压力下方反复受阻，在支撑与压力间 盘整， 上行 前可能回测支撑。",
+              "zhCN": "黄金从支撑修复但在4,200压力下方反复受阻，在支撑与压力间 consolidation， advance 前可能回测支撑。",
               "zhTW": "黃金從支撐修復但在4,200壓力下方反覆受阻，在支撐與壓力間 consolidation， advance 前可能回測支撐。",
               "en": "Gold recovers from support but faces repeated pressure below the 4,200 resistance. Price consolidates between support and resistance, with a possible retest of support before another advance attempt."
             },
@@ -2102,12 +2102,12 @@
           },
           "bull": {
             "summary": {
-              "zhCN": " 有效突破4,200并尝试4,303–4,333强压力区。",
+              "zhCN": " decisively 突破4,200并尝试4,303–4,333强压力区。",
               "zhTW": " decisively 突破4,200並嘗試4,303–4,333強壓力區。",
               "en": "Breaks 4,200 decisively and attempts the 4,303–4,333 major resistance zone."
             },
             "logic": {
-              "zhCN": "黄金以稳定 确认 方式突破4,200而非 短暂冲高，改善中期 展望 并打开4,303–4,333尝试。",
+              "zhCN": "黄金以稳定 confirmed 方式突破4,200而非 brief spike，改善中期 outlook 并打开4,303–4,333尝试。",
               "zhTW": "黃金以穩定 confirmed 方式突破4,200而非 brief spike，改善中期 outlook 並打開4,303–4,333嘗試。",
               "en": "Gold breaks 4,200 with a stable, confirmed move rather than a brief spike, improving the medium-term outlook and opening an attempt at the 4,303–4,333 resistance zone."
             },
@@ -2138,7 +2138,7 @@
               "en": "Fails repeatedly below 4,200 and retests 4,060 or the 3,942 major support."
             },
             "logic": {
-              "zhCN": "黄金在4,200压力下方反复失败并回测支撑，跌破4,060将打开3,942 重要支撑 回测。",
+              "zhCN": "黄金在4,200压力下方反复失败并回测支撑，跌破4,060将打开3,942 major support 回测。",
               "zhTW": "黃金在4,200壓力下方反覆失敗並回測支撐，跌破4,060將打開3,942 major support 回測。",
               "en": "Gold fails repeatedly below the 4,200 resistance and returns to test support before any further advance, with a break of 4,060 opening a retest of the 3,942 major support."
             },
@@ -2254,7 +2254,7 @@
           "weight": 40,
           "confidence": 70,
           "explanation": {
-            "zhCN": "从68 反弹 达7月底 高点；短期 回调 预期；8月底–10月初 重要低点。",
+            "zhCN": "从68 rebound 达7月底 peak；short-term correction expected；8月底–10月初 major trough。",
             "zhTW": "從68 rebound 達7月底 peak；short-term correction expected；8月底–10月初 major trough。",
             "en": "Oil rebounded strongly from the key support near 68 and has reached a late-July cycle peak. A short-term correction is expected. The next major trough may appear between late August and early October."
           },
@@ -2267,7 +2267,7 @@
           "weight": 30,
           "confidence": 68,
           "explanation": {
-            "zhCN": "Short-term sell signal；至少 one 四小时下行段 预期。",
+            "zhCN": "Short-term sell signal；至少 one four-hour downward leg expected。",
             "zhTW": "Short-term sell signal；至少 one four-hour downward leg expected。",
             "en": "A short-term sell signal has appeared, with at least one four-hour downward leg expected."
           },
@@ -2280,7 +2280,7 @@
           "weight": 30,
           "confidence": 65,
           "explanation": {
-            "zhCN": "Wave structure points to 短期下跌 before next larger 走势。",
+            "zhCN": "Wave structure points to near-term decline before next larger move。",
             "zhTW": "Wave structure points to near-term decline before next larger move。",
             "en": "Wave structure points to a near-term decline before the next larger move."
           },
@@ -2290,7 +2290,7 @@
       "confirmationConditions": [],
       "riskConditions": [
         {
-          "zhCN": "地缘事件可能 打断 预期 回调。",
+          "zhCN": "地缘事件可能 interrupt 预期 correction。",
           "zhTW": "地緣事件可能 interrupt 預期 correction。",
           "en": "A geopolitical event could interrupt the expected correction and cause another sudden price spike."
         }
@@ -2302,14 +2302,14 @@
       "verificationStatus": "draft-pending-verification",
       "verificationChecklist": [
         {
-          "zhCN": "是否从7月底 高点 下跌？",
+          "zhCN": "是否从7月底 peak decline？",
           "zhTW": "是否從7月底 peak decline？",
           "en": "Does oil decline from the late-July peak?"
         }
       ],
       "trendPath": [
         {
-          "zhCN": "接近7月底 周期 高点；不应追高。",
+          "zhCN": "接近7月底 cycle peak；不应追高。",
           "zhTW": "接近7月底 cycle peak；不應追高。",
           "en": "Oil is near a late-July cycle peak and resistance area. The current move should not be chased higher."
         }
@@ -2411,7 +2411,7 @@
               "en": "Correction from the late-July peak into a major trough window, then a long-term recovery attempt."
             },
             "logic": {
-              "zhCN": "原油接近7月底 周期 高点 与 压力。短线 下跌 或 盘整 跟随——当前 走势 不应追高。8月底至10月初或出现更有吸引力的 长期入场窗口。",
+              "zhCN": "原油接近7月底 cycle peak 与 resistance。短线 decline 或 consolidation 跟随——当前 move 不应追高。8月底至10月初或出现更有吸引力的 long-term entry window。",
               "zhTW": "原油接近7月底 cycle peak 與 resistance。短線 decline 或 consolidation 跟隨——當前 move 不應追高。8月底至10月初或出現更有吸引力的 long-term entry window。",
               "en": "Oil is near a late-July cycle peak and resistance area. A short-term decline or consolidation follows — the current move should not be chased higher. A more attractive long-term entry window may appear between late August and early October, with the long-term cycle outlook constructive after the correction."
             },
@@ -2451,12 +2451,12 @@
           },
           "bull": {
             "summary": {
-              "zhCN": "地缘冲击打断回调并 回测 7月底峰值区。",
+              "zhCN": "地缘冲击打断回调并 retest 7月底峰值区。",
               "zhTW": "地緣衝擊打斷回調並 retest 7月底峰值區。",
               "en": "A geopolitical shock interrupts the decline and price retests the late-July peak zone."
             },
             "logic": {
-              "zhCN": "地缘事件 打断 预期 回调， 突发冲高 回测 7月底 周期 高点 zone 而非 让下跌过程展开。",
+              "zhCN": "地缘事件 interrupt 预期 correction， sudden spike retest 7月底 cycle peak zone 而非 allow decline unfold。",
               "zhTW": "地緣事件 interrupt 預期 correction， sudden spike retest 7月底 cycle peak zone 而非 allow decline unfold。",
               "en": "A geopolitical event interrupts the expected correction, causing another sudden price spike that retests the late-July cycle peak zone rather than allowing the decline to unfold as expected."
             },
@@ -2491,7 +2491,7 @@
               "en": "The 68 support breaks and the correction extends well beyond the base case trough."
             },
             "logic": {
-              "zhCN": "68支撑 有效跌破， 回调 比基准情景更深， 延后 并 加深 最终 long-term 修复 窗口。",
+              "zhCN": "68支撑 decisively 跌破， correction 比基准情景更深， delay 并 deepen eventual long-term recovery window。",
               "zhTW": "68支撐 decisively 跌破， correction 比基準情境更深， delay 並 deepen eventual long-term recovery window。",
               "en": "Support at 68 breaks decisively and the correction extends further than the base case expects, delaying and deepening the eventual long-term recovery window."
             },
@@ -2654,7 +2654,7 @@
           "weight": 50,
           "confidence": 80,
           "explanation": {
-            "zhCN": "奇门研究认为A股H2或进入 左侧 与 年末上涨 情景。",
+            "zhCN": "奇门研究认为A股H2或进入 left-side 与 year-end rally 情景。",
             "zhTW": "奇門研究認為A股H2或進入 left-side 與 year-end rally 情景。",
             "en": "Qimen research holds that A-shares may enter a left-side positioning and year-end rally scenario in H2."
           },
@@ -2949,7 +2949,7 @@
         "en": "ChangXin Technology"
       },
       "localizedSummary": {
-        "zhCN": "国产DRAM战略核心资产；上市前观察，不臆测 已确认 上市日期。",
+        "zhCN": "国产DRAM战略核心资产；上市前观察，不臆测 verified 上市日期。",
         "zhTW": "國產DRAM戰略核心資產；上市前觀察，不臆測 verified 上市日期。",
         "en": "Core domestic DRAM strategic asset; pre-IPO watch — no verified listing date asserted."
       },
@@ -3039,7 +3039,7 @@
       "verificationStatus": "pending",
       "verificationChecklist": [
         {
-          "zhCN": "IPO定价与首日交易数据待 已确认。",
+          "zhCN": "IPO定价与首日交易数据待 verified。",
           "zhTW": "IPO定價與首日交易數據待 verified。",
           "en": "IPO pricing and first-day trading data pending verification."
         }
@@ -3094,7 +3094,7 @@
           }
         ],
         "thesis": {
-          "zhCN": "长鑫科技为国产DRAM及AI内存替代战略核心资产；上市前持续观察，不断言已确认 的上市日期或发行价。",
+          "zhCN": "长鑫科技为国产DRAM及AI内存替代战略核心资产；上市前持续观察，不断言已 verified 的上市日期或发行价。",
           "zhTW": "長鑫科技為國產DRAM及AI記憶體替代戰略核心資產；上市前持續觀察，不斷言已 verified 的上市日期或發行價。",
           "en": "ChangXin Technology is a core asset in the domestic DRAM and AI-memory substitution strategy; under pre-IPO watch without asserting a verified listing date or IPO price."
         },
@@ -3202,7 +3202,7 @@
           "en": "Retest demand is visible"
         },
         {
-          "zhCN": "成交量维持高位",
+          "zhCN": "成交量维持 elevated",
           "zhTW": "成交量維持 elevated",
           "en": "Trading volume remains elevated"
         },
@@ -3234,12 +3234,12 @@
           "en": "Volume contracts sharply"
         },
         {
-          "zhCN": "比特币市场占比 明显上升",
+          "zhCN": "比特币 dominance 明显上升",
           "zhTW": "比特幣 dominance 明顯上升",
           "en": "Bitcoin dominance rises strongly"
         },
         {
-          "zhCN": "更广泛 迷因 代币行情逆转",
+          "zhCN": "更广泛 meme 代币行情逆转",
           "zhTW": "更廣泛 meme 代幣行情逆轉",
           "en": "The broader meme-token move reverses"
         }
@@ -3262,7 +3262,7 @@
           "en": "Holding above 0.07384 would represent breakout confirmation; a successful retest would represent stronger trend confirmation."
         },
         {
-          "zhCN": "未能守住并收复该水平将削弱来源 论点。",
+          "zhCN": "未能守住并收复该水平将削弱来源 thesis。",
           "zhTW": "未能守住並收復該水平將削弱來源 thesis。",
           "en": "Failure to hold and reclaim the level would weaken the source thesis."
         }
@@ -3318,7 +3318,7 @@
         },
         "mainThemes": [
           {
-            "zhCN": "Crypto / 迷因龙头",
+            "zhCN": "Crypto / Meme Leader",
             "zhTW": "Crypto / Meme Leader",
             "en": "Crypto / Meme Leader"
           },
@@ -3329,7 +3329,7 @@
           }
         ],
         "thesis": {
-          "zhCN": "MoonX 将来源结论表述为：守住 0.07384 上方可能代表突破确认；回测守住代表更强趋势确认；未能收复则削弱原论点。此为研究观察，非保证性判断。",
+          "zhCN": "MoonX 将来源结论表述为：守住 0.07384 上方可能代表突破确认；回测守住代表更强趋势确认；未能收复则削弱 thesis。此为研究观察，非保证性判断。",
           "zhTW": "MoonX 將來源結論表述為：守住 0.07384 上方可能代表突破確認；回測守住代表更強趨勢確認；未能收復則削弱 thesis。此為研究觀察，非保證性判斷。",
           "en": "MoonX frames the source conclusion neutrally: holding above 0.07384 may represent breakout confirmation; a successful retest may represent stronger trend confirmation; failure to reclaim would weaken the thesis. This is a research observation, not a guarantee."
         },
@@ -3345,7 +3345,7 @@
             "en": "Volume contraction"
           },
           {
-            "zhCN": "比特币市场占比 上升",
+            "zhCN": "比特币 dominance 上升",
             "zhTW": "比特幣 dominance 上升",
             "en": "Rising Bitcoin dominance"
           }
@@ -3396,7 +3396,7 @@
       "frameworkFactors": [],
       "confirmationConditions": [
         {
-          "zhCN": "突破结构保持完好",
+          "zhCN": "突破结构保持 intact",
           "zhTW": "突破結構保持 intact",
           "en": "Breakout structure remains intact"
         },
@@ -3416,29 +3416,29 @@
           "en": "DOGE and other early leaders continue holding gains"
         },
         {
-          "zhCN": "轮动扩散至不止一两个 迷因 资产",
+          "zhCN": "轮动扩散至不止一两个 meme 资产",
           "zhTW": "輪動擴散至不止一兩個 meme 資產",
           "en": "Rotation broadens beyond only one or two meme assets"
         }
       ],
       "riskConditions": [
         {
-          "zhCN": "短暂冲高 后完全回撤",
+          "zhCN": "短暂 spike 后完全 retracement",
           "zhTW": "短暫 spike 後完全 retracement",
           "en": "Short-lived spike followed by full retracement"
         },
         {
-          "zhCN": "市场广度 偏弱",
+          "zhCN": "市场 breadth 偏弱",
           "zhTW": "市場 breadth 偏弱",
           "en": "Weak market breadth"
         },
         {
-          "zhCN": "比特币 下破",
+          "zhCN": "比特币 breakdown",
           "zhTW": "比特幣 breakdown",
           "en": "Bitcoin breakdown"
         },
         {
-          "zhCN": "比特币市场占比 快速上升",
+          "zhCN": "比特币 dominance 快速上升",
           "zhTW": "比特幣 dominance 快速上升",
           "en": "Rapid rise in Bitcoin dominance"
         },
@@ -3517,7 +3517,7 @@
         },
         "mainThemes": [
           {
-            "zhCN": "Crypto / 迷因龙头",
+            "zhCN": "Crypto / Meme Leader",
             "zhTW": "Crypto / Meme Leader",
             "en": "Crypto / Meme Leader"
           },
@@ -3534,12 +3534,12 @@
         },
         "risks": [
           {
-            "zhCN": "短暂冲高 后完全回撤",
+            "zhCN": "短暂 spike 后完全 retracement",
             "zhTW": "短暫 spike 後完全 retracement",
             "en": "Short-lived spike followed by full retracement"
           },
           {
-            "zhCN": "市场广度 不足",
+            "zhCN": "市场 breadth 不足",
             "zhTW": "市場 breadth 不足",
             "en": "Insufficient market breadth"
           }
@@ -3559,7 +3559,7 @@
         "en": "ChangXin Technology STAR Market IPO Watch"
       },
       "description": {
-        "zhCN": "待验证的 投机性 上市观察窗口；不断言已确认 的上市日期或发行价。",
+        "zhCN": "待验证的 speculative 上市观察窗口；不断言已 verified 的上市日期或发行价。",
         "zhTW": "待驗證的 speculative 上市觀察窗口；不斷言已 verified 的上市日期或發行價。",
         "en": "Pending speculative IPO watch window — no verified listing date or IPO price is asserted."
       },
@@ -3665,7 +3665,7 @@
         "en": "Fed Hawkish-Intention Observation Window"
       },
       "description": {
-        "zhCN": "六爻 ORACLE-0008：鹰派 表态 可能在8月7日后增强。",
+        "zhCN": "Oracle Six Yao ORACLE-0008：鹰派 rhetoric 可能在8月7日后增强。",
         "zhTW": "Oracle Six Yao ORACLE-0008：鷹派 rhetoric 可能在8月7日後增強。",
         "en": "Oracle Six Yao ORACLE-0008: Hawkish rhetoric may strengthen after August 7."
       },
@@ -3686,7 +3686,7 @@
         "en": "Fed Tightening-Risk Window"
       },
       "description": {
-        "zhCN": "六爻 ORACLE-0008：若年底前实际加息，主要风险窗口在10–11月。",
+        "zhCN": "Oracle Six Yao ORACLE-0008：若年底前实际加息，主要风险窗口在10–11月。",
         "zhTW": "Oracle Six Yao ORACLE-0008：若年底前實際加息，主要風險窗口在10–11月。",
         "en": "Oracle Six Yao ORACLE-0008: If an actual rate increase occurs before year-end, the main risk window is October to November 2026."
       },
@@ -3707,7 +3707,7 @@
         "en": "Bitcoin September High / Turning-Risk Window"
       },
       "description": {
-        "zhCN": "六爻 ORACLE-0009：9月或现下半年主要高点；85,000基准 / 90,000 看涨情景。",
+        "zhCN": "Oracle Six Yao ORACLE-0009：9月或现下半年主要高点；85,000基准 / 90,000 bull-case。",
         "zhTW": "Oracle Six Yao ORACLE-0009：9月或現下半年主要高點；85,000基準 / 90,000 bull-case。",
         "en": "Oracle Six Yao ORACLE-0009: September may produce the main second-half high; 85,000 base / 90,000 bull-case targets."
       },
@@ -3961,7 +3961,7 @@
       "confidence": 65,
       "interpretation": [
         {
-          "zhCN": "山寨币市场可能已超越短暂的投机性反弹，进入更广泛的轮动阶段。",
+          "zhCN": "山寨币市场可能已超越短暂 speculative bounce，进入更广泛的轮动阶段。",
           "zhTW": "山寨幣市場可能已超越短暫 speculative bounce，進入更廣泛的輪動階段。",
           "en": "The altcoin market may have moved beyond a brief speculative bounce and entered a broader rotation phase."
         },
@@ -3981,7 +3981,7 @@
           "en": "The expected path is not that every altcoin rises simultaneously — early leaders first, followed by selective broadening into assets with stronger weekly technical structures."
         },
         {
-          "zhCN": "这是轮动 论点，不保证全面 山寨币普涨行情。",
+          "zhCN": "这是轮动 thesis，不保证全面 altcoin season。",
           "zhTW": "這是輪動 thesis，不保證全面 altcoin season。",
           "en": "This is a rotation thesis, not a guarantee of a full-market altcoin season."
         }
@@ -3994,7 +3994,7 @@
           "weight": 25,
           "confidence": 70,
           "explanation": {
-            "zhCN": "轮动可能代表完整市场段落而非仅短暂 空头回补。",
+            "zhCN": "轮动可能代表完整市场段落而非仅短暂 short squeeze。",
             "zhTW": "輪動可能代表完整市場段落而非僅短暫 short squeeze。",
             "en": "The move may represent a complete market segment rather than only a brief short squeeze."
           },
@@ -4007,7 +4007,7 @@
           "weight": 25,
           "confidence": 70,
           "explanation": {
-            "zhCN": "DOGE 与 SHIB 作为早期龙头提供 部分确认。",
+            "zhCN": "DOGE 与 SHIB 作为早期龙头提供 partial confirmation。",
             "zhTW": "DOGE 與 SHIB 作為早期龍頭提供 partial confirmation。",
             "en": "DOGE and SHIB as early leaders provide partial confirmation."
           },
@@ -4046,7 +4046,7 @@
           "weight": 15,
           "confidence": 70,
           "explanation": {
-            "zhCN": "孤立 迷因 强度不足以确认全面 风险偏好转强；需观察 市场广度。",
+            "zhCN": "孤立 meme 强度不足以确认全面 risk-on；需观察 breadth。",
             "zhTW": "孤立 meme 強度不足以確認全面 risk-on；需觀察 breadth。",
             "en": "Isolated meme strength alone is insufficient to confirm full risk-on; breadth must be watched."
           },
@@ -4061,36 +4061,36 @@
       "scenarios": {
         "base": {
           "summary": {
-            "zhCN": "DOGE/SHIB 保持早期龙头，市场在第一波 走势 后整理，轮动逐步扩散。",
+            "zhCN": "DOGE/SHIB 保持早期龙头，市场在第一波 move 后整理，轮动逐步扩散。",
             "zhTW": "DOGE/SHIB 保持早期龍頭，市場在第一波 move 後整理，輪動逐步擴散。",
             "en": "DOGE and SHIB remain early leaders; the market consolidates after the first move; rotation gradually broadens."
           },
           "logic": {
-            "zhCN": "基准情景：早期龙头维持，整理后选择性扩散至周线底背离候选，表现高度 uneven。",
+            "zhCN": "Base case：早期龙头维持，整理后选择性扩散至周线底背离候选，表现高度 uneven。",
             "zhTW": "Base case：早期龍頭維持，整理後選擇性擴散至週線底背離候選，表現高度 uneven。",
             "en": "Base case: early leaders hold, consolidation follows the first move, rotation broadens selectively into weekly-divergence candidates; performance remains highly uneven between tokens."
           }
         },
         "bull": {
           "summary": {
-            "zhCN": "龙头结构守住，ETH/BTC 改善，市场占比 停止上升，市场广度 扩大。",
+            "zhCN": "龙头结构守住，ETH/BTC 改善，dominance 停止上升，breadth 扩大。",
             "zhTW": "龍頭結構守住，ETH/BTC 改善，dominance 停止上升，breadth 擴大。",
             "en": "Leader structures hold; ETH/BTC improves; dominance weakens or stops rising; breadth expands."
           },
           "logic": {
-            "zhCN": "看涨情景：更多周线底背离资产开始 持续 上行。",
+            "zhCN": "Bull case：更多周线底背离资产开始 sustained advance。",
             "zhTW": "Bull case：更多週線底背離資產開始 sustained advance。",
             "en": "Bull case: more weekly-divergence assets begin sustained advances."
           }
         },
         "bear": {
           "summary": {
-            "zhCN": "Meme 走势 仅为 空头回补，龙头 完全回撤，市场占比 上升，alt 参与失败。",
+            "zhCN": "Meme move 仅为 short squeeze，龙头 fully retrace，dominance 上升，alt 参与失败。",
             "zhTW": "Meme move 僅為 short squeeze，龍頭 fully retrace，dominance 上升，alt 參與失敗。",
             "en": "The meme move becomes only a short squeeze; leaders fully retrace; dominance rises; broader alt participation fails."
           },
           "logic": {
-            "zhCN": "看跌情景：比特币失去 重要支撑，轮动 论点 失效。",
+            "zhCN": "Bear case：比特币失去 major support，轮动 thesis 失效。",
             "zhTW": "Bear case：比特幣失去 major support，輪動 thesis 失效。",
             "en": "Bear case: Bitcoin loses major support and the rotation thesis fails."
           }
@@ -4118,7 +4118,7 @@
           "en": "Did altcoin trading volume broaden?"
         },
         {
-          "zhCN": "市场广度 是否改善？",
+          "zhCN": "市场 breadth 是否改善？",
           "zhTW": "市場 breadth 是否改善？",
           "en": "Did market breadth improve?"
         },
@@ -4128,34 +4128,34 @@
           "en": "Did ETH/BTC strengthen?"
         },
         {
-          "zhCN": "比特币市场占比 是否走弱或企稳？",
+          "zhCN": "比特币 dominance 是否走弱或企稳？",
           "zhTW": "比特幣 dominance 是否走弱或企穩？",
           "en": "Did Bitcoin dominance weaken or stabilize?"
         },
         {
-          "zhCN": "行情是否持续超过短暂的投机性 冲高？",
+          "zhCN": "行情是否持续超过短暂 speculative spike？",
           "zhTW": "行情是否持續超過短暫 speculative spike？",
           "en": "Did the move last longer than a brief speculative spike?"
         },
         {
-          "zhCN": "市场是否从早期龙头进入扩散阶段？",
+          "zhCN": "市场是否从 Early Leaders 进入 Broadening？",
           "zhTW": "市場是否從 Early Leaders 進入 Broadening？",
           "en": "Did the market progress from Early Leaders to Broadening?"
         }
       ],
       "riskConditions": [
         {
-          "zhCN": "孤立 迷因 强度被误判为全面 山寨币普涨行情",
+          "zhCN": "孤立 meme 强度被误判为全面 alt season",
           "zhTW": "孤立 meme 強度被誤判為全面 alt season",
           "en": "Isolated meme strength misread as a full alt season"
         },
         {
-          "zhCN": "比特币市场占比 快速上升",
+          "zhCN": "Bitcoin dominance 快速上升",
           "zhTW": "Bitcoin dominance 快速上升",
           "en": "Bitcoin dominance rises sharply"
         },
         {
-          "zhCN": "成交量无法 持续",
+          "zhCN": "成交量无法 sustained",
           "zhTW": "成交量無法 sustained",
           "en": "Volume fails to sustain"
         }
@@ -4191,7 +4191,7 @@
               "en": "Breakout structure holds"
             },
             {
-              "zhCN": "成交量 高位",
+              "zhCN": "成交量 elevated",
               "zhTW": "成交量 elevated",
               "en": "Volume remains elevated"
             }
@@ -4237,7 +4237,7 @@
           ],
           "invalidationConditions": [
             {
-              "zhCN": "完全回撤",
+              "zhCN": "完全 retracement",
               "zhTW": "完全 retracement",
               "en": "Full retracement"
             }
@@ -4256,7 +4256,7 @@
           "sourceDate": "2026-07-26",
           "asset": "DOGE",
           "summary": {
-            "zhCN": "来源所述关键水平 0.07384 — 待市场验证。守住代表突破确认；回测守住代表更强确认；未能收复则削弱原论点。",
+            "zhCN": "来源所述关键水平 0.07384 — 待市场验证。守住代表突破确认；回测守住代表更强确认；未能收复则削弱 thesis。",
             "zhTW": "來源所述關鍵水平 0.07384 — 待市場驗證。守住代表突破確認；回測守住代表更強確認；未能收復則削弱 thesis。",
             "en": "Source-stated key level 0.07384 — pending market verification. Holding above may confirm breakout; retest hold may confirm trend; failure to reclaim weakens the thesis."
           },
@@ -4272,7 +4272,7 @@
               "en": "Retest holds: stronger trend confirmation"
             },
             {
-              "zhCN": "未能收复：削弱来源 论点",
+              "zhCN": "未能收复：削弱来源 thesis",
               "zhTW": "未能收復：削弱來源 thesis",
               "en": "Failure to reclaim: weakens source thesis"
             }
@@ -4287,7 +4287,7 @@
           },
           "sourceDate": "2026-07-26",
           "summary": {
-            "zhCN": "山寨币 走势 可能代表完整市场段落；早期布局通常优于 快速加速 后追涨；分析师未披露具体标的 — MoonX 视为板块级 周期 证据。",
+            "zhCN": "山寨币 move 可能代表完整市场段落；早期布局通常优于 rapid acceleration 后追涨；分析师未披露具体标的 — MoonX 视为板块级 cycle 证据。",
             "zhTW": "山寨幣 move 可能代表完整市場段落；早期布局通常優於 rapid acceleration 後追漲；分析師未披露具體標的 — MoonX 視為板塊級 cycle 證據。",
             "en": "The altcoin move may represent a complete segment; earlier positioning generally has better risk-reward than chasing after rapid acceleration; the analyst did not disclose specific assets — MoonX treats this as sector-level cycle evidence."
           },

@@ -5,7 +5,7 @@ import { ArrowRightIcon } from "@/components/icons";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
-import { formatDate } from "@/lib/utils";
+import { formatLocalizedDateRange } from "@/lib/utils";
 import type { ResearchRecord } from "@/types/research";
 
 function ScenarioCard({ record, titleKey, viewKey }: { record: ResearchRecord; titleKey: string; viewKey: string }) {
@@ -32,7 +32,9 @@ function ScenarioCard({ record, titleKey, viewKey }: { record: ResearchRecord; t
             {record.turningWindows.slice(0, 3).map((window_) => (
               <li key={window_.id} className="flex items-baseline gap-2 text-caption text-foreground-secondary">
                 <span className="font-mono text-foreground-tertiary">
-                  {window_.date ? formatDate(window_.date) : `${formatDate(window_.start ?? "")}–${formatDate(window_.end ?? "")}`}
+                  {window_.date
+                    ? formatLocalizedDateRange(window_.date, window_.date, locale)
+                    : formatLocalizedDateRange(window_.start ?? "", window_.end ?? "", locale)}
                 </span>
                 {pickLocalized(window_.label, locale)}
               </li>

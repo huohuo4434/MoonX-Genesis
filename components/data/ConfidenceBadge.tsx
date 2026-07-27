@@ -1,5 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { HTMLAttributes } from "react";
+import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -15,16 +18,17 @@ function levelFromScore(score: number): ConfidenceLevel {
   return "low";
 }
 
-const levelConfig: Record<ConfidenceLevel, { text: string; classes: string }> = {
-  high: { text: "High Confidence", classes: "bg-success/10 text-success border-success/20" },
-  medium: { text: "Medium Confidence", classes: "bg-warning/10 text-warning border-warning/20" },
-  low: { text: "Low Confidence", classes: "bg-danger/10 text-danger border-danger/20" },
+const levelConfig: Record<ConfidenceLevel, { key: string; classes: string }> = {
+  high: { key: "badges.highConfidence", classes: "bg-success/10 text-success border-success/20" },
+  medium: { key: "badges.mediumConfidence", classes: "bg-warning/10 text-warning border-warning/20" },
+  low: { key: "badges.lowConfidence", classes: "bg-danger/10 text-danger border-danger/20" },
 };
 
 /** Communicates model/forecast confidence without exposing a raw score to non-technical users. */
 export function ConfidenceBadge({ score, level, className, ...props }: ConfidenceBadgeProps) {
+  const t = useTranslations();
   const resolvedLevel = level ?? (score !== undefined ? levelFromScore(score) : "medium");
-  const { text, classes } = levelConfig[resolvedLevel];
+  const { key, classes } = levelConfig[resolvedLevel];
 
   return (
     <span
@@ -36,7 +40,7 @@ export function ConfidenceBadge({ score, level, className, ...props }: Confidenc
       {...props}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-      {text}
+      {t(key)}
     </span>
   );
 }

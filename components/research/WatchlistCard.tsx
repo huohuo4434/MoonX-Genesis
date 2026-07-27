@@ -5,7 +5,7 @@ import { AlertTriangleIcon, ArrowRightIcon } from "@/components/icons";
 import { Badge, Button, Card, Text } from "@/components/ui";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatLocalizedDate } from "@/lib/utils";
 import type { WatchlistEntry, WatchlistRating, WatchlistStatus } from "@/types/research";
 
 function ratingBadgeVariant(rating: WatchlistRating) {
@@ -130,7 +130,7 @@ export function WatchlistCard({ entry, researchCount, className }: WatchlistCard
           </Text>
           <Text variant="caption" weight="medium" className="text-foreground-secondary">
             {pickLocalized(entry.nextEvent, locale)}
-            {entry.nextEventDate ? ` · ${formatDate(entry.nextEventDate)}` : ""}
+            {entry.nextEventDate ? ` · ${formatLocalizedDate(entry.nextEventDate, locale)}` : ""}
           </Text>
         </div>
         <div className="flex flex-col items-end gap-0.5">

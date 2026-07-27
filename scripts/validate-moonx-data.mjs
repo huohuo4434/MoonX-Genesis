@@ -151,6 +151,24 @@ async function main() {
     }
   }
 
+  for (const theme of doc.marketThemes ?? []) {
+    const total = theme.scenarioWeights.base + theme.scenarioWeights.bull + theme.scenarioWeights.bear;
+    if (Math.abs(total - 100) > 0.01) {
+      issues.push(`${theme.id}: scenarioWeights total ${total}, expected 100`);
+    }
+    for (const factor of theme.frameworkFactors) {
+      if (factor.weight < 0 || factor.weight > 100) issues.push(`${theme.id}: factor ${factor.id} weight out of range`);
+      if (factor.confidence < 0 || factor.confidence > 100) issues.push(`${theme.id}: factor ${factor.id} confidence out of range`);
+    }
+    const score = calculateWeightedResearchScore(theme.frameworkFactors, { direction: theme.direction });
+    if (score < -100 || score > 100) issues.push(`${theme.id}: calculated score ${score} out of range`);
+    for (const assetId of theme.linkedWatchlistAssetIds) {
+      if (!doc.assets.some((a) => a.id === assetId)) {
+        issues.push(`${theme.id}: linkedWatchlistAssetIds references missing asset "${assetId}"`);
+      }
+    }
+  }
+
   if (issues.length > 0) {
     fail(`${issues.length} integrity issue(s) found`, issues);
   }

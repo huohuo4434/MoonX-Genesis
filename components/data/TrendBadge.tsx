@@ -1,6 +1,9 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { MinusIcon, TrendingDownIcon, TrendingUpIcon } from "@/components/icons";
 import { HTMLAttributes } from "react";
+import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
 export type Trend = "up" | "down" | "neutral";
 
@@ -9,15 +12,16 @@ export interface TrendBadgeProps extends Omit<HTMLAttributes<HTMLSpanElement>, "
   label?: string;
 }
 
-const trendConfig: Record<Trend, { icon: typeof TrendingUpIcon; text: string; classes: string }> = {
-  up: { icon: TrendingUpIcon, text: "Bullish", classes: "bg-success/10 text-success border-success/20" },
-  down: { icon: TrendingDownIcon, text: "Bearish", classes: "bg-danger/10 text-danger border-danger/20" },
-  neutral: { icon: MinusIcon, text: "Neutral", classes: "bg-muted text-foreground-secondary border-transparent" },
+const trendConfig: Record<Trend, { icon: typeof TrendingUpIcon; key: string; classes: string }> = {
+  up: { icon: TrendingUpIcon, key: "directions.bullish", classes: "bg-success/10 text-success border-success/20" },
+  down: { icon: TrendingDownIcon, key: "directions.bearish", classes: "bg-danger/10 text-danger border-danger/20" },
+  neutral: { icon: MinusIcon, key: "directions.neutral", classes: "bg-muted text-foreground-secondary border-transparent" },
 };
 
 /** Directional forecast/market trend indicator. */
 export function TrendBadge({ trend, label, className, ...props }: TrendBadgeProps) {
-  const { icon: Icon, text, classes } = trendConfig[trend];
+  const t = useTranslations();
+  const { icon: Icon, key, classes } = trendConfig[trend];
   return (
     <span
       className={cn(
@@ -28,7 +32,7 @@ export function TrendBadge({ trend, label, className, ...props }: TrendBadgeProp
       {...props}
     >
       <Icon size={11} />
-      {label ?? text}
+      {label ?? t(key)}
     </span>
   );
 }

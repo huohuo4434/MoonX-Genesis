@@ -22,11 +22,15 @@ function fail(message) {
 
 async function main() {
   // Re-run the validate script first for human-readable output.
-  const validate = spawnSync(process.execPath, [path.join(__dirname, "validate-moonx-data.mjs")], {
-    cwd: root,
-    stdio: "inherit",
-    env: process.env,
-  });
+  const validate = spawnSync(
+    process.execPath,
+    ["--import", "tsx", path.join(__dirname, "validate-moonx-data.mjs")],
+    {
+      cwd: root,
+      stdio: "inherit",
+      env: process.env,
+    }
+  );
   if (validate.status !== 0) {
     fail("Snapshot aborted — fix validation errors first.");
   }

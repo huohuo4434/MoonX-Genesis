@@ -14,17 +14,26 @@ import type {
   MoonXScenarioWeightsSchema,
   MoonXTimelineEventSchema,
   MoonXWatchlistSettingsSchema,
+  MoonXMarketThemeSchema,
+  MoonXWeeklyDivergenceCandidateSchema,
+  MoonXRotationPhaseSchema,
+  MoonXSourceLevelSchema,
 } from "./schema";
 
 export type MoonXLocalizedText = z.infer<typeof MoonXLocalizedTextSchema>;
 export type MoonXScenarioWeights = z.infer<typeof MoonXScenarioWeightsSchema>;
 export type MoonXFrameworkFactor = z.infer<typeof MoonXFrameworkFactorSchema>;
 export type MoonXWatchlistSettings = z.infer<typeof MoonXWatchlistSettingsSchema>;
+export type MoonXSourceLevel = z.infer<typeof MoonXSourceLevelSchema>;
 export type MoonXTimelineEvent = z.infer<typeof MoonXTimelineEventSchema>;
 export type MoonXAsset = z.infer<typeof MoonXAssetSchema>;
 export type MoonXDocument = z.infer<typeof MoonXDocumentSchema>;
+export type MoonXMarketTheme = z.infer<typeof MoonXMarketThemeSchema>;
+export type MoonXWeeklyDivergenceCandidate = z.infer<typeof MoonXWeeklyDivergenceCandidateSchema>;
+export type MoonXRotationPhase = z.infer<typeof MoonXRotationPhaseSchema>;
 export type MoonXProcessedAsset = z.infer<typeof MoonXProcessedAssetSchema>;
 export type MoonXProcessedDocument = z.infer<typeof MoonXProcessedDocumentSchema>;
+export type MoonXProcessedMarketTheme = MoonXProcessedDocument["marketThemes"][number];
 
 export type MoonXDirection =
   | "strong-bullish"

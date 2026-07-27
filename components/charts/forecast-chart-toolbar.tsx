@@ -4,6 +4,7 @@ import { RefreshIcon } from "@/components/icons";
 import { ScenarioSelector, type ScenarioOption } from "./scenario-selector";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Text } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/LocaleProvider";
 import type { ChartTimeframe, ForecastChartToggles, ForecastScenarioId } from "@/types/forecast-chart";
 
 export interface AssetOption {
@@ -13,11 +14,11 @@ export interface AssetOption {
 
 const TIMEFRAMES: ChartTimeframe[] = ["4H", "1D", "1W"];
 
-const TOGGLE_CONFIG: { key: keyof ForecastChartToggles; label: string }[] = [
-  { key: "showLevels", label: "Support & Resistance" },
-  { key: "showForecastPath", label: "Forecast Path" },
-  { key: "showTurningWindows", label: "Turning Windows" },
-  { key: "showConsolidationZones", label: "Consolidation Zones" },
+const TOGGLE_CONFIG: { key: keyof ForecastChartToggles; labelKey: string }[] = [
+  { key: "showLevels", labelKey: "chart.showSupportResistance" },
+  { key: "showForecastPath", labelKey: "chart.showForecastPath" },
+  { key: "showTurningWindows", labelKey: "chart.showTurningWindows" },
+  { key: "showConsolidationZones", labelKey: "chart.showConsolidationZones" },
 ];
 
 export interface ForecastChartToolbarProps {
@@ -50,11 +51,12 @@ export function ForecastChartToolbar({
   onReset,
   className,
 }: ForecastChartToolbarProps) {
+  const t = useTranslations();
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <div className="flex flex-wrap items-center gap-3">
         <Select value={assetId} onValueChange={onAssetChange}>
-          <SelectTrigger className="w-[220px]" aria-label="Asset">
+          <SelectTrigger className="w-[220px]" aria-label={t("chart.asset")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -68,7 +70,7 @@ export function ForecastChartToolbar({
 
         <ScenarioSelector value={scenarioId} onChange={onScenarioChange} options={scenarioOptions} />
 
-        <div role="group" aria-label="Timeframe" className="inline-flex items-center gap-1 rounded-md border border-border/[0.1] bg-surface p-1">
+        <div role="group" aria-label={t("chart.timeframe1d")} className="inline-flex items-center gap-1 rounded-md border border-border/[0.1] bg-surface p-1">
           {TIMEFRAMES.map((tf) => (
             <button
               key={tf}
@@ -87,20 +89,20 @@ export function ForecastChartToolbar({
 
         <Button type="button" variant="outline" size="sm" onClick={onReset} className="ml-auto">
           <RefreshIcon size={14} />
-          Reset View
+          {t("common.resetView")}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        {TOGGLE_CONFIG.map(({ key, label }) => (
+        {TOGGLE_CONFIG.map(({ key, labelKey }) => (
           <label key={key} className="flex cursor-pointer items-center gap-2">
             <Switch
               checked={toggles[key]}
               onCheckedChange={(checked) => onToggleChange(key, checked)}
-              aria-label={label}
+              aria-label={t(labelKey)}
             />
             <Text variant="body-sm" color="secondary">
-              {label}
+              {t(labelKey)}
             </Text>
           </label>
         ))}

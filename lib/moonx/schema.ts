@@ -87,11 +87,22 @@ export const MoonXFrameworkFactorSchema = z.object({
   confirmationConditions: z.array(MoonXLocalizedTextSchema).optional(),
 });
 
+export const MoonXSourceLevelSchema = z.object({
+  value: z.number().finite(),
+  currency: z.string().min(1),
+  levelType: MoonXLocalizedTextSchema,
+  verificationStatus: z.enum(["unverified", "pending", "verified", "failed"]),
+});
+
 export const MoonXWatchlistSettingsSchema = z.object({
   enabled: z.boolean(),
   rating: z.enum(["watch", "bullish", "neutral", "bearish", "strong-bullish", "strong-bearish"]),
   ratingLabel: MoonXLocalizedTextSchema.optional(),
   status: z.enum(["pre-ipo-watch", "ipo-strategic-watch", "active", "high-volatility-watch", "watch"]),
+  statusLabel: MoonXLocalizedTextSchema.optional(),
+  currentRole: MoonXLocalizedTextSchema.optional(),
+  sourceLevel: MoonXSourceLevelSchema.optional(),
+  levelsPendingLabel: MoonXLocalizedTextSchema.optional(),
   horizon: MoonXLocalizedTextSchema,
   mainThemes: z.array(MoonXLocalizedTextSchema).default([]),
   thesis: MoonXLocalizedTextSchema,
@@ -191,6 +202,79 @@ export const MoonXAssetSchema = MoonXAssetObjectSchema.superRefine((asset, ctx) 
   }
 });
 
+export const MoonXRotationPhaseSchema = z.enum([
+  "dormant",
+  "early-leaders",
+  "broadening",
+  "acceleration",
+  "distribution",
+]);
+
+export const MoonXWeeklyDivergenceCandidateSchema = z.object({
+  assetId: z.string().min(1),
+  symbol: z.string().min(1),
+  localizedName: MoonXLocalizedTextSchema,
+  weeklyDivergenceStatus: MoonXLocalizedTextSchema,
+  activationStatus: MoonXLocalizedTextSchema,
+  currentRole: MoonXLocalizedTextSchema,
+  confirmationConditions: z.array(MoonXLocalizedTextSchema).default([]),
+  invalidationConditions: z.array(MoonXLocalizedTextSchema).default([]),
+  notes: MoonXLocalizedTextSchema.optional(),
+  lastUpdated: z.string().min(1),
+});
+
+export const MoonXThemeScenarioSchema = z.object({
+  summary: MoonXLocalizedTextSchema,
+  logic: MoonXLocalizedTextSchema,
+});
+
+export const MoonXSourceNoteSchema = z.object({
+  id: z.string().min(1),
+  sourceType: MoonXLocalizedTextSchema,
+  sourceDate: z.string().min(1),
+  asset: z.string().optional(),
+  summary: MoonXLocalizedTextSchema,
+  logic: z.array(MoonXLocalizedTextSchema).default([]),
+});
+
+export const MoonXMarketThemeSchema = z
+  .object({
+    id: z.string().min(1),
+    category: MoonXLocalizedTextSchema,
+    localizedTitle: MoonXLocalizedTextSchema,
+    researchDate: z.string().min(1),
+    lastUpdated: z.string().min(1),
+    direction: z.enum(["strong-bullish", "bullish", "neutral", "bearish", "strong-bearish", "watch"]),
+    currentPhase: MoonXRotationPhaseSchema,
+    rotationPhases: z.array(MoonXRotationPhaseSchema).min(1),
+    status: z.enum(["Waiting", "Partially Confirmed", "Confirmed", "Failed", "Active"]),
+    interpretation: z.array(MoonXLocalizedTextSchema).min(1),
+    frameworkFactors: z.array(MoonXFrameworkFactorSchema).default([]),
+    scenarioWeights: MoonXScenarioWeightsSchema,
+    scenarios: z.object({
+      base: MoonXThemeScenarioSchema,
+      bull: MoonXThemeScenarioSchema,
+      bear: MoonXThemeScenarioSchema,
+    }),
+    verificationChecklist: z.array(MoonXLocalizedTextSchema).default([]),
+    riskConditions: z.array(MoonXLocalizedTextSchema).default([]),
+    weeklyDivergenceCandidates: z.array(MoonXWeeklyDivergenceCandidateSchema).default([]),
+    sourceNotes: z.array(MoonXSourceNoteSchema).default([]),
+    earlyLeaderSymbols: z.array(z.string()).default([]),
+    linkedWatchlistAssetIds: z.array(z.string()).default([]),
+    confidence: z.number().min(0).max(100).default(65),
+  })
+  .superRefine((theme, ctx) => {
+    const total = theme.scenarioWeights.base + theme.scenarioWeights.bull + theme.scenarioWeights.bear;
+    if (Math.abs(total - 100) > 0.01) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `scenarioWeights for theme "${theme.id}" must total 100 (got ${total})`,
+        path: ["scenarioWeights"],
+      });
+    }
+  });
+
 export const MoonXTimelineEventSchema = z.object({
   id: z.string().min(1),
   date: z.string().optional(),
@@ -228,6 +312,7 @@ export const MoonXDocumentSchema = z
     mainConclusion: z.array(MoonXLocalizedTextSchema).min(1),
     riskDisclaimer: MoonXLocalizedTextSchema,
     assets: z.array(MoonXAssetSchema).min(1),
+    marketThemes: z.array(MoonXMarketThemeSchema).default([]),
     timeline: z.array(MoonXTimelineEventSchema).default([]),
   })
   .superRefine((doc, ctx) => {
@@ -253,6 +338,17 @@ export const MoonXDocumentSchema = z
       }
       timelineIds.add(event.id);
     }
+    const themeIds = new Set<string>();
+    for (const theme of doc.marketThemes) {
+      if (themeIds.has(theme.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate market theme id: ${theme.id}`,
+          path: ["marketThemes"],
+        });
+      }
+      themeIds.add(theme.id);
+    }
   });
 
 export const MoonXProcessedAssetSchema = MoonXAssetObjectSchema.extend({
@@ -275,6 +371,13 @@ export const MoonXProcessedDocumentSchema = z.object({
   mainConclusion: z.array(MoonXLocalizedTextSchema),
   riskDisclaimer: MoonXLocalizedTextSchema,
   assets: z.array(MoonXProcessedAssetSchema),
+  marketThemes: z.array(
+    MoonXMarketThemeSchema.extend({
+      calculatedScore: z.number().min(-100).max(100),
+      ratingLabel: z.string(),
+      normalizedScenarioWeights: MoonXScenarioWeightsSchema,
+    })
+  ),
   timeline: z.array(MoonXTimelineEventSchema),
   meta: z.object({
     assetCount: z.number().int(),

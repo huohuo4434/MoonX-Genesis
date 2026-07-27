@@ -352,6 +352,185 @@ const researchRecords: ResearchRecord[] = [
     status: "pending",
     tags: ["gold", "oracle-six-yao"],
   },
+  {
+    id: "ORACLE-0008",
+    publishedAt: "2026-07-01",
+    forecastStart: "2026-07-01",
+    forecastEnd: "2026-12-31",
+    assetId: "general-market",
+    assetName: lt("美联储 / 宏观政策", "美聯儲 / 宏觀政策", "Federal Reserve / Macro Policy"),
+    market: "index",
+    framework: "oracle-six-yao",
+    sourceType: "internal-research",
+    publicSourceLabel: lt("六爻研究", "六爻研究", "Oracle Research"),
+    direction: "slightly-bearish",
+    editorialConfidence: 62,
+    consensusEligible: true,
+    horizon: lt("2026年下半年", "2026年下半年", "2026 H2"),
+    title: lt(
+      "美联储2026年下半年加息风险",
+      "美聯儲2026年下半年加息風險",
+      "Federal Reserve H2 2026 Rate-Hike Risk"
+    ),
+    summary: lt(
+      "鹰派 rhetoric 可能在2026年8月7日后增强；若年底前实际加息，主要风险窗口在10–11月。实际紧缩并非基准情景，市场恐惧可能强于最终政策行动。",
+      "鷹派 rhetoric 可能在2026年8月7日後增強；若年底前實際加息，主要風險窗口在10–11月。實際緊縮並非基準情境，市場恐懼可能強於最終政策行動。",
+      "Hawkish rhetoric may strengthen after approximately 2026-08-07. If an actual rate increase occurs before year-end, the main risk window is October to November 2026. Actual tightening is not the base case; market fear may be stronger than the final policy action."
+    ),
+    thesis: [
+      lt(
+        "鹰派 rhetoric 可能在2026年8月7日后增强。",
+        "鷹派 rhetoric 可能在2026年8月7日後增強。",
+        "Hawkish rhetoric may strengthen after approximately 2026-08-07."
+      ),
+      lt(
+        "若年底前实际加息，主要风险窗口在2026年10–11月。",
+        "若年底前實際加息，主要風險窗口在2026年10–11月。",
+        "If an actual rate increase occurs before year-end, the main risk window is October to November 2026."
+      ),
+      lt(
+        "原六冲结构暗示政策反复与不确定性。",
+        "原六沖結構暗示政策反覆與不確定性。",
+        "The original six-conflict structure suggests repeated changes and policy uncertainty."
+      ),
+      lt(
+        "市场恐惧可能强于最终政策行动。",
+        "市場恐懼可能強於最終政策行動。",
+        "Market fear may be stronger than the final policy action."
+      ),
+      lt(
+        "实际紧缩并非基准情景。",
+        "實際緊縮並非基準情境。",
+        "Actual tightening is not the base case."
+      ),
+      lt(
+        "经济偏弱将使实际加息更困难。",
+        "經濟偏弱將使實際加息更困難。",
+        "Weak economic conditions would make an actual rate increase more difficult."
+      ),
+      lt(
+        "即使出现紧缩，负面市场影响可能剧烈但短暂。",
+        "即使出現緊縮，負面市場影響可能劇烈但短暫。",
+        "Even if tightening occurs, the negative market impact may be sharp but temporary."
+      ),
+    ],
+    turningWindows: [
+      {
+        id: "oracle-0008-aug7",
+        date: "2026-08-07",
+        label: lt("鹰派意图观察窗口", "鷹派意圖觀察窗口", "Hawkish-intention observation window"),
+      },
+      {
+        id: "oracle-0008-oct-nov",
+        start: "2026-10-01",
+        end: "2026-11-30",
+        label: lt("紧缩风险窗口", "緊縮風險窗口", "Tightening-risk window"),
+      },
+    ],
+    verificationChecklist: [
+      lt("8月7日后 Fed rhetoric 是否转鹰？", "8月7日後 Fed rhetoric 是否轉鷹？", "Did Fed rhetoric become more hawkish after August 7?"),
+      lt("通胀是否加速？", "通脹是否加速？", "Did inflation accelerate?"),
+      lt("美债收益率是否上升？", "美債收益率是否上升？", "Did Treasury yields rise?"),
+      lt("是否讨论实际加息？", "是否討論實際加息？", "Was an actual rate increase discussed?"),
+      lt("是否实施实际加息？", "是否實施實際加息？", "Was an actual rate increase implemented?"),
+      lt("市场反应是短暂还是持续？", "市場反應是短暫還是持續？", "Was the market reaction temporary or persistent?"),
+    ],
+    status: "pending",
+    tags: ["fed", "macro", "oracle-six-yao", "rate-hike", "oracle-0008"],
+  },
+  {
+    id: "ORACLE-0009",
+    publishedAt: "2026-07-01",
+    forecastStart: "2026-07-01",
+    forecastEnd: "2026-12-31",
+    assetId: "bitcoin",
+    assetName: lt("比特币", "比特幣", "Bitcoin"),
+    symbol: "BTC",
+    market: "crypto",
+    framework: "oracle-six-yao",
+    sourceType: "internal-research",
+    publicSourceLabel: lt("六爻研究", "六爻研究", "Oracle Research"),
+    direction: "bullish",
+    editorialConfidence: 74,
+    consensusEligible: true,
+    horizon: lt(
+      "至2026年9月及年底目标验证",
+      "至2026年9月及年底目標驗證",
+      "Through September 2026 and year-end target verification"
+    ),
+    title: lt(
+      "比特币2026年下半年反弹路径",
+      "比特幣2026年下半年反彈路徑",
+      "Bitcoin 2026 Second-Half Rebound"
+    ),
+    summary: lt(
+      "原老师结论：3月与6月为重要低点窗口；7月初或现局部低点（已过）；下半年仍看反弹，9月或现主要高点；85,000可达，90,000可能，95,000概率较低；反弹偏积极但非极端爆发。",
+      "原老師結論：3月與6月為重要低點窗口；7月初或現局部低點（已過）；下半年仍看反彈，9月或現主要高點；85,000可達，90,000可能，95,000機率較低；反彈偏積極但非極端爆發。",
+      "Original teacher conclusion: March and June were important Bitcoin low windows. Bitcoin was still expected to rebound during the second half of 2026, with September as a possible main high. $85,000 was considered achievable; $90,000 possible; $95,000 relatively unlikely. The rebound was expected to be positive but not extremely explosive."
+    ),
+    thesis: [
+      lt(
+        "【历史预测窗口 — 已过】7月初或现局部低点。",
+        "【歷史預測窗口 — 已過】7月初或現局部低點。",
+        "Historical forecast window — already passed: Another local low was possible near the beginning of July."
+      ),
+      lt(
+        "3月与6月为重要比特币低点窗口。",
+        "3月與6月為重要比特幣低點窗口。",
+        "March and June were important Bitcoin low windows."
+      ),
+      lt(
+        "比特币在2026年下半年仍预期反弹。",
+        "比特幣在2026年下半年仍預期反彈。",
+        "Bitcoin was still expected to rebound during the second half of 2026."
+      ),
+      lt(
+        "9月或产生下半年主要高点。",
+        "9月或產生下半年主要高點。",
+        "September may produce the main second-half high."
+      ),
+      lt(
+        "85,000美元被认为可达。",
+        "85,000美元被認為可達。",
+        "$85,000 was considered achievable."
+      ),
+      lt(
+        "90,000美元被认为可能。",
+        "90,000美元被認為可能。",
+        "$90,000 was considered possible."
+      ),
+      lt(
+        "95,000美元可能但相对不太可能。",
+        "95,000美元可能但相對不太可能。",
+        "$95,000 was possible but relatively unlikely."
+      ),
+      lt(
+        "反弹预期偏积极但非极端爆发。",
+        "反彈預期偏積極但非極端爆發。",
+        "The rebound was expected to be positive but not extremely explosive."
+      ),
+    ],
+    targets: [70000, 85000, 90000, 95000],
+    turningWindows: [
+      {
+        id: "oracle-0009-sep-high",
+        start: "2026-09-01",
+        end: "2026-09-30",
+        label: lt("下半年主要高点窗口", "下半年主要高點窗口", "Main second-half high window"),
+      },
+    ],
+    verificationChecklist: [
+      lt("比特币是否突破70,000？", "比特幣是否突破70,000？", "Did Bitcoin break 70,000?"),
+      lt("比特币是否达到85,000？", "比特幣是否達到85,000？", "Did Bitcoin reach 85,000?"),
+      lt("比特币是否达到90,000？", "比特幣是否達到90,000？", "Did Bitcoin reach 90,000?"),
+      lt("比特币是否达到95,000？", "比特幣是否達到95,000？", "Did Bitcoin reach 95,000?"),
+      lt("下半年主要高点是否出现在9月？", "下半年主要高點是否出現在9月？", "Did the main second-half high occur in September?"),
+      lt("最高价格是多少？", "最高價格是多少？", "What was the maximum price?"),
+      lt("反弹前最大回撤是多少？", "反彈前最大回撤是多少？", "What was the maximum drawdown before the rebound?"),
+    ],
+    status: "pending",
+    tags: ["bitcoin", "oracle-six-yao", "85000-target", "oracle-0009"],
+  },
 
   // ================================================================
   // QIMEN LONG-RANGE RESEARCH — China Equity Long-Range Scenario H2 2026

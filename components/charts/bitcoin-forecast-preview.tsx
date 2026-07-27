@@ -6,7 +6,7 @@ import { ArrowRightIcon } from "@/components/icons";
 import { ChartSkeleton } from "./ChartSkeleton";
 import { ChartDisclaimer } from "./chart-disclaimer";
 import { Button, Text } from "@/components/ui";
-import { buildForecastTextAlternative } from "@/lib/forecast-candles";
+import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import type { AssetChartScenario } from "@/types/forecast-chart";
 
 const ForecastCandlestickChart = dynamic(
@@ -29,6 +29,11 @@ const PREVIEW_LEVEL_IDS = ["btc-support-64650", "btc-major-resistance-67300", "b
  * Research Intelligence page.
  */
 export function BitcoinForecastPreview({ scenario, fullChartHref }: BitcoinForecastPreviewProps) {
+  const t = useTranslations();
+  const { locale } = useLocale();
+  const isChinese = locale === "zh-CN";
+  const base = scenario.scenarios.base;
+
   return (
     <div className="flex flex-col gap-4">
       <ChartDisclaimer />
@@ -42,11 +47,21 @@ export function BitcoinForecastPreview({ scenario, fullChartHref }: BitcoinForec
         visibleLevelIds={PREVIEW_LEVEL_IDS}
       />
       <Text variant="caption" color="tertiary" className="max-w-2xl normal-case tracking-normal">
-        {buildForecastTextAlternative(scenario, "base")}
+        {t("chart.textSummary", {
+          asset: isChinese ? scenario.assetZh ?? scenario.asset : scenario.asset,
+          symbol: scenario.symbol,
+          scenario: t("chart.baseCase"),
+          summary: isChinese ? base.summaryZh ?? base.summary : base.summary,
+          support: isChinese ? scenario.mainSupportZh ?? scenario.mainSupport : scenario.mainSupport,
+          resistance: isChinese ? scenario.mainResistanceZh ?? scenario.mainResistance : scenario.mainResistance,
+          invalidation: isChinese ? scenario.invalidationLevelZh ?? scenario.invalidationLevel : scenario.invalidationLevel,
+          start: scenario.forecastWindow.start,
+          end: scenario.forecastWindow.end,
+        })}
       </Text>
       <Button asChild variant="primary" size="md" className="self-start">
         <Link href={fullChartHref}>
-          View Full Scenario
+          {t("ui.viewFullScenario")}
           <ArrowRightIcon size={14} />
         </Link>
       </Button>

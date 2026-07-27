@@ -1,6 +1,9 @@
+"use client";
+
 import { ChevronDownIcon } from "@/components/icons";
 import { TrendBadge } from "@/components/data";
 import { Badge, Card, Progress, Text } from "@/components/ui";
+import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import {
   getDominantDirection,
   type AssetIntelligenceSnapshot,
@@ -19,15 +22,23 @@ export interface AssetIntelligenceCardProps {
  * `<details>` element — no client-side JavaScript required.
  */
 export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetIntelligenceCardProps) {
+  const { locale } = useLocale();
+  const t = useTranslations();
   const direction = getDominantDirection(asset.scores);
   const hasObservationZones = asset.observationZones && asset.observationZones.length > 0;
+  const isChinese = locale === "zh-CN";
+  const assetName = isChinese ? asset.assetZh ?? asset.asset : asset.asset;
+  const currentView = isChinese ? asset.summaryZh ?? asset.currentView : asset.currentView;
+  const trendPath = isChinese ? asset.trendPathZh ?? asset.trendPath : asset.trendPath;
+  const primaryRisk = isChinese ? asset.primaryRiskZh ?? asset.primaryRisk : asset.primaryRisk;
+  const verificationItems = isChinese ? asset.verificationItemsZh ?? asset.verificationItems : asset.verificationItems;
 
   return (
     <Card id={asset.id} padding="lg" className="flex scroll-mt-24 flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <Text variant="body" weight="semibold" className="text-h3 text-foreground">
-            {asset.asset}
+            {assetName}
           </Text>
           <Text variant="caption" color="tertiary">
             {asset.symbol}
@@ -38,9 +49,9 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
 
       <div className="flex flex-col gap-1">
         <Text variant="body-sm" weight="medium" className="text-foreground">
-          {asset.currentView}
+          {currentView}
         </Text>
-        {asset.summaryZh && (
+        {!isChinese && asset.summaryZh && (
           <Text variant="caption" color="tertiary">
             {asset.summaryZh}
           </Text>
@@ -49,7 +60,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
 
       <div className="flex items-center justify-between border-y border-border/[0.08] py-3">
         <Text variant="caption" color="tertiary">
-          Forecast Window
+          {t("ui.forecastPeriod")}
         </Text>
         <Text variant="caption" className="font-mono text-foreground-secondary">
           {formatDate(asset.forecastWindow.start)} – {formatDate(asset.forecastWindow.end)}
@@ -57,39 +68,39 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
       </div>
 
       <div className="flex flex-col gap-3">
-        <Progress label="Bullish" value={asset.scores.bullish} />
-        <Progress label="Bearish" value={asset.scores.bearish} />
-        <Progress label="Neutral" value={asset.scores.neutral} />
+        <Progress label={t("directions.bullish")} value={asset.scores.bullish} />
+        <Progress label={t("directions.bearish")} value={asset.scores.bearish} />
+        <Progress label={t("directions.neutral")} value={asset.scores.neutral} />
         <div className="grid grid-cols-2 gap-3">
-          <Progress label="Agreement" value={asset.scores.agreement} />
-          <Progress label="Evidence" value={asset.scores.evidence} />
+          <Progress label={t("ui.agreementScore")} value={asset.scores.agreement} />
+          <Progress label={t("ui.evidenceScore")} value={asset.scores.evidence} />
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Text variant="caption" color="tertiary">
-          Key Levels
+          {t("ui.keyLevels")}
         </Text>
         <Text variant="body-sm" color="secondary">
-          {asset.keyLevelsSummary}
+          {isChinese ? asset.keyLevelsSummaryZh ?? asset.keyLevelsSummary : asset.keyLevelsSummary}
         </Text>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Text variant="caption" color="tertiary">
-          Trend Path
+          {t("ui.trendPath")}
         </Text>
         <Text variant="body-sm" color="secondary">
-          {asset.trendPath[0]}
+          {trendPath[0]}
         </Text>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Text variant="caption" color="tertiary">
-          Primary Risk
+          {t("ui.primaryRisk")}
         </Text>
         <Text variant="body-sm" color="secondary">
-          {asset.primaryRisk}
+          {primaryRisk}
         </Text>
       </div>
 
@@ -99,17 +110,17 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
 
       <details className="group border-t border-border/[0.08] pt-4 [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm text-body-sm font-medium text-foreground-secondary transition-colors hover:text-foreground focus-ring">
-          View Details
+          {t("common.viewDetails")}
           <ChevronDownIcon size={16} className="shrink-0 transition-transform group-open:rotate-180" />
         </summary>
 
         <div className="mt-5 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <Text variant="label" color="secondary" className="uppercase tracking-wide">
-              Full Trend Path
+              {t("ui.fullTrendPath")}
             </Text>
             <ul className="flex flex-col gap-2">
-              {asset.trendPath.map((step) => (
+              {trendPath.map((step) => (
                 <li key={step} className="text-body-sm text-foreground-secondary">
                   • {step}
                 </li>
@@ -122,7 +133,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
               {asset.keySupport && (
                 <div className="flex flex-col gap-2">
                   <Text variant="label" color="secondary" className="uppercase tracking-wide">
-                    Key Support
+                    {t("ui.keySupport")}
                   </Text>
                   <ul className="flex flex-col gap-1">
                     {asset.keySupport.map((level) => (
@@ -136,7 +147,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
               {asset.keyResistance && (
                 <div className="flex flex-col gap-2">
                   <Text variant="label" color="secondary" className="uppercase tracking-wide">
-                    Key Resistance
+                    {t("ui.keyResistance")}
                   </Text>
                   <ul className="flex flex-col gap-1">
                     {asset.keyResistance.map((level) => (
@@ -153,7 +164,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
           {hasObservationZones && (
             <div className="flex flex-col gap-2">
               <Text variant="label" color="secondary" className="uppercase tracking-wide">
-                Observation Zones
+              {t("ui.observationZones")}
               </Text>
               <ul className="flex flex-col gap-1.5">
                 {asset.observationZones!.map((zone) => (
@@ -173,7 +184,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
 
           <div className="flex flex-col gap-3">
             <Text variant="label" color="secondary" className="uppercase tracking-wide">
-              Framework Evidence
+              {t("ui.frameworkEvidence")}
             </Text>
             <div className="flex flex-col gap-3">
               {asset.frameworkEvidence.map((entry, index) => (
@@ -182,7 +193,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
                     {entry.framework}
                   </Badge>
                   <Text variant="body-sm" color="secondary">
-                    {entry.commentary}
+                    {isChinese ? entry.commentaryZh ?? entry.commentary : entry.commentary}
                   </Text>
                 </div>
               ))}
@@ -192,7 +203,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
           {asset.conflictingView && (
             <div className="flex flex-col gap-2 rounded-md border border-warning/20 bg-warning/5 p-lg">
               <Text variant="label" color="secondary" className="uppercase tracking-wide">
-                Conflicting View
+                {t("ui.conflictingView")}
               </Text>
               <Text variant="body-sm" color="secondary">
                 {asset.conflictingView}
@@ -202,10 +213,10 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
 
           <div className="flex flex-col gap-2">
             <Text variant="label" color="secondary" className="uppercase tracking-wide">
-              Verification Checklist
+              {t("chart.verificationChecklist")}
             </Text>
             <ul className="flex flex-col gap-2">
-              {asset.verificationItems.map((item) => (
+              {verificationItems.map((item) => (
                 <li key={item} className="flex items-start gap-2 text-body-sm text-foreground-secondary">
                   <span
                     aria-hidden="true"
@@ -218,8 +229,7 @@ export function AssetIntelligenceCard({ asset, verificationStatusLabel }: AssetI
           </div>
 
           <Text variant="caption" color="tertiary">
-            Confidence: {asset.scores.confidence}/100 — reflects agreement across frameworks, not a
-            guarantee of outcome.
+            {t("ui.confidenceNote", { confidence: asset.scores.confidence })}
           </Text>
         </div>
       </details>

@@ -1,5 +1,8 @@
+"use client";
+
 import { ChevronDownIcon } from "@/components/icons";
 import { Badge, Card, Text } from "@/components/ui";
+import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 import type { AssetChartScenario } from "@/types/forecast-chart";
 
@@ -20,19 +23,22 @@ interface ExplanationSection {
  * native `<details>` so it works without any client-side state.
  */
 export function ForecastExplanation({ scenario, className }: ForecastExplanationProps) {
+  const t = useTranslations();
+  const { locale } = useLocale();
+  const isChinese = locale === "zh-CN";
   const sections: ExplanationSection[] = [
-    { id: "base-logic", title: "Base Case Logic", content: [scenario.scenarios.base.logic] },
-    { id: "bull-trigger", title: "Bull Case Trigger", content: [scenario.scenarios.bull.logic] },
-    { id: "bear-trigger", title: "Bear Case Trigger", content: [scenario.scenarios.bear.logic] },
-    { id: "key-risks", title: "Key Risks", content: scenario.keyRisks },
-    { id: "verification-checklist", title: "Verification Checklist", content: scenario.verificationChecklist },
+    { id: "base-logic", title: t("chart.baseCaseLogic"), content: [isChinese ? scenario.scenarios.base.logicZh ?? scenario.scenarios.base.logic : scenario.scenarios.base.logic] },
+    { id: "bull-trigger", title: t("chart.bullCaseTrigger"), content: [isChinese ? scenario.scenarios.bull.logicZh ?? scenario.scenarios.bull.logic : scenario.scenarios.bull.logic] },
+    { id: "bear-trigger", title: t("chart.bearCaseTrigger"), content: [isChinese ? scenario.scenarios.bear.logicZh ?? scenario.scenarios.bear.logic : scenario.scenarios.bear.logic] },
+    { id: "key-risks", title: t("chart.keyRisks"), content: isChinese ? scenario.keyRisksZh ?? scenario.keyRisks : scenario.keyRisks },
+    { id: "verification-checklist", title: t("chart.verificationChecklist"), content: isChinese ? scenario.verificationChecklistZh ?? scenario.verificationChecklist : scenario.verificationChecklist },
   ];
 
   return (
     <Card padding="lg" className={cn("flex flex-col gap-5", className)}>
       <div className="flex flex-col gap-3">
         <Text variant="label" color="secondary" className="uppercase tracking-wide">
-          Why this path?
+          {t("chart.whyThisPath")}
         </Text>
         <div className="flex flex-wrap gap-2">
           {scenario.relevantFrameworks.map((framework) => (
