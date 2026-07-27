@@ -16,6 +16,7 @@
  */
 import { lt } from "@/lib/i18n/config";
 import type { ResearchCollection, ResearchRecord } from "@/types/research";
+import { externalObservations } from "@/lib/data/external-observations";
 
 export const researchCollections: ResearchCollection[] = [
   {
@@ -1189,11 +1190,11 @@ const researchRecords: ResearchRecord[] = [
 ];
 
 export async function listResearchRecords(): Promise<ResearchRecord[]> {
-  return researchRecords;
+  return [...researchRecords, ...externalObservations];
 }
 
 export async function getResearchRecord(id: string): Promise<ResearchRecord | undefined> {
-  return researchRecords.find((record) => record.id === id);
+  return [...researchRecords, ...externalObservations].find((record) => record.id === id);
 }
 
 export async function listResearchCollections(): Promise<ResearchCollection[]> {

@@ -38,7 +38,12 @@ export function calculateTechnicalSignalStrength(input: TechnicalSignalStrengthI
     Math.min(10, Math.max(0, input.riskCompleteness));
   const multiTimeframeCap = (input.sameDirectionTimeframes ?? 0) >= 2 ? 95 : 85;
   const statusCap = STATUS_CAPS[input.status] ?? multiTimeframeCap;
-  return Math.round(Math.min(raw, statusCap, multiTimeframeCap));
+  const incompleteObservationCap =
+    input.status === "observing" &&
+    (input.indicatorType === "unspecified" || input.hasConcreteConditions === false || input.hasStructureLevels === false)
+      ? 45
+      : 100;
+  return Math.round(Math.min(raw, statusCap, multiTimeframeCap, incompleteObservationCap));
 }
 
 function localized(zhCN: string, en: string, zhTW = zhCN): TechnicalSignalAggregate["summary"] {

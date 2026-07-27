@@ -470,6 +470,7 @@
       "volume_price_divergence": "量价背离",
       "momentum_weakening": "动能减弱",
       "momentum_strengthening": "动能增强"
+      ,"generic_bullish_divergence_watch": "潜在底背离观察"
     }
   }
 }

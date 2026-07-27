@@ -470,6 +470,7 @@
       "volume_price_divergence": "Volume-price divergence",
       "momentum_weakening": "Momentum weakening",
       "momentum_strengthening": "Momentum strengthening"
+      ,"generic_bullish_divergence_watch": "Potential bullish divergence watch"
     }
   }
 }

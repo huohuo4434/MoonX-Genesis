@@ -8,7 +8,7 @@ import { technicalSignalMessageKeys } from "@/lib/formatters/technical-signal";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import type { TechnicalSignal } from "@/types/technical-signal";
 
-export function TechnicalSignalsHomeClient({ signals }: { signals: TechnicalSignal[] }) {
+export function TechnicalSignalsHomeClient({ signals, warningCount, confirmedCount, conflictCount }: { signals: TechnicalSignal[]; warningCount: number; confirmedCount: number; conflictCount: number }) {
   const { locale } = useLocale();
   const t = useTranslations();
   return (
@@ -18,6 +18,11 @@ export function TechnicalSignalsHomeClient({ signals }: { signals: TechnicalSign
         <Link href="/research/technical" className="inline-flex items-center gap-1 text-body-sm text-foreground-secondary hover:text-primary focus-ring">
           {t("technical.viewAll")}<ArrowRightIcon size={14} />
         </Link>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Text variant="caption" color="secondary">{t("technical.currentWarnings")}：{warningCount}</Text>
+        <Text variant="caption" color="secondary">{t("technical.confirmedSignals")}：{confirmedCount}</Text>
+        <Text variant="caption" color="secondary">{t("technical.timeframeConflicts")}：{conflictCount}</Text>
       </div>
       {signals.length === 0 ? (
         <Text variant="body-sm" color="secondary">{t("technical.noSignals")}</Text>

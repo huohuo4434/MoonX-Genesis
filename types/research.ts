@@ -27,7 +27,7 @@ export type ResearchFramework =
   | "technical"
   | "internal";
 
-export type ResearchSourceType = "private-teacher" | "public-analyst" | "internal-research";
+export type ResearchSourceType = "private-teacher" | "public-analyst" | "internal-research" | "external-symbolic-analysis";
 
 export type ResearchDirection =
   | "strong-bullish"
@@ -61,6 +61,14 @@ export interface ForecastWindow {
 export interface ResearchRecord {
   id: string;
   publishedAt: string;
+  accessLevel?: "public" | "member";
+  memberAvailableAt?: string;
+  publicAvailableAt?: string;
+  previewSummary?: LocalizedText;
+  memberContent?: LocalizedText[];
+  expiresAt?: string;
+  /** Short-lived external observations must not affect long-horizon consensus. */
+  excludeFromLongTermConsensus?: boolean;
   forecastStart?: string;
   forecastEnd?: string;
   assetId: string;

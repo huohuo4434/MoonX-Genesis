@@ -20,7 +20,7 @@ const footerColumns: FooterColumn[] = [
       { labelKey: "footer.intelligenceSnapshot", href: "/research/intelligence-snapshot" },
       { labelKey: "footer.researchLibrary", href: "/research/library" },
       { labelKey: "footer.watchlist", href: "/markets/watchlist" },
-      { labelKey: "footer.pricing", href: "#" },
+      { labelKey: "footer.pricing", href: "/pricing" },
     ],
   },
   {

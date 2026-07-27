@@ -3,6 +3,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { TechnicalSignalSchema, TechnicalVerificationRecordSchema } from "@/lib/schemas/technical-signal";
+import { weeklyDivergenceWatchPool } from "@/lib/data/weekly-divergence-pool";
 import type { TechnicalSignal, TechnicalVerificationRecord } from "@/types/technical-signal";
 
 const signalPath = path.join(process.cwd(), "content", "moonx", "technical-signals.json");
@@ -28,12 +29,13 @@ function logInvalidRecord(kind: string, index: number, value: unknown, issues: s
 
 export async function listTechnicalSignals(): Promise<TechnicalSignal[]> {
   const records = await readJsonArray(signalPath);
-  return records.flatMap((record, index) => {
+  const parsed = records.flatMap((record, index) => {
     const result = TechnicalSignalSchema.safeParse(record);
     if (result.success) return [result.data];
     logInvalidRecord("signal", index, record, result.error.issues.map((issue) => issue.message).join("; "));
     return [];
   });
+  return [...parsed, ...weeklyDivergenceWatchPool];
 }
 
 export async function listTechnicalVerifications(): Promise<TechnicalVerificationRecord[]> {

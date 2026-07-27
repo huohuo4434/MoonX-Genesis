@@ -9,6 +9,8 @@ import {
 import { technicalSignalMessageKeys } from "@/lib/formatters/technical-signal";
 import { formatLocalizedDate } from "@/lib/utils";
 import type { TechnicalSignal } from "@/types/technical-signal";
+import { weeklyDivergenceWatchPool } from "@/lib/data/weekly-divergence-pool";
+import { externalObservations } from "@/lib/data/external-observations";
 
 function signal(overrides: Partial<TechnicalSignal> = {}): TechnicalSignal {
   return {
@@ -49,6 +51,13 @@ test("applies observing and warning strength caps", () => {
   assert.equal(calculateTechnicalSignalStrength({ ...maximum, status: "confirmed" }), 85);
 });
 
+test("caps incomplete unspecified weekly observations at 45", () => {
+  assert.equal(calculateTechnicalSignalStrength({
+    clarity: 25, priceConfirmation: 20, indicatorConfluence: 15, timeframeConfluence: 10, riskCompleteness: 10,
+    timeframe: "1w", status: "observing", indicatorType: "unspecified", hasConcreteConditions: false, hasStructureLevels: false,
+  }), 45);
+});
+
 test("identifies lower and higher timeframe conflicts", () => {
   const aggregate = aggregateTechnicalSignals([
     signal({ signalStrength: 65 }),
@@ -76,4 +85,22 @@ test("keeps mapping and dates locale-aware", () => {
   assert.equal(technicalSignalMessageKeys.status("warning"), "technical.status.warning");
   assert.equal(formatLocalizedDate("2026-07-27T08:00:00+08:00", "zh-CN"), "2026年7月27日");
   assert.match(formatLocalizedDate("2026-07-27T08:00:00+08:00", "en"), /Jul 27, 2026/);
+});
+
+test("loads nineteen distinct weekly observation assets including ENA and BGB", () => {
+  assert.equal(weeklyDivergenceWatchPool.length, 19);
+  assert.ok(weeklyDivergenceWatchPool.some((signal) => signal.symbol === "ENA"));
+  assert.ok(weeklyDivergenceWatchPool.some((signal) => signal.symbol === "BGB"));
+  assert.ok(weeklyDivergenceWatchPool.every((signal) => signal.indicatorType === "unspecified" && signal.signalStrength === 45));
+});
+
+test("keeps the oil timing observation low-weight and level-free", () => {
+  const oil = externalObservations[0];
+  assert.ok(oil);
+  assert.equal(oil.editorialConfidence, 20);
+  assert.equal(oil.consensusEligible, false);
+  assert.equal(oil.excludeFromLongTermConsensus, true);
+  assert.equal(oil.supports, undefined);
+  assert.equal(oil.resistances, undefined);
+  assert.equal(oil.targets, undefined);
 });

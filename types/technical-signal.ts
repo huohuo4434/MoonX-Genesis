@@ -14,6 +14,7 @@ export const TECHNICAL_SIGNAL_TYPES = [
   "volume_price_divergence",
   "momentum_weakening",
   "momentum_strengthening",
+  "generic_bullish_divergence_watch",
 ] as const;
 
 export const TECHNICAL_SIGNAL_STATUSES = [
@@ -37,6 +38,8 @@ export type TechnicalTimeframe = (typeof TECHNICAL_TIMEFRAMES)[number];
 export type TechnicalHorizon = (typeof TECHNICAL_HORIZONS)[number];
 export type TechnicalOutcomeResult = (typeof TECHNICAL_OUTCOMES)[number];
 export type TechnicalDirection = "bullish" | "bearish" | "neutral";
+export type TechnicalIndicatorType = "macd" | "rsi" | "unspecified";
+export type TechnicalAssetCategory = "major" | "high_volatility" | "defi" | "infrastructure" | "layer_1_layer_2" | "meme";
 
 export interface TechnicalSignalStatusHistoryEntry {
   status: TechnicalSignalStatus;
@@ -73,6 +76,8 @@ export interface TechnicalSignal {
   evidence: LocalizedText[];
   priceStructure?: LocalizedText;
   indicatorStructure?: LocalizedText;
+  indicatorType?: TechnicalIndicatorType;
+  assetCategory?: TechnicalAssetCategory;
   supportLevels?: number[];
   resistanceLevels?: number[];
   targetLevels?: number[];
@@ -84,6 +89,7 @@ export interface TechnicalSignal {
   sourceLabel?: LocalizedText;
   sourceRecordIds?: string[];
   evidenceScore?: number;
+  strengthInput?: Omit<TechnicalSignalStrengthInput, "status" | "timeframe">;
   timeframeWeight?: number;
   signalStrength?: number;
   outcome?: TechnicalSignalOutcome;
@@ -109,6 +115,9 @@ export interface TechnicalSignalStrengthInput {
   status: TechnicalSignalStatus;
   timeframe: TechnicalTimeframe;
   sameDirectionTimeframes?: number;
+  indicatorType?: TechnicalIndicatorType;
+  hasConcreteConditions?: boolean;
+  hasStructureLevels?: boolean;
 }
 
 export interface TechnicalSignalAggregate {

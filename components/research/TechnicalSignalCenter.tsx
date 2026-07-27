@@ -30,10 +30,14 @@ export function TechnicalSignalCenter({
   signals,
   stats,
   conflictCount,
+  totalSignalCount,
+  isMember,
 }: {
   signals: TechnicalSignal[];
   stats: TechnicalVerificationStats;
   conflictCount: number;
+  totalSignalCount: number;
+  isMember: boolean;
 }) {
   const { locale } = useLocale();
   const t = useTranslations();
@@ -108,6 +112,13 @@ export function TechnicalSignalCenter({
             </Card>
           ))}
         </div>
+      )}
+      {!isMember && totalSignalCount > signals.length && (
+        <Card padding="lg" className="flex flex-col gap-2">
+          <Text variant="body" weight="semibold">当前共有{totalSignalCount}个周线底背离观察资产</Text>
+          <Text variant="body-sm" color="secondary">MoonX提供结构化研究观点与情景推演，不构成针对任何个人的投资建议，也不承诺任何结果。</Text>
+          <a href="/pricing" className="text-body-sm text-primary hover:underline">查看会员内容</a>
+        </Card>
       )}
 
       <Card padding="lg" className="flex flex-col gap-3">

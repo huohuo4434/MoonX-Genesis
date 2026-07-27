@@ -13,10 +13,12 @@ export function ResearchIntelligenceClient({
   frameworks,
   reports,
   snapshot,
+  technicalSignalCount,
 }: {
   frameworks: AnalystFramework[];
   reports: DailyReport[];
   snapshot: SnapshotMetadata;
+  technicalSignalCount: number;
 }) {
   const t = useTranslations();
   const { locale } = useLocale();
@@ -32,9 +34,12 @@ export function ResearchIntelligenceClient({
           <Button asChild variant="outline" size="md" className="mt-2 self-start">
             <Link href="/research/pipeline">{t("ui.researchPipeline")}<ArrowRightIcon size={14} /></Link>
           </Button>
-                 <Button asChild variant="ghost" size="md" className="self-start">
-                   <Link href="/research/technical">{t("technical.title")}<ArrowRightIcon size={14} /></Link>
-                 </Button>
+                 <Card padding="md" className="mt-2 w-full max-w-2xl border-primary/30">
+                   <Text variant="label" color="secondary">TECHNICAL ANALYSIS</Text>
+                   <Text variant="body" weight="semibold">{t("technical.title")} · {technicalSignalCount}</Text>
+                   <Text variant="body-sm" color="secondary">{t("technical.subtitle")}</Text>
+                   <Button asChild variant="primary" size="sm" className="mt-3"><Link href="/research/technical">{t("technical.viewAll")}<ArrowRightIcon size={14} /></Link></Button>
+                 </Card>
         </div>
       </Section>
       <Section spacing="lg" className="border-t border-border/[0.06]">

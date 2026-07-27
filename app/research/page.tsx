@@ -3,6 +3,7 @@ import { ResearchIntelligenceClient } from "@/components/research/ResearchIntell
 import { AltcoinRotationMonitorSection } from "@/components/sections";
 import { listAnalystFrameworks, listDailyIntelligenceReports } from "@/lib/data/research-intelligence";
 import { getSnapshotMetadata } from "@/lib/data/intelligence-snapshot";
+import { listTechnicalSignals } from "@/lib/data/load-technical-signals";
 
 export const metadata: Metadata = {
   title: "Research Intelligence",
@@ -11,14 +12,15 @@ export const metadata: Metadata = {
 };
 
 export default async function ResearchIntelligencePage() {
-  const [frameworks, reports, snapshot] = await Promise.all([
+  const [frameworks, reports, snapshot, technicalSignals] = await Promise.all([
     listAnalystFrameworks(),
     listDailyIntelligenceReports(),
     getSnapshotMetadata(),
+    listTechnicalSignals(),
   ]);
   return (
     <>
-      <ResearchIntelligenceClient frameworks={frameworks} reports={reports} snapshot={snapshot} />
+      <ResearchIntelligenceClient frameworks={frameworks} reports={reports} snapshot={snapshot} technicalSignalCount={technicalSignals.length} />
       <AltcoinRotationMonitorSection />
     </>
   );

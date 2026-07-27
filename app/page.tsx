@@ -4,6 +4,7 @@ import {
   ChinaEquityLongRangeSection,
   ConsensusOverviewSection,
   HeroSection,
+  MacroRiskCalendarSection,
   StrategicWatchlistSection,
   TechnicalSignalsHomeSection,
   TodaysMoonXViewSection,
@@ -18,6 +19,7 @@ export default function HomePage() {
       <TodaysMoonXViewSection />
       <ConsensusOverviewSection />
       <TechnicalSignalsHomeSection />
+      <MacroRiskCalendarSection />
       <BitcoinForecastPathSection />
       <ChinaEquityLongRangeSection />
       <AltcoinRotationHomeSection />
