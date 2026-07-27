@@ -4,6 +4,22 @@ import { useState } from "react";
 import { Button, Card, Text } from "@/components/ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+const AUTH_ERROR_ZH: Record<string, string> = {
+  "Invalid email": "邮箱格式不正确，请检查后重试。",
+  "Email rate limit exceeded": "发送过于频繁，请稍后再试。",
+  "Signups not allowed for this instance": "当前不允许新用户注册，请联系客服。",
+  "Email link is invalid or has expired": "登录链接无效或已过期，请重新发送。",
+};
+
+function translateAuthError(message: string): string {
+  for (const [key, zh] of Object.entries(AUTH_ERROR_ZH)) {
+    if (message.includes(key)) return zh;
+  }
+  if (/rate limit/i.test(message)) return "发送过于频繁，请稍后再试。";
+  if (/invalid email/i.test(message)) return "邮箱格式不正确，请检查后重试。";
+  return "登录请求失败，请稍后重试或联系客服。";
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -16,7 +32,7 @@ export function LoginForm() {
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
     if (!supabase) {
-      setError("登录服务尚未配置 Supabase 环境变量");
+      setError("登录服务尚未配置，请稍后再试。");
       setLoading(false);
       return;
     }
@@ -27,7 +43,7 @@ export function LoginForm() {
     });
     setLoading(false);
     if (authError) {
-      setError(authError.message);
+      setError(translateAuthError(authError.message));
       return;
     }
     setSent(true);
@@ -39,11 +55,11 @@ export function LoginForm() {
         邮箱登录
       </Text>
       <Text variant="body-sm" color="secondary" className="mb-4">
-        使用 Magic Link 登录，无需密码。邮件服务由 Supabase 提供；若未收到请检查垃圾箱。
+        输入邮箱，我们会向你发送免密登录链接，无需设置密码。
       </Text>
       {sent ? (
         <Text variant="body-sm" color="secondary">
-          登录链接已发送至 {email}，请在 15 分钟内点击邮件中的链接完成登录。
+          登录链接已发送，请检查收件箱和垃圾邮件文件夹。
         </Text>
       ) : (
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
@@ -52,7 +68,7 @@ export function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
+            placeholder="name@example.com"
             className="h-10 rounded-md border border-border bg-surface px-3 text-body-sm"
             aria-label="邮箱"
           />
@@ -62,7 +78,7 @@ export function LoginForm() {
             </Text>
           )}
           <Button type="submit" disabled={loading}>
-            {loading ? "发送中…" : "发送 Magic Link"}
+            {loading ? "发送中…" : "发送登录链接"}
           </Button>
         </form>
       )}

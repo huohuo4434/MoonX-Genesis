@@ -17,11 +17,14 @@ export const routes = {
   research: "/research",
   researchLibrary: "/research/library",
   researchPipeline: "/research/pipeline",
-  researchVerification: "/research#verification",
+  verification: "/verification",
   intelligenceSnapshot: "/research/intelligence-snapshot",
   watchlist: "/markets/watchlist",
   timeline: "/timeline",
   pricing: "/pricing",
+  login: "/login",
+  privacy: "/privacy",
+  terms: "/terms",
   technical: "/research/technical",
   memberPreview: "/member-preview",
 } as const;
@@ -29,11 +32,11 @@ export const routes = {
 export const primaryNav: NavItem[] = [
   { key: "nav.home", href: routes.home },
   { key: "nav.todayView", href: routes.todayView },
+  { key: "nav.forecastsDaily", href: routes.forecastsDaily },
   { key: "nav.tomorrowForecast", href: routes.tomorrowForecast },
-  { key: "nav.forecasts", href: routes.forecasts },
   { key: "nav.researchLibrary", href: routes.researchLibrary },
   { key: "nav.watchlist", href: routes.watchlist },
-  { key: "nav.verification", href: routes.researchVerification },
+  { key: "nav.verification", href: routes.verification },
 ];
 
 export const moreNav: NavItem[] = [
@@ -41,13 +44,14 @@ export const moreNav: NavItem[] = [
   { key: "nav.timeline", href: routes.timeline },
   { key: "nav.pricing", href: routes.pricing },
   { key: "nav.technical", href: routes.technical },
+  { key: "nav.researchPipeline", href: routes.researchPipeline },
 ];
 
 export const footerColumns: Array<{ titleKey: string; links: NavItem[] }> = [
   {
     titleKey: "footer.product",
     links: [
-      { key: "footer.todaysIntelligence", href: routes.todayView },
+      { key: "footer.todaysIntelligence", href: routes.home },
       { key: "footer.forecasts", href: routes.forecastsDaily },
       { key: "footer.researchIntelligence", href: routes.research },
       { key: "footer.intelligenceSnapshot", href: routes.intelligenceSnapshot },
@@ -63,17 +67,17 @@ export const footerColumns: Array<{ titleKey: string; links: NavItem[] }> = [
   {
     titleKey: "footer.resources",
     links: [
-      { key: "footer.methodology", href: routes.researchPipeline },
+      { key: "footer.methodology", href: routes.research },
       { key: "footer.researchPipeline", href: routes.researchPipeline },
       { key: "footer.timeline", href: routes.timeline },
-      { key: "footer.verification", href: routes.researchVerification },
+      { key: "footer.verification", href: routes.verification },
     ],
   },
   {
     titleKey: "footer.legal",
     links: [
-      { key: "footer.privacyPolicy", href: "#" },
-      { key: "footer.termsOfService", href: "#" },
+      { key: "footer.privacyPolicy", href: routes.privacy },
+      { key: "footer.termsOfService", href: routes.terms },
     ],
   },
 ];

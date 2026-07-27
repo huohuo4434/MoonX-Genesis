@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Canonical verification route — redirects to the verification section on /research. */
+/** Legacy route — canonical verification page is /verification. */
 export default function ResearchVerificationRedirect() {
-  redirect("/research#verification");
+  redirect("/verification");
 }

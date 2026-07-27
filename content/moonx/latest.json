@@ -5,7 +5,7 @@
   "lastUpdated": "2026-07-27T14:30:00.000+08:00",
   "status": "draft-pending-verification",
   "statusLabel": {
-    "zhCN": "草稿 — 待验证",
+    "zhCN": "草稿｜待验证",
     "zhTW": "草稿 — 待驗證",
     "en": "Draft — Pending Verification"
   },
@@ -3649,9 +3649,14 @@
         },
         "mainThemes": [
           {
-            "zhCN": "Crypto / 迷因龙头",
-            "zhTW": "Crypto / Meme Leader",
-            "en": "Crypto / Meme Leader"
+            "zhCN": "加密资产",
+            "zhTW": "加密資產",
+            "en": "Crypto"
+          },
+          {
+            "zhCN": "迷因币龙头",
+            "zhTW": "迷因幣龍頭",
+            "en": "Meme Leader"
           },
           {
             "zhCN": "山寨币轮动",
@@ -3848,9 +3853,14 @@
         },
         "mainThemes": [
           {
-            "zhCN": "Crypto / 迷因龙头",
-            "zhTW": "Crypto / Meme Leader",
-            "en": "Crypto / Meme Leader"
+            "zhCN": "加密资产",
+            "zhTW": "加密資產",
+            "en": "Crypto"
+          },
+          {
+            "zhCN": "迷因币龙头",
+            "zhTW": "迷因幣龍頭",
+            "en": "Meme Leader"
           },
           {
             "zhCN": "山寨币轮动",
@@ -3890,7 +3900,7 @@
         "en": "ChangXin Technology STAR Market IPO Watch"
       },
       "description": {
-        "zhCN": "待验证的 投机性 上市观察窗口；不断言已确认的上市日期或发行价。",
+        "zhCN": "投机性上市观察窗口（待验证）；不断言已确认的上市日期或发行价。",
         "zhTW": "待驗證的 speculative 上市觀察窗口；不斷言已 verified 的上市日期或發行價。",
         "en": "Pending speculative IPO watch window — no verified listing date or IPO price is asserted."
       },
@@ -3949,7 +3959,7 @@
       "id": "semiconductor-turning",
       "date": "2026-08-07",
       "title": {
-        "zhCN": "半导体疲软/修复转折点",
+        "zhCN": "半导体由弱转强观察窗口",
         "zhTW": "半導體疲軟/修復轉折點",
         "en": "Semiconductor Weakness/Recovery Turning Point"
       },
@@ -4038,7 +4048,7 @@
         "en": "Bitcoin September High / Turning-Risk Window"
       },
       "description": {
-        "zhCN": "ORACLE-0009：9月主要高点或转折风险窗口（约78%）；保留85,000可达 / 90,000可能目标。来源可靠性：高点月份判断相对较强，低点窗口仅辅助；定性历史评价，尚非正式统计准确率。",
+        "zhCN": "ORACLE-0009：9月主要高点或转折风险窗口（约78%）；85,000美元基准情景／90,000美元乐观情景。来源可靠性：高点月份判断相对较强，低点窗口仅辅助；定性历史评价，尚非正式统计准确率。",
         "zhTW": "ORACLE-0009：9月主要高點或轉折風險窗口（約78%）；保留85,000可達 / 90,000可能目標。來源可靠性：高點月份判斷相對較強，低點窗口僅輔助；定性歷史評價，尚非正式統計準確率。",
         "en": "ORACLE-0009: September main-high or turn-risk (~78%); keep 85k achievable / 90k possible targets. Source reliability: high-month timing stronger; low windows auxiliary. Qualitative evaluation — not official statistical accuracy."
       },
@@ -4113,7 +4123,7 @@
       "start": "2026-10-01",
       "end": "2026-10-31",
       "title": {
-        "zhCN": "A股4,500情景目标与高波动窗口",
+        "zhCN": "上证指数4,500点情景目标与高波动窗口",
         "zhTW": "A股4,500情境目標與高波動窗口",
         "en": "A-Share 4,500 Scenario Target & High-Volatility Window"
       },

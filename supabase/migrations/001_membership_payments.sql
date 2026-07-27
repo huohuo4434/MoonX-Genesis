@@ -34,6 +34,7 @@ create table if not exists public.membership_plans (
   updated_at timestamptz not null default now()
 );
 
+-- Seed plans (inactive until admin sets prices — see 002_update_plan_prices.sql for production prices)
 insert into public.membership_plans (code, name, duration_days, price_usdt, access_level, active, sort_order)
 values
   ('MONTHLY', '月度会员', 30, null, 'member', false, 1),

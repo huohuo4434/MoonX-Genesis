@@ -69,7 +69,12 @@ export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCard
       )}
 
       {record.direction !== "insufficient-evidence" && record.editorialConfidence > 0 && (
-        <Progress value={record.editorialConfidence} label={t("researchLibrary.editorialConfidence")} />
+        <>
+          <Progress value={record.editorialConfidence} label={`${t("researchLibrary.editorialConfidence")}：${record.editorialConfidence}%`} />
+          <Text variant="caption" color="tertiary">
+            {t("researchLibrary.editorialConfidenceNote")}
+          </Text>
+        </>
       )}
 
       <div className="mt-1 flex items-center justify-between gap-2">

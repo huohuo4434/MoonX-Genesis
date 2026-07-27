@@ -15,6 +15,7 @@ import {
   getNextForecastDate,
   sessionLabelForMarket,
 } from "@/lib/calendar/next-trading-day";
+import { formatBeijingDateTime } from "@/lib/utils/datetime";
 
 export const CORE_TOMORROW_ASSETS = [
   {
@@ -49,13 +50,6 @@ export const CORE_TOMORROW_ASSETS = [
   },
 ] as const;
 
-function toIsoDateLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function parseIso(iso: string): Date {
   const parts = iso.split("-").map(Number);
   const y = parts[0] ?? 1970;
@@ -64,11 +58,6 @@ function parseIso(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function addDaysIso(iso: string, n: number): string {
-  const d = parseIso(iso);
-  d.setDate(d.getDate() + n);
-  return toIsoDateLocal(d);
-}
 
 function eveningIso(dateIso: string, hour = 21, minute = 30): string {
   const d = parseIso(dateIso);
@@ -131,50 +120,40 @@ function buildPendingTomorrow(now: Date): DailyForecast[] {
       market: asset.market,
       forecastForDate,
       tradingSessionLabel: sessionLabelForMarket(asset.market),
-      publishedAt: eveningIso(toIsoDateLocal(now)),
-      updatedAt: eveningIso(toIsoDateLocal(now)),
-      // Becomes public at start of forecast day (member-first until then)
+      publishedAt: "",
+      updatedAt: "",
       publicAt: eveningIso(forecastForDate, 0, 0),
       accessLevel: "member" as const,
       status: "draft" as const,
-      version: 1,
+      version: 0,
       direction: "中性" as const,
       confidence: 0,
       summary: "研究尚未完成",
-      // Publish metadata intentionally absent until human review
     };
   });
 }
 
-/**
- * Today's public verifying slots — separate forecastForDate from tomorrow.
- * Placeholders only (confidence 0); not fabricated directional calls.
- */
-function buildTodayVerifying(now: Date): DailyForecast[] {
+/** Placeholder slots for current session — draft only, never shown as "验证中". */
+function buildTodayDraftSlots(now: Date): DailyForecast[] {
   return CORE_TOMORROW_ASSETS.map((asset) => {
     const forecastForDate = getCurrentSessionDate(asset.market, now);
-    const firstPublishedDay = addDaysIso(forecastForDate, -1);
     return {
-      id: `TODAY-${asset.symbol}-VERIFY`,
+      id: `TODAY-${asset.symbol}-DRAFT`,
       assetId: asset.assetId,
       assetName: asset.assetName,
       symbol: asset.symbol,
       market: asset.market,
       forecastForDate,
       tradingSessionLabel: "当前交易日",
-      publishedAt: eveningIso(firstPublishedDay),
-      updatedAt: eveningIso(firstPublishedDay),
-      publicAt: eveningIso(firstPublishedDay),
-      accessLevel: "public" as const,
-      status: "published" as const,
-      version: 1,
+      publishedAt: "",
+      updatedAt: "",
+      publicAt: undefined,
+      accessLevel: "member" as const,
+      status: "draft" as const,
+      version: 0,
       direction: "中性" as const,
       confidence: 0,
       summary: "研究尚未完成",
-      reviewedBy: "editor-placeholder",
-      reviewedAt: eveningIso(firstPublishedDay, 20, 0),
-      publishedBy: "editor-placeholder",
-      correctionNote: undefined,
     };
   });
 }
@@ -184,12 +163,13 @@ const CURATED_FORECASTS: DailyForecast[] = [];
 
 function allRawForecasts(now: Date): DailyForecast[] {
   const pending = buildPendingTomorrow(now);
-  const today = buildTodayVerifying(now);
-  // Curated wins on same id / same asset+date
+  const todayDrafts = buildTodayDraftSlots(now);
   const map = new Map<string, DailyForecast>();
-  for (const f of [...today, ...pending, ...CURATED_FORECASTS]) {
-    const key = `${f.assetId}:${f.forecastForDate}`;
-    map.set(key, f);
+  for (const f of [...todayDrafts, ...pending]) {
+    map.set(`${f.assetId}:${f.forecastForDate}`, f);
+  }
+  for (const f of CURATED_FORECASTS) {
+    map.set(`${f.assetId}:${f.forecastForDate}`, f);
   }
   return Array.from(map.values());
 }
@@ -226,8 +206,10 @@ export function getPublicTodayForecasts(now = new Date()): DailyForecast[] {
       (f) =>
         f.assetId === asset.assetId &&
         f.forecastForDate === session &&
+        isHumanPublishedForecast(f) &&
         f.accessLevel === "public" &&
-        (!f.publicAt || new Date(f.publicAt).getTime() <= now.getTime())
+        f.publicAt &&
+        new Date(f.publicAt).getTime() <= now.getTime()
     );
     return match;
   }).filter((f): f is DailyForecast => Boolean(f));
@@ -255,19 +237,14 @@ export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPu
   const teasers = forecasts.map(toTeaser);
   const dates = [...new Set(forecasts.map((f) => f.forecastForDate))].sort();
   const primaryDate = dates[0] ?? getNextForecastDate("us", now);
-  const updatedTimes = forecasts
+  const published = forecasts.filter((f) => isHumanPublishedForecast(f));
+  const drafts = forecasts.filter((f) => !isHumanPublishedForecast(f));
+  const updatedTimes = published
     .map((f) => f.updatedAt || f.publishedAt)
     .filter(Boolean)
     .sort();
   const last = updatedTimes[updatedTimes.length - 1];
-  const lastUpdatedLabel = last
-    ? new Date(last).toLocaleTimeString("zh-CN", {
-        timeZone: "Asia/Shanghai",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    : "—";
+  const lastUpdatedLabel = last ? formatBeijingDateTime(last) : "—";
 
   return {
     nextDateLabel: formatForecastDateZh(primaryDate),
@@ -275,7 +252,9 @@ export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPu
     assetCount: forecasts.length,
     assetNames: forecasts.map((f) => f.assetName),
     lastUpdatedLabel,
-    publishedCount: forecasts.filter((f) => f.status === "published" || f.status === "revised").length,
+    publishedCount: published.length,
+    draftCount: drafts.length,
+    allDraft: published.length === 0,
     teasers,
   };
 }

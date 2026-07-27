@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Text } from "@/components/ui";
+import { Badge, Button, Card, Text } from "@/components/ui";
+import { PLAN_DISPLAY } from "@/lib/payments/plan-display";
 import type { MembershipPlan } from "@/types/membership";
 
 export function PricingPlansClient({
   plans,
   bep20Enabled,
+  trc20Open,
   supportEmail,
 }: {
   plans: MembershipPlan[];
   bep20Enabled: boolean;
+  trc20Open: boolean;
   supportEmail: string;
 }) {
   const router = useRouter();
@@ -41,36 +44,51 @@ export function PricingPlansClient({
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-4">
-      {plans.map((plan) => (
-        <Card key={plan.code} padding="lg" className="flex flex-col gap-3">
-          <Text variant="body" weight="semibold">
-            {plan.name}
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            {plan.duration_days} 天 ·{" "}
-            {plan.price_usdt != null && plan.active
-              ? `${plan.price_usdt} USDT`
-              : "即将开放"}
-          </Text>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              disabled={!plan.active || plan.price_usdt == null || loading !== null}
-              onClick={() => buy(plan.code, "TRON")}
-            >
-              {loading === `${plan.code}-TRON` ? "创建中…" : "USDT-TRC20 支付"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!bep20Enabled || !plan.active || plan.price_usdt == null || loading !== null}
-              onClick={() => buy(plan.code, "BSC")}
-            >
-              {bep20Enabled ? "BSC-USD 支付" : "BEP20 待管理员确认"}
-            </Button>
-          </div>
-        </Card>
-      ))}
+      {plans.map((plan) => {
+        const meta = PLAN_DISPLAY[plan.code];
+        const hasPrice = plan.price_usdt != null && plan.price_usdt > 0;
+        const canBuy = trc20Open && plan.active && hasPrice;
+        return (
+          <Card key={plan.code} padding="lg" className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Text variant="body" weight="semibold">
+                {plan.name}
+              </Text>
+              {meta?.badge ? <Badge variant="default">{meta.badge}</Badge> : null}
+            </div>
+            <Text variant="body-sm" color="secondary">
+              {plan.duration_days} 天 ·{" "}
+              {hasPrice ? `${plan.price_usdt} USDT` : "即将开放"}
+            </Text>
+            {meta?.savingText ? (
+              <Text variant="caption" color="tertiary">
+                {meta.savingText}
+              </Text>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={!canBuy || loading !== null}
+                onClick={() => buy(plan.code, "TRON")}
+              >
+                {loading === `${plan.code}-TRON`
+                  ? "创建中…"
+                  : trc20Open
+                    ? "USDT-TRC20 支付"
+                    : "USDT-TRC20 即将开放"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!bep20Enabled || !canBuy || loading !== null}
+                onClick={() => buy(plan.code, "BSC")}
+              >
+                {bep20Enabled ? "BSC-USD 支付" : "BEP20 待管理员确认"}
+              </Button>
+            </div>
+          </Card>
+        );
+      })}
       {error && (
         <Text variant="caption" color="tertiary">
           {error}

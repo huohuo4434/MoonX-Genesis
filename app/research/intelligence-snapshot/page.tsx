@@ -22,8 +22,8 @@ import { routes } from "@/lib/navigation";
 import { formatLocalizedDate } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Intelligence Snapshot",
-  description: "MoonX curated intelligence snapshot — public direction and summary; member details gated server-side.",
+  title: "情报快照 | MoonX",
+  description: "MoonX 精选研究快照 — 公开方向与摘要；完整详情需会员权限。",
 };
 
 export default async function IntelligenceSnapshotPage() {
@@ -45,7 +45,7 @@ export default async function IntelligenceSnapshotPage() {
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="warning">{snapshot.statusLabel}</Badge>
-            <Badge variant="outline">精选数据 — 非实时</Badge>
+            <Badge variant="outline">精选研究快照 — 非实时市场数据</Badge>
             <Badge variant="neutral" className="font-mono">
               快照：{snapshotDateLabel}
             </Badge>
@@ -81,7 +81,7 @@ export default async function IntelligenceSnapshotPage() {
               研究框架库
               <ArrowRightIcon size={14} />
             </Link>
-            <Link href={routes.researchVerification} className="inline-flex items-center gap-1.5 text-body-sm text-foreground-secondary hover:text-primary focus-ring">
+            <Link href={routes.verification} className="inline-flex items-center gap-1.5 text-body-sm text-foreground-secondary hover:text-primary focus-ring">
               历史验证
               <ArrowRightIcon size={14} />
             </Link>

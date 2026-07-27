@@ -42,12 +42,12 @@ export function LongTermOutlookClient({ cards }: { cards: ChinaEquityCardModel[]
               </Text>
               <Badge variant="outline">{pickLocalized(card.rating, locale)}</Badge>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-foreground-tertiary">
+            <div className="flex flex-col gap-1 text-caption text-foreground-tertiary">
               <span>
-                {t("home.researchScore")}: {card.score}/100
+                {t("home.researchScore")}：{card.score}/100
               </span>
               <span>
-                {t("home.trendConsistency")}: {card.consistencyScore}/{card.consistencyMax}
+                {t("home.trendConsistency")}：{card.consistencyScore}/{card.consistencyMax}
               </span>
             </div>
             <Text variant="caption" color="tertiary">

@@ -119,6 +119,11 @@ export interface TomorrowForecastPublicSummary {
   assetCount: number;
   assetNames: string[];
   lastUpdatedLabel: string;
+  /** Human-reviewed and published (not draft/reviewed). */
   publishedCount: number;
+  /** Draft slots planned for next session. */
+  draftCount: number;
+  /** All slots are still draft — show "预测草稿待人工审核". */
+  allDraft: boolean;
   teasers: DailyForecastTeaser[];
 }

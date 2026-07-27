@@ -11,6 +11,7 @@ import type {
 } from "@/lib/data/intelligence-snapshot-types";
 import type { TimelineEvent, WatchlistEntry, WatchlistRating, WatchlistStatus } from "@/types/research";
 import type { MoonXLocalizedText, MoonXProcessedAsset, MoonXProcessedDocument } from "./types";
+import { normalizeZhCopy } from "./text-normalize";
 
 const KNOWN_FRAMEWORKS = new Set<string>([
   "Oracle Six Yao",
@@ -42,20 +43,20 @@ function toFrameworkNames(names: string[]): MoonXFrameworkName[] {
 export function toSnapshotMetadata(doc: MoonXProcessedDocument): SnapshotMetadata {
   return {
     snapshotDate: doc.researchDate,
-    dataType: en(doc.dataType),
+    dataType: zh(doc.dataType) ?? en(doc.dataType),
     dataTypeZh: zh(doc.dataType),
-    dataSourceDisclosure: en(doc.dataSourceDisclosure),
+    dataSourceDisclosure: zh(doc.dataSourceDisclosure) ?? en(doc.dataSourceDisclosure),
     dataSourceDisclosureZh: zh(doc.dataSourceDisclosure),
     status: doc.status,
-    statusLabel: en(doc.statusLabel),
-    statusLabelZh: zh(doc.statusLabel),
-    mainConclusion: doc.mainConclusion.map((p) => en(p)),
+    statusLabel: (zh(doc.statusLabel) ?? en(doc.statusLabel)).replace(" — ", "｜"),
+    statusLabelZh: zh(doc.statusLabel)?.replace(" — ", "｜"),
+    mainConclusion: doc.mainConclusion.map((p) => zh(p) ?? en(p)),
     mainConclusionZh: doc.mainConclusion.map((p) => zh(p) ?? en(p)),
   };
 }
 
 export function toRiskDisclaimer(doc: MoonXProcessedDocument): string {
-  return en(doc.riskDisclaimer);
+  return zh(doc.riskDisclaimer) ?? en(doc.riskDisclaimer);
 }
 
 export function toAssetIntelligenceSnapshot(asset: MoonXProcessedAsset): AssetIntelligenceSnapshot {
@@ -280,8 +281,18 @@ export function toTimelineEvents(doc: MoonXProcessedDocument): TimelineEvent[] {
       date: event.date,
       start: event.start,
       end: event.end,
-      title: event.title,
-      description: event.description,
+      title: {
+        zhCN: normalizeZhCopy(event.title.zhCN),
+        zhTW: event.title.zhTW,
+        en: event.title.en,
+      },
+      description: event.description
+        ? {
+            zhCN: normalizeZhCopy(event.description.zhCN),
+            zhTW: event.description.zhTW,
+            en: event.description.en,
+          }
+        : undefined,
       categories: event.categories,
       verification: event.verification,
       isLongRange: event.isLongRange,

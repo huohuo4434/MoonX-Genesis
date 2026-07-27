@@ -71,7 +71,9 @@ export function TomorrowForecastLocked({
               {t("home.tomorrowAssetCount")}
             </Text>
             <Text variant="body" weight="semibold" className="mt-1 block">
-              {summary.assetCount}
+              {summary.allDraft
+                ? t("home.tomorrowPlannedAssets", { count: summary.assetCount })
+                : t("home.tomorrowPublishedAssets", { count: summary.publishedCount })}
             </Text>
           </div>
           <div>
@@ -79,7 +81,7 @@ export function TomorrowForecastLocked({
               {t("home.tomorrowLastUpdated")}
             </Text>
             <Text variant="body" weight="semibold" className="mt-1 block">
-              {summary.lastUpdatedLabel}
+              {summary.allDraft ? "—" : summary.lastUpdatedLabel}
             </Text>
           </div>
           <div>
@@ -87,9 +89,11 @@ export function TomorrowForecastLocked({
               {t("home.tomorrowPublishState")}
             </Text>
             <Text variant="body" weight="semibold" className="mt-1 block">
-              {summary.publishedCount > 0
-                ? t("home.tomorrowPublished")
-                : t("home.tomorrowPendingReview")}
+              {summary.allDraft
+                ? t("home.tomorrowDraftPendingReview")
+                : summary.publishedCount > 0
+                  ? t("home.tomorrowPublishedCount", { count: summary.publishedCount })
+                  : t("home.tomorrowReviewedWaiting")}
             </Text>
           </div>
         </div>
@@ -137,7 +141,7 @@ export function TomorrowForecastLocked({
           {t("home.tomorrowLifecycleNote")}
         </Text>
         <Link
-          href="/research#verification"
+          href="/verification"
           className="mt-2 inline-block text-body-sm text-primary underline-offset-4 hover:underline"
         >
           {t("home.tomorrowHistoryLink")}
@@ -336,7 +340,7 @@ export function TomorrowForecastMember({
             {t("home.tomorrowFullPage")}
           </Link>
           <Link
-            href="/research#verification"
+            href="/verification"
             className="text-body-sm text-foreground-secondary underline-offset-4 hover:underline"
           >
             {t("home.tomorrowHistoryLink")}

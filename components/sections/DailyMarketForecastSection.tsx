@@ -12,16 +12,7 @@ import {
 } from "@/lib/data/daily-forecasts";
 import { getCurrentWeeklyEdition } from "@/lib/data/weekly-edition";
 import { routes } from "@/lib/navigation";
-
-function formatShanghaiTime(iso: string | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
+import { formatBeijingDateTime } from "@/lib/utils/datetime";
 
 /** Daily page: tomorrow member entry + today's public forecasts + weekly rhythm context. */
 export async function DailyMarketForecastSection() {
@@ -37,14 +28,11 @@ export async function DailyMarketForecastSection() {
   return (
     <Section spacing="lg" id="daily-edition">
       <div className="mb-8 flex flex-col gap-2">
-        <Text variant="label" color="secondary">
-          DAILY MARKET FORECASTS
-        </Text>
         <Heading as="h1" size="h2">
-          每日预测
+          每日市场预测
         </Heading>
         <Text variant="body" color="secondary">
-          下一交易日会员预测与今日公开验证内容分开展示；周度节奏来自本周战术研究。
+          下一交易日会员预测与今日公开验证内容分开展示；各市场公开时间以每条预测记录的 publicAt 为准。
         </Text>
       </div>
 
@@ -52,7 +40,7 @@ export async function DailyMarketForecastSection() {
       <div className="mb-10 rounded-lg border border-primary/25 bg-card/40 p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Text variant="label" color="secondary">
-            会员专享 · 明日核心预测
+            下一交易日预测 · 会员提前查看
           </Text>
           {!user.isMember ? <LockIcon size={14} className="text-primary" /> : null}
         </div>
@@ -60,8 +48,9 @@ export async function DailyMarketForecastSection() {
           下一交易日：{formatForecastDateZh(summary.nextDateIso)}
         </Text>
         <Text variant="body-sm" color="secondary" className="mb-4">
-          已更新 {summary.assetCount} 项资产 · 最后更新 {summary.lastUpdatedLabel}（上海时间）
-          {summary.publishedCount > 0 ? " · 部分预测已发布" : " · 尚未发布（待人工审核）"}
+          {summary.allDraft
+            ? `计划覆盖 ${summary.assetCount} 项资产 · 预测草稿待人工审核`
+            : `已发布 ${summary.publishedCount} 项预测 · 最后更新 ${summary.lastUpdatedLabel}`}
         </Text>
 
         {user.isMember ? (
@@ -79,7 +68,7 @@ export async function DailyMarketForecastSection() {
                   </Text>
                   {pending ? (
                     <Text variant="body-sm" color="secondary">
-                      研究尚未完成
+                      尚未发布
                     </Text>
                   ) : (
                     <>
@@ -122,21 +111,21 @@ export async function DailyMarketForecastSection() {
       {/* Today public block */}
       <div className="mb-10">
         <Text variant="label" color="secondary" className="mb-2 block">
-          今日公开验证
+          今日公开预测
         </Text>
         <Text variant="caption" color="tertiary" className="mb-4 block">
-          来自对应交易日已公开（publicAt 已到达）的预测记录 · 标记「今日验证中」
+          仅展示已到达各自 publicAt 且经人工审核发布的预测 · 尚未完成的预测不会显示为「验证中」
         </Text>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {todayForecasts.length === 0 ? (
             <Card padding="md">
               <Text variant="body-sm" color="secondary">
-                今日公开预测尚未到达公开时间。
+                今日公开预测尚未发布。
               </Text>
             </Card>
           ) : (
             todayForecasts.map((f) => {
-              const pending = !isHumanPublishedForecast(f);
+              const ready = isHumanPublishedForecast(f);
               return (
                 <Card key={f.id} padding="md" className="flex flex-col gap-2">
                   <Text variant="body" weight="semibold">
@@ -144,14 +133,17 @@ export async function DailyMarketForecastSection() {
                     <span className="font-mono text-foreground-tertiary">{f.symbol}</span>
                   </Text>
                   <Text variant="caption" color="tertiary">
-                    预测针对 {formatForecastDateZh(f.forecastForDate)} · 验证中
+                    预测针对 {formatForecastDateZh(f.forecastForDate)}
+                    {ready ? " · 今日验证中" : ""}
                   </Text>
                   <Text variant="body-sm" color="secondary">
-                    {pending ? "研究尚未完成" : f.summary}
+                    {ready ? f.summary : "研究尚未完成"}
                   </Text>
-                  <Text variant="caption" color="tertiary">
-                    首次发布 {formatShanghaiTime(f.publishedAt)} · v{f.version}
-                  </Text>
+                  {ready && f.publicAt && (
+                    <Text variant="caption" color="tertiary">
+                      公开时间 {formatBeijingDateTime(f.publicAt)} · v{f.version}
+                    </Text>
+                  )}
                 </Card>
               );
             })
@@ -159,7 +151,17 @@ export async function DailyMarketForecastSection() {
         </div>
       </div>
 
-      {/* Weekly rhythm from configured assets — not hardcoded to SPX/NDX only */}
+      {/* Core assets reference */}
+      <div className="mb-6">
+        <Text variant="label" color="secondary" className="mb-2 block">
+          默认覆盖资产
+        </Text>
+        <Text variant="body-sm" color="secondary">
+          {CORE_TOMORROW_ASSETS.map((a) => a.assetName).join("、")}
+        </Text>
+      </div>
+
+      {/* Weekly rhythm */}
       <div>
         <Text variant="label" color="secondary" className="mb-2 block">
           本周节奏参考（{edition.periodStart} → {edition.periodEnd}）
@@ -188,8 +190,7 @@ export async function DailyMarketForecastSection() {
               }
               const dayKey = (() => {
                 const d = now.getDay();
-                if (d === 0) return "weekend";
-                if (d === 6) return "weekend";
+                if (d === 0 || d === 6) return "weekend";
                 return (["monday", "tuesday", "wednesday", "thursday", "friday"] as const)[d - 1];
               })();
               const slot = card.daySlots.find((s) => s.key === dayKey) ?? card.daySlots[0];
@@ -225,7 +226,7 @@ export async function DailyMarketForecastSection() {
           <Link href={routes.forecasts}>查看本周预测</Link>
         </Button>
         <Button asChild variant="ghost" size="sm">
-          <Link href={routes.researchVerification}>查看历史预测准确率</Link>
+          <Link href={routes.verification}>查看历史预测准确率</Link>
         </Button>
       </div>
     </Section>

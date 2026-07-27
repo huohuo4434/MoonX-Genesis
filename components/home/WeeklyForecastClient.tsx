@@ -98,24 +98,32 @@ export function WeeklyForecastClient({ edition }: { edition: WeeklyEdition }) {
                   {t(`home.week.${day.key}`)}
                   {rhythmCard.assetId === "gold" ? (isChinese ? " · 黄金" : " · Gold") : ""}
                 </Text>
-                <Text variant="body-sm" weight="semibold" className="mt-2">
-                  {isChinese ? day.rhythmZhCN : day.rhythmEn}
-                </Text>
-                <Text variant="caption" color="secondary" className="mt-1">
-                  {isChinese ? day.directionLabelZhCN : day.directionLabelEn}
-                </Text>
-                <Text variant="caption" color="tertiary" className="mt-1 line-clamp-3">
-                  {isChinese ? day.conditionZhCN : day.conditionEn}
-                </Text>
-                <Text variant="caption" color="tertiary" className="mt-2">
-                  {day.revised
-                    ? isChinese
-                      ? "已修正"
-                      : "Revised"
-                    : isChinese
-                      ? "未修正"
-                      : "Not revised"}
-                </Text>
+                <dl className="mt-2 space-y-1.5 text-caption">
+                  <div>
+                    <dt className="text-foreground-tertiary">{isChinese ? "方向" : "Direction"}</dt>
+                    <dd className="font-medium text-foreground-secondary">
+                      {isChinese ? day.directionLabelZhCN : day.directionLabelEn}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-foreground-tertiary">{isChinese ? "核心结论" : "Summary"}</dt>
+                    <dd className="text-foreground-secondary">
+                      {isChinese ? day.rhythmZhCN : day.rhythmEn}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-foreground-tertiary">{isChinese ? "依据" : "Basis"}</dt>
+                    <dd className="text-foreground-tertiary">
+                      {isChinese ? day.conditionZhCN : day.conditionEn}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-foreground-tertiary">{isChinese ? "修正状态" : "Revision"}</dt>
+                    <dd className="text-foreground-tertiary">
+                      {day.revised ? (isChinese ? "已修正" : "Revised") : isChinese ? "未修正" : "Not revised"}
+                    </dd>
+                  </div>
+                </dl>
               </div>
             ))}
           </div>
