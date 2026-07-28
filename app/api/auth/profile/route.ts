@@ -1,16 +1,37 @@
 import { NextResponse } from "next/server";
-import { getCurrentProfile } from "@/lib/auth/membership";
+import { unstable_noStore as noStore } from "next/cache";
+import { getAccessUser } from "@/lib/auth/get-access-user";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+  noStore();
+  const access = await getAccessUser();
+  if (!access.authenticated) {
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    );
   }
-  return NextResponse.json({
-    authenticated: true,
-    email: profile.email,
-    role: profile.role,
-    membershipStatus: profile.membership_status,
-    membershipExpiresAt: profile.membership_expires_at,
-  });
+  return NextResponse.json(
+    {
+      authenticated: true,
+      userId: access.userId,
+      email: access.email,
+      role: access.isAdmin ? "admin" : "user",
+      isAdmin: access.isAdmin,
+      membershipStatus: access.membershipStatus ?? "inactive",
+      membershipPlan: access.membershipPlan ?? null,
+      membershipExpiresAt: access.membershipExpiresAt
+        ? access.membershipExpiresAt.toISOString()
+        : null,
+      isActiveMember: access.isActiveMember,
+      canAccessToday: access.canAccessToday,
+      canAccessTomorrow: access.canAccessTomorrow,
+      canAccessWeekly: access.canAccessWeekly,
+      serverNow: access.serverNowIso,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

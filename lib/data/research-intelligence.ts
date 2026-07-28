@@ -201,19 +201,27 @@ const researchPipelineStages: ResearchPipelineStage[] = [
 ];
 
 const sixYaoFinancialRules: SixYaoFinancialRule[] = [
-  { id: "rule-01", order: 1, text: "卦名和卦辞权重原则上低于20%。" },
-  { id: "rule-02", order: 2, text: "价格以妻财为第一用神、子孙为第二用神。" },
+  { id: "rule-01", order: 1, text: "卦名和卦辞只作辅助，权重原则上不超过20%。" },
+  {
+    id: "rule-02",
+    order: 2,
+    text: "用神必须依据问题确定：问价格以妻财为主用神、子孙观察动力；问风险看官鬼；问政策监管看父母；兄弟观察耗财与抛压。",
+  },
   { id: "rule-03", order: 3, text: "黑天鹅重点看官鬼。" },
   { id: "rule-04", order: 4, text: "政策、监管、平台规则重点看父母。" },
   { id: "rule-05", order: 5, text: "世爻代表标的自身，应爻代表外部环境。" },
   { id: "rule-06", order: 6, text: "财爻临值、出空、出伏属于直接高权重信号。" },
   { id: "rule-07", order: 7, text: "通过兄弟旺、父母生兄弟推导的低点属于间接信号。" },
   { id: "rule-08", order: 8, text: "长期卦重趋势，具体节气窗口允许提前或推迟约10天。" },
-  { id: "rule-09", order: 9, text: "六神主要描述事件性质，不单独决定涨跌。" },
+  {
+    id: "rule-09",
+    order: 9,
+    text: "朱雀、青龙、白虎等六神只描述事件性质，不能称为动爻；应写“某爻发动，临朱雀”。",
+  },
   {
     id: "rule-10",
     order: 10,
-    text: "不同问题必须重新确定用神，禁止所有金融问题机械套用同一套财爻规则。",
+    text: "禁止固定用神排序或机械套用同一套规则；不同问题必须重新确定用神。",
   },
 ];
 

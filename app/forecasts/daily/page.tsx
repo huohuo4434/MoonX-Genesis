@@ -1,15 +1,14 @@
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { DailyMarketForecastSection } from "@/components/sections/DailyMarketForecastSection";
 
 export const metadata: Metadata = {
-  title: "每日市场预测 | MoonX",
-  description: "MoonX 下一交易日会员预测与今日公开验证预测。",
+  title: "Not Found",
+  robots: { index: false, follow: false },
 };
 
-export default function DailyForecastsPage() {
-  return (
-    <main>
-      <DailyMarketForecastSection />
-    </main>
-  );
+export const dynamic = "force-dynamic";
+
+/** Legacy daily forecasts hub — closed to public. */
+export default function DailyForecastsGone() {
+  notFound();
 }

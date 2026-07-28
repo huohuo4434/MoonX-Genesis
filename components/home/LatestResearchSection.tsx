@@ -1,10 +1,9 @@
 import { LatestResearchClient } from "@/components/home/LatestResearchClient";
-import { listResearchRecords } from "@/lib/data/research-records";
+import { listPublicResearchRecordsFromStore } from "@/lib/data/public-research";
 
 export async function LatestResearchSection() {
-  const records = await listResearchRecords();
+  const records = await listPublicResearchRecordsFromStore();
   const latest = [...records]
-    .filter((record) => record.editorialConfidence > 0 || record.sourceType !== "public-analyst")
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
     .slice(0, 3);
 

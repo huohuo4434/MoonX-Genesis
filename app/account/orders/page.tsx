@@ -1,23 +1,28 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, Heading, Section, Text } from "@/components/ui";
-import { getCurrentUser } from "@/lib/auth/membership";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Button, Card, Heading, Section, Text } from "@/components/ui";
+import { getCurrentUser, PLAN_LABELS } from "@/lib/auth/permissions";
+import { listPaymentOrdersForEmail } from "@/lib/payments/payment-orders-store";
+import { guardAccountRoute } from "@/lib/route-feature-guards";
+import { formatDateTimeChina } from "@/lib/utils/datetime";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function statusLabel(status: string, isTest: boolean): string {
+  if (isTest && status === "pending") return "系统测试";
+  if (status === "approved") return "会员已开通";
+  if (status === "rejected") return "付款被拒绝";
+  if (isTest) return "系统测试";
+  return "等待审核";
+}
 
 export default async function AccountOrdersPage() {
+  guardAccountRoute();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const supabase = await createSupabaseServerClient();
-  let orders: Array<Record<string, unknown>> = [];
-  if (supabase) {
-    const { data } = await supabase
-      .from("payment_orders")
-      .select("order_number, chain, expected_amount, status, created_at, expires_at, paid_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    orders = data ?? [];
-  }
+  const orders = await listPaymentOrdersForEmail(user.email);
 
   return (
     <main>
@@ -25,35 +30,43 @@ export default async function AccountOrdersPage() {
         <Heading as="h1" size="h2">
           我的订单
         </Heading>
+        <Text variant="body-sm" color="secondary" className="mt-2">
+          仅显示您本人的付款记录。
+        </Text>
         <div className="mt-6 flex flex-col gap-3">
-          {orders.length === 0 ? (
-            <Card padding="md">
-              <Text variant="body-sm" color="secondary">
-                暂无订单
-              </Text>
-            </Card>
-          ) : (
-            orders.map((o) => (
-              <Card key={String(o.order_number)} padding="md" className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <Text variant="body" weight="semibold">
-                    {String(o.order_number)}
-                  </Text>
-                  <Text variant="caption" color="tertiary">
-                    {String(o.chain)} · {Number(o.expected_amount)} · {String(o.status)}
-                  </Text>
-                </div>
-                {o.status === "pending" && (
-                  <Link
-                    href={`/checkout/${o.order_number}`}
-                    className="text-body-sm text-primary hover:underline"
-                  >
-                    去支付
-                  </Link>
-                )}
+          {orders.length ? (
+            orders.map((item) => (
+              <Card key={item.orderId} padding="md" className="overflow-hidden">
+                <Text variant="body" weight="semibold">
+                  {item.planName || PLAN_LABELS[item.plan]} · {statusLabel(item.status, item.isTest)}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-1 block">
+                  订单号：{item.orderNumber}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-1 block">
+                  金额：{item.amount} USDT · 网络：{item.network}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-1 block break-all font-mono">
+                  交易哈希：{item.txHash}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-1 block">
+                  提交时间：{formatDateTimeChina(item.submittedAt)}
+                </Text>
               </Card>
             ))
+          ) : (
+            <Card padding="md">
+              <Text variant="body-sm" color="secondary">
+                暂无付款订单
+              </Text>
+              <Text variant="caption" color="tertiary" className="mt-2 block">
+                账户注册立即完成；购买会员需提交交易哈希并等待管理员审核。
+              </Text>
+            </Card>
           )}
+          <Button asChild size="sm" variant="outline" className="w-fit">
+            <Link href="/pricing">购买会员</Link>
+          </Button>
         </div>
       </Section>
     </main>

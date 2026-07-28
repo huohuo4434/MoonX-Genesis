@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, DialogDescription, DialogHeader, DialogTitle, Text } from "@/components/ui";
+import { Badge, Heading, Text } from "@/components/ui";
+import { getCycleAlignmentForRecord } from "@/lib/data/cycle-alignments";
+import { getLiuYaoFactorAnalysis, getLiuYaoFactorAnalysisByLinkId } from "@/lib/data/liu-yao-factors";
 import { getResearchConflictForRecord } from "@/lib/data/research-conflicts";
 import { getSourceProfile } from "@/lib/data/source-profiles";
 import { pickLocalized } from "@/lib/i18n/config";
@@ -10,6 +12,8 @@ import { directionBadgeVariant, statusBadgeVariant } from "@/lib/research/resear
 import { formatDate } from "@/lib/utils";
 import type { ResearchRecord } from "@/types/research";
 import { ResearchConflictPanel } from "./ResearchConflictPanel";
+import { CycleAlignmentPanel } from "./CycleAlignmentPanel";
+import { LiuYaoFactorPanel } from "./LiuYaoFactorPanel";
 
 function DetailList({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
@@ -64,21 +68,31 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
   const reliabilityMethods = reliability?.methods ?? profile?.sourceReliability.methods;
   const verification = record.verificationResult;
   const conflict = getResearchConflictForRecord(record.id);
+  const factorAnalysis =
+    getLiuYaoFactorAnalysis(record.id) ??
+    (record.liuYaoFactorAnalysisId ? getLiuYaoFactorAnalysisByLinkId(record.liuYaoFactorAnalysisId) : undefined);
+  const cycleAlignment = getCycleAlignmentForRecord(record.id);
+  const isPendingReview = record.humanReviewStatus === "pending-review";
 
   return (
     <div className="flex max-h-[75vh] flex-col gap-5 overflow-y-auto pr-1">
-      <DialogHeader>
+      <div className="flex flex-col gap-1.5 text-left">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={directionBadgeVariant(record.direction)}>{t(`directions.${record.direction}`)}</Badge>
           <Badge variant={statusBadgeVariant(record.status)}>{t(`status.${record.status}`)}</Badge>
           <Badge variant="outline">{t(`framework.${record.framework}`)}</Badge>
+          {isPendingReview && (
+            <Badge variant="warning">{record.ratingDisplay ? pickLocalized(record.ratingDisplay, locale) : "待人工审核"}</Badge>
+          )}
         </div>
-        <DialogTitle>{pickLocalized(record.title, locale)}</DialogTitle>
-        <DialogDescription>
+        <Heading as="h2" size="h3">
+          {pickLocalized(record.title, locale)}
+        </Heading>
+        <Text variant="body-sm" color="secondary">
           {pickLocalized(record.assetName, locale)}
           {record.symbol ? ` · ${record.symbol}` : ""} · {pickLocalized(record.publicSourceLabel, locale)}
-        </DialogDescription>
-      </DialogHeader>
+        </Text>
+      </div>
 
       {conflict && <ResearchConflictPanel conflict={conflict} />}
 
@@ -109,6 +123,10 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
           </Text>
         )}
       </div>
+
+      {factorAnalysis && <LiuYaoFactorPanel analysis={factorAnalysis} />}
+
+      {cycleAlignment && <CycleAlignmentPanel alignment={cycleAlignment} />}
 
       {record.scenarios && record.scenarios.length > 0 && (
         <div className="flex flex-col gap-1.5">
@@ -339,6 +357,17 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
         </div>
       )}
 
+      {record.technicalConfirmation && record.technicalConfirmation.length > 0 && (
+        <DetailList
+          title="技术确认条件"
+          items={record.technicalConfirmation.map((item) => pickLocalized(item, locale))}
+        />
+      )}
+
+      {record.notes && record.notes.length > 0 && (
+        <DetailList title="备注" items={record.notes.map((item) => pickLocalized(item, locale))} />
+      )}
+
       {(hexagram || record.hexagramPrimary || record.thesis.length > 0) && (
         <details className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
           <summary className="cursor-pointer text-caption text-foreground-secondary">
@@ -365,9 +394,42 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
                 {pickLocalized(hexagram.worldLine, locale)}
               </Text>
             )}
+            {hexagram?.responseLine && (
+              <Text variant="caption" color="tertiary">
+                {pickLocalized(hexagram.responseLine, locale)}
+              </Text>
+            )}
+            {hexagram?.movingLines && hexagram.movingLines.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Text variant="caption" weight="medium" color="secondary">
+                  动爻与变爻
+                </Text>
+                {hexagram.movingLines.map((line, index) => (
+                  <div key={index} className="rounded-md border border-border/[0.08] bg-background/50 p-2.5">
+                    <Text variant="caption" color="secondary">
+                      {pickLocalized(line.from, locale)} → {pickLocalized(line.to, locale)}
+                      {line.sixSpirit ? ` · 临${pickLocalized(line.sixSpirit, locale)}` : ""}
+                    </Text>
+                    <Text variant="caption" color="tertiary" className="mt-1 block">
+                      {pickLocalized(line.interpretation, locale)}
+                    </Text>
+                    {line.verificationStatus === "pending-human-review" && (
+                      <Badge variant="warning" className="mt-1">
+                        动爻待人工核对
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {typeof hexagram?.movingLine === "number" && (
               <Text variant="caption" color="tertiary">
                 {hexagram.movingLine}
+              </Text>
+            )}
+            {record.movingLinesNote && (
+              <Text variant="caption" color="tertiary">
+                {pickLocalized(record.movingLinesNote, locale)}
               </Text>
             )}
             {hexagram?.structureNotes && (
@@ -378,6 +440,32 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
             )}
             {!hexagram?.structureNotes && (
               <DetailList title={t("researchLibrary.thesis")} items={record.thesis.map((item) => pickLocalized(item, locale))} />
+            )}
+            {record.attachments && record.attachments.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Text variant="caption" weight="medium" color="secondary">
+                  起卦附件（脱敏）
+                </Text>
+                {record.attachments.map((attachment) => (
+                  <div key={attachment.id} className="flex flex-col gap-2 rounded-md border border-border/[0.08] bg-background/50 p-2.5">
+                    <Text variant="caption" color="tertiary">
+                      起卦时间：{formatDate(attachment.divinationAt.slice(0, 10))}{" "}
+                      {attachment.divinationAt.includes("T") ? attachment.divinationAt.slice(11, 16) : ""}
+                    </Text>
+                    <Text variant="caption" color="secondary">
+                      求测问题：{pickLocalized(attachment.question, locale)}
+                    </Text>
+                    {attachment.redactedImageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={attachment.redactedImageUrl}
+                        alt="脱敏卦盘"
+                        className="max-h-64 w-full rounded-md border border-border/[0.08] object-contain"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </details>

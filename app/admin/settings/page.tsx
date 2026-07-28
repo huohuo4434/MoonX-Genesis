@@ -1,71 +1,42 @@
-import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminPaymentEmailTest } from "@/components/admin/AdminPaymentEmailTest";
 import { Card, Heading, Section, Text } from "@/components/ui";
-import { getPaymentReadiness } from "@/lib/payments/readiness";
-import { requireAdmin } from "@/lib/auth/membership";
-import { getPaymentConfig } from "@/lib/payments/config";
-import { isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { countPendingPaymentOrders } from "@/lib/payments/payment-orders-store";
+import { isPaymentEmailConfigured, paymentEmailFrom, paymentNotifyTo } from "@/lib/email/notifications";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminSettingsPage() {
-  if (!(await requireAdmin())) redirect("/login?next=/admin/settings");
-
-  const cfg = getPaymentConfig();
-  const readiness = await getPaymentReadiness();
-
-  const checks = [
-    { label: "Supabase URL", ok: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) },
-    { label: "Supabase Anon Key", ok: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) },
-    { label: "Supabase Service Role", ok: isSupabaseAdminConfigured() },
-    { label: "TronGrid API Key", ok: Boolean(cfg.tronGridApiKey) },
-    { label: "TRC20 收款地址", ok: Boolean(cfg.trc20Address) },
-    { label: "TRC20 支付开放", ok: readiness.trc20Open },
-    { label: "Cron Secret", ok: Boolean(process.env.CRON_SECRET) },
-  ];
+  const pending = await countPendingPaymentOrders();
+  const emailOn = isPaymentEmailConfigured();
 
   return (
     <main>
       <Section spacing="lg">
-        <AdminNav current="/admin/settings" />
+        <AdminNav current="/admin/settings" pendingCount={pending} />
         <Heading as="h1" size="h2">
-          系统设置
+          设置
         </Heading>
-        <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          环境变量状态（不显示密钥内容）。TRC20 仅在全部检查通过时向用户开放。
-        </Text>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {checks.map((c) => (
-            <Card key={c.label} padding="sm">
-              <Text variant="body-sm">
-                {c.label}：{c.ok ? "✓ 已配置" : "✗ 未就绪"}
-              </Text>
-            </Card>
-          ))}
-        </div>
-        {!readiness.trc20Open && readiness.reasons.length > 0 && (
-          <Card padding="md" className="mt-6">
-            <Text variant="body-sm" weight="semibold">
-              TRC20 未开放原因
-            </Text>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-body-sm text-foreground-secondary">
-              {readiness.reasons.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          </Card>
-        )}
-        <Card padding="md" className="mt-6">
+        <Card padding="lg" className="mt-6 max-w-lg space-y-3">
           <Text variant="body-sm" weight="semibold">
-            收款信息
+            付款邮件通知
           </Text>
-          <Text variant="caption" color="tertiary" className="mt-2 font-mono break-all">
-            TRC20：{cfg.trc20Address}
+          <Text variant="body-sm" color="secondary" className="block">
+            状态：{emailOn ? "已配置" : "未配置"}
           </Text>
-          <Text variant="caption" color="tertiary" className="mt-1 font-mono break-all">
-            USDT 合约：{cfg.tronUsdtContract}
+          <Text variant="caption" color="tertiary" className="block">
+            通知收件人：{paymentNotifyTo()}
           </Text>
-          <Text variant="caption" color="tertiary" className="mt-1">
-            客服：{cfg.supportEmail}
+          <Text variant="caption" color="tertiary" className="block">
+            发件人：{paymentEmailFrom()}
           </Text>
+          {!emailOn ? (
+            <Text variant="body-sm" className="block">
+              邮件通知尚未配置，但后台订单提醒正常工作。
+            </Text>
+          ) : null}
+          <AdminPaymentEmailTest configured={emailOn} />
         </Card>
       </Section>
     </main>

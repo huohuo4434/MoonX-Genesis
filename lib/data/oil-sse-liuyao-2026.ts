@@ -144,7 +144,11 @@ export const oilSseLiuyao2026Records: ResearchRecord[] = [
       lt("85至95美元属于地缘风险尚未消退时的阶段震荡情景", "85至95美元屬於地緣風險尚未消退時的階段震盪情景", "$85–95 is a staged chop scenario while geopolitical risk persists"),
       lt("本记录与现有原油周度反弹研究属于不同周期，不得相互覆盖", "本記錄與現有原油週度反彈研究屬於不同週期，不得相互覆蓋", "Distinct horizon from existing weekly oil research — do not override"),
     ],
-    relatedRecordIds: ["EXTERNAL-OIL-RHYTHM-2026-07-27", "research-oil-cycle-2026-h2"],
+    relatedRecordIds: [
+      "EXTERNAL-OIL-RHYTHM-2026-07-27",
+      "research-oil-cycle-2026-h2",
+      "INT-WTI-20260807-20270204-EXT-001",
+    ],
     thesis: [
       lt("前期震荡后，立秋及申月前后更偏向正常化回落。", "前期震盪後，立秋及申月前後更偏向正常化回落。", "After early churn, post–Start of Autumn / Shen month favors normalization fade."),
       ORACLE_DISCLAIMER,

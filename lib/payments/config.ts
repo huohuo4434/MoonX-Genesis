@@ -14,8 +14,10 @@ export function getPaymentConfig() {
     bep20Address: process.env.MOONX_BEP20_RECEIVE_ADDRESS ?? DEFAULT_BEP20,
     tronUsdtContract: process.env.TRON_USDT_CONTRACT ?? DEFAULT_TRON_USDT,
     bscTokenContract: process.env.BSC_PAYMENT_TOKEN_CONTRACT ?? DEFAULT_BSC_TOKEN,
-    /** BEP20 requires admin explicit enable — default off until confirmed. */
-    bep20Enabled: process.env.MOONX_BEP20_ENABLED === "true",
+    /** BEP20 requires BEP20_PAYMENTS_ENABLED=true and MOONX_BEP20_ENABLED=true */
+    bep20Enabled:
+      process.env.BEP20_PAYMENTS_ENABLED === "true" &&
+      process.env.MOONX_BEP20_ENABLED === "true",
     bscConfirmations: Number(process.env.BSC_CONFIRMATIONS ?? "12"),
     orderTtlMinutes: 30,
     tronGridApiKey: process.env.TRONGRID_API_KEY,

@@ -66,10 +66,18 @@ export interface DailyForecast {
   version: number;
 
   direction: DailyForecastDirection;
+  /** Display label when richer than enum (e.g. 震荡偏多 / 先抑后扬). */
+  directionLabel?: string;
   confidence: number;
 
+  headline?: string;
   summary: string;
   expectedPath?: string[];
+
+  probabilities?: { up: number; flat: number; down: number };
+  /** When false, shown on today page but excluded from daily accuracy. */
+  accuracyEligible?: boolean;
+  accuracyExclusionReason?: string;
 
   supportLevels?: string[];
   resistanceLevels?: string[];
@@ -85,6 +93,12 @@ export interface DailyForecast {
   catalysts?: string[];
   risks?: string[];
   invalidation?: string;
+  /** Direction confirmation with concrete price + method */
+  confirmation?: string;
+  /** Locked market snapshot at publish time — never live-updated for history */
+  priceSnapshot?: import("@/lib/market-data/price-levels").ForecastPriceSnapshot;
+  priceDataSourceLabel?: string;
+  priceSnapshotAtLabel?: string;
 
   evidenceRecordIds?: string[];
   correctionNote?: string;

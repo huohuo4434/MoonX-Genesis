@@ -47,6 +47,8 @@ export type ResearchStatus =
   | "invalidated"
   | "archived";
 
+export type ResearchVisibility = "draft" | "internal" | "public" | "archived";
+
 /** A single named point or range within a forecast window (e.g. "Early-August rebound"). */
 export interface ForecastWindow {
   id: string;
@@ -110,6 +112,8 @@ export interface ResearchRecord {
   turningWindows?: ForecastWindow[];
   verificationChecklist?: LocalizedText[];
   status: ResearchStatus;
+  /** Public library visibility — only `public` appears in open research lists. */
+  visibility?: ResearchVisibility;
   tags: string[];
   /** Groups records published together as part of a named research collection. */
   collectionId?: string;
@@ -153,6 +157,14 @@ export interface ResearchRecord {
     transformed?: LocalizedText;
     movingLine?: number;
     worldLine?: LocalizedText;
+    responseLine?: LocalizedText;
+    movingLines?: Array<{
+      from: LocalizedText;
+      to: LocalizedText;
+      sixSpirit: LocalizedText;
+      interpretation: LocalizedText;
+      verificationStatus?: "verified" | "pending-human-review";
+    }>;
     structureNotes?: LocalizedText[];
   };
   /** Editorial scenario weights (0–100); not statistical probabilities. */
@@ -231,6 +243,113 @@ export interface ResearchRecord {
   verificationDate?: string;
   forecastType?: LocalizedText;
   category?: LocalizedText;
+  /** Technical confirmation checklist (not auto-scored). */
+  technicalConfirmation?: LocalizedText[];
+  /** Human review gate — records with pending status must not enter forecasts until approved. */
+  humanReviewStatus?: "pending-review" | "approved";
+  humanReviewChecklist?: {
+    screenshotVerified?: boolean;
+    sixRelativesVerified?: boolean;
+    worldResponseVerified?: boolean;
+    movingLinesVerified?: boolean;
+    transformedLinesVerified?: boolean;
+    monthDayStrengthVerified?: boolean;
+    factorScoresVerified?: boolean;
+    cycleComparisonVerified?: boolean;
+  };
+  /** Redacted public attachment metadata (no personal info on public UI). */
+  attachments?: Array<{
+    id: string;
+    divinationAt: string;
+    question: LocalizedText;
+    redactedImageUrl?: string;
+    adminOriginalStored?: boolean;
+  }>;
+  /** Optional link to structured Liu Yao factor analysis id. */
+  liuYaoFactorAnalysisId?: string;
+  /**
+   * Cross-record comparison metadata (admin / engine only).
+   * Never surface long-horizon comparison details on public pages.
+   */
+  comparison?: {
+    comparedRecordIds: string[];
+    earlyStageAlignment: "高" | "中" | "低";
+    earlyStageNotes?: LocalizedText;
+    laterStageStatus: string;
+    laterStageNotes?: LocalizedText;
+    adminNote?: LocalizedText;
+  };
+  /** Forecast-engine weight gates for staged mid/long research. */
+  engineUsage?: {
+    earlyStage: {
+      start: string;
+      end: string;
+      maxWeightPct: number;
+      allowedAsBackground: boolean;
+    };
+    laterStage: {
+      start: string;
+      end: string;
+      maxWeightPct: number;
+      adminRiskOnly: boolean;
+    };
+  };
+  /** Editorial publish gate distinct from ResearchStatus (e.g. internal_review). */
+  publishGate?: "internal_review" | "approved" | "blocked";
+  /**
+   * Admin-only long-term forecast candlestick payload.
+   * Must never be returned by public/member APIs or embedded in public HTML.
+   */
+  forecastChart?: import("@/types/long-term-forecast-chart").LongTermForecastChart;
+}
+
+export type LiuYaoFactorDirection = "利多" | "略偏多" | "中性" | "略偏空" | "利空";
+
+export interface LiuYaoFactorScore {
+  id: string;
+  label: LocalizedText;
+  score: number;
+  maxScore: 5;
+  direction: LiuYaoFactorDirection;
+  explanation: LocalizedText;
+  evidence: LocalizedText[];
+}
+
+export interface LiuYaoFactorAnalysis {
+  recordId: string;
+  primaryUseGod: LocalizedText;
+  secondaryUseGod?: LocalizedText;
+  useGodReason: LocalizedText;
+  factors: {
+    wealth: LiuYaoFactorScore;
+    offspring: LiuYaoFactorScore;
+    siblings: LiuYaoFactorScore;
+    officials: LiuYaoFactorScore;
+    parents: LiuYaoFactorScore;
+    worldResponse: LiuYaoFactorScore;
+    movement: LiuYaoFactorScore;
+    timing: LiuYaoFactorScore;
+  };
+  volatilityScore: number;
+  trendScore: number;
+  finalDirection: LocalizedText;
+  confidence: number;
+  warnings: LocalizedText[];
+}
+
+export interface CycleAlignment {
+  id: string;
+  assetId: string;
+  records: Array<{
+    recordId: string;
+    period: LocalizedText;
+    direction: LocalizedText;
+    confidence: number;
+  }>;
+  alignmentScore: number;
+  conclusion: LocalizedText;
+  conflictNotes?: LocalizedText[];
+  scoreDisclaimer: LocalizedText;
 }
 
 export type ResearchConflictStatus = "观察中" | "已裁决" | "仍有分歧";

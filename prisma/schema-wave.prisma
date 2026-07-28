@@ -1,0 +1,72 @@
+# Wave Analyst Module
+#
+# Copy models from schema-wave.prisma into prisma/schema.prisma (already merged).
+# Kept for reference / module packaging.
+
+enum WaveDirection {
+  UP
+  DOWN
+  SIDEWAYS
+  UP_AFTER_PULLBACK
+  DOWN_AFTER_REBOUND
+  REBOUND
+  PULLBACK
+}
+
+enum WaveValidationStatus {
+  PENDING
+  HIT
+  PARTIAL
+  FAILED
+  EXPIRED
+}
+
+model WaveAnalyst {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  name        String
+  source      String?
+  active      Boolean          @default(true)
+  baseWeight  Float            @default(0.05)
+  maxWeight   Float            @default(0.22)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  predictions WavePrediction[]
+}
+
+model WavePrediction {
+  id                String               @id @default(cuid())
+  analystId         String
+  analyst           WaveAnalyst          @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  marketCode        String
+  marketName        String
+  timeframe         String               @default("1D")
+  publishedAt       DateTime
+  validUntil        DateTime?
+  direction         WaveDirection
+  summary           String
+  waveLabel         String?
+  supportLevels     Json
+  resistanceLevels  Json
+  targetLevels      Json
+  invalidationLevel Float?
+  confirmationLevel Float?
+  expectedPath      Json?
+  sourceImageUrl    String?
+  sourceMessageId   String?
+  rawText           String?
+  status            WaveValidationStatus @default(PENDING)
+  entryReference    Float?
+  maxFavorableMove  Float?
+  maxAdverseMove    Float?
+  realizedReturn    Float?
+  rewardRisk        Float?
+  validatedAt       DateTime?
+  validationNote    String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([marketCode, publishedAt])
+  @@index([analystId, status])
+  @@unique([analystId, marketCode, publishedAt])
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { LockIcon } from "@/components/icons";
 import { Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberUserContext } from "@/lib/access/member-preview";
@@ -6,24 +7,26 @@ import { formatForecastDateZh } from "@/lib/calendar/next-trading-day";
 import {
   buildTomorrowPublicSummary,
   CORE_TOMORROW_ASSETS,
+  displayDirection,
   getMemberTomorrowForecasts,
-  getPublicTodayForecasts,
   isHumanPublishedForecast,
 } from "@/lib/data/daily-forecasts";
+import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
 import { getCurrentWeeklyEdition } from "@/lib/data/weekly-edition";
 import { routes } from "@/lib/navigation";
-import { formatBeijingDateTime } from "@/lib/utils/datetime";
 
-/** Daily page: tomorrow member entry + today's public forecasts + weekly rhythm context. */
+/** Daily page: tomorrow member entry + today's gated forecasts + weekly rhythm context. */
 export async function DailyMarketForecastSection() {
+  noStore();
   const now = new Date();
-  const [user, edition, summary, todayForecasts] = await Promise.all([
+  const [user, edition, summary, todayPayload] = await Promise.all([
     getMemberUserContext(),
     getCurrentWeeklyEdition(),
     Promise.resolve(buildTomorrowPublicSummary(now)),
-    Promise.resolve(getPublicTodayForecasts(now)),
+    getTodayForecastAccessPayload(now),
   ]);
   const memberForecasts = user.isMember ? getMemberTomorrowForecasts(now) : [];
+  const todayForecasts = todayPayload.allowed ? todayPayload.forecasts : [];
 
   return (
     <Section spacing="lg" id="daily-edition">
@@ -45,7 +48,7 @@ export async function DailyMarketForecastSection() {
           {!user.isMember ? <LockIcon size={14} className="text-primary" /> : null}
         </div>
         <Text variant="body" weight="semibold" className="mb-1">
-          下一交易日：{formatForecastDateZh(summary.nextDateIso)}
+          预测日期：{formatForecastDateZh(summary.nextDateIso)}
         </Text>
         <Text variant="body-sm" color="secondary" className="mb-4">
           {summary.allDraft
@@ -73,7 +76,7 @@ export async function DailyMarketForecastSection() {
                   ) : (
                     <>
                       <Text variant="label" color="secondary">
-                        {f.direction} · {f.confidence}%
+                        {displayDirection(f)} · {f.confidence}%
                       </Text>
                       <Text variant="body-sm" color="secondary">
                         {f.summary}
@@ -108,47 +111,72 @@ export async function DailyMarketForecastSection() {
         )}
       </div>
 
-      {/* Today public block */}
+      {/* Today gated block */}
       <div className="mb-10">
         <Text variant="label" color="secondary" className="mb-2 block">
-          今日公开预测
+          今日预测
         </Text>
-        <Text variant="caption" color="tertiary" className="mb-4 block">
-          仅展示已到达各自 publicAt 且经人工审核发布的预测 · 尚未完成的预测不会显示为「验证中」
-        </Text>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {todayForecasts.length === 0 ? (
-            <Card padding="md">
-              <Text variant="body-sm" color="secondary">
-                今日公开预测尚未发布。
-              </Text>
-            </Card>
-          ) : (
-            todayForecasts.map((f) => {
-              const ready = isHumanPublishedForecast(f);
-              return (
-                <Card key={f.id} padding="md" className="flex flex-col gap-2">
-                  <Text variant="body" weight="semibold">
-                    {f.assetName}{" "}
-                    <span className="font-mono text-foreground-tertiary">{f.symbol}</span>
-                  </Text>
-                  <Text variant="caption" color="tertiary">
-                    预测针对 {formatForecastDateZh(f.forecastForDate)}
-                    {ready ? " · 今日验证中" : ""}
-                  </Text>
-                  <Text variant="body-sm" color="secondary">
-                    {ready ? f.summary : "研究尚未完成"}
-                  </Text>
-                  {ready && f.publicAt && (
-                    <Text variant="caption" color="tertiary">
-                      公开时间 {formatBeijingDateTime(f.publicAt)} · v{f.version}
+        {!todayPayload.allowed && todayPayload.access.reason === "LOGIN_REQUIRED" ? (
+          <Card padding="md" className="space-y-3">
+            <Text variant="body" weight="semibold">
+              登录后查看今日预测
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              今日预测仅向已登录用户开放。
+            </Text>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="primary" size="sm">
+                <Link href="/login">登录</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/register">注册</Link>
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+        {!todayPayload.allowed && todayPayload.access.reason === "WAIT_UNTIL_08" ? (
+          <Card padding="md" className="space-y-3">
+            <Text variant="body" weight="semibold">
+              今日预测将在北京时间08:00开放
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              有效会员可全天提前查看今日预测。
+            </Text>
+            <Button asChild variant="primary" size="sm">
+              <Link href={routes.pricing}>升级会员</Link>
+            </Button>
+          </Card>
+        ) : null}
+        {todayPayload.allowed ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {todayForecasts.length === 0 ? (
+              <Card padding="md">
+                <Text variant="body-sm" color="secondary">
+                  今日预测内容稍后发布。
+                </Text>
+              </Card>
+            ) : (
+              todayForecasts.map((f) => {
+                const ready = isHumanPublishedForecast(f);
+                return (
+                  <Card key={f.id} padding="md" className="flex flex-col gap-2">
+                    <Text variant="body" weight="semibold">
+                      {f.assetName}{" "}
+                      <span className="font-mono text-foreground-tertiary">{f.symbol}</span>
                     </Text>
-                  )}
-                </Card>
-              );
-            })
-          )}
-        </div>
+                    <Text variant="caption" color="tertiary">
+                      预测针对 {formatForecastDateZh(f.forecastForDate)}
+                      {ready ? " · 今日验证中" : ""}
+                    </Text>
+                    <Text variant="body-sm" color="secondary">
+                      {ready ? `${displayDirection(f)} · ${f.summary}` : "研究尚未完成"}
+                    </Text>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Core assets reference */}
@@ -223,7 +251,7 @@ export async function DailyMarketForecastSection() {
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Button asChild variant="outline" size="sm">
-          <Link href={routes.forecasts}>查看本周预测</Link>
+          <Link href={routes.weeklyAnalysis}>查看本周行情</Link>
         </Button>
         <Button asChild variant="ghost" size="sm">
           <Link href={routes.verification}>查看历史预测准确率</Link>

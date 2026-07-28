@@ -34,7 +34,7 @@ export const researchConflicts: ResearchConflict[] = [
       {
         recordId: "A-SH-2026-0727-ORACLE-001",
         framework: lt("中期六爻", "中期六爻", "Mid-term six-yao"),
-        direction: lt("震荡偏多", "震盪偏多", "Oscillating bullish"),
+        direction: lt("震荡上涨", "震盪上漲", "Oscillating advance"),
         summary: lt(
           "短期蓄势，中期震荡上行，8月中下旬为重要验证窗口。",
           "短期蓄勢，中期震盪上行，8月中下旬為重要驗證窗口。",

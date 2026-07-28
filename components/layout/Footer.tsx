@@ -2,10 +2,14 @@
 
 import { Container } from "@/components/ui";
 import { siteConfig } from "@/lib/site-config";
-import { footerColumns } from "@/lib/navigation";
+import type { NavItem } from "@/lib/navigation";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
 
-export function Footer() {
+export function Footer({
+  footerColumns,
+}: {
+  footerColumns: Array<{ titleKey: string; links: NavItem[] }>;
+}) {
   const year = new Date().getFullYear();
   const t = useTranslations();
 
@@ -35,7 +39,9 @@ export function Footer() {
                       href={link.href}
                       className="rounded-sm text-body-sm text-foreground-secondary transition-colors hover:text-foreground focus-ring"
                     >
-                      {t(link.key)}
+                      {"labelZh" in link && typeof (link as { labelZh?: string }).labelZh === "string"
+                        ? (link as { labelZh: string }).labelZh
+                        : t(link.key)}
                     </a>
                   </li>
                 ))}

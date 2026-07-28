@@ -7,6 +7,7 @@ import { LockIcon } from "@/components/icons";
 import { Badge, Button, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { formatForecastDateEn, formatForecastDateZh } from "@/lib/calendar/next-trading-day";
+import { displayDirection } from "@/lib/data/daily-forecasts";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 const LOCKED_ROWS = [
@@ -170,7 +171,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
           </Text>
         </div>
         <Badge variant={pending ? "neutral" : "default"}>
-          {pending ? t("home.tomorrowResearchPending") : forecast.direction}
+          {pending ? t("home.tomorrowResearchPending") : displayDirection(forecast)}
         </Badge>
       </div>
 

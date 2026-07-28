@@ -1,83 +1,17 @@
 /**
  * Single source of truth for site navigation hrefs.
- * Header, footer, and mobile menus must import from here.
+ * Prefer config/navigation.ts.
  */
+export type { NavItem } from "@/config/navigation";
+export { NAV_ROUTES as routes, PUBLIC_PRIMARY_NAV as primaryNav, buildPublicFooterColumns } from "@/config/navigation";
 
-export interface NavItem {
-  key: string;
-  href: string;
-}
+import { PUBLIC_PRIMARY_NAV, buildPublicFooterColumns, NAV_ROUTES } from "@/config/navigation";
 
-export const routes = {
-  home: "/",
-  todayView: "/#moonx-view",
-  tomorrowForecast: "/member/tomorrow",
-  forecasts: "/forecasts",
-  forecastsDaily: "/forecasts/daily",
-  research: "/research",
-  researchLibrary: "/research/library",
-  researchPipeline: "/research/pipeline",
-  verification: "/verification",
-  intelligenceSnapshot: "/research/intelligence-snapshot",
-  watchlist: "/markets/watchlist",
-  timeline: "/timeline",
-  pricing: "/pricing",
-  login: "/login",
-  privacy: "/privacy",
-  terms: "/terms",
-  technical: "/research/technical",
-  memberPreview: "/member-preview",
-} as const;
+export const moreNav: Array<{ key: string; href: string }> = [];
 
-export const primaryNav: NavItem[] = [
-  { key: "nav.home", href: routes.home },
-  { key: "nav.todayView", href: routes.todayView },
-  { key: "nav.forecastsDaily", href: routes.forecastsDaily },
-  { key: "nav.tomorrowForecast", href: routes.tomorrowForecast },
-  { key: "nav.researchLibrary", href: routes.researchLibrary },
-  { key: "nav.watchlist", href: routes.watchlist },
-  { key: "nav.verification", href: routes.verification },
-];
+export const footerColumns = buildPublicFooterColumns().map((col) => ({
+  titleKey: col.titleKey,
+  links: col.links.map((l) => ({ key: l.key, href: l.href })),
+}));
 
-export const moreNav: NavItem[] = [
-  { key: "nav.research", href: routes.research },
-  { key: "nav.timeline", href: routes.timeline },
-  { key: "nav.pricing", href: routes.pricing },
-  { key: "nav.technical", href: routes.technical },
-  { key: "nav.researchPipeline", href: routes.researchPipeline },
-];
-
-export const footerColumns: Array<{ titleKey: string; links: NavItem[] }> = [
-  {
-    titleKey: "footer.product",
-    links: [
-      { key: "footer.todaysIntelligence", href: routes.home },
-      { key: "footer.forecasts", href: routes.forecastsDaily },
-      { key: "footer.researchIntelligence", href: routes.research },
-      { key: "footer.intelligenceSnapshot", href: routes.intelligenceSnapshot },
-      { key: "footer.researchLibrary", href: routes.researchLibrary },
-      { key: "footer.watchlist", href: routes.watchlist },
-      { key: "footer.pricing", href: routes.pricing },
-    ],
-  },
-  {
-    titleKey: "footer.company",
-    links: [{ key: "footer.latestResearch", href: "/#latest-research" }],
-  },
-  {
-    titleKey: "footer.resources",
-    links: [
-      { key: "footer.methodology", href: routes.research },
-      { key: "footer.researchPipeline", href: routes.researchPipeline },
-      { key: "footer.timeline", href: routes.timeline },
-      { key: "footer.verification", href: routes.verification },
-    ],
-  },
-  {
-    titleKey: "footer.legal",
-    links: [
-      { key: "footer.privacyPolicy", href: routes.privacy },
-      { key: "footer.termsOfService", href: routes.terms },
-    ],
-  },
-];
+export { PUBLIC_PRIMARY_NAV, NAV_ROUTES };

@@ -74,17 +74,21 @@ export function ResearchLibraryGroups({
                   <Text variant="caption" color="secondary" className="line-clamp-3">
                     {pickLocalized(record.summary, locale)}
                   </Text>
-                  {record.verificationResult?.actualChangePct != null && (
-                    <Text variant="caption" color="secondary">
-                      {t("researchLibrary.actualChange")}:{" "}
-                      {record.verificationResult.actualChangePct > 0 ? "+" : ""}
-                      {record.verificationResult.actualChangePct}%
-                    </Text>
-                  )}
-                  {record.verificationResult?.scoreEligible === false && (
-                    <Text variant="caption" color="tertiary">
-                      {t("researchLibrary.scoreNotEligible")}
-                    </Text>
+                  {record.verificationResult && (
+                    <div className="flex flex-col gap-0.5">
+                      {record.verificationResult.actualChangePct != null && (
+                        <Text variant="caption" color="secondary" className="block">
+                          {t("researchLibrary.actualChange")}:{" "}
+                          {record.verificationResult.actualChangePct > 0 ? "+" : ""}
+                          {record.verificationResult.actualChangePct}%
+                        </Text>
+                      )}
+                      {record.verificationResult.scoreEligible === false && (
+                        <Text variant="caption" color="tertiary" className="block">
+                          {t("researchLibrary.scoreNotEligible")}
+                        </Text>
+                      )}
+                    </div>
                   )}
                   <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
                     <Badge variant="outline">{t("home.frameworkSixYao")}</Badge>

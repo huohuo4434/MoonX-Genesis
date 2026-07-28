@@ -57,7 +57,7 @@ function directionLabel(direction: ResearchDirection): { zhCN: string; en: strin
       return { zhCN: "强势看涨", en: "Strong bullish" };
     case "bullish":
     case "slightly-bullish":
-      return { zhCN: "偏多", en: "Bullish" };
+      return { zhCN: "上涨概率较高", en: "Higher upside probability" };
     case "bearish":
     case "slightly-bearish":
       return { zhCN: "缓慢偏空", en: "Gradually bearish" };
@@ -70,7 +70,13 @@ function directionLabel(direction: ResearchDirection): { zhCN: string; en: strin
   }
 }
 
-function archiveLabel(status: ResearchRecord["sourceStatus"]): { zhCN: string; en: string } {
+function archiveLabel(status: ResearchRecord["sourceStatus"], assetId?: string): { zhCN: string; en: string } {
+  if (assetId === "bitcoin" && status === "raw_source_saved") {
+    return {
+      zhCN: "用户自测原始卦盘已归档，已审核并纳入日度拆解",
+      en: "User self-test source charts archived — reviewed and used in daily decomposition",
+    };
+  }
   if (status === "raw_source_saved") {
     return { zhCN: "原始来源已归档", en: "Raw source archived" };
   }
@@ -170,8 +176,8 @@ function daySlotsFromThesis(record: ResearchRecord): WeeklyDaySlot[] | null {
 
   if (record.id === "external-symbolic-spy-weekly-2026-07-27") {
     return [
-      { key: "monday", date: "2026-07-27", rhythmZhCN: "先跌后涨 / V形修复", rhythmEn: "Dip then V-repair", directionLabelZhCN: "先抑后扬", directionLabelEn: "Dip-then-lift", conditionZhCN: theses[0]?.zhCN ?? "", conditionEn: theses[0]?.en ?? "", revised: false },
-      { key: "tuesday", date: "2026-07-28", rhythmZhCN: "震荡筑底后温和抬升", rhythmEn: "Base then mild lift", directionLabelZhCN: "偏多修复", directionLabelEn: "Mild repair", conditionZhCN: theses[1]?.zhCN ?? "", conditionEn: theses[1]?.en ?? "", revised: false },
+      { key: "monday", date: "2026-07-27", rhythmZhCN: "先跌后涨 / V形修复", rhythmEn: "Dip then V-repair", directionLabelZhCN: "先跌后涨", directionLabelEn: "Dip-then-lift", conditionZhCN: theses[0]?.zhCN ?? "", conditionEn: theses[0]?.en ?? "", revised: false },
+      { key: "tuesday", date: "2026-07-28", rhythmZhCN: "震荡筑底后温和抬升", rhythmEn: "Base then mild lift", directionLabelZhCN: "震荡偏涨", directionLabelEn: "Mild repair", conditionZhCN: theses[1]?.zhCN ?? "", conditionEn: theses[1]?.en ?? "", revised: false },
       { key: "wednesday", date: "2026-07-29", rhythmZhCN: "后半周路径资料不完整", rhythmEn: "Later-week path incomplete", directionLabelZhCN: "观察", directionLabelEn: "Watch", conditionZhCN: "不延伸未经提供的精细路径", conditionEn: "Do not invent unsupported day paths", revised: false },
       { key: "thursday", date: "2026-07-30", rhythmZhCN: "后半周路径资料不完整", rhythmEn: "Later-week path incomplete", directionLabelZhCN: "观察", directionLabelEn: "Watch", conditionZhCN: "对照周度修复偏向", conditionEn: "Stay with weekly repair bias", revised: false },
       { key: "friday", date: "2026-07-31", rhythmZhCN: "后半周路径资料不完整", rhythmEn: "Later-week path incomplete", directionLabelZhCN: "观察", directionLabelEn: "Watch", conditionZhCN: "记录突发事件修正", conditionEn: "Log event revisions", revised: false },
@@ -192,9 +198,9 @@ function daySlotsFromThesis(record: ResearchRecord): WeeklyDaySlot[] | null {
 
   if (record.id === "MX-GLD-20260727-WEEKLY-001") {
     return [
-      { key: "monday", date: "2026-07-27", rhythmZhCN: "高位震荡或试高", rhythmEn: "High-range chop or probe highs", directionLabelZhCN: "前高后低", directionLabelEn: "High then soft", conditionZhCN: "低权重日级路径，非必然见顶", conditionEn: "Low-weight daily path — not a certain top", revised: false },
-      { key: "tuesday", date: "2026-07-28", rhythmZhCN: "高位惯性延续观察", rhythmEn: "High-range inertia watch", directionLabelZhCN: "前高后低", directionLabelEn: "High then soft", conditionZhCN: "与周度前高后低一致", conditionEn: "Aligned with weekly high-then-soft", revised: false },
-      { key: "wednesday", date: "2026-07-29", rhythmZhCN: "转折与冲高回落风险上升", rhythmEn: "Turn / probe-fade risk rises", directionLabelZhCN: "略微看跌", directionLabelEn: "Slightly bearish", conditionZhCN: "兄弟爻化进，兑现压力增强", conditionEn: "Sibling advancing spirit — take-profit pressure rises", revised: false },
+      { key: "monday", date: "2026-07-27", rhythmZhCN: "高位震荡或试高", rhythmEn: "High-range chop or probe highs", directionLabelZhCN: "先涨后跌", directionLabelEn: "Rise then fall", conditionZhCN: "低权重日级路径，非必然见顶", conditionEn: "Low-weight daily path — not a certain top", revised: false },
+      { key: "tuesday", date: "2026-07-28", rhythmZhCN: "高位延续试探", rhythmEn: "High-range continuation probe", directionLabelZhCN: "先涨后跌", directionLabelEn: "Rise then fall", conditionZhCN: "与周度先涨后跌一致", conditionEn: "Aligned with weekly rise-then-fall", revised: false },
+      { key: "wednesday", date: "2026-07-29", rhythmZhCN: "转折与冲高回落风险上升", rhythmEn: "Turn / probe-fade risk rises", directionLabelZhCN: "略微看跌", directionLabelEn: "Slightly bearish", conditionZhCN: "兄弟爻化进，获利卖盘压力增强", conditionEn: "Sibling advancing spirit — take-profit pressure rises", revised: false },
       { key: "thursday", date: "2026-07-30", rhythmZhCN: "冲高回落风险窗口", rhythmEn: "Probe-fade risk window", directionLabelZhCN: "略微看跌", directionLabelEn: "Slightly bearish", conditionZhCN: "日级节奏不得写成必然见顶", conditionEn: "Daily rhythm must not be stated as a certain top", revised: false },
       { key: "friday", date: "2026-07-31", rhythmZhCN: "低位震荡或弱势收尾", rhythmEn: "Low-range chop or soft close", directionLabelZhCN: "略微看跌", directionLabelEn: "Slightly bearish", conditionZhCN: "不断言必然形成周内最低点", conditionEn: "Do not assert a certain weekly low", revised: false },
       { key: "weekend", rhythmZhCN: "休市整理", rhythmEn: "Weekend review", directionLabelZhCN: "观察", directionLabelEn: "Watch", conditionZhCN: "等待2026-08-01验证", conditionEn: "Await verification on 2026-08-01", revised: false },
@@ -233,7 +239,7 @@ export async function getCurrentWeeklyEdition(): Promise<WeeklyEdition> {
   };
 
   const parentIds: Partial<Record<(typeof WEEKLY_ASSET_ORDER)[number], string>> = {
-    bitcoin: "ORACLE-0006",
+    bitcoin: "MX-BTC-20260727-0907-LIUYAO-001",
     "crude-oil": "research-oil-cycle-2026-h2",
     "nasdaq-100": "ORACLE-0001",
     gold: "MX-XAU-2026-ANNUAL-001",
@@ -251,7 +257,7 @@ export async function getCurrentWeeklyEdition(): Promise<WeeklyEdition> {
     if (!record) continue;
     const parentRecord = parentIds[assetId] ? byId.get(parentIds[assetId]!) : undefined;
     const technicalRecord = technicalIds[assetId] ? byId.get(technicalIds[assetId]!) : undefined;
-    const archive = archiveLabel(record.sourceStatus ?? "summary_only");
+    const archive = archiveLabel(record.sourceStatus ?? "summary_only", assetId);
     const slots = daySlotsFromThesis(record) ?? genericDaySlots(record.direction);
 
     cards.push({

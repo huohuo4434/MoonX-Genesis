@@ -1,71 +1,58 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getAdminEmails, isAdminEmail } from "@/lib/auth/admin-emails";
+import { getAdminClient } from "@/lib/supabase/admin";
+import type { AppMetadata } from "@/lib/auth/permissions";
+import { isAdminUser } from "@/lib/auth/is-admin";
 
-export { getAdminEmails, isAdminEmail };
+export { getAdminEmails, isAdminEmail } from "@/lib/auth/admin-emails";
 
-/** Upsert profile after auth; promote MOONX_ADMIN_EMAILS to admin on server only. */
+/** Ensure users have baseline app_metadata; promote configured admin emails to role=admin. */
 export async function ensureProfileForUser(userId: string, email: string): Promise<void> {
-  const admin = createSupabaseAdminClient();
+  const admin = getAdminClient();
   if (!admin) return;
 
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data.user) return;
+
+  const meta = (data.user.app_metadata ?? {}) as AppMetadata;
   const normalizedEmail = email.trim().toLowerCase();
-  const shouldBeAdmin = isAdminEmail(normalizedEmail);
+  const shouldBeAdmin = isAdminUser({
+    email: normalizedEmail,
+    role: meta.role,
+    isAdmin: meta.role === "admin",
+  });
 
-  const { data: existing } = await admin.from("profiles").select("*").eq("id", userId).maybeSingle();
-
-  if (!existing) {
-    await admin.from("profiles").insert({
-      id: userId,
-      email: normalizedEmail,
-      role: shouldBeAdmin ? "admin" : "user",
-      membership_status: shouldBeAdmin ? "active" : "inactive",
-      membership_started_at: shouldBeAdmin ? new Date().toISOString() : null,
-      membership_expires_at: null,
-      display_name: normalizedEmail.split("@")[0],
+  if (shouldBeAdmin) {
+    if (meta.role === "admin" && meta.membership_status === "active") return;
+    await admin.auth.admin.updateUserById(userId, {
+      app_metadata: {
+        ...meta,
+        role: "admin",
+        membership_status: "active",
+        membership_plan: null,
+        membership_started_at: meta.membership_started_at ?? new Date().toISOString(),
+        membership_expires_at: null,
+        pending_payment: null,
+        display_name: meta.display_name ?? normalizedEmail.split("@")[0],
+      },
     });
     return;
   }
 
-  if (shouldBeAdmin) {
-    await admin
-      .from("profiles")
-      .update({
-        role: "admin",
-        membership_status: "active",
-        membership_started_at: existing.membership_started_at ?? new Date().toISOString(),
-        membership_expires_at: null,
-      })
-      .eq("id", userId);
-  }
-}
+  if (meta.role === "admin") return;
+  // Only seed defaults when role is missing
+  if (meta.role) return;
 
-/** Invite or locate admin user via service role (run from scripts or protected cron). */
-export async function bootstrapAdminAccount(email: string): Promise<{ userId: string; created: boolean }> {
-  const admin = createSupabaseAdminClient();
-  if (!admin) throw new Error("Supabase service role not configured");
-
-  const normalized = email.trim().toLowerCase();
-
-  const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (listErr) throw new Error(listErr.message);
-
-  let userId: string | undefined;
-  let created = false;
-  const existing = listData.users.find((u) => u.email?.toLowerCase() === normalized);
-
-  if (existing) {
-    userId = existing.id;
-  } else {
-    const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(normalized, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://moon-x-genesis.vercel.app"}/auth/callback?next=/admin`,
-    });
-    if (inviteErr) throw new Error(inviteErr.message);
-    userId = inviteData.user.id;
-    created = true;
-  }
-
-  await ensureProfileForUser(userId!, normalized);
-  return { userId: userId!, created };
+  await admin.auth.admin.updateUserById(userId, {
+    app_metadata: {
+      ...meta,
+      role: "user",
+      membership_status: meta.membership_status ?? "inactive",
+      membership_plan: meta.membership_plan ?? null,
+      membership_started_at: meta.membership_started_at ?? null,
+      membership_expires_at: meta.membership_expires_at ?? null,
+      pending_payment: meta.pending_payment ?? null,
+      display_name: meta.display_name ?? email.split("@")[0],
+    },
+  });
 }

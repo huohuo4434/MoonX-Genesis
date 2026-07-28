@@ -1,6 +1,11 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { requireAdminOrNotFound } from "@/lib/auth/require-admin-or-404";
 
-/** Legacy route — canonical verification page is /verification. */
-export default function ResearchVerificationRedirect() {
-  redirect("/verification");
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const dynamic = "force-dynamic";
+
+export default async function Gone() {
+  await requireAdminOrNotFound();
+  const { default: Page } = await import("@/app/admin/intelligence/page");
+  return <Page />;
 }

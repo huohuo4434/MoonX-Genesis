@@ -2,7 +2,9 @@
  * Daily forecast store + lifecycle.
  * One record per (asset, forecastForDate); status/accessLevel evolve — no duplicate copies.
  *
- * Real payment/login not connected: member content is gated by lib/access/member-preview.
+ * Today / tomorrow routing uses Beijing calendar dates:
+ *   today    = forecastForDate === Beijing today
+ *   tomorrow = forecastForDate === Beijing tomorrow
  */
 import type {
   DailyForecast,
@@ -10,12 +12,12 @@ import type {
   TomorrowForecastPublicSummary,
 } from "@/types/daily-forecast";
 import {
-  formatForecastDateZh,
-  getCurrentSessionDate,
-  getNextForecastDate,
   sessionLabelForMarket,
 } from "@/lib/calendar/next-trading-day";
-import { formatBeijingDateTime } from "@/lib/utils/datetime";
+import { getBeijingTodayKey, getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
+import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
+import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
+import { applyDailyPriceOverlay } from "@/lib/data/apply-price-overlays";
 
 export const CORE_TOMORROW_ASSETS = [
   {
@@ -23,6 +25,12 @@ export const CORE_TOMORROW_ASSETS = [
     assetName: "比特币",
     symbol: "BTC",
     market: "crypto" as const,
+  },
+  {
+    assetId: "sp500",
+    assetName: "标普500指数",
+    symbol: "SPX",
+    market: "us" as const,
   },
   {
     assetId: "nasdaq-100",
@@ -33,19 +41,25 @@ export const CORE_TOMORROW_ASSETS = [
   {
     assetId: "shanghai-composite",
     assetName: "上证指数",
-    symbol: "SSEC",
+    symbol: "000001.SS",
     market: "cn" as const,
   },
   {
     assetId: "hang-seng",
-    assetName: "恒生科技",
+    assetName: "恒生科技指数",
     symbol: "HSTECH",
     market: "hk" as const,
   },
   {
     assetId: "gold",
-    assetName: "国际黄金",
-    symbol: "XAU",
+    assetName: "黄金ETF",
+    symbol: "GLD",
+    market: "commodity" as const,
+  },
+  {
+    assetId: "wti-crude",
+    assetName: "WTI原油",
+    symbol: "WTI",
     market: "commodity" as const,
   },
 ] as const;
@@ -57,7 +71,6 @@ function parseIso(iso: string): Date {
   const d = parts[2] ?? 1;
   return new Date(y, m - 1, d);
 }
-
 
 function eveningIso(dateIso: string, hour = 21, minute = 30): string {
   const d = parseIso(dateIso);
@@ -76,7 +89,7 @@ export function isHumanPublishedForecast(f: DailyForecast): boolean {
 
 /**
  * Apply lifecycle in memory (same record, no clones for stages).
- * member tomorrow → public today after publicAt → expired after session → verified after review.
+ * member tomorrow → public today after publicAt / forecast date arrival.
  */
 export function applyForecastLifecycle(forecast: DailyForecast, now = new Date()): DailyForecast {
   if (forecast.status === "draft" || forecast.status === "reviewed" || forecast.status === "scheduled") {
@@ -87,16 +100,19 @@ export function applyForecastLifecycle(forecast: DailyForecast, now = new Date()
   }
 
   const next = { ...forecast };
-  const forDay = parseIso(next.forecastForDate);
-  const dayStart = new Date(forDay.getFullYear(), forDay.getMonth(), forDay.getDate());
-  const publicAt = next.publicAt ? new Date(next.publicAt) : dayStart;
+  const today = getBeijingTodayKey(now);
+  const publicAt = next.publicAt ? new Date(next.publicAt) : null;
 
-  // Phase 2: on forecast day after publicAt → public "today"
-  if (now.getTime() >= publicAt.getTime() && now.getTime() >= dayStart.getTime()) {
+  // On/after forecast calendar day (Beijing), published member content becomes public today view.
+  if (
+    next.forecastForDate <= today &&
+    isHumanPublishedForecast(next) &&
+    (!publicAt || now.getTime() >= publicAt.getTime())
+  ) {
     next.accessLevel = "public";
   }
 
-  // Phase 3: after forecast calendar day ends → expired (await verification)
+  const forDay = parseIso(next.forecastForDate);
   const dayEnd = new Date(forDay.getFullYear(), forDay.getMonth(), forDay.getDate() + 1);
   if (
     now.getTime() >= dayEnd.getTime() &&
@@ -110,62 +126,34 @@ export function applyForecastLifecycle(forecast: DailyForecast, now = new Date()
 }
 
 function buildPendingTomorrow(now: Date): DailyForecast[] {
-  return CORE_TOMORROW_ASSETS.map((asset) => {
-    const forecastForDate = getNextForecastDate(asset.market, now);
-    return {
-      id: `NEXT-${asset.symbol}-PENDING`,
-      assetId: asset.assetId,
-      assetName: asset.assetName,
-      symbol: asset.symbol,
-      market: asset.market,
-      forecastForDate,
-      tradingSessionLabel: sessionLabelForMarket(asset.market),
-      publishedAt: "",
-      updatedAt: "",
-      publicAt: eveningIso(forecastForDate, 0, 0),
-      accessLevel: "member" as const,
-      status: "draft" as const,
-      version: 0,
-      direction: "中性" as const,
-      confidence: 0,
-      summary: "研究尚未完成",
-    };
-  });
+  const tomorrow = getBeijingTomorrowKey(now);
+  return CORE_TOMORROW_ASSETS.map((asset) => ({
+    id: `NEXT-${asset.symbol}-PENDING`,
+    assetId: asset.assetId,
+    assetName: asset.assetName,
+    symbol: asset.symbol,
+    market: asset.market,
+    forecastForDate: tomorrow,
+    tradingSessionLabel: sessionLabelForMarket(asset.market),
+    publishedAt: "",
+    updatedAt: "",
+    publicAt: eveningIso(tomorrow, 0, 0),
+    accessLevel: "member" as const,
+    status: "draft" as const,
+    version: 0,
+    direction: "中性" as const,
+    confidence: 0,
+    summary: "研究尚未完成",
+  }));
 }
 
-/** Placeholder slots for current session — draft only, never shown as "验证中". */
-function buildTodayDraftSlots(now: Date): DailyForecast[] {
-  return CORE_TOMORROW_ASSETS.map((asset) => {
-    const forecastForDate = getCurrentSessionDate(asset.market, now);
-    return {
-      id: `TODAY-${asset.symbol}-DRAFT`,
-      assetId: asset.assetId,
-      assetName: asset.assetName,
-      symbol: asset.symbol,
-      market: asset.market,
-      forecastForDate,
-      tradingSessionLabel: "当前交易日",
-      publishedAt: "",
-      updatedAt: "",
-      publicAt: undefined,
-      accessLevel: "member" as const,
-      status: "draft" as const,
-      version: 0,
-      direction: "中性" as const,
-      confidence: 0,
-      summary: "研究尚未完成",
-    };
-  });
-}
-
-/** In-memory curated overrides (human-published). Empty until editors add real calls. */
-const CURATED_FORECASTS: DailyForecast[] = [];
+/** In-memory curated overrides (human-published). */
+const CURATED_FORECASTS: DailyForecast[] = [...PUBLISHED_DAILY_FORECASTS];
 
 function allRawForecasts(now: Date): DailyForecast[] {
   const pending = buildPendingTomorrow(now);
-  const todayDrafts = buildTodayDraftSlots(now);
   const map = new Map<string, DailyForecast>();
-  for (const f of [...todayDrafts, ...pending]) {
+  for (const f of pending) {
     map.set(`${f.assetId}:${f.forecastForDate}`, f);
   }
   for (const f of CURATED_FORECASTS) {
@@ -175,43 +163,48 @@ function allRawForecasts(now: Date): DailyForecast[] {
 }
 
 export function listDailyForecasts(now = new Date()): DailyForecast[] {
-  return allRawForecasts(now).map((f) => applyForecastLifecycle(f, now));
+  return allRawForecasts(now)
+    .map((f) => applyForecastLifecycle(f, now))
+    .map(applyDailyPriceOverlay);
 }
 
 export function getForecastById(id: string, now = new Date()): DailyForecast | undefined {
   return listDailyForecasts(now).find((f) => f.id === id);
 }
 
-/** Tomorrow slots for homepage core assets (by each market's next session). */
+/** Tomorrow = Beijing tomorrow for all core assets. */
 export function getTomorrowCoreForecasts(now = new Date()): DailyForecast[] {
   const all = listDailyForecasts(now);
+  const tomorrow = getBeijingTomorrowKey(now);
   return CORE_TOMORROW_ASSETS.map((asset) => {
-    const nextDate = getNextForecastDate(asset.market, now);
+    const published = all.find(
+      (f) =>
+        f.assetId === asset.assetId &&
+        f.forecastForDate === tomorrow &&
+        isHumanPublishedForecast(f)
+    );
+    if (published) return published;
     return (
-      all.find((f) => f.assetId === asset.assetId && f.forecastForDate === nextDate) ??
+      all.find((f) => f.assetId === asset.assetId && f.forecastForDate === tomorrow) ??
       all.find((f) => f.id === `NEXT-${asset.symbol}-PENDING`)!
     );
   });
 }
 
 /**
- * Public today: forecastForDate matches current session AND publicAt <= now.
- * Never returns member-only fields via callers that strip — use toTeaser for public HTML.
+ * Public today: forecastForDate === Beijing today AND human-published.
+ * Member-published tomorrow records auto-roll in when their date arrives.
  */
 export function getPublicTodayForecasts(now = new Date()): DailyForecast[] {
   const all = listDailyForecasts(now);
+  const today = getBeijingTodayKey(now);
   return CORE_TOMORROW_ASSETS.map((asset) => {
-    const session = getCurrentSessionDate(asset.market, now);
-    const match = all.find(
+    return all.find(
       (f) =>
         f.assetId === asset.assetId &&
-        f.forecastForDate === session &&
-        isHumanPublishedForecast(f) &&
-        f.accessLevel === "public" &&
-        f.publicAt &&
-        new Date(f.publicAt).getTime() <= now.getTime()
+        f.forecastForDate === today &&
+        isHumanPublishedForecast(f)
     );
-    return match;
   }).filter((f): f is DailyForecast => Boolean(f));
 }
 
@@ -235,8 +228,7 @@ export function toTeaser(f: DailyForecast): DailyForecastTeaser {
 export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPublicSummary {
   const forecasts = getTomorrowCoreForecasts(now);
   const teasers = forecasts.map(toTeaser);
-  const dates = [...new Set(forecasts.map((f) => f.forecastForDate))].sort();
-  const primaryDate = dates[0] ?? getNextForecastDate("us", now);
+  const tomorrow = getBeijingTomorrowKey(now);
   const published = forecasts.filter((f) => isHumanPublishedForecast(f));
   const drafts = forecasts.filter((f) => !isHumanPublishedForecast(f));
   const updatedTimes = published
@@ -244,11 +236,11 @@ export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPu
     .filter(Boolean)
     .sort();
   const last = updatedTimes[updatedTimes.length - 1];
-  const lastUpdatedLabel = last ? formatBeijingDateTime(last) : "—";
+  const lastUpdatedLabel = last ? formatDateTimeChina(last) : "—";
 
   return {
-    nextDateLabel: formatForecastDateZh(primaryDate),
-    nextDateIso: primaryDate,
+    nextDateLabel: formatDateChina(tomorrow),
+    nextDateIso: tomorrow,
     assetCount: forecasts.length,
     assetNames: forecasts.map((f) => f.assetName),
     lastUpdatedLabel,
@@ -268,4 +260,8 @@ export function getAllMemberForecasts(now = new Date()): DailyForecast[] {
   return listDailyForecasts(now).filter(
     (f) => f.accessLevel === "member" || f.accessLevel === "premium" || isHumanPublishedForecast(f)
   );
+}
+
+export function displayDirection(f: DailyForecast): string {
+  return f.directionLabel ?? f.direction;
 }

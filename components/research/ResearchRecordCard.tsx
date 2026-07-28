@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Badge, Button, Card, Progress, Text } from "@/components/ui";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
@@ -9,7 +10,7 @@ import type { ResearchRecord } from "@/types/research";
 
 export interface ResearchRecordCardProps {
   record: ResearchRecord;
-  onViewDetails: (record: ResearchRecord) => void;
+  onViewDetails?: (record: ResearchRecord) => void;
 }
 
 export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCardProps) {
@@ -79,9 +80,15 @@ export function ResearchRecordCard({ record, onViewDetails }: ResearchRecordCard
 
       <div className="mt-1 flex items-center justify-between gap-2">
         <Badge variant="outline">{t(researchStatusLabelKey(record.status))}</Badge>
-        <Button variant="ghost" size="sm" onClick={() => onViewDetails(record)}>
-          {t("common.viewDetails")}
-        </Button>
+        {onViewDetails ? (
+          <Button variant="ghost" size="sm" onClick={() => onViewDetails(record)}>
+            {t("common.viewDetails")}
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/research/record/${record.id}`}>{t("common.viewDetails")}</Link>
+          </Button>
+        )}
       </div>
     </Card>
   );

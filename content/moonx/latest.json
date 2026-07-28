@@ -1815,11 +1815,11 @@
         "en": "The key H1 high zone may already be in place; H2 2026 enters higher volatility and gradual softening."
       },
       "shortView": {
-        "zhCN": "前高后低：周初可能高位震荡或试探前高，周中后获利兑现和回落风险增加。",
+        "zhCN": "先涨后跌：周初可能高位震荡或试探前高，周中后获利兑现和回落风险增加。",
         "zhTW": "前高後低：週初可能高位震盪或試探前高，週中後獲利兌現和回落風險增加。",
         "en": "High-then-soft: early week may chop high or probe highs; mid/late week profit-taking and fade risk rises."
       },
-      "status": "年度中性偏空 / 本周前高后低 / 短期4200情景 / 验证中",
+      "status": "年度中性偏空 / 本周先涨后跌 / 短期4200情景 / 验证中",
       "researchDate": "2026-07-27",
       "lastUpdated": "2026-07-27T12:00:00.000Z",
       "forecastHorizon": {
@@ -1899,7 +1899,7 @@
           "weight": 45,
           "confidence": 70,
           "explanation": {
-            "zhCN": "年度口径略微看跌：上半年重要高位可能已形成，下半年高波动转弱；本周战术前高后低。",
+            "zhCN": "年度口径略微看跌：上半年重要高位可能已形成，下半年高波动转弱；本周战术先涨后跌。",
             "zhTW": "年度口徑略微看跌：上半年重要高位可能已形成，下半年高波動轉弱；本週戰術前高後低。",
             "en": "Annual framing slightly bearish: H1 high zone may be set, H2 high-vol softening; this week tactical high-then-soft."
           },
@@ -1955,7 +1955,7 @@
       ],
       "trendPath": [
         {
-          "zhCN": "战略略微看跌：高位转弱与下半年高波动；本周前高后低。",
+          "zhCN": "战略略微看跌：高位转弱与下半年高波动；本周先涨后跌。",
           "zhTW": "戰略略微看跌：高位轉弱與下半年高波動；本週前高後低。",
           "en": "Strategic slightly bearish: high-zone softening and H2 volatility; this week high-then-soft."
         }
@@ -4381,7 +4381,7 @@
       "start": "2026-07-27",
       "end": "2026-07-28",
       "title": {
-        "zhCN": "黄金高位惯性与试高窗口",
+        "zhCN": "黄金高位延续与试高窗口",
         "zhTW": "黃金高位慣性與試高窗口",
         "en": "Gold high-range inertia / probe window"
       },

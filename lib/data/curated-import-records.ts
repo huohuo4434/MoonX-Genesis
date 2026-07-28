@@ -153,13 +153,14 @@ export const curatedImportRecords: ResearchRecord[] = [
     ],
     status: "active",
     tags: ["crude-oil", "cycle", "strategic", "resistance-pending"],
+    relatedRecordIds: ["MX-OIL-20260602-0903-LIUYAO-001", "INT-WTI-20260807-20270204-EXT-001"],
   },
   {
     id: "sixyao-cxmt-ipo-first-week",
     publishedAt: "2026-07-26",
     assetId: "changxin-technology",
     assetName: lt("长鑫科技", "長鑫科技", "ChangXin Technology"),
-    symbol: "CXMT",
+    symbol: "688825",
     market: "semiconductor",
     framework: "oracle-six-yao",
     sourceType: "internal-research",
@@ -179,23 +180,23 @@ export const curatedImportRecords: ResearchRecord[] = [
       "Primary Humility, changed Obstruction. Early listing watch focuses on spikes, turnover, and two-way flow — not a straight-line advance."
     ),
     summary: lt(
-      "不是典型连续直线上涨卦象。上市初期可能冲高、巨大换手和多空分歧；上涨过程可能遇阻。更符合先交易、先承压、再观察承接。中长期价值不能只依据上市第一周表现。",
-      "不是典型連續直線上漲卦象。上市初期可能衝高、巨大換手和多空分歧；上漲過程可能遇阻。更符合先交易、先承壓、再觀察承接。中長期價值不能只依據上市第一週表現。",
-      "Not a classic straight-line bullish hexagram. Early listing may spike, churn, and diverge; advances may meet resistance. Sequence: trade first, absorb pressure, then watch bid support. Long-term value is not decided by week one."
+      "不是典型连续直线上涨卦象。上市初期更可能先涨后跌、周末偏弱：前半段或继续冲高，后半段回落概率上升。中长期价值不能只依据上市第一周表现。",
+      "不是典型連續直線上漲卦象。上市初期更可能先漲後跌、週末偏弱：前半段或繼續衝高，後半段回落概率上升。中長期價值不能只依據上市第一週表現。",
+      "Not a classic straight-line bullish hexagram. Early listing bias is rise-then-fall with a softer weekend: early week may push higher, later week fade risk rises. Long-term value is not decided by week one."
     ),
     moonxInterpretation: lt(
-      "方向显示：先换手，后观察承接。重点跟踪，不设强势看涨或必涨评级。",
-      "方向顯示：先換手，後觀察承接。重點跟蹤，不設強勢看漲或必漲評級。",
-      "Display direction: turnover first, then watch absorption. Focus tracking only — no strong-bullish or must-rise rating."
+      "正式方向：先涨后跌，周末偏弱。会员页以可验证方向发布，不使用观望或模糊承接区文案。",
+      "正式方向：先漲後跌，週末偏弱。會員頁以可驗證方向發布，不使用觀望或模糊承接區文案。",
+      "Formal direction: rise then fall, softer weekend. Member pages publish verifiable directions — no abstain or vague absorption-zone prose."
     ),
     thesis: [
-      lt("确认条件：上市后资金承接稳定，回调后重新站稳关键交易区。", "確認條件：上市後資金承接穩定，回調後重新站穩關鍵交易區。", "Confirmation: stable absorption after listing and reclaim of the key trade zone after pullback."),
-      lt("失效条件：上市后持续放量走弱，且无法形成有效承接。", "失效條件：上市後持續放量走弱，且無法形成有效承接。", "Invalidation: persistent volume-led weakness without effective absorption."),
+      lt("确认条件：前两个交易日冲高后，后三个交易日震荡回落并周末收弱。", "確認條件：前兩個交易日衝高後，後三個交易日震盪回落並週末收弱。", "Confirmation: early-week probe higher, then later-week fade with a softer weekend close."),
+      lt("失效条件：后半周仍持续放量创新高且周末未见回落。", "失效條件：後半週仍持續放量創新高且週末未見回落。", "Invalidation: late week keeps making volume highs without a weekend fade."),
     ],
     invalidation: lt(
-      "上市后持续放量走弱，且无法形成有效承接。",
-      "上市後持續放量走弱，且無法形成有效承接。",
-      "Persistent volume-led weakness without effective absorption after listing."
+      "后半周仍持续放量创新高且周末未见回落。",
+      "後半週仍持續放量創新高且週末未見回落。",
+      "Late week keeps making volume highs without a weekend fade."
     ),
     status: "active",
     tags: ["changxin", "ipo", "oracle-six-yao", "focus-tracking", "no-auto-bullish"],
@@ -217,25 +218,25 @@ export const curatedImportRecords: ResearchRecord[] = [
     consensusEligible: false,
     excludeFromLongTermConsensus: true,
     layer: "tactical",
-    parentRecordId: "ORACLE-0006",
-    derivedFromRecordIds: ["ORACLE-0006", "technical-btc-2026-07-snapshot"],
-    sourceStatus: "source_image_pending_relink",
+    parentRecordId: "MX-BTC-20260727-0907-LIUYAO-001",
+    derivedFromRecordIds: ["MX-BTC-20260727-0806-LIUYAO-001", "MX-BTC-20260727-0907-LIUYAO-001", "ORACLE-0009"],
+    sourceStatus: "raw_source_saved",
     horizon: lt("2026-07-27 至 2026-08-02", "2026-07-27 至 2026-08-02", "2026-07-27 to 2026-08-02"),
-    title: lt("比特币本周战术观察（关联中期六爻）", "比特幣本週戰術觀察（關聯中期六爻）", "Bitcoin Weekly Tactical Watch (Linked to Medium-Term Six Yao)"),
+    title: lt("比特币本周战术观察（用户自测短周期）", "比特幣本週戰術觀察（用戶自測短周期）", "Bitcoin weekly tactical watch (user self-test short cycle)"),
     rawSource: lt(
-      "项目内未找到独立的本周（07-27至08-02）BTC六爻卦图原文；已关联中期六爻 ORACLE-0006（至08-15挑战70000）。",
-      "專案內未找到獨立的本週（07-27至08-02）BTC六爻卦圖原文；已關聯中期六爻 ORACLE-0006（至08-15挑戰70000）。",
-      "No standalone BTC weekly hexagram chart for 07-27–08-02 was found in-repo; linked to medium-term ORACLE-0006 (70k challenge by 08-15)."
+      "关联用户自测短周期 MX-BTC-20260727-0806-LIUYAO-001 与中周期 MX-BTC-20260727-0907-LIUYAO-001；原始卦盘已归档，已审核并纳入日度拆解。",
+      "關聯用戶自測短周期 MX-BTC-20260727-0806-LIUYAO-001 與中周期 MX-BTC-20260727-0907-LIUYAO-001；原始卦盤已歸檔，待管理員審核。",
+      "Linked to user self-test short MX-BTC-20260727-0806-LIUYAO-001 and mid MX-BTC-20260727-0907-LIUYAO-001; source charts archived, pending admin review."
     ),
     summary: lt(
-      "本周处于中期偏多情景内的节奏观察。独立本周六爻卦图待归档。执行上结合 64650 / 63412 支撑与 67300 突破确认。每日节奏属于周度趋势拆解，不确定性高于周度判断。",
-      "本週處於中期偏多情景內的節奏觀察。獨立本週六爻卦圖待歸檔。執行上結合 64650 / 63412 支撐與 67300 突破確認。每日節奏屬於週度趨勢拆解，不確定性高於週度判斷。",
-      "This week sits inside the medium-term bullish scenario. Standalone weekly hexagram chart pending archive. Execution watches 64650 / 63412 support and 67300 breakout confirmation. Daily rhythm is a weekly decomposition with higher uncertainty."
+      "短周期偏向先弹后跌再修复。7月30日至8月3日为主要回落观察窗口，8月4日至6日关注止跌和反弹。中周期仍偏高波动修复，9月初进入高位或转折观察。",
+      "短周期偏向先彈後跌再修復。7月30日至8月3日為主要回落觀察窗口，8月4日至6日關注止跌和反彈。中周期仍偏高波動修復，9月初進入高位或轉折觀察。",
+      "Short cycle: bounce, dip, then repair. Jul 30–Aug 3 is the main pullback watch; Aug 4–6 watches stabilization and rebound. Mid cycle stays high-volatility repair; early Sep enters high/turn watch."
     ),
     moonxInterpretation: lt(
-      "中长期观点已更新，本周独立卦象待补充。原始卦图待归档。",
-      "中長期觀點已更新，本週獨立卦象待補充。原始卦圖待歸檔。",
-      "Medium-term view is active; standalone weekly hexagram still pending. Source chart pending archive."
+      "用户自测原始卦盘已归档，已审核并纳入日度拆解。",
+      "用戶自測原始卦盤已歸檔，待管理員審核。不得自動成為正式會員預測。",
+      "User self-test source charts archived — pending admin review. Must not auto-publish as member forecast."
     ),
     thesis: [
       lt("周一至周二：观察初始方向确认（是否守住关键支撑）。", "週一至週二：觀察初始方向確認（是否守住關鍵支撐）。", "Mon–Tue: watch initial direction confirmation (key support hold)."),
@@ -252,6 +253,6 @@ export const curatedImportRecords: ResearchRecord[] = [
       lt("是否出现67300突破并回踩确认。", "是否出現67300突破並回踩確認。", "Did 67300 break and hold on retest?"),
     ],
     status: "active",
-    tags: ["bitcoin", "weekly-tactical", "hexagram-pending", "parent-ORACLE-0006"],
+    tags: ["bitcoin", "weekly-tactical", "user-self-test", "pending-human-review", "parent-MX-BTC-20260727-0907"],
   },
 ];

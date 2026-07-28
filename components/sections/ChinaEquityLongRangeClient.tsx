@@ -34,12 +34,16 @@ function ScenarioCard({
         <Badge variant="outline">{t("home.verificationPending")}</Badge>
       </div>
       {record.researchScore != null && (
-        <Text variant="caption" color="tertiary">
-          {t("home.researchScore")}: {record.researchScore}/100
-          {record.trendConsistency
-            ? ` · ${t("home.trendConsistency")}: ${record.trendConsistency.score}/${record.trendConsistency.max}`
-            : ""}
-        </Text>
+        <div className="flex flex-col gap-1 text-caption text-foreground-tertiary">
+          <span>
+            {t("home.researchScore")}：{record.researchScore}/100
+          </span>
+          {record.trendConsistency && (
+            <span>
+              {t("home.trendConsistency")}：{record.trendConsistency.score}/{record.trendConsistency.max}
+            </span>
+          )}
+        </div>
       )}
       <Text variant="body-sm" color="secondary">
         {pickLocalized(record.summary, locale)}

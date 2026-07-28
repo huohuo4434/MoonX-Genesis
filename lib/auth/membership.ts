@@ -2,9 +2,17 @@ import "server-only";
 
 import type { ForecastAccessLevel } from "@/types/daily-forecast";
 import type { MembershipStatus, Profile, ProfileRole } from "@/types/membership";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
+import {
+  canAccessMemberContent as canAccess,
+  getCurrentUser as getAuthUser,
+  isActiveMember as checkActiveMember,
+  isAdmin as checkIsAdmin,
+  listAllAuthUsers,
+  readAppMetadata,
+  requireAdmin as requireAdminUser,
+  type AuthUserView,
+} from "@/lib/auth/permissions";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export const MEMBER_PREVIEW_COOKIE = "moonx_member_preview";
 
@@ -35,43 +43,51 @@ export interface MembershipStatusResult {
   role: ProfileRole;
 }
 
-function isProduction(): boolean {
-  return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+function viewToProfile(user: AuthUserView): Profile {
+  const meta = user.app_metadata;
+  const role: ProfileRole = meta.role === "admin" ? "admin" : meta.membership_status === "active" ? "member" : "user";
+  return {
+    id: user.id,
+    email: user.email,
+    display_name: meta.display_name ?? user.email.split("@")[0] ?? null,
+    role,
+    membership_status: (meta.membership_status ?? "inactive") as MembershipStatus,
+    membership_started_at: meta.membership_started_at ?? null,
+    membership_expires_at: meta.membership_expires_at ?? null,
+    created_at: user.created_at,
+    updated_at: user.created_at,
+  };
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user?.email) return null;
-  return { id: data.user.id, email: data.user.email };
+  const user = await getAuthUser();
+  if (!user) return null;
+  return { id: user.id, email: user.email };
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {
-  const user = await getCurrentUser();
+  const user = await getAuthUser();
   if (!user) return null;
-  return getProfile(user.id);
+  return viewToProfile(user);
 }
 
 export async function isAdmin(): Promise<boolean> {
-  const profile = await getCurrentProfile();
-  return profile?.role === "admin";
+  return checkIsAdmin(await getAuthUser());
 }
 
 export async function isActiveMember(): Promise<boolean> {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  const membership = await getMembershipStatus(user.id);
-  return membership.isActive;
+  return checkActiveMember(await getAuthUser());
 }
 
 export async function canAccessMemberForecast(): Promise<boolean> {
-  const ctx = await getMemberUserContext();
-  return ctx.isMember || ctx.isAdmin;
+  return canAccess(await getAuthUser());
+}
+
+export async function canAccessMemberContent(): Promise<boolean> {
+  return canAccessMemberForecast();
 }
 
 export async function getMembershipStatus(userId: string): Promise<MembershipStatusResult> {
-  const admin = createSupabaseAdminClient();
   const fallback: MembershipStatusResult = {
     isActive: false,
     status: "inactive",
@@ -79,115 +95,71 @@ export async function getMembershipStatus(userId: string): Promise<MembershipSta
     accessLevel: "member",
     role: "user",
   };
+  const admin = getAdminClient();
   if (!admin) return fallback;
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role, membership_status, membership_expires_at")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (!profile) return fallback;
-
-  const role = profile.role as ProfileRole;
-  const expiresAt = profile.membership_expires_at as string | null;
-
-  if (role === "admin") {
-    return {
-      isActive: true,
-      status: "active",
-      expiresAt: null,
-      accessLevel: "premium",
-      role: "admin",
-    };
+  const { data } = await admin.auth.admin.getUserById(userId);
+  if (!data.user) return fallback;
+  const view = {
+    id: data.user.id,
+    email: data.user.email ?? "",
+    created_at: data.user.created_at,
+    app_metadata: readAppMetadata(data.user),
+  };
+  if (checkIsAdmin(view)) {
+    return { isActive: true, status: "active", expiresAt: null, accessLevel: "premium", role: "admin" };
   }
-
-  const now = Date.now();
-  const active =
-    profile.membership_status === "active" &&
-    profile.membership_expires_at &&
-    new Date(profile.membership_expires_at).getTime() > now;
-
-  const accessLevel: "member" | "premium" =
-    profile.role === "premium" ? "premium" : "member";
-
+  const active = checkActiveMember(view);
   return {
-    isActive: Boolean(active),
-    status: profile.membership_status as MembershipStatus,
-    expiresAt,
-    accessLevel,
-    role,
+    isActive: active,
+    status: (view.app_metadata.membership_status ?? "inactive") as MembershipStatus,
+    expiresAt: view.app_metadata.membership_expires_at ?? null,
+    accessLevel: "member",
+    role: active ? "member" : "user",
   };
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-  const admin = createSupabaseAdminClient();
+  const admin = getAdminClient();
   if (!admin) return null;
-  const { data } = await admin.from("profiles").select("*").eq("id", userId).maybeSingle();
-  return (data as Profile) ?? null;
+  const { data } = await admin.auth.admin.getUserById(userId);
+  if (!data.user?.email) return null;
+  return viewToProfile({
+    id: data.user.id,
+    email: data.user.email,
+    created_at: data.user.created_at,
+    app_metadata: readAppMetadata(data.user),
+  });
 }
 
 export async function requireAdmin(): Promise<Profile | null> {
-  const user = await getCurrentUser();
+  const user = await requireAdminUser();
   if (!user) return null;
-  const profile = await getProfile(user.id);
-  if (!profile || profile.role !== "admin") return null;
-  return profile;
+  return viewToProfile(user);
 }
 
-async function previewGateContext(): Promise<MemberUserContext | null> {
-  if (isProduction()) return null;
-  if (process.env.MOONX_MEMBER_PREVIEW === "true") {
-    return { plan: "member", isMember: true, isPremium: false, isPreviewGate: true, isAdmin: false };
-  }
-  const configuredKey = process.env.MOONX_MEMBER_PREVIEW_KEY;
-  if (!configuredKey) return null;
-  const cookieStore = await cookies();
-  if (cookieStore.get(MEMBER_PREVIEW_COOKIE)?.value !== configuredKey) return null;
-  return { plan: "member", isMember: true, isPremium: false, isPreviewGate: true, isAdmin: false };
-}
-
-/** Server-side membership gate — never trust client role. */
 export async function getMemberUserContext(): Promise<MemberUserContext> {
-  const base: MemberUserContext = {
-    plan: "public",
-    isMember: false,
-    isPremium: false,
-    isPreviewGate: false,
-    isAdmin: false,
-  };
-
-  const user = await getCurrentUser();
-  if (user) {
-    const membership = await getMembershipStatus(user.id);
-    const profile = await getProfile(user.id);
-    const isAdminUser = profile?.role === "admin";
-    if (membership.isActive || isAdminUser) {
-      const isPremium = membership.accessLevel === "premium" || isAdminUser;
-      return {
-        plan: isPremium ? "premium" : "member",
-        isMember: true,
-        isPremium,
-        isPreviewGate: false,
-        isAdmin: isAdminUser,
-        userId: user.id,
-        email: user.email,
-        membershipStatus: isAdminUser ? "active" : membership.status,
-        membershipExpiresAt: isAdminUser ? null : membership.expiresAt,
-      };
-    }
-    return {
-      ...base,
-      userId: user.id,
-      email: user.email,
-      membershipStatus: membership.status,
-      membershipExpiresAt: membership.expiresAt,
-      isAdmin: isAdminUser,
-    };
+  const { getAccessUser } = await import("@/lib/auth/get-access-user");
+  const snap = await getAccessUser();
+  if (!snap.authenticated) {
+    return { plan: "public", isMember: false, isPremium: false, isPreviewGate: false, isAdmin: false };
   }
-
-  const preview = await previewGateContext();
-  return preview ?? base;
+  const adminUser = snap.isAdmin;
+  const member = snap.isActiveMember || adminUser;
+  return {
+    plan: adminUser ? "premium" : member ? "member" : "public",
+    isMember: member,
+    isPremium: adminUser,
+    isPreviewGate: false,
+    isAdmin: adminUser,
+    userId: snap.userId ?? undefined,
+    email: snap.email ?? undefined,
+    membershipStatus: (snap.membershipStatus ?? "inactive") as MembershipStatus,
+    membershipExpiresAt: adminUser
+      ? null
+      : snap.membershipExpiresAt
+        ? snap.membershipExpiresAt.toISOString()
+        : null,
+  };
 }
 
 export async function getAccessLevel(): Promise<"public" | "member"> {
@@ -209,4 +181,9 @@ export function canAccessForecast(
 
 export function canViewDelayedPublic(memberAvailableAt: string, now = new Date()): boolean {
   return now.getTime() >= new Date(memberAvailableAt).getTime() + 24 * 60 * 60 * 1000;
+}
+
+export async function listAllProfiles(): Promise<Profile[]> {
+  const users = await listAllAuthUsers();
+  return users.map(viewToProfile);
 }

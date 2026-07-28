@@ -118,19 +118,19 @@ export const preciousMetalsCryptoOracleRecords: ResearchRecord[] = [
     },
     horizon: lt("周度 · 2026-07-27至07-31", "週度 · 2026-07-27至07-31", "Weekly · 2026-07-27 to 07-31"),
     title: lt(
-      "黄金本周前高后低，后半周回落风险上升",
-      "黃金本週前高後低，後半週回落風險上升",
-      "Gold this week: high then soft; late-week pullback risk rises"
+      "黄金本周先涨后跌，后半周回落风险上升",
+      "黃金本週先漲後跌，後半週回落風險上升",
+      "Gold this week: rise then fall; late-week pullback risk rises"
     ),
     summary: lt(
-      "本周前段可能延续高位惯性或试探前高；随着上六兄弟爻发动并化进，后半周获利兑现和回落风险逐渐增大，整体更偏向冲高回落或周线收弱。",
-      "本週前段可能延續高位慣性或試探前高；隨著上六兄弟爻發動並化進，後半週獲利兌現和回落風險逐漸增大，整體更偏向衝高回落或週線收弱。",
-      "Early week may extend high-range momentum or probe prior highs; as upper sibling moves and advances, late-week take-profit and pullback risk rise — bias favors probe-then-fade or a soft weekly close."
+      "本周前段可能延续高位试探或冲高；随着上六兄弟爻发动并化进，后半周获利兑现和回落风险逐渐增大，整体更偏向先涨后跌或周线收弱。",
+      "本週前段可能延續高位試探或衝高；隨著上六兄弟爻發動並化進，後半週獲利兌現和回落風險逐漸增大，整體更偏向先漲後跌或週線收弱。",
+      "Early week may extend a high-range probe or push higher; as upper sibling moves and advances, late-week take-profit and pullback risk rise — bias favors rise-then-fall or a soft weekly close."
     ),
     moonxInterpretation: lt(
-      "路径口径为前高后低。旧分析图底部“本周先跌后涨”与卦爻及逐日结构矛盾，已禁止录入。",
-      "路徑口徑為前高後低。舊分析圖底部「本週先跌後漲」與卦爻及逐日結構矛盾，已禁止錄入。",
-      "Path label is high-then-soft. The old image footer “dip then rise” contradicts the hexagram and day path and is not entered."
+      "路径口径为先涨后跌。旧分析图底部“本周先跌后涨”与卦爻及逐日结构矛盾，已禁止录入。",
+      "路徑口徑為先漲後跌。舊分析圖底部「本週先跌後漲」與卦爻及逐日結構矛盾，已禁止錄入。",
+      "Path label is rise-then-fall. The old image footer “dip then rise” contradicts the hexagram and day path and is not entered."
     ),
     shortHorizonSummary: lt(
       "7月27日至28日高位震荡或试高；7月29日至30日转折和冲高回落风险上升；7月31日偏向低位震荡、探低企稳或弱势收尾。",
@@ -138,12 +138,12 @@ export const preciousMetalsCryptoOracleRecords: ResearchRecord[] = [
       "Jul 27–28: high-range chop or probe highs; Jul 29–30: turn / probe-fade risk rises; Jul 31: low-range chop, dip-stabilize, or soft close."
     ),
     thesis: [
-      lt("路径标签：前高后低（禁止使用“先跌后涨”）。", "路徑標籤：前高後低（禁止使用「先跌後漲」）。", "Path tag: high then soft (do not use “dip then rise”)."),
+      lt("路径标签：先涨后跌（禁止使用“先跌后涨”）。", "路徑標籤：先漲後跌（禁止使用「先跌後漲」）。", "Path tag: rise then fall (do not use “dip then rise”)."),
       lt("日级节奏属于低权重时间假设，不得写成某日必然见顶或必然见底。", "日級節奏屬於低權重時間假設，不得寫成某日必然見頂或必然見底。", "Daily rhythm is a low-weight timing hypothesis — not a certain top/bottom day."),
     ],
     scenarios: [
       {
-        name: lt("前高后低并周线收跌", "前高後低並週線收跌", "High then soft with a down week"),
+        name: lt("先涨后跌并周线收跌", "先漲後跌並週線收跌", "Rise then fall with a down week"),
         probability: 55,
         description: lt("周初高位震荡或冲高，周中后卖压增强，周线收弱。", "週初高位震盪或衝高，週中後賣壓增強，週線收弱。", "Early high-range or probe; later sell pressure; soft week."),
       },
@@ -159,9 +159,9 @@ export const preciousMetalsCryptoOracleRecords: ResearchRecord[] = [
       },
     ],
     invalidation: lt(
-      "若价格放量突破本周前高并连续站稳，且周中没有出现明显冲高回落，则前高后低情景失效。",
-      "若價格放量突破本週前高並連續站穩，且週中沒有出現明顯衝高回落，則前高後低情景失效。",
-      "If price volume-breaks and holds the week’s prior high without a clear midweek probe-fade, the high-then-soft scenario is invalidated."
+      "若价格放量突破本周前高并连续站稳，且周中没有出现明显冲高回落，则先涨后跌情景失效。",
+      "若價格放量突破本週前高並連續站穩，且週中沒有出現明顯衝高回落，則先漲後跌情景失效。",
+      "If price volume-breaks and holds the week’s prior high without a clear midweek probe-fade, the rise-then-fall scenario is invalidated."
     ),
     risks: [
       lt("日级节奏属于低权重时间假设，不得写成某日必然见顶或必然见底。", "日級節奏屬於低權重時間假設，不得寫成某日必然見頂或必然見底。", "Daily rhythm is low-weight timing — not a certain top/bottom day."),
@@ -169,7 +169,7 @@ export const preciousMetalsCryptoOracleRecords: ResearchRecord[] = [
       DISCLAIMER,
     ],
     turningWindows: [
-      { id: "gld-0727-probe", start: "2026-07-27", end: "2026-07-28", label: lt("高位惯性与试高窗口", "高位慣性與試高窗口", "High-range momentum / probe window") },
+      { id: "gld-0727-probe", start: "2026-07-27", end: "2026-07-28", label: lt("高位试探与冲高窗口", "高位試探與衝高窗口", "High-range probe / push window") },
       { id: "gld-0727-fade", start: "2026-07-29", end: "2026-07-30", label: lt("冲高回落风险窗口", "衝高回落風險窗口", "Probe-fade risk window") },
       { id: "gld-0727-soft", date: "2026-07-31", label: lt("周线弱势收尾观察", "週線弱勢收尾觀察", "Soft weekly-close watch") },
     ],

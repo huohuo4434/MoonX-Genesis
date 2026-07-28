@@ -29,7 +29,7 @@ export function VerificationSection({ stagedRecords = [] }: { stagedRecords?: Re
           <Text variant="label" color="secondary" className="uppercase tracking-wide">
             {t("verification.eyebrow")}
           </Text>
-          <Badge variant="neutral">{t("verification.demoFlow")}</Badge>
+          <Badge variant="neutral">{t("verification.flowLabel")}</Badge>
         </div>
         <Heading as="h2" size="h2" className="max-w-2xl">
           {t("verification.title")}

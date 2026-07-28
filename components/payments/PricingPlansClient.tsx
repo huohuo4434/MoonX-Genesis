@@ -1,108 +1,123 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Badge, Button, Card, Text } from "@/components/ui";
-import { PLAN_DISPLAY } from "@/lib/payments/plan-display";
+import { PLAN_DISPLAY, PLAN_PURCHASE_LABEL } from "@/lib/payments/plan-display";
 import type { MembershipPlan } from "@/types/membership";
+
+const BENEFITS = [
+  "提前查看下一交易日完整预测",
+  "查看本周整体行情分析",
+  "查看关键支撑、关键压力和失效价格",
+  "查看会员福利股长鑫科技的今日、明日和本周分析",
+  "查看会员专属个股验证记录",
+];
+
+function CopyAddress({ label, address }: { label: string; address: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border/[0.08] bg-muted/20 p-3">
+      <Text variant="body-sm" weight="semibold" className="block">
+        {label}
+      </Text>
+      <p className="text-caption text-foreground-tertiary">收款地址</p>
+      <p className="break-all font-mono text-caption text-foreground-secondary">{address}</p>
+      <div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(address);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            } catch {
+              setCopied(false);
+            }
+          }}
+        >
+          {copied ? "已复制" : "复制地址"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function PricingPlansClient({
   plans,
-  bep20Enabled,
-  trc20Open,
   supportEmail,
+  trc20Address,
+  bep20Address,
   isLoggedIn,
 }: {
   plans: MembershipPlan[];
-  bep20Enabled: boolean;
-  trc20Open: boolean;
   supportEmail: string;
+  trc20Address: string;
+  bep20Address: string;
   isLoggedIn: boolean;
 }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function buy(planCode: string, chain: "TRON" | "BSC") {
-    if (!isLoggedIn) {
-      router.push(`/login?next=${encodeURIComponent("/pricing")}&plan=${planCode}`);
-      return;
-    }
-
-    setError(null);
-    setLoading(`${planCode}-${chain}`);
-    const res = await fetch("/api/payments/create-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planCode, chain }),
-    });
-    const json = (await res.json()) as { error?: string; checkoutUrl?: string };
-    setLoading(null);
-    if (!res.ok) {
-      if (res.status === 401) {
-        router.push(`/login?next=${encodeURIComponent("/pricing")}&plan=${planCode}`);
-        return;
-      }
-      setError(json.error ?? "创建订单失败");
-      return;
-    }
-    if (json.checkoutUrl) router.push(json.checkoutUrl);
-  }
-
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-4">
+    <div className="flex w-full max-w-3xl flex-col gap-5 overflow-x-hidden">
+      <Card padding="lg" className="flex flex-col gap-2">
+        <Text variant="body" weight="semibold" className="block">
+          会员权益
+        </Text>
+        <ul className="space-y-1 text-body-sm text-foreground-secondary">
+          {BENEFITS.map((b) => (
+            <li key={b}>· {b}</li>
+          ))}
+        </ul>
+      </Card>
+
       {plans.map((plan) => {
         const meta = PLAN_DISPLAY[plan.code];
-        const hasPrice = plan.price_usdt != null && plan.price_usdt > 0;
-        const canBuy = trc20Open && plan.active && hasPrice;
+        const purchaseLabel = PLAN_PURCHASE_LABEL[plan.code] ?? "立即购买";
+        const href = isLoggedIn
+          ? `/checkout?plan=${plan.code}`
+          : `/login?next=${encodeURIComponent("/pricing")}`;
         return (
-          <Card key={plan.code} padding="lg" className="flex flex-col gap-3">
+          <Card key={plan.code} padding="lg" className="flex flex-col gap-3 overflow-hidden">
             <div className="flex flex-wrap items-center gap-2">
               <Text variant="body" weight="semibold">
                 {plan.name}
               </Text>
               {meta?.badge ? <Badge variant="default">{meta.badge}</Badge> : null}
             </div>
-            <Text variant="body-sm" color="secondary">
-              {plan.duration_days} 天 · {hasPrice ? `${plan.price_usdt} USDT` : "即将开放"}
-            </Text>
+            <p className="text-body-sm text-foreground-secondary">
+              {plan.price_usdt} USDT／{plan.duration_days}天
+            </p>
             {meta?.savingText ? (
-              <Text variant="caption" color="tertiary">
-                {meta.savingText}
-              </Text>
+              <p className="text-caption text-foreground-tertiary">{meta.savingText}</p>
             ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={!canBuy || loading !== null}
-                onClick={() => buy(plan.code, "TRON")}
-              >
-                {loading === `${plan.code}-TRON`
-                  ? "创建中…"
-                  : canBuy
-                    ? "使用USDT-TRC20购买"
-                    : "支付系统维护中"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!bep20Enabled || !canBuy || loading !== null}
-                onClick={() => buy(plan.code, "BSC")}
-              >
-                {bep20Enabled ? "BSC-USD 支付" : "BEP20 待管理员确认"}
+            <div>
+              <Button size="sm" asChild>
+                <Link href={href}>{purchaseLabel}</Link>
               </Button>
             </div>
           </Card>
         );
       })}
-      {error && (
-        <Text variant="caption" color="tertiary">
-          {error}
+
+      <Card padding="lg" className="flex flex-col gap-4 overflow-hidden">
+        <Text variant="body-sm" weight="semibold" className="block">
+          付款说明
         </Text>
-      )}
-      <Text variant="caption" color="tertiary">
-        请务必选择正确网络和指定代币合约。错误链、错误币种或假代币无法自动开通会员。客服：{supportEmail}
-      </Text>
+        <CopyAddress label="USDT-TRC20" address={trc20Address} />
+        <CopyAddress label="USDT-BEP20" address={bep20Address} />
+        <div className="flex flex-col gap-2">
+          <Text variant="body-sm" weight="semibold" className="block">
+            付款步骤
+          </Text>
+          <p className="text-body-sm text-foreground-secondary">1. 选择会员套餐</p>
+          <p className="text-body-sm text-foreground-secondary">2. 使用对应网络转账USDT</p>
+          <p className="text-body-sm text-foreground-secondary">3. 提交交易哈希</p>
+          <p className="text-body-sm text-foreground-secondary">4. 管理员审核后开通</p>
+        </div>
+        <p className="text-body-sm text-foreground-secondary">客服邮箱</p>
+        <p className="text-body-sm">{supportEmail || "jackzwin999@gmail.com"}</p>
+      </Card>
     </div>
   );
 }

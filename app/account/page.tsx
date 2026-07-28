@@ -1,18 +1,37 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
+import { AccountReferralPanel } from "@/components/account/AccountReferralPanel";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button, Card, Heading, Section, Text } from "@/components/ui";
-import { getCurrentUser, getMembershipStatus, getProfile } from "@/lib/auth/membership";
+import { getAccessUser } from "@/lib/auth/get-access-user";
+import { PLAN_LABELS } from "@/lib/auth/permissions";
 import { getPaymentConfig } from "@/lib/payments/config";
+import { formatDateTimeChina } from "@/lib/utils/datetime";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AccountPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  noStore();
+  const access = await getAccessUser();
+  if (!access.authenticated) redirect("/login");
 
-  const [profile, membership] = await Promise.all([
-    getProfile(user.id),
-    getMembershipStatus(user.id),
-  ]);
   const cfg = getPaymentConfig();
+  const memberType = access.isAdmin
+    ? "管理员"
+    : access.membershipPlan
+      ? PLAN_LABELS[access.membershipPlan]
+      : access.isActiveMember
+        ? "会员"
+        : "普通用户";
+  const memberStatus = access.isAdmin
+    ? "有效（永久）"
+    : access.isActiveMember
+      ? "有效"
+      : access.membershipExpiresAt
+        ? "已过期"
+        : "未开通";
 
   return (
     <main>
@@ -22,31 +41,72 @@ export default async function AccountPage() {
         </Heading>
         <Card padding="lg" className="mt-6 max-w-lg">
           <Text variant="body-sm" color="secondary">
-            邮箱：{user.email}
+            登录邮箱：{access.email}
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            会员状态：{membership.isActive ? "有效" : profile?.membership_status ?? "未开通"}
+            用户 ID：{access.userId}
           </Text>
-          {membership.expiresAt && (
-            <Text variant="body-sm" color="secondary" className="mt-1">
-              到期时间：{new Date(membership.expiresAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
-            </Text>
-          )}
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            会员类型：{memberType}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            会员到期时间：
+            {access.isAdmin
+              ? "永久有效"
+              : access.membershipExpiresAt
+                ? formatDateTimeChina(access.membershipExpiresAt.toISOString())
+                : "—"}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            当前状态：{memberStatus}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            当前服务器时间：{formatDateTimeChina(access.serverNowIso)}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            今日权限：{access.canAccessToday ? "已开通" : "未开通"}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            明日权限：{access.canAccessTomorrow ? "已开通" : "未开通"}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            本周权限：{access.canAccessWeekly ? "已开通" : "未开通"}
+          </Text>
+
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/account/membership">会员详情</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
+            {access.isAdmin ? (
+              <Button asChild size="sm">
+                <Link href="/admin">进入管理后台</Link>
+              </Button>
+            ) : access.isActiveMember ? (
+              <>
+                <Button asChild size="sm">
+                  <Link href="/member/tomorrow">查看明日预测</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/member/weekly">本周行情</Link>
+                </Button>
+              </>
+            ) : (
+              <Button asChild size="sm">
+                <Link href="/pricing">购买会员</Link>
+              </Button>
+            )}
+            <Button asChild size="sm" variant="outline">
               <Link href="/account/orders">我的订单</Link>
             </Button>
-            <Button asChild variant="primary" size="sm">
-              <Link href="/pricing">购买/续费</Link>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/account/invite">我的邀请</Link>
             </Button>
+            <SignOutButton />
           </div>
+
           <Text variant="caption" color="tertiary" className="mt-4 block">
             客服：{cfg.supportEmail}
           </Text>
         </Card>
+
+        <AccountReferralPanel />
       </Section>
     </main>
   );

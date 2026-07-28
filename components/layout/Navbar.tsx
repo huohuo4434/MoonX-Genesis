@@ -7,11 +7,19 @@ import { CloseIcon, MenuIcon } from "@/components/icons";
 import { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
 import { NavbarSession } from "./NavbarSession";
 import { useTranslations } from "@/lib/i18n/LocaleProvider";
+import type { NavItem } from "@/lib/navigation";
 
-import { primaryNav, moreNav } from "@/lib/navigation";
-
-/** Sticky primary navigation. Client component only because of the mobile menu toggle. */
-export function Navbar() {
+export function Navbar({
+  primaryNav,
+  moreNav,
+  adminEnabled = true,
+  publicSignupEnabled = true,
+}: {
+  primaryNav: NavItem[];
+  moreNav: NavItem[];
+  adminEnabled?: boolean;
+  publicSignupEnabled?: boolean;
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = useTranslations();
 
@@ -23,10 +31,10 @@ export function Navbar() {
             href="/"
             className="flex items-center gap-2 rounded-sm text-body font-semibold text-foreground focus-ring"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-caption font-bold text-primary-foreground">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-caption font-bold text-primary-foreground" aria-hidden="true">
               M
             </span>
-            MoonX
+            <span>MoonX</span>
           </Link>
 
           <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
@@ -36,26 +44,30 @@ export function Navbar() {
                 href={link.href}
                 className="rounded-md px-3 py-2 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
               >
-                {t(link.key)}
+                {"labelZh" in link && (link as { labelZh?: string }).labelZh
+                  ? (link as { labelZh: string }).labelZh
+                  : t(link.key)}
               </a>
             ))}
-            <Dropdown>
-              <DropdownTrigger className="rounded-md px-3 py-2 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring">
-                {t("nav.more")}
-              </DropdownTrigger>
-              <DropdownContent align="end">
-                {moreNav.map((link) => (
-                  <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
-                    {t(link.key)}
-                  </DropdownItem>
-                ))}
-              </DropdownContent>
-            </Dropdown>
+            {moreNav.length > 0 && (
+              <Dropdown>
+                <DropdownTrigger className="rounded-md px-3 py-2 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring">
+                  {t("nav.more")}
+                </DropdownTrigger>
+                <DropdownContent align="end">
+                  {moreNav.map((link) => (
+                    <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
+                      {t(link.key)}
+                    </DropdownItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+            )}
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
             <LanguageSwitcher />
-            <NavbarSession />
+            <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
           </div>
 
           <button
@@ -82,15 +94,17 @@ export function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                   className="rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
                 >
-                  {t(link.key)}
+                  {"labelZh" in link && (link as { labelZh?: string }).labelZh
+                    ? (link as { labelZh: string }).labelZh
+                    : t(link.key)}
                 </a>
               ))}
             </nav>
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">
-              <NavbarSession />
-            </div>
+                <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
+              </div>
             </div>
           </Container>
         </div>

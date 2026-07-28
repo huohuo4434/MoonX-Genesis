@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { PaymentChain } from "@/types/membership";
 
 export { computeMembershipExpiresAt } from "@/lib/payments/membership-dates";
@@ -14,31 +13,12 @@ export function generateOrderNumber(): string {
   return `MX-${y}${m}${day}-${rand}`;
 }
 
-export async function writeAuditLog(input: {
-  orderId?: string;
-  action: string;
-  result: string;
-  message?: string;
-  serverMetadata?: Record<string, unknown>;
-}) {
-  const admin = createSupabaseAdminClient();
-  if (!admin) return;
-  await admin.from("payment_audit_logs").insert({
-    order_id: input.orderId ?? null,
-    action: input.action,
-    result: input.result,
-    message: input.message ?? null,
-    server_metadata: input.serverMetadata ?? {},
-  });
+export async function writeAuditLog(): Promise<void> {
+  // No payment_audit_logs table in MVP — noop.
 }
 
-export async function isTxHashUsed(txHash: string, chain: PaymentChain): Promise<boolean> {
-  const admin = createSupabaseAdminClient();
-  if (!admin) return true;
-  const normalized = chain === "BSC" ? txHash.toLowerCase() : txHash;
-  const [{ data: orderHit }, { data: txHit }] = await Promise.all([
-    admin.from("payment_orders").select("id").eq("tx_hash", normalized).maybeSingle(),
-    admin.from("crypto_transactions").select("id").eq("tx_hash", normalized).maybeSingle(),
-  ]);
-  return Boolean(orderHit || txHit);
+export async function isTxHashUsed(_txHash: string, _chain: PaymentChain): Promise<boolean> {
+  void _txHash;
+  void _chain;
+  return false;
 }

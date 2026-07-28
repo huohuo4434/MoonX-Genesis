@@ -1,44 +1,75 @@
-import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
+import {
+  AdminDailyForecastForm,
+  AdminRefetchResultButton,
+  AdminRunDailyVerifyButton,
+} from "@/components/admin/AdminDailyForecastForm";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
-import { requireAdmin } from "@/lib/auth/membership";
-import { getAllMemberForecasts } from "@/lib/data/daily-forecasts";
+import {
+  listDailyForecastRecords,
+  listDailyVerificationResults,
+} from "@/lib/data/daily-accuracy-store";
+import { formatDateTimeChina } from "@/lib/utils/datetime";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminForecastsPage() {
-  if (!(await requireAdmin())) redirect("/login?next=/admin/forecasts");
-
-  const forecasts = getAllMemberForecasts();
+  const [forecasts, results] = await Promise.all([
+    listDailyForecastRecords(),
+    listDailyVerificationResults(),
+  ]);
+  const resultById = new Map(results.map((r) => [r.forecastId, r]));
 
   return (
     <main>
       <Section spacing="lg">
         <AdminNav current="/admin/forecasts" />
         <Heading as="h1" size="h2">
-          明日预测审核
+          每日预测与验证
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          未审核（draft/reviewed）的预测不会进入会员页面完整展示。发布前请确认方向、价位与失效条件。
+          正式发布的日度方向预测会在交易结束后自动验证。长期研究验证仅限内部管理员访问。
         </Text>
+
+        <AdminRunDailyVerifyButton />
+        <AdminDailyForecastForm />
+
         <div className="flex flex-col gap-3">
-          {forecasts.map((f) => (
-            <Card key={f.id} padding="md">
-              <div className="flex flex-wrap items-center gap-2">
-                <Text variant="body" weight="semibold">
-                  {f.assetName} · {f.symbol}
+          {forecasts.map((f) => {
+            const r = resultById.get(f.id);
+            return (
+              <Card key={f.id} padding="md">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Text variant="body" weight="semibold">
+                    {f.forecastDate} · {f.assetName}
+                  </Text>
+                  <Badge variant="outline">{f.status}</Badge>
+                  <Badge variant="outline">{f.directionLabel}</Badge>
+                  {f.isSystemTest && <Badge variant="warning">系统测试</Badge>}
+                  {r && <Badge variant="outline">{r.verdictLabel}</Badge>}
+                </div>
+                <Text variant="caption" color="tertiary" className="mt-2 block">
+                  发布 {formatDateTimeChina(f.publishedAt)} · 截止 {formatDateTimeChina(f.cutoffAt)} · v
+                  {f.originalVersion}
                 </Text>
-                <Badge variant={f.status === "draft" ? "neutral" : "default"}>{f.status}</Badge>
-                <Badge variant="default">{f.accessLevel}</Badge>
-              </div>
-              <Text variant="body-sm" color="secondary" className="mt-2">
-                {f.summary}
-              </Text>
-              <Text variant="caption" color="tertiary" className="mt-2">
-                预测日 {f.forecastForDate} · 置信度 {f.confidence}% · v{f.version}
-                {f.reviewedBy ? ` · 审核 ${f.reviewedBy}` : ""}
-                {f.publishedBy ? ` · 发布 ${f.publishedBy}` : ""}
-              </Text>
-            </Card>
-          ))}
+                {f.summary && (
+                  <Text variant="body-sm" color="secondary" className="mt-2">
+                    {f.summary}
+                  </Text>
+                )}
+                {r?.verdict === "MANUAL_REVIEW" && (
+                  <div className="mt-3">
+                    <AdminRefetchResultButton forecastId={f.id} />
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+          {!forecasts.length && (
+            <Text variant="body-sm" color="secondary">
+              暂无每日预测记录。请先新建并审核发布。
+            </Text>
+          )}
         </div>
       </Section>
     </main>

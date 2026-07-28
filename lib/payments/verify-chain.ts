@@ -32,7 +32,7 @@ export async function verifyTronTransfer(
   if (contractRet && contractRet !== "SUCCESS") throw new Error("TRON transaction failed");
 
   const trc20Res = await fetch(
-    `https://api.trongrid.io/v1/transactions/${txHash}/events?only_confirmed=true`,
+    `https://api.trongrid.io/v1/transactions/${txHash}/events?only_confirmed=true&only_to=true&contract_address=${expected.tokenContract}`,
     { headers }
   );
   if (!trc20Res.ok) throw new Error("TRON TRC20 events unavailable");

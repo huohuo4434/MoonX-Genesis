@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { Footer, Navbar } from "@/components/layout";
+import { FooterShell, NavbarShell } from "@/components/layout";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { siteConfig } from "@/lib/site-config";
@@ -28,11 +29,6 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
 };
 
-// The product is dark-theme-only for now, so the palette lives directly on
-// `:root` in globals.css (no `.dark` class needed). If a light theme is
-// added later, move the current `:root` values under a `.dark` selector,
-// add light equivalents to `:root`, and re-enable `darkMode: ["class"]` in
-// tailwind.config.ts.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -52,9 +48,10 @@ export default async function RootLayout({
     <html lang={DEFAULT_LOCALE}>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <LocaleProvider>
-          <Navbar />
-          {children}
-          <Footer />
+          <NavbarShell />
+          <div className="pb-16 md:pb-0">{children}</div>
+          <FooterShell />
+          <MobileBottomNav />
         </LocaleProvider>
       </body>
     </html>

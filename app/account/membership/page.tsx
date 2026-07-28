@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, getMembershipStatus } from "@/lib/auth/membership";
 
+import { guardAccountRoute } from "@/lib/route-feature-guards";
+
 export default async function AccountMembershipPage() {
+  guardAccountRoute();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -32,7 +35,11 @@ export default async function AccountMembershipPage() {
             <li>方向、概率与运行路径</li>
             <li>支撑、压力与失效条件</li>
             <li>盘中修正与历史验证</li>
+            <li>邀请好友加入 MoonX，双方各赠送 7 天会员时间</li>
           </ul>
+          <Link href="/account/invite" className="mt-4 mr-4 inline-block text-body-sm text-primary hover:underline">
+            我的邀请
+          </Link>
           <Link href="/member/tomorrow" className="mt-4 inline-block text-body-sm text-primary hover:underline">
             进入明日预测
           </Link>

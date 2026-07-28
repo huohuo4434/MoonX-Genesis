@@ -22,7 +22,9 @@ import {
 import { chinaEquityOracle0727Records } from "@/lib/data/china-equity-oracle-0727";
 import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
+import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
+import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
 import {
   preciousMetalsCryptoCollections,
   preciousMetalsCryptoOracleRecords,
@@ -1403,6 +1405,8 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...preciousMetalsCryptoOracleRecords,
     ...annualRiskEquityRecords,
     ...oilSseLiuyao2026Records,
+    ...wtiPathExt20260807Records,
+    ...btcLiuyao20260727Records,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
