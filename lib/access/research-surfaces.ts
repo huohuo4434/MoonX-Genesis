@@ -60,8 +60,8 @@ export function shapeLongTermModuleInventory(
       en: `Long-term Research Module ${index + 1}`,
     },
     description: {
-      zhCN: "公开页仅展示模块范围、覆盖资产、周期与更新时间，不展示框架原文和长期目标。",
-      zhTW: "公開頁僅展示模組範圍、覆蓋資產、週期與更新時間，不展示框架原文和長期目標。",
+      zhCN: "公开页仅展示模块范围、覆盖资产、周期与更新时间，不展示框架原文和远期价位。",
+      zhTW: "公開頁僅展示模組範圍、覆蓋資產、週期與更新時間，不展示框架原文和遠期價位。",
       en: "Public view shows only module scope, covered assets, period, and update time.",
     },
   }));

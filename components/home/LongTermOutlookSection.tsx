@@ -21,9 +21,9 @@ export async function LongTermOutlookSection() {
   if (!aShares || !hstech) return null;
   const unlocked = user.isAdmin || user.isMember || user.isPreviewGate;
   const publicSummary = lt(
-    "公开页仅展示长期研究模块与关键验证窗口，不公开长期目标与框架细节。",
-    "公開頁僅展示長期研究模組與關鍵驗證窗口，不公開長期目標與框架細節。",
-    "Public view shows only the long-term module and key validation windows, not targets or framework detail."
+    "公开页仅展示长期研究模块与关键验证窗口，不公开远期价位与框架细节。",
+    "公開頁僅展示長期研究模組與關鍵驗證窗口，不公開遠期價位與框架細節。",
+    "Public view shows only the long-term module and key validation windows, not far-horizon levels or framework detail."
   );
 
   return (
