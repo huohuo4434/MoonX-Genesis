@@ -28,6 +28,7 @@ import {
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
+import { CORE_TOMORROW_ASSETS } from "@/lib/data/daily-forecasts";
 
 function isPending(f: DailyForecast) {
   return f.confidence <= 0 || f.summary === "研究尚未完成" || f.status === "draft";
@@ -361,9 +362,23 @@ export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast
           />
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {ordered.map((f) => (
-              <MarketForecastCard key={f.id} f={f} />
-            ))}
+            {CORE_TOMORROW_ASSETS.map((asset) => {
+              const f = ordered.find((x) => x.assetId === asset.assetId);
+              if (f) return <MarketForecastCard key={f.id} f={f} />;
+              return (
+                <Card key={asset.assetId} padding="lg" className="flex flex-col gap-2">
+                  <Text variant="body" weight="semibold">
+                    {asset.assetName}{" "}
+                    <span className="font-mono text-body-sm font-normal text-foreground-tertiary">
+                      {displayMarketCode(asset.symbol)}
+                    </span>
+                  </Text>
+                  <Text variant="body-sm" color="secondary">
+                    该市场下一交易日预测尚未发布
+                  </Text>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </Section>

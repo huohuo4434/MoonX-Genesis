@@ -36,7 +36,8 @@ describe("directed fix: weekly / asteroid / methodology / referral", () => {
   test("5-7) Asteroid contract + market cap ~2618万美元 not 26万", () => {
     const a = CONVICTION_ASSET_SEED.find((x) => x.slug === "asteroid")!;
     assert.equal(a.assetType, "CRYPTO");
-    assert.equal(a.nameZh, "太空狗");
+    assert.equal(a.nameZh, "Asteroid（太空狗）");
+    assert.equal(a.network, "待确认");
     assert.equal(a.nameEn, "Asteroid");
     assert.ok(a.aliases?.includes("火箭狗"));
     assert.equal(a.contractAddress, "0xf280b16ef293d8e534e370794ef26bf312694126");

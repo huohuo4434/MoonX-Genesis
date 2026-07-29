@@ -73,10 +73,10 @@ export function buildForecastModuleEvidence(
   // 奇门 — timing when path / rhythm language present, or always light with direction
   if (allow.has("qimen") && (Boolean(dir) || /奇门|节奏|先抑|先扬|窗口|择时/.test(blob) || Boolean(path))) {
     const meta = moduleMeta("qimen", enabledModules);
-    const rhythm = /先跌后涨|探底回升|先抑/.test(`${dir}${blob}`)
-      ? "时间节奏偏先抑后扬"
+    const rhythm = /先跌后涨|探底回升/.test(`${dir}${blob}`)
+      ? "时间节奏偏先跌后涨"
       : /先涨后跌|冲高回落/.test(`${dir}${blob}`)
-        ? "时间节奏偏先扬后抑"
+        ? "时间节奏偏先涨后跌"
         : "时间节奏纳入综合择时";
     out.push({
       moduleId: "qimen",

@@ -101,3 +101,73 @@ model ReferralRecord {
   @@index([paymentId])
   @@map("ReferralRecord")
 }
+
+/// Formal weekly Liu Yao (六爻) sources — daily forecasts must trace here when present.
+model WeeklyForecastSource {
+  id               String    @id
+  marketCode       String
+  periodStart      String
+  periodEnd        String
+  primaryHexagram  String?
+  changedHexagram  String?
+  movingLines      Int[]
+  specialPatterns  String[]
+  weeklyDirection    String
+  weeklyPath        String
+  interpretation   String
+  riskSummary      String
+  sourceType       String    @default("LIUYAO_WEEKLY")
+  version          Int       @default(1)
+  status           String    @default("LOCKED")
+  publishedAt      DateTime?
+  lockedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([marketCode, periodStart, version])
+  @@index([marketCode, periodStart, periodEnd])
+  @@index([status])
+  @@map("WeeklyForecastSource")
+}
+
+/// Generated daily forecasts linked to a weekly source (versioned; locked rows never overwritten).
+model GeneratedDailyForecast {
+  id                     String    @id
+  marketCode             String
+  forecastDate           String
+  sourceWeeklyForecastId String
+  direction              String
+  upProbability          Int
+  sidewaysProbability    Int
+  downProbability        Int
+  expectedPath           String
+  supportLevels          Json?
+  resistanceLevels       Json?
+  confirmationLevel      String?
+  invalidationLevel      String?
+  riskLevel              String?
+  catalysts              Json?
+  risks                  Json?
+  liuyaoEvidence         String?
+  qimenEvidence          String?
+  calendarEvidence       Json?
+  technicalEvidence      String?
+  newsEvidence           String?
+  marketProgressStatus   String    @default("NOT_STARTED")
+  revisionReason         String?
+  previousVersionId      String?
+  version                Int       @default(1)
+  status                 String    @default("DRAFT")
+  generatedAt            DateTime  @default(now())
+  publishedAt            DateTime?
+  lockedAt               DateTime?
+  validatedAt            DateTime?
+  validationStatus       String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([marketCode, forecastDate, version])
+  @@index([forecastDate, status])
+  @@index([sourceWeeklyForecastId])
+  @@map("GeneratedDailyForecast")
+}

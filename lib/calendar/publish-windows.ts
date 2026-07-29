@@ -115,7 +115,7 @@ export const TOMORROW_SCHEDULE_COPY = {
   title: "下一交易日完整预测",
   fixedPublish: FORMAL_PUBLISH_LABEL,
   description:
-    "MOOX每天北京时间20:00发布下一实际交易日完整预测。遇休市日，目标日期顺延至下一交易日。",
+    "MOOX每天北京时间20:00发布下一实际交易日预测。遇休市日，相应市场的目标日期自动顺延至下一交易日。",
   delayedTitle: "下一交易日预测延迟发布",
   delayedBody: "预测尚未完成锁定，发布后会员将立即可见。",
   waitingTitle: "下一交易日预测尚未发布",

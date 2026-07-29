@@ -106,7 +106,12 @@ function tryWriteLocalFile(store: ReferralStore): void {
 }
 
 function getMemoryStore(): ReferralStore {
-  if (!memoryStore) memoryStore = readLocalFile() ?? emptyStore();
+  // Never touch local JSON on Vercel / production — Prisma only.
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    if (!memoryStore) memoryStore = emptyStore();
+    return memoryStore;
+  }
+  if (!memoryStore) memoryStore = (isLocalOnly() ? readLocalFile() : null) ?? emptyStore();
   return memoryStore;
 }
 

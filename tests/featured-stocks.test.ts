@@ -16,8 +16,9 @@ test("conviction list has cxmt and asteroid", () => {
   assert.equal(CONVICTION_ASSET_SEED[0]?.slug, "cxmt");
   assert.equal(CONVICTION_ASSET_SEED[0]?.symbol, "688825");
   assert.equal(CONVICTION_ASSET_SEED[1]?.slug, "asteroid");
-  assert.equal(CONVICTION_ASSET_SEED[1]?.nameZh, "太空狗");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.nameZh, "Asteroid（太空狗）");
   assert.equal(CONVICTION_ASSET_SEED[1]?.nameEn, "Asteroid");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.network, "待确认");
   assert.equal(CONVICTION_ASSET_SEED[1]?.assetType, "CRYPTO");
   assert.equal(CONVICTION_ASSET_SEED[1]?.contractPendingAdminConfirm, false);
   assert.equal(

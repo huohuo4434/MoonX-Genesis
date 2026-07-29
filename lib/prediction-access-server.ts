@@ -97,6 +97,7 @@ async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
 export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
   const { getStoreForecastsForTomorrow } = await import("@/lib/data/store-to-ui-forecasts");
+  const { formalBatchReady } = await import("@/lib/calendar/publish-windows");
   const storeTomorrow = await getStoreForecastsForTomorrow(now);
   const legacy = getMemberTomorrowForecasts(now);
   const byAsset = new Map<string, DailyForecast>();
@@ -106,15 +107,52 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
   for (const f of legacy) {
     if (isHumanPublishedForecast(f) && f.forecastForDate > today) byAsset.set(f.assetId, f);
   }
-  // Prefer earliest shared target date across sources
-  const dates = [...new Set([...byAsset.values()].map((f) => f.forecastForDate))].sort();
-  const nextDate = dates[0];
-  const rows = nextDate
-    ? [...byAsset.values()].filter((f) => f.forecastForDate === nextDate)
-    : [];
-  return sortByDailyAssetOrder(
-    rows.filter(isHumanPublishedForecast).map(sanitizeForecastForClient)
+
+  // Weekly→daily: fill missing markets after Beijing 20:00 (or always merge locked DB rows).
+  try {
+    const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
+    const { generateCoreMarketsFromWeeklyPure, CORE_DAILY_MARKETS } = await import(
+      "@/lib/forecasts/daily-pipeline"
+    );
+    const { generatedDailyToUi } = await import("@/lib/forecasts/generated-to-ui");
+    const { getNextForecastDate } = await import("@/lib/calendar/next-trading-day");
+    const { marketMeta } = await import("@/lib/forecasts/weekly-to-daily");
+
+    const targetDates = new Set<string>();
+    for (const m of CORE_DAILY_MARKETS) {
+      targetDates.add(getNextForecastDate(marketMeta(m).legacyMarket, today));
+    }
+
+    for (const date of [...targetDates].sort()) {
+      const fromDb = await listGeneratedDailiesForDate(date);
+      for (const g of fromDb) {
+        const ui = generatedDailyToUi(g, "member");
+        if (ui.forecastForDate > today && isHumanPublishedForecast(ui)) {
+          byAsset.set(ui.assetId, ui);
+        }
+      }
+    }
+
+    if (formalBatchReady(now)) {
+      for (const date of [...targetDates].sort()) {
+        const generated = generateCoreMarketsFromWeeklyPure(date, "LOCKED");
+        for (const g of generated) {
+          const ui = generatedDailyToUi(g, "member");
+          if (ui.forecastForDate > today && !byAsset.has(ui.assetId)) {
+            byAsset.set(ui.assetId, ui);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[tomorrow] weekly-to-daily merge skipped", err);
+  }
+
+  // Keep all markets even when target dates differ (holiday roll per market).
+  const rows = [...byAsset.values()].filter(
+    (f) => isHumanPublishedForecast(f) && f.forecastForDate > today
   );
+  return sortByDailyAssetOrder(rows.map(sanitizeForecastForClient));
 }
 
 export type TodayPublicTeaser = {

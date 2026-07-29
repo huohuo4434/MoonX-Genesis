@@ -46,23 +46,27 @@ const CORE_FOUR = [
 ] as const;
 
 const FLOW_ZH = [
-  "六爻（核心）",
-  "奇门遁甲（择时）",
-  "技术分析（结构和价位）",
-  "消息面（催化和风险）",
-  "最终方向、概率和路径",
+  "周卦与六爻",
+  "动爻与时间节奏",
+  "奇门遁甲／万年历",
+  "技术结构与关键价位",
+  "消息面校验",
+  "实际行情动态修正",
+  "方向、概率和路径",
   "发布锁定",
-  "收盘验证",
+  "结果验证",
 ];
 
 const FLOW_EN = [
-  "Liu Yao (core)",
-  "Qi Men (timing)",
-  "Technical (structure & levels)",
-  "News (catalysts & risks)",
-  "Final direction, odds & path",
+  "Weekly Liu Yao",
+  "Moving lines & rhythm",
+  "Qi Men / calendar",
+  "Structure & levels",
+  "News check",
+  "Live progress revise",
+  "Direction, odds & path",
   "Publish & lock",
-  "Verify after close",
+  "Verify results",
 ];
 
 const OUTPUTS_ZH = ["方向", "概率", "路径", "支撑", "压力", "失效位", "风险"];
@@ -104,8 +108,8 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         </Heading>
         <Text variant="body" color="secondary" className="block max-w-2xl">
           {zh
-            ? "不是单一指标判断，而是把多种研究维度组合后形成方向、概率和路径。"
-            : "Not a single indicator — multiple research dimensions combine into direction, odds and path."}
+            ? "六爻负责一周核心方向与变化节奏；奇门与万年历研究时间窗口；技术分析确认价位；消息面校验催化与风险；实际行情判断是否提前、滞后或失效。"
+            : "Liu Yao sets the weekly core; Qi Men/calendar time the window; technicals lock levels; news checks catalysts; live tape revises ahead/delay/invalidation."}
         </Text>
       </header>
 

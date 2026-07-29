@@ -217,6 +217,10 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           ) : a.contractPendingAdminConfirm ? (
             <p className="text-caption text-amber-200/80">合约信息待管理员确认</p>
           ) : null}
+          {a.network ? (
+            <p className="text-body-sm text-white/65">所属链：{a.network}</p>
+          ) : null}
+          <p className="text-body-sm text-white/65">资产类型：{a.assetType}</p>
         </section>
 
         <section className="space-y-2">
