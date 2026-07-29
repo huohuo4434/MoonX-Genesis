@@ -3,7 +3,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import { ResearchLibraryExplorer } from "@/components/research/ResearchLibraryExplorer";
 import { ResearchSubnav } from "@/components/research/ResearchSubnav";
 import { Card, Heading, Section, Text } from "@/components/ui";
-import { getSurfaceAccess, buildLongTermModuleInventory, selectLongTermResearchRecords } from "@/lib/access/research-surfaces";
+import {
+  getSurfaceAccess,
+  buildLongTermModuleInventory,
+  selectLongTermResearchRecords,
+  shapeLongTermModuleInventory,
+} from "@/lib/access/research-surfaces";
 import { listResearchRecords } from "@/lib/data/research-records";
 
 export const metadata: Metadata = {
@@ -18,7 +23,7 @@ export default async function LongTermResearchPage() {
   noStore();
   const [access, records] = await Promise.all([getSurfaceAccess(), listResearchRecords()]);
   const longTermRecords = selectLongTermResearchRecords(records);
-  const inventory = buildLongTermModuleInventory(longTermRecords);
+  const inventory = shapeLongTermModuleInventory(buildLongTermModuleInventory(longTermRecords), access.unlocked);
 
   return (
     <main>

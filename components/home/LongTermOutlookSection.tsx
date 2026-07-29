@@ -1,5 +1,6 @@
 import { LongTermOutlookClient } from "@/components/home/LongTermOutlookClient";
 import { ResearchConflictPanel } from "@/components/research/ResearchConflictPanel";
+import { getMemberUserContext } from "@/lib/access/member-preview";
 import { getResearchConflictForAsset } from "@/lib/data/research-conflicts";
 import { getResearchRecord } from "@/lib/data/research-records";
 import { lt } from "@/lib/i18n/config";
@@ -11,12 +12,19 @@ const DISCLAIMER = lt(
 );
 
 export async function LongTermOutlookSection() {
-  const [aShares, hstech, sseConflict] = await Promise.all([
+  const [user, aShares, hstech, sseConflict] = await Promise.all([
+    getMemberUserContext(),
     getResearchRecord("A-SH-2026-0727-ORACLE-001"),
     getResearchRecord("HSTECH-2026-0727-ORACLE-001"),
     Promise.resolve(getResearchConflictForAsset("shanghai-composite")),
   ]);
   if (!aShares || !hstech) return null;
+  const unlocked = user.isAdmin || user.isMember || user.isPreviewGate;
+  const publicSummary = lt(
+    "公开页仅展示长期研究模块与关键验证窗口，不公开长期目标与框架细节。",
+    "公開頁僅展示長期研究模組與關鍵驗證窗口，不公開長期目標與框架細節。",
+    "Public view shows only the long-term module and key validation windows, not targets or framework detail."
+  );
 
   return (
     <section id="china-equity-research" className="border-t border-border/[0.06] py-12 lg:py-16">
@@ -36,7 +44,7 @@ export async function LongTermOutlookSection() {
                 "短期與中期方向一致，但節奏偏慢。",
                 "Short- and medium-term direction align, but the pace remains relatively slow."
               ),
-            summary: aShares.summary,
+            summary: unlocked ? aShares.summary : publicSummary,
             frameworkLabel: lt("六爻研判", "六爻研判", "Six-Yao Oracle"),
             researchAttribute:
               aShares.researchAttribute ?? lt("传统象数研究", "傳統象數研究", "Traditional symbolic research"),
@@ -57,7 +65,7 @@ export async function LongTermOutlookSection() {
                 "短期與中期方向高度一致，當前屬於較強共振信號。",
                 "Short- and medium-term direction are highly aligned — a relatively strong resonance signal."
               ),
-            summary: hstech.summary,
+            summary: unlocked ? hstech.summary : publicSummary,
             frameworkLabel: lt("六爻研判", "六爻研判", "Six-Yao Oracle"),
             researchAttribute:
               hstech.researchAttribute ?? lt("传统象数研究", "傳統象數研究", "Traditional symbolic research"),
@@ -66,7 +74,7 @@ export async function LongTermOutlookSection() {
           },
         ]}
       />
-      {sseConflict && (
+      {unlocked && sseConflict && (
         <div className="mx-auto mt-8 w-full max-w-container px-4 sm:px-6 lg:px-8">
           <ResearchConflictPanel conflict={sseConflict} />
         </div>
