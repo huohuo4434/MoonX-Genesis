@@ -10,10 +10,18 @@ import { BitcoinForecastPathClient } from "./BitcoinForecastPathClient";
 export async function BitcoinForecastPathSection() {
   const scenario = await getForecastChartScenario("bitcoin");
   if (!scenario) return null;
+  const publicScenario = {
+    ...scenario,
+    levels: scenario.levels.map((level) => ({
+      ...level,
+      label: level.label.replace(/Long-Range Target/g, "Far-Horizon Target"),
+      labelZh: level.labelZh?.replace(/长期目标/g, "远端目标"),
+    })),
+  };
 
   return (
     <Section id="bitcoin-forecast-path" spacing="lg" className="border-t border-border/[0.06]">
-      <BitcoinForecastPathClient scenario={scenario} />
+      <BitcoinForecastPathClient scenario={publicScenario} />
     </Section>
   );
 }
