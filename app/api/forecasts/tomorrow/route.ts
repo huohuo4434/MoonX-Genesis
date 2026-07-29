@@ -30,6 +30,9 @@ export async function GET() {
       ok: true,
       reason: payload.access.reason,
       data: payload.forecasts,
+      empty: payload.forecasts.length === 0,
+      message:
+        payload.forecasts.length === 0 ? "下一交易日预测尚未发布" : undefined,
     },
     { headers: { "Cache-Control": "no-store" } }
   );

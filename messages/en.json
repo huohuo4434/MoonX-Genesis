@@ -4,6 +4,7 @@
     "todayView": "Today",
     "tomorrowForecast": "Tomorrow",
     "weeklyAnalysis": "This week",
+    "featuredStocks": "Featured Stocks",
     "stocks": "Stocks",
     "account": "Account",
     "markets": "Markets",
@@ -21,7 +22,8 @@
     "getStarted": "Get Started",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "language": "Language"
+    "language": "Language",
+    "memberStocks": "Member stocks"
   },
   "footer": {
     "tagline": "Daily views, verified after the close.",
@@ -33,6 +35,7 @@
     "todaysIntelligence": "Today's View",
     "tomorrow": "Tomorrow",
     "weeklyAnalysis": "This week",
+    "featuredStocks": "Featured Stocks",
     "stocks": "Stocks",
     "forecasts": "Forecasts",
     "myAccount": "My Account",

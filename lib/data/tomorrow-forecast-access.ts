@@ -1,6 +1,6 @@
 /**
  * Server-only gate for tomorrow forecasts.
- * Non-members / non-admins never receive full DailyForecast objects in RSC props.
+ * Never falls back to Wave / analyst intelligence data.
  */
 import "server-only";
 
@@ -9,6 +9,7 @@ import {
   getMemberUserContext,
   type MemberUserContext,
 } from "@/lib/access/member-preview";
+import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
 import {
   buildTomorrowPublicSummary,
   isHumanPublishedForecast,
@@ -42,8 +43,10 @@ function buildSummary(ready: DailyForecast[], now: Date): TomorrowForecastPublic
   summary.allDraft = ready.length === 0;
   summary.assetNames = ready.map((f) => f.assetName);
   summary.teasers = ready.map(toTeaser);
-  summary.nextDateLabel = ready[0] ? formatDateChina(ready[0].forecastForDate) : summary.nextDateLabel;
-  summary.nextDateIso = ready[0]?.forecastForDate ?? summary.nextDateIso;
+  summary.nextDateLabel = ready[0]
+    ? formatDateChina(ready[0].forecastForDate)
+    : formatDateChina(getBeijingTomorrowKey(now));
+  summary.nextDateIso = ready[0]?.forecastForDate ?? getBeijingTomorrowKey(now);
   summary.lastUpdatedLabel = ready[0]
     ? formatDateTimeChina(
         [...ready].map((f) => f.updatedAt || f.publishedAt).filter(Boolean).sort().at(-1)
@@ -85,11 +88,19 @@ export type MemberTomorrowPagePayload =
       accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
     }
   | {
+      mode: "empty";
+      targetDate: string;
+      accessReason: "ADMIN" | "ACTIVE_MEMBER";
+      isAdmin: boolean;
+    }
+  | {
       mode: "member";
       forecasts: DailyForecast[];
       teasers: DailyForecastTeaser[];
       user: MemberUserContext;
       accessReason: "ADMIN" | "ACTIVE_MEMBER";
+      batchId: string;
+      targetDate: string;
     };
 
 export async function getMemberTomorrowPagePayload(now = new Date()): Promise<MemberTomorrowPagePayload> {
@@ -107,12 +118,33 @@ export async function getMemberTomorrowPagePayload(now = new Date()): Promise<Me
     };
   }
 
+  const ready = section.forecasts.filter(isHumanPublishedForecast);
+  const targetDate = ready[0]?.forecastForDate ?? getBeijingTomorrowKey(now);
+
+  if (ready.length === 0) {
+    return {
+      mode: "empty",
+      targetDate,
+      accessReason: section.accessReason,
+      isAdmin: Boolean(user.isAdmin),
+    };
+  }
+
+  const batchId =
+    ready
+      .map((f) => f.id)
+      .sort()
+      .join("|")
+      .slice(0, 120) || `TOMORROW-${targetDate}`;
+
   return {
     mode: "member",
-    forecasts: section.forecasts,
-    teasers: section.forecasts.map(toTeaser),
+    forecasts: ready,
+    teasers: ready.map(toTeaser),
     user,
     accessReason: section.accessReason,
+    batchId,
+    targetDate,
   };
 }
 

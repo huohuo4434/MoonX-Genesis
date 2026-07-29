@@ -18,6 +18,7 @@ import { getBeijingTodayKey, getBeijingTomorrowKey } from "@/lib/calendar/beijin
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { applyDailyPriceOverlay } from "@/lib/data/apply-price-overlays";
+import { applyBeijingForecastDateRoll } from "@/lib/data/daily-forecast-date-roll";
 
 export const CORE_TOMORROW_ASSETS = [
   {
@@ -163,7 +164,7 @@ function allRawForecasts(now: Date): DailyForecast[] {
 }
 
 export function listDailyForecasts(now = new Date()): DailyForecast[] {
-  return allRawForecasts(now)
+  return applyBeijingForecastDateRoll(allRawForecasts(now), now)
     .map((f) => applyForecastLifecycle(f, now))
     .map(applyDailyPriceOverlay);
 }

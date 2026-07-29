@@ -3,6 +3,8 @@
     "home": "首頁",
     "todayView": "今日觀點",
     "tomorrowForecast": "明日觀點",
+    "weeklyAnalysis": "本週行情",
+    "featuredStocks": "Featured Stocks",
     "stocks": "個股分析",
     "account": "我的帳戶",
     "markets": "市場",
@@ -22,7 +24,8 @@
     "getStarted": "開始使用",
     "openMenu": "打開選單",
     "closeMenu": "關閉選單",
-    "language": "語言"
+    "language": "語言",
+    "memberStocks": "會員個股"
   },
   "footer": {
     "tagline": "每日觀點，交易後公開驗證。",
@@ -33,6 +36,8 @@
     "legal": "法律",
     "todaysIntelligence": "今日觀點",
     "tomorrow": "明日觀點",
+    "weeklyAnalysis": "本週行情",
+    "featuredStocks": "Featured Stocks",
     "stocks": "個股分析",
     "forecasts": "預測",
     "myAccount": "我的帳戶",
@@ -54,7 +59,10 @@
     "privacyPolicy": "隱私政策",
     "termsOfService": "服務條款",
     "copyright": "© {year} {name}。保留所有權利。",
-    "disclaimer": "本網站展示的日度觀點僅供參考，不構成投資建議或結果保證。"
+    "disclaimer": "本網站展示的日度觀點僅供參考，不構成投資建議或結果保證。",
+    "memberStocks": "會員個股",
+    "myOrders": "我的訂單",
+    "signOut": "退出"
   },
   "hero": {
     "eyebrow": "MoonX",

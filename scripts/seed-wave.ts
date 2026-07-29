@@ -113,7 +113,7 @@ async function seedPrisma(): Promise<boolean> {
         name: "波浪理论学习",
         source: "Imported analyst screenshots",
         baseWeight: 0.05,
-        maxWeight: 0.22,
+        maxWeight: 0.2,
       },
     });
     for (const row of SEED_ROWS) {
@@ -210,7 +210,7 @@ async function seedJson(): Promise<boolean> {
     source: "Imported analyst screenshots",
     active: true,
     baseWeight: 0.05,
-    maxWeight: 0.22,
+    maxWeight: 0.2,
     createdAt: now,
     updatedAt: now,
   };
@@ -307,7 +307,7 @@ async function main() {
           source: "Imported analyst screenshots",
           active: true,
           baseWeight: 0.05,
-          maxWeight: 0.22,
+          maxWeight: 0.2,
           createdAt: now,
           updatedAt: now,
         },

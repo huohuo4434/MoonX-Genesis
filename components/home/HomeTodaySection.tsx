@@ -2,18 +2,21 @@ import { unstable_noStore as noStore } from "next/cache";
 import { TodayDailyForecastView } from "@/components/home/TodayDailyForecastView";
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
 import { getBeijingClock, US_BATCH_KEYS, WTI_BATCH_KEYS } from "@/lib/calendar/publish-windows";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
-import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export async function HomeTodaySection() {
   noStore();
-  const payload = await getTodayForecastAccessPayload();
-  const clock = getBeijingClock();
+  const now = new Date();
+  const payload = await getTodayForecastAccessPayload(now);
+  const clock = getBeijingClock(now);
+  const beijingToday = getBeijingTodayKey(now);
 
   if (!payload.allowed) {
     return (
       <TodayDailyForecastView
         forecasts={[]}
+        forecastDate={beijingToday}
         accessDenied={payload.access.reason}
         denyMessage={payload.message}
       />
@@ -21,6 +24,7 @@ export async function HomeTodaySection() {
   }
 
   const ready = payload.forecasts.filter((f) => isHumanPublishedForecast(f));
+  const forecastDate = ready[0]?.forecastForDate ?? beijingToday;
 
   let summary: string | undefined;
   if (ready.length > 0) {
@@ -30,7 +34,6 @@ export async function HomeTodaySection() {
 
   const publishedCount = ready.length;
   let publishHint: string | undefined;
-  // Members / admins must never see the “opens after 08:00” lock copy.
   if (
     payload.access.reason === "REGISTERED_AFTER_RELEASE" &&
     publishedCount > 0 &&
@@ -51,19 +54,13 @@ export async function HomeTodaySection() {
     }
   }
 
-  const updatedTimes = ready
-    .map((f) => f.updatedAt || f.publishedAt)
-    .filter(Boolean)
-    .sort();
-  const last = updatedTimes[updatedTimes.length - 1];
-
   return (
     <TodayDailyForecastView
       forecasts={ready}
       accessReason={payload.access.reason}
       compositeSummary={summary}
       publishHint={publishHint}
-      lastUpdatedLabel={last ? formatDateTimeChina(last) : undefined}
+      forecastDate={forecastDate}
     />
   );
 }

@@ -44,18 +44,62 @@ function verifyLabel(f: DailyForecast): string {
   return "待验证";
 }
 
+function lockLabel(accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08"): string {
+  if (accessDenied === "LOGIN_REQUIRED") return "锁定（需登录）";
+  if (accessDenied === "WAIT_UNTIL_08") return "锁定（08:00开放）";
+  return "已解锁";
+}
+
+function MetaRow({
+  forecastDate,
+  publishedAt,
+  lockStatus,
+  verifyStatus,
+}: {
+  forecastDate?: string;
+  publishedAt?: string;
+  lockStatus: string;
+  verifyStatus: string;
+}) {
+  return (
+    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <p className="text-caption text-foreground-tertiary">预测日期</p>
+        <p className="text-body-sm text-foreground">
+          {forecastDate ? formatDateChina(forecastDate) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">发布时间</p>
+        <p className="text-body-sm text-foreground">
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">锁定状态</p>
+        <p className="text-body-sm text-foreground">{lockStatus}</p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">验证状态</p>
+        <p className="text-body-sm text-foreground">{verifyStatus}</p>
+      </div>
+    </div>
+  );
+}
+
 export function TodayDailyForecastView({
   forecasts,
   compositeSummary,
   publishHint,
-  lastUpdatedLabel,
+  forecastDate,
   accessDenied,
   denyMessage,
 }: {
   forecasts: DailyForecast[];
   compositeSummary?: string;
   publishHint?: string;
-  lastUpdatedLabel?: string;
+  /** Beijing calendar forecast date for the section (auto-updates daily). */
+  forecastDate?: string;
   accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08";
   denyMessage?: string;
   accessReason?: "ADMIN" | "ACTIVE_MEMBER" | "REGISTERED_AFTER_RELEASE";
@@ -64,6 +108,21 @@ export function TodayDailyForecastView({
     .filter((f) => isHumanPublishedForecast(f) && !isDraft(f))
     .sort((a, b) => dailyAssetOrderIndex(a.assetId) - dailyAssetOrderIndex(b.assetId));
   const [openId, setOpenId] = useState<string | null>(null);
+
+  const sectionDate =
+    forecastDate || readyForecasts[0]?.forecastForDate || undefined;
+  const earliestPublish = readyForecasts
+    .map((f) => f.publishedAt)
+    .filter(Boolean)
+    .sort()[0];
+  const sectionVerify =
+    readyForecasts.length === 0
+      ? "—"
+      : readyForecasts.every((f) => f.status === "verified")
+        ? "已验证"
+        : readyForecasts.some((f) => f.status === "expired")
+          ? "部分已过期"
+          : "待验证";
 
   const autoSummary =
     readyForecasts.length === 0
@@ -76,6 +135,13 @@ export function TodayDailyForecastView({
     <section id="moonx-view" className="border-t border-border/[0.06] py-8 lg:py-12">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
         <SectionHeader eyebrow="MoonX" title="今日观点" subtitle="登录用户可见 · 交易结束后自动验证" />
+
+        <MetaRow
+          forecastDate={sectionDate}
+          publishedAt={accessDenied ? undefined : earliestPublish}
+          lockStatus={lockLabel(accessDenied)}
+          verifyStatus={accessDenied ? "—" : sectionVerify}
+        />
 
         {accessDenied === "LOGIN_REQUIRED" ? (
           <div className="mt-4 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
@@ -116,9 +182,6 @@ export function TodayDailyForecastView({
         {!accessDenied && publishHint ? (
           <p className="mb-3 text-caption text-foreground-tertiary">{publishHint}</p>
         ) : null}
-        {!accessDenied && lastUpdatedLabel ? (
-          <p className="mb-4 text-caption text-foreground-tertiary">最后更新：{lastUpdatedLabel}</p>
-        ) : null}
 
         {!accessDenied && readyForecasts.length > 0 ? (
           <>
@@ -144,11 +207,16 @@ export function TodayDailyForecastView({
                       </Text>
                       <Badge variant="outline">{displayDirection(f)}</Badge>
                     </div>
+                    <div className="grid grid-cols-2 gap-2 text-caption text-foreground-tertiary">
+                      <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
+                      <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
+                      <p>锁定状态：已解锁</p>
+                      <p>验证状态：{verifyLabel(f)}</p>
+                    </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />
                     <p className="break-words text-body-sm text-foreground-secondary">
                       {f.headline ?? f.summary}
                     </p>
-                    <p className="text-caption text-foreground-tertiary">验证状态：{verifyLabel(f)}</p>
                     <button
                       type="button"
                       className="min-h-11 text-left text-caption text-primary underline-offset-2 hover:underline"
@@ -159,9 +227,7 @@ export function TodayDailyForecastView({
                     </button>
                     {open ? (
                       <div className="space-y-2 break-words border-t border-border/[0.06] pt-3 text-caption text-foreground-tertiary">
-                        <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
                         <p>目标时段：{f.tradingSessionLabel}</p>
-                        <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
                         <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
                           <PriceLevelsBlock
                             support={f.supportLevels}
@@ -181,10 +247,10 @@ export function TodayDailyForecastView({
                         ) : (
                           <p>盘中路径：按公开摘要观察</p>
                         )}
+                        {f.risks?.length ? <p>风险：{f.risks.join("；")}</p> : null}
                         {f.symbol === "WTI" ? (
                           <p>行情及验证使用WTI近月连续合约，不代表特定交割月份的现货价格。</p>
                         ) : null}
-                        <p>验证状态：{verifyLabel(f)}</p>
                       </div>
                     ) : null}
                   </article>

@@ -18,12 +18,19 @@ export async function HomeTomorrowSection() {
         <SectionHeader
           eyebrow="会员"
           title="明日会员观点"
-          subtitle="免费用户查看今日观点；会员与管理员可以提前查看下一交易日完整预测，并查看本周整体走势、周内运行顺序和风险窗口。"
+          subtitle="会员可提前查看下一交易日：BTC、美股、黄金、原油等怎么走。"
         />
+        <p className="mt-2 text-caption text-foreground-tertiary">
+          预测日期：{formatDateChina(payload.summary.nextDateIso)} · 锁定状态：
+          {unlocked ? "会员已解锁" : "会员锁定"}
+        </p>
         {teasers.length === 0 ? null : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {teasers.map((t) => (
-              <div key={t.id} className="flex flex-col gap-2 rounded-lg border border-border/[0.08] bg-card p-4">
+              <div
+                key={t.id}
+                className="flex flex-col gap-2 rounded-lg border border-border/[0.08] bg-card p-4"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <Text variant="body" weight="semibold">
                     {t.assetName}

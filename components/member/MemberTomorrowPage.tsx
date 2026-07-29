@@ -1,68 +1,201 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { ForecastBasisWeights } from "@/components/forecasts/ForecastBasisWeights";
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
-import { WaveIntelligenceCard } from "@/components/wave/WaveIntelligenceCard";
-import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { sortByDailyAssetOrder } from "@/lib/data/daily-asset-order";
-import { displayDirection } from "@/lib/data/daily-forecasts";
-import { nextUpdateLabelForSymbol } from "@/lib/calendar/publish-windows";
+import {
+  buildForecastBasisWeights,
+  isTomorrowWaveAllowedSymbol,
+  waveBasisPercentFromProximity,
+} from "@/lib/forecasts/basis-weights";
+import {
+  displayMarketCode,
+  normalizeTomorrowDirection,
+} from "@/lib/forecasts/tomorrow-direction";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
-import type { DailyForecast, DailyForecastMarket, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
-
-const MARKETS: Array<{ id: "all" | DailyForecastMarket; zh: string; en: string }> = [
-  { id: "all", zh: "全部市场", en: "All markets" },
-  { id: "crypto", zh: "加密", en: "Crypto" },
-  { id: "us", zh: "美股", en: "US" },
-  { id: "cn", zh: "A股", en: "CN" },
-  { id: "hk", zh: "港股", en: "HK" },
-  { id: "commodity", zh: "商品", en: "Commodity" },
-];
+import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 function isPending(f: DailyForecast) {
   return f.confidence <= 0 || f.summary === "研究尚未完成" || f.status === "draft";
 }
 
-function ScheduleHeader({
-  nextDateIso,
-  assetNames,
-  lastUpdated,
+function firstPrice(levels?: string[]): string | null {
+  const line = levels?.find((x) => Boolean(x?.trim()));
+  return line?.trim() || null;
+}
+
+function riskLabel(f: DailyForecast): string {
+  const conf = f.confidence;
+  if (conf >= 65) return "中高";
+  if (conf >= 50) return "中等";
+  if (conf > 0) return "中等偏高";
+  return "—";
+}
+
+function waveShare(f: DailyForecast): number {
+  if (!isTomorrowWaveAllowedSymbol(f.symbol)) return 5;
+  const nums = [...(f.supportLevels ?? []), ...(f.resistanceLevels ?? [])]
+    .map((x) => {
+      const m = String(x).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    })
+    .filter((n): n is number => n != null && Number.isFinite(n));
+  if (nums.length < 2) return waveBasisPercentFromProximity(null);
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const mid = (min + max) / 2;
+  if (mid <= 0) return 5;
+  return waveBasisPercentFromProximity(((max - min) / mid) * 100);
+}
+
+function MarketForecastCard({ f }: { f: DailyForecast }) {
+  const p = f.probabilities ?? {
+    up: f.confidence,
+    flat: Math.max(0, 100 - f.confidence),
+    down: 0,
+  };
+  const direction = normalizeTomorrowDirection(f.directionLabel ?? f.direction);
+  const support = firstPrice(f.supportLevels);
+  const resistance = firstPrice(f.resistanceLevels);
+  const wavePct = waveShare(f);
+  const basis = buildForecastBasisWeights(wavePct);
+  const allowWaveNote = isTomorrowWaveAllowedSymbol(f.symbol);
+
+  return (
+    <Card padding="lg" className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <Text variant="body" weight="semibold" className="break-words">
+            {f.assetName}{" "}
+            <span className="font-mono text-body-sm font-normal text-foreground-tertiary">
+              {displayMarketCode(f.symbol)}
+            </span>
+          </Text>
+          <Text variant="caption" color="tertiary" className="block">
+            预测版本：V{f.version || 1} · 锁定时间 {formatDateTimeChina(f.publishedAt)}
+          </Text>
+        </div>
+        <Badge variant="default">{direction}</Badge>
+      </div>
+
+      <dl className="grid gap-2 text-body-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-caption text-foreground-tertiary">预测方向</dt>
+          <dd className="font-medium text-foreground">{direction}</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">风险等级</dt>
+          <dd>{riskLabel(f)}</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">上涨概率</dt>
+          <dd className="font-mono tabular-nums">{p.up}%</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">震荡概率</dt>
+          <dd className="font-mono tabular-nums">{p.flat}%</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">下跌概率</dt>
+          <dd className="font-mono tabular-nums">{p.down}%</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-caption text-foreground-tertiary">主要路径</dt>
+          <dd className="text-foreground-secondary">
+            {f.expectedPath?.length ? f.expectedPath.join(" → ") : f.headline || f.summary}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">关键支撑</dt>
+          <dd className="break-words text-foreground-secondary">{support ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">关键压力</dt>
+          <dd className="break-words text-foreground-secondary">{resistance ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">确认位</dt>
+          <dd className="break-words text-foreground-secondary">{f.confirmation ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-caption text-foreground-tertiary">失效位</dt>
+          <dd className="break-words text-foreground-secondary">{f.invalidation ?? "—"}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-caption text-foreground-tertiary">催化因素</dt>
+          <dd className="text-foreground-secondary">
+            {f.catalysts?.length ? f.catalysts.join("、") : "—"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-caption text-foreground-tertiary">主要风险</dt>
+          <dd className="text-foreground-secondary">
+            {f.risks?.length ? f.risks.join("；") : f.invalidation ?? "—"}
+          </dd>
+        </div>
+      </dl>
+
+      {f.symbol === "WTI" || f.symbol === "CL=F" ? (
+        <Text variant="caption" color="tertiary">
+          行情及验证使用WTI近月连续合约，不代表特定交割月份的现货价格。
+        </Text>
+      ) : null}
+
+      <ForecastBasisWeights
+        weights={basis}
+        wavePercent={wavePct}
+        waveNote={
+          allowWaveNote
+            ? "仅作辅助证据；接近波浪关键位时权重可升至最高 20%，不构成预测主体。"
+            : null
+        }
+      />
+    </Card>
+  );
+}
+
+function BatchMeta({
+  forecastDate,
+  publishedAt,
+  version,
+  status,
+  marketCount,
 }: {
-  nextDateIso: string;
-  assetNames: string[];
-  lastUpdated?: string;
+  forecastDate?: string;
+  publishedAt?: string;
+  version: string;
+  status: string;
+  marketCount: number;
 }) {
   return (
-    <div className="mb-8 space-y-3">
-      <Card padding="md" className="space-y-2">
-        <p className="text-body-sm">
-          目标交易日期：<strong>{formatDateChina(nextDateIso)}</strong>
+    <Card padding="md" className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div>
+        <p className="text-caption text-foreground-tertiary">预测日期</p>
+        <p className="text-body-sm font-medium">
+          {forecastDate ? formatDateChina(forecastDate) : "—"}
         </p>
-        <p className="text-body-sm text-foreground-secondary">
-          当前已发布资产：{assetNames.length} 项
-          {assetNames.length ? `（${assetNames.join("、")}）` : ""}
-        </p>
-        {lastUpdated ? (
-          <p className="text-body-sm text-foreground-secondary">最后更新时间：{lastUpdated}</p>
-        ) : null}
-      </Card>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {[
-          ["WTI", "05:30"],
-          ["美股与黄金", "06:30"],
-          ["BTC及中国权益", "18:30"],
-          ["今日公开", "08:00"],
-        ].map(([label, time]) => (
-          <Card key={label} padding="md" className="flex items-center justify-between gap-2">
-            <span className="text-body-sm text-foreground-secondary">{label}</span>
-            <span className="font-mono text-body-sm tabular-nums">{time}</span>
-          </Card>
-        ))}
       </div>
-    </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">发布时间</p>
+        <p className="text-body-sm font-medium">
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">版本号</p>
+        <p className="text-body-sm font-medium font-mono">{version}</p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">锁定状态</p>
+        <p className="text-body-sm font-medium">{status}</p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">覆盖市场数量</p>
+        <p className="text-body-sm font-medium font-mono">{marketCount}</p>
+      </div>
+    </Card>
   );
 }
 
@@ -71,47 +204,32 @@ export function MemberTomorrowLockedPage({
 }: {
   summary: TomorrowForecastPublicSummary;
 }) {
-  const t = useTranslations();
-  const teasers = sortByDailyAssetOrder(summary.teasers.filter((x) => x.isReady));
-
   return (
     <main>
       <Section spacing="lg">
         <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4">
           <div className="flex items-center gap-2">
             <LockIcon size={18} />
-            <Badge variant="default">{t("home.tomorrowMemberBadge")}</Badge>
+            <Badge variant="default">会员专享</Badge>
           </div>
           <Heading as="h1" size="h2">
-            {t("memberTomorrow.title")}
+            下一交易日完整预测
           </Heading>
           <Text variant="body" color="secondary">
-            {t("memberTomorrow.lockedBody")}
+            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
           </Text>
-          <ScheduleHeader
-            nextDateIso={summary.nextDateIso}
-            assetNames={teasers.map((x) => x.assetName)}
-            lastUpdated={summary.lastUpdatedLabel !== "—" ? summary.lastUpdatedLabel : undefined}
+          <BatchMeta
+            forecastDate={summary.nextDateIso}
+            status="会员锁定"
+            version="—"
+            marketCount={7}
           />
-          <div className="grid gap-3">
-            {teasers.map((trow) => (
-              <Card key={trow.id} padding="md" className="flex flex-col gap-2">
-                <Text variant="body" weight="semibold">
-                  {trow.assetName}
-                </Text>
-                <p className="text-caption text-foreground-tertiary">
-                  预测日期：{formatDateChina(trow.forecastForDate)}
-                </p>
-                <p className="text-caption text-foreground-tertiary">观点已生成</p>
-                <Badge variant="outline" className="w-fit">
-                  会员锁定
-                </Badge>
-              </Card>
-            ))}
-          </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button asChild variant="primary">
-              <Link href="/pricing">{t("home.tomorrowUnlockCta")}</Link>
+              <Link href="/pricing">立即开通会员</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/login?next=/member/tomorrow">登录</Link>
             </Button>
           </div>
         </div>
@@ -120,149 +238,85 @@ export function MemberTomorrowLockedPage({
   );
 }
 
+export function MemberTomorrowEmptyPage({
+  targetDate,
+  isAdmin,
+}: {
+  targetDate: string;
+  isAdmin?: boolean;
+}) {
+  return (
+    <main>
+      <Section spacing="lg">
+        <div className="mx-auto max-w-2xl px-4">
+          <Heading as="h1" size="h2">
+            下一交易日完整预测
+          </Heading>
+          <Text variant="body" color="secondary" className="mt-2">
+            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
+          </Text>
+          <BatchMeta
+            forecastDate={targetDate}
+            status="尚未发布"
+            version="—"
+            marketCount={0}
+          />
+          <Card padding="lg" className="mt-2 space-y-3">
+            <Text variant="body" weight="semibold">
+              下一交易日预测尚未发布
+            </Text>
+            <Text variant="body-sm" color="secondary">
+              预测生成并锁定后将在此处开放，会员可第一时间查看。不会使用波浪研究或其他分析模块替代正式预测。
+            </Text>
+            {isAdmin ? (
+              <Button asChild>
+                <Link href="/admin/forecasts">创建下一交易日预测</Link>
+              </Button>
+            ) : null}
+          </Card>
+        </div>
+      </Section>
+    </main>
+  );
+}
+
 export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast[] }) {
-  const { locale } = useLocale();
-  const t = useTranslations();
-  const isChinese = locale === "zh-CN" || locale === "zh-TW";
-  const [market, setMarket] = useState<"all" | DailyForecastMarket>("all");
-  const [assetQuery, setAssetQuery] = useState("");
-
-  const ordered = useMemo(() => sortByDailyAssetOrder(forecasts.filter((f) => !isPending(f))), [forecasts]);
-
-  const filtered = useMemo(() => {
-    return ordered.filter((f) => {
-      if (market !== "all" && f.market !== market) return false;
-      if (!assetQuery.trim()) return true;
-      const q = assetQuery.trim().toLowerCase();
-      return (
-        f.assetName.toLowerCase().includes(q) ||
-        f.symbol.toLowerCase().includes(q) ||
-        f.assetId.toLowerCase().includes(q)
-      );
-    });
-  }, [ordered, market, assetQuery]);
-
+  const ordered = sortByDailyAssetOrder(forecasts.filter((f) => !isPending(f)));
   const nextDate = ordered[0]?.forecastForDate ?? "";
-  const assetNames = ordered.map((f) => f.assetName);
-  const lastUpdated = ordered
-    .map((f) => f.updatedAt || f.publishedAt)
+  const publishedAt = ordered
+    .map((f) => f.publishedAt)
     .filter(Boolean)
     .sort()
     .at(-1);
+  const version = `V${Math.max(...ordered.map((f) => f.version || 1), 1)}`;
 
   return (
     <main>
       <Section spacing="lg">
         <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
           <Badge variant="default" className="mb-3">
-            {t("home.tomorrowMemberBadge")}
+            会员专享
           </Badge>
           <Heading as="h1" size="h2" className="mb-2">
-            {t("memberTomorrow.title")}
+            下一交易日完整预测
           </Heading>
           <Text variant="body" color="secondary" className="mb-6 max-w-2xl">
-            {t("memberTomorrow.subtitle")}
+            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
           </Text>
 
-          {nextDate ? (
-            <ScheduleHeader
-              nextDateIso={nextDate}
-              assetNames={assetNames}
-              lastUpdated={lastUpdated ? formatDateTimeChina(lastUpdated) : undefined}
-            />
-          ) : null}
-
-          <WaveIntelligenceCard />
-
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {MARKETS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMarket(m.id)}
-                  className={`rounded-md px-3 py-1.5 text-body-sm transition-colors focus-ring ${
-                    market === m.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground-secondary hover:text-foreground"
-                  }`}
-                >
-                  {isChinese ? m.zh : m.en}
-                </button>
-              ))}
-            </div>
-            <input
-              value={assetQuery}
-              onChange={(e) => setAssetQuery(e.target.value)}
-              placeholder={t("memberTomorrow.filterAsset")}
-              className="h-10 w-full max-w-xs rounded-md border border-border bg-surface px-3 text-body-sm"
-              aria-label={t("memberTomorrow.filterAsset")}
-            />
-          </div>
+          <BatchMeta
+            forecastDate={nextDate}
+            publishedAt={publishedAt}
+            version={version}
+            status="已锁定"
+            marketCount={ordered.length}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {filtered.map((f) => (
-              <Card key={f.id} padding="lg" className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <Text variant="body" weight="semibold">
-                      {f.assetName} · {f.symbol}
-                    </Text>
-                    <Text variant="caption" color="tertiary" className="block">
-                      预测日期：{formatDateChina(f.forecastForDate)}
-                    </Text>
-                    <Text variant="caption" color="tertiary" className="block">
-                      目标交易时段：{f.tradingSessionLabel}
-                    </Text>
-                    <Text variant="caption" color="tertiary" className="block">
-                      发布时间：{formatDateTimeChina(f.publishedAt)}
-                    </Text>
-                    <Text variant="caption" color="tertiary" className="block">
-                      下一次更新：{nextUpdateLabelForSymbol(f.symbol)}
-                    </Text>
-                  </div>
-                  <Badge variant="default">{displayDirection(f)}</Badge>
-                </div>
-
-                <Text variant="body-sm">{f.summary}</Text>
-                {f.probabilities ? (
-                  <Text variant="caption" color="tertiary">
-                    上涨 {f.probabilities.up}% · 震荡 {f.probabilities.flat}% · 下跌 {f.probabilities.down}%
-                  </Text>
-                ) : (
-                  <Text variant="caption" color="tertiary">
-                    {t("home.tomorrowConfidence")}: {f.confidence}%
-                  </Text>
-                )}
-                {f.expectedPath?.length ? (
-                  <Text variant="body-sm" color="secondary">
-                    盘中运行顺序：{f.expectedPath.join(" → ")}
-                  </Text>
-                ) : null}
-                <PriceLevelsBlock
-                  support={f.supportLevels}
-                  resistance={f.resistanceLevels}
-                  invalidation={f.invalidation}
-                  confirmation={f.confirmation}
-                  priceSource={f.priceDataSourceLabel}
-                  snapshotAt={
-                    f.priceSnapshotAtLabel ? formatDateTimeChina(f.priceSnapshotAtLabel) : undefined
-                  }
-                />
-                {f.symbol === "WTI" ? (
-                  <Text variant="caption" color="tertiary">
-                    行情及验证使用WTI近月连续合约，不代表特定交割月份的现货价格。
-                  </Text>
-                ) : null}
-              </Card>
+            {ordered.map((f) => (
+              <MarketForecastCard key={f.id} f={f} />
             ))}
           </div>
-
-          {filtered.length === 0 && (
-            <Text variant="body" color="secondary" className="mt-8">
-              {t("common.emptyFiltered")}
-            </Text>
-          )}
         </div>
       </Section>
     </main>

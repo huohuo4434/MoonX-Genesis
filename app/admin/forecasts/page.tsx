@@ -4,6 +4,7 @@ import {
   AdminRefetchResultButton,
   AdminRunDailyVerifyButton,
 } from "@/components/admin/AdminDailyForecastForm";
+import { AdminTomorrowBatchForm } from "@/components/admin/AdminTomorrowBatchForm";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import {
   listDailyForecastRecords,
@@ -12,6 +13,7 @@ import {
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminForecastsPage() {
   const [forecasts, results] = await Promise.all([
@@ -28,9 +30,11 @@ export default async function AdminForecastsPage() {
           每日预测与验证
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          正式发布的日度方向预测会在交易结束后自动验证。长期研究验证仅限内部管理员访问。
+          正式发布的日度方向预测会在交易结束后自动验证。下一交易日预测批次写入正式预测库，不会使用
+          Wave 数据替代。
         </Text>
 
+        <AdminTomorrowBatchForm />
         <AdminRunDailyVerifyButton />
         <AdminDailyForecastForm />
 

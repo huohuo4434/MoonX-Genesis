@@ -1,7 +1,11 @@
 import "server-only";
 
 import { hasPrisma, prisma } from "@/lib/prisma";
-import { calculateWaveWeight } from "@/lib/wave/scoring";
+import {
+  calculateWaveWeight,
+  nearestLevelDistancePct,
+  WAVE_MAX_WEIGHT,
+} from "@/lib/wave/scoring";
 import {
   listWaveAnalystsWithPredictionsJson,
   listWavePredictionsJson,
@@ -157,6 +161,36 @@ export async function getWaveRanking() {
       const last = analyst.predictions[0]?.publishedAt;
       const lastMs = last ? new Date(last).getTime() : NaN;
       const days = Number.isFinite(lastMs) ? Math.floor((now - lastMs) / 86400000) : 999;
+
+      // Proximity to Wave key levels can raise evidence weight: 5% → 10% → 15% → 20%.
+      const openRows = analyst.predictions.filter((x) => x.status === "PENDING");
+      let proximityDistancePct: number | null = null;
+      for (const row of openRows.slice(0, 8)) {
+        const r = row as {
+          entryReference?: number | null;
+          supportLevels?: unknown;
+          resistanceLevels?: unknown;
+          invalidationLevel?: number | null;
+          confirmationLevel?: number | null;
+        };
+        const price = typeof r.entryReference === "number" ? r.entryReference : null;
+        const supports = Array.isArray(r.supportLevels)
+          ? (r.supportLevels as number[])
+          : [];
+        const resistances = Array.isArray(r.resistanceLevels)
+          ? (r.resistanceLevels as number[])
+          : [];
+        const dist = nearestLevelDistancePct(price, [
+          ...supports,
+          ...resistances,
+          r.invalidationLevel,
+          r.confirmationLevel,
+        ]);
+        if (dist != null && (proximityDistancePct == null || dist < proximityDistancePct)) {
+          proximityDistancePct = dist;
+        }
+      }
+
       const weight = calculateWaveWeight({
         total: validated.length,
         wins,
@@ -166,8 +200,9 @@ export async function getWaveRanking() {
         recentTotal: recent.length,
         averageRewardRisk,
         daysSinceLastPrediction: days,
-        baseWeight: analyst.baseWeight,
-        maxWeight: analyst.maxWeight,
+        baseWeight: Math.max(analyst.baseWeight, 0.05),
+        maxWeight: Math.min(analyst.maxWeight || WAVE_MAX_WEIGHT, WAVE_MAX_WEIGHT),
+        proximityDistancePct,
       });
       return {
         slug: analyst.slug,
@@ -179,6 +214,8 @@ export async function getWaveRanking() {
         weight,
         weightPercent: Number((weight * 100).toFixed(1)),
         lastPredictionAt: last ? new Date(last).toISOString() : null,
+        evidenceOnly: true,
+        maxWeightPercent: 20,
       };
     })
     .sort((a, b) => b.weight - a.weight);
@@ -195,7 +232,7 @@ export async function upsertWavePrediction(input: WaveUpsertInput) {
           name: input.analystName,
           source: input.source,
           baseWeight: 0.05,
-          maxWeight: 0.22,
+          maxWeight: 0.2,
         },
       });
       const data = await prisma.wavePrediction.upsert({
@@ -316,7 +353,7 @@ export async function seedWaveData() {
           name: "波浪理论学习",
           source: "Imported analyst screenshots",
           baseWeight: 0.05,
-          maxWeight: 0.22,
+          maxWeight: 0.2,
         },
       });
       const rows = [

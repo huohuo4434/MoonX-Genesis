@@ -1,3 +1,7 @@
+/**
+ * Admin-only Wave evidence browser.
+ * MUST NOT be imported by /member/tomorrow or any daily forecast surface.
+ */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,16 +18,13 @@ type WavePrediction = {
   resistanceLevels?: number[];
   waveLabel?: string | null;
   timeframe?: string;
-  status?: string;
 };
 
 type WaveRanking = {
   weightPercent: number;
-  name?: string;
-  validatedCount?: number;
-  hitRate?: number | null;
 };
 
+/** Admin / research evidence only — never mount on member tomorrow page. */
 export function WaveIntelligenceCard() {
   const t = useTranslations();
   const { locale } = useLocale();
@@ -35,8 +36,8 @@ export function WaveIntelligenceCard() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch("/api/wave/latest?limit=8").then((r) => r.json()),
-      fetch("/api/wave/ranking").then((r) => r.json()),
+      fetch("/api/wave/latest?limit=8", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/wave/ranking", { cache: "no-store" }).then((r) => r.json()),
     ])
       .then(([latest, rank]) => {
         if (cancelled) return;
@@ -51,10 +52,6 @@ export function WaveIntelligenceCard() {
       cancelled = true;
     };
   }, []);
-
-  function directionLabel(dir: string) {
-    return t(`wave.direction.${dir}`);
-  }
 
   return (
     <section className="mb-8 rounded-xl border border-border/[0.12] bg-surface/60 p-5">
@@ -98,7 +95,7 @@ export function WaveIntelligenceCard() {
                     {x.marketCode}
                   </span>
                 </Text>
-                <Badge variant="outline">{directionLabel(x.direction)}</Badge>
+                <Badge variant="outline">{t(`wave.direction.${x.direction}`)}</Badge>
               </div>
               {x.waveLabel ? (
                 <Text variant="caption" color="tertiary">
