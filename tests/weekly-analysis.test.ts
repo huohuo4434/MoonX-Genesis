@@ -1,36 +1,41 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
-  ALL_WEEKLY_ANALYSES,
-  INTERNAL_WEEKLY_ANALYSES,
+  WEEKLY_CORE_MARKETS,
   PUBLISHED_WEEKLY_ANALYSES,
+  INTERNAL_WEEKLY_ANALYSES,
 } from "../lib/data/published-weekly-analysis-20260727.ts";
 import {
   buildWeeklyPublicSummary,
+  buildWeeklyMarketSlots,
   listPublishedWeeklyAnalyses,
   toWeeklyMemberView,
   toWeeklyTeaser,
 } from "../lib/data/weekly-analysis.ts";
 
 describe("weekly member analysis", () => {
-  test("publishes four assets only", () => {
-    assert.equal(PUBLISHED_WEEKLY_ANALYSES.length, 4);
+  test("publishes seven core markets", () => {
+    assert.equal(WEEKLY_CORE_MARKETS.length, 7);
+    assert.equal(PUBLISHED_WEEKLY_ANALYSES.length, 7);
     assert.deepEqual(
-      PUBLISHED_WEEKLY_ANALYSES.map((r) => r.symbol).sort(),
-      ["000001.SS", "BTC", "GLD", "HSTECH"].sort()
+      WEEKLY_CORE_MARKETS.map((m) => m.displaySymbol),
+      ["BTC", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "CL"]
     );
   });
 
-  test("SPX NDX WTI stay internal_review and hidden from published list", () => {
-    assert.ok(INTERNAL_WEEKLY_ANALYSES.every((r) => r.status === "internal_review"));
+  test("SPX NDX WTI are published on member list", () => {
     const published = listPublishedWeeklyAnalyses();
-    assert.ok(!published.some((r) => ["SPX", "NDX", "WTI"].includes(r.symbol)));
-    assert.ok(ALL_WEEKLY_ANALYSES.some((r) => r.symbol === "SPX" && r.status === "internal_review"));
+    assert.ok(published.some((r) => r.symbol === "SPX"));
+    assert.ok(published.some((r) => r.symbol === "NDX"));
+    assert.ok(published.some((r) => r.symbol === "WTI"));
+    assert.equal(INTERNAL_WEEKLY_ANALYSES.length, 0);
+    assert.equal(buildWeeklyMarketSlots().length, 7);
   });
 
   test("public summary and teaser omit direction and levels", () => {
     const summary = buildWeeklyPublicSummary();
-    assert.equal(summary.publishedCount, 4);
+    assert.equal(summary.coverageCount, 7);
+    assert.equal(summary.publishedCount, 7);
     assert.ok(summary.weekLabel.includes("2026"));
     const teaser = toWeeklyTeaser(PUBLISHED_WEEKLY_ANALYSES[0]!);
     assert.equal("overallDirection" in teaser, false);

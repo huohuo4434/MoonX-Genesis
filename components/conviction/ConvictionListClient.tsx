@@ -57,15 +57,27 @@ function PublicAssetCard({
               </Badge>
             </div>
             <Heading as="h2" size="h3" className="text-white">
-              {card.nameZh}
-              {card.nameEn && card.nameEn !== card.nameZh ? (
-                <span className="ml-2 text-body font-normal text-white/45">{card.nameEn}</span>
-              ) : null}
+              {card.slug === "asteroid" ? (
+                <>
+                  Asteroid（太空狗）
+                </>
+              ) : (
+                <>
+                  {card.nameZh}
+                  {card.nameEn && card.nameEn !== card.nameZh ? (
+                    <span className="ml-2 text-body font-normal text-white/45">{card.nameEn}</span>
+                  ) : null}
+                </>
+              )}
             </Heading>
             <p className="font-mono text-body-sm text-white/50">
-              {card.symbol}
+              {card.assetType}
+              {card.slug === "asteroid" && card.contractAddress
+                ? ` · ${card.contractAddress.slice(0, 10)}…`
+                : card.symbol
+                  ? ` · ${card.symbol}`
+                  : ""}
               {card.exchange ? ` · ${card.exchange}` : ""}
-              {card.network ? ` · ${card.network}` : ""}
             </p>
             <p className="text-caption text-white/40">
               最近更新：{formatDateChina(card.researchUpdatedAt)}
@@ -93,17 +105,22 @@ function PublicAssetCard({
 
         {mcap ? (
           <section>
-            <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">市值参考</h3>
+            <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">市值</h3>
             <p className="mt-2 text-body-sm text-white/75">{mcap.labelZh}</p>
             {mcap.updatedAt ? (
               <p className="mt-1 text-caption text-white/40">
-                数据更新时间：{formatDateChina(mcap.updatedAt)}
+                更新时间：{formatDateChina(mcap.updatedAt)}
               </p>
             ) : null}
           </section>
         ) : null}
 
-        {card.contractPendingAdminConfirm ? (
+        {card.contractAddress ? (
+          <section>
+            <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">合约地址</h3>
+            <p className="mt-2 break-all font-mono text-caption text-white/70">{card.contractAddress}</p>
+          </section>
+        ) : card.contractPendingAdminConfirm ? (
           <p className="rounded-md border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-caption text-amber-200/80">
             合约信息待管理员确认
           </p>

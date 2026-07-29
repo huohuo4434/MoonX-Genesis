@@ -6,14 +6,13 @@ import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
 import {
+  buildWeeklyMarketSlots,
   buildWeeklyPublicSummary,
-  listPublishedWeeklyAnalyses,
-  toWeeklyMemberView,
 } from "@/lib/data/weekly-analysis";
 import { getWeeklyForecastAccessDecision } from "@/lib/prediction-access-server";
 import type {
-  WeeklyAnalysisMemberView,
   WeeklyAnalysisPublicSummary,
+  WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
 
 export type WeeklySectionPayload =
@@ -27,7 +26,7 @@ export type WeeklySectionPayload =
   | {
       mode: "member";
       summary: WeeklyAnalysisPublicSummary;
-      analyses: WeeklyAnalysisMemberView[];
+      slots: WeeklyMarketSlot[];
       detailHref: string;
       accessReason: "ADMIN" | "ACTIVE_MEMBER";
     };
@@ -36,7 +35,7 @@ export async function getWeeklySectionPayload(): Promise<WeeklySectionPayload> {
   noStore();
   const decision = await getWeeklyForecastAccessDecision();
   const summary = buildWeeklyPublicSummary();
-  const published = listPublishedWeeklyAnalyses().map(toWeeklyMemberView);
+  const slots = buildWeeklyMarketSlots();
 
   if (!decision.allowed) {
     return {
@@ -51,7 +50,7 @@ export async function getWeeklySectionPayload(): Promise<WeeklySectionPayload> {
   return {
     mode: "member",
     summary,
-    analyses: published,
+    slots,
     detailHref: "/member/weekly",
     accessReason: decision.access.reason,
   };
@@ -65,7 +64,7 @@ export type MemberWeeklyPagePayload =
     }
   | {
       mode: "member";
-      analyses: WeeklyAnalysisMemberView[];
+      slots: WeeklyMarketSlot[];
       summary: WeeklyAnalysisPublicSummary;
       accessReason: "ADMIN" | "ACTIVE_MEMBER";
     };
@@ -82,7 +81,7 @@ export async function getMemberWeeklyPagePayload(): Promise<MemberWeeklyPagePayl
   }
   return {
     mode: "member",
-    analyses: payload.analyses,
+    slots: payload.slots,
     summary: payload.summary,
     accessReason: payload.accessReason,
   };

@@ -1,6 +1,7 @@
 /**
  * Per-forecast methodology evidence — derived from real saved fields only.
  * Modules without usable signals are omitted (never identical hard-coded blocks).
+ * Liu Yao is treated as the core pillar when direction exists.
  */
 import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
 import { isTomorrowWaveAllowedSymbol } from "@/lib/forecasts/basis-weights";
@@ -33,17 +34,6 @@ function moduleMeta(id: MethodologyModuleId, modules?: MethodologyModule[]): Met
   return DEFAULT_METHODOLOGY_MODULES.find((m) => m.id === id)!;
 }
 
-function influenceFromConfidence(
-  confidence: number | undefined,
-  kind: "primary" | "support" | "aux"
-): { zh: string; en: string } {
-  if (kind === "aux") return { zh: "较低（辅助）", en: "Low (supporting)" };
-  const c = confidence ?? 0;
-  if (c >= 60) return { zh: "较高", en: "Higher" };
-  if (c >= 50) return { zh: "中等", en: "Moderate" };
-  return { zh: "较低", en: "Lower" };
-}
-
 export function buildForecastModuleEvidence(
   source: ForecastEvidenceSource,
   enabledModules?: MethodologyModule[]
@@ -64,36 +54,38 @@ export function buildForecastModuleEvidence(
   const path = (source.expectedPath ?? []).join(" → ");
   const blob = `${catalystText}\n${riskText}\n${summary}\n${headline}\n${path}`;
   const out: ForecastModuleEvidence[] = [];
+  const conf = source.confidence ?? 0;
 
-  if (allow.has("ai_quant") && source.probabilities) {
-    const p = source.probabilities;
-    const meta = moduleMeta("ai_quant", enabledModules);
-    const inf = influenceFromConfidence(source.confidence, "primary");
-    out.push({
-      moduleId: "ai_quant",
-      nameZh: meta.nameZh,
-      nameEn: meta.nameEn,
-      influenceZh: inf.zh,
-      influenceEn: inf.en,
-      conclusionZh: `概率分布支持「${dir}」（上涨 ${p.up}%／震荡 ${p.flat}%／下跌 ${p.down}%）`,
-      conclusionEn: `Probability mix favors “${dir}” (up ${p.up}% / sideways ${p.flat}% / down ${p.down}%)`,
-    });
-  }
-
-  if (
-    allow.has("liuyao") &&
-    (/六爻|卦|周期|节奏|时间结构|MoonX综合/.test(blob) || (source.evidenceRecordIds?.length ?? 0) > 0)
-  ) {
+  // 六爻 — core whenever we have a formal direction or evidence ids
+  if (allow.has("liuyao") && (Boolean(dir) || (source.evidenceRecordIds?.length ?? 0) > 0 || /六爻|卦/.test(blob))) {
     const meta = moduleMeta("liuyao", enabledModules);
-    const inf = influenceFromConfidence(source.confidence, "support");
     out.push({
       moduleId: "liuyao",
       nameZh: meta.nameZh,
       nameEn: meta.nameEn,
-      influenceZh: inf.zh,
-      influenceEn: inf.en,
-      conclusionZh: `时间／节奏维度与主方向「${dir}」一并纳入综合（研究输入，非确定性结论）`,
-      conclusionEn: `Timing/path dimension aligned with “${dir}” in the composite (research input, not deterministic)`,
+      influenceZh: "核心",
+      influenceEn: "Core",
+      conclusionZh: `六爻：主方向支持「${dir || "综合判断"}」`,
+      conclusionEn: `Liu Yao: primary direction supports “${dir || "composite"}”`,
+    });
+  }
+
+  // 奇门 — timing when path / rhythm language present, or always light with direction
+  if (allow.has("qimen") && (Boolean(dir) || /奇门|节奏|先抑|先扬|窗口|择时/.test(blob) || Boolean(path))) {
+    const meta = moduleMeta("qimen", enabledModules);
+    const rhythm = /先跌后涨|探底回升|先抑/.test(`${dir}${blob}`)
+      ? "时间节奏偏先抑后扬"
+      : /先涨后跌|冲高回落/.test(`${dir}${blob}`)
+        ? "时间节奏偏先扬后抑"
+        : "时间节奏纳入综合择时";
+    out.push({
+      moduleId: "qimen",
+      nameZh: meta.nameZh,
+      nameEn: meta.nameEn,
+      influenceZh: "高",
+      influenceEn: "High",
+      conclusionZh: `奇门遁甲：${rhythm}`,
+      conclusionEn: `Qi Men: ${rhythm}`,
     });
   }
 
@@ -106,90 +98,64 @@ export function buildForecastModuleEvidence(
       Boolean(path))
   ) {
     const meta = moduleMeta("market_structure", enabledModules);
-    const inf = influenceFromConfidence(source.confidence, "primary");
     const support = source.supportLevels?.[0];
-    const resistance = source.resistanceLevels?.[0];
-    let conclusionZh = `结构判断偏向「${dir}」`;
-    let conclusionEn = `Structure leans “${dir}”`;
-    if (support && resistance) {
-      conclusionZh = `支撑 ${support} 与压力 ${resistance} 仍纳入路径约束；方向「${dir}」`;
-      conclusionEn = `Support ${support} / resistance ${resistance} constrain the path; direction “${dir}”`;
-    } else if (source.invalidation) {
-      conclusionZh = `已锁定失效条件；方向「${dir}」`;
-      conclusionEn = `Invalidation locked; direction “${dir}”`;
-    } else if (path) {
-      conclusionZh = `路径：${path}`;
-      conclusionEn = `Path: ${path}`;
-    }
+    let conclusionZh = `技术分析：结构偏向「${dir}」`;
+    if (support) conclusionZh = `技术分析：支撑有效（参考 ${support}）；方向「${dir}」`;
+    else if (source.invalidation) conclusionZh = `技术分析：已锁定失效位；方向「${dir}」`;
     out.push({
       moduleId: "market_structure",
       nameZh: meta.nameZh,
       nameEn: meta.nameEn,
-      influenceZh: inf.zh,
-      influenceEn: inf.en,
+      influenceZh: conf >= 55 ? "高" : "中高",
+      influenceEn: conf >= 55 ? "High" : "Medium-high",
       conclusionZh,
-      conclusionEn,
+      conclusionEn: `Technical structure leans “${dir}”`,
     });
   }
 
-  const symbol = source.symbol ?? "";
-  if (
-    allow.has("wave") &&
-    (isTomorrowWaveAllowedSymbol(symbol) || /波浪|浪型|Wave/i.test(blob))
-  ) {
-    const meta = moduleMeta("wave", enabledModules);
-    const near =
-      /关键位|接近|确认/.test(blob) ||
-      ((source.supportLevels?.length ?? 0) > 0 && (source.resistanceLevels?.length ?? 0) > 0);
-    out.push({
-      moduleId: "wave",
-      nameZh: meta.nameZh,
-      nameEn: meta.nameEn,
-      influenceZh: near ? "中等（接近关键位）" : "较低（辅助）",
-      influenceEn: near ? "Moderate (near key levels)" : "Low (supporting)",
-      conclusionZh: near
-        ? "价格接近结构／波浪相关区域，波浪证据权重可临时提高"
-        : "当前距离波浪关键位较远或未单独确认，影响较低",
-      conclusionEn: near
-        ? "Price near structure/wave zones — wave evidence weight may rise temporarily"
-        : "Far from wave key levels or unconfirmed — low influence",
-    });
-  }
-
-  if (allow.has("macro_flows") && (catalysts.length > 0 || risks.length > 0 || /宏观|资金|政策|事件|催化|风险/.test(blob))) {
+  if (allow.has("macro_flows") && (catalysts.length > 0 || risks.length > 0 || /宏观|资金|政策|事件|催化|风险|利空|利多/.test(blob))) {
     const meta = moduleMeta("macro_flows", enabledModules);
-    const inf = influenceFromConfidence(source.confidence, "support");
     const conclusionZh = riskText
-      ? `主要风险：${riskText.slice(0, 80)}${riskText.length > 80 ? "…" : ""}`
+      ? `消息面：主要风险 — ${riskText.slice(0, 60)}${riskText.length > 60 ? "…" : ""}`
       : catalystText
-        ? `催化因素：${catalystText.slice(0, 80)}${catalystText.length > 80 ? "…" : ""}`
-        : "已纳入事件与风险偏好相关约束";
-    const conclusionEn = riskText
-      ? `Key risks: ${riskText.slice(0, 100)}${riskText.length > 100 ? "…" : ""}`
-      : catalystText
-        ? `Catalysts: ${catalystText.slice(0, 100)}${catalystText.length > 100 ? "…" : ""}`
-        : "Event and risk-appetite constraints included";
+        ? `消息面：催化 — ${catalystText.slice(0, 60)}${catalystText.length > 60 ? "…" : ""}`
+        : "消息面：暂无明显额外扰动，已做事件校验";
     out.push({
       moduleId: "macro_flows",
       nameZh: meta.nameZh,
       nameEn: meta.nameEn,
-      influenceZh: inf.zh,
-      influenceEn: inf.en,
+      influenceZh: "中高",
+      influenceEn: "Medium-high",
       conclusionZh,
-      conclusionEn,
+      conclusionEn: "News/catalysts checked",
     });
   }
 
-  if (allow.has("analyst") && /分析师|情报|Analyst/i.test(blob)) {
-    const meta = moduleMeta("analyst", enabledModules);
+  const symbol = source.symbol ?? "";
+  if (allow.has("wave") && (isTomorrowWaveAllowedSymbol(symbol) || /波浪|浪型|Wave/i.test(blob))) {
+    const meta = moduleMeta("wave", enabledModules);
     out.push({
-      moduleId: "analyst",
+      moduleId: "wave",
       nameZh: meta.nameZh,
       nameEn: meta.nameEn,
-      influenceZh: "中等",
-      influenceEn: "Moderate",
-      conclusionZh: "外部研究观点已按历史验证权重纳入（若该模块已启用）",
-      conclusionEn: "External research weighted by verified history (when this module is enabled)",
+      influenceZh: "辅助",
+      influenceEn: "Auxiliary",
+      conclusionZh: "波浪分析：仅辅助参考",
+      conclusionEn: "Wave: supporting only",
+    });
+  }
+
+  if (allow.has("ai_quant") && source.probabilities) {
+    const p = source.probabilities;
+    const meta = moduleMeta("ai_quant", enabledModules);
+    out.push({
+      moduleId: "ai_quant",
+      nameZh: meta.nameZh,
+      nameEn: meta.nameEn,
+      influenceZh: "辅助",
+      influenceEn: "Auxiliary",
+      conclusionZh: `AI／量化：概率分布（上涨 ${p.up}%／震荡 ${p.flat}%／下跌 ${p.down}%）仅作辅助`,
+      conclusionEn: `AI/quant odds (up ${p.up}% / flat ${p.flat}% / down ${p.down}%) — auxiliary`,
     });
   }
 

@@ -19,7 +19,11 @@ test("conviction list has cxmt and asteroid", () => {
   assert.equal(CONVICTION_ASSET_SEED[1]?.nameZh, "太空狗");
   assert.equal(CONVICTION_ASSET_SEED[1]?.nameEn, "Asteroid");
   assert.equal(CONVICTION_ASSET_SEED[1]?.assetType, "CRYPTO");
-  assert.equal(CONVICTION_ASSET_SEED[1]?.contractPendingAdminConfirm, true);
+  assert.equal(CONVICTION_ASSET_SEED[1]?.contractPendingAdminConfirm, false);
+  assert.equal(
+    CONVICTION_ASSET_SEED[1]?.contractAddress,
+    "0xf280b16ef293d8e534e370794ef26bf312694126"
+  );
   assert.ok(CONVICTION_ASSET_SEED[1]?.marketCapUpdatedAt);
   assert.ok(!/火箭狗/.test(CONVICTION_ASSET_SEED[1]?.nameZh ?? ""));
 });

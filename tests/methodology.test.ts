@@ -4,6 +4,8 @@ import { DEFAULT_METHODOLOGY_MODULES } from "../lib/methodology/defaults.ts";
 import { applyRuntimeGates } from "../lib/methodology/gates.ts";
 import { buildForecastModuleEvidence } from "../lib/methodology/evidence.ts";
 import { NAV_ROUTES, PUBLIC_PRIMARY_NAV, buildPublicFooterColumns } from "../config/navigation.ts";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 describe("methodology public surface", () => {
   test("nav includes methodology between verification and pricing", () => {
@@ -30,23 +32,34 @@ describe("methodology public surface", () => {
     assert.equal(analyst.publicDisplay, false);
   });
 
-  test("liuyao copy is research-dimension not deterministic", () => {
+  test("liuyao is core research input not deterministic", () => {
     const liuyao = DEFAULT_METHODOLOGY_MODULES.find((m) => m.id === "liuyao")!;
-    assert.ok(/研究维度|研究输入/.test(liuyao.summaryZh));
+    assert.ok(/研究输入|核心/.test(liuyao.summaryZh));
     assert.ok(/不是确定性|不构成/.test(liuyao.summaryZh));
     assert.equal(/神准|稳赚|固定收益/.test(liuyao.summaryZh), false);
     assert.ok(/not deterministic|research input/i.test(liuyao.summaryEn));
+    assert.match(liuyao.weightRangeZh, /核心/);
+  });
+
+  test("four core pillars include qimen and news", () => {
+    const ids = DEFAULT_METHODOLOGY_MODULES.filter((m) => m.publicDisplay).map((m) => m.id);
+    assert.ok(ids.includes("liuyao"));
+    assert.ok(ids.includes("qimen"));
+    assert.ok(ids.includes("market_structure"));
+    assert.ok(ids.includes("macro_flows"));
+    assert.equal(DEFAULT_METHODOLOGY_MODULES.find((m) => m.id === "macro_flows")?.nameZh, "消息面");
+    assert.equal(DEFAULT_METHODOLOGY_MODULES.find((m) => m.id === "market_structure")?.nameZh, "技术分析");
   });
 
   test("evidence differs by forecast fields — no identical hardcode blocks", () => {
     const a = buildForecastModuleEvidence({
       symbol: "BTC",
       directionLabel: "震荡上涨",
-      summary: "围绕区间震荡，MoonX综合判断节奏偏稳",
+      summary: "围绕区间震荡",
       probabilities: { up: 40, flat: 35, down: 25 },
       supportLevels: ["100000"],
       resistanceLevels: ["108000"],
-      catalysts: ["MoonX综合判断"],
+      catalysts: ["流动性改善"],
       risks: ["波动放大"],
       confidence: 55,
     });
@@ -66,16 +79,26 @@ describe("methodology public surface", () => {
     const bBlob = b.map((x) => x.conclusionZh).join("|");
     assert.notEqual(aBlob, bBlob);
     assert.ok(a.some((x) => x.moduleId === "liuyao"));
-    assert.equal(
-      b.some((x) => x.moduleId === "liuyao"),
-      false
-    );
+    assert.ok(b.some((x) => x.moduleId === "liuyao"));
+    assert.ok(a.some((x) => x.moduleId === "qimen"));
   });
 
-  test("weight ranges are descriptive not invented fixed single percents only", () => {
+  test("weight labels use priority language", () => {
     for (const m of DEFAULT_METHODOLOGY_MODULES.filter((x) => x.enabled && x.publicDisplay)) {
       assert.ok(m.weightRangeZh.length > 0);
-      assert.ok(/动态|区间|默认|约/.test(m.weightRangeZh));
+      assert.ok(/核心|高|中高|辅助/.test(m.weightRangeZh));
     }
+  });
+
+  test("methodology page client is visual with four cores", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "components/methodology/MethodologyPageClient.tsx"),
+      "utf8"
+    );
+    assert.match(src, /六爻（核心）/);
+    assert.match(src, /奇门遁甲/);
+    assert.match(src, /技术分析/);
+    assert.match(src, /消息面/);
+    assert.match(src, /最终预测输出/);
   });
 });

@@ -30,7 +30,7 @@ export function ForecastEvidencePanel({
           href="/methodology"
           className="inline-block text-caption text-primary underline-offset-2 hover:underline"
         >
-          {zh ? "查看MOOX预测方法" : "View MOOX methodology"}
+          {zh ? "查看预测方法" : "View methodology"}
         </Link>
       </div>
     );
@@ -74,7 +74,7 @@ export function ForecastEvidencePanel({
             href="/methodology"
             className="inline-block text-caption text-primary underline-offset-2 hover:underline"
           >
-            {zh ? "查看MOOX预测方法" : "View MOOX methodology"}
+            {zh ? "查看预测方法" : "View methodology"}
           </Link>
         </div>
       ) : (
@@ -83,7 +83,7 @@ export function ForecastEvidencePanel({
             href="/methodology"
             className="inline-block text-caption text-primary underline-offset-2 hover:underline"
           >
-            {zh ? "查看MOOX预测方法" : "View MOOX methodology"}
+            {zh ? "查看预测方法" : "View methodology"}
           </Link>
         </div>
       )}

@@ -1,32 +1,13 @@
 /**
  * Referral invite / reward store.
- * Primary: moonx-data/referrals/store.json (same pattern as payment orders).
- * SQL schema: supabase/migrations/007_referral.sql + Prisma models.
+ * Production: Prisma tables ReferralInvite / ReferralRecord (DATABASE_URL).
+ * Never writes /var/task/data/*.json on Vercel (EROFS).
+ * Tests: MOONX_REFERRAL_LOCAL_ONLY=1 uses in-memory (+ optional local file if writable).
  */
 import { createHash, randomBytes } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
-function normalizeSupabaseUrl(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const trimmed = raw.trim().replace(/\/$/, "");
-  if (!trimmed || trimmed.includes("[SENSITIVE]")) return undefined;
-  return trimmed;
-}
-
-function getStorageAdmin(): SupabaseClient | null {
-  const url = normalizeSupabaseUrl(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
-  );
-  const serviceKey = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY
-  )?.trim();
-  if (!url || !serviceKey || serviceKey === "[SENSITIVE]") return null;
-  return createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { prisma } from "@/lib/prisma";
 
 export const REFERRAL_REWARD_DAYS = 7;
 export const REFERRAL_DEVICE_WINDOW_MS = 60 * 60 * 1000;
@@ -63,9 +44,10 @@ type ReferralStore = {
   deviceEvents: Array<{ device_id: string; user_id: string; at: string }>;
 };
 
-const BUCKET = "moonx-data";
-const FILE = "referrals/store.json";
 const LOCAL_FILE = resolve(process.cwd(), "data", "referral-store.json");
+
+/** In-memory store for unit tests (and ephemeral fallback). */
+let memoryStore: ReferralStore | null = null;
 
 function id(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${randomBytes(4).toString("hex")}`;
@@ -81,7 +63,15 @@ function emptyStore(): ReferralStore {
   };
 }
 
-function readLocal(): ReferralStore | null {
+function isLocalOnly(): boolean {
+  return process.env.MOONX_REFERRAL_LOCAL_ONLY === "1";
+}
+
+function shouldUsePrisma(): boolean {
+  return Boolean(prisma && process.env.DATABASE_URL?.trim() && !isLocalOnly());
+}
+
+function readLocalFile(): ReferralStore | null {
   try {
     if (!existsSync(LOCAL_FILE)) return null;
     const parsed = JSON.parse(readFileSync(LOCAL_FILE, "utf8")) as ReferralStore;
@@ -96,49 +86,68 @@ function readLocal(): ReferralStore | null {
   }
 }
 
-function writeLocal(store: ReferralStore): void {
-  mkdirSync(resolve(process.cwd(), "data"), { recursive: true });
-  writeFileSync(LOCAL_FILE, JSON.stringify(store, null, 2), "utf8");
-}
-
-async function readStore(): Promise<ReferralStore> {
-  // Unit tests and local scripts can force the JSON file to avoid remote races.
-  if (process.env.MOONX_REFERRAL_LOCAL_ONLY === "1") {
-    return readLocal() ?? emptyStore();
-  }
+/** Soft write — never throws EROFS to callers; production must not rely on this. */
+function tryWriteLocalFile(store: ReferralStore): void {
   try {
-    const admin = getStorageAdmin();
-    if (admin) {
-      const { data, error } = await admin.storage.from(BUCKET).download(FILE);
-      if (!error && data) {
-        const parsed = JSON.parse(await data.text()) as ReferralStore;
-        if (parsed?.invites && parsed?.records) {
-          return {
-            ...emptyStore(),
-            ...parsed,
-            deviceEvents: parsed.deviceEvents ?? [],
-          };
-        }
-      }
+    mkdirSync(resolve(process.cwd(), "data"), { recursive: true });
+    writeFileSync(LOCAL_FILE, JSON.stringify(store, null, 2), "utf8");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/EROFS|read-only|EACCES/i.test(msg)) {
+      console.warn("[referral] skipped local file write (read-only FS)");
+      return;
     }
-  } catch {
-    /* fall through */
+    console.warn("[referral] local write failed:", msg);
   }
-  return readLocal() ?? emptyStore();
 }
 
-async function writeStore(store: ReferralStore): Promise<void> {
-  const body: ReferralStore = { ...store, updatedAt: new Date().toISOString() };
-  writeLocal(body);
-  if (process.env.MOONX_REFERRAL_LOCAL_ONLY === "1") return;
-  const admin = getStorageAdmin();
-  if (!admin) return;
-  const blob = new Blob([JSON.stringify(body, null, 2)], { type: "application/json" });
-  const { error } = await admin.storage.from(BUCKET).upload(FILE, blob, {
-    upsert: true,
-    contentType: "application/json",
-  });
-  if (error) console.warn("[referral-store] upload:", error.message);
+function getMemoryStore(): ReferralStore {
+  if (!memoryStore) memoryStore = readLocalFile() ?? emptyStore();
+  return memoryStore;
+}
+
+function saveMemoryStore(store: ReferralStore): void {
+  memoryStore = { ...store, updatedAt: new Date().toISOString() };
+  if (isLocalOnly()) tryWriteLocalFile(memoryStore);
+}
+
+function mapInvite(row: {
+  id: string;
+  inviterId: string;
+  inviteCode: string;
+  createdAt: Date;
+}): ReferralInvite {
+  return {
+    id: row.id,
+    inviter_id: row.inviterId,
+    invite_code: row.inviteCode,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function mapRecord(row: {
+  id: string;
+  inviterId: string;
+  inviteeId: string;
+  paymentId: string | null;
+  status: string;
+  rewardDays: number;
+  deviceId: string | null;
+  flaggedReason: string | null;
+  createdAt: Date;
+}): ReferralRecord {
+  const status = (row.status === "success" || row.status === "flagged" ? row.status : "pending") as ReferralRecordStatus;
+  return {
+    id: row.id,
+    inviter_id: row.inviterId,
+    invitee_id: row.inviteeId,
+    payment_id: row.paymentId,
+    status,
+    reward_days: row.rewardDays,
+    device_id: row.deviceId,
+    flagged_reason: row.flaggedReason,
+    created_at: row.createdAt.toISOString(),
+  };
 }
 
 export function normalizeInviteCode(code: string): string {
@@ -149,7 +158,6 @@ export function normalizeInviteCode(code: string): string {
 const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function generateInviteCode(seed?: string): string {
-  // Mix seed entropy with random bytes; always emit 8 unambiguous chars.
   const hash = createHash("sha1")
     .update(seed ?? "")
     .update(randomBytes(8))
@@ -164,27 +172,57 @@ export function generateInviteCode(seed?: string): string {
 export async function getInviteByCode(code: string): Promise<ReferralInvite | null> {
   const normalized = normalizeInviteCode(code);
   if (!normalized) return null;
-  const store = await readStore();
+  if (shouldUsePrisma() && prisma) {
+    const row = await prisma.referralInvite.findUnique({ where: { inviteCode: normalized } });
+    return row ? mapInvite(row) : null;
+  }
+  const store = getMemoryStore();
   return store.invites.find((i) => i.invite_code === normalized) ?? null;
 }
 
 export async function getInviteByInviter(inviterId: string): Promise<ReferralInvite | null> {
-  const store = await readStore();
+  if (shouldUsePrisma() && prisma) {
+    const row = await prisma.referralInvite.findFirst({ where: { inviterId } });
+    return row ? mapInvite(row) : null;
+  }
+  const store = getMemoryStore();
   return store.invites.find((i) => i.inviter_id === inviterId) ?? null;
 }
 
-export async function ensureReferralInvite(inviterId: string, preferredCode?: string): Promise<ReferralInvite> {
-  const store = await readStore();
-  const existing = store.invites.find((i) => i.inviter_id === inviterId);
+export async function ensureReferralInvite(
+  inviterId: string,
+  preferredCode?: string
+): Promise<ReferralInvite> {
+  const existing = await getInviteByInviter(inviterId);
   if (existing) return existing;
 
   const preferred = preferredCode ? normalizeInviteCode(preferredCode) : "";
-  // Prefer an existing code from metadata even if it contains legacy ambiguous chars.
+
+  if (shouldUsePrisma() && prisma) {
+    const preferredOk =
+      preferred.length >= 6 &&
+      preferred.length <= 12 &&
+      !(await prisma.referralInvite.findUnique({ where: { inviteCode: preferred } }));
+
+    let code = preferredOk ? preferred : generateInviteCode(inviterId);
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const clash = await prisma.referralInvite.findUnique({ where: { inviteCode: code } });
+      if (!clash) {
+        const row = await prisma.referralInvite.create({
+          data: { inviterId, inviteCode: code },
+        });
+        return mapInvite(row);
+      }
+      code = generateInviteCode(`${inviterId}:${attempt}`);
+    }
+    throw new Error("INVITE_CODE_CONFLICT");
+  }
+
+  const store = getMemoryStore();
   const preferredOk =
     preferred.length >= 6 &&
     preferred.length <= 12 &&
     !store.invites.some((i) => i.invite_code === preferred);
-
   let code = preferredOk ? preferred : generateInviteCode(inviterId);
   let attempt = 0;
   while (store.invites.some((i) => i.invite_code === code) && attempt < 16) {
@@ -194,7 +232,6 @@ export async function ensureReferralInvite(inviterId: string, preferredCode?: st
   if (store.invites.some((i) => i.invite_code === code)) {
     throw new Error("INVITE_CODE_CONFLICT");
   }
-
   const invite: ReferralInvite = {
     id: id("rinv"),
     inviter_id: inviterId,
@@ -202,7 +239,7 @@ export async function ensureReferralInvite(inviterId: string, preferredCode?: st
     created_at: new Date().toISOString(),
   };
   store.invites.push(invite);
-  await writeStore(store);
+  saveMemoryStore(store);
   return invite;
 }
 
@@ -210,7 +247,17 @@ export async function listReferralRecords(filter?: {
   inviterId?: string;
   inviteeId?: string;
 }): Promise<ReferralRecord[]> {
-  const store = await readStore();
+  if (shouldUsePrisma() && prisma) {
+    const rows = await prisma.referralRecord.findMany({
+      where: {
+        ...(filter?.inviterId ? { inviterId: filter.inviterId } : {}),
+        ...(filter?.inviteeId ? { inviteeId: filter.inviteeId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(mapRecord);
+  }
+  const store = getMemoryStore();
   return store.records
     .filter((r) => (filter?.inviterId ? r.inviter_id === filter.inviterId : true))
     .filter((r) => (filter?.inviteeId ? r.invitee_id === filter.inviteeId : true))
@@ -231,7 +278,10 @@ export async function getReferralStats(inviterId: string): Promise<{
   };
 }
 
-export async function recordDeviceRegistration(deviceId: string | null | undefined, userId: string): Promise<{
+export async function recordDeviceRegistration(
+  deviceId: string | null | undefined,
+  userId: string
+): Promise<{
   flagged: boolean;
   reason: string | null;
   recentCount: number;
@@ -239,7 +289,22 @@ export async function recordDeviceRegistration(deviceId: string | null | undefin
   if (!deviceId || deviceId.length < 8) {
     return { flagged: false, reason: null, recentCount: 0 };
   }
-  const store = await readStore();
+
+  if (shouldUsePrisma() && prisma) {
+    const since = new Date(Date.now() - REFERRAL_DEVICE_WINDOW_MS);
+    const recentCount = await prisma.referralRecord.count({
+      where: { deviceId, createdAt: { gte: since } },
+    });
+    // +1 for the registration about to happen
+    const flagged = recentCount + 1 > REFERRAL_DEVICE_MAX_REGISTRATIONS;
+    return {
+      flagged,
+      reason: flagged ? "同设备短时间大量注册" : null,
+      recentCount: recentCount + 1,
+    };
+  }
+
+  const store = getMemoryStore();
   const now = Date.now();
   store.deviceEvents = (store.deviceEvents ?? []).filter(
     (e) => now - new Date(e.at).getTime() < REFERRAL_DEVICE_WINDOW_MS * 24
@@ -250,7 +315,7 @@ export async function recordDeviceRegistration(deviceId: string | null | undefin
       e.device_id === deviceId && now - new Date(e.at).getTime() <= REFERRAL_DEVICE_WINDOW_MS
   );
   const flagged = recent.length > REFERRAL_DEVICE_MAX_REGISTRATIONS;
-  await writeStore(store);
+  saveMemoryStore(store);
   return {
     flagged,
     reason: flagged ? "同设备短时间大量注册" : null,
@@ -269,15 +334,36 @@ export async function bindReferralOnRegister(input: {
     return { ok: false, error: "不能邀请自己" };
   }
 
-  const store = await readStore();
-  if (store.records.some((r) => r.invitee_id === input.inviteeId)) {
-    return { ok: false, error: "该账户已绑定邀请关系" };
-  }
+  const existing = await listReferralRecords({ inviteeId: input.inviteeId });
+  if (existing.length) return { ok: false, error: "该账户已绑定邀请关系" };
 
   const device = await recordDeviceRegistration(input.deviceId, input.inviteeId);
-  // re-read after device write
-  const latest = await readStore();
   const status: ReferralRecordStatus = device.flagged ? "flagged" : "pending";
+
+  if (shouldUsePrisma() && prisma) {
+    try {
+      const row = await prisma.referralRecord.create({
+        data: {
+          inviterId: input.inviterId,
+          inviteeId: input.inviteeId,
+          paymentId: null,
+          status,
+          rewardDays: REFERRAL_REWARD_DAYS,
+          deviceId: input.deviceId ?? null,
+          flaggedReason: device.reason,
+        },
+      });
+      return { ok: true, record: mapRecord(row) };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/unique|duplicate/i.test(msg)) {
+        return { ok: false, error: "该账户已绑定邀请关系" };
+      }
+      throw err;
+    }
+  }
+
+  const store = getMemoryStore();
   const record: ReferralRecord = {
     id: id("rrec"),
     inviter_id: input.inviterId,
@@ -291,17 +377,16 @@ export async function bindReferralOnRegister(input: {
     inviter_email: input.inviterEmail ?? null,
     invitee_email: input.inviteeEmail.toLowerCase(),
   };
-  latest.records.push(record);
-  await writeStore(latest);
+  store.records.push(record);
+  saveMemoryStore(store);
   return { ok: true, record };
 }
 
 export async function findPendingReferralForInvitee(
   inviteeId: string
 ): Promise<ReferralRecord | null> {
-  const store = await readStore();
-  const record = store.records.find((r) => r.invitee_id === inviteeId) ?? null;
-  return record;
+  const rows = await listReferralRecords({ inviteeId });
+  return rows[0] ?? null;
 }
 
 export async function finalizeReferralReward(input: {
@@ -312,12 +397,41 @@ export async function finalizeReferralReward(input: {
   skipped?: string;
   record?: ReferralRecord;
 }> {
-  const store = await readStore();
+  if (shouldUsePrisma() && prisma) {
+    const paid = await prisma.referralRecord.findFirst({
+      where: { paymentId: input.paymentId, status: "success" },
+    });
+    if (paid) return { applied: false, skipped: "同一付款记录已奖励", record: mapRecord(paid) };
 
+    const row = await prisma.referralRecord.findUnique({ where: { inviteeId: input.inviteeId } });
+    if (!row) return { applied: false, skipped: "无邀请关系" };
+    if (row.status === "success") return { applied: false, skipped: "已发放奖励", record: mapRecord(row) };
+    if (row.status === "flagged") {
+      return {
+        applied: false,
+        skipped: row.flaggedReason ?? "邀请关系已标记异常",
+        record: mapRecord(row),
+      };
+    }
+    if (row.inviterId === input.inviteeId) {
+      return { applied: false, skipped: "不能邀请自己", record: mapRecord(row) };
+    }
+
+    const updated = await prisma.referralRecord.update({
+      where: { id: row.id },
+      data: {
+        paymentId: input.paymentId,
+        status: "success",
+        rewardDays: REFERRAL_REWARD_DAYS,
+      },
+    });
+    return { applied: true, record: mapRecord(updated) };
+  }
+
+  const store = getMemoryStore();
   if (store.records.some((r) => r.payment_id === input.paymentId && r.status === "success")) {
     return { applied: false, skipped: "同一付款记录已奖励" };
   }
-
   const record = store.records.find((r) => r.invitee_id === input.inviteeId);
   if (!record) return { applied: false, skipped: "无邀请关系" };
   if (record.status === "success") return { applied: false, skipped: "已发放奖励", record };
@@ -327,11 +441,10 @@ export async function finalizeReferralReward(input: {
   if (record.inviter_id === input.inviteeId) {
     return { applied: false, skipped: "不能邀请自己", record };
   }
-
   record.payment_id = input.paymentId;
   record.status = "success";
   record.reward_days = REFERRAL_REWARD_DAYS;
-  await writeStore(store);
+  saveMemoryStore(store);
   return { applied: true, record };
 }
 
@@ -373,4 +486,9 @@ export async function seedReferralDemo(input: {
     return { invite, record: existing };
   }
   return { invite, record: bound.record };
+}
+
+/** Test helper: reset in-memory store. */
+export function __resetReferralMemoryForTests(): void {
+  memoryStore = emptyStore();
 }

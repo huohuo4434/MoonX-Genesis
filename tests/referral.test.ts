@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import test from "node:test";
 import {
   REFERRAL_REWARD_DAYS,
@@ -9,22 +7,12 @@ import {
   finalizeReferralReward,
   normalizeInviteCode,
   recordDeviceRegistration,
+  __resetReferralMemoryForTests,
 } from "../lib/referral/store";
-
-const dataDir = resolve(process.cwd(), "data");
-const storeFile = resolve(dataDir, "referral-store.json");
 
 function resetStore() {
   process.env.MOONX_REFERRAL_LOCAL_ONLY = "1";
-  mkdirSync(dataDir, { recursive: true });
-  writeFileSync(
-    storeFile,
-    JSON.stringify(
-      { version: 1, updatedAt: new Date().toISOString(), invites: [], records: [], deviceEvents: [] },
-      null,
-      2
-    )
-  );
+  __resetReferralMemoryForTests();
 }
 
 test("normalize invite code", () => {
@@ -90,12 +78,4 @@ test("device burst flags registration", async () => {
     paymentId: "pay-burst",
   });
   assert.equal(reward.applied, false);
-});
-
-test("cleanup referral test store", () => {
-  try {
-    rmSync(storeFile, { force: true });
-  } catch {
-    /* ignore */
-  }
 });

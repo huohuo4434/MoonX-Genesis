@@ -2,8 +2,6 @@
  * Production emergency fix coverage (Asia/Shanghai, no hardcoded “today”).
  */
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, test } from "node:test";
 import {
   checkTodayPredictionAccess,
@@ -23,6 +21,7 @@ import {
   ensureReferralInvite,
   generateInviteCode,
   normalizeInviteCode,
+  __resetReferralMemoryForTests,
 } from "../lib/referral/store.ts";
 import { siteBaseUrl } from "../lib/referral/site-url.ts";
 import type { DailyForecastRecord, DailyVerificationResult } from "../types/daily-accuracy.ts";
@@ -32,20 +31,9 @@ function atBeijing(bjHour: number, bjMinute = 0, day = 29): Date {
   return new Date(Date.UTC(2026, 6, day, utcHour, bjMinute, 0));
 }
 
-const dataDir = resolve(process.cwd(), "data");
-const storeFile = resolve(dataDir, "referral-store.json");
-
 function resetReferralStore() {
   process.env.MOONX_REFERRAL_LOCAL_ONLY = "1";
-  mkdirSync(dataDir, { recursive: true });
-  writeFileSync(
-    storeFile,
-    JSON.stringify(
-      { version: 1, updatedAt: new Date().toISOString(), invites: [], records: [], deviceEvents: [] },
-      null,
-      2
-    )
-  );
+  __resetReferralMemoryForTests();
 }
 
 describe("emergency: today date / copy / access", () => {
@@ -297,15 +285,7 @@ describe("emergency: session refresh contract", () => {
     );
   });
 
-  test("cleanup referral store file", () => {
-    try {
-      // keep store readable for other referral tests — only wipe if we created junk codes
-      const raw = readFileSync(storeFile, "utf8");
-      if (raw.includes("member-stable-1")) {
-        rmSync(storeFile, { force: true });
-      }
-    } catch {
-      /* ignore */
-    }
+  test("cleanup referral memory", () => {
+    __resetReferralMemoryForTests();
   });
 });

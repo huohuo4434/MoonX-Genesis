@@ -1,11 +1,12 @@
 /** Public methodology module definitions (admin-overridable). */
 
 export type MethodologyModuleId =
-  | "ai_quant"
   | "liuyao"
+  | "qimen"
   | "market_structure"
-  | "wave"
   | "macro_flows"
+  | "wave"
+  | "ai_quant"
   | "analyst";
 
 export type MethodologyModule = {
@@ -19,8 +20,7 @@ export type MethodologyModule = {
   summaryZh: string;
   summaryEn: string;
   /**
-   * Public weight description — ranges or “动态调整”, never invented fixed %.
-   * Leave empty to fall back to “根据历史验证动态调整”.
+   * Public importance label — 核心 / 高 / 中高 / 辅助.
    */
   weightRangeZh: string;
   weightRangeEn: string;

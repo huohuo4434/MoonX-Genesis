@@ -77,11 +77,10 @@ model WavePrediction {
 
 model ReferralInvite {
   id         String   @id @default(cuid())
-  inviterId  String   @map("inviter_id")
+  inviterId  String   @unique @map("inviter_id")
   inviteCode String   @unique @map("invite_code")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  @@index([inviterId])
   @@map("ReferralInvite")
 }
 

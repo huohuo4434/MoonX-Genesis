@@ -3,9 +3,9 @@
 export type WeeklyOverallDirection =
   | "上涨"
   | "下跌"
+  | "震荡"
   | "震荡上涨"
   | "震荡下跌"
-  | "区间震荡"
   | "先涨后跌"
   | "先跌后涨"
   | "探底回升"
@@ -31,6 +31,8 @@ export type WeeklyAnalysisRecord = {
   assetId: string;
   assetName: string;
   symbol: string;
+  /** Public display code (e.g. SHCOMP, CL). */
+  displaySymbol?: string;
   weekStart: string;
   weekEnd: string;
   overallDirection: WeeklyOverallDirection;
@@ -43,6 +45,8 @@ export type WeeklyAnalysisRecord = {
   keyResistance?: string[];
   invalidation: string;
   confirmation?: string;
+  catalysts?: string[];
+  risks?: string[];
   priceSnapshot?: import("@/lib/market-data/price-levels").ForecastPriceSnapshot;
   priceDataSourceLabel?: string;
   priceSnapshotAtLabel?: string;
@@ -65,6 +69,7 @@ export type WeeklyAnalysisTeaser = {
   assetId: string;
   assetName: string;
   symbol: string;
+  displaySymbol?: string;
   weekStart: string;
   weekEnd: string;
   status: WeeklyAnalysisStatus;
@@ -83,7 +88,20 @@ export type WeeklyAnalysisPublicSummary = {
   publishedAtLabel: string;
   lastUpdatedLabel: string;
   publishedCount: number;
+  /** Always 7 for core coverage slots. */
+  coverageCount: number;
   assetNames: string[];
   teasers: WeeklyAnalysisTeaser[];
   nextPublishHint: string;
 };
+
+/** Slot for member page — published analysis or empty placeholder. */
+export type WeeklyMarketSlot =
+  | { kind: "published"; analysis: WeeklyAnalysisMemberView }
+  | {
+      kind: "unpublished";
+      assetId: string;
+      assetName: string;
+      symbol: string;
+      displaySymbol: string;
+    };

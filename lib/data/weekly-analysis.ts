@@ -1,6 +1,7 @@
 import {
   ALL_WEEKLY_ANALYSES,
   PUBLISHED_WEEKLY_ANALYSES,
+  WEEKLY_CORE_MARKETS,
 } from "@/lib/data/published-weekly-analysis-20260727";
 import { applyWeeklyPriceOverlay } from "@/lib/data/apply-price-overlays";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
@@ -9,7 +10,10 @@ import type {
   WeeklyAnalysisPublicSummary,
   WeeklyAnalysisRecord,
   WeeklyAnalysisTeaser,
+  WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
+
+export { WEEKLY_CORE_MARKETS };
 
 export function listAllWeeklyAnalyses(): WeeklyAnalysisRecord[] {
   return ALL_WEEKLY_ANALYSES.map(applyWeeklyPriceOverlay);
@@ -25,6 +29,7 @@ export function toWeeklyTeaser(r: WeeklyAnalysisRecord): WeeklyAnalysisTeaser {
     assetId: r.assetId,
     assetName: r.assetName,
     symbol: r.symbol,
+    displaySymbol: r.displaySymbol ?? r.symbol,
     weekStart: r.weekStart,
     weekEnd: r.weekEnd,
     status: r.status,
@@ -40,6 +45,7 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
     assetId: r.assetId,
     assetName: r.assetName,
     symbol: r.symbol,
+    displaySymbol: r.displaySymbol ?? r.symbol,
     weekStart: r.weekStart,
     weekEnd: r.weekEnd,
     overallDirection: r.overallDirection,
@@ -52,6 +58,8 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
     keyResistance: r.keyResistance,
     invalidation: r.invalidation,
     confirmation: r.confirmation,
+    catalysts: r.catalysts,
+    risks: r.risks,
     priceSnapshot: r.priceSnapshot,
     priceDataSourceLabel: r.priceDataSourceLabel,
     priceSnapshotAtLabel: r.priceSnapshotAtLabel,
@@ -66,8 +74,29 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
   };
 }
 
+/** Always 7 slots in canonical order — missing markets show as unpublished. */
+export function buildWeeklyMarketSlots(): WeeklyMarketSlot[] {
+  const byAsset = new Map(
+    listPublishedWeeklyAnalyses().map((r) => [r.assetId, toWeeklyMemberView(r)])
+  );
+  return WEEKLY_CORE_MARKETS.map((m) => {
+    const analysis = byAsset.get(m.assetId);
+    if (analysis) return { kind: "published" as const, analysis };
+    return {
+      kind: "unpublished" as const,
+      assetId: m.assetId,
+      assetName: m.assetName,
+      symbol: m.symbol,
+      displaySymbol: m.displaySymbol,
+    };
+  });
+}
+
 export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
-  const published = listPublishedWeeklyAnalyses();
+  const slots = buildWeeklyMarketSlots();
+  const published = slots
+    .filter((s): s is Extract<WeeklyMarketSlot, { kind: "published" }> => s.kind === "published")
+    .map((s) => s.analysis);
   const first = published[0];
   const weekStart = first?.weekStart ?? "2026-07-27";
   const weekEnd = first?.weekEnd ?? "2026-08-02";
@@ -82,6 +111,37 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
     .sort()
     .at(0);
 
+  const teasers: WeeklyAnalysisTeaser[] = slots.map((s) => {
+    if (s.kind === "published") {
+      return {
+        id: s.analysis.id,
+        assetId: s.analysis.assetId,
+        assetName: s.analysis.assetName,
+        symbol: s.analysis.symbol,
+        displaySymbol: s.analysis.displaySymbol ?? s.analysis.symbol,
+        weekStart: s.analysis.weekStart,
+        weekEnd: s.analysis.weekEnd,
+        status: s.analysis.status,
+        publishedAt: s.analysis.publishedAt,
+        updatedAt: s.analysis.updatedAt,
+        isReady: true,
+      };
+    }
+    return {
+      id: `WEEKLY-EMPTY-${s.assetId}`,
+      assetId: s.assetId,
+      assetName: s.assetName,
+      symbol: s.symbol,
+      displaySymbol: s.displaySymbol,
+      weekStart,
+      weekEnd,
+      status: "draft",
+      publishedAt: "",
+      updatedAt: "",
+      isReady: false,
+    };
+  });
+
   return {
     weekStart,
     weekEnd,
@@ -89,8 +149,9 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
     publishedAtLabel: publishedAt ? formatDateTimeChina(publishedAt) : "—",
     lastUpdatedLabel: updated ? formatDateTimeChina(updated) : "—",
     publishedCount: published.length,
-    assetNames: published.map((r) => r.assetName),
-    teasers: published.map(toWeeklyTeaser),
+    coverageCount: WEEKLY_CORE_MARKETS.length,
+    assetNames: WEEKLY_CORE_MARKETS.map((m) => m.assetName),
+    teasers,
     nextPublishHint: "下一次固定发布时间：每周日 20:00（北京时间）",
   };
 }

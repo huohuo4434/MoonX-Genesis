@@ -99,15 +99,15 @@ export function wtiBatchReady(now = new Date()): boolean {
   return formalBatchReady(now);
 }
 
-export function sessionLabelForBatch(_batch?: PublishBatch): string {
+export function sessionLabelForBatch(): string {
   return "下一实际交易日正式预测批次（全市场统一）";
 }
 
-export function batchForAssetKey(_key: string): PublishBatch {
+export function batchForAssetKey(): PublishBatch {
   return "formal";
 }
 
-export function nextUpdateLabelForSymbol(_symbol?: string): string {
+export function nextUpdateLabelForSymbol(): string {
   return FORMAL_PUBLISH_LABEL;
 }
 

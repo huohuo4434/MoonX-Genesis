@@ -23,5 +23,5 @@ export default async function MemberWeeklyRoute() {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
 
-  return <MemberWeeklyFullPage analyses={payload.analyses} summary={payload.summary} />;
+  return <MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} />;
 }

@@ -179,17 +179,17 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             ← 返回重点关注
           </Link>
           <Heading as="h1" size="h2" className="mt-3 text-white">
-            {title}
+            {isAsteroid ? "Asteroid（太空狗）" : title}
           </Heading>
           <p className="mt-2 font-mono text-body-sm text-white/50">
-            {a.nameEn}
-            {a.aliasZh && a.aliasZh !== a.nameZh ? ` · ${a.aliasZh}` : ""} · {a.symbol}
-            {a.exchange ? ` · ${a.exchange}` : ""}
+            {isAsteroid
+              ? "Asteroid · CRYPTO"
+              : `${a.nameEn}${a.aliasZh && a.aliasZh !== a.nameZh ? ` · ${a.aliasZh}` : ""} · ${a.symbol}${a.exchange ? ` · ${a.exchange}` : ""}`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="outline">评级 {a.rating}</Badge>
-            <Badge variant="outline">风险 {a.riskLevel}</Badge>
-            <Badge variant="outline">{a.assetType}</Badge>
+            <Badge variant="outline">资产类型：{a.assetType}</Badge>
+            <Badge variant="outline">MOOX评级：{a.rating}</Badge>
+            <Badge variant="outline">风险等级：{a.riskLevel}</Badge>
             <Badge variant="outline">{a.researchStatusZh}</Badge>
           </div>
           <p className="mt-2 text-caption text-white/40">
@@ -201,12 +201,20 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">基本面介绍</h2>
           <p className="text-body-sm leading-relaxed text-white/75">{a.summaryZh}</p>
           {mcap ? (
-            <p className="text-body-sm text-white/65">
-              市值参考：{mcap.labelZh}
-              {mcap.updatedAt ? `（更新于 ${formatDateChina(mcap.updatedAt)}）` : ""}
-            </p>
+            <div className="space-y-1 text-body-sm text-white/65">
+              <p>市值：{mcap.labelZh}</p>
+              {mcap.updatedAt ? (
+                <p className="text-caption text-white/45">
+                  市值更新时间：{formatDateTimeChina(mcap.updatedAt)}
+                </p>
+              ) : null}
+            </div>
           ) : null}
-          {a.contractPendingAdminConfirm ? (
+          {a.contractAddress ? (
+            <p className="break-all text-body-sm text-white/65">
+              合约地址：<span className="font-mono text-caption">{a.contractAddress}</span>
+            </p>
+          ) : a.contractPendingAdminConfirm ? (
             <p className="text-caption text-amber-200/80">合约信息待管理员确认</p>
           ) : null}
         </section>
