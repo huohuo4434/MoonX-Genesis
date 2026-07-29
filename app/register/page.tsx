@@ -7,7 +7,7 @@ import {
   isSupabaseAuthConfigured,
 } from "@/lib/feature-flags";
 
-export const metadata = { title: "注册 | MoonX" };
+export const metadata = { title: "注册 | MOOX" };
 
 export const dynamic = "force-dynamic";
 

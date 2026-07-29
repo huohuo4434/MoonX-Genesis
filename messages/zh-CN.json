@@ -648,16 +648,16 @@
     "latestRevision": "最新修正"
   },
   "referral": {
-    "title": "邀请好友加入 MoonX",
+    "title": "我的邀请链接",
     "subtitle": "双方各赠送 7 天会员时间。成功开通会员后自动到账。",
     "loading": "正在加载邀请信息…",
     "myCode": "我的邀请码",
     "myLink": "我的邀请链接",
     "copy": "复制",
     "copyLink": "复制链接",
-    "copied": "已复制",
-    "successCount": "成功邀请",
-    "rewardTotal": "累计获得",
+    "copied": "邀请链接已复制",
+    "successCount": "成功邀请人数",
+    "rewardTotal": "累计奖励天数",
     "people": "人",
     "days": "天",
     "inviteCodeOptional": "邀请码（可选）"

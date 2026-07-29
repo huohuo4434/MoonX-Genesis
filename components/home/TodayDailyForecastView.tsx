@@ -41,28 +41,30 @@ function ProbabilityBars({ up, flat, down }: { up: number; flat: number; down: n
 function verifyLabel(f: DailyForecast): string {
   if (f.status === "verified") return "已验证";
   if (f.status === "expired") return "已过期";
-  return "待验证";
+  return "待收盘验证";
 }
 
 function lockLabel(accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08"): string {
   if (accessDenied === "LOGIN_REQUIRED") return "锁定（需登录）";
   if (accessDenied === "WAIT_UNTIL_08") return "锁定（08:00开放）";
-  return "已解锁";
+  return "已锁定";
 }
 
 function MetaRow({
   forecastDate,
   publishedAt,
+  version,
   lockStatus,
   verifyStatus,
 }: {
   forecastDate?: string;
   publishedAt?: string;
+  version?: string;
   lockStatus: string;
   verifyStatus: string;
 }) {
   return (
-    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-5">
       <div>
         <p className="text-caption text-foreground-tertiary">预测日期</p>
         <p className="text-body-sm text-foreground">
@@ -72,11 +74,15 @@ function MetaRow({
       <div>
         <p className="text-caption text-foreground-tertiary">发布时间</p>
         <p className="text-body-sm text-foreground">
-          {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
+          {publishedAt ? `${formatDateTimeChina(publishedAt)}（北京时间）` : "—"}
         </p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">锁定状态</p>
+        <p className="text-caption text-foreground-tertiary">版本</p>
+        <p className="text-body-sm text-foreground font-mono">{version ?? "V1"}</p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">状态</p>
         <p className="text-body-sm text-foreground">{lockStatus}</p>
       </div>
       <div>
@@ -134,7 +140,11 @@ export function TodayDailyForecastView({
           ? "已验证"
           : readyForecasts.some((f) => f.status === "expired")
             ? "部分已过期"
-            : "待验证";
+            : "待收盘验证";
+  const sectionVersion =
+    readyForecasts.length > 0
+      ? `V${Math.max(...readyForecasts.map((f) => f.version || 1), 1)}`
+      : "V1";
 
   const autoSummary =
     readyForecasts.length === 0
@@ -151,6 +161,7 @@ export function TodayDailyForecastView({
         <MetaRow
           forecastDate={sectionDate}
           publishedAt={earliestPublish}
+          version={sectionVersion}
           lockStatus={lockLabel(accessDenied)}
           verifyStatus={sectionVerify}
         />
@@ -240,8 +251,8 @@ export function TodayDailyForecastView({
                     <div className="grid grid-cols-2 gap-2 text-caption text-foreground-tertiary">
                       <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
                       <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
-                      <p>版本号：v{f.version ?? 1}</p>
-                      <p>锁定状态：已解锁</p>
+                      <p>版本号：V{f.version ?? 1}</p>
+                      <p>状态：已锁定</p>
                       <p>验证状态：{verifyLabel(f)}</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />

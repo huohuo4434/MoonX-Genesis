@@ -15,7 +15,10 @@ import {
   isHumanPublishedForecast,
   toTeaser,
 } from "@/lib/data/daily-forecasts";
-import { getTomorrowForecastAccessPayload } from "@/lib/prediction-access-server";
+import {
+  getTomorrowForecastAccessPayload,
+  loadTomorrowForecastRows,
+} from "@/lib/prediction-access-server";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, DailyForecastTeaser, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
@@ -57,9 +60,13 @@ function buildSummary(ready: DailyForecast[], now: Date): TomorrowForecastPublic
 
 export async function getTomorrowSectionPayload(now = new Date()): Promise<TomorrowSectionPayload> {
   noStore();
-  const payload = await getTomorrowForecastAccessPayload(now);
-  const ready = payload.allowed ? payload.forecasts.filter(isHumanPublishedForecast) : [];
-  const summary = buildSummary(ready, now);
+  const [payload, nextBatch] = await Promise.all([
+    getTomorrowForecastAccessPayload(now),
+    loadTomorrowForecastRows(now),
+  ]);
+  // Teaser metadata is always based on next formal batch (no direction/body leak via toTeaser).
+  const readyMeta = nextBatch.filter(isHumanPublishedForecast);
+  const summary = buildSummary(readyMeta, now);
 
   if (!payload.allowed) {
     return {
@@ -71,9 +78,10 @@ export async function getTomorrowSectionPayload(now = new Date()): Promise<Tomor
     };
   }
 
+  const ready = payload.forecasts.filter(isHumanPublishedForecast);
   return {
     mode: "member",
-    summary,
+    summary: buildSummary(ready.length > 0 ? ready : readyMeta, now),
     forecasts: ready,
     isPreviewGate: false,
     detailHref: "/member/tomorrow",
@@ -119,7 +127,7 @@ export async function getMemberTomorrowPagePayload(now = new Date()): Promise<Me
   }
 
   const ready = section.forecasts.filter(isHumanPublishedForecast);
-  const targetDate = ready[0]?.forecastForDate ?? getBeijingTomorrowKey(now);
+  const targetDate = ready[0]?.forecastForDate ?? section.summary.nextDateIso ?? getBeijingTomorrowKey(now);
 
   if (ready.length === 0) {
     return {

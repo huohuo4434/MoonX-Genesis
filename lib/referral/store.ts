@@ -102,6 +102,10 @@ function writeLocal(store: ReferralStore): void {
 }
 
 async function readStore(): Promise<ReferralStore> {
+  // Unit tests and local scripts can force the JSON file to avoid remote races.
+  if (process.env.MOONX_REFERRAL_LOCAL_ONLY === "1") {
+    return readLocal() ?? emptyStore();
+  }
   try {
     const admin = getStorageAdmin();
     if (admin) {
@@ -126,6 +130,7 @@ async function readStore(): Promise<ReferralStore> {
 async function writeStore(store: ReferralStore): Promise<void> {
   const body: ReferralStore = { ...store, updatedAt: new Date().toISOString() };
   writeLocal(body);
+  if (process.env.MOONX_REFERRAL_LOCAL_ONLY === "1") return;
   const admin = getStorageAdmin();
   if (!admin) return;
   const blob = new Blob([JSON.stringify(body, null, 2)], { type: "application/json" });
@@ -140,9 +145,20 @@ export function normalizeInviteCode(code: string): string {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export function generateInviteCode(seed: string): string {
-  const hash = createHash("sha1").update(seed).digest("base64url").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return (hash.slice(0, 6) || "MOONX1").padEnd(6, "X");
+/** Exclude O/0/I/1 to avoid ambiguous invite codes. */
+const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function generateInviteCode(seed?: string): string {
+  // Mix seed entropy with random bytes; always emit 8 unambiguous chars.
+  const hash = createHash("sha1")
+    .update(seed ?? "")
+    .update(randomBytes(8))
+    .digest();
+  let out = "";
+  for (let i = 0; i < 8; i += 1) {
+    out += INVITE_ALPHABET[hash[i]! % INVITE_ALPHABET.length]!;
+  }
+  return out;
 }
 
 export async function getInviteByCode(code: string): Promise<ReferralInvite | null> {
@@ -162,12 +178,21 @@ export async function ensureReferralInvite(inviterId: string, preferredCode?: st
   const existing = store.invites.find((i) => i.inviter_id === inviterId);
   if (existing) return existing;
 
-  let code = preferredCode ? normalizeInviteCode(preferredCode) : generateInviteCode(inviterId);
-  if (!code) code = generateInviteCode(inviterId);
+  const preferred = preferredCode ? normalizeInviteCode(preferredCode) : "";
+  // Prefer an existing code from metadata even if it contains legacy ambiguous chars.
+  const preferredOk =
+    preferred.length >= 6 &&
+    preferred.length <= 12 &&
+    !store.invites.some((i) => i.invite_code === preferred);
+
+  let code = preferredOk ? preferred : generateInviteCode(inviterId);
   let attempt = 0;
-  while (store.invites.some((i) => i.invite_code === code) && attempt < 8) {
-    code = generateInviteCode(`${inviterId}:${attempt}:${randomBytes(2).toString("hex")}`);
+  while (store.invites.some((i) => i.invite_code === code) && attempt < 16) {
+    code = generateInviteCode(`${inviterId}:${attempt}`);
     attempt += 1;
+  }
+  if (store.invites.some((i) => i.invite_code === code)) {
+    throw new Error("INVITE_CODE_CONFLICT");
   }
 
   const invite: ReferralInvite = {

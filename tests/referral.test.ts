@@ -15,6 +15,7 @@ const dataDir = resolve(process.cwd(), "data");
 const storeFile = resolve(dataDir, "referral-store.json");
 
 function resetStore() {
+  process.env.MOONX_REFERRAL_LOCAL_ONLY = "1";
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(
     storeFile,

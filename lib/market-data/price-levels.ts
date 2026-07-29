@@ -3,6 +3,11 @@
  * BTC uses Asia/Shanghai natural-day OHLC from hourly bars.
  */
 
+import {
+  quoteSanityFailure,
+  resolveCanonicalQuoteSymbol,
+} from "@/lib/market-data/quote-symbols";
+
 export type DailyAccuracyMarketLite = "CRYPTO" | "US" | "CN" | "HK" | "US_FUTURES";
 
 export type PriceLevelReason =
@@ -202,7 +207,12 @@ export async function fetchPreviousSessionOhlc(input: {
   recentBars: Array<{ date: string; open: number; high: number; low: number; close: number }>;
   dataSource: string;
 }> {
-  if (input.market === "CRYPTO" || input.quoteSymbol === "BTC-USD") {
+  const quoteSymbol = resolveCanonicalQuoteSymbol(
+    /HSTECH|3033|3032/i.test(input.quoteSymbol) ? "HSTECH" : "",
+    input.quoteSymbol
+  );
+
+  if (input.market === "CRYPTO" || quoteSymbol === "BTC-USD") {
     // previous Beijing natural day
     const d = new Date(`${input.asOfDate}T12:00:00+08:00`);
     d.setDate(d.getDate() - 1);
@@ -237,14 +247,14 @@ export async function fetchPreviousSessionOhlc(input: {
   const day = new Date(`${input.asOfDate}T12:00:00Z`);
   const period1 = Math.floor((day.getTime() - 40 * 864e5) / 1000);
   const period2 = Math.floor((day.getTime() + 864e5) / 1000);
-  const json = await fetchYahooChart(input.quoteSymbol, "1d", period1, period2);
+  const json = await fetchYahooChart(quoteSymbol, "1d", period1, period2);
   const result = json?.chart?.result?.[0];
   const ts: number[] = result?.timestamp ?? [];
   const quote = result?.indicators?.quote?.[0];
   const tz =
     result?.meta?.exchangeTimezoneName ||
     (input.market === "CN" || input.market === "HK" ? "Asia/Shanghai" : "America/New_York");
-  if (!ts.length || !quote) throw new Error(`日线为空：${input.quoteSymbol}`);
+  if (!ts.length || !quote) throw new Error(`日线为空：${quoteSymbol}`);
 
   const bars: Array<{ date: string; open: number; high: number; low: number; close: number }> = [];
   for (let i = 0; i < ts.length; i++) {
@@ -284,11 +294,22 @@ export async function fetchPreviousSessionOhlc(input: {
   if (!previous) {
     previous = bars.find((b) => b.date === input.asOfDate) ?? bars[0];
   }
-  if (!previous) throw new Error(`无上一交易日：${input.quoteSymbol} @ ${input.asOfDate}`);
+  if (!previous) throw new Error(`无上一交易日：${quoteSymbol} @ ${input.asOfDate}`);
+
+  const sanity = quoteSanityFailure({
+    symbol: /HSTECH/i.test(quoteSymbol) ? "HSTECH" : "",
+    quoteSymbol,
+    close: previous.close,
+    previousClose: before.length >= 2 ? before[before.length - 2]!.close : undefined,
+    high: previous.high,
+    low: previous.low,
+  });
+  if (sanity) throw new Error(sanity);
+
   const recentBars = before.length ? before.slice(-20) : bars.slice(0, 20);
 
   // WTI roll-gap heuristic
-  if (input.quoteSymbol === "CL=F" && before.length >= 2) {
+  if (quoteSymbol === "CL=F" && before.length >= 2) {
     const prev2 = before[before.length - 2]!;
     const gap = Math.abs(previous.open - prev2.close) / Math.max(prev2.close, 1e-6);
     if (gap > 0.08) {
@@ -296,7 +317,7 @@ export async function fetchPreviousSessionOhlc(input: {
     }
   }
 
-  return { previous, recentBars, dataSource: "yahoo-finance-1d" };
+  return { previous, recentBars, dataSource: `yahoo-finance-1d:${quoteSymbol}` };
 }
 
 export function buildPriceLevelTexts(input: {

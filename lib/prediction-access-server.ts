@@ -15,6 +15,7 @@ import {
 } from "@/lib/prediction-access";
 import { sortByDailyAssetOrder } from "@/lib/data/daily-asset-order";
 import {
+  applyTodayFacingCopy,
   getMemberTomorrowForecasts,
   getPublicTodayForecasts,
   isHumanPublishedForecast,
@@ -88,21 +89,31 @@ async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
     [...byAsset.values()]
       .filter(isHumanPublishedForecast)
       .filter((f) => f.forecastForDate === today)
-      .map(sanitizeForecastForClient)
+      .map((f) => applyTodayFacingCopy(sanitizeForecastForClient(f), now))
   );
 }
 
-async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
+/** Next formal batch after Beijing today — used by member + public teaser metadata. */
+export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
+  const today = getBeijingTodayKey(now);
   const { getStoreForecastsForTomorrow } = await import("@/lib/data/store-to-ui-forecasts");
   const storeTomorrow = await getStoreForecastsForTomorrow(now);
   const legacy = getMemberTomorrowForecasts(now);
   const byAsset = new Map<string, DailyForecast>();
-  for (const f of storeTomorrow) byAsset.set(f.assetId, f);
-  for (const f of legacy) {
-    if (isHumanPublishedForecast(f)) byAsset.set(f.assetId, f);
+  for (const f of storeTomorrow) {
+    if (f.forecastForDate > today) byAsset.set(f.assetId, f);
   }
+  for (const f of legacy) {
+    if (isHumanPublishedForecast(f) && f.forecastForDate > today) byAsset.set(f.assetId, f);
+  }
+  // Prefer earliest shared target date across sources
+  const dates = [...new Set([...byAsset.values()].map((f) => f.forecastForDate))].sort();
+  const nextDate = dates[0];
+  const rows = nextDate
+    ? [...byAsset.values()].filter((f) => f.forecastForDate === nextDate)
+    : [];
   return sortByDailyAssetOrder(
-    [...byAsset.values()].filter(isHumanPublishedForecast).map(sanitizeForecastForClient)
+    rows.filter(isHumanPublishedForecast).map(sanitizeForecastForClient)
   );
 }
 

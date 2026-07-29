@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button, Card, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 
@@ -18,21 +19,41 @@ export function AccountReferralPanel() {
   const [data, setData] = useState<InvitePayload | null>(null);
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [membershipRequired, setMembershipRequired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/referral", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((json) => {
+    fetch("/api/referral/me", { cache: "no-store" })
+      .then(async (r) => {
+        const json = await r.json();
         if (cancelled) return;
-        if (!json?.inviteCode) {
-          setError(locale.startsWith("zh") ? "暂无法加载邀请信息" : "Unable to load invite info");
+        if (r.status === 401) {
+          setError(locale.startsWith("zh") ? "请先登录" : "Please sign in");
           return;
         }
-        setData(json as InvitePayload);
+        if (json?.error === "MEMBERSHIP_REQUIRED" || r.status === 403) {
+          setMembershipRequired(true);
+          return;
+        }
+        if (!json?.ok || !json?.inviteCode) {
+          setError(
+            json?.message ||
+              (locale.startsWith("zh") ? "暂无法加载邀请信息" : "Unable to load invite info")
+          );
+          return;
+        }
+        setData({
+          inviteCode: json.inviteCode ?? json.referralCode,
+          inviteLink: json.inviteLink ?? json.referralUrl,
+          successCount: json.successCount ?? json.successfulInvites ?? 0,
+          rewardDaysTotal: json.rewardDaysTotal ?? json.rewardDays ?? 0,
+          rewardDaysPerSuccess: json.rewardDaysPerSuccess ?? 7,
+        });
       })
       .catch(() => {
-        if (!cancelled) setError(locale.startsWith("zh") ? "暂无法加载邀请信息" : "Unable to load invite info");
+        if (!cancelled) {
+          setError(locale.startsWith("zh") ? "暂无法加载邀请信息" : "Unable to load invite info");
+        }
       });
     return () => {
       cancelled = true;
@@ -64,11 +85,24 @@ export function AccountReferralPanel() {
         </Text>
       ) : null}
 
-      {!data ? (
+      {membershipRequired ? (
+        <div className="space-y-3">
+          <Text variant="body-sm" color="secondary">
+            开通会员后获得邀请链接
+          </Text>
+          <Button asChild size="sm">
+            <Link href="/pricing">开通会员</Link>
+          </Button>
+        </div>
+      ) : null}
+
+      {!membershipRequired && !error && !data ? (
         <Text variant="caption" color="tertiary">
           {t("referral.loading")}
         </Text>
-      ) : (
+      ) : null}
+
+      {data ? (
         <>
           <div>
             <Text variant="caption" color="tertiary" className="block">
@@ -98,7 +132,7 @@ export function AccountReferralPanel() {
               className="mt-2"
               onClick={() => void copy("link", data.inviteLink)}
             >
-              {copied === "link" ? t("referral.copied") : t("referral.copyLink")}
+              {copied === "link" ? "邀请链接已复制" : t("referral.copyLink")}
             </Button>
           </div>
 
@@ -121,7 +155,7 @@ export function AccountReferralPanel() {
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </Card>
   );
 }

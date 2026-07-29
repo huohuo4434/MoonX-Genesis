@@ -27,6 +27,16 @@ describe("HSTECH quote mapping", () => {
     assert.equal(err, "疑似标的或价格缩放错误");
   });
 
+  test("rejects abnormal day jump for index-scale closes", () => {
+    const err = quoteSanityFailure({
+      symbol: "HSTECH",
+      quoteSymbol: "HSTECH.HK",
+      close: 6200,
+      previousClose: 4700,
+    });
+    assert.equal(err, "收盘价相对前日偏差异常，需人工复核");
+  });
+
   test("accepts index-scale closes", () => {
     const err = quoteSanityFailure({
       symbol: "HSTECH",

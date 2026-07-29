@@ -6,8 +6,7 @@ import { getOrCreateMyInvite, listMyReferralRecords } from "@/lib/referral/servi
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/** @deprecated Prefer GET /api/referral/me — kept for account panel compatibility. */
-export async function GET(request: NextRequest) {
+async function handleReferralMe(request: NextRequest) {
   noStore();
   const user = await getCurrentUser();
   if (!user) {
@@ -20,10 +19,15 @@ export async function GET(request: NextRequest) {
   const invite = await getOrCreateMyInvite(user, {
     requestOrigin: request.nextUrl.origin,
   });
+
   if (!invite.ok) {
     const status = invite.error === "MEMBERSHIP_REQUIRED" ? 403 : 500;
     return NextResponse.json(
-      { ok: false, error: invite.error, message: invite.message },
+      {
+        ok: false,
+        error: invite.error,
+        message: invite.message,
+      },
       { status, headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -53,4 +57,8 @@ export async function GET(request: NextRequest) {
     },
     { headers: { "Cache-Control": "no-store" } }
   );
+}
+
+export async function GET(request: NextRequest) {
+  return handleReferralMe(request);
 }

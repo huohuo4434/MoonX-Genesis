@@ -172,7 +172,7 @@ function BatchMeta({
   return (
     <Card padding="md" className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
       <div>
-        <p className="text-caption text-foreground-tertiary">预测日期</p>
+        <p className="text-caption text-foreground-tertiary">目标交易日期</p>
         <p className="text-body-sm font-medium">
           {forecastDate ? formatDateChina(forecastDate) : "—"}
         </p>
@@ -222,7 +222,7 @@ export function MemberTomorrowLockedPage({
             forecastDate={summary.nextDateIso}
             status="会员锁定"
             version="—"
-            marketCount={7}
+            marketCount={summary.publishedCount}
           />
           <div className="flex flex-wrap gap-3 pt-2">
             <Button asChild variant="primary">

@@ -4,7 +4,8 @@
  *
  * Today / tomorrow routing uses Beijing calendar dates:
  *   today    = forecastForDate === Beijing today
- *   tomorrow = forecastForDate === Beijing tomorrow
+ *   tomorrow = earliest published/locked batch with forecastForDate > Beijing today
+ *              (never hardcode “calendar tomorrow”; never use Wave as subject)
  */
 import type {
   DailyForecast,
@@ -87,6 +88,34 @@ export function isHumanPublishedForecast(f: DailyForecast): boolean {
   if (f.confidence <= 0) return false;
   if (f.summary === "研究尚未完成") return false;
   return f.status === "published" || f.status === "revised" || f.status === "expired" || f.status === "verified";
+}
+
+/**
+ * When a batch is shown as “今日”, rewrite mistaken “明日 / 下一交易日” in display copy only.
+ * Does not mutate other pages’ tomorrow-facing content.
+ */
+export function rewriteTodayFacingCopy(
+  text: string | undefined,
+  forecastForDate: string,
+  now = new Date()
+): string | undefined {
+  if (!text) return text;
+  if (forecastForDate !== getBeijingTodayKey(now)) return text;
+  return text.replaceAll("下一交易日", "今日").replaceAll("明日", "今日");
+}
+
+export function applyTodayFacingCopy(f: DailyForecast, now = new Date()): DailyForecast {
+  const today = getBeijingTodayKey(now);
+  if (f.forecastForDate !== today) return f;
+  return {
+    ...f,
+    headline: rewriteTodayFacingCopy(f.headline, f.forecastForDate, now),
+    summary: rewriteTodayFacingCopy(f.summary, f.forecastForDate, now) ?? f.summary,
+    expectedPath: f.expectedPath?.map(
+      (step) => rewriteTodayFacingCopy(step, f.forecastForDate, now) ?? step
+    ),
+    directionLabel: normalizeFormalDirection(f.directionLabel ?? f.direction),
+  };
 }
 
 /**
@@ -174,23 +203,37 @@ export function getForecastById(id: string, now = new Date()): DailyForecast | u
   return listDailyForecasts(now).find((f) => f.id === id);
 }
 
-/** Tomorrow = Beijing tomorrow for all core assets. */
+/** Earliest published batch date strictly after Beijing today. */
+export function getNextPublishedForecastDateKey(now = new Date()): string | null {
+  const today = getBeijingTodayKey(now);
+  const dates = [
+    ...new Set(
+      listDailyForecasts(now)
+        .filter(isHumanPublishedForecast)
+        .map((f) => f.forecastForDate)
+        .filter((d) => d > today)
+    ),
+  ].sort();
+  return dates[0] ?? null;
+}
+
+/**
+ * Next formal member batch: forecastForDate > Beijing today, published/locked only.
+ * Empty when no future formal batch exists — never substitute Wave / today / drafts.
+ */
 export function getTomorrowCoreForecasts(now = new Date()): DailyForecast[] {
   const all = listDailyForecasts(now);
-  const tomorrow = getBeijingTomorrowKey(now);
+  const nextDate = getNextPublishedForecastDateKey(now);
+  if (!nextDate) return [];
+
   return CORE_TOMORROW_ASSETS.map((asset) => {
-    const published = all.find(
+    return all.find(
       (f) =>
         f.assetId === asset.assetId &&
-        f.forecastForDate === tomorrow &&
+        f.forecastForDate === nextDate &&
         isHumanPublishedForecast(f)
     );
-    if (published) return published;
-    return (
-      all.find((f) => f.assetId === asset.assetId && f.forecastForDate === tomorrow) ??
-      all.find((f) => f.id === `NEXT-${asset.symbol}-PENDING`)!
-    );
-  });
+  }).filter((f): f is DailyForecast => Boolean(f));
 }
 
 /**
@@ -230,7 +273,7 @@ export function toTeaser(f: DailyForecast): DailyForecastTeaser {
 export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPublicSummary {
   const forecasts = getTomorrowCoreForecasts(now);
   const teasers = forecasts.map(toTeaser);
-  const tomorrow = getBeijingTomorrowKey(now);
+  const nextDate = getNextPublishedForecastDateKey(now) ?? getBeijingTomorrowKey(now);
   const published = forecasts.filter((f) => isHumanPublishedForecast(f));
   const drafts = forecasts.filter((f) => !isHumanPublishedForecast(f));
   const updatedTimes = published
@@ -241,8 +284,8 @@ export function buildTomorrowPublicSummary(now = new Date()): TomorrowForecastPu
   const lastUpdatedLabel = last ? formatDateTimeChina(last) : "—";
 
   return {
-    nextDateLabel: formatDateChina(tomorrow),
-    nextDateIso: tomorrow,
+    nextDateLabel: formatDateChina(nextDate),
+    nextDateIso: nextDate,
     assetCount: forecasts.length,
     assetNames: forecasts.map((f) => f.assetName),
     lastUpdatedLabel,
@@ -281,8 +324,11 @@ export function toTodayPublicTeaserMeta(forecasts: DailyForecast[]): {
     published: ready.length > 0,
     marketCount: ready.length,
     forecastDate: ready[0]?.forecastForDate ?? null,
-    publishedAt: ready.map((f) => f.publishedAt).filter(Boolean).sort()[0] ?? null,
+    publishedAt:
+      ready
+        .map((f) => f.publishedAt)
+        .filter(Boolean)
+        .sort()[0] ?? null,
     locked: true,
   };
 }
-

@@ -5,7 +5,7 @@ import "server-only";
 
 import { listDailyForecastRecords } from "@/lib/data/moonx-data-store";
 import { sessionLabelForMarket } from "@/lib/calendar/next-trading-day";
-import { getBeijingTodayKey, getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import type { DailyForecast, DailyForecastMarket } from "@/types/daily-forecast";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
 
@@ -30,6 +30,15 @@ function assetIdFromSymbol(symbol: string): string {
     "CL=F": "wti-crude",
   };
   return map[symbol] ?? symbol.toLowerCase();
+}
+
+function isFormalStoreStatus(status: DailyForecastRecord["status"]): boolean {
+  return (
+    status === "published" ||
+    status === "verifying" ||
+    status === "verified" ||
+    status === "invalid"
+  );
 }
 
 function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyForecast {
@@ -90,14 +99,24 @@ export async function getStoreForecastsForToday(now = new Date()): Promise<Daily
   const today = getBeijingTodayKey(now);
   const records = await listDailyForecastRecords();
   return records
-    .filter((r) => r.forecastDate === today && (r.status === "published" || r.status === "verifying" || r.status === "verified" || r.status === "invalid"))
+    .filter((r) => r.forecastDate === today && isFormalStoreStatus(r.status))
     .map((r) => toUi(r, "public"));
 }
 
+/** Next formal store batch after Beijing today (not hard-coded calendar tomorrow). */
 export async function getStoreForecastsForTomorrow(now = new Date()): Promise<DailyForecast[]> {
-  const tomorrow = getBeijingTomorrowKey(now);
+  const today = getBeijingTodayKey(now);
   const records = await listDailyForecastRecords();
+  const nextDates = [
+    ...new Set(
+      records
+        .filter((r) => r.forecastDate > today && isFormalStoreStatus(r.status) && r.status !== "invalid")
+        .map((r) => r.forecastDate)
+    ),
+  ].sort();
+  const next = nextDates[0];
+  if (!next) return [];
   return records
-    .filter((r) => r.forecastDate === tomorrow)
+    .filter((r) => r.forecastDate === next && isFormalStoreStatus(r.status) && r.status !== "invalid")
     .map((r) => toUi(r, "member"));
 }

@@ -11,6 +11,9 @@ export const HSTECH_DISPLAY_NAME = "恒生科技指数";
 /** Minimum plausible close for Hang Seng TECH Index (guards ETF / scale errors). */
 export const HSTECH_MIN_INDEX_LEVEL = 1000;
 
+/** Max absolute day move before forcing manual review (indexes / ETFs). */
+export const ABNORMAL_CLOSE_JUMP_RATIO = 0.25;
+
 export function resolveCanonicalQuoteSymbol(symbol: string, quoteSymbol: string): string {
   const s = symbol.trim().toUpperCase();
   const q = quoteSymbol.trim();
@@ -58,12 +61,29 @@ export function quoteSanityFailure(input: {
   high?: number;
   low?: number;
 }): string | null {
-  if (!isHstechSymbol(input.symbol, input.quoteSymbol)) return null;
-  const levels = [input.close, input.previousClose, input.high, input.low].filter(
-    (n): n is number => typeof n === "number" && Number.isFinite(n)
-  );
-  if (levels.some((n) => n < HSTECH_MIN_INDEX_LEVEL)) {
-    return "疑似标的或价格缩放错误";
+  if (!Number.isFinite(input.close) || input.close <= 0) {
+    return "收盘价无效，需人工复核";
   }
+
+  if (isHstechSymbol(input.symbol, input.quoteSymbol)) {
+    const levels = [input.close, input.previousClose, input.high, input.low].filter(
+      (n): n is number => typeof n === "number" && Number.isFinite(n)
+    );
+    if (levels.some((n) => n < HSTECH_MIN_INDEX_LEVEL)) {
+      return "疑似标的或价格缩放错误";
+    }
+  }
+
+  if (
+    typeof input.previousClose === "number" &&
+    Number.isFinite(input.previousClose) &&
+    input.previousClose > 0
+  ) {
+    const jump = Math.abs(input.close - input.previousClose) / input.previousClose;
+    if (jump > ABNORMAL_CLOSE_JUMP_RATIO) {
+      return "收盘价相对前日偏差异常，需人工复核";
+    }
+  }
+
   return null;
 }

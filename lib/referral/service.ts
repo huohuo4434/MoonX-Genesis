@@ -19,31 +19,91 @@ import {
   normalizeInviteCode,
   type ReferralRecord,
 } from "@/lib/referral/store";
+import { siteBaseUrl } from "@/lib/referral/site-url";
+import { isActiveMembershipForPredictionAccess } from "@/lib/prediction-access";
+import { isAdminUser } from "@/lib/auth/is-admin";
 
-export { REFERRAL_REWARD_DAYS };
+export { REFERRAL_REWARD_DAYS, siteBaseUrl };
 
-function siteBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "https://moon-x-genesis.vercel.app"
-  ).replace(/\/$/, "");
+/** Production site URL — never fall back to localhost. */
+// siteBaseUrl imported from ./site-url
+
+function canGenerateReferral(user: AuthUserView, now = new Date()): boolean {
+  if (isAdminUser({ email: user.email, role: user.app_metadata.role })) return true;
+  return isActiveMembershipForPredictionAccess(
+    {
+      email: user.email,
+      role: user.app_metadata.role,
+      membershipExpiresAt: user.app_metadata.membership_expires_at,
+      membershipStatus: user.app_metadata.membership_status,
+    },
+    now
+  );
 }
 
-export async function getOrCreateMyInvite(user: AuthUserView) {
-  const invite = await ensureReferralInvite(user.id, user.app_metadata.referral_code ?? undefined);
-  if (user.app_metadata.referral_code !== invite.invite_code) {
-    await updateUserAppMetadata(user.id, { referral_code: invite.invite_code });
+export type MyInviteResult =
+  | {
+      ok: true;
+      referralCode: string;
+      referralUrl: string;
+      successfulInvites: number;
+      rewardDays: number;
+      /** Legacy aliases for existing UI */
+      inviteCode: string;
+      inviteLink: string;
+      successCount: number;
+      rewardDaysTotal: number;
+      pendingCount: number;
+      rewardDaysPerSuccess: number;
+    }
+  | {
+      ok: false;
+      error: "MEMBERSHIP_REQUIRED" | "INVITE_CREATE_FAILED";
+      message: string;
+    };
+
+export async function getOrCreateMyInvite(
+  user: AuthUserView,
+  opts?: { requestOrigin?: string | null; now?: Date }
+): Promise<MyInviteResult> {
+  if (!canGenerateReferral(user, opts?.now)) {
+    return {
+      ok: false,
+      error: "MEMBERSHIP_REQUIRED",
+      message: "开通会员后获得邀请链接",
+    };
   }
-  const stats = await getReferralStats(user.id);
-  return {
-    inviteCode: invite.invite_code,
-    inviteLink: `${siteBaseUrl()}/register?ref=${invite.invite_code}`,
-    successCount: stats.successCount,
-    rewardDaysTotal: stats.rewardDaysTotal,
-    pendingCount: stats.pendingCount,
-    rewardDaysPerSuccess: REFERRAL_REWARD_DAYS,
-  };
+
+  try {
+    const invite = await ensureReferralInvite(
+      user.id,
+      user.app_metadata.referral_code ?? undefined
+    );
+    if (user.app_metadata.referral_code !== invite.invite_code) {
+      await updateUserAppMetadata(user.id, { referral_code: invite.invite_code });
+    }
+    const stats = await getReferralStats(user.id);
+    const referralUrl = `${siteBaseUrl(opts?.requestOrigin)}/register?ref=${invite.invite_code}`;
+    return {
+      ok: true,
+      referralCode: invite.invite_code,
+      referralUrl,
+      successfulInvites: stats.successCount,
+      rewardDays: stats.rewardDaysTotal,
+      inviteCode: invite.invite_code,
+      inviteLink: referralUrl,
+      successCount: stats.successCount,
+      rewardDaysTotal: stats.rewardDaysTotal,
+      pendingCount: stats.pendingCount,
+      rewardDaysPerSuccess: REFERRAL_REWARD_DAYS,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: "INVITE_CREATE_FAILED",
+      message: err instanceof Error ? err.message : "邀请码生成失败",
+    };
+  }
 }
 
 export async function attachInviteOnRegister(input: {
@@ -169,4 +229,37 @@ export async function getAdminReferralRows() {
 
 export async function listMyReferralRecords(userId: string) {
   return listReferralRecords({ inviterId: userId });
+}
+
+/** Backfill invite codes for active members/admins who lack one. Never overwrite existing codes. */
+export async function backfillReferralCodesForActiveMembers(): Promise<{
+  scanned: number;
+  created: number;
+  skipped: number;
+  errors: string[];
+}> {
+  const users = await listAllAuthUsers();
+  let created = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  for (const user of users) {
+    if (!canGenerateReferral(user)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const before = user.app_metadata.referral_code;
+      const invite = await ensureReferralInvite(user.id, before ?? undefined);
+      if (!before || before !== invite.invite_code) {
+        await updateUserAppMetadata(user.id, { referral_code: invite.invite_code });
+        if (!before) created += 1;
+        else skipped += 1;
+      } else {
+        skipped += 1;
+      }
+    } catch (err) {
+      errors.push(`${user.email}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return { scanned: users.length, created, skipped, errors };
 }

@@ -26,6 +26,7 @@ const BANNED_TO_ALLOWED: Record<string, FormalDirection> = {
   先抑后扬: "先跌后涨",
   修复偏多: "震荡上涨",
   高位惯性: "冲高回落",
+  高波动回落: "冲高回落",
   观察: "震荡",
   等待确认: "震荡",
   观望: "震荡",

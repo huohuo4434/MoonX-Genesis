@@ -11,20 +11,31 @@ export async function HomeTomorrowSection() {
   const payload = await getTomorrowSectionPayload();
   const teasers = sortByDailyAssetOrder(payload.summary.teasers.filter((t) => t.isReady));
   const unlocked = payload.mode === "member";
+  const published = teasers.length > 0;
 
   return (
     <section id="tomorrow-preview" className="border-t border-border/[0.06] py-8 lg:py-12">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
         <SectionHeader
           eyebrow="会员"
-          title="明日会员观点"
+          title="下一交易日完整预测"
           subtitle="会员可提前查看下一交易日：BTC、美股、黄金、原油等怎么走。"
         />
-        <p className="mt-2 text-caption text-foreground-tertiary">
-          预测日期：{formatDateChina(payload.summary.nextDateIso)} · 锁定状态：
-          {unlocked ? "会员已解锁" : "会员锁定"}
-        </p>
-        {teasers.length === 0 ? null : (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="outline">
+            目标交易日期：{formatDateChina(payload.summary.nextDateIso)}
+          </Badge>
+          <Badge variant="outline">{unlocked ? "会员已解锁" : "会员锁定"}</Badge>
+          <Badge variant="outline">
+            {published ? `已生成 ${teasers.length}` : "尚未发布"}
+          </Badge>
+        </div>
+
+        {!published ? (
+          <p className="mt-4 text-body-sm text-foreground-secondary">
+            下一交易日预测尚未发布。预测发布后将在此处显示。
+          </p>
+        ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {teasers.map((t) => (
               <div
@@ -38,7 +49,7 @@ export async function HomeTomorrowSection() {
                   <Badge variant="outline">已生成</Badge>
                 </div>
                 <p className="text-caption text-foreground-tertiary">
-                  预测日期：{formatDateChina(t.forecastForDate)}
+                  目标交易日期：{formatDateChina(t.forecastForDate)}
                 </p>
                 <p className="text-caption text-foreground-tertiary">
                   {unlocked
@@ -55,7 +66,7 @@ export async function HomeTomorrowSection() {
           href="/member/tomorrow"
           className="mt-4 inline-block text-body-sm text-primary underline-offset-4 hover:underline"
         >
-          {unlocked ? "查看完整明日观点" : "登录会员查看完整内容"}
+          {unlocked ? "查看完整下一交易日观点" : "登录会员查看完整内容"}
         </Link>
       </div>
     </section>

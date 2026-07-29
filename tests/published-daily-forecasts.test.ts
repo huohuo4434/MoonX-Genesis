@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import { getBeijingTodayKey, getBeijingTomorrowKey } from "../lib/calendar/beijing-date.ts";
 import {
   buildTomorrowPublicSummary,
+  getNextPublishedForecastDateKey,
   getPublicTodayForecasts,
   getTomorrowCoreForecasts,
   isHumanPublishedForecast,
@@ -58,5 +59,7 @@ describe("published Jul 28/29 daily forecasts", () => {
     const today = getPublicTodayForecasts(nextDay);
     assert.equal(today.length, 7);
     assert.ok(today.every((f) => f.forecastForDate === "2026-07-29"));
+    assert.equal(getNextPublishedForecastDateKey(nextDay), null);
+    assert.equal(getTomorrowCoreForecasts(nextDay).length, 0);
   });
 });
