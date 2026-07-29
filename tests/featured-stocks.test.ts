@@ -29,15 +29,15 @@ test("conviction list has cxmt and asteroid", () => {
   assert.ok(!/火箭狗/.test(CONVICTION_ASSET_SEED[1]?.nameZh ?? ""));
 });
 
-test("conviction nav sits between weekly and verification with single entry", () => {
+test("focused-assets nav uses the watchlist route with single entry", () => {
   const keys = PUBLIC_PRIMARY_NAV.map((n) => n.href);
-  const weekly = keys.indexOf(NAV_ROUTES.weeklyAnalysis);
-  const featured = keys.indexOf(NAV_ROUTES.featuredStocks);
-  const verification = keys.indexOf(NAV_ROUTES.verification);
-  assert.ok(weekly >= 0 && featured > weekly && verification > featured);
-  assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.featuredStocks).length, 1);
+  const daily = keys.indexOf(NAV_ROUTES.dailyForecasts);
+  const focused = keys.indexOf(NAV_ROUTES.watchlist);
+  const research = keys.indexOf(NAV_ROUTES.research);
+  assert.ok(daily >= 0 && focused === daily + 1 && research === focused + 1);
+  assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.watchlist).length, 1);
   assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.memberStocks), false);
-  assert.equal(PUBLIC_PRIMARY_NAV.find((n) => n.href === NAV_ROUTES.featuredStocks)?.labelZh, "重点关注");
+  assert.equal(PUBLIC_PRIMARY_NAV.find((n) => n.href === NAV_ROUTES.watchlist)?.labelZh, "重点资产");
 });
 
 test("asteroid periods: no fabricated today/tomorrow; long horizons published", () => {

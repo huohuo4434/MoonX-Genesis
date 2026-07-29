@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cookies } from "next/headers";
 import type { ForecastAccessLevel } from "@/types/daily-forecast";
 import type { MembershipStatus, Profile, ProfileRole } from "@/types/membership";
 import {
@@ -138,18 +139,28 @@ export async function requireAdmin(): Promise<Profile | null> {
 }
 
 export async function getMemberUserContext(): Promise<MemberUserContext> {
+  const previewKey = process.env.MOONX_MEMBER_PREVIEW_KEY;
+  const cookieStore = await cookies();
+  const previewCookie = cookieStore.get(MEMBER_PREVIEW_COOKIE)?.value;
+  const previewEnabled = Boolean(previewKey && previewCookie && previewCookie === previewKey);
   const { getAccessUser } = await import("@/lib/auth/get-access-user");
   const snap = await getAccessUser();
   if (!snap.authenticated) {
-    return { plan: "public", isMember: false, isPremium: false, isPreviewGate: false, isAdmin: false };
+    return {
+      plan: previewEnabled ? "member" : "public",
+      isMember: previewEnabled,
+      isPremium: false,
+      isPreviewGate: previewEnabled,
+      isAdmin: false,
+    };
   }
   const adminUser = snap.isAdmin;
-  const member = snap.isActiveMember || adminUser;
+  const member = snap.isActiveMember || adminUser || previewEnabled;
   return {
     plan: adminUser ? "premium" : member ? "member" : "public",
     isMember: member,
     isPremium: adminUser,
-    isPreviewGate: false,
+    isPreviewGate: previewEnabled && !adminUser,
     isAdmin: adminUser,
     userId: snap.userId ?? undefined,
     email: snap.email ?? undefined,

@@ -11,10 +11,16 @@ export interface NavItem {
 
 export const NAV_ROUTES = {
   home: "/",
+  dailyForecasts: "/forecasts/daily",
   todayView: "/#moonx-view",
   tomorrowForecast: "/member/tomorrow",
   weeklyAnalysis: "/member/weekly",
   featuredStocks: "/featured-stocks",
+  watchlist: "/markets/watchlist",
+  research: "/research",
+  researchTechnical: "/research/technical",
+  researchLongTerm: "/research/long-term",
+  timeline: "/timeline",
   /** @deprecated use featuredStocks — kept for redirects / audit */
   memberStocks: "/member/stocks",
   verification: "/verification",
@@ -30,34 +36,27 @@ export const NAV_ROUTES = {
 
 /** Old long-horizon routes — public/member must 404; admin may redirect to intelligence. */
 export const INTERNAL_LEGACY_ROUTES = [
-  "/research",
   "/research/library",
   "/research/pipeline",
   "/research/intelligence-snapshot",
-  "/research/technical",
   "/research/verification",
-  "/timeline",
-  "/markets/watchlist",
   "/verification/long-term",
-  "/forecasts/daily",
 ] as const;
 
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
-  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
-  { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
-  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
-  { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
-  { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
-  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+  { key: "nav.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日预测" },
+  { key: "nav.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点资产" },
+  { key: "nav.research", href: NAV_ROUTES.research, labelZh: "研究" },
+  { key: "nav.timeline", href: NAV_ROUTES.timeline, labelZh: "时间线" },
+  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的账户" },
 ];
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
-  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
-  { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日" },
-  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周" },
+  { key: "nav.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日" },
+  { key: "nav.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
+  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "账户" },
 ];
 
@@ -70,13 +69,13 @@ export function buildPublicFooterColumns(options?: {
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
   const product = [
-    { key: "footer.todaysIntelligence", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
-    { key: "footer.tomorrow", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
-    { key: "footer.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
-    { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
+    { key: "footer.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日预测" },
+    { key: "footer.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点资产" },
+    { key: "footer.research", href: NAV_ROUTES.research, labelZh: "研究" },
+    { key: "footer.timeline", href: NAV_ROUTES.timeline, labelZh: "时间线" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
     { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
-    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
   ];
 
   const account: NavItem[] = [
@@ -111,9 +110,15 @@ export const AUDIT_ROUTES = [
   "/account/orders",
   "/pricing",
   "/checkout",
+  "/forecasts/daily",
   "/member/tomorrow",
   "/member/weekly",
   "/featured-stocks",
+  "/markets/watchlist",
+  "/research",
+  "/research/technical",
+  "/research/long-term",
+  "/timeline",
   "/featured-stocks/cxmt",
   "/featured-stocks/asteroid",
   "/member/stocks",

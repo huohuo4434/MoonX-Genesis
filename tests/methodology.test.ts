@@ -8,14 +8,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 describe("methodology public surface", () => {
-  test("nav includes methodology between verification and pricing", () => {
+  test("top nav prioritizes daily forecasts and keeps methodology in footer", () => {
     const keys = PUBLIC_PRIMARY_NAV.map((n) => n.key);
-    const v = keys.indexOf("nav.verification");
-    const m = keys.indexOf("nav.methodology");
-    const p = keys.indexOf("nav.pricing");
-    assert.ok(v >= 0 && m === v + 1 && p === m + 1);
+    assert.equal(keys[0], "nav.dailyForecasts");
+    assert.ok(keys.includes("nav.research"));
     assert.equal(NAV_ROUTES.methodology, "/methodology");
-    assert.equal(PUBLIC_PRIMARY_NAV[m]?.labelZh, "预测方法");
+    assert.equal(PUBLIC_PRIMARY_NAV.some((item) => item.key === "nav.methodology"), false);
   });
 
   test("footer includes methodology", () => {

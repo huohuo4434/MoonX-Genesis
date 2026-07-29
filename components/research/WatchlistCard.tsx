@@ -144,7 +144,7 @@ export function WatchlistCard({ entry, researchCount, className }: WatchlistCard
       </div>
 
       <Button asChild variant="outline" size="sm" className="self-start">
-        <Link href="/research/library">
+        <Link href="/research">
           {t("watchlist.viewResearch")}
           <ArrowRightIcon size={13} />
         </Link>
