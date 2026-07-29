@@ -74,7 +74,7 @@ function MetaRow({
       <div>
         <p className="text-caption text-foreground-tertiary">发布时间</p>
         <p className="text-body-sm text-foreground">
-          {publishedAt ? `${formatDateTimeChina(publishedAt)}（北京时间）` : "—"}
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
         </p>
       </div>
       <div>
