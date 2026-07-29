@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Card, Text } from "@/components/ui";
-import { listDailyVerificationResults } from "@/lib/data/moonx-data-store";
-import { computeDailyAccuracyStats } from "@/lib/verification/daily-rules";
-import { assetAccuracyBreakdown } from "@/lib/automation/daily-summary";
+import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
+import { publicAssetAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 
 const MIN_SAMPLE = 5;
 
@@ -22,15 +22,19 @@ function assetSampleLabel(hit: number, miss: number, hitRate: number | null): st
 }
 
 export async function HomeAccuracySummary() {
-  const results = await listDailyVerificationResults();
-  const stats = computeDailyAccuracyStats(results);
-  const byAsset = assetAccuracyBreakdown(results);
+  noStore();
+  const { items, stats } = await getPublicAccuracyHistory();
+  const byAsset = publicAssetAccuracyBreakdown(items);
   const sampleCount = stats.hitCount + stats.missCount;
 
   return (
     <section className="border-t border-border/[0.06] py-8 lg:py-12">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
-        <SectionHeader eyebrow="验证" title="历史准确率" subtitle="只统计日度正式预测的收盘方向命中情况。" />
+        <SectionHeader
+          eyebrow="验证"
+          title="历史准确率"
+          subtitle="仅统计已经完成市场验证的历史预测；今日和未来预测不会在此提前公开。"
+        />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
             ["总命中率", `${pct(stats.hitRate)}（有效样本 ${sampleCount}）`],
@@ -59,7 +63,10 @@ export async function HomeAccuracySummary() {
             </Card>
           ))}
         </div>
-        <Link href="/verification" className="mt-4 inline-block text-body-sm text-primary underline-offset-4 hover:underline">
+        <Link
+          href="/verification"
+          className="mt-4 inline-block text-body-sm text-primary underline-offset-4 hover:underline"
+        >
           查看完整验证记录
         </Link>
       </div>

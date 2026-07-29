@@ -3,24 +3,20 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
-import type {
-  DailyAccuracyStats,
-  DailyForecastRecord,
-  DailyVerificationResult,
-  DailyVerdict,
-} from "@/types/daily-accuracy";
+import type { DailyAccuracyStats, DailyVerdict } from "@/types/daily-accuracy";
+import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/public-history-filter";
 import {
-  assetAccuracyBreakdown,
-  confidenceAccuracyBreakdown,
-  sourceAccuracyBreakdown,
-} from "@/lib/automation/daily-summary";
+  computePublicAccuracyStats,
+  publicAssetAccuracyBreakdown,
+  publicConfidenceAccuracyBreakdown,
+  publicSourceAccuracyBreakdown,
+} from "@/lib/accuracy/public-history-filter";
 import { dailySymbolOrderIndex } from "@/lib/data/daily-asset-order";
-import { formatDateTimeChina } from "@/lib/utils/datetime";
-import { computeVerificationDashboardStats } from "@/lib/verification/daily-rules";
+import { formatBeijingDateZh } from "@/lib/calendar/beijing-date";
 
 type AssetFilter = "ALL" | "BTC" | "SPX" | "NDX" | "SSEC" | "HSTECH" | "GLD" | "WTI";
 type RangeFilter = "ALL" | "7D" | "30D";
-type VerdictFilter = "ALL" | DailyVerdict | "PENDING";
+type VerdictFilter = "ALL" | "HIT" | "MISS" | "VOID";
 
 function formatPct(n: number | null): string {
   if (n == null) return "暂无足够样本";
@@ -41,11 +37,10 @@ function formatReturn(n: number): string {
   return `${sign}${n.toFixed(2)}%`;
 }
 
-function verdictColor(v: DailyVerdict | "PENDING"): string {
+function verdictColor(v: DailyVerdict): string {
   if (v === "HIT") return "text-emerald-500";
   if (v === "MISS") return "text-red-500";
   if (v === "VOID") return "text-amber-500";
-  if (v === "MANUAL_REVIEW") return "text-amber-500";
   return "text-foreground-tertiary";
 }
 
@@ -56,13 +51,23 @@ function inRange(date: string, range: RangeFilter): boolean {
   return t >= Date.now() - days * 24 * 60 * 60 * 1000;
 }
 
+function formatVerifiedAtChina(iso: string): string {
+  return `${new Date(iso).toLocaleString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })}（北京时间）`;
+}
+
 export function DailyAccuracyClient({
-  forecasts,
-  results,
+  items,
   stats,
 }: {
-  forecasts: DailyForecastRecord[];
-  results: DailyVerificationResult[];
+  items: PublicAccuracyHistoryItem[];
   stats: DailyAccuracyStats;
 }) {
   const [asset, setAsset] = useState<AssetFilter>("ALL");
@@ -70,55 +75,37 @@ export function DailyAccuracyClient({
   const [verdict, setVerdict] = useState<VerdictFilter>("ALL");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const resultById = useMemo(() => new Map(results.map((r) => [r.forecastId, r])), [results]);
-  const liveStats = useMemo(
-    () => computeVerificationDashboardStats(forecasts, results),
-    [forecasts, results]
-  );
-  const displayStats = liveStats.totalForecasts > 0 ? liveStats : stats;
-  const byAsset = useMemo(() => assetAccuracyBreakdown(results), [results]);
-  const bySource = useMemo(() => sourceAccuracyBreakdown(forecasts, results), [forecasts, results]);
-  const byConfidence = useMemo(() => confidenceAccuracyBreakdown(forecasts, results), [forecasts, results]);
+  const displayStats = useMemo(() => {
+    const live = computePublicAccuracyStats(items);
+    return live.verifiedCount > 0 || live.voidCount > 0 ? live : stats;
+  }, [items, stats]);
+
+  const byAsset = useMemo(() => publicAssetAccuracyBreakdown(items), [items]);
+  const bySource = useMemo(() => publicSourceAccuracyBreakdown(items), [items]);
+  const byConfidence = useMemo(() => publicConfidenceAccuracyBreakdown(items), [items]);
 
   const rows = useMemo(() => {
-    const published = forecasts.filter(
-      (f) =>
-        f.status === "published" ||
-        f.status === "verifying" ||
-        f.status === "verified" ||
-        f.status === "invalid"
-    );
-    return published
-      .filter((f) => (asset === "ALL" ? true : f.symbol === asset || (asset === "BTC" && f.symbol === "BTC")))
+    return items
+      .filter((f) => (asset === "ALL" ? true : f.symbol === asset))
       .filter((f) => inRange(f.forecastDate, range))
-      .map((f) => {
-        const r = resultById.get(f.id);
-        const v: DailyVerdict | "PENDING" = r?.verdict ?? "PENDING";
-        return { forecast: f, result: r, v };
-      })
-      .filter((row) => {
-        if (verdict === "ALL") return true;
-        if (verdict === "PENDING") return row.v === "PENDING";
-        return row.v === verdict;
-      })
+      .filter((f) => (verdict === "ALL" ? true : f.verdict === verdict))
       .sort((a, b) => {
-        const dateCmp = b.forecast.forecastDate.localeCompare(a.forecast.forecastDate);
+        const dateCmp = b.forecastDate.localeCompare(a.forecastDate);
         if (dateCmp !== 0) return dateCmp;
-        return dailySymbolOrderIndex(a.forecast.symbol) - dailySymbolOrderIndex(b.forecast.symbol);
+        return dailySymbolOrderIndex(a.symbol) - dailySymbolOrderIndex(b.symbol);
       });
-  }, [forecasts, resultById, asset, range, verdict]);
+  }, [items, asset, range, verdict]);
 
   const hasCountable = displayStats.verifiedCount > 0;
-  const pendingInView = rows.filter((r) => r.v === "PENDING").length;
 
   return (
     <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
         <Heading as="h1" size="h2">
-          每日预测准确率
+          历史准确率
         </Heading>
         <Text variant="body" color="secondary" className="mt-3 max-w-3xl">
-          每条日度预测在交易结束后使用真实收盘数据自动验证。只统计预测开始前已经正式发布的方向判断。
+          仅统计已经完成市场验证的历史预测；今日和未来预测不会在此提前公开。
         </Text>
         <div className="mt-3 flex flex-wrap gap-4">
           <Link href="/pricing" className="text-body-sm text-primary underline-offset-4 hover:underline">
@@ -150,34 +137,18 @@ export function DailyAccuracyClient({
         ))}
       </div>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
-        {[
-          {
-            label: "待验证",
-            value: String(
-              asset === "ALL" && range === "ALL" && verdict === "ALL"
-                ? displayStats.pendingCount
-                : pendingInView
-            ),
-          },
-          {
-            label: "不计入统计",
-            value: `${displayStats.voidCount}条${
-              displayStats.invalidCount > 0 ? `\n其中超时发布：${displayStats.invalidCount}条` : ""
-            }`,
-          },
-          { label: "人工复核", value: String(displayStats.manualReviewCount) },
-        ].map((t) => (
-          <Card key={t.label} padding="md">
+      {displayStats.voidCount > 0 && (
+        <div className="mb-8 grid gap-3 sm:grid-cols-1">
+          <Card padding="md">
             <Text variant="caption" color="tertiary">
-              {t.label}
+              不计入统计
             </Text>
-            <Text variant="body-sm" weight="semibold" className="mt-1 whitespace-pre-line">
-              {t.value}
+            <Text variant="body-sm" weight="semibold" className="mt-1">
+              {displayStats.voidCount}条
             </Text>
           </Card>
-        ))}
-      </div>
+        </div>
+      )}
 
       <div className="mb-8 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         {byAsset.map((a) => (
@@ -228,13 +199,13 @@ export function DailyAccuracyClient({
         </div>
       </div>
 
-      {!hasCountable && rows.every((r) => r.v === "PENDING") && (
+      {items.length === 0 && (
         <Card padding="lg" className="mb-8">
           <Text variant="body" weight="semibold">
-            暂无已完成的每日预测验证
+            暂无已完成验证的历史预测
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            从下一条正式发布的每日预测开始，系统将在对应交易日结束后自动记录真实结果。
+            今日与未来预测不会在此展示。完成市场验证后，记录将于次日进入历史准确率。
           </Text>
         </Card>
       )}
@@ -277,9 +248,7 @@ export function DailyAccuracyClient({
               ["ALL", "全部结果"],
               ["HIT", "命中"],
               ["MISS", "未命中"],
-              ["PENDING", "待验证"],
               ["VOID", "不计入统计"],
-              ["MANUAL_REVIEW", "人工复核"],
             ] as const
           ).map(([k, label]) => (
             <Button key={k} size="sm" variant={verdict === k ? "primary" : "outline"} onClick={() => setVerdict(k)}>
@@ -290,72 +259,63 @@ export function DailyAccuracyClient({
       </div>
 
       <div className="flex flex-col gap-3">
-        {rows.map(({ forecast: f, result: r, v }) => (
-          <Card key={f.id} padding="md">
+        {rows.map((item) => (
+          <Card key={item.forecastId} padding="md">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <Text variant="body" weight="semibold">
-                  {f.forecastDate} · {f.assetName}
+                  {item.assetName} {item.symbol}
                 </Text>
                 <Text variant="body-sm" color="secondary" className="mt-1">
-                  预测：{f.directionLabel}
-                  {r
-                    ? r.verdict === "VOID" || r.verdict === "MANUAL_REVIEW"
-                      ? r.actualClose
-                        ? ` · 实际：${formatReturn(r.actualReturnPct)} · 收盘：${r.actualClose.toLocaleString("zh-CN")}`
-                        : r.errorMessage
-                          ? ` · ${r.errorMessage}`
-                          : ""
-                      : ` · 实际：${formatReturn(r.actualReturnPct)} · 收盘：${r.actualClose.toLocaleString("zh-CN")}`
-                    : " · 待验证"}
+                  预测日期：{formatBeijingDateZh(item.forecastDate)}
+                </Text>
+                <Text variant="body-sm" color="secondary" className="mt-1">
+                  预测方向：{item.predictedDirection}
+                  {item.actualReturnPct != null
+                    ? ` · 实际走势：${item.actualDirection}（${formatReturn(item.actualReturnPct)}）`
+                    : item.actualDirection
+                      ? ` · 实际走势：${item.actualDirection}`
+                      : ""}
                 </Text>
                 <Text variant="caption" color="tertiary" className="mt-1 block">
-                  发布时间：{formatDateTimeChina(f.publishedAt)}
-                  {f.isSystemTest ? " · 系统测试" : ""}
+                  验证时间：{formatVerifiedAtChina(item.verifiedAt)} · 版本 v{item.version}
                 </Text>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={verdictColor(v)}>
-                  {v === "PENDING" ? "待验证" : r?.verdictLabel ?? v}
+                <Badge variant="outline" className={verdictColor(item.verdict)}>
+                  {item.verdictLabel}
                 </Badge>
-                <Button size="sm" variant="outline" onClick={() => setOpenId(openId === f.id ? null : f.id)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOpenId(openId === item.forecastId ? null : item.forecastId)}
+                >
                   详情
                 </Button>
               </div>
             </div>
 
-            {openId === f.id && (
+            {openId === item.forecastId && (
               <div className="mt-4 space-y-1 border-t border-border/[0.08] pt-3 text-body-sm text-foreground-secondary">
-                <p>预测日期：{f.forecastDate}</p>
+                <p>预测日期：{formatBeijingDateZh(item.forecastDate)}</p>
                 <p>
-                  预测资产：{f.assetName}（{f.symbol}）
+                  预测资产：{item.assetName}（{item.symbol}）
                 </p>
-                <p>发布时原始方向：{f.directionLabel}</p>
-                <p>预测概率：{f.probability != null ? `${f.probability}%` : "—"}</p>
-                <p>原始摘要：{f.summary || "—"}</p>
-                <p>来源：{f.source}</p>
-                <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
-                <p>截止时间：{formatDateTimeChina(f.cutoffAt)}</p>
-                {f.status === "invalid" && <p className="text-amber-500">暂无判断／无效记录，不计入准确率。</p>}
-                {r && (
-                  <>
-                    <p>上一交易日收盘价：{r.previousClose || "—"}</p>
-                    <p>当日开盘价：{r.actualOpen ?? "—"}</p>
-                    <p>当日最高价：{r.actualHigh ?? "—"}</p>
-                    <p>当日最低价：{r.actualLow ?? "—"}</p>
-                    <p>当日收盘价：{r.actualClose || "—"}</p>
-                    <p>实际涨跌幅：{r.actualClose ? formatReturn(r.actualReturnPct) : "—"}</p>
-                    <p>实际方向：{r.actualDirection}</p>
-                    <p>方向结果：{r.directionVerdict ?? r.verdictLabel}</p>
-                    <p>路径结果：{r.pathVerdictLabel ?? "数据不足，待人工确认"}</p>
-                    <p>时间结果：{r.timingVerdict ?? "未单独验证"}</p>
-                    <p>目标价结果：{r.priceTargetVerdict ?? "未单独验证"}</p>
-                    <p>最终方向验证：{r.verdictLabel}</p>
-                    <p>行情来源：{r.dataSource}</p>
-                    <p>验证时间：{new Date(r.verifiedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>
-                    {r.errorMessage && <p>说明：{r.errorMessage}</p>}
-                  </>
-                )}
+                <p>当时预测：{item.predictedDirection}</p>
+                <p>实际结果：{item.actualDirection}</p>
+                <p>验证结论：{item.verdictLabel}</p>
+                <p>验证时间：{formatVerifiedAtChina(item.verifiedAt)}</p>
+                <p>预测版本：v{item.version}</p>
+                <p>预测概率：{item.probability != null ? `${item.probability}%` : "—"}</p>
+                <p>原始摘要：{item.summary || "—"}</p>
+                <p>来源：{item.source}</p>
+                {item.actualClose != null && <p>当日收盘价：{item.actualClose.toLocaleString("zh-CN")}</p>}
+                {item.actualReturnPct != null && <p>实际涨跌幅：{formatReturn(item.actualReturnPct)}</p>}
+                <p>路径结果：{item.pathVerdictLabel ?? "数据不足，待人工确认"}</p>
+                <p>时间结果：{item.timingVerdict ?? "未单独验证"}</p>
+                <p>目标价结果：{item.priceTargetVerdict ?? "未单独验证"}</p>
+                {item.dataSource && <p>行情来源：{item.dataSource}</p>}
+                {item.errorMessage && <p>说明：{item.errorMessage}</p>}
                 <p className="pt-2 text-caption text-foreground-tertiary">
                   验证使用发布时锁定的原始预测，后续修改不覆盖历史版本。
                 </p>
@@ -363,7 +323,7 @@ export function DailyAccuracyClient({
             )}
           </Card>
         ))}
-        {!rows.length && (
+        {items.length > 0 && !rows.length && (
           <Text variant="body-sm" color="secondary">
             当前筛选条件下没有记录。
           </Text>
