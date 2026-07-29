@@ -94,6 +94,7 @@ export function TodayDailyForecastView({
   forecastDate,
   accessDenied,
   denyMessage,
+  teaser,
 }: {
   forecasts: DailyForecast[];
   compositeSummary?: string;
@@ -103,6 +104,13 @@ export function TodayDailyForecastView({
   accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08";
   denyMessage?: string;
   accessReason?: "ADMIN" | "ACTIVE_MEMBER" | "REGISTERED_AFTER_RELEASE";
+  teaser?: {
+    published: boolean;
+    marketCount: number;
+    forecastDate: string | null;
+    publishedAt: string | null;
+    locked: true;
+  } | null;
 }) {
   const readyForecasts = forecasts
     .filter((f) => isHumanPublishedForecast(f) && !isDraft(f))
@@ -110,19 +118,23 @@ export function TodayDailyForecastView({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const sectionDate =
-    forecastDate || readyForecasts[0]?.forecastForDate || undefined;
-  const earliestPublish = readyForecasts
-    .map((f) => f.publishedAt)
-    .filter(Boolean)
-    .sort()[0];
+    teaser?.forecastDate || forecastDate || readyForecasts[0]?.forecastForDate || undefined;
+  const earliestPublish = accessDenied
+    ? teaser?.publishedAt ?? undefined
+    : readyForecasts
+        .map((f) => f.publishedAt)
+        .filter(Boolean)
+        .sort()[0];
   const sectionVerify =
-    readyForecasts.length === 0
+    accessDenied
       ? "—"
-      : readyForecasts.every((f) => f.status === "verified")
-        ? "已验证"
-        : readyForecasts.some((f) => f.status === "expired")
-          ? "部分已过期"
-          : "待验证";
+      : readyForecasts.length === 0
+        ? "—"
+        : readyForecasts.every((f) => f.status === "verified")
+          ? "已验证"
+          : readyForecasts.some((f) => f.status === "expired")
+            ? "部分已过期"
+            : "待验证";
 
   const autoSummary =
     readyForecasts.length === 0
@@ -134,22 +146,35 @@ export function TodayDailyForecastView({
   return (
     <section id="moonx-view" className="border-t border-border/[0.06] py-8 lg:py-12">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
-        <SectionHeader eyebrow="MoonX" title="今日观点" subtitle="登录用户可见 · 交易结束后自动验证" />
+        <SectionHeader eyebrow="MOOX" title="今日观点" subtitle="登录用户可见 · 交易结束后自动验证" />
 
         <MetaRow
           forecastDate={sectionDate}
-          publishedAt={accessDenied ? undefined : earliestPublish}
+          publishedAt={earliestPublish}
           lockStatus={lockLabel(accessDenied)}
-          verifyStatus={accessDenied ? "—" : sectionVerify}
+          verifyStatus={sectionVerify}
         />
 
         {accessDenied === "LOGIN_REQUIRED" ? (
           <div className="mt-4 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
             <Text variant="body" weight="semibold">
-              登录后查看今日预测
+              {teaser?.published ? "今日预测已经发布" : "今日预测尚未发布"}
             </Text>
+            {teaser?.published ? (
+              <Text variant="body-sm" color="secondary">
+                覆盖市场：{teaser.marketCount}
+                {teaser.publishedAt
+                  ? ` · 发布时间：${formatDateTimeChina(teaser.publishedAt)}`
+                  : ""}
+                {" · "}锁定状态：需登录
+              </Text>
+            ) : (
+              <Text variant="body-sm" color="secondary">
+                今日预测尚未发布。登录后可在发布后查看完整方向与概率。
+              </Text>
+            )}
             <Text variant="body-sm" color="secondary">
-              今日预测仅向已登录用户开放。{denyMessage ? ` ${denyMessage}` : ""}
+              登录后查看今日预测方向、概率与路径。{denyMessage ? ` ${denyMessage}` : ""}
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
@@ -165,10 +190,15 @@ export function TodayDailyForecastView({
         {accessDenied === "WAIT_UNTIL_08" ? (
           <div className="mt-4 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
             <Text variant="body" weight="semibold">
-              今日预测将在北京时间08:00开放
+              {teaser?.published ? "今日预测已经发布" : "今日预测尚未发布"}
             </Text>
+            {teaser?.published ? (
+              <Text variant="body-sm" color="secondary">
+                覆盖市场：{teaser.marketCount} · 锁定状态：北京时间08:00开放
+              </Text>
+            ) : null}
             <Text variant="body-sm" color="secondary">
-              有效会员可全天提前查看今日预测。
+              今日预测将在北京时间08:00向普通用户开放。有效会员可全天提前查看。
               {denyMessage ? ` ${denyMessage}` : ""}
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
@@ -210,6 +240,7 @@ export function TodayDailyForecastView({
                     <div className="grid grid-cols-2 gap-2 text-caption text-foreground-tertiary">
                       <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
                       <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
+                      <p>版本号：v{f.version ?? 1}</p>
                       <p>锁定状态：已解锁</p>
                       <p>验证状态：{verifyLabel(f)}</p>
                     </div>
@@ -262,7 +293,7 @@ export function TodayDailyForecastView({
 
         {!accessDenied && readyForecasts.length === 0 ? (
           <Text variant="body-sm" color="secondary" className="mt-2">
-            今日预测内容稍后发布。
+            今日预测尚未发布
           </Text>
         ) : null}
 

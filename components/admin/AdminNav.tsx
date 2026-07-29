@@ -7,7 +7,7 @@ const adminLinks = [
   { href: "/admin", label: "概览" },
   { href: "/admin/forecasts", label: "今日／明日观点" },
   { href: "/admin/weekly", label: "本周行情" },
-  { href: "/admin/stocks", label: "个股分析" },
+  { href: "/admin/stocks", label: "重点关注" },
   { href: "/admin/users", label: "用户与会员" },
   { href: "/admin/payments", label: "付款审核", badgeKey: "payments" as const },
   { href: "/admin/referrals", label: "邀请管理" },

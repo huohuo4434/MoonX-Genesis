@@ -16,9 +16,10 @@ export async function HomeTodaySection() {
     return (
       <TodayDailyForecastView
         forecasts={[]}
-        forecastDate={beijingToday}
+        forecastDate={payload.teaser.forecastDate ?? beijingToday}
         accessDenied={payload.access.reason}
         denyMessage={payload.message}
+        teaser={payload.teaser}
       />
     );
   }

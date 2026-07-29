@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyBeijingForecastDateRoll } from "../lib/data/daily-forecast-date-roll.ts";
+import {
+  applyBeijingForecastDateRoll,
+  filterStrictBeijingToday,
+} from "../lib/data/daily-forecast-date-roll.ts";
 import { getPublicTodayForecasts } from "../lib/data/daily-forecasts.ts";
 import {
   calculateWaveWeight,
@@ -61,7 +64,7 @@ test("nearest level distance percent", () => {
   assert.equal(nearestLevelDistancePct(null, [98]), null);
 });
 
-test("beijing date roll moves latest published cohort onto today after midnight lag", () => {
+test("beijing date roll no longer masquerades older cohorts as today", () => {
   const now = new Date("2026-07-31T01:00:00+08:00");
   const rolled = applyBeijingForecastDateRoll(
     [
@@ -70,13 +73,24 @@ test("beijing date roll moves latest published cohort onto today after midnight 
     ],
     now
   );
-  assert.equal(rolled.find((f) => f.id === "DAILY-BTC-0729")?.forecastForDate, "2026-07-31");
-  assert.equal(rolled.find((f) => f.id === "DAILY-BTC-TEST")?.forecastForDate, "2026-07-30");
+  assert.equal(rolled.find((f) => f.id === "DAILY-BTC-0729")?.forecastForDate, "2026-07-29");
+  assert.equal(rolled.find((f) => f.id === "DAILY-BTC-TEST")?.forecastForDate, "2026-07-28");
+  assert.equal(filterStrictBeijingToday(rolled, now).length, 0);
 });
 
-test("after roll, public today uses beijing calendar date", () => {
-  const now = new Date("2026-07-30T09:00:00+08:00");
+test("public today only returns exact beijing today keys", () => {
+  const now = new Date("2026-07-29T09:00:00+08:00");
   const today = getPublicTodayForecasts(now);
-  assert.ok(today.length >= 1);
+  assert.ok(today.every((f) => f.forecastForDate === "2026-07-29"));
+});
+
+test("old cohort does not become today after midnight", () => {
+  const now = new Date("2026-07-30T00:30:00+08:00");
+  const today = getPublicTodayForecasts(now);
   assert.ok(today.every((f) => f.forecastForDate === "2026-07-30"));
+  // curated seed has no 07-30 batch → empty or only exact matches
+  assert.equal(
+    today.some((f) => f.forecastForDate === "2026-07-28" || f.forecastForDate === "2026-07-29"),
+    false
+  );
 });

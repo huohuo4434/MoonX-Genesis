@@ -1,33 +1,74 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { CONVICTION_ASSETS_MAX, CONVICTION_ASSET_SEED } from "../lib/data/conviction/seed.ts";
 import {
-  FEATURED_STOCKS_MAX,
-  listFeaturedStocks,
-  starsDisplay,
-} from "../lib/data/featured-stocks.ts";
+  ASTEROID_PERIOD_FORECASTS,
+  getAsteroidForecastByType,
+  listAsteroidPeriodForecasts,
+} from "../lib/data/conviction/asteroid-forecasts.ts";
+import { hasConvictionFullAccess } from "../lib/data/conviction/access-mode.ts";
 import { NAV_ROUTES, PUBLIC_PRIMARY_NAV } from "../config/navigation.ts";
+import { normalizeFormalDirection } from "../lib/forecasts/formal-direction.ts";
 
-test("featured stocks hard cap and required assets", () => {
-  const list = listFeaturedStocks();
-  assert.ok(list.length <= FEATURED_STOCKS_MAX);
-  assert.ok(list.length >= 2);
-  assert.equal(list[0]?.symbol, "688825");
-  assert.equal(list[0]?.longTermRating, "A+");
-  assert.equal(list[1]?.name, "Asteroid");
-  assert.equal(list[1]?.longTermRating, "A-");
-  assert.ok(!/推荐|暴涨|稳赚|牛股|翻倍|财富密码/.test(JSON.stringify(list)));
+test("conviction list has cxmt and asteroid", () => {
+  assert.ok(CONVICTION_ASSET_SEED.length <= CONVICTION_ASSETS_MAX);
+  assert.ok(CONVICTION_ASSET_SEED.length >= 2);
+  assert.equal(CONVICTION_ASSET_SEED[0]?.slug, "cxmt");
+  assert.equal(CONVICTION_ASSET_SEED[0]?.symbol, "688825");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.slug, "asteroid");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.nameZh, "太空狗");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.nameEn, "Asteroid");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.assetType, "CRYPTO");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.contractPendingAdminConfirm, true);
+  assert.ok(CONVICTION_ASSET_SEED[1]?.marketCapUpdatedAt);
+  assert.ok(!/火箭狗/.test(CONVICTION_ASSET_SEED[1]?.nameZh ?? ""));
 });
 
-test("featured stocks nav sits between weekly and verification", () => {
+test("conviction nav sits between weekly and verification with single entry", () => {
   const keys = PUBLIC_PRIMARY_NAV.map((n) => n.href);
   const weekly = keys.indexOf(NAV_ROUTES.weeklyAnalysis);
   const featured = keys.indexOf(NAV_ROUTES.featuredStocks);
   const verification = keys.indexOf(NAV_ROUTES.verification);
   assert.ok(weekly >= 0 && featured > weekly && verification > featured);
+  assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.featuredStocks).length, 1);
+  assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.memberStocks), false);
+  assert.equal(PUBLIC_PRIMARY_NAV.find((n) => n.href === NAV_ROUTES.featuredStocks)?.labelZh, "重点关注");
 });
 
-test("starsDisplay", () => {
-  assert.equal(starsDisplay(5), "★★★★★");
-  assert.equal(starsDisplay(4), "★★★★☆");
-  assert.equal(starsDisplay(3), "★★★☆☆");
+test("asteroid periods: no fabricated today/tomorrow; long horizons published", () => {
+  assert.equal(getAsteroidForecastByType("TODAY"), null);
+  assert.equal(getAsteroidForecastByType("TOMORROW"), null);
+  assert.ok(getAsteroidForecastByType("WEEK"));
+  assert.ok(getAsteroidForecastByType("MONTH_1"));
+  assert.ok(getAsteroidForecastByType("MONTH_3"));
+  assert.ok(getAsteroidForecastByType("YEAR_1"));
+  assert.ok(getAsteroidForecastByType("YEAR_5"));
+  assert.equal(listAsteroidPeriodForecasts().length, 5);
+  const ids = ASTEROID_PERIOD_FORECASTS.map((f) => f.id);
+  assert.ok(ids.includes("ASTEROID-WEEK-20260729-V1"));
+  assert.ok(ids.includes("ASTEROID-M1-20260729-V1"));
+  assert.ok(ids.includes("ASTEROID-M3-20260729-V1"));
+  assert.ok(ids.includes("ASTEROID-Y1-20260729-V1"));
+  assert.ok(ids.includes("ASTEROID-Y5-20260729-V1"));
+  for (const f of listAsteroidPeriodForecasts()) {
+    assert.equal(f.status, "published");
+    assert.ok(!JSON.stringify(f).includes("待验证"));
+  }
+});
+
+test("conviction access: admin and member full; others publicOnly", () => {
+  assert.equal(hasConvictionFullAccess({ authenticated: false, isAdmin: false, isActiveMember: false }), false);
+  assert.equal(hasConvictionFullAccess({ authenticated: true, isAdmin: false, isActiveMember: false }), false);
+  assert.equal(hasConvictionFullAccess({ authenticated: true, isAdmin: true, isActiveMember: false }), true);
+  assert.equal(hasConvictionFullAccess({ authenticated: true, isAdmin: false, isActiveMember: true }), true);
+});
+
+test("formal direction migration", () => {
+  assert.equal(normalizeFormalDirection("震荡偏多"), "震荡上涨");
+  assert.equal(normalizeFormalDirection("偏多"), "震荡上涨");
+  assert.equal(normalizeFormalDirection("先抑后扬"), "先跌后涨");
+  assert.equal(normalizeFormalDirection("前高后低"), "先涨后跌");
+  assert.equal(normalizeFormalDirection("高位惯性"), "冲高回落");
+  assert.equal(normalizeFormalDirection("区间震荡"), "震荡");
+  assert.equal(normalizeFormalDirection("观望"), "震荡");
 });

@@ -16,8 +16,8 @@ export function HeroSection() {
   return (
     <Section id="hero" spacing="sm" className="relative overflow-hidden py-8 lg:py-12">
       <div className="flex flex-col items-start gap-4">
-        <span className="text-label uppercase tracking-[0.2em] text-primary" aria-label="MoonX">
-          MoonX
+        <span className="text-label uppercase tracking-[0.2em] text-primary" aria-label="MOOX">
+          MOOX
         </span>
         <Heading as="h1" size="h2" className="max-w-3xl text-h2 lg:text-h1">
           {t("hero.title")}

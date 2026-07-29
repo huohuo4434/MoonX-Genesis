@@ -18,7 +18,10 @@ import {
   getMemberTomorrowForecasts,
   getPublicTodayForecasts,
   isHumanPublishedForecast,
+  toTodayPublicTeaserMeta,
 } from "@/lib/data/daily-forecasts";
+import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 export type FreshPredictionUser = {
@@ -27,10 +30,6 @@ export type FreshPredictionUser = {
   accessUser: PredictionAccessUser | null;
 };
 
-/**
- * Re-read role / membership from Auth admin API by user id.
- * Do not trust stale session cache.
- */
 export async function loadFreshPredictionUser(): Promise<FreshPredictionUser> {
   noStore();
   const snap = await getAccessUser();
@@ -65,14 +64,32 @@ export async function resolveWeeklyPredictionAccess(now = new Date()) {
   return { ...fresh, access };
 }
 
+function sanitizeForecastForClient(f: DailyForecast): DailyForecast {
+  const directionLabel = normalizeFormalDirection(f.directionLabel ?? f.direction);
+  return {
+    ...f,
+    directionLabel,
+  };
+}
+
 async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
+  const today = getBeijingTodayKey(now);
   const { getStoreForecastsForToday } = await import("@/lib/data/store-to-ui-forecasts");
   const fromStore = await getStoreForecastsForToday(now);
   const fromLegacy = getPublicTodayForecasts(now);
   const byAsset = new Map<string, DailyForecast>();
-  for (const f of fromStore) byAsset.set(f.assetId, f);
-  for (const f of fromLegacy) byAsset.set(f.assetId, f);
-  return sortByDailyAssetOrder([...byAsset.values()].filter(isHumanPublishedForecast));
+  for (const f of fromStore) {
+    if (f.forecastForDate === today) byAsset.set(f.assetId, f);
+  }
+  for (const f of fromLegacy) {
+    if (f.forecastForDate === today) byAsset.set(f.assetId, f);
+  }
+  return sortByDailyAssetOrder(
+    [...byAsset.values()]
+      .filter(isHumanPublishedForecast)
+      .filter((f) => f.forecastForDate === today)
+      .map(sanitizeForecastForClient)
+  );
 }
 
 async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
@@ -84,8 +101,18 @@ async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
   for (const f of legacy) {
     if (isHumanPublishedForecast(f)) byAsset.set(f.assetId, f);
   }
-  return sortByDailyAssetOrder([...byAsset.values()].filter(isHumanPublishedForecast));
+  return sortByDailyAssetOrder(
+    [...byAsset.values()].filter(isHumanPublishedForecast).map(sanitizeForecastForClient)
+  );
 }
+
+export type TodayPublicTeaser = {
+  published: boolean;
+  marketCount: number;
+  forecastDate: string | null;
+  publishedAt: string | null;
+  locked: true;
+};
 
 export type TodayForecastAccessPayload =
   | {
@@ -93,15 +120,18 @@ export type TodayForecastAccessPayload =
       access: Extract<TodayPredictionAccess, { allowed: true }>;
       forecasts: DailyForecast[];
       verifying: boolean;
+      teaser: null;
     }
   | {
       allowed: false;
       access: Extract<TodayPredictionAccess, { allowed: false }>;
+      /** Always empty — never leak body to unauthorized clients. */
       forecasts: [];
       verifying: false;
       message: string;
       releaseTime?: "08:00";
       timezone?: "Asia/Shanghai";
+      teaser: TodayPublicTeaser;
     };
 
 export type TomorrowForecastAccessPayload =
@@ -122,6 +152,8 @@ export async function getTodayForecastAccessPayload(
 ): Promise<TodayForecastAccessPayload> {
   noStore();
   const { access } = await resolveTodayPredictionAccess(now);
+  const rows = await loadTodayForecastRows(now);
+  const teaser = toTodayPublicTeaserMeta(rows);
 
   if (!access.allowed) {
     if (access.reason === "LOGIN_REQUIRED") {
@@ -131,6 +163,7 @@ export async function getTodayForecastAccessPayload(
         forecasts: [],
         verifying: false,
         message: TODAY_PREDICTION_MESSAGES.LOGIN_REQUIRED,
+        teaser,
       };
     }
     return {
@@ -141,15 +174,16 @@ export async function getTodayForecastAccessPayload(
       message: TODAY_PREDICTION_MESSAGES.WAIT_UNTIL_08,
       releaseTime: "08:00",
       timezone: "Asia/Shanghai",
+      teaser,
     };
   }
 
-  const forecasts = await loadTodayForecastRows(now);
   return {
     allowed: true,
     access,
-    forecasts,
-    verifying: forecasts.some((f) => f.status === "published"),
+    forecasts: rows,
+    verifying: rows.some((f) => f.status === "published"),
+    teaser: null,
   };
 }
 

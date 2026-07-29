@@ -17,6 +17,8 @@ export async function GET() {
           ok: false,
           reason: "LOGIN_REQUIRED",
           message: TODAY_PREDICTION_MESSAGES.LOGIN_REQUIRED,
+          teaser: payload.teaser,
+          data: [],
         },
         { status: 401, headers: { "Cache-Control": "no-store" } }
       );
@@ -28,6 +30,8 @@ export async function GET() {
         message: TODAY_PREDICTION_MESSAGES.WAIT_UNTIL_08,
         releaseTime: "08:00",
         timezone: "Asia/Shanghai",
+        teaser: payload.teaser,
+        data: [],
       },
       { status: 403, headers: { "Cache-Control": "no-store" } }
     );

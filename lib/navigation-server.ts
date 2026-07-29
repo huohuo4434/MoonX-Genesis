@@ -5,18 +5,11 @@ import {
   buildPublicPrimaryNav,
   type NavItem,
 } from "@/config/navigation";
-import { listOnlineBenefitStocksWithContent } from "@/lib/data/member-stocks/store";
 
 export type { NavItem };
 
 export async function getPublicPrimaryNav(): Promise<NavItem[]> {
-  let includeMemberStocks = true;
-  try {
-    includeMemberStocks = (await listOnlineBenefitStocksWithContent()).length > 0;
-  } catch {
-    includeMemberStocks = true;
-  }
-  return buildPublicPrimaryNav({ includeMemberStocks });
+  return buildPublicPrimaryNav();
 }
 
 export function getPublicMoreNav(): NavItem[] {
@@ -26,13 +19,7 @@ export function getPublicMoreNav(): NavItem[] {
 export async function getPublicFooterColumns(): Promise<
   Array<{ titleKey: string; links: NavItem[] }>
 > {
-  let includeMemberStocks = true;
-  try {
-    includeMemberStocks = (await listOnlineBenefitStocksWithContent()).length > 0;
-  } catch {
-    includeMemberStocks = true;
-  }
-  return buildPublicFooterColumns({ includeMemberStocks }).map((col) => ({
+  return buildPublicFooterColumns().map((col) => ({
     titleKey: col.titleKey,
     links: col.links,
   }));

@@ -7,6 +7,7 @@ import "server-only";
 import { unstable_noStore as noStore } from "next/cache";
 import { getAccessUser } from "@/lib/auth/get-access-user";
 import { getMemberUserContext } from "@/lib/access/member-preview";
+import { hasConvictionFullAccess } from "@/lib/data/conviction/access-mode";
 import {
   getBenefitStock,
   getPublishedTodayForecast,
@@ -55,7 +56,8 @@ export async function getMemberStocksListPayload(): Promise<MemberStocksListPayl
   noStore();
   const access = await getAccessUser();
   const stocks = await listOnlineBenefitStocksWithContent();
-  if (!access.canAccessTomorrow && !access.isAdmin) {
+  // Admin / active member only — do NOT reuse canAccessTomorrow (registered@08:00 ≠ member).
+  if (!hasConvictionFullAccess(access)) {
     return { mode: "locked", stocks: stocks.map(toLockedCard) };
   }
 
@@ -118,7 +120,7 @@ export async function getMemberStockDetailPayload(
       (weekly && isIpoHighVolatilityDate(stockId, weekly.weekStart))
   );
 
-  if (!access.canAccessTomorrow && !access.isAdmin) {
+  if (!hasConvictionFullAccess(access)) {
     return {
       mode: "locked",
       card: toLockedCard(stock),
@@ -128,7 +130,7 @@ export async function getMemberStockDetailPayload(
     };
   }
 
-  const sourceIds = user.isAdmin
+  const sourceIds = access.isAdmin
     ? [
         ...(today?.sourceIds ?? []),
         ...(tomorrow?.sourceIds ?? []),
@@ -145,7 +147,7 @@ export async function getMemberStockDetailPayload(
     updatedAt,
     riskLevel,
     ipoHighVolWarning,
-    isAdmin: user.isAdmin,
+    isAdmin: access.isAdmin || user.isAdmin,
     sourceIds: sourceIds?.length ? [...new Set(sourceIds)] : undefined,
   };
 }
@@ -167,7 +169,7 @@ export async function getMemberStockHistoryPayload(
   const stock = getBenefitStock(stockId);
   if (!stock) return null;
   const access = await getAccessUser();
-  if (!access.canAccessTomorrow && !access.isAdmin) {
+  if (!hasConvictionFullAccess(access)) {
     return { mode: "locked", card: toLockedCard(stock) };
   }
   const results = await listStockVerifications(stockId);
@@ -202,7 +204,7 @@ export async function getHomeMemberStockPayload(): Promise<{
   const today = await getPublishedTodayForecast(stock.stockId);
   const tomorrow = await getPublishedTomorrowForecast(stock.stockId);
   const weekly = await getPublishedWeeklyAnalysis(stock.stockId);
-  if (!access.canAccessTomorrow && !access.isAdmin) {
+  if (!hasConvictionFullAccess(access)) {
     return {
       visible: true,
       mode: "locked",

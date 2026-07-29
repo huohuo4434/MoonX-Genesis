@@ -41,10 +41,10 @@ export default async function AdminStocksPage() {
       <Section spacing="lg">
         <AdminNav current="/admin/stocks" />
         <Heading as="h1" size="h2">
-          会员福利股管理
+          重点资产管理
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          只有 published 内容对会员可见。自动化不得自动公开个股。
+          股票与加密资产统一管理。只有 published 内容对会员可见。
         </Text>
         <div className="flex flex-col gap-3">
           {rows.map((row) => (

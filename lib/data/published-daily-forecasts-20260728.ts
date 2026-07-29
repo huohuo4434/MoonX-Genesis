@@ -231,7 +231,7 @@ export const PUBLISHED_DAILY_FORECASTS: DailyForecast[] = [
     status: "published",
     version: 1,
     direction: "中性",
-    directionLabel: "区间震荡",
+    directionLabel: "震荡",
     confidence: 51,
     headline: "比特币明日更可能维持区间震荡",
     summary:
@@ -396,7 +396,7 @@ export const PUBLISHED_DAILY_FORECASTS: DailyForecast[] = [
     status: "published",
     version: 1,
     direction: "中性",
-    directionLabel: "区间震荡",
+    directionLabel: "震荡",
     confidence: 52,
     headline: "WTI明日转入急跌后的低位震荡",
     summary:

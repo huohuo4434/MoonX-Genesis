@@ -19,6 +19,7 @@ import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { applyDailyPriceOverlay } from "@/lib/data/apply-price-overlays";
 import { applyBeijingForecastDateRoll } from "@/lib/data/daily-forecast-date-roll";
+import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
 
 export const CORE_TOMORROW_ASSETS = [
   {
@@ -264,5 +265,24 @@ export function getAllMemberForecasts(now = new Date()): DailyForecast[] {
 }
 
 export function displayDirection(f: DailyForecast): string {
-  return f.directionLabel ?? f.direction;
+  return normalizeFormalDirection(f.directionLabel ?? f.direction);
 }
+
+/** Strip sensitive forecast fields for unauthorized responses. */
+export function toTodayPublicTeaserMeta(forecasts: DailyForecast[]): {
+  published: boolean;
+  marketCount: number;
+  forecastDate: string | null;
+  publishedAt: string | null;
+  locked: true;
+} {
+  const ready = forecasts.filter(isHumanPublishedForecast);
+  return {
+    published: ready.length > 0,
+    marketCount: ready.length,
+    forecastDate: ready[0]?.forecastForDate ?? null,
+    publishedAt: ready.map((f) => f.publishedAt).filter(Boolean).sort()[0] ?? null,
+    locked: true,
+  };
+}
+

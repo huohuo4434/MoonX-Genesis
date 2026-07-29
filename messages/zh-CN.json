@@ -4,7 +4,7 @@
     "todayView": "今日观点",
     "tomorrowForecast": "明日观点",
     "weeklyAnalysis": "本周行情",
-    "featuredStocks": "Featured Stocks",
+    "featuredStocks": "重点关注",
     "stocks": "个股分析",
     "account": "我的账户",
     "markets": "市场",
@@ -26,7 +26,7 @@
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
     "language": "语言",
-    "memberStocks": "会员个股"
+    "memberStocks": "重点关注"
   },
   "footer": {
     "tagline": "每日观点，交易后公开验证。",
@@ -38,7 +38,7 @@
     "todaysIntelligence": "今日观点",
     "tomorrow": "明日观点",
     "weeklyAnalysis": "本周行情",
-    "featuredStocks": "Featured Stocks",
+    "featuredStocks": "重点关注",
     "stocks": "个股分析",
     "forecasts": "预测",
     "myAccount": "我的账户",
@@ -50,7 +50,7 @@
     "watchlist": "战略观察名单",
     "timeline": "时间线",
     "pricing": "会员价格",
-    "aboutMoonx": "关于 MoonX",
+    "aboutMoonx": "关于 MOOX",
     "latestResearch": "最新研究",
     "contact": "联系我们",
     "methodology": "方法论",
@@ -61,7 +61,7 @@
     "termsOfService": "服务条款",
     "copyright": "© {year} {name}。保留所有权利。",
     "disclaimer": "本网站展示的日度观点仅供参考，不构成投资建议或结果保证。",
-    "memberStocks": "会员个股",
+    "memberStocks": "重点关注",
     "myOrders": "我的订单",
     "signOut": "退出"
   },

@@ -15,6 +15,7 @@ export const NAV_ROUTES = {
   tomorrowForecast: "/member/tomorrow",
   weeklyAnalysis: "/member/weekly",
   featuredStocks: "/featured-stocks",
+  /** @deprecated use featuredStocks — kept for redirects / audit */
   memberStocks: "/member/stocks",
   verification: "/verification",
   pricing: "/pricing",
@@ -44,8 +45,7 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
   { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
   { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
-  { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "Featured Stocks" },
-  { key: "nav.memberStocks", href: NAV_ROUTES.memberStocks, labelZh: "会员个股" },
+  { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的账户" },
@@ -59,25 +59,22 @@ export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "账户" },
 ];
 
-export function buildPublicPrimaryNav(options?: { includeMemberStocks?: boolean }): NavItem[] {
-  const includeStocks = options?.includeMemberStocks !== false;
-  return PUBLIC_PRIMARY_NAV.filter((item) => includeStocks || item.href !== NAV_ROUTES.memberStocks);
+export function buildPublicPrimaryNav(_options?: { includeMemberStocks?: boolean }): NavItem[] {
+  return PUBLIC_PRIMARY_NAV;
 }
 
 export function buildPublicFooterColumns(options?: {
   includeMemberStocks?: boolean;
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
-  const includeStocks = options?.includeMemberStocks !== false;
   const product = [
     { key: "footer.todaysIntelligence", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
     { key: "footer.tomorrow", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
     { key: "footer.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
-    { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "Featured Stocks" },
-    { key: "footer.memberStocks", href: NAV_ROUTES.memberStocks, labelZh: "会员个股" },
+    { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
     { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
-  ].filter((item) => includeStocks || item.href !== NAV_ROUTES.memberStocks);
+  ];
 
   const account: NavItem[] = [
     { key: "footer.myAccount", href: NAV_ROUTES.account, labelZh: "我的账户" },
@@ -114,6 +111,8 @@ export const AUDIT_ROUTES = [
   "/member/tomorrow",
   "/member/weekly",
   "/featured-stocks",
+  "/featured-stocks/cxmt",
+  "/featured-stocks/asteroid",
   "/member/stocks",
   "/member/stocks/688825",
   "/member/stocks/688825/history",
@@ -127,6 +126,7 @@ export const AUDIT_ROUTES = [
   "/admin/weekly",
   "/admin/stocks",
   "/admin/stocks/688825",
+  "/admin/conviction",
   "/admin/intelligence",
   "/admin/learning",
   ...INTERNAL_LEGACY_ROUTES,

@@ -53,7 +53,7 @@ describe("published Jul 28/29 daily forecasts", () => {
     assert.equal(summary.nextDateIso, "2026-07-29");
   });
 
-  test("Jul 29 records auto become today when Beijing date rolls", () => {
+  test("Jul 29 curated forecasts become today on Beijing Jul 29 without shifting older days", () => {
     const nextDay = new Date("2026-07-29T08:00:00+08:00");
     const today = getPublicTodayForecasts(nextDay);
     assert.equal(today.length, 7);
