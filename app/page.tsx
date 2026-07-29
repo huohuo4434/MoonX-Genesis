@@ -1,35 +1,23 @@
-import { getFeatureFlags } from "@/lib/feature-flags";
-import { HomeDailyForecastEditionSection } from "@/components/home/HomeDailyForecastEditionSection";
-import { HomeAccuracySummary } from "@/components/home/HomeAccuracySummary";
+import { HomeTodaySection } from "@/components/home/HomeTodaySection";
+import { HomeRecentVerification } from "@/components/home/HomeRecentVerification";
+import { HomeFeaturedAssets } from "@/components/home/HomeFeaturedAssets";
 import { HomePricingEntry } from "@/components/home/HomePricingEntry";
-import { MemberForecastTeaser } from "@/components/home/MemberForecastTeaser";
 import { HeroSection } from "@/components/sections";
-import { ConsensusOverviewSection } from "@/components/sections/ConsensusOverviewSection";
-import { TechnicalSignalsHomeSection } from "@/components/sections/TechnicalSignalsHomeSection";
-import { MacroRiskCalendarSection } from "@/components/sections/MacroRiskCalendarSection";
-import { BitcoinForecastPathSection } from "@/components/sections/BitcoinForecastPathSection";
-import { StrategicWatchlistPreview } from "@/components/home/StrategicWatchlistPreview";
-import { LongTermOutlookSection } from "@/components/home/LongTermOutlookSection";
-import { HomeTomorrowSection } from "@/components/home/HomeTomorrowSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * Emergency homepage: exactly five modules.
+ * Hero → Today gate → Recent verification → Featured assets → Membership CTA.
+ */
 export default async function HomePage() {
-  const flags = getFeatureFlags();
-
   return (
-    <main>
-      <HomeDailyForecastEditionSection />
+    <main className="mx-auto w-full max-w-[1200px]">
       <HeroSection />
-      {flags.memberForecastEnabled ? <HomeTomorrowSection /> : <MemberForecastTeaser />}
-      <ConsensusOverviewSection />
-      <TechnicalSignalsHomeSection />
-      <MacroRiskCalendarSection />
-      <BitcoinForecastPathSection />
-      <StrategicWatchlistPreview />
-      <LongTermOutlookSection />
-      <HomeAccuracySummary />
+      <HomeTodaySection />
+      <HomeRecentVerification />
+      <HomeFeaturedAssets />
       <HomePricingEntry />
     </main>
   );

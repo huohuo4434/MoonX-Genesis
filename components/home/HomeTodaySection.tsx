@@ -16,21 +16,35 @@ export async function HomeTodaySection() {
     return (
       <TodayDailyForecastView
         forecasts={[]}
-        forecastDate={payload.teaser.forecastDate ?? beijingToday}
+        forecastDate={beijingToday}
         accessDenied={payload.access.reason}
         denyMessage={payload.message}
-        teaser={payload.teaser}
+        teaser={{
+          published: payload.teaser.published,
+          marketCount: payload.teaser.marketCount,
+          // Never surface a non-today date as “今日”
+          forecastDate:
+            payload.teaser.forecastDate === beijingToday ? payload.teaser.forecastDate : beijingToday,
+          publishedAt:
+            payload.teaser.forecastDate === beijingToday ? payload.teaser.publishedAt : null,
+          locked: true,
+        }}
       />
     );
   }
 
-  const ready = payload.forecasts.filter((f) => isHumanPublishedForecast(f));
-  const forecastDate = ready[0]?.forecastForDate ?? beijingToday;
+  // Strict Asia/Shanghai today only — never roll yesterday into “今日观点”.
+  const ready = payload.forecasts.filter(
+    (f) => isHumanPublishedForecast(f) && f.forecastForDate === beijingToday
+  );
+  const forecastDate = beijingToday;
+  const detailLevel =
+    payload.access.reason === "REGISTERED_AFTER_RELEASE" ? "summary" : "full";
 
   let summary: string | undefined;
   if (ready.length > 0) {
     const dirs = ready.map((f) => `${f.assetName}${displayDirection(f)}`).join("、");
-    summary = `今日已发布${ready.length}项市场观点（${dirs}）。交易结束后将自动验证收盘方向。`;
+    summary = `今日已发布${ready.length}项市场观点（${dirs}）。`;
   }
 
   const publishedCount = ready.length;
@@ -62,6 +76,7 @@ export async function HomeTodaySection() {
       compositeSummary={summary}
       publishHint={publishHint}
       forecastDate={forecastDate}
+      detailLevel={detailLevel}
     />
   );
 }

@@ -13,10 +13,13 @@ import type {
 } from "@/types/daily-accuracy";
 import { DIRECTION_LABELS } from "@/types/daily-accuracy";
 
-/** Final public verdicts. MANUAL_REVIEW / PENDING are never public history. */
-export const PUBLIC_FINAL_VERDICTS = new Set<DailyVerdict>(["HIT", "MISS", "VOID"]);
+/**
+ * Public history: HIT / MISS only (PARTIAL maps here if introduced later).
+ * VOID / MANUAL_REVIEW / PENDING / DRAFT / LOCKED never appear on public pages.
+ */
+export const PUBLIC_FINAL_VERDICTS = new Set<DailyVerdict>(["HIT", "MISS"]);
 
-/** Countable for hit-rate denominator (VOID excluded). */
+/** Countable for hit-rate denominator. */
 export const PUBLIC_COUNTABLE_VERDICTS = new Set<DailyVerdict>(["HIT", "MISS"]);
 
 export type PublicAccuracyHistoryItem = {
@@ -103,6 +106,7 @@ export function filterPublicAccuracyHistory(input: {
       (f?.direction ? DIRECTION_LABELS[f.direction] : "—");
     const predictedDirection = normalizeFormalDirection(rawDirection);
 
+    // Public payload: no internal notes, source stats, path detail, or summaries.
     items.push({
       forecastId: r.forecastId,
       forecastDate: r.forecastDate,
@@ -118,14 +122,7 @@ export function filterPublicAccuracyHistory(input: {
       verdictLabel: r.verdictLabel,
       verifiedAt: r.verifiedAt,
       version: f?.originalVersion ?? 1,
-      source: f?.source ?? "MOOX",
-      pathVerdictLabel: r.pathVerdictLabel,
-      timingVerdict: r.timingVerdict,
-      priceTargetVerdict: r.priceTargetVerdict,
-      dataSource: r.dataSource,
-      errorMessage: r.errorMessage,
-      probability: f?.probability,
-      summary: f?.summary,
+      source: "MOOX",
     });
   }
 

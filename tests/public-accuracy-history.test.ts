@@ -190,7 +190,7 @@ describe("public accuracy history filter", () => {
     assert.equal(isPublicCountableVerdict("VOID"), false);
   });
 
-  test("VOID visible but excluded from denominator", () => {
+  test("VOID never public on history page", () => {
     const items = filterPublicAccuracyHistory({
       forecasts: [forecast({ id: "v", forecastDate: "2026-07-25" })],
       results: [
@@ -203,12 +203,9 @@ describe("public accuracy history filter", () => {
       ],
       now: NOW,
     });
-    assert.equal(items.length, 1);
-    assert.ok(isPublicFinalVerdict("VOID"));
-    const stats = computePublicAccuracyStats(items, NOW);
-    assert.equal(stats.voidCount, 1);
-    assert.equal(stats.verifiedCount, 0);
-    assert.equal(stats.hitRate, null);
+    assert.equal(items.length, 0);
+    assert.equal(isPublicFinalVerdict("VOID"), false);
+    assert.equal(isPublicCountableVerdict("VOID"), false);
   });
 
   test("MANUAL_REVIEW never public", () => {

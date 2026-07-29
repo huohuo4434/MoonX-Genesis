@@ -13,6 +13,10 @@
       "schedule": "30 0 * * *"
     },
     {
+      "path": "/api/cron/generate-social-cards",
+      "schedule": "10 16 * * *"
+    },
+    {
       "path": "/api/cron/generate-daily-forecasts",
       "schedule": "30 11 * * *"
     },

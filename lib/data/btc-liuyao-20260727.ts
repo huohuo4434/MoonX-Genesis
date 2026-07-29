@@ -344,8 +344,8 @@ export const btcLiuyao20260727Records: ResearchRecord[] = [
       },
     ],
     invalidation: lt(
-      "若8月进入申月后价格仍持续创新低，且4小时和日线趋势均未出现修复，则中周期震荡偏多判断失效。",
-      "若8月進入申月後價格仍持續創新低，且4小時和日線趨勢均未出現修復，則中周期震盪偏多判斷失效。",
+      "若8月进入申月后价格仍持续创新低，且4小时和日线趋势均未出现修复，则中周期震荡上涨判断失效。",
+      "若8月進入申月後價格仍持續創新低，且4小時和日線趨勢均未出現修復，則中周期震盪上漲判斷失效。",
       "If post-Shen month keeps making lows with no 4H/D repair, mid-cycle bullish bias fails."
     ),
     notes: [

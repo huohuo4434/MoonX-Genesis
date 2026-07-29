@@ -7,11 +7,16 @@ import { PLAN_DISPLAY, PLAN_PURCHASE_LABEL } from "@/lib/payments/plan-display";
 import type { MembershipPlan } from "@/types/membership";
 
 const BENEFITS = [
-  "提前查看下一交易日完整预测",
-  "查看本周整体行情分析",
-  "查看关键支撑、关键压力和失效价格",
-  "查看会员福利股长鑫科技的今日、明日和本周分析",
-  "查看会员专属个股验证记录",
+  "今日完整预测",
+  "下一交易日预测",
+  "本周行情路径",
+  "重点资产研究",
+  "长鑫科技会员分析",
+  "Asteroid会员分析",
+  "Master I Ching分析",
+  "Wave Intelligence",
+  "AI综合判断",
+  "风险和失效条件",
 ];
 
 function CopyAddress({ label, address }: { label: string; address: string }) {

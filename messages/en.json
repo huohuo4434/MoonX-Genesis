@@ -15,7 +15,7 @@
     "researchLibrary": "Research Library",
     "timeline": "Timeline",
     "watchlist": "Strategic Watch",
-    "verification": "Track Record",
+    "verification": "Verification",
     "methodology": "Methodology",
     "technical": "Technical Analysis",
     "more": "More",
@@ -29,7 +29,7 @@
     "memberStocks": "Conviction List"
   },
   "footer": {
-    "tagline": "Daily views, verified after the close.",
+    "tagline": "Daily market research with public verification",
     "product": "Product",
     "company": "Company",
     "resources": "Resources",
@@ -62,19 +62,21 @@
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "copyright": "© {year} {name}. All rights reserved.",
-    "disclaimer": "Daily views on this site are for reference only and do not constitute investment advice."
+    "disclaimer": "Daily views on this site are for reference only and do not constitute investment advice.",
+    "verificationCol": "Verification",
+    "accountLegal": "Account & Legal"
   },
   "hero": {
     "eyebrow": "MOOX",
-    "title": "Stay one session ahead on the main markets",
-    "subtitle": "MOOX publishes daily direction, probabilities, path, and invalidation for Bitcoin, S&P 500, Nasdaq 100, China equities, gold, and WTI crude — then verifies after the close.",
+    "title": "Stay one step ahead of major market rhythm",
+    "subtitle": "MoonX combines market data, AI analysis, technical structure, and I Ching research — publishing judgments early and verifying them after the session.",
     "badgeFrameworks": "Direction & probability",
     "badgeVerification": "Verified after close",
     "badgeTracking": "Path & invalidation",
     "disclaimer": "Research views and scenario analysis only. Not investment advice.",
-    "ctaExplore": "Today's view",
+    "ctaExplore": "View today",
     "ctaTimeline": "Tomorrow (members)",
-    "ctaTomorrow": "Tomorrow & this week"
+    "ctaTomorrow": "View history"
   },
   "common": {
     "viewDetails": "View Details",

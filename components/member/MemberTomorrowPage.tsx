@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ForecastBasisWeights } from "@/components/forecasts/ForecastBasisWeights";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { LockIcon } from "@/components/icons";
+import { ShareButtons } from "@/components/social/ShareButtons";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { sortByDailyAssetOrder } from "@/lib/data/daily-asset-order";
 import {
@@ -228,6 +229,16 @@ export function MemberTomorrowLockedPage({
 }: {
   summary: TomorrowForecastPublicSummary;
 }) {
+  const covered = [
+    "BTC",
+    "S&P 500",
+    "NASDAQ 100",
+    "上证指数",
+    "恒生科技",
+    "黄金",
+    "WTI原油",
+  ];
+
   return (
     <main>
       <Section spacing="lg">
@@ -237,29 +248,54 @@ export function MemberTomorrowLockedPage({
             <Badge variant="default">会员专享</Badge>
           </div>
           <Heading as="h1" size="h2">
-            {TOMORROW_SCHEDULE_COPY.title}
+            下一交易日完整预测
           </Heading>
           <Text variant="body" color="secondary">
-            {TOMORROW_SCHEDULE_COPY.description}
-          </Text>
-          <Text variant="caption" color="tertiary" className="block">
-            固定发布时间：{FORMAL_PUBLISH_LABEL}
+            会员可提前查看下一交易日完整判断。未开通会员仅显示统一预览卡，不展示具体方向与概率。
           </Text>
           <BatchMeta
             forecastDate={summary.nextDateIso}
             plannedPublishAt={plannedPublishAtIso(getBeijingTodayKey())}
             status="会员锁定"
             version="—"
-            marketCount={summary.publishedCount}
+            marketCount={covered.length}
           />
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button asChild variant="primary">
-              <Link href="/pricing">立即开通会员</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/login?next=/member/tomorrow">登录</Link>
-            </Button>
-          </div>
+          <Card padding="lg" className="space-y-4 border-border/[0.1]">
+            <Text variant="body" weight="semibold">
+              下一交易日完整预测
+            </Text>
+            <div>
+              <Text variant="caption" color="tertiary">
+                已覆盖
+              </Text>
+              <Text variant="body-sm" color="secondary" className="mt-1">
+                {covered.join(" · ")}
+              </Text>
+            </div>
+            <div>
+              <Text variant="caption" color="tertiary">
+                会员可查看
+              </Text>
+              <ul className="mt-2 space-y-1 text-body-sm text-foreground-secondary">
+                <li>明确方向</li>
+                <li>三项概率</li>
+                <li>关键支撑</li>
+                <li>关键压力</li>
+                <li>确认位</li>
+                <li>失效位</li>
+                <li>运行路径</li>
+                <li>证据摘要</li>
+              </ul>
+            </div>
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Button asChild variant="primary">
+                <Link href="/pricing">解锁明日预测</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/login?next=/member/tomorrow">登录</Link>
+              </Button>
+            </div>
+          </Card>
         </div>
       </Section>
     </main>
@@ -359,6 +395,13 @@ export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast
             version={version}
             status="已锁定"
             marketCount={ordered.length}
+          />
+
+          <ShareButtons
+            className="mb-6"
+            url="/forecasts/daily"
+            forecastDate={nextDate}
+            summary="MOOX 每日市场预测"
           />
 
           <div className="grid gap-4 lg:grid-cols-2">

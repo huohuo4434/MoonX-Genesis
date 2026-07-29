@@ -3,16 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
-import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Button, Text } from "@/components/ui";
 import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
-import {
-  buildForecastModuleEvidence,
-  dailyForecastToEvidenceSource,
-} from "@/lib/methodology/evidence";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isDraft(f: DailyForecast) {
@@ -43,33 +38,19 @@ function ProbabilityBars({ up, flat, down }: { up: number; flat: number; down: n
   );
 }
 
-function verifyLabel(f: DailyForecast): string {
-  if (f.status === "verified") return "已验证";
-  if (f.status === "expired") return "已过期";
-  return "待收盘验证";
-}
-
-function lockLabel(accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08"): string {
-  if (accessDenied === "LOGIN_REQUIRED") return "锁定（需登录）";
-  if (accessDenied === "WAIT_UNTIL_08") return "锁定（08:00开放）";
-  return "已锁定";
-}
-
 function MetaRow({
   forecastDate,
   publishedAt,
   version,
   lockStatus,
-  verifyStatus,
 }: {
   forecastDate?: string;
   publishedAt?: string;
   version?: string;
   lockStatus: string;
-  verifyStatus: string;
 }) {
   return (
-    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <div>
         <p className="text-caption text-foreground-tertiary">预测日期</p>
         <p className="text-body-sm text-foreground">
@@ -84,15 +65,11 @@ function MetaRow({
       </div>
       <div>
         <p className="text-caption text-foreground-tertiary">版本</p>
-        <p className="text-body-sm text-foreground font-mono">{version ?? "V1"}</p>
+        <p className="text-body-sm text-foreground">{version ?? "—"}</p>
       </div>
       <div>
         <p className="text-caption text-foreground-tertiary">锁定状态</p>
         <p className="text-body-sm text-foreground">{lockStatus}</p>
-      </div>
-      <div>
-        <p className="text-caption text-foreground-tertiary">验证状态</p>
-        <p className="text-body-sm text-foreground">{verifyStatus}</p>
       </div>
     </div>
   );
@@ -105,12 +82,13 @@ export function TodayDailyForecastView({
   forecastDate,
   accessDenied,
   denyMessage,
+  accessReason,
   teaser,
+  detailLevel = "full",
 }: {
   forecasts: DailyForecast[];
   compositeSummary?: string;
   publishHint?: string;
-  /** Beijing calendar forecast date for the section (auto-updates daily). */
   forecastDate?: string;
   accessDenied?: "LOGIN_REQUIRED" | "WAIT_UNTIL_08";
   denyMessage?: string;
@@ -122,6 +100,8 @@ export function TodayDailyForecastView({
     publishedAt: string | null;
     locked: true;
   } | null;
+  /** Registered users after 08:00 see summary; members/admin see full. */
+  detailLevel?: "summary" | "full";
 }) {
   const readyForecasts = forecasts
     .filter((f) => isHumanPublishedForecast(f) && !isDraft(f))
@@ -136,20 +116,20 @@ export function TodayDailyForecastView({
         .map((f) => f.publishedAt)
         .filter(Boolean)
         .sort()[0];
-  const sectionVerify =
-    accessDenied
-      ? "—"
-      : readyForecasts.length === 0
-        ? "—"
-        : readyForecasts.every((f) => f.status === "verified")
-          ? "已验证"
-          : readyForecasts.some((f) => f.status === "expired")
-            ? "部分已过期"
-            : "待收盘验证";
   const sectionVersion =
     readyForecasts.length > 0
       ? `V${Math.max(...readyForecasts.map((f) => f.version || 1), 1)}`
-      : "V1";
+      : "—";
+
+  const lockStatus = accessDenied
+    ? accessDenied === "LOGIN_REQUIRED"
+      ? "需登录"
+      : "08:00开放"
+    : accessReason === "ADMIN"
+      ? "管理员"
+      : accessReason === "ACTIVE_MEMBER"
+        ? "会员"
+        : "已开放";
 
   const autoSummary =
     readyForecasts.length === 0
@@ -159,63 +139,45 @@ export function TodayDailyForecastView({
           .join("、")}。`;
 
   return (
-    <section id="moonx-view" className="border-t border-border/[0.06] py-8 lg:py-12">
-      <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
-        <SectionHeader eyebrow="MOOX" title="今日观点" subtitle="登录用户可见 · 交易结束后自动验证" />
+    <section id="moonx-view" className="border-t border-border/[0.06] py-8 lg:py-10">
+      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
+        <SectionHeader eyebrow="今日观点" title="今日观点" subtitle="按账户权限开放 · 交易结束后公开验证" />
 
         <MetaRow
           forecastDate={sectionDate}
           publishedAt={earliestPublish}
           version={sectionVersion}
-          lockStatus={lockLabel(accessDenied)}
-          verifyStatus={sectionVerify}
+          lockStatus={lockStatus}
         />
 
         {accessDenied === "LOGIN_REQUIRED" ? (
-          <div className="mt-4 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
+          <div className="mt-2 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
             <Text variant="body" weight="semibold">
-              {teaser?.published ? "今日预测已经发布" : "今日预测尚未发布"}
+              今日市场观点
             </Text>
-            {teaser?.published ? (
-              <Text variant="body-sm" color="secondary">
-                覆盖市场：{teaser.marketCount}
-                {teaser.publishedAt
-                  ? ` · 发布时间：${formatDateTimeChina(teaser.publishedAt)}`
-                  : ""}
-                {" · "}锁定状态：需登录
-              </Text>
-            ) : (
-              <Text variant="body-sm" color="secondary">
-                今日预测尚未发布。登录后可在发布后查看完整方向与概率。
-              </Text>
-            )}
             <Text variant="body-sm" color="secondary">
-              登录后查看今日预测方向、概率与路径。{denyMessage ? ` ${denyMessage}` : ""}
+              登录后可根据账户权限查看今日内容。
             </Text>
+            {denyMessage ? (
+              <Text variant="caption" color="tertiary">
+                {denyMessage}
+              </Text>
+            ) : null}
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
-                <Link href="/login?next=/">登录</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/register?next=/">注册</Link>
+                <Link href="/login?next=/#moonx-view">登录查看</Link>
               </Button>
             </div>
           </div>
         ) : null}
 
         {accessDenied === "WAIT_UNTIL_08" ? (
-          <div className="mt-4 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
+          <div className="mt-2 max-w-xl space-y-3 rounded-xl border border-border/[0.1] bg-card p-5">
             <Text variant="body" weight="semibold">
-              {teaser?.published ? "今日预测已经发布" : "今日预测尚未发布"}
+              今日观点将在北京时间08:00开放
             </Text>
-            {teaser?.published ? (
-              <Text variant="body-sm" color="secondary">
-                覆盖市场：{teaser.marketCount} · 锁定状态：北京时间08:00开放
-              </Text>
-            ) : null}
             <Text variant="body-sm" color="secondary">
-              今日预测将在北京时间08:00向普通用户开放。有效会员可全天提前查看。
-              {denyMessage ? ` ${denyMessage}` : ""}
+              开放前不会展示方向与概率。有效会员可全天提前查看。
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
@@ -242,10 +204,11 @@ export function TodayDailyForecastView({
                   flat: Math.max(0, 100 - f.confidence),
                   down: 0,
                 };
+                const showFull = detailLevel === "full";
                 return (
                   <article
                     key={f.id}
-                    className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-xl border border-border/[0.1] bg-card p-4 shadow-[0_0_0_1px_hsl(var(--border)/0.04)]"
+                    className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-xl border border-border/[0.1] bg-card p-4"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <Text variant="body" weight="semibold" className="min-w-0 break-words">
@@ -257,52 +220,46 @@ export function TodayDailyForecastView({
                       <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
                       <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
                       <p>版本号：V{f.version ?? 1}</p>
-                      <p>状态：已锁定</p>
-                      <p>验证状态：{verifyLabel(f)}</p>
+                      <p>锁定：已开放</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />
                     <p className="break-words text-body-sm text-foreground-secondary">
                       {f.headline ?? f.summary}
                     </p>
-                    <button
-                      type="button"
-                      className="min-h-11 text-left text-caption text-primary underline-offset-2 hover:underline"
-                      onClick={() => setOpenId(open ? null : f.id)}
-                      aria-expanded={open}
-                    >
-                      {open ? "收起详情" : "展开详情"}
-                    </button>
-                    {open ? (
-                      <div className="space-y-2 break-words border-t border-border/[0.06] pt-3 text-caption text-foreground-tertiary">
-                        <p>目标时段：{f.tradingSessionLabel}</p>
-                        <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
-                          <PriceLevelsBlock
-                            support={f.supportLevels}
-                            resistance={f.resistanceLevels}
-                            invalidation={f.invalidation}
-                            confirmation={f.confirmation}
-                            priceSource={f.priceDataSourceLabel}
-                            snapshotAt={
-                              f.priceSnapshotAtLabel
-                                ? formatDateTimeChina(f.priceSnapshotAtLabel)
-                                : undefined
-                            }
-                          />
-                        </div>
-                        {f.expectedPath?.length ? (
-                          <p>盘中路径：{f.expectedPath.join(" → ")}</p>
-                        ) : (
-                          <p>盘中路径：按公开摘要观察</p>
-                        )}
-                        {f.risks?.length ? <p>风险：{f.risks.join("；")}</p> : null}
-                        {f.symbol === "WTI" ? (
-                          <p>行情及验证使用WTI近月连续合约，不代表特定交割月份的现货价格。</p>
+                    {showFull ? (
+                      <>
+                        <button
+                          type="button"
+                          className="min-h-11 text-left text-caption text-primary underline-offset-2 hover:underline"
+                          onClick={() => setOpenId(open ? null : f.id)}
+                          aria-expanded={open}
+                        >
+                          {open ? "收起详情" : "展开详情"}
+                        </button>
+                        {open ? (
+                          <div className="space-y-2 break-words border-t border-border/[0.06] pt-3 text-caption text-foreground-tertiary">
+                            <p>目标时段：{f.tradingSessionLabel}</p>
+                            <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
+                              <PriceLevelsBlock
+                                support={f.supportLevels}
+                                resistance={f.resistanceLevels}
+                                invalidation={f.invalidation}
+                                confirmation={f.confirmation}
+                                priceSource={f.priceDataSourceLabel}
+                                snapshotAt={
+                                  f.priceSnapshotAtLabel
+                                    ? formatDateTimeChina(f.priceSnapshotAtLabel)
+                                    : undefined
+                                }
+                              />
+                            </div>
+                            {f.expectedPath?.length ? (
+                              <p>盘中路径：{f.expectedPath.join(" → ")}</p>
+                            ) : null}
+                          </div>
                         ) : null}
-                      </div>
+                      </>
                     ) : null}
-                    <ForecastEvidencePanel
-                      items={buildForecastModuleEvidence(dailyForecastToEvidenceSource(f))}
-                    />
                   </article>
                 );
               })}
@@ -312,16 +269,9 @@ export function TodayDailyForecastView({
 
         {!accessDenied && readyForecasts.length === 0 ? (
           <Text variant="body-sm" color="secondary" className="mt-2">
-            今日预测尚未发布
+            今日观点尚未发布
           </Text>
         ) : null}
-
-        <Link
-          href="/verification"
-          className="mt-4 inline-block min-h-11 text-body-sm text-primary underline-offset-4 hover:underline"
-        >
-          查看历史准确率
-        </Link>
       </div>
     </section>
   );

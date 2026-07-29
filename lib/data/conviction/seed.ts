@@ -169,7 +169,9 @@ export const CONVICTION_MEMBER_LOCKS = [
   { key: "today", labelZh: "今日分析", labelEn: "Today analysis" },
   { key: "tomorrow", labelZh: "下一交易日", labelEn: "Next session" },
   { key: "weekly", labelZh: "本周路径", labelEn: "Weekly path" },
-  { key: "mid", labelZh: "中长期研究", labelEn: "Medium/long-term research" },
-  { key: "levels", labelZh: "关键价位", labelEn: "Key levels" },
-  { key: "history", labelZh: "完整验证", labelEn: "Full verification" },
+  { key: "levels", labelZh: "关键价格", labelEn: "Key price levels" },
+  { key: "ai", labelZh: "AI分析", labelEn: "AI analysis" },
+  { key: "master_iching", labelZh: "Master I Ching分析", labelEn: "Master I Ching analysis" },
+  { key: "wave", labelZh: "Wave分析", labelEn: "Wave intelligence" },
+  { key: "history", labelZh: "历史验证", labelEn: "Historical verification" },
 ] as const;

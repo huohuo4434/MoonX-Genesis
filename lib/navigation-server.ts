@@ -17,10 +17,7 @@ export function getPublicMoreNav(): NavItem[] {
 }
 
 export async function getPublicFooterColumns(): Promise<
-  Array<{ titleKey: string; links: NavItem[] }>
+  Array<{ titleKey: string; titleZh: string; links: NavItem[] }>
 > {
-  return buildPublicFooterColumns().map((col) => ({
-    titleKey: col.titleKey,
-    links: col.links,
-  }));
+  return buildPublicFooterColumns();
 }

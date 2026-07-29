@@ -10,14 +10,14 @@ import type { ConvictionPublicCard } from "@/types/conviction-asset";
 function AssetTypeBadge({ type }: { type: ConvictionPublicCard["assetType"] }) {
   const label =
     type === "STOCK"
-      ? "股票"
+      ? "Stock"
       : type === "CRYPTO"
-        ? "加密资产"
+        ? "Crypto"
         : type === "ETF"
           ? "ETF"
           : type === "INDEX"
-            ? "指数"
-            : "商品";
+            ? "Index"
+            : "Commodity";
   return (
     <Badge variant="outline" className="border-white/15 bg-white/[0.03] font-mono text-caption text-white/70">
       {label}
@@ -28,16 +28,17 @@ function AssetTypeBadge({ type }: { type: ConvictionPublicCard["assetType"] }) {
 function PublicAssetCard({
   card,
   mode,
-  isAuthenticated,
 }: {
   card: ConvictionPublicCard;
   mode: ConvictionListPagePayload["mode"];
-  isAuthenticated: boolean;
 }) {
+  const grade = card.rating.includes("+") ? "A+" : card.rating.startsWith("A") ? "A" : "B";
+  const riskBucket = card.riskLevel === "低" ? "Low" : card.riskLevel === "中" ? "Medium" : "High";
   const mcap = formatMarketCapDisplay(card);
-  const unlockHref = isAuthenticated ? "/pricing" : `/login?next=${encodeURIComponent(card.detailHref)}`;
   const primaryHref = card.detailHref;
-  const primaryLabel = mode === "fullAccess" ? "查看完整研究" : "查看研究详情";
+  const locked = mode === "publicOnly";
+  const lockedHref = "/pricing";
+  const primaryLabel = locked ? "查看完整研究" : "查看完整研究";
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0e12]">
@@ -47,10 +48,10 @@ function PublicAssetCard({
             <div className="flex flex-wrap gap-2">
               <AssetTypeBadge type={card.assetType} />
               <Badge variant="outline" className="border-amber-500/30 text-amber-300/90">
-                评级 {card.rating}
+                MOOX评级 {grade}
               </Badge>
               <Badge variant="outline" className="border-red-500/25 text-red-300/80">
-                风险 {card.riskLevel}
+                Risk {riskBucket}
               </Badge>
               <Badge variant="outline" className="border-emerald-500/20 text-emerald-300/80">
                 {card.researchStatusZh}
@@ -58,9 +59,7 @@ function PublicAssetCard({
             </div>
             <Heading as="h2" size="h3" className="text-white">
               {card.slug === "asteroid" ? (
-                <>
-                  Asteroid（太空狗）
-                </>
+                <>太空狗</>
               ) : (
                 <>
                   {card.nameZh}
@@ -71,17 +70,15 @@ function PublicAssetCard({
               )}
             </Heading>
             <p className="font-mono text-body-sm text-white/50">
-              {card.assetType}
-              {card.slug === "asteroid" && card.contractAddress
-                ? ` · ${card.contractAddress.slice(0, 10)}…`
-                : card.symbol
-                  ? ` · ${card.symbol}`
-                  : ""}
-              {card.exchange ? ` · ${card.exchange}` : ""}
+              代码：{card.symbol}
+              {" · "}
+              {card.exchange ? `交易所：${card.exchange}` : card.network ? `网络：${card.network}` : ""}
             </p>
-            <p className="text-caption text-white/40">
-              最近更新：{formatDateChina(card.researchUpdatedAt)}
-            </p>
+            <div className="flex flex-wrap gap-3 text-caption text-white/40">
+              <span>Updated：{formatDateChina(card.researchUpdatedAt)}</span>
+              <span>Version：v1</span>
+              <span>{locked ? "Locked：YES" : "Locked：NO"}</span>
+            </div>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -127,19 +124,37 @@ function PublicAssetCard({
         ) : null}
 
         <section>
-          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">为什么关注</h3>
-          <ul className="mt-2 space-y-2">
-            {card.thesisZh.map((line) => (
-              <li key={line} className="flex gap-2 text-body-sm text-white/75">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/35" aria-hidden />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
+          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">公开研究内容</h3>
+          <div className="mt-3 space-y-3">
+            <div>
+              <h4 className="text-caption text-white/55">为什么关注</h4>
+              <div className="mt-2">
+                <p className="text-caption text-white/35">产业趋势</p>
+                <ul className="mt-2 space-y-2">
+                  {card.thesisZh.slice(0, 3).map((line) => (
+                    <li key={line} className="flex gap-2 text-body-sm text-white/75">
+                      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/35" aria-hidden />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-3">
+                <p className="text-caption text-white/35">关注逻辑</p>
+                <ol className="mt-2 space-y-2 pl-5">
+                  {card.thesisZh.map((line, idx) => (
+                    <li key={line} className="list-decimal text-body-sm text-white/75">
+                      {idx + 1}. {line}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section>
-          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">核心催化剂</h3>
+          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">催化剂</h3>
           <div className="mt-2 flex flex-wrap gap-2">
             {card.catalystsZh.map((c) => (
               <Badge key={c} variant="outline" className="border-white/12 text-white/70">
@@ -150,7 +165,7 @@ function PublicAssetCard({
         </section>
 
         <section>
-          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">主要风险</h3>
+          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">风险</h3>
           <ul className="mt-2 space-y-1.5">
             {card.risksZh.map((r) => (
               <li key={r} className="text-body-sm text-white/65">
@@ -161,24 +176,31 @@ function PublicAssetCard({
         </section>
 
         <section className="mt-auto rounded-lg border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent p-4">
-          <p className="text-body-sm font-medium text-white/85">会员研究已更新</p>
-          <ul className="mt-3 space-y-1.5 text-caption text-white/50">
-            <li>今日分析 · 已锁定</li>
-            <li>下一交易日 · 已锁定</li>
-            <li>本周路径 · 已锁定</li>
-            <li>中长期研究 · 已锁定</li>
-            <li>关键价位 · 已锁定</li>
-            <li>完整验证 · 已锁定</li>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-body-sm font-medium text-white/85">MOOX Member Research</p>
+            {locked ? <p className="text-caption text-white/45">🔒 Members Only</p> : <p className="text-caption text-emerald-300/70">已解锁</p>}
+          </div>
+          <ul className="mt-3 space-y-1.5 text-caption text-white/55">
+            {[
+              "今日分析",
+              "下一交易日",
+              "本周路径",
+              "关键价格",
+              "AI分析",
+              "Master I Ching分析",
+              "Wave分析",
+              "历史验证",
+            ].map((label) => (
+              <li key={label} className="flex items-center gap-2">
+                {locked ? <span aria-hidden className="text-white/45">🔒</span> : <span aria-hidden className="text-emerald-300/70">✓</span>}
+                <span>{label} · {locked ? "锁定" : "可见"}</span>
+              </li>
+            ))}
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button asChild size="sm">
-              <Link href={primaryHref}>{primaryLabel}</Link>
+              <Link href={locked ? lockedHref : primaryHref}>{primaryLabel}</Link>
             </Button>
-            {mode === "publicOnly" ? (
-              <Button asChild size="sm" variant="outline" className="border-white/20 text-white hover:bg-white/5">
-                <Link href={unlockHref}>解锁完整预测</Link>
-              </Button>
-            ) : null}
           </div>
         </section>
       </div>
@@ -191,11 +213,14 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
     <div className="min-h-screen bg-[#07080a] text-white">
       <div className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pb-20 lg:pt-10">
         <header className="max-w-3xl border-b border-white/[0.08] pb-8">
-          <p className="font-mono text-caption uppercase tracking-[0.22em] text-white/40">MOOX Research</p>
+          <p className="font-mono text-caption uppercase tracking-[0.22em] text-white/40">MOOX Conviction Assets</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            MOOX Conviction List
+            MOOX Conviction Assets
           </h1>
-          <p className="mt-2 text-body text-white/55">MOOX持续研究和验证的少数重点资产。</p>
+          <p className="mt-2 text-body text-white/55">
+            A curated list of assets under continuous MOOX research. / MOOX持续研究和验证的重点资产。
+          </p>
+          <p className="mt-2 text-body-sm text-white/45">MOOX重点关注资产</p>
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/65">
             <p>
               当前跟踪：<span className="text-white">{payload.trackedCount}</span> 项资产
@@ -216,7 +241,6 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
               key={card.id}
               card={card}
               mode={payload.mode}
-              isAuthenticated={payload.isAuthenticated}
             />
           ))}
         </div>

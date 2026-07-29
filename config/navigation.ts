@@ -43,21 +43,22 @@ export const INTERNAL_LEGACY_ROUTES = [
   "/verification/long-term",
 ] as const;
 
+/** Desktop primary nav — no duplicate meaning columns. */
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
-  { key: "nav.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日预测" },
-  { key: "nav.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点资产" },
-  { key: "nav.research", href: NAV_ROUTES.research, labelZh: "研究" },
-  { key: "nav.timeline", href: NAV_ROUTES.timeline, labelZh: "时间线" },
-  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
-  { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的账户" },
+  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
+  { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
+  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
+  { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
+  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
+  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
 ];
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
-  { key: "nav.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日" },
-  { key: "nav.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点" },
+  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
+  { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日" },
+  { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
-  { key: "nav.account", href: NAV_ROUTES.account, labelZh: "账户" },
 ];
 
 export function buildPublicPrimaryNav(_options?: { includeMemberStocks?: boolean }): NavItem[] {
@@ -68,35 +69,31 @@ export function buildPublicFooterColumns(options?: {
   includeMemberStocks?: boolean;
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
-  const product = [
-    { key: "footer.dailyForecasts", href: NAV_ROUTES.dailyForecasts, labelZh: "每日预测" },
-    { key: "footer.focusedAssets", href: NAV_ROUTES.watchlist, labelZh: "重点资产" },
-    { key: "footer.research", href: NAV_ROUTES.research, labelZh: "研究" },
-    { key: "footer.timeline", href: NAV_ROUTES.timeline, labelZh: "时间线" },
-    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
-    { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
-    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
+  const product: NavItem[] = [
+    { key: "footer.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
+    { key: "footer.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
+    { key: "footer.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
+    { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   ];
 
-  const account: NavItem[] = [
-    { key: "footer.myAccount", href: NAV_ROUTES.account, labelZh: "我的账户" },
-    { key: "footer.myOrders", href: NAV_ROUTES.accountOrders, labelZh: "我的订单" },
-    options?.signedIn
-      ? { key: "footer.signOut", href: NAV_ROUTES.account, labelZh: "退出" }
-      : { key: "footer.signIn", href: NAV_ROUTES.login, labelZh: "登录／退出" },
+  const verification: NavItem[] = [
+    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
+    { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "方法说明" },
   ];
+
+  const accountLegal: NavItem[] = [
+    { key: "footer.myAccount", href: NAV_ROUTES.account, labelZh: "我的账户" },
+    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+    { key: "footer.privacyPolicy", href: NAV_ROUTES.privacy, labelZh: "隐私政策" },
+    { key: "footer.termsOfService", href: NAV_ROUTES.terms, labelZh: "服务条款" },
+  ];
+
+  void options;
 
   return [
     { titleKey: "footer.product", titleZh: "产品", links: product },
-    { titleKey: "footer.account", titleZh: "账户", links: account },
-    {
-      titleKey: "footer.legal",
-      titleZh: "法律",
-      links: [
-        { key: "footer.privacyPolicy", href: NAV_ROUTES.privacy, labelZh: "隐私政策" },
-        { key: "footer.termsOfService", href: NAV_ROUTES.terms, labelZh: "服务条款" },
-      ],
-    },
+    { titleKey: "footer.verificationCol", titleZh: "验证", links: verification },
+    { titleKey: "footer.accountLegal", titleZh: "账户与法律", links: accountLegal },
   ];
 }
 
@@ -132,6 +129,7 @@ export const AUDIT_ROUTES = [
   "/admin/payments",
   "/admin/settings",
   "/admin/methodology",
+  "/admin/social",
   "/admin/forecasts",
   "/admin/weekly",
   "/admin/stocks",

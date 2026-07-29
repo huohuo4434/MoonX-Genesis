@@ -171,3 +171,162 @@ model GeneratedDailyForecast {
   @@index([sourceWeeklyForecastId])
   @@map("GeneratedDailyForecast")
 }
+
+/// I Ching (六爻) research engine — admin-only storage + evidence binding.
+/// Public / member endpoints MUST NOT return rawTranscript, masterOriginalAnalysis, internalAnalysis,
+/// per-line data, images, or long-horizon research details unless bound & explicitly allowed.
+model IChingResearch {
+  id                   String   @id
+  assetId              String
+  question             String
+  forecastType         String
+  forecastStartAt      String
+  forecastEndAt        String
+  castAt                DateTime
+  timezone             String   @default("Asia/Shanghai")
+  sourceType            String
+  priority              String   @default("NORMAL")
+  researchStatus       String
+
+  hexagramName              String
+  changedHexagramName      String?
+  hexagramSpecialTypes     Json?
+
+  movingLines          Json?
+
+  monthStemBranch      String?
+  dayStemBranch        String?
+  emptyBranches       Json?
+
+  usefulGod            String?
+  worldLine            Json?
+  responseLine         Json?
+  lineData             Json?
+
+  rawImageUrls        Json?
+  rawTranscript       String?
+
+  masterOriginalAnalysis      String?
+  masterStructuredSummary     String?
+  internalAnalysis            String?
+  analysisSteps               Json?
+  timeWindows                Json?
+
+  pathConclusion       String?
+  directionConclusion  String?
+  confidence           Int?
+
+  /// Teacher-side final direction/path (used when adoptedSource = MASTER).
+  masterFinalConclusion String?
+  masterConfidence      Int?
+  masterPathConclusion  String?
+  masterDirectionConclusion String?
+
+  /// Internal-side final direction/path (used when adoptedSource = INTERNAL).
+  internalFinalConclusion String?
+  internalConfidence       Int?
+  internalPathConclusion   String?
+  internalDirectionConclusion String?
+
+  /// Which source was adopted into a formal prediction / evidence.
+  adoptedSource        String   @default("NONE")
+  adoptedResearchId    String?
+
+  /// For each research record: whether MASTER should override INTERNAL when both exist.
+  masterOverride       Boolean  @default(false)
+
+  knowledgeVersion     String?
+  version              Int      @default(1)
+
+  createdBy            String?
+  updatedBy            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  createdCases         MasterCase[]
+  versions             IChingResearchVersion[]
+  validations          IChingValidation[]
+
+  @@index([assetId, forecastStartAt])
+  @@index([researchStatus])
+}
+
+model IChingResearchVersion {
+  id            String   @id
+  researchId    String
+  version       Int
+  snapshot      Json
+  changeReason  String
+  changedBy     String?
+  createdAt     DateTime @default(now())
+
+  research IChingResearch @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@unique([researchId, version])
+  @@index([researchId])
+}
+
+model MasterRule {
+  id                   String   @id
+  ruleCode             String   @unique
+  title                String
+  category             String
+  ruleText             String
+  teacherOriginalText String?
+  structuredLogic      Json?
+  applicableMarkets   Json?
+  applicableForecastTypes Json?
+  priority             Int      @default(50)
+  confidence          Int?
+  status               String   @default("DRAFT")
+
+  sourceResearchId    String?
+  supersedesRuleId    String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model MasterCase {
+  id              String   @id
+  researchId      String
+  caseTitle       String
+  assetId         String
+  forecastStartAt String
+  forecastEndAt   String
+  teacherConclusion String?
+  actualResult    String?
+  validationScore Int?
+  validationStatus String?
+  lessons         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  research IChingResearch @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, forecastStartAt])
+}
+
+model IChingValidation {
+  id                 String   @id
+  researchId         String
+  actualDirection    String?
+  actualOpen         Float?
+  actualHigh         Float?
+  actualLow          Float?
+  actualClose        Float?
+  actualPath         String?
+  result             String?
+  directionScore     Int?
+  pathScore          Int?
+  timingScore        Int?
+  levelScore         Int?
+  totalScore         Int?
+  validationNotes    String?
+  verifiedBy         String?
+  verifiedAt         DateTime?
+
+  research IChingResearch @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@index([researchId])
+}

@@ -16,7 +16,7 @@
     "researchLibrary": "研究库",
     "timeline": "时间线",
     "watchlist": "战略观察",
-    "verification": "历史准确率",
+    "verification": "历史验证",
     "methodology": "预测方法",
     "technical": "技术分析",
     "researchPipeline": "研究流水线",
@@ -32,7 +32,7 @@
     "memberStocks": "重点关注"
   },
   "footer": {
-    "tagline": "每日观点，交易后公开验证。",
+    "tagline": "每日市场研究与公开验证",
     "product": "产品",
     "company": "公司",
     "resources": "资源",
@@ -68,19 +68,21 @@
     "disclaimer": "本网站展示的日度观点仅供参考，不构成投资建议或结果保证。",
     "memberStocks": "重点关注",
     "myOrders": "我的订单",
-    "signOut": "退出"
+    "signOut": "退出",
+    "verificationCol": "验证",
+    "accountLegal": "账户与法律"
   },
   "hero": {
     "eyebrow": "MOOX",
-    "title": "每天提前一步，了解主要市场下一交易日节奏",
-    "subtitle": "MOOX每日发布比特币、标普500、纳斯达克100、中国权益、黄金及WTI原油的方向、概率、运行路径和失效条件，并在交易结束后公开验证结果。",
+    "title": "每天提前一步，了解主要市场节奏",
+    "subtitle": "MoonX融合市场数据、AI分析、技术结构与I Ching研究，提前发布判断，并在交易结束后公开验证。",
     "badgeFrameworks": "明确方向与概率",
     "badgeVerification": "收盘后公开验证",
     "badgeTracking": "提供具体路径与失效价格",
     "disclaimer": "研究观点与情景推演，不构成投资建议。",
     "ctaExplore": "查看今日观点",
-    "ctaTimeline": "明日预测与本周行情",
-    "ctaTomorrow": "明日预测与本周行情"
+    "ctaTimeline": "查看历史验证",
+    "ctaTomorrow": "查看历史验证"
   },
   "common": {
     "viewDetails": "查看详情",

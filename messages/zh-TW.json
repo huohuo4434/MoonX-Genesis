@@ -17,7 +17,7 @@
     "researchPipeline": "研究流水線",
     "timeline": "時間線",
     "watchlist": "戰略觀察",
-    "verification": "歷史準確率",
+    "verification": "歷史驗證",
     "methodology": "預測方法",
     "technical": "技術分析",
     "more": "更多",
@@ -31,7 +31,7 @@
     "memberStocks": "會員個股"
   },
   "footer": {
-    "tagline": "每日觀點，交易後公開驗證。",
+    "tagline": "每日市場研究與公開驗證",
     "product": "產品",
     "company": "公司",
     "resources": "資源",
@@ -67,19 +67,21 @@
     "disclaimer": "本網站展示的日度觀點僅供參考，不構成投資建議或結果保證。",
     "memberStocks": "會員個股",
     "myOrders": "我的訂單",
-    "signOut": "退出"
+    "signOut": "退出",
+    "verificationCol": "驗證",
+    "accountLegal": "帳戶與法律"
   },
   "hero": {
     "eyebrow": "MOOX",
-    "title": "每天提前一步，了解主要市場下一交易日節奏",
-    "subtitle": "MOOX每日發布比特幣、美股、中國權益及黃金的方向、概率、運行路徑和失效條件，並在交易結束後公開驗證結果。",
+    "title": "每天提前一步，了解主要市場節奏",
+    "subtitle": "MoonX融合市場數據、AI分析、技術結構與I Ching研究，提前發布判斷，並在交易結束後公開驗證。",
     "badgeFrameworks": "日度方向與概率",
     "badgeVerification": "收盤後公開驗證",
     "badgeTracking": "路徑與失效條件",
     "disclaimer": "僅供研究觀點，不構成投資建議。",
     "ctaExplore": "查看今日觀點",
     "ctaTimeline": "明日會員觀點",
-    "ctaTomorrow": "明日會員觀點"
+    "ctaTomorrow": "查看歷史驗證"
   },
   "common": {
     "viewDetails": "查看詳情",

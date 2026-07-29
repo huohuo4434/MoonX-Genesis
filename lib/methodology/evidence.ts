@@ -26,6 +26,16 @@ export type ForecastEvidenceSource = {
   risks?: string[];
   evidenceRecordIds?: string[];
   confidence?: number;
+
+  /**
+   * Optional I Ching (六爻研究引擎) evidence binding.
+   * Public/member rendering MUST treat these ids as metadata only —
+   * never expose raw transcripts / line-by-line data.
+   */
+  ichingResearchId?: string;
+  engineType?: "MASTER_ICHING";
+  adoptedSource?: "MASTER" | "INTERNAL" | "NONE";
+  weight?: number; // 0..1 or 0..100 depending on caller conventions
 };
 
 function moduleMeta(id: MethodologyModuleId, modules?: MethodologyModule[]): MethodologyModule {

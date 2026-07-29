@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge, Button, Card, Text } from "@/components/ui";
 import { SectionHeader } from "@/components/home/SectionHeader";
+import { ShareButtons } from "@/components/social/ShareButtons";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
@@ -35,6 +36,17 @@ export function DailyMarketForecastEditionClient({
           eyebrow="Daily Forecasts"
           title="每日核心市场预测"
           subtitle="四大核心市场以人工审核版发布；会员可提前查看，公开版按上海时间中午开放。"
+        />
+
+        <ShareButtons
+          className="mb-4"
+          url="/forecasts/daily"
+          forecastDate={teaser?.forecastDate}
+          summary={
+            edition
+              ? pickLocalized(edition.overallSummary, locale)
+              : "MOOX 每日核心市场预测"
+          }
         />
 
         <div className="mb-4 grid gap-3 rounded-xl border border-border/[0.08] bg-card/70 p-4 md:grid-cols-4">
@@ -140,6 +152,13 @@ export function DailyMarketForecastEditionClient({
                         <Text variant="body-sm" color="secondary">
                           {pickLocalized(entry.summary, locale)}
                         </Text>
+                        <ShareButtons
+                          url="/forecasts/daily"
+                          forecastDate={edition.forecastDate}
+                          assetName={pickLocalized(entry.assetName, locale)}
+                          direction={entry.mainDirection}
+                          summary={pickLocalized(entry.summary, locale)}
+                        />
                         <button
                           type="button"
                           className="text-left text-caption text-primary underline-offset-2 hover:underline"
