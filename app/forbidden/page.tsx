@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button, Heading, Section, Text } from "@/components/ui";
 
-export const metadata = { title: "无权访问 | MoonX" };
+export const metadata = { title: "无权访问 | MOOX" };
 
 export default function ForbiddenPage() {
   return (

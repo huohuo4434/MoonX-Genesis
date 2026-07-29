@@ -87,7 +87,7 @@ function MetaRow({
         <p className="text-body-sm text-foreground font-mono">{version ?? "V1"}</p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">状态</p>
+        <p className="text-caption text-foreground-tertiary">锁定状态</p>
         <p className="text-body-sm text-foreground">{lockStatus}</p>
       </div>
       <div>

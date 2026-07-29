@@ -89,9 +89,9 @@ export function PricingPlansClient({
               {plan.price_usdt} USDT／{plan.duration_days}天
             </p>
             {meta?.savingText ? (
-              <p className="mb-1 text-caption text-foreground-tertiary">{meta.savingText}</p>
+              <p className="mb-3 text-caption text-foreground-tertiary">{meta.savingText}</p>
             ) : null}
-            <div className="mt-3">
+            <div className="pt-1">
               <Button size="sm" asChild>
                 <Link href={href}>{isLoggedIn ? purchaseLabel : "登录后购买"}</Link>
               </Button>

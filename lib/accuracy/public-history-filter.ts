@@ -3,6 +3,8 @@
  * Past verified forecasts only — never today / tomorrow / pending / draft.
  */
 import { getChinaDateKey } from "@/lib/date/china-date";
+import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
+import { HSTECH_MIN_INDEX_LEVEL, isHstechSymbol } from "@/lib/market-data/quote-symbols";
 import type {
   DailyAccuracyStats,
   DailyForecastRecord,
@@ -85,9 +87,21 @@ export function filterPublicAccuracyHistory(input: {
       if (f.isSystemTest) continue;
     }
 
-    const predictedDirection =
+    // HSTECH ETF-scale closes (e.g. 4.644) must never enter public accuracy.
+    if (
+      isHstechSymbol(r.symbol, f?.quoteSymbol) &&
+      typeof r.actualClose === "number" &&
+      Number.isFinite(r.actualClose) &&
+      r.actualClose > 0 &&
+      r.actualClose < HSTECH_MIN_INDEX_LEVEL
+    ) {
+      continue;
+    }
+
+    const rawDirection =
       f?.directionLabel ??
       (f?.direction ? DIRECTION_LABELS[f.direction] : "—");
+    const predictedDirection = normalizeFormalDirection(rawDirection);
 
     items.push({
       forecastId: r.forecastId,
@@ -104,7 +118,7 @@ export function filterPublicAccuracyHistory(input: {
       verdictLabel: r.verdictLabel,
       verifiedAt: r.verifiedAt,
       version: f?.originalVersion ?? 1,
-      source: f?.source ?? "MoonX",
+      source: f?.source ?? "MOOX",
       pathVerdictLabel: r.pathVerdictLabel,
       timingVerdict: r.timingVerdict,
       priceTargetVerdict: r.priceTargetVerdict,

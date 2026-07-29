@@ -5,7 +5,7 @@ import { DailyAccuracyClient } from "@/components/verification/DailyAccuracyClie
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 
 export const metadata: Metadata = {
-  title: "历史准确率 | MoonX",
+  title: "历史准确率 | MOOX",
   description: "仅统计已经完成市场验证的历史预测；今日和未来预测不会在此提前公开。",
 };
 

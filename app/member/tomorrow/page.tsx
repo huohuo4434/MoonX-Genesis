@@ -8,7 +8,7 @@ import { getMemberTomorrowPagePayload } from "@/lib/data/tomorrow-forecast-acces
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 
 export const metadata = {
-  title: "下一交易日完整预测 | MoonX",
+  title: "下一交易日完整预测 | MOOX",
   description: "会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。",
 };
 

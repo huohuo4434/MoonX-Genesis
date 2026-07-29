@@ -299,7 +299,7 @@ export function MemberTomorrowEmptyPage({
             固定发布时间：{FORMAL_PUBLISH_LABEL}
           </Text>
           <BatchMeta
-            forecastDate={targetDate}
+            forecastDate={targetDate && targetDate > getBeijingTodayKey(now) ? targetDate : undefined}
             plannedPublishAt={plannedPublishAtIso(getBeijingTodayKey(now))}
             status={state === "delayed" ? "延迟发布" : "尚未发布"}
             version="—"

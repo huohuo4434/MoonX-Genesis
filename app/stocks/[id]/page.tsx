@@ -14,8 +14,8 @@ export async function generateMetadata({
   const { id } = await params;
   const stocks = await listPublishedStocks();
   const s = stocks.find((x) => x.id === id);
-  if (!s) return { title: "未找到 | MoonX" };
-  return { title: `${s.name} | 个股分析 | MoonX` };
+  if (!s) return { title: "未找到 | MOOX" };
+  return { title: `${s.name} | 个股分析 | MOOX` };
 }
 
 export default async function StockDetailPage({ params }: { params: Promise<{ id: string }> }) {

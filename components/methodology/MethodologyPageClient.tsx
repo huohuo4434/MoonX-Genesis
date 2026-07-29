@@ -46,23 +46,21 @@ const CORE_FOUR = [
 ] as const;
 
 const FLOW_ZH = [
-  "研究输入",
-  "六爻判断主方向",
-  "奇门遁甲判断时间节奏",
-  "技术分析确认结构和关键价位",
-  "消息面检验催化和风险",
-  "生成最终预测",
-  "发布并锁定",
-  "收盘后验证",
+  "六爻（核心）",
+  "奇门遁甲（择时）",
+  "技术分析（结构和价位）",
+  "消息面（催化和风险）",
+  "最终方向、概率和路径",
+  "发布锁定",
+  "收盘验证",
 ];
 
 const FLOW_EN = [
-  "Research inputs",
-  "Liu Yao → primary direction",
-  "Qi Men → timing rhythm",
-  "Technical → structure & levels",
-  "News → catalysts & risks",
-  "Final forecast",
+  "Liu Yao (core)",
+  "Qi Men (timing)",
+  "Technical (structure & levels)",
+  "News (catalysts & risks)",
+  "Final direction, odds & path",
   "Publish & lock",
   "Verify after close",
 ];

@@ -86,8 +86,12 @@ function readLocalFile(): ReferralStore | null {
   }
 }
 
-/** Soft write — never throws EROFS to callers; production must not rely on this. */
+/** Soft write — never on Vercel / production; never throws EROFS to callers. */
 function tryWriteLocalFile(store: ReferralStore): void {
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    return;
+  }
+  if (!isLocalOnly()) return;
   try {
     mkdirSync(resolve(process.cwd(), "data"), { recursive: true });
     writeFileSync(LOCAL_FILE, JSON.stringify(store, null, 2), "utf8");

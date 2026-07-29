@@ -3,7 +3,7 @@ import { Heading, Section, Text } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "隐私政策",
-  description: "MoonX 隐私政策：账户、付款与第三方服务说明。",
+  description: "MOOX 隐私政策：账户、付款与第三方服务说明。",
 };
 
 const UPDATED = "2026年7月29日";
@@ -16,7 +16,7 @@ export default function PrivacyPage() {
           隐私政策
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-3 block">
-          MoonX（以下简称「我们」）重视您的隐私。本政策说明我们如何收集、使用和保护与您账户及服务相关的信息。
+          MOOX（以下简称「我们」）重视您的隐私。本政策说明我们如何收集、使用和保护与您账户及服务相关的信息。
         </Text>
 
         <div className="mt-8 space-y-8 text-body-sm text-foreground-secondary">
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">3. 账户和登录数据</h2>
             <p>
-              账户认证由 Supabase Auth 处理，MoonX 应用程序无法读取用户明文密码。
+              账户认证由 Supabase Auth 处理，MOOX 应用程序无法读取用户明文密码。
             </p>
           </section>
 

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Heading, Section, Text } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "服务条款",
-  description: "MoonX 服务条款：会员权益、USDT 付款与人工审核说明。",
+  title: "服务条款 | MOOX",
+  description: "MOOX 服务条款：会员权益、USDT 付款与人工审核说明。",
 };
 
 const UPDATED = "2026年7月29日";
@@ -16,14 +16,14 @@ export default function TermsPage() {
           服务条款
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-3 block">
-          使用 MoonX 服务，即表示您同意以下条款。
+          使用 MOOX 服务，即表示您同意以下条款。
         </Text>
 
         <div className="mt-8 space-y-8 text-body-sm text-foreground-secondary">
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">服务性质</h2>
             <p>
-              MoonX 提供市场方向、概率、运行路径与验证记录等信息内容，仅供参考。内容不构成投资建议、交易建议或收益保证。我们不保证预测准确率；历史表现不代表未来结果。
+              MOOX 提供市场方向、概率、运行路径与验证记录等信息内容，仅供参考。内容不构成投资建议、交易建议或收益保证。我们不保证预测准确率；历史表现不代表未来结果。
             </p>
           </section>
 
@@ -48,7 +48,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">人工审核</h2>
             <p>
-              付款信息由管理员人工核对。只有审核通过后，会员权限才会生效。提交哈希不等于付款审核通过。
+              付款后提交交易哈希，由管理员人工审核。只有审核通过后，会员权限才会生效。提交哈希不等于付款审核通过。系统不会自动核验链上交易。
             </p>
           </section>
 
@@ -62,7 +62,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">退款与链上不可撤销</h2>
             <p>
-              链上转账通常不可撤销。因用户自身填错地址、选错网络或币种导致的损失，MoonX 无法保证追回。经审核确认的有效付款，按对应套餐开通会员。
+              链上转账通常不可撤销。因用户自身填错地址、选错网络或币种导致的损失，MOOX 无法保证追回。经审核确认的有效付款，按对应套餐开通会员。
             </p>
           </section>
 
@@ -78,7 +78,7 @@ export default function TermsPage() {
 
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">内容使用限制</h2>
-            <p>未经书面许可，不得复制、爬取或批量转载 MoonX 付费内容。</p>
+            <p>未经书面许可，不得复制、爬取或批量转载 MOOX 付费内容。</p>
           </section>
 
           <section className="space-y-2">

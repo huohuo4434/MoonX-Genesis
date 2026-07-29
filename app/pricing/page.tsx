@@ -54,7 +54,7 @@ export default async function PricingPage() {
       <Section spacing="lg" className="flex flex-col items-center gap-6">
         <div className="max-w-2xl text-center">
           <Heading as="h1" size="display">
-            MoonX会员
+            MOOX会员
           </Heading>
           <Text variant="body" color="secondary" className="mt-3">
             提前查看下一交易日预测、本周行情和会员福利股分析。

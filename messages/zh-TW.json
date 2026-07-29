@@ -50,7 +50,7 @@
     "watchlist": "戰略觀察名單",
     "timeline": "時間線",
     "pricing": "會員價格",
-    "aboutMoonx": "關於 MoonX",
+    "aboutMoonx": "關於 MOOX",
     "latestResearch": "最新研究",
     "contact": "聯絡我們",
     "methodology": "預測方法",
@@ -66,9 +66,9 @@
     "signOut": "退出"
   },
   "hero": {
-    "eyebrow": "MoonX",
+    "eyebrow": "MOOX",
     "title": "每天提前一步，了解主要市場下一交易日節奏",
-    "subtitle": "MoonX每日發布比特幣、美股、中國權益及黃金的方向、概率、運行路徑和失效條件，並在交易結束後公開驗證結果。",
+    "subtitle": "MOOX每日發布比特幣、美股、中國權益及黃金的方向、概率、運行路徑和失效條件，並在交易結束後公開驗證結果。",
     "badgeFrameworks": "日度方向與概率",
     "badgeVerification": "收盤後公開驗證",
     "badgeTracking": "路徑與失效條件",
