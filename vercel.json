@@ -14,7 +14,15 @@
     },
     {
       "path": "/api/cron/generate-daily-forecasts",
-      "schedule": "0 * * * *"
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/generate-daily-forecasts",
+      "schedule": "50 11 * * *"
+    },
+    {
+      "path": "/api/cron/generate-daily-forecasts",
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/moonx-cycle",
