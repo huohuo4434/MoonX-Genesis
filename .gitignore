@@ -39,3 +39,5 @@ next-env.d.ts
 # vercel
 .vercel
 .env*
+
+data/referral-store.json
