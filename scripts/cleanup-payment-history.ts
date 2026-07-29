@@ -1,16 +1,29 @@
 /**
- * One-shot production payment history cleanup.
- * - Backs up payment data to moonx-data/backups/payment-cleanup-<stamp>/
- * - Clears Storage orders + legacy files
- * - Truncates SQL payment tables when present
- * - Clears user app_metadata payment fields
- * - Resets membership only when clearly opened by isTest / system_test orders
- * - Does NOT delete Auth users, admin role, research data, addresses, or email config
+ * One-shot payment history cleanup (NON-PRODUCTION by default).
+ * FORBIDDEN on Vercel Production / NODE_ENV=production unless
+ * ALLOW_DESTRUCTIVE_PAYMENT_CLEANUP=true (still never wipe memberships silently).
+ *
+ * Historical note: older versions cleared membership_expires_at for huohuo4434
+ * and test users during every Vercel build via wipe-payment-orders — that was
+ * the root cause of “membership lost after deploy”.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadProductionEnv, normalizeSupabaseUrl } from "./load-env";
 
 loadProductionEnv();
+
+if (
+  (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") &&
+  process.env.ALLOW_DESTRUCTIVE_PAYMENT_CLEANUP !== "true"
+) {
+  console.error(
+    JSON.stringify({
+      ok: false,
+      error: "cleanup-payment-history is disabled in production to protect memberships",
+    })
+  );
+  process.exit(1);
+}
 
 const BUCKET = "moonx-data";
 const ADMIN_EMAIL = "jackzwin999@gmail.com";

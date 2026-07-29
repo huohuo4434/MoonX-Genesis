@@ -1,16 +1,28 @@
 /**
- * Hard-wipe payment order Storage files and assert empty.
- * Runs after cleanup to defeat races with concurrent live API writes.
- * Also clears huohuo4434 pending_payment metadata.
+ * Optionally wipe TEST payment order files only.
+ * NEVER clears membership_expires_at for any user.
+ * Production / Vercel Production must not call this unless explicitly allowed.
  */
 import { createClient } from "@supabase/supabase-js";
 import { loadProductionEnv, normalizeSupabaseUrl } from "./load-env";
 
 loadProductionEnv();
 
+if (
+  (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") &&
+  process.env.ALLOW_DESTRUCTIVE_PAYMENT_CLEANUP !== "true"
+) {
+  console.error(
+    JSON.stringify({
+      ok: false,
+      error: "wipe-payment-orders is disabled in production to protect memberships",
+    })
+  );
+  process.exit(1);
+}
+
 const BUCKET = "moonx-data";
 const FILES = ["payments/orders.json", "payment-orders.json"];
-const HUOHUO = "huohuo4434@gmail.com";
 const ADMIN = "jackzwin999@gmail.com";
 
 async function main() {
@@ -25,69 +37,62 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const empty = {
-    version: 1 as const,
-    updatedAt: new Date().toISOString(),
-    orders: [] as unknown[],
-  };
-
-  for (let attempt = 1; attempt <= 5; attempt += 1) {
-    for (const file of FILES) {
-      const { error } = await admin.storage.from(BUCKET).upload(file, JSON.stringify(empty, null, 2), {
-        contentType: "application/json",
-        upsert: true,
-      });
-      if (error) throw new Error(`wipe ${file}: ${error.message}`);
-    }
-    await new Promise((r) => setTimeout(r, 500));
-    let total = 0;
-    for (const file of FILES) {
-      const { data } = await admin.storage.from(BUCKET).download(file);
-      if (!data) continue;
+  // Keep approved / real orders — only strip system-test pending orders.
+  for (const file of FILES) {
+    const { data } = await admin.storage.from(BUCKET).download(file);
+    let orders: Array<Record<string, unknown>> = [];
+    if (data) {
       try {
-        const parsed = JSON.parse(await data.text()) as { orders?: unknown[] };
-        total += (parsed.orders ?? []).length;
+        const parsed = JSON.parse(await data.text()) as { orders?: Array<Record<string, unknown>> };
+        orders = (parsed.orders ?? []).filter((o) => {
+          const isTest = Boolean(o.isTest ?? o.is_system_test);
+          const status = String(o.status ?? "");
+          // Preserve all approved and non-test orders forever.
+          if (status === "approved") return true;
+          if (!isTest) return true;
+          return false;
+        });
       } catch {
-        /* ignore */
+        orders = [];
       }
     }
-    if (total === 0) {
-      const { data: listed } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const cleared: string[] = [];
-      for (const u of listed?.users ?? []) {
-        const email = (u.email ?? "").toLowerCase();
-        if (!email || email === ADMIN) continue;
-        const meta = { ...(u.app_metadata ?? {}) } as Record<string, unknown>;
-        if (meta.role === "admin") continue;
-        const needsClear =
-          meta.pending_payment != null ||
-          meta.payment_order != null ||
-          meta.payment_notification_status != null ||
-          (Array.isArray(meta.payment_history) && meta.payment_history.length > 0) ||
-          email === HUOHUO;
-        if (!needsClear) continue;
-        meta.role = "user";
-        meta.pending_payment = null;
-        meta.payment_order = null;
-        meta.payment_notification_status = null;
-        meta.payment_history = null;
-        if (email === HUOHUO) {
-          meta.membership_status = "inactive";
-          meta.membership_plan = null;
-          meta.membership_started_at = null;
-          meta.membership_expires_at = null;
-        }
-        await admin.auth.admin.updateUserById(u.id, { app_metadata: meta });
-        cleared.push(email);
-      }
-      console.log(
-        JSON.stringify({ ok: true, attempts: attempt, total: 0, files: FILES, clearedMeta: cleared })
-      );
-      return;
-    }
-    console.warn(JSON.stringify({ ok: false, attempt, total, retrying: true }));
+    const body = { version: 1 as const, updatedAt: new Date().toISOString(), orders };
+    const { error } = await admin.storage.from(BUCKET).upload(file, JSON.stringify(body, null, 2), {
+      contentType: "application/json",
+      upsert: true,
+    });
+    if (error) throw new Error(`wipe ${file}: ${error.message}`);
   }
-  throw new Error("payment orders wipe failed — storage still non-empty");
+
+  // Clear pending payment *metadata* only — NEVER membership fields.
+  const { data: listed } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const cleared: string[] = [];
+  for (const u of listed?.users ?? []) {
+    const email = (u.email ?? "").toLowerCase();
+    if (!email || email === ADMIN) continue;
+    const meta = { ...(u.app_metadata ?? {}) } as Record<string, unknown>;
+    if (meta.role === "admin") continue;
+    const needsClear =
+      meta.pending_payment != null ||
+      meta.payment_order != null ||
+      meta.payment_notification_status != null;
+    if (!needsClear) continue;
+    // Preserve membership_* and payment_history (audit trail).
+    meta.pending_payment = null;
+    meta.payment_order = null;
+    meta.payment_notification_status = null;
+    await admin.auth.admin.updateUserById(u.id, { app_metadata: meta });
+    cleared.push(email);
+  }
+
+  console.log(
+    JSON.stringify({
+      ok: true,
+      preservedMemberships: true,
+      clearedPendingOnly: cleared,
+      note: "membership_expires_at was not modified",
+    })
+  );
 }
 
 main().catch((err) => {

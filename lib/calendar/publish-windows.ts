@@ -1,16 +1,20 @@
 /**
- * Publish windows in Asia/Shanghai.
- * Asia batch (BTC / SSE / HSTECH): 18:30 → next calendar trading day
- * WTI batch: 05:30 → same calendar day (next WTI session)
- * US batch (SPX / NDX / GLD): 06:30 → same calendar day
- * Public flip: 08:00 on forecastDate
+ * Formal publish schedule — single daily batch at Beijing 20:00.
+ * All markets share one next-trading-day formal forecast batch.
+ * Legacy asia/us/wti helpers remain as aliases pointing at the formal window
+ * for older automation callers; UI must not show split times.
  */
 
+export const FORMAL_PUBLISH_HOUR_BJ = 20;
+export const FORMAL_PUBLISH_MINUTE_BJ = 0;
+export const FORMAL_PUBLISH_LABEL = "每天北京时间 20:00";
+
+/** @deprecated Use FORMAL — kept for type compatibility only. */
 export const ASIA_BATCH_KEYS = ["BTC", "SSE", "HSTECH"] as const;
 export const WTI_BATCH_KEYS = ["WTI"] as const;
 export const US_BATCH_KEYS = ["SPX", "NDX", "GLD"] as const;
 
-export type PublishBatch = "asia" | "us" | "wti";
+export type PublishBatch = "formal" | "asia" | "us" | "wti";
 
 export function getBeijingClock(now = new Date()): {
   date: string;
@@ -46,6 +50,11 @@ export function isAfterBeijingTime(hour: number, minute: number, now = new Date(
   return clock.totalMinutes >= hour * 60 + minute;
 }
 
+/** Formal next-trading-day batch unlocks for members at 20:00 Beijing. */
+export function formalBatchReady(now = new Date()): boolean {
+  return isAfterBeijingTime(FORMAL_PUBLISH_HOUR_BJ, FORMAL_PUBLISH_MINUTE_BJ, now);
+}
+
 /** Public today views unlock at 08:00 Beijing on the forecast date. */
 export function isPublicTodayUnlocked(forecastDate: string, now = new Date()): boolean {
   const clock = getBeijingClock(now);
@@ -58,34 +67,57 @@ export function publicAtIso(forecastDate: string): string {
   return new Date(`${forecastDate}T08:00:00+08:00`).toISOString();
 }
 
+/** Planned publish instant for a calendar Beijing date (YYYY-MM-DD). */
+export function plannedPublishAtIso(beijingDate: string): string {
+  return new Date(
+    `${beijingDate}T${String(FORMAL_PUBLISH_HOUR_BJ).padStart(2, "0")}:${String(FORMAL_PUBLISH_MINUTE_BJ).padStart(2, "0")}:00+08:00`
+  ).toISOString();
+}
+
+/**
+ * After 20:00 Beijing with no next-batch published → delayed.
+ * Before 20:00 with no batch → not yet published (waiting for tonight).
+ */
+export function tomorrowPublishState(
+  hasPublishedNextBatch: boolean,
+  now = new Date()
+): "published" | "waiting" | "delayed" {
+  if (hasPublishedNextBatch) return "published";
+  return formalBatchReady(now) ? "delayed" : "waiting";
+}
+
+/** @deprecated alias → formal 20:00 */
 export function asiaBatchReady(now = new Date()): boolean {
-  return isAfterBeijingTime(18, 30, now);
+  return formalBatchReady(now);
 }
-
+/** @deprecated alias → formal 20:00 */
 export function usBatchReady(now = new Date()): boolean {
-  return isAfterBeijingTime(6, 30, now);
+  return formalBatchReady(now);
 }
-
+/** @deprecated alias → formal 20:00 */
 export function wtiBatchReady(now = new Date()): boolean {
-  return isAfterBeijingTime(5, 30, now);
+  return formalBatchReady(now);
 }
 
-export function sessionLabelForBatch(batch: PublishBatch): string {
-  if (batch === "asia") return "亚太交易时段（BTC / A股 / 港股）";
-  if (batch === "wti") return "NYMEX WTI近月连续合约交易日";
-  return "美股交易时段（标普 / 纳指 / GLD）";
+export function sessionLabelForBatch(_batch?: PublishBatch): string {
+  return "下一实际交易日正式预测批次（全市场统一）";
 }
 
-export function batchForAssetKey(key: string): PublishBatch {
-  if ((WTI_BATCH_KEYS as readonly string[]).includes(key)) return "wti";
-  if ((US_BATCH_KEYS as readonly string[]).includes(key)) return "us";
-  return "asia";
+export function batchForAssetKey(_key: string): PublishBatch {
+  return "formal";
 }
 
-export function nextUpdateLabelForSymbol(symbol: string): string {
-  if (symbol === "WTI" || symbol === "CL=F") return "每天北京时间 05:30";
-  if (symbol === "SPX" || symbol === "NDX" || symbol === "GLD" || symbol === "^GSPC") {
-    return "每天北京时间 06:30";
-  }
-  return "每天北京时间 18:30";
+export function nextUpdateLabelForSymbol(_symbol?: string): string {
+  return FORMAL_PUBLISH_LABEL;
 }
+
+export const TOMORROW_SCHEDULE_COPY = {
+  title: "下一交易日完整预测",
+  fixedPublish: FORMAL_PUBLISH_LABEL,
+  description:
+    "MOOX每天北京时间20:00发布下一实际交易日预测。遇休市日，目标日期自动顺延至下一实际交易日。预测发布并锁定后，有效会员可立即查看。",
+  delayedTitle: "下一交易日预测延迟发布",
+  delayedBody: "预测尚未完成锁定，发布后会员将立即可见。",
+  waitingTitle: "下一交易日预测尚未发布",
+  waitingBody: "预测生成并锁定后将在此处开放，会员可第一时间查看。不会使用波浪研究或其他分析模块替代正式预测。",
+} as const;

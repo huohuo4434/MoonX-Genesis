@@ -18,6 +18,7 @@ export const NAV_ROUTES = {
   /** @deprecated use featuredStocks — kept for redirects / audit */
   memberStocks: "/member/stocks",
   verification: "/verification",
+  methodology: "/methodology",
   pricing: "/pricing",
   login: "/login",
   account: "/account",
@@ -47,6 +48,7 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
+  { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的账户" },
 ];
@@ -73,6 +75,7 @@ export function buildPublicFooterColumns(options?: {
     { key: "footer.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
+    { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
     { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   ];
 
@@ -117,11 +120,13 @@ export const AUDIT_ROUTES = [
   "/member/stocks/688825",
   "/member/stocks/688825/history",
   "/verification",
+  "/methodology",
   "/privacy",
   "/terms",
   "/admin",
   "/admin/payments",
   "/admin/settings",
+  "/admin/methodology",
   "/admin/forecasts",
   "/admin/weekly",
   "/admin/stocks",

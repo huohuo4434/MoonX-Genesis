@@ -26,7 +26,11 @@ export default async function MemberTomorrowRoute() {
 
   if (payload.mode === "empty") {
     return (
-      <MemberTomorrowEmptyPage targetDate={payload.targetDate} isAdmin={payload.isAdmin} />
+      <MemberTomorrowEmptyPage
+        targetDate={payload.targetDate}
+        isAdmin={payload.isAdmin}
+        nowIso={new Date().toISOString()}
+      />
     );
   }
 

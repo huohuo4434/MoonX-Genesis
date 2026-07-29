@@ -1,37 +1,36 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
+  formalBatchReady,
   asiaBatchReady,
   usBatchReady,
   wtiBatchReady,
   isPublicTodayUnlocked,
   getBeijingClock,
+  FORMAL_PUBLISH_LABEL,
+  nextUpdateLabelForSymbol,
   ASIA_BATCH_KEYS,
   US_BATCH_KEYS,
   WTI_BATCH_KEYS,
 } from "../lib/calendar/publish-windows.ts";
 
 describe("publish windows", () => {
-  test("asia batch after 18:30 BJ", () => {
-    // 2026-07-28 18:29 BJ = 10:29 UTC
-    const before = new Date("2026-07-28T10:29:00.000Z");
-    const after = new Date("2026-07-28T10:30:00.000Z");
-    assert.equal(asiaBatchReady(before), false);
+  test("formal batch after 20:00 BJ", () => {
+    // 2026-07-28 19:59 BJ = 11:59 UTC
+    const before = new Date("2026-07-28T11:59:00.000Z");
+    const after = new Date("2026-07-28T12:00:00.000Z");
+    assert.equal(formalBatchReady(before), false);
+    assert.equal(formalBatchReady(after), true);
     assert.equal(asiaBatchReady(after), true);
-  });
-
-  test("us batch after 06:30 BJ", () => {
-    const before = new Date("2026-07-28T22:29:00.000Z"); // 06:29 BJ Jul 29
-    const after = new Date("2026-07-28T22:30:00.000Z"); // 06:30 BJ Jul 29
     assert.equal(usBatchReady(before), false);
-    assert.equal(usBatchReady(after), true);
+    assert.equal(wtiBatchReady(after), true);
   });
 
-  test("wti batch after 05:30 BJ", () => {
-    const before = new Date("2026-07-28T21:29:00.000Z"); // 05:29 BJ Jul 29
-    const after = new Date("2026-07-28T21:30:00.000Z"); // 05:30 BJ Jul 29
-    assert.equal(wtiBatchReady(before), false);
-    assert.equal(wtiBatchReady(after), true);
+  test("all symbols share formal 20:00 label", () => {
+    assert.equal(FORMAL_PUBLISH_LABEL, "每天北京时间 20:00");
+    assert.equal(nextUpdateLabelForSymbol("WTI"), FORMAL_PUBLISH_LABEL);
+    assert.equal(nextUpdateLabelForSymbol("SPX"), FORMAL_PUBLISH_LABEL);
+    assert.equal(nextUpdateLabelForSymbol("BTC"), FORMAL_PUBLISH_LABEL);
   });
 
   test("public unlock at 08:00 BJ on forecast date", () => {
@@ -42,7 +41,7 @@ describe("publish windows", () => {
     assert.equal(isPublicTodayUnlocked(date, before), true);
   });
 
-  test("batch asset keys", () => {
+  test("batch asset keys retained for ordering", () => {
     assert.deepEqual([...ASIA_BATCH_KEYS], ["BTC", "SSE", "HSTECH"]);
     assert.deepEqual([...US_BATCH_KEYS], ["SPX", "NDX", "GLD"]);
     assert.deepEqual([...WTI_BATCH_KEYS], ["WTI"]);

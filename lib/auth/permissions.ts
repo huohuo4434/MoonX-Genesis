@@ -161,17 +161,7 @@ export const PLAN_LABELS: Record<MembershipPlan, string> = {
   YEARLY: "年度会员",
 };
 
-export function computeNewExpiry(
-  currentExpiresAt: string | null | undefined,
-  days: number,
-  now = new Date()
-): string {
-  const current = currentExpiresAt ? new Date(currentExpiresAt) : null;
-  const base = current && current.getTime() > now.getTime() ? current : now;
-  const next = new Date(base.getTime());
-  next.setUTCDate(next.getUTCDate() + days);
-  return next.toISOString();
-}
+export { computeNewExpiry } from "@/lib/payments/membership-dates";
 
 export async function listAllAuthUsers(): Promise<AuthUserView[]> {
   const admin = getAdminClient();

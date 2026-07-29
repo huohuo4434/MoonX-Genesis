@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Text } from "@/components/ui";
 import {
   BASIS_LABELS,
   buildForecastBasisWeights,
-  type ForecastBasisWeights,
+  type ForecastBasisWeights as BasisMix,
 } from "@/lib/forecasts/basis-weights";
 
 /**
- * Collapsible “预测依据” under a market card — never a Wave specialty block.
+ * Collapsible weight mix — supplementary to ForecastEvidencePanel.
+ * Includes methodology link; never presents Wave as the forecast subject.
  */
 export function ForecastBasisWeights({
   wavePercent = 5,
@@ -17,7 +19,7 @@ export function ForecastBasisWeights({
   waveNote,
 }: {
   wavePercent?: number;
-  weights?: ForecastBasisWeights;
+  weights?: BasisMix;
   /** Optional Wave supplement — only for BTC / gold / WTI. */
   waveNote?: string | null;
 }) {
@@ -33,7 +35,7 @@ export function ForecastBasisWeights({
         aria-expanded={open}
       >
         <Text variant="caption" color="tertiary">
-          预测依据
+          模块权重（参考）
         </Text>
         <span className="text-caption text-foreground-tertiary">{open ? "收起" : "展开"}</span>
       </button>
@@ -56,8 +58,14 @@ export function ForecastBasisWeights({
             </p>
           ) : null}
           <p className="mt-2 text-caption text-foreground-tertiary">
-            波浪分析仅为辅助证据，当前权重 {mix.wave}%（上限 20%）。
+            上述百分比为当日参考分配，会随验证与关键位接近度调整，不是固定承诺。
           </p>
+          <Link
+            href="/methodology"
+            className="mt-2 inline-block text-caption text-primary underline-offset-2 hover:underline"
+          >
+            查看MOOX预测方法
+          </Link>
         </div>
       ) : null}
     </div>

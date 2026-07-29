@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { grantMembershipFromPlan } from "@/lib/auth/grant-membership";
 import {
-  computeNewExpiry,
   getCurrentUser,
   PLAN_DAYS,
   PLAN_LABELS,
@@ -230,6 +230,16 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, order: updated });
   }
 
+  // Idempotent: already-approved orders must not re-extend membership.
+  if (order.status === "approved" && body.action === "approve") {
+    return NextResponse.json({
+      ok: true,
+      alreadyProcessed: true,
+      membershipExpiresAt: null,
+      message: "付款已审核，未重复加时",
+    });
+  }
+
   if (order.status !== "pending") {
     return NextResponse.json({ error: "订单已处理" }, { status: 400 });
   }
@@ -252,6 +262,20 @@ export async function PATCH(request: NextRequest) {
     (h) => h.paymentId === order!.orderId || normalizeHash(h.tx_hash) === normalizeHash(order!.txHash)
   );
   const reviewer = await getCurrentUser();
+
+  // History already approved for this payment → do not re-grant.
+  if (
+    body.action === "approve" &&
+    idx >= 0 &&
+    history[idx]?.status === "approved"
+  ) {
+    return NextResponse.json({
+      ok: true,
+      alreadyProcessed: true,
+      membershipExpiresAt: meta.membership_expires_at ?? null,
+      message: "付款已审核，未重复加时",
+    });
+  }
 
   if (body.action === "reject") {
     await updatePaymentOrderStatus({
@@ -286,8 +310,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const days = PLAN_DAYS[order.plan];
-  const expiresAt = computeNewExpiry(meta.membership_expires_at, days);
   const startedAt = meta.membership_started_at ?? reviewedAt;
 
   await updatePaymentOrderStatus({
@@ -295,6 +317,18 @@ export async function PATCH(request: NextRequest) {
     status: "approved",
     reviewedBy: reviewer?.id,
   });
+
+  const grant = await grantMembershipFromPlan({
+    userId,
+    plan: order.plan,
+    eventType: "PAYMENT_APPROVED",
+    source: "payment_order",
+    sourceId: order.orderId,
+    operatorId: reviewer?.id ?? null,
+    note: `plan=${order.plan}; tx=${order.txHash}`,
+  });
+
+  const expiresAt = grant.newExpiresAt ?? meta.membership_expires_at ?? null;
 
   const entry: PaymentHistoryItem = {
     paymentId: order.orderId,
@@ -311,12 +345,13 @@ export async function PATCH(request: NextRequest) {
   else history.unshift(entry);
 
   await updateUserAppMetadata(userId, {
-    membership_status: "active",
-    membership_plan: order.plan,
-    membership_started_at: startedAt,
-    membership_expires_at: expiresAt,
     pending_payment: null,
     payment_history: history.slice(0, 50),
+    membership_plan: order.plan,
+    membership_started_at: startedAt,
+    ...(expiresAt
+      ? { membership_status: "active" as const, membership_expires_at: expiresAt }
+      : {}),
   });
 
   let referralReward: { applied: boolean; skipped?: string } | null = null;
@@ -334,7 +369,7 @@ export async function PATCH(request: NextRequest) {
     referralReward = { applied: false, skipped: "reward_error" };
   }
 
-  if (data.user.email) {
+  if (data.user.email && expiresAt) {
     await notifyBuyerMembershipActivated({
       to: data.user.email,
       planLabel: PLAN_LABELS[order.plan],
@@ -346,6 +381,8 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     membershipExpiresAt: expiresAt,
+    grantApplied: grant.applied,
+    grantSkipped: grant.skipped ?? null,
     referralReward,
   });
 }

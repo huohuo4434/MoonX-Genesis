@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ForecastBasisWeights } from "@/components/forecasts/ForecastBasisWeights";
+import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { sortByDailyAssetOrder } from "@/lib/data/daily-asset-order";
@@ -14,8 +15,19 @@ import {
   displayMarketCode,
   normalizeTomorrowDirection,
 } from "@/lib/forecasts/tomorrow-direction";
+import {
+  buildForecastModuleEvidence,
+  dailyForecastToEvidenceSource,
+} from "@/lib/methodology/evidence";
+import {
+  FORMAL_PUBLISH_LABEL,
+  TOMORROW_SCHEDULE_COPY,
+  plannedPublishAtIso,
+  tomorrowPublishState,
+} from "@/lib/calendar/publish-windows";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 
 function isPending(f: DailyForecast) {
   return f.confidence <= 0 || f.summary === "研究尚未完成" || f.status === "draft";
@@ -152,25 +164,30 @@ function MarketForecastCard({ f }: { f: DailyForecast }) {
             : null
         }
       />
+      <ForecastEvidencePanel
+        items={buildForecastModuleEvidence(dailyForecastToEvidenceSource(f))}
+      />
     </Card>
   );
 }
 
 function BatchMeta({
   forecastDate,
+  plannedPublishAt,
   publishedAt,
   version,
   status,
   marketCount,
 }: {
   forecastDate?: string;
+  plannedPublishAt?: string;
   publishedAt?: string;
   version: string;
   status: string;
   marketCount: number;
 }) {
   return (
-    <Card padding="md" className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+    <Card padding="md" className="mb-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <div>
         <p className="text-caption text-foreground-tertiary">目标交易日期</p>
         <p className="text-body-sm font-medium">
@@ -178,7 +195,13 @@ function BatchMeta({
         </p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">发布时间</p>
+        <p className="text-caption text-foreground-tertiary">计划发布时间</p>
+        <p className="text-body-sm font-medium">
+          {plannedPublishAt ? formatDateTimeChina(plannedPublishAt) : FORMAL_PUBLISH_LABEL}
+        </p>
+      </div>
+      <div>
+        <p className="text-caption text-foreground-tertiary">实际发布时间</p>
         <p className="text-body-sm font-medium">
           {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
         </p>
@@ -213,13 +236,17 @@ export function MemberTomorrowLockedPage({
             <Badge variant="default">会员专享</Badge>
           </div>
           <Heading as="h1" size="h2">
-            下一交易日完整预测
+            {TOMORROW_SCHEDULE_COPY.title}
           </Heading>
           <Text variant="body" color="secondary">
-            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
+            {TOMORROW_SCHEDULE_COPY.description}
+          </Text>
+          <Text variant="caption" color="tertiary" className="block">
+            固定发布时间：{FORMAL_PUBLISH_LABEL}
           </Text>
           <BatchMeta
             forecastDate={summary.nextDateIso}
+            plannedPublishAt={plannedPublishAtIso(getBeijingTodayKey())}
             status="会员锁定"
             version="—"
             marketCount={summary.publishedCount}
@@ -241,32 +268,49 @@ export function MemberTomorrowLockedPage({
 export function MemberTomorrowEmptyPage({
   targetDate,
   isAdmin,
+  nowIso,
 }: {
   targetDate: string;
   isAdmin?: boolean;
+  nowIso?: string;
 }) {
+  const now = nowIso ? new Date(nowIso) : new Date();
+  const state = tomorrowPublishState(false, now);
+  const title =
+    state === "delayed"
+      ? TOMORROW_SCHEDULE_COPY.delayedTitle
+      : TOMORROW_SCHEDULE_COPY.waitingTitle;
+  const body =
+    state === "delayed"
+      ? TOMORROW_SCHEDULE_COPY.delayedBody
+      : TOMORROW_SCHEDULE_COPY.waitingBody;
+
   return (
     <main>
       <Section spacing="lg">
         <div className="mx-auto max-w-2xl px-4">
           <Heading as="h1" size="h2">
-            下一交易日完整预测
+            {TOMORROW_SCHEDULE_COPY.title}
           </Heading>
           <Text variant="body" color="secondary" className="mt-2">
-            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
+            {TOMORROW_SCHEDULE_COPY.description}
+          </Text>
+          <Text variant="caption" color="tertiary" className="mt-1 block">
+            固定发布时间：{FORMAL_PUBLISH_LABEL}
           </Text>
           <BatchMeta
             forecastDate={targetDate}
-            status="尚未发布"
+            plannedPublishAt={plannedPublishAtIso(getBeijingTodayKey(now))}
+            status={state === "delayed" ? "延迟发布" : "尚未发布"}
             version="—"
             marketCount={0}
           />
           <Card padding="lg" className="mt-2 space-y-3">
             <Text variant="body" weight="semibold">
-              下一交易日预测尚未发布
+              {title}
             </Text>
             <Text variant="body-sm" color="secondary">
-              预测生成并锁定后将在此处开放，会员可第一时间查看。不会使用波浪研究或其他分析模块替代正式预测。
+              {body}
             </Text>
             {isAdmin ? (
               <Button asChild>
@@ -298,14 +342,18 @@ export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast
             会员专享
           </Badge>
           <Heading as="h1" size="h2" className="mb-2">
-            下一交易日完整预测
+            {TOMORROW_SCHEDULE_COPY.title}
           </Heading>
-          <Text variant="body" color="secondary" className="mb-6 max-w-2xl">
-            会员可提前查看下一交易日的市场方向、概率、运行路径与关键价位。
+          <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
+            {TOMORROW_SCHEDULE_COPY.description}
+          </Text>
+          <Text variant="caption" color="tertiary" className="mb-6 block">
+            固定发布时间：{FORMAL_PUBLISH_LABEL}
           </Text>
 
           <BatchMeta
             forecastDate={nextDate}
+            plannedPublishAt={plannedPublishAtIso(getBeijingTodayKey())}
             publishedAt={publishedAt}
             version={version}
             status="已锁定"

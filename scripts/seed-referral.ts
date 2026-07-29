@@ -8,6 +8,13 @@ import { seedReferralDemo } from "../lib/referral/store";
 loadProductionEnv();
 
 async function main() {
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production"
+  ) {
+    throw new Error("Production seed is disabled");
+  }
+
   // Deterministic demo UUIDs (not real auth users) for UI / admin listing tests.
   const inviterId = "00000000-0000-4000-8000-000000000001";
   const inviteeId = "00000000-0000-4000-8000-000000000002";

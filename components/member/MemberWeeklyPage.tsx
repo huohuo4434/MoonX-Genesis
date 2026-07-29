@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
 import type {
   WeeklyAnalysisMemberView,
   WeeklyAnalysisPublicSummary,
@@ -153,6 +155,23 @@ export function MemberWeeklyFullPage({
                       <p>发布时间：{formatDateTimeChina(a.publishedAt)}</p>
                     </div>
                   ) : null}
+                  <ForecastEvidencePanel
+                    items={buildForecastModuleEvidence({
+                      id: a.id,
+                      symbol: a.symbol,
+                      directionLabel: a.overallDirection,
+                      summary: a.headline,
+                      expectedPath: a.weeklyPath ? [a.weeklyPath] : undefined,
+                      probabilities: a.probabilities,
+                      supportLevels: a.keySupport,
+                      resistanceLevels: a.keyResistance,
+                      invalidation: a.invalidation,
+                      confirmation: a.confirmation,
+                      confidence: a.confidence,
+                      catalysts: a.strongWindow ? [`较强窗口：${a.strongWindow}`] : undefined,
+                      risks: a.weakWindow ? [`较弱窗口：${a.weakWindow}`] : undefined,
+                    })}
+                  />
                 </Card>
               );
             })}

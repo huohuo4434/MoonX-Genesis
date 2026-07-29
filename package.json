@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && next build && node --import tsx scripts/run-bootstrap-if-requested.ts && node --import tsx scripts/seed-wave.ts",
+    "vercel-build": "prisma generate && next build && node --import tsx scripts/run-bootstrap-if-requested.ts",
     "bootstrap:admin": "node --import tsx scripts/bootstrap-admin.ts",
     "db:migrate": "node --import tsx scripts/apply-migrations.ts",
     "prisma:generate": "prisma generate",
@@ -20,7 +20,11 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/technical-signals.test.ts tests/payments.test.ts tests/payments-flow.test.ts tests/research-records.test.ts tests/auth-payments.test.ts tests/btc-liuyao-records.test.ts tests/daily-accuracy.test.ts tests/public-accuracy-history.test.ts tests/published-daily-forecasts.test.ts tests/automation-learning.test.ts tests/publish-windows.test.ts tests/session-ready.test.ts tests/weekly-analysis.test.ts tests/member-stocks-changxin.test.ts tests/wti-ext-path.test.ts tests/price-levels.test.ts tests/hstech-forecast-chart.test.ts tests/referral.test.ts tests/prediction-access.test.ts tests/forecast-ui-roll.test.ts tests/forecast-basis-weights.test.ts tests/featured-stocks.test.ts tests/emergency-production-fix.test.ts",
+    "test": "node --import tsx --test tests/technical-signals.test.ts tests/payments.test.ts tests/payments-flow.test.ts tests/research-records.test.ts tests/auth-payments.test.ts tests/btc-liuyao-records.test.ts tests/daily-accuracy.test.ts tests/public-accuracy-history.test.ts tests/published-daily-forecasts.test.ts tests/automation-learning.test.ts tests/publish-windows.test.ts tests/session-ready.test.ts tests/weekly-analysis.test.ts tests/member-stocks-changxin.test.ts tests/wti-ext-path.test.ts tests/price-levels.test.ts tests/hstech-forecast-chart.test.ts tests/referral.test.ts tests/prediction-access.test.ts tests/forecast-ui-roll.test.ts tests/forecast-basis-weights.test.ts tests/featured-stocks.test.ts tests/emergency-production-fix.test.ts tests/methodology.test.ts tests/membership-protect.test.ts",
+    "membership:backup": "node --import tsx scripts/backup-memberships.ts",
+    "membership:reconcile": "node --import tsx scripts/reconcile-memberships.ts",
+    "membership:reconcile:write": "node --import tsx scripts/reconcile-memberships.ts --write",
+    "membership:guard": "node --import tsx scripts/membership-deploy-guard.ts",
     "audit:routes": "node --import tsx scripts/audit-routes.ts",
     "moonx:validate": "node --import tsx scripts/validate-moonx-data.mjs",
     "moonx:snapshot": "node --import tsx scripts/create-moonx-snapshot.mjs"

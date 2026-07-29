@@ -8,6 +8,13 @@ import { loadProductionEnv, normalizeSupabaseUrl } from "./load-env";
 
 loadProductionEnv();
 
+if (
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production"
+) {
+  throw new Error("Production seed is disabled");
+}
+
 type Direction =
   | "UP"
   | "DOWN"

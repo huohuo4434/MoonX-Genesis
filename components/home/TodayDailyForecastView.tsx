@@ -3,11 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Button, Text } from "@/components/ui";
 import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
+import {
+  buildForecastModuleEvidence,
+  dailyForecastToEvidenceSource,
+} from "@/lib/methodology/evidence";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isDraft(f: DailyForecast) {
@@ -295,6 +300,9 @@ export function TodayDailyForecastView({
                         ) : null}
                       </div>
                     ) : null}
+                    <ForecastEvidencePanel
+                      items={buildForecastModuleEvidence(dailyForecastToEvidenceSource(f))}
+                    />
                   </article>
                 );
               })}

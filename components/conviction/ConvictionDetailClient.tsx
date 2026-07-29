@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
+import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { ConvictionDetailPayload, ConvictionPeriodSlot } from "@/lib/data/conviction/access";
 import type {
@@ -48,6 +50,18 @@ function DailyPanel({ title, forecast }: { title: string; forecast: MemberStockD
             ? formatDateTimeChina(forecast.priceSnapshotAtLabel)
             : undefined
         }
+      />
+      <ForecastEvidencePanel
+        items={buildForecastModuleEvidence({
+          directionLabel: forecast.direction,
+          summary: forecast.headline,
+          expectedPath: forecast.expectedPath ? [forecast.expectedPath] : undefined,
+          probabilities: forecast.probabilities,
+          supportLevels: forecast.keySupport,
+          resistanceLevels: forecast.keyResistance,
+          invalidation: forecast.invalidation,
+          confirmation: forecast.confirmation,
+        })}
       />
     </Card>
   );
@@ -122,6 +136,23 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
           风险：{f.risks.join("；")}
         </Text>
       ) : null}
+      <ForecastEvidencePanel
+        items={buildForecastModuleEvidence({
+          directionLabel: f.direction,
+          summary: f.summary,
+          expectedPath: f.expectedPath ? [f.expectedPath] : undefined,
+          probabilities: {
+            up: f.upProbability,
+            flat: f.sidewaysProbability,
+            down: f.downProbability,
+          },
+          risks: f.risks,
+          catalysts: f.ichingEvidence?.primaryHexagram
+            ? [`六爻：${f.ichingEvidence.primaryHexagram}`, f.ichingEvidence.notes].filter(Boolean)
+            : undefined,
+          evidenceRecordIds: f.ichingEvidence?.primaryHexagram ? [`iching:${f.id}`] : undefined,
+        })}
+      />
     </Card>
   );
 }

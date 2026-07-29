@@ -19,9 +19,10 @@ export async function HomeTomorrowSection() {
         <SectionHeader
           eyebrow="会员"
           title="下一交易日完整预测"
-          subtitle="会员可提前查看下一交易日：BTC、美股、黄金、原油等怎么走。"
+          subtitle="MOOX每天北京时间20:00发布下一实际交易日预测。遇休市日，目标日期自动顺延至下一实际交易日。预测发布并锁定后，有效会员可立即查看。"
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="outline">固定发布时间：每天北京时间 20:00</Badge>
           <Badge variant="outline">
             目标交易日期：{formatDateChina(payload.summary.nextDateIso)}
           </Badge>
@@ -33,7 +34,7 @@ export async function HomeTomorrowSection() {
 
         {!published ? (
           <p className="mt-4 text-body-sm text-foreground-secondary">
-            下一交易日预测尚未发布。预测发布后将在此处显示。
+            下一交易日预测尚未发布。不会显示旧预测或用今日预测代替明日预测。
           </p>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

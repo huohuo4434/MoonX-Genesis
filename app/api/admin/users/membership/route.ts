@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import {
-  computeNewExpiry,
-  PLAN_DAYS,
-  requireAdmin,
-  updateUserAppMetadata,
-  type MembershipPlan,
-} from "@/lib/auth/permissions";
+  grantMembershipFromPlan,
+  revokeMembership,
+} from "@/lib/auth/grant-membership";
+import { getCurrentUser, requireAdmin, type MembershipPlan } from "@/lib/auth/permissions";
 import { getAdminClient } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const bodySchema = z.object({
   userId: z.string().uuid(),
@@ -51,33 +52,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "不能修改管理员账户" }, { status: 400 });
   }
 
+  const operator = await getCurrentUser();
+
   if (body.action === "suspend" || body.action === "cancel") {
-    await updateUserAppMetadata(body.userId, {
-      role: "user",
-      membership_status: body.action === "suspend" ? "expired" : "inactive",
-      membership_plan: null,
-      membership_expires_at: null,
-      pending_payment: null,
+    const result = await revokeMembership({
+      userId: body.userId,
+      sourceId: `admin_${body.action}_${body.userId}_${Date.now()}`,
+      operatorId: operator?.id ?? null,
+      note: body.action,
+      mode: body.action,
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...result });
   }
 
   const plan = ACTION_PLAN[body.action]!;
-  const days = PLAN_DAYS[plan];
-  const prevExpires = (data.user.app_metadata as { membership_expires_at?: string } | undefined)
-    ?.membership_expires_at;
-  const prevStarted = (data.user.app_metadata as { membership_started_at?: string } | undefined)
-    ?.membership_started_at;
-  const expiresAt = computeNewExpiry(prevExpires, days);
-
-  await updateUserAppMetadata(body.userId, {
-    role: "user",
-    membership_status: "active",
-    membership_plan: plan,
-    membership_started_at: prevStarted ?? new Date().toISOString(),
-    membership_expires_at: expiresAt,
-    pending_payment: null,
+  const result = await grantMembershipFromPlan({
+    userId: body.userId,
+    plan,
+    eventType: "ADMIN_ADJUSTMENT",
+    source: "admin_membership",
+    sourceId: `admin_${body.action}_${body.userId}_${Date.now()}`,
+    operatorId: operator?.id ?? null,
+    note: body.action,
   });
 
-  return NextResponse.json({ ok: true, membershipExpiresAt: expiresAt, plan });
+  return NextResponse.json({
+    ok: true,
+    membershipExpiresAt: result.newExpiresAt,
+    plan,
+    ...result,
+  });
 }

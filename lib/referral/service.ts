@@ -1,7 +1,7 @@
 import "server-only";
 
+import { grantMembershipDays } from "@/lib/auth/grant-membership";
 import {
-  computeNewExpiry,
   listAllAuthUsers,
   updateUserAppMetadata,
   type AuthUserView,
@@ -175,33 +175,37 @@ export async function processReferralRewardAfterPayment(input: {
     return { applied: false, skipped: "不能邀请自己", record: pending };
   }
 
-  const days = pending.reward_days || REFERRAL_REWARD_DAYS;
-  const inviterExpiresAt = computeNewExpiry(inviter.app_metadata.membership_expires_at, days);
-  await updateUserAppMetadata(inviter.id, {
-    membership_status: "active",
-    membership_started_at:
-      inviter.app_metadata.membership_started_at ?? new Date().toISOString(),
-    membership_expires_at: inviterExpiresAt,
-  });
-
-  const inviteeBonusExpiresAt = computeNewExpiry(
-    invitee.app_metadata.membership_expires_at,
-    days
-  );
-  await updateUserAppMetadata(invitee.id, {
-    membership_status: "active",
-    membership_expires_at: inviteeBonusExpiresAt,
-  });
-
+  // Finalize first so reward cannot double-apply if membership grant partially fails mid-way.
   const gate = await finalizeReferralReward(input);
   if (!gate.applied) {
     return { applied: false, skipped: gate.skipped, record: gate.record };
   }
 
+  const days = pending.reward_days || REFERRAL_REWARD_DAYS;
+  const recordId = gate.record?.id ?? pending.id;
+
+  const inviterGrant = await grantMembershipDays({
+    userId: inviter.id,
+    days,
+    eventType: "REFERRAL_REWARD",
+    source: "referral",
+    sourceId: `referral_inviter_${recordId}`,
+    note: `invitee_payment=${input.paymentId}`,
+  });
+
+  const inviteeGrant = await grantMembershipDays({
+    userId: invitee.id,
+    days,
+    eventType: "REFERRAL_REWARD",
+    source: "referral",
+    sourceId: `referral_invitee_${recordId}`,
+    note: `invitee_payment=${input.paymentId}`,
+  });
+
   return {
     applied: true,
-    inviterExpiresAt,
-    inviteeBonusExpiresAt,
+    inviterExpiresAt: inviterGrant.newExpiresAt ?? undefined,
+    inviteeBonusExpiresAt: inviteeGrant.newExpiresAt ?? undefined,
     record: gate.record,
   };
 }

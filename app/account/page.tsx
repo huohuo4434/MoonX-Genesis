@@ -5,8 +5,10 @@ import { AccountReferralPanel } from "@/components/account/AccountReferralPanel"
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getAccessUser } from "@/lib/auth/get-access-user";
+import { latestMembershipEventForUser } from "@/lib/auth/membership-events";
 import { PLAN_LABELS } from "@/lib/auth/permissions";
 import { getPaymentConfig } from "@/lib/payments/config";
+import { getReferralStats } from "@/lib/referral/store";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +17,29 @@ export const revalidate = 0;
 export default async function AccountPage() {
   noStore();
   const access = await getAccessUser();
-  if (!access.authenticated) redirect("/login");
+  if (!access.authenticated || !access.userId) redirect("/login");
 
   const cfg = getPaymentConfig();
+  const [latestEvent, referralStats] = await Promise.all([
+    latestMembershipEventForUser(access.userId),
+    getReferralStats(access.userId).catch(() => ({
+      successCount: 0,
+      rewardDaysTotal: 0,
+      pendingCount: 0,
+    })),
+  ]);
+
+  const now = Date.now();
+  const remainingDays =
+    access.isAdmin
+      ? null
+      : access.membershipExpiresAt
+        ? Math.max(
+            0,
+            Math.ceil((access.membershipExpiresAt.getTime() - now) / (24 * 60 * 60 * 1000))
+          )
+        : null;
+
   const memberType = access.isAdmin
     ? "管理员"
     : access.membershipPlan
@@ -25,13 +47,20 @@ export default async function AccountPage() {
       : access.isActiveMember
         ? "会员"
         : "普通用户";
+
   const memberStatus = access.isAdmin
-    ? "有效（永久）"
+    ? "会员有效（永久）"
     : access.isActiveMember
-      ? "有效"
+      ? "会员有效"
       : access.membershipExpiresAt
         ? "已过期"
         : "未开通";
+
+  const planSource = access.isAdmin
+    ? "管理员权限"
+    : access.membershipPlan
+      ? `套餐 ${PLAN_LABELS[access.membershipPlan]}`
+      : latestEvent?.eventType ?? "—";
 
   return (
     <main>
@@ -47,6 +76,12 @@ export default async function AccountPage() {
             用户 ID：{access.userId}
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
+            会员状态：{memberStatus}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            套餐来源：{planSource}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
             会员类型：{memberType}
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
@@ -58,7 +93,24 @@ export default async function AccountPage() {
                 : "—"}
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            当前状态：{memberStatus}
+            剩余天数：{access.isAdmin ? "—" : remainingDays != null ? `${remainingDays} 天` : "—"}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            最近一次会员变更：
+            {latestEvent
+              ? `${latestEvent.eventType} · ${formatDateTimeChina(latestEvent.createdAt)} · ${
+                  latestEvent.previousExpiresAt
+                    ? formatDateTimeChina(latestEvent.previousExpiresAt)
+                    : "—"
+                } → ${
+                  latestEvent.newExpiresAt
+                    ? formatDateTimeChina(latestEvent.newExpiresAt)
+                    : "—"
+                }`
+              : "—"}
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            邀请奖励天数：{referralStats.rewardDaysTotal ?? 0} 天
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
             当前服务器时间：{formatDateTimeChina(access.serverNowIso)}
