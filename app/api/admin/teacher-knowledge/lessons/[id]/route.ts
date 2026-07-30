@@ -35,11 +35,11 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     {
       lesson,
       drafts: {
-        rules: rules.filter((r) => r.sourceLessonId === lesson.id),
-        cases: cases.filter((c) => c.sourceLessonId === lesson.id),
-        concepts: concepts.filter((c) => c.sourceLessonId === lesson.id),
-        quotes: quotes.filter((q) => q.sourceLessonId === lesson.id),
-        methods: methods.filter((m) => m.sourceLessonId === lesson.id),
+        rules: rules.filter((r: { sourceLessonId?: string | null }) => r.sourceLessonId === lesson.id),
+        cases: cases.filter((c: { sourceLessonId?: string | null }) => c.sourceLessonId === lesson.id),
+        concepts: concepts.filter((c: { sourceLessonId?: string | null }) => c.sourceLessonId === lesson.id),
+        quotes: quotes.filter((q: { sourceLessonId?: string | null }) => q.sourceLessonId === lesson.id),
+        methods: methods.filter((m: { sourceLessonId?: string | null }) => m.sourceLessonId === lesson.id),
       },
     },
     { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" } }

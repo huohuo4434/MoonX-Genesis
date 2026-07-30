@@ -169,7 +169,7 @@ export async function commitImport(payload: ImportPayload, createdBy?: string | 
 
   // cases/concepts/quotes/methods via extract save path — store helpers are private for cases
   // Re-use createRuleDraft pattern: write through replaceStore for remaining kinds quickly
-  const store = getStoreSnapshot();
+  const store = await getStoreSnapshot();
   const now = new Date().toISOString();
   for (const c of payload.cases || []) {
     store.cases.unshift({
@@ -244,7 +244,7 @@ export async function commitImport(payload: ImportPayload, createdBy?: string | 
       updatedAt: now,
     });
   }
-  replaceStoreSnapshot(store);
+  await replaceStoreSnapshot(store);
   return { lessonId, status: "DRAFT" as const };
 }
 
@@ -258,7 +258,7 @@ export async function exportFullBackup() {
     listMethods(),
     listConflicts(),
   ]);
-  const snap = getStoreSnapshot();
+  const snap = await getStoreSnapshot();
   return {
     exportedAt: new Date().toISOString(),
     type: "moonx-teacher-knowledge-full",
