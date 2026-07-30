@@ -9,6 +9,7 @@ const adminLinks = [
   { href: "/admin/weekly", label: "本周行情" },
   { href: "/admin/stocks", label: "重点关注" },
   { href: "/admin/iching/library", label: "六爻研究库" },
+  { href: "/admin/teacher-knowledge", label: "老师知识库" },
   { href: "/admin/iching/rules", label: "老师投资六爻规则" },
   { href: "/admin/iching/cases", label: "六爻历史案例" },
   { href: "/admin/iching/validation", label: "六爻验证" },

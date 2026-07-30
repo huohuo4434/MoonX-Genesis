@@ -128,6 +128,15 @@ export default async function PricingPage() {
         </div>
 
         <Card padding="lg" className="w-full max-w-4xl">
+          <Text variant="body" weight="semibold" className="block">
+            付款方式
+          </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            当前统一为 USDT 转账后提交交易哈希，由管理员人工审核开通；暂不自动进行链上核验。提交哈希不等于审核通过。
+          </Text>
+        </Card>
+
+        <Card padding="lg" className="w-full max-w-4xl">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <Text variant="body" weight="semibold" className="block">

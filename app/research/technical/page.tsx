@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
+import { requireAdminOrNotFound } from "@/lib/auth/require-admin-or-404";
 import { ResearchSubnav } from "@/components/research/ResearchSubnav";
 import { TechnicalSignalCenter } from "@/components/research/TechnicalSignalCenter";
 import { TechnicalSignalsPreviewClient } from "@/components/research/TechnicalSignalsPreviewClient";
@@ -8,15 +9,16 @@ import { getTechnicalSignalsSurfacePayload } from "@/lib/access/research-surface
 
 export const metadata: Metadata = {
   title: "Technical Analysis | MOOX",
-  description: "Technical signals and verification with public-safe previews and member-aware detail.",
+  description: "Internal technical signals.",
+  robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function TechnicalResearchPage() {
   noStore();
+  await requireAdminOrNotFound();
   const payload = await getTechnicalSignalsSurfacePayload();
-
   return (
     <main>
       <Section spacing="lg">

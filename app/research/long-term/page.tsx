@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
+import { requireAdminOrNotFound } from "@/lib/auth/require-admin-or-404";
 import { ResearchLibraryExplorer } from "@/components/research/ResearchLibraryExplorer";
 import { ResearchSubnav } from "@/components/research/ResearchSubnav";
 import { Card, Heading, Section, Text } from "@/components/ui";
@@ -13,7 +14,8 @@ import { listResearchRecords } from "@/lib/data/research-records";
 
 export const metadata: Metadata = {
   title: "Long-term Research | MOOX",
-  description: "Public module inventory with member-aware access to long-term conclusions and scenario detail.",
+  description: "Internal long-term research.",
+  robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,7 @@ export const revalidate = 0;
 
 export default async function LongTermResearchPage() {
   noStore();
+  await requireAdminOrNotFound();
   const [access, records] = await Promise.all([getSurfaceAccess(), listResearchRecords()]);
   const longTermRecords = selectLongTermResearchRecords(records);
   const inventory = shapeLongTermModuleInventory(buildLongTermModuleInventory(longTermRecords), access.unlocked);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
+import { requireAdminOrNotFound } from "@/lib/auth/require-admin-or-404";
 import { WatchlistCard } from "@/components/research/WatchlistCard";
 import { ResearchSubnav } from "@/components/research/ResearchSubnav";
 import { Card, Heading, Section, Text } from "@/components/ui";
@@ -9,13 +10,15 @@ import { listWatchlistEntries } from "@/lib/data/strategic-watchlist";
 
 export const metadata: Metadata = {
   title: "Focused Assets | MOOX",
-  description: "Focused asset observation list with public preview and member-aware detail.",
+  description: "Internal watchlist.",
+  robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function WatchlistPage() {
   noStore();
+  await requireAdminOrNotFound();
   const [access, entries, records] = await Promise.all([
     getSurfaceAccess(),
     listWatchlistEntries(),

@@ -7,9 +7,14 @@ import { HeroSection } from "@/components/sections";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export const metadata = {
+  title: "MOOX",
+  robots: { index: true, follow: true },
+};
+
 /**
- * Emergency homepage: exactly five modules.
- * Hero → Today gate → Recent verification → Featured assets → Membership CTA.
+ * Single official homepage — no alternate research/timeline landing.
+ * Hero → Today gate (server ACL) → Recent verification → Featured assets → Membership CTA.
  */
 export default async function HomePage() {
   return (

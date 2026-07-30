@@ -118,6 +118,9 @@ export function PricingPlansClient({
           <p className="text-body-sm text-foreground-secondary">1. 选择会员套餐</p>
           <p className="text-body-sm text-foreground-secondary">2. 使用对应网络转账USDT</p>
           <p className="text-body-sm text-foreground-secondary">3. 提交交易哈希</p>
+          <p className="text-body-sm text-foreground-secondary">
+            4. 管理员人工审核开通（暂不自动链上核验）
+          </p>
           <p className="text-body-sm text-foreground-secondary">4. 管理员审核后开通</p>
         </div>
         <p className="text-body-sm text-foreground-secondary">客服邮箱</p>

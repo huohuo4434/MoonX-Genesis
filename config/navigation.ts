@@ -36,14 +36,26 @@ export const NAV_ROUTES = {
 
 /** Old long-horizon routes — public/member must 404; admin may redirect to intelligence. */
 export const INTERNAL_LEGACY_ROUTES = [
+  "/research",
   "/research/library",
   "/research/pipeline",
   "/research/intelligence-snapshot",
   "/research/verification",
+  "/research/technical",
+  "/research/long-term",
+  "/timeline",
+  "/markets/watchlist",
+  "/forecasts",
+  "/forecasts/daily",
+  "/methodology",
   "/verification/long-term",
 ] as const;
 
-/** Desktop primary nav — no duplicate meaning columns. */
+/**
+ * Desktop primary nav — public product structure only.
+ * Today/Tomorrow/Weekly remain reachable for authenticated flows via homepage CTA / member URLs,
+ * but are not marketed as open public pages.
+ */
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
   { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
@@ -55,10 +67,10 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
-  { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
+  { key: "nav.login", href: NAV_ROUTES.login, labelZh: "账户" },
 ];
 
 export function buildPublicPrimaryNav(_options?: { includeMemberStocks?: boolean }): NavItem[] {
@@ -70,20 +82,14 @@ export function buildPublicFooterColumns(options?: {
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
   const product: NavItem[] = [
-    { key: "footer.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
-    { key: "footer.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
-    { key: "footer.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周行情" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-  ];
-
-  const verification: NavItem[] = [
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
-    { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "方法说明" },
+    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   ];
 
   const accountLegal: NavItem[] = [
     { key: "footer.myAccount", href: NAV_ROUTES.account, labelZh: "我的账户" },
-    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+    { key: "footer.login", href: NAV_ROUTES.login, labelZh: "登录注册" },
     { key: "footer.privacyPolicy", href: NAV_ROUTES.privacy, labelZh: "隐私政策" },
     { key: "footer.termsOfService", href: NAV_ROUTES.terms, labelZh: "服务条款" },
   ];
@@ -92,7 +98,6 @@ export function buildPublicFooterColumns(options?: {
 
   return [
     { titleKey: "footer.product", titleZh: "产品", links: product },
-    { titleKey: "footer.verificationCol", titleZh: "验证", links: verification },
     { titleKey: "footer.accountLegal", titleZh: "账户与法律", links: accountLegal },
   ];
 }
@@ -107,36 +112,20 @@ export const AUDIT_ROUTES = [
   "/account/orders",
   "/pricing",
   "/checkout",
-  "/forecasts/daily",
   "/member/tomorrow",
   "/member/weekly",
   "/featured-stocks",
-  "/markets/watchlist",
-  "/research",
-  "/research/technical",
-  "/research/long-term",
-  "/timeline",
   "/featured-stocks/cxmt",
   "/featured-stocks/asteroid",
-  "/member/stocks",
-  "/member/stocks/688825",
-  "/member/stocks/688825/history",
   "/verification",
-  "/methodology",
   "/privacy",
   "/terms",
   "/admin",
   "/admin/payments",
   "/admin/settings",
-  "/admin/methodology",
-  "/admin/social",
   "/admin/forecasts",
   "/admin/weekly",
   "/admin/stocks",
-  "/admin/stocks/688825",
-  "/admin/conviction",
-  "/admin/intelligence",
-  "/admin/learning",
+  "/admin/teacher-knowledge",
   ...INTERNAL_LEGACY_ROUTES,
-  "/stocks",
 ] as const;
