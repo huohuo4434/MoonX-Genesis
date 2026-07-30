@@ -9,6 +9,14 @@ function rate(hits: number, misses: number): number | null {
   return den === 0 ? null : hits / den;
 }
 
+function isFull(r: DailyVerificationResult) {
+  return r.verdict === "HIT" || r.verdict === "FULL_HIT";
+}
+
+function isCountable(r: DailyVerificationResult) {
+  return isFull(r) || r.verdict === "PARTIAL_HIT" || r.verdict === "MISS";
+}
+
 export function assetAccuracyBreakdown(results: DailyVerificationResult[]): Array<{
   symbol: string;
   label: string;
@@ -27,10 +35,8 @@ export function assetAccuracyBreakdown(results: DailyVerificationResult[]): Arra
   };
   const symbols = ["BTC", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "WTI"];
   return symbols.map((symbol) => {
-    const rows = results.filter(
-      (r) => !r.isSystemTest && (r.verdict === "HIT" || r.verdict === "MISS") && r.symbol === symbol
-    );
-    const hit = rows.filter((r) => r.verdict === "HIT").length;
+    const rows = results.filter((r) => !r.isSystemTest && isCountable(r) && r.symbol === symbol);
+    const hit = rows.filter((r) => isFull(r) || r.verdict === "PARTIAL_HIT").length;
     const miss = rows.filter((r) => r.verdict === "MISS").length;
     return { symbol, label: labels[symbol] ?? symbol, hit, miss, hitRate: rate(hit, miss) };
   });
@@ -50,11 +56,11 @@ export function sourceAccuracyBreakdown(
     return s || "MoonX综合判断";
   };
   for (const r of results) {
-    if (r.isSystemTest || (r.verdict !== "HIT" && r.verdict !== "MISS")) continue;
+    if (r.isSystemTest || !isCountable(r)) continue;
     const f = byId.get(r.forecastId);
     const source = normalize(f?.source ?? "综合判断");
     const cur = buckets.get(source) ?? { hit: 0, miss: 0 };
-    if (r.verdict === "HIT") cur.hit += 1;
+    if (isFull(r) || r.verdict === "PARTIAL_HIT") cur.hit += 1;
     else cur.miss += 1;
     buckets.set(source, cur);
   }
@@ -79,11 +85,10 @@ export function confidenceAccuracyBreakdown(
     "70%以上": { hit: 0, miss: 0 },
   };
   for (const r of results) {
-    if (r.isSystemTest || (r.verdict !== "HIT" && r.verdict !== "MISS")) continue;
+    if (r.isSystemTest || !isCountable(r)) continue;
     const p = byId.get(r.forecastId)?.probability ?? 0;
-    const key =
-      p < 50 ? "50%以下" : p < 60 ? "50%至59%" : p < 70 ? "60%至69%" : "70%以上";
-    if (r.verdict === "HIT") buckets[key].hit += 1;
+    const key = p < 50 ? "50%以下" : p < 60 ? "50%至59%" : p < 70 ? "60%至69%" : "70%以上";
+    if (isFull(r) || r.verdict === "PARTIAL_HIT") buckets[key].hit += 1;
     else buckets[key].miss += 1;
   }
   return order.map((bucket) => ({
@@ -100,7 +105,8 @@ export function buildDailyCompositeSummary(input: {
   reviews: DailyReviewRecord[];
 }): { short: string; full: string } {
   const dayResults = input.results.filter((r) => r.forecastDate === input.date && !r.isSystemTest);
-  const hits = dayResults.filter((r) => r.verdict === "HIT").map((r) => r.assetName);
+  const fullHits = dayResults.filter(isFull).map((r) => r.assetName);
+  const partials = dayResults.filter((r) => r.verdict === "PARTIAL_HIT").map((r) => r.assetName);
   const misses = dayResults.filter((r) => r.verdict === "MISS").map((r) => r.assetName);
   const dayReviews = input.reviews.filter((r) => r.forecastDate === input.date);
   const topBias = dayReviews.flatMap((r) => r.interpretationBiases)[0];
@@ -114,17 +120,17 @@ export function buildDailyCompositeSummary(input: {
   }
 
   const short = [
-    hits.length ? `命中：${hits.join("、")}` : null,
+    fullHits.length ? `完全命中：${fullHits.join("、")}` : null,
+    partials.length ? `部分命中：${partials.join("、")}` : null,
     misses.length ? `未命中：${misses.join("、")}` : null,
     topBias ? `偏差提示：${topBias.evidence.slice(0, 40)}` : null,
-  ]
-    .filter(Boolean)
-    .join("；");
+  ].filter(Boolean).join("；");
 
   const full = [
     `${input.date}综合总结`,
-    hits.length ? `命中资产：${hits.join("、")}` : "命中资产：无",
-    misses.length ? `未命中资产：${misses.join("、")}` : "未命中资产：无",
+    fullHits.length ? `完全命中：${fullHits.join("、")}` : "完全命中：无",
+    partials.length ? `部分命中：${partials.join("、")}` : "部分命中：无",
+    misses.length ? `未命中：${misses.join("、")}` : "未命中：无",
     topBias ? `今日最明显偏差：${topBias.evidence}` : "今日偏差：样本不足",
     caution ? `明日重点警惕：${caution}` : "明日重点：保持结构核对，不机械反向。",
     `新增复盘：${dayReviews.length} 条`,

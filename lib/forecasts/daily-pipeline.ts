@@ -5,6 +5,7 @@
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { getBeijingClock } from "@/lib/calendar/publish-windows";
 import { getNextForecastDate } from "@/lib/calendar/next-trading-day";
+import { buildLockedLevelsForAsset, validatePublishedPriceLevels } from "@/lib/market-data/price-levels";
 import { generateDailyFromWeekly, marketMeta, reviseAsNewVersion } from "@/lib/forecasts/weekly-to-daily";
 import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
 import {
@@ -103,6 +104,59 @@ async function loadSnapshot(): Promise<MarketSnapshot> {
   return emptySnapshot();
 }
 
+
+function verificationMarket(market: ReturnType<typeof marketMeta>["legacyMarket"]):
+  | "CRYPTO"
+  | "US"
+  | "CN"
+  | "HK"
+  | "US_FUTURES" {
+  if (market === "crypto") return "CRYPTO";
+  if (market === "cn") return "CN";
+  if (market === "hk") return "HK";
+  if (market === "commodity") return "US_FUTURES";
+  return "US";
+}
+
+async function buildTechnicalLevelsWithRetry(input: {
+  marketCode: string;
+  direction: string;
+  forecastDate: string;
+  publishedAt: string;
+  attempts: number;
+}) {
+  const meta = marketMeta(input.marketCode);
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= input.attempts; attempt += 1) {
+    try {
+      const levels = await buildLockedLevelsForAsset({
+        symbol: input.marketCode === "SHCOMP" ? "SSEC" : input.marketCode,
+        quoteSymbol: meta.quoteSymbol,
+        market: verificationMarket(meta.legacyMarket),
+        assetName: meta.assetName,
+        directionLabel: input.direction,
+        forecastDate: input.forecastDate,
+        publishedAt: input.publishedAt,
+      });
+      const errors = validatePublishedPriceLevels({
+        supportLevels: levels.supportLevels,
+        resistanceLevels: levels.resistanceLevels,
+        confirmation: levels.confirmation,
+        invalidation: levels.invalidation,
+        priceSnapshot: levels.priceSnapshot,
+      });
+      if (errors.length) throw new Error(errors.join("；"));
+      return levels;
+    } catch (error) {
+      lastError = error;
+      if (attempt < input.attempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1_500));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("TECHNICAL_PRICE_DATA_UNAVAILABLE");
+}
+
 export type PipelineReport = {
   phase: PipelinePhase;
   beijingDate: string;
@@ -169,11 +223,34 @@ export async function runDailyForecastPipeline(input?: {
         record = reviseAsNewVersion(record, weekly, snapshot);
       }
 
+      // Price is never inferred from Liu Yao. Build real K-line structure zones before
+      // any draft can be locked. The three cron passes (19:30/19:50/20:00) plus
+      // internal retries make the 20:00 release resilient without fabricating levels.
+      const technical = await buildTechnicalLevelsWithRetry({
+        marketCode: market,
+        direction: record.direction,
+        forecastDate: target,
+        publishedAt: now.toISOString(),
+        attempts: phase === "lock" ? 3 : 2,
+      });
+      record = {
+        ...record,
+        supportLevels: technical.supportLevels,
+        resistanceLevels: technical.resistanceLevels,
+        confirmationLevel: technical.confirmation,
+        invalidationLevel: technical.invalidation,
+        technicalEvidence: [
+          `裸K波段与平台结构；EMA60；MACD零轴与动能共振`,
+          `行情来源 ${technical.priceDataSourceLabel}`,
+          `快照 ${technical.priceSnapshotAtLabel}`,
+        ].join("。"),
+      };
+
       if (phase === "lock") {
         record = {
           ...record,
           status: "LOCKED",
-          publishedAt: record.publishedAt ?? now.toISOString(),
+          publishedAt: now.toISOString(),
           lockedAt: now.toISOString(),
         };
       }

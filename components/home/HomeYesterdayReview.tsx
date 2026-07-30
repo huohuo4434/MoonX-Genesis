@@ -12,16 +12,17 @@ export async function HomeYesterdayReview() {
   // Prefer prior calendar days; if Asia sessions already verified for "today",
   // still surface them as a separate review block (not under 今日观点).
   const countable = results
-    .filter((r) => r.verdict === "HIT" || r.verdict === "MISS")
+    .filter((r) => ["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS"].includes(r.verdict))
     .sort((a, b) => b.forecastDate.localeCompare(a.forecastDate));
   const priorDates = [...new Set(countable.map((r) => r.forecastDate).filter((d) => d < today))];
   const latestDate = priorDates[0] ?? countable[0]?.forecastDate;
   if (!latestDate) return null;
 
   const dayRows = countable.filter((r) => r.forecastDate === latestDate);
-  const hits = dayRows.filter((r) => r.verdict === "HIT");
+  const hits = dayRows.filter((r) => r.verdict === "HIT" || r.verdict === "FULL_HIT");
+  const partials = dayRows.filter((r) => r.verdict === "PARTIAL_HIT");
   const misses = dayRows.filter((r) => r.verdict === "MISS");
-  if (!hits.length && !misses.length) return null;
+  if (!hits.length && !partials.length && !misses.length) return null;
 
   const summary = buildDailyCompositeSummary({ date: latestDate, results, reviews }).short;
   const title = latestDate < today ? "上一交易日复盘" : "已收盘市场复盘";
@@ -30,13 +31,13 @@ export async function HomeYesterdayReview() {
     <section className="border-t border-border/[0.06] py-6 lg:py-8">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
         <SectionHeader eyebrow="复盘" title={title} subtitle={`${latestDate} 收盘方向验证摘要`} />
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
           <Card padding="md">
             <Text variant="caption" color="tertiary">
               已验证资产
             </Text>
             <Text variant="body-sm" weight="semibold" className="mt-1">
-              {hits.length + misses.length} 项
+              {hits.length + partials.length + misses.length} 项
             </Text>
           </Card>
           <Card padding="md">
@@ -45,6 +46,14 @@ export async function HomeYesterdayReview() {
             </Text>
             <Text variant="body-sm" weight="semibold" className="mt-1">
               {hits.length ? hits.map((r) => r.assetName).join("、") : "无"}
+            </Text>
+          </Card>
+          <Card padding="md">
+            <Text variant="caption" color="tertiary">
+              部分命中
+            </Text>
+            <Text variant="body-sm" weight="semibold" className="mt-1">
+              {partials.length ? partials.map((r) => r.assetName).join("、") : "无"}
             </Text>
           </Card>
           <Card padding="md">

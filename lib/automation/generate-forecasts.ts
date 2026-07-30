@@ -17,7 +17,8 @@ import {
 import { buildSimilarCaseKey, computeLearningAdjustment, findSimilarCases } from "@/lib/automation/learning";
 import type { GeneratedForecastDraft } from "@/types/automation";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
-import { DIRECTION_LABELS } from "@/types/daily-accuracy";
+import { DIRECTION_LABELS, PATTERN_LABELS } from "@/types/daily-accuracy";
+import { patternFromText } from "@/lib/verification/pattern-classifier";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { listResearchRecords } from "@/lib/data/research-records";
 
@@ -312,6 +313,10 @@ export async function generateTomorrowForecasts(now = new Date()) {
 
 function draftToRecord(d: GeneratedForecastDraft): DailyForecastRecord {
   const direction = d.direction === "ABSTAIN" ? "FLAT" : d.direction;
+  const pattern = patternFromText(
+    [d.directionLabel, ...(d.expectedPath ?? []), d.summary].filter(Boolean).join(" "),
+    direction
+  );
   return {
     id: d.id,
     forecastDate: d.forecastDate,
@@ -320,6 +325,9 @@ function draftToRecord(d: GeneratedForecastDraft): DailyForecastRecord {
     market: d.market,
     direction,
     directionLabel: DIRECTION_LABELS[direction],
+    predictedPattern: pattern.pattern,
+    predictedPatternLabel: PATTERN_LABELS[pattern.pattern],
+    expectedPath: d.expectedPath,
     probability: d.confidence,
     summary: `[${d.sourceLabel}] ${d.summary}`,
     publishedAt: d.generatedAt,

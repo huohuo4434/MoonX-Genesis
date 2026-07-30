@@ -6,6 +6,31 @@ export type DailyAccuracyDirection = "UP" | "DOWN" | "FLAT";
 
 export type DailyAccuracyDirectionLabel = "上涨" | "下跌" | "震荡" | "暂无判断" | "观望";
 
+/** Full intraday path taxonomy used by MOOX verification. */
+export type DailyAccuracyPattern =
+  | "UP"
+  | "DOWN"
+  | "RANGE"
+  | "RANGE_UP"
+  | "RANGE_DOWN"
+  | "UP_THEN_DOWN"
+  | "DOWN_THEN_UP"
+  | "SURGE_THEN_PULLBACK"
+  | "DIP_THEN_RECOVERY";
+
+export type DailyAccuracyPatternLabel =
+  | "上涨"
+  | "下跌"
+  | "震荡"
+  | "震荡上涨"
+  | "震荡下跌"
+  | "先涨后跌"
+  | "先跌后涨"
+  | "冲高回落"
+  | "探底回升";
+
+export type DailyValidationMode = "FULL_PATH" | "LEGACY_DIRECTION_ONLY" | "UNVERIFIABLE";
+
 export type DailyForecastRecordStatus =
   | "draft"
   | "published"
@@ -13,9 +38,23 @@ export type DailyForecastRecordStatus =
   | "verified"
   | "invalid";
 
-export type DailyVerdict = "HIT" | "MISS" | "VOID" | "MANUAL_REVIEW";
+export type DailyVerdict =
+  | "FULL_HIT"
+  | "PARTIAL_HIT"
+  | "HIT" // legacy alias, treated as FULL_HIT in public stats
+  | "MISS"
+  | "UNVERIFIABLE"
+  | "VOID"
+  | "MANUAL_REVIEW";
 
-export type DailyVerdictLabel = "命中" | "未命中" | "不计入统计" | "待人工核对";
+export type DailyVerdictLabel =
+  | "完全命中"
+  | "部分命中"
+  | "命中"
+  | "未命中"
+  | "无法验证"
+  | "不计入统计"
+  | "待人工核对";
 
 export type DailyForecastRecord = {
   id: string;
@@ -25,6 +64,10 @@ export type DailyForecastRecord = {
   market: DailyAccuracyMarket;
   direction: DailyAccuracyDirection;
   directionLabel: DailyAccuracyDirectionLabel;
+  /** Original path snapshot. New records should always populate this. */
+  predictedPattern?: DailyAccuracyPattern;
+  predictedPatternLabel?: DailyAccuracyPatternLabel;
+  expectedPath?: string[];
   probability?: number;
   summary?: string;
   publishedAt: string;
@@ -62,12 +105,34 @@ export type DailyVerificationResult = {
   actualClose: number;
   actualReturnPct: number;
   actualDirection: DailyAccuracyDirection;
+  actualPattern?: DailyAccuracyPattern;
+  actualPatternLabel?: DailyAccuracyPatternLabel;
+  validationMode?: DailyValidationMode;
   verdict: DailyVerdict;
   verdictLabel: DailyVerdictLabel;
-  /** Direction accuracy only — never mixed with path. */
+  /** Direction accuracy is reported separately from full-path accuracy. */
   directionVerdict?: DailyVerdict;
-  pathVerdict?: string;
+  pathVerdict?: DailyVerdict | string;
   pathVerdictLabel?: string;
+  patternScore?: number;
+  pathScore?: number;
+  zoneScore?: number;
+  conditionScore?: number;
+  totalScore?: number;
+  validationExplanation?: string;
+  mainHighTime?: string | null;
+  mainLowTime?: string | null;
+  sessionRangePct?: number;
+  closeLocation?: number;
+  /** Locked intraday close path used to explain the final pattern classification. */
+  intradayPath?: Array<{ time: string; close: number }>;
+  thresholds?: {
+    neutralPct: number;
+    meaningfulMovePct: number;
+    reversalPct: number;
+    surgePct: number;
+    atrPct?: number | null;
+  };
   timingVerdict?: string;
   priceTargetVerdict?: string;
   verifiedAt: string;
@@ -88,8 +153,15 @@ export type DailyAccuracyStats = {
   /** HIT + MISS only. */
   verifiedCount: number;
   hitCount: number;
+  /** New path-aware counts. Optional for backwards-compatible persisted stats. */
+  fullHitCount?: number;
+  partialHitCount?: number;
+  unverifiableCount?: number;
   missCount: number;
   hitRate: number | null;
+  weightedHitRate?: number | null;
+  pathHitRate?: number | null;
+  directionHitRate?: number | null;
   hitRate7d: number | null;
   hitRate30d: number | null;
   voidCount: number;
@@ -106,9 +178,24 @@ export const DIRECTION_LABELS: Record<DailyAccuracyDirection, DailyAccuracyDirec
   FLAT: "震荡",
 };
 
+export const PATTERN_LABELS: Record<DailyAccuracyPattern, DailyAccuracyPatternLabel> = {
+  UP: "上涨",
+  DOWN: "下跌",
+  RANGE: "震荡",
+  RANGE_UP: "震荡上涨",
+  RANGE_DOWN: "震荡下跌",
+  UP_THEN_DOWN: "先涨后跌",
+  DOWN_THEN_UP: "先跌后涨",
+  SURGE_THEN_PULLBACK: "冲高回落",
+  DIP_THEN_RECOVERY: "探底回升",
+};
+
 export const VERDICT_LABELS: Record<DailyVerdict, DailyVerdictLabel> = {
+  FULL_HIT: "完全命中",
+  PARTIAL_HIT: "部分命中",
   HIT: "命中",
   MISS: "未命中",
+  UNVERIFIABLE: "无法验证",
   VOID: "不计入统计",
   MANUAL_REVIEW: "待人工核对",
 };

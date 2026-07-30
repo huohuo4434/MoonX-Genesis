@@ -21,10 +21,13 @@ export function generatedDailyToUi(
     WTI: "wti-crude",
   };
   const formal = r.direction;
+  // Complex paths must not be collapsed by the last matching character.
+  // “先涨后跌/冲高回落” belong to the down family, while
+  // “先跌后涨/探底回升” belong to the up family.
   const direction =
-    /跌|回落/.test(formal) && !/涨/.test(formal)
+    /先涨后跌|冲高回落|震荡下跌|下跌/.test(formal)
       ? "看跌"
-      : /涨|升/.test(formal)
+      : /先跌后涨|探底回升|震荡上涨|上涨/.test(formal)
         ? "看涨"
         : "中性";
 

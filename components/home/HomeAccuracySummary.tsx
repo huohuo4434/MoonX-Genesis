@@ -3,7 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Card, Text } from "@/components/ui";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
-import { publicAssetAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
+import { publicSourceAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 
 const MIN_SAMPLE = 5;
 
@@ -24,7 +24,7 @@ function assetSampleLabel(hit: number, miss: number, hitRate: number | null): st
 export async function HomeAccuracySummary() {
   noStore();
   const { items, stats } = await getPublicAccuracyHistory();
-  const byAsset = publicAssetAccuracyBreakdown(items);
+  const byAsset = publicSourceAccuracyBreakdown(items);
   const sampleCount = stats.hitCount + stats.missCount;
 
   return (
@@ -53,9 +53,9 @@ export async function HomeAccuracySummary() {
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           {byAsset.map((a) => (
-            <Card key={a.symbol} padding="md" className="min-w-0">
+            <Card key={a.source} padding="md" className="min-w-0">
               <Text variant="caption" color="tertiary" className="block break-words">
-                {a.label.replace(/准确率$/, "")}
+                {a.source.replace(/准确率$/, "")}
               </Text>
               <Text variant="body-sm" weight="semibold" className="mt-1 whitespace-pre-line break-words">
                 {assetSampleLabel(a.hit, a.miss, a.hitRate)}
