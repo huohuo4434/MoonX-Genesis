@@ -8,9 +8,16 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Canonical host: www → apex
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.mooxintel.com" }],
+        destination: "https://mooxintel.com/:path*",
+        permanent: true,
+      },
       { source: "/member-preview", destination: "/", permanent: false },
-      { source: "/forecasts", destination: "/", permanent: false },
-      { source: "/forecasts/daily", destination: "/", permanent: false },
+      // Do NOT redirect internal forecast URLs to homepage (causes “two homes” perception).
+      // Those paths are admin-only 404 for the public via middleware.
       { source: "/admin/plans", destination: "/admin", permanent: false },
       { source: "/account/membership", destination: "/account", permanent: false },
     ];
@@ -22,6 +29,7 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Cache-Control", value: "private, no-cache, no-store, max-age=0, must-revalidate" },
         ],
       },
       {

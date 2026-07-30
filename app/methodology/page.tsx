@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "预测方法 | MOOX",
+  title: "预测方法",
   description: "内部方法权重配置。",
   robots: { index: false, follow: false },
 };

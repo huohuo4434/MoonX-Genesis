@@ -8,7 +8,7 @@ import { shapeTimelineEvents } from "@/lib/access/research-surfaces";
 import { listTimelineEvents } from "@/lib/data/long-range-forecasts";
 
 export const metadata: Metadata = {
-  title: "Timeline | MOOX",
+  title: "Timeline",
   description: "Internal timeline.",
   robots: { index: false, follow: false },
 };

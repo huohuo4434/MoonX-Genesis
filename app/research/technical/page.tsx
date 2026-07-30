@@ -8,7 +8,7 @@ import { Heading, Section, Text, Card } from "@/components/ui";
 import { getTechnicalSignalsSurfacePayload } from "@/lib/access/research-surfaces";
 
 export const metadata: Metadata = {
-  title: "Technical Analysis | MOOX",
+  title: "Technical Analysis",
   description: "Internal technical signals.",
   robots: { index: false, follow: false },
 };

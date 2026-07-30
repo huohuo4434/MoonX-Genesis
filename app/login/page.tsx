@@ -7,7 +7,7 @@ import {
   isSupabaseAuthConfigured,
 } from "@/lib/feature-flags";
 
-export const metadata = { title: "账户登录／注册 | MOOX" };
+export const metadata = { title: "账户登录／注册" };
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

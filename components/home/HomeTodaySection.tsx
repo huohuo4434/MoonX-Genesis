@@ -20,13 +20,11 @@ export async function HomeTodaySection() {
         accessDenied={payload.access.reason}
         denyMessage={payload.message}
         teaser={{
-          published: payload.teaser.published,
-          marketCount: payload.teaser.marketCount,
-          // Never surface a non-today date as “今日”
-          forecastDate:
-            payload.teaser.forecastDate === beijingToday ? payload.teaser.forecastDate : beijingToday,
-          publishedAt:
-            payload.teaser.forecastDate === beijingToday ? payload.teaser.publishedAt : null,
+          published: payload.teaser.published && payload.teaser.forecastDate === beijingToday,
+          marketCount: 0,
+          // Guests only see Beijing business date — never a stale cohort date or publish stamp.
+          forecastDate: beijingToday,
+          publishedAt: null,
           locked: true,
         }}
       />

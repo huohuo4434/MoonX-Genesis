@@ -5,7 +5,7 @@ import { Card, Heading, Section, Text } from "@/components/ui";
 import { ResearchSubnav } from "@/components/research/ResearchSubnav";
 
 export const metadata: Metadata = {
-  title: "Research | MOOX",
+  title: "Research",
   description: "Internal research surfaces.",
   robots: { index: false, follow: false },
 };

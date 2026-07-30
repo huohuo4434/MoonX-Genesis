@@ -13,7 +13,7 @@ export function HeroSection() {
           每天提前一步，了解主要市场节奏
         </Heading>
         <Text variant="body" color="secondary" className="max-w-2xl">
-          MoonX融合市场数据、AI分析、技术结构与I Ching研究，
+          MOOX 融合市场数据、AI分析、技术结构与 I Ching 研究，
           <br className="hidden sm:block" />
           提前发布判断，并在交易结束后公开验证。
         </Text>

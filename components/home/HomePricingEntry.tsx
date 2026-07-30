@@ -25,7 +25,7 @@ export async function HomePricingEntry() {
   return (
     <section className="border-t border-border/[0.06] py-8 lg:py-10">
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
-        <SectionHeader eyebrow="会员" title="解锁MoonX完整研究" subtitle="提前获取完整判断与证据摘要。" />
+        <SectionHeader eyebrow="会员" title="解锁 MOOX 完整研究" subtitle="提前获取完整判断与证据摘要。" />
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((item) => (
             <li key={item} className="text-body-sm text-foreground-secondary">

@@ -13,18 +13,30 @@ function resolveSiteUrl(): string {
     if (!raw) continue;
     const u = raw.trim().replace(/\/$/, "");
     if (!u || /localhost|127\.0\.0\.1/i.test(u)) continue;
-    if (/^https?:\/\//i.test(u)) return u;
+    if (/^https?:\/\//i.test(u)) {
+      // Canonical production host — never leave www or legacy vercel.app as metadataBase.
+      try {
+        const parsed = new URL(u);
+        if (parsed.hostname === "www.mooxintel.com") return "https://mooxintel.com";
+        if (parsed.hostname.endsWith("vercel.app") && process.env.VERCEL_ENV === "production") {
+          return "https://mooxintel.com";
+        }
+      } catch {
+        /* keep u */
+      }
+      return u;
+    }
   }
-  // Build-time / SSR fallback — never emit localhost in production pages.
   if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
-    return "https://moon-x-genesis.vercel.app";
+    return "https://mooxintel.com";
   }
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
 export const siteConfig = {
-  name: "MOOX",
+  name: "MOOX Intelligence",
+  shortName: "MOOX",
   description:
-    "MOOX is a premium prediction intelligence platform combining forecasting frameworks, market structure, historical evidence, and verification.",
+    "MOOX Intelligence — prediction intelligence with verified historical accuracy. USDT membership unlocks full daily, next-session, and weekly views.",
   url: resolveSiteUrl(),
 } as const;

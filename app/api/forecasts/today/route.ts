@@ -11,16 +11,23 @@ export async function GET() {
   const payload = await getTodayForecastAccessPayload();
 
   if (!payload.allowed) {
+    const safeTeaser = {
+      published: false,
+      marketCount: 0,
+      forecastDate: null as string | null,
+      publishedAt: null as string | null,
+      locked: true as const,
+    };
     if (payload.access.reason === "LOGIN_REQUIRED") {
       return NextResponse.json(
         {
           ok: false,
           reason: "LOGIN_REQUIRED",
           message: TODAY_PREDICTION_MESSAGES.LOGIN_REQUIRED,
-          teaser: payload.teaser,
+          teaser: safeTeaser,
           data: [],
         },
-        { status: 401, headers: { "Cache-Control": "no-store" } }
+        { status: 401, headers: { "Cache-Control": "no-store, private" } }
       );
     }
     return NextResponse.json(
@@ -30,10 +37,10 @@ export async function GET() {
         message: TODAY_PREDICTION_MESSAGES.WAIT_UNTIL_08,
         releaseTime: "08:00",
         timezone: "Asia/Shanghai",
-        teaser: payload.teaser,
+        teaser: safeTeaser,
         data: [],
       },
-      { status: 403, headers: { "Cache-Control": "no-store" } }
+      { status: 403, headers: { "Cache-Control": "no-store, private" } }
     );
   }
 

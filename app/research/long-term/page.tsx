@@ -13,7 +13,7 @@ import {
 import { listResearchRecords } from "@/lib/data/research-records";
 
 export const metadata: Metadata = {
-  title: "Long-term Research | MOOX",
+  title: "Long-term Research",
   description: "Internal long-term research.",
   robots: { index: false, follow: false },
 };

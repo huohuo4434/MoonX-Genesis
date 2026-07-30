@@ -10,6 +10,11 @@ import type { MembershipPlan } from "@/types/membership";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export const metadata = {
+  title: "会员价格",
+  description: "USDT 转账后提交交易哈希，由管理员人工审核开通。",
+};
+
 function buildPlans(): MembershipPlan[] {
   return [
     {

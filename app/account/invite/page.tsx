@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/permissions";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export const metadata = { title: "我的邀请 | MOOX" };
+export const metadata = { title: "我的邀请" };
 
 export default async function AccountInvitePage() {
   const user = await getCurrentUser();

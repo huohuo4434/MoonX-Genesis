@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Heading, Section, Text } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "服务条款 | MOOX",
+  title: "服务条款",
   description: "MOOX 服务条款：会员权益、USDT 付款与人工审核说明。",
 };
 
@@ -48,7 +48,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">人工审核</h2>
             <p>
-              付款后提交交易哈希，由管理员人工审核。只有审核通过后，会员权限才会生效。提交哈希不等于付款审核通过。系统不会自动核验链上交易。
+              付款后提交交易哈希，由管理员人工审核开通。只有审核通过后，会员权限才会生效。提交哈希不等于审核通过。当前不进行自动链上核验。
             </p>
           </section>
 

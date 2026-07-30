@@ -23,10 +23,13 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: {
     default: siteConfig.name,
-    template: `%s`,
+    template: `%s · ${siteConfig.name}`,
   },
   description: siteConfig.description,
   metadataBase: new URL(siteConfig.url),
+  alternates: {
+    canonical: siteConfig.url,
+  },
 };
 
 export const viewport: Viewport = {

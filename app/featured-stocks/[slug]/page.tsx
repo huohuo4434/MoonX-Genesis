@@ -14,7 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const payload = await getConvictionDetailPayload(slug);
-  if (!payload) return { title: "资产研究档案 | MOOX" };
+  if (!payload) return { title: "资产研究档案" };
   return {
     title: `${payload.public.nameZh}研究档案 | MOOX`,
     description: payload.public.summaryZh.slice(0, 120),

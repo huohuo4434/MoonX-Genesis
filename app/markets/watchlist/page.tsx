@@ -9,7 +9,7 @@ import { listResearchRecords } from "@/lib/data/research-records";
 import { listWatchlistEntries } from "@/lib/data/strategic-watchlist";
 
 export const metadata: Metadata = {
-  title: "Focused Assets | MOOX",
+  title: "Focused Assets",
   description: "Internal watchlist.",
   robots: { index: false, follow: false },
 };
