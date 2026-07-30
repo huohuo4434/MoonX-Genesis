@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
+import { siteConfig } from "@/lib/site-config";
 
 export default function robots(): MetadataRoute.Robots {
+  const base = siteConfig.url.replace(/\/$/, "");
   return {
     rules: {
       userAgent: "*",
@@ -8,11 +10,9 @@ export default function robots(): MetadataRoute.Robots {
         "/",
         "/verification",
         "/pricing",
-        "/member/tomorrow",
-        "/member/weekly",
-        "/member/stocks",
-        "/account",
+        "/featured-stocks",
         "/login",
+        "/register",
         "/privacy",
         "/terms",
       ],
@@ -23,6 +23,7 @@ export default function robots(): MetadataRoute.Robots {
         "/markets/",
         "/forecasts/",
         "/stocks",
+        "/member/",
         "/verification/long-term",
         "/verification/learning",
         "/admin",
@@ -30,6 +31,6 @@ export default function robots(): MetadataRoute.Robots {
         "/api/",
       ],
     },
-    sitemap: "https://moon-x-genesis.vercel.app/sitemap.xml",
+    sitemap: `${base}/sitemap.xml`,
   };
 }

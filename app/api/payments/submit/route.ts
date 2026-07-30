@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     txHash,
     submittedAt: formatDateTimeChina(order.submittedAt),
     paymentId: order.orderNumber,
-    reviewUrl: "https://moon-x-genesis.vercel.app/admin/payments",
+    reviewUrl: "https://mooxintel.com/admin/payments",
   });
   const notificationStatus = mapNotifyStatus(rawNotify);
   await updatePaymentOrderNotification(order.orderId, notificationStatus);

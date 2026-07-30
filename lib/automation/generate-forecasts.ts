@@ -269,8 +269,8 @@ export async function generateForecastBatch(
       symbol: asset.symbol,
       market: asset.market,
       direction,
-      directionLabel:
-        direction === "UP" ? "上涨" : direction === "DOWN" ? "下跌" : direction === "FLAT" ? "震荡" : "观望",
+        directionLabel:
+        direction === "UP" ? "上涨" : direction === "DOWN" ? "下跌" : "震荡",
       probabilities: probs,
       confidence,
       headline: evidence.headline,

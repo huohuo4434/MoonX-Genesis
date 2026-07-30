@@ -3,7 +3,6 @@
  * Past verified forecasts only — never today / tomorrow / pending / draft.
  */
 import { getChinaDateKey } from "@/lib/date/china-date";
-import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
 import { HSTECH_MIN_INDEX_LEVEL, isHstechSymbol } from "@/lib/market-data/quote-symbols";
 import type {
   DailyAccuracyStats,
@@ -104,7 +103,7 @@ export function filterPublicAccuracyHistory(input: {
     const rawDirection =
       f?.directionLabel ??
       (f?.direction ? DIRECTION_LABELS[f.direction] : "—");
-    const predictedDirection = normalizeFormalDirection(rawDirection);
+    const predictedDirection = rawDirection;
 
     // Public payload: no internal notes, source stats, path detail, or summaries.
     items.push({

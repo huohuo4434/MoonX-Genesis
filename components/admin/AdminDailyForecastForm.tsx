@@ -5,16 +5,23 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { DAILY_ACCURACY_ASSETS, type DailyForecastRecord } from "@/types/daily-accuracy";
 
+function beijingTodayKey(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export function AdminDailyForecastForm({ initial }: { initial?: DailyForecastRecord | null }) {
   const router = useRouter();
   const [assetKey, setAssetKey] = useState<(typeof DAILY_ACCURACY_ASSETS)[number]["key"]>("BTC");
-  const [forecastDate, setForecastDate] = useState(
-    initial?.forecastDate ?? new Date().toISOString().slice(0, 10)
-  );
+  const [forecastDate, setForecastDate] = useState(initial?.forecastDate ?? beijingTodayKey());
   const [direction, setDirection] = useState<"UP" | "DOWN" | "FLAT">(initial?.direction ?? "UP");
   const [probability, setProbability] = useState(String(initial?.probability ?? 60));
   const [summary, setSummary] = useState(initial?.summary ?? "");
-  const [source, setSource] = useState(initial?.source ?? "MoonX");
+  const [source, setSource] = useState(initial?.source ?? "MOOX");
   const [publishedAt, setPublishedAt] = useState(
     initial?.publishedAt ? initial.publishedAt.slice(0, 16) : ""
   );
@@ -35,7 +42,7 @@ export function AdminDailyForecastForm({ initial }: { initial?: DailyForecastRec
         direction,
         probability: Number(probability) || undefined,
         summary: summary.trim() || undefined,
-        source: source.trim() || "MoonX",
+        source: source.trim() || "MOOX",
         publishedAt: publishedAt ? new Date(publishedAt).toISOString() : undefined,
         cutoffAt: cutoffAt ? new Date(cutoffAt).toISOString() : undefined,
         action,

@@ -253,7 +253,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
 
         <footer className="mt-12 border-t border-white/[0.08] pt-6">
           <p className="max-w-3xl text-caption leading-relaxed text-white/40">
-            MoonX提供的是市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。
+            MOOX提供的是市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。
           </p>
         </footer>
       </div>

@@ -26,6 +26,11 @@ export function getBeijingBusinessDate(now = new Date()): string {
   return getBeijingTodayKey(now);
 }
 
+/** Alias required by production checklist. */
+export function getBeijingDate(now = new Date()): string {
+  return getBeijingTodayKey(now);
+}
+
 export function getBeijingTodayKey(now = new Date()): string {
   return getBeijingDateParts(now).key;
 }

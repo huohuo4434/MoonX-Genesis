@@ -21,7 +21,7 @@ export async function GET() {
             ? TOMORROW_PREDICTION_MESSAGES.LOGIN_REQUIRED
             : TOMORROW_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
       },
-      { status, headers: { "Cache-Control": "no-store" } }
+        { status, headers: { "Cache-Control": "private, no-store, max-age=0" } }
     );
   }
 
@@ -34,6 +34,6 @@ export async function GET() {
       message:
         payload.forecasts.length === 0 ? "下一交易日预测尚未发布" : undefined,
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "private, no-store, max-age=0" } }
   );
 }

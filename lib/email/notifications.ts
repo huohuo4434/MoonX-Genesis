@@ -108,7 +108,7 @@ export async function notifyAdminNewPayment(input: {
   paymentId: string;
   reviewUrl?: string;
 }): Promise<EmailNotificationStatus> {
-  const reviewLink = input.reviewUrl ?? "https://moon-x-genesis.vercel.app/admin/payments";
+  const reviewLink = input.reviewUrl ?? "https://mooxintel.com/admin/payments";
   const result = await sendRawEmail({
     to: paymentNotifyTo(),
     subject: "MoonX收到新的会员付款申请",
@@ -135,7 +135,7 @@ export async function notifyBuyerMembershipActivated(input: {
   startedAt: string;
   expiresAt: string;
 }): Promise<EmailNotificationStatus> {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://moon-x-genesis.vercel.app";
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mooxintel.com";
   const result = await sendRawEmail({
     to: input.to,
     subject: "MoonX会员已开通",

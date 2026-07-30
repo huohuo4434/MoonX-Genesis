@@ -1,9 +1,12 @@
 import { ImageResponse } from "next/og";
 import { getSocialCardById } from "@/lib/social-cards/store";
+import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import type { SocialCardPublicPayload } from "@/types/social-card";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const WIDTH = 1200;
 const HEIGHT = 675;
@@ -19,6 +22,20 @@ async function loadFont(): Promise<ArrayBuffer | null> {
   } catch {
     return null;
   }
+}
+
+function lockedPayload(forecastDate: string): SocialCardPublicPayload {
+  return {
+    brand: "MOOX",
+    forecastDate,
+    assetName: "今日观点",
+    symbol: "—",
+    direction: "需登录",
+    probability: "—",
+    support: "—",
+    resistance: "—",
+    summary: "登录后可按账户权限查看完整预测。",
+  };
 }
 
 function CardLayout({ payload }: { payload: SocialCardPublicPayload }) {
@@ -81,24 +98,22 @@ function CardLayout({ payload }: { payload: SocialCardPublicPayload }) {
               borderRadius: 14,
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.12)",
-              fontSize: 28,
+              fontSize: 24,
             }}
           >
             {payload.probability}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 24, fontSize: 24, color: "#d5dbe8" }}>
-          <div style={{ display: "flex" }}>关键支撑 {payload.support}</div>
-          <div style={{ display: "flex" }}>关键压力 {payload.resistance}</div>
+        <div style={{ display: "flex", gap: 28, fontSize: 22, color: "#c9d1e0" }}>
+          <div>支撑 {payload.support}</div>
+          <div>压力 {payload.resistance}</div>
         </div>
-        <div style={{ fontSize: 30, lineHeight: 1.35, color: "#e8edf7", maxWidth: 980 }}>
-          {payload.summary}
-        </div>
+        <div style={{ fontSize: 24, color: "#d7deea", lineHeight: 1.45, maxWidth: 980 }}>{payload.summary}</div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#7f8899", fontSize: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, color: "#8b93a7" }}>
         <div>公开营销卡片 · 不含会员专享 / 六爻原文 / 内部权重</div>
-        <div>moon-x-genesis.vercel.app</div>
+        <div>mooxintel.com</div>
       </div>
     </div>
   );
@@ -109,26 +124,28 @@ export async function GET(
   context: { params: Promise<{ cardId: string }> }
 ) {
   const { cardId } = await context.params;
-  const card = await getSocialCardById(cardId);
+  const access = await getTodayForecastAccessPayload();
+  const beijingToday = getBeijingTodayKey();
 
-  const payload: SocialCardPublicPayload =
-    card?.payload ??
-    ({
-      brand: "MOOX",
-      forecastDate: "—",
-      assetName: "卡片未生成",
-      symbol: "—",
-      direction: "—",
-      probability: "—",
-      support: "—",
-      resistance: "—",
-      summary: "请在后台 Social Content 重新生成今日卡片。",
-    } satisfies SocialCardPublicPayload);
+  // Never leak direction / probability / levels to guests or pre-08:00 registered users.
+  let payload: SocialCardPublicPayload = lockedPayload(beijingToday);
+  if (access.allowed) {
+    const card = await getSocialCardById(cardId);
+    if (card?.payload && card.payload.forecastDate === beijingToday) {
+      payload = card.payload;
+    } else if (card?.payload) {
+      // Stale or non-today cards stay locked for public image URLs.
+      payload = lockedPayload(beijingToday);
+    }
+  }
 
   const fontData = await loadFont();
   return new ImageResponse(<CardLayout payload={payload} />, {
     width: WIDTH,
     height: HEIGHT,
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+    },
     fonts: fontData
       ? [
           {

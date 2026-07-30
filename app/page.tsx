@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata = {
-  title: "首页",
+  title: { absolute: "MOOX Intelligence" },
   robots: { index: true, follow: true },
 };
 

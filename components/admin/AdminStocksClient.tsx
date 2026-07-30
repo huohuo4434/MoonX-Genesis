@@ -37,7 +37,12 @@ export function AdminStocksClient({ stocks }: { stocks: StockAnalysisRecord[] })
           market: "CN",
           direction: "neutral",
           directionLabel: "震荡",
-          validUntil: new Date().toISOString().slice(0, 10),
+          validUntil: new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Shanghai",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date()),
           coreScenario: "内部草稿，未发布前不会出现在公开页。",
           keyLevels: ["支撑待定", "压力待定"],
           invalidation: "结构破坏失效",

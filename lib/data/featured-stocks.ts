@@ -20,7 +20,7 @@ export const FEATURED_STOCKS: FeaturedStock[] = [
       "AI时代HBM需求持续增长",
       "国产替代长期受益",
       "存储产业景气周期受益者",
-      "MoonX长期重点跟踪",
+      "MOOX长期重点跟踪",
     ],
     thesisScores: [
       { label: "长期逻辑", stars: 5 },
@@ -51,7 +51,7 @@ export const FEATURED_STOCKS: FeaturedStock[] = [
       "小市值，高弹性",
       "社区驱动项目",
       "若生态持续发展，仍具备较大弹性空间",
-      "MoonX列入长期观察名单",
+      "MOOX列入长期观察名单",
     ],
     thesisScores: [
       { label: "成长空间", stars: 5 },

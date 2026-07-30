@@ -51,6 +51,6 @@ export async function GET() {
       data: payload.forecasts,
       verifying: payload.verifying,
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "private, no-store, max-age=0" } }
   );
 }

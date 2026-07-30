@@ -110,7 +110,7 @@ function ThesisCard({ stock }: { stock: FeaturedStock }) {
 
         <section className="px-6 py-6 sm:px-8">
           <h3 className="font-mono text-caption uppercase tracking-[0.18em] text-white/40">
-            MoonX Long-term Rating
+            MOOX Long-term Rating
           </h3>
           <p className="mt-4 font-mono text-h2 text-white">{stock.longTermRating}</p>
           <p className="mt-2 text-body-sm text-white/55">{stock.ratingNote}</p>
@@ -134,7 +134,7 @@ function UnlockPremiumDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-white/10 bg-[#0c0e12] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white">Unlock MoonX Premium</DialogTitle>
+          <DialogTitle className="text-white">Unlock MOOX Premium</DialogTitle>
           <DialogDescription className="text-white/55">
             会员可查看完整 Featured Stocks Forecast 与多周期 Research。
           </DialogDescription>
@@ -180,16 +180,16 @@ export function FeaturedStocksPageClient({ isMember }: { isMember: boolean }) {
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <header className="max-w-3xl border-b border-white/[0.08] pb-10">
           <p className="font-mono text-caption uppercase tracking-[0.22em] text-white/40">
-            MoonX Research Desk
+            MOOX Research Desk
           </p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            MoonX Featured Stocks
+            MOOX Featured Stocks
           </h1>
           <p className="mt-3 text-body text-white/55">
             A curated list of high-conviction assets under long-term research.
           </p>
           <div className="mt-6 space-y-2 text-body-sm text-white/70">
-            <p className="font-medium text-white/85">MoonX长期重点关注标的</p>
+            <p className="font-medium text-white/85">MOOX长期重点关注标的</p>
             <p>我们不会每天发布个股意见。</p>
             <p>这里只展示经过长期研究、持续跟踪的少数资产。</p>
             <p className="pt-2 font-mono text-caption text-white/40">
@@ -314,8 +314,8 @@ export function FeaturedStocksPageClient({ isMember }: { isMember: boolean }) {
 
         <footer className="mt-14 border-t border-white/[0.08] pt-8">
           <p className="max-w-3xl text-caption leading-relaxed text-white/40">
-            MoonX提供的是市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。
-            MoonX publishes research, probabilistic forecasts, and long-term observation notes. Nothing
+            MOOX提供的是市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。
+            MOOX publishes research, probabilistic forecasts, and long-term observation notes. Nothing
             on this page is investment advice.
           </p>
         </footer>

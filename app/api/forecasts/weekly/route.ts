@@ -25,7 +25,7 @@ export async function GET() {
             ? WEEKLY_PREDICTION_MESSAGES.LOGIN_REQUIRED
             : WEEKLY_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
       },
-      { status, headers: { "Cache-Control": "no-store" } }
+      { status, headers: { "Cache-Control": "private, no-store, max-age=0" } }
     );
   }
 
@@ -35,6 +35,6 @@ export async function GET() {
       reason: decision.access.reason,
       data: listPublishedWeeklyAnalyses().map(toWeeklyMemberView),
     },
-    { headers: { "Cache-Control": "no-store" } }
+    { headers: { "Cache-Control": "private, no-store, max-age=0" } }
   );
 }

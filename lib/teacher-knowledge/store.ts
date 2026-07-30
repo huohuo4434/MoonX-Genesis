@@ -111,11 +111,35 @@ async function loadStore(): Promise<StoreFile> {
 
 async function persistStore(store: StoreFile): Promise<void> {
   const next = { ...store, updatedAt: new Date().toISOString(), version: 1 as const };
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+
+  const { getAdminClient } = await import("@/lib/supabase/admin");
+  const admin = getAdminClient();
+
+  if (isProd) {
+    if (!admin) {
+      throw new Error("老师知识库保存失败：生产环境缺少 Supabase 服务端配置");
+    }
+    const blob = new Blob([JSON.stringify(next, null, 2)], { type: "application/json" });
+    const { error } = await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
+      upsert: true,
+      contentType: "application/json",
+    });
+    if (error) {
+      throw new Error(`老师知识库保存失败：${error.message}`);
+    }
+    // Best-effort local mirror for debugging; remote is source of truth in production.
+    try {
+      writeLocal(next);
+    } catch {
+      /* ignore ephemeral filesystem */
+    }
+    return;
+  }
+
   writeLocal(next);
+  if (!admin) return;
   try {
-    const { getAdminClient } = await import("@/lib/supabase/admin");
-    const admin = getAdminClient();
-    if (!admin) return;
     const blob = new Blob([JSON.stringify(next, null, 2)], { type: "application/json" });
     await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
       upsert: true,
