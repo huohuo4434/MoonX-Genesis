@@ -122,23 +122,6 @@ export function defaultConfirmationMethod(symbol: string): ConfirmationMethod {
   return "30分钟收盘";
 }
 
-function atr14(bars: Array<{ high: number; low: number; close: number }>): number | undefined {
-  if (bars.length < 15) return undefined;
-  const slice = bars.slice(-15);
-  let sum = 0;
-  for (let i = 1; i < slice.length; i++) {
-    const cur = slice[i]!;
-    const prev = slice[i - 1]!;
-    const tr = Math.max(
-      cur.high - cur.low,
-      Math.abs(cur.high - prev.close),
-      Math.abs(cur.low - prev.close)
-    );
-    sum += tr;
-  }
-  return sum / 14;
-}
-
 async function fetchYahooChart(quoteSymbol: string, interval: string, period1: number, period2: number) {
   const encoded = encodeURIComponent(quoteSymbol);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=${interval}&period1=${period1}&period2=${period2}`;
@@ -429,29 +412,15 @@ export async function buildLockedLevelsForAsset(input: {
   forecastDate: string;
   publishedAt: string;
 }): Promise<PriceLevelTexts> {
-  const session = await fetchPreviousSessionOhlc({
-    quoteSymbol: input.quoteSymbol,
-    market: input.market,
-    asOfDate: input.forecastDate,
-  });
-  const atr = atr14(session.recentBars);
-  return buildPriceLevelTexts({
-    symbol: input.symbol,
-    assetName: input.assetName,
-    directionLabel: input.directionLabel,
-    previousHigh: session.previous.high,
-    previousLow: session.previous.low,
-    previousClose: session.previous.close,
-    previousDate: session.previous.date,
-    dataSource: session.dataSource,
-    snapshotAt: input.publishedAt,
-    atr14: atr,
-    isBeijingNaturalDay: input.market === "CRYPTO",
-  });
+  // Prefer structure-based zones; never use previous-session H/L alone.
+  const { buildTechnicalPriceStructure } = await import(
+    "@/lib/market-data/technical-price-structure"
+  );
+  return buildTechnicalPriceStructure(input);
 }
 
 const BANNED_FUZZY =
-  /前一交易日(高|低)点|7月\d+日(高|低)点|盘中低点|资金承接区|上方压力区|本周前高|近期支撑|无法快速收回|周初低点|周内高点|关键低点|跌破前|突破前/;
+  /放量突破|缩量回踩|前一交易日(高|低)点|上一交易日(高|低)点|上一自然日(高|低)点|昨日(高|低)点|前一日|7月\d+日(高|低)点|\d+月\d+日(高|低)点|盘中低点|资金承接区|上方压力区|本周前高|近期支撑|无法快速收回|周初低点|周内高点|关键低点|关键高点|跌破前|突破前|前高|前低|重要位置|关注附近|观察高低点/;
 
 export function validatePublishedPriceLevels(input: {
   supportLevels?: string[];
@@ -459,24 +428,51 @@ export function validatePublishedPriceLevels(input: {
   invalidation?: string;
   confirmation?: string;
   priceSnapshot?: ForecastPriceSnapshot | null;
+  ichingText?: string;
 }): string[] {
   const errors: string[] = [];
-  if (!input.supportLevels?.length) errors.push("缺少关键支撑价格");
-  if (!input.resistanceLevels?.length) errors.push("缺少关键压力价格");
+  if (!input.supportLevels?.length) errors.push("缺少支撑区间");
+  else if (!input.supportLevels.some((s) => /—|–|-/.test(s) && /\d/.test(s))) {
+    errors.push("支撑必须使用价格区间（例如 712—720美元）");
+  }
+  if (!input.resistanceLevels?.length) errors.push("缺少压力区间");
+  else if (!input.resistanceLevels.some((s) => /—|–|-/.test(s) && /\d/.test(s))) {
+    errors.push("压力必须使用价格区间（例如 748—760美元）");
+  }
   if (!input.invalidation?.trim()) errors.push("缺少失效条件");
   else {
     if (!/\d/.test(input.invalidation)) errors.push("失效条件没有具体价格");
-    if (!/(1小时|15分钟|30分钟|日线|瞬间)/.test(input.invalidation)) {
-      errors.push("失效条件没有确认周期");
+    if (!/(1小时|15分钟|30分钟|4小时|日线|收盘)/.test(input.invalidation)) {
+      errors.push("失效条件没有时间周期（收盘确认）");
+    }
+    if (!/(下沿|上沿|支撑区|压力区)/.test(input.invalidation)) {
+      errors.push("失效条件必须引用区间上沿或下沿");
     }
   }
-  if (input.confirmation && !/\d/.test(input.confirmation)) {
-    errors.push("确认条件没有具体价格");
+  if (!input.confirmation?.trim()) errors.push("缺少确认条件");
+  else {
+    if (!/\d/.test(input.confirmation)) errors.push("确认条件没有具体价格");
+    if (!/(1小时|15分钟|30分钟|4小时|日线|收盘)/.test(input.confirmation)) {
+      errors.push("确认条件没有时间周期");
+    }
   }
-  if (!input.priceSnapshot?.priceDataSource) errors.push("缺少行情来源");
+  if (!input.priceSnapshot?.priceDataSource) errors.push("缺少行情来源（TECHNICAL_PRICE_DATA_UNAVAILABLE）");
   if (!input.priceSnapshot?.priceSnapshotAt) errors.push("缺少价格快照时间");
-  const blob = `${input.supportLevels?.join("") ?? ""}${input.resistanceLevels?.join("") ?? ""}${input.invalidation ?? ""}${input.confirmation ?? ""}`;
-  if (BANNED_FUZZY.test(blob)) errors.push("仍含需用户自行查询的模糊价位表达");
+  const blob = `${input.supportLevels?.join("") ?? ""}${input.resistanceLevels?.join("") ?? ""}${input.invalidation ?? ""}${input.confirmation ?? ""}${input.ichingText ?? ""}`;
+  if (BANNED_FUZZY.test(blob)) errors.push("仍含禁止的模糊价位/放量/前一日高低点表达");
+  if (/六爻|卦/.test(blob) && /\d+\s*(美元|点|元)/.test(blob) && /支撑|压力/.test(blob)) {
+    errors.push("六爻模块不得生成具体价格");
+  }
+  // Support zone should be below resistance zone when parseable
+  const nums = (s: string) =>
+    [...s.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+  const sNums = nums(input.supportLevels?.[0] ?? "");
+  const rNums = nums(input.resistanceLevels?.[0] ?? "");
+  if (sNums.length >= 2 && rNums.length >= 2) {
+    const sHi = Math.max(...sNums);
+    const rLo = Math.min(...rNums);
+    if (sHi >= rLo) errors.push("支撑区高于或重叠压力区");
+  }
   return errors;
 }
 

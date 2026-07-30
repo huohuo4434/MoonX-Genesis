@@ -92,6 +92,13 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
     reviewedAt: r.reviewedAt ?? r.publishedAt,
     publishedBy: "automation",
     accuracyEligible: r.status !== "invalid",
+    supportLevels: r.supportLevels,
+    resistanceLevels: r.resistanceLevels,
+    confirmation: r.confirmation,
+    invalidation: r.invalidation,
+    priceSnapshot: r.priceSnapshot ?? undefined,
+    priceDataSourceLabel: r.priceDataSourceLabel,
+    priceSnapshotAtLabel: r.priceSnapshotAtLabel,
   };
 }
 

@@ -149,9 +149,16 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
   }
 
   // Keep all markets even when target dates differ (holiday roll per market).
-  const rows = [...byAsset.values()].filter(
-    (f) => isHumanPublishedForecast(f) && f.forecastForDate > today
-  );
+  // Never surface published rows that still lack technical zones (no empty shells).
+  const rows = [...byAsset.values()].filter((f) => {
+    if (!(isHumanPublishedForecast(f) && f.forecastForDate > today)) return false;
+    const hasZones =
+      Boolean(f.supportLevels?.some((s) => /\d/.test(s) && /—|–|-/.test(s))) &&
+      Boolean(f.resistanceLevels?.some((s) => /\d/.test(s) && /—|–|-/.test(s))) &&
+      Boolean(f.confirmation && /\d/.test(f.confirmation)) &&
+      Boolean(f.invalidation && /\d/.test(f.invalidation));
+    return hasZones;
+  });
   return sortByDailyAssetOrder(rows.map(sanitizeForecastForClient));
 }
 
@@ -241,6 +248,7 @@ export async function getTomorrowForecastAccessPayload(
 ): Promise<TomorrowForecastAccessPayload> {
   noStore();
   const { access } = await resolveTomorrowPredictionAccess(now);
+  const { formalBatchReady } = await import("@/lib/calendar/publish-windows");
 
   if (!access.allowed) {
     return {
@@ -254,10 +262,21 @@ export async function getTomorrowForecastAccessPayload(
     };
   }
 
+  // Members: only after Beijing 20:00 with published rows.
+  // Admins may inspect via /admin; member API still respects the public gate.
+  if (access.reason !== "ADMIN" && !formalBatchReady(now)) {
+    return {
+      allowed: true,
+      access,
+      forecasts: [],
+    };
+  }
+
+  const rows = await loadTomorrowForecastRows(now);
   return {
     allowed: true,
     access,
-    forecasts: await loadTomorrowForecastRows(now),
+    forecasts: rows,
   };
 }
 

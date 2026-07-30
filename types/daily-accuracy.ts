@@ -40,6 +40,14 @@ export type DailyForecastRecord = {
   updatedAt: string;
   reviewedAt?: string | null;
   withdrawnAt?: string | null;
+  /** Technical structure snapshot — locked at publish; never live-updated. */
+  supportLevels?: string[];
+  resistanceLevels?: string[];
+  confirmation?: string;
+  invalidation?: string;
+  priceDataSourceLabel?: string;
+  priceSnapshotAtLabel?: string;
+  priceSnapshot?: import("@/lib/market-data/price-levels").ForecastPriceSnapshot | null;
 };
 
 export type DailyVerificationResult = {

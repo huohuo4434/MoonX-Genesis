@@ -9,8 +9,7 @@ import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
 const CORE_KEYS = ["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"] as const;
 
 /**
- * Creates / locks a next-session forecast batch for the 7 core markets.
- * Writes through the existing daily-forecasts admin API — not Wave tables.
+ * Creates draft next-session rows only. Publish requires technical price validation.
  */
 export function AdminTomorrowBatchForm() {
   const router = useRouter();
@@ -18,7 +17,7 @@ export function AdminTomorrowBatchForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function publishBatch() {
+  async function createDraftBatch() {
     setLoading(true);
     setMessage(null);
     const errors: string[] = [];
@@ -35,9 +34,9 @@ export function AdminTomorrowBatchForm() {
           forecastDate,
           direction: "FLAT",
           probability: 40,
-          summary: `${asset.assetName}下一交易日预测草稿 — 请在发布前补全方向、概率、路径与价位。`,
-          source: "MoonX",
-          action: "publish",
+          summary: `${asset.assetName}下一交易日草稿 — 发布前须通过技术价位结构校验，禁止放量/前一日高低点表述。`,
+          source: "MOOX",
+          action: "save_draft",
         }),
       });
       if (!res.ok) {
@@ -49,9 +48,38 @@ export function AdminTomorrowBatchForm() {
     }
     setLoading(false);
     if (errors.length) {
-      setMessage(`已发布 ${ok}/7。失败：${errors.join("；")}`);
+      setMessage(`已建草稿 ${ok}/7。失败：${errors.join("；")}`);
     } else {
-      setMessage(`已发布并锁定 ${ok} 个市场的下一交易日预测批次（${forecastDate}）。请逐条完善路径与价位。`);
+      setMessage(
+        `已创建 ${ok} 个市场草稿（${forecastDate}）。请补全方向后调用「生成技术价位并发布」；北京时间20:00前会员页不展示。`
+      );
+    }
+    router.refresh();
+  }
+
+  async function lockWithTechnicalLevels() {
+    setLoading(true);
+    setMessage(null);
+    const res = await fetch("/api/admin/tomorrow-lock-levels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forecastDate }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      results?: Array<{ symbol: string; ok: boolean; error?: string }>;
+    };
+    setLoading(false);
+    if (!res.ok || !json.ok) {
+      setMessage(json.error ?? "技术价位锁定失败");
+    } else {
+      const fails = (json.results ?? []).filter((r) => !r.ok);
+      setMessage(
+        fails.length
+          ? `部分失败：${fails.map((f) => `${f.symbol}:${f.error}`).join("；")}`
+          : `已按技术结构引擎锁定 ${forecastDate} 批次（需通过发布校验）。`
+      );
     }
     router.refresh();
   }
@@ -62,8 +90,7 @@ export function AdminTomorrowBatchForm() {
         下一交易日预测批次
       </Text>
       <Text variant="caption" color="tertiary" className="block">
-        一次创建 BTC / SPX / NDX / SHCOMP / HSTECH / GLD / WTI 七个市场。不会写入 Wave
-        表。发布后历史版本不可覆盖，需调整请新建更高版本。
+        禁止直接发布空壳。必须先建草稿，再用真实K线生成支撑/压力区间；含「放量突破 / 前一日高低点」的内容禁止发布。
       </Text>
       <label className="block text-caption text-foreground-tertiary">
         预测日期（下一交易日）
@@ -75,8 +102,11 @@ export function AdminTomorrowBatchForm() {
         />
       </label>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={loading} onClick={publishBatch}>
-          {loading ? "发布中…" : "创建并发布锁定下一交易日预测"}
+        <Button type="button" disabled={loading} onClick={createDraftBatch}>
+          {loading ? "处理中…" : "创建草稿（不发布）"}
+        </Button>
+        <Button type="button" variant="outline" disabled={loading} onClick={lockWithTechnicalLevels}>
+          生成技术价位并尝试锁定
         </Button>
       </div>
       {message ? (

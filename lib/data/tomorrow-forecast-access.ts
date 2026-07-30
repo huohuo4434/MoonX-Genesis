@@ -1,6 +1,6 @@
 /**
  * Server-only gate for tomorrow forecasts.
- * Never falls back to Wave / analyst intelligence data.
+ * Before Beijing 20:00 or without PUBLISHED rows: hide the entire module (no shells).
  */
 import "server-only";
 
@@ -10,6 +10,7 @@ import {
   type MemberUserContext,
 } from "@/lib/access/member-preview";
 import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
+import { formalBatchReady } from "@/lib/calendar/publish-windows";
 import {
   buildTomorrowPublicSummary,
   isHumanPublishedForecast,
@@ -23,13 +24,7 @@ import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, DailyForecastTeaser, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 export type TomorrowSectionPayload =
-  | {
-      mode: "locked";
-      summary: TomorrowForecastPublicSummary;
-      memberHref: string;
-      pricingHref: string;
-      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
-    }
+  | { mode: "hidden" }
   | {
       mode: "member";
       summary: TomorrowForecastPublicSummary;
@@ -64,24 +59,26 @@ export async function getTomorrowSectionPayload(now = new Date()): Promise<Tomor
     getTomorrowForecastAccessPayload(now),
     loadTomorrowForecastRows(now),
   ]);
-  // Teaser metadata is always based on next formal batch (no direction/body leak via toTeaser).
   const readyMeta = nextBatch.filter(isHumanPublishedForecast);
-  const summary = buildSummary(readyMeta, now);
+
+  // Public/member UI: never show shells before 20:00 or without a published batch.
+  if (!formalBatchReady(now) || readyMeta.length === 0) {
+    if (payload.allowed && payload.access.reason === "ADMIN") {
+      // Admins still get rows (including drafts) only via admin pages — not this public module.
+    }
+    return { mode: "hidden" };
+  }
 
   if (!payload.allowed) {
-    return {
-      mode: "locked",
-      summary,
-      memberHref: "/member/tomorrow",
-      pricingHref: "/pricing",
-      accessReason: payload.access.reason,
-    };
+    return { mode: "hidden" };
   }
 
   const ready = payload.forecasts.filter(isHumanPublishedForecast);
+  if (ready.length === 0) return { mode: "hidden" };
+
   return {
     mode: "member",
-    summary: buildSummary(ready.length > 0 ? ready : readyMeta, now),
+    summary: buildSummary(ready, now),
     forecasts: ready,
     isPreviewGate: false,
     detailHref: "/member/tomorrow",
@@ -90,17 +87,7 @@ export async function getTomorrowSectionPayload(now = new Date()): Promise<Tomor
 }
 
 export type MemberTomorrowPagePayload =
-  | {
-      mode: "locked";
-      summary: TomorrowForecastPublicSummary;
-      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
-    }
-  | {
-      mode: "empty";
-      targetDate: string;
-      accessReason: "ADMIN" | "ACTIVE_MEMBER";
-      isAdmin: boolean;
-    }
+  | { mode: "hidden"; isAdmin: boolean; adminHint?: string }
   | {
       mode: "member";
       forecasts: DailyForecast[];
@@ -113,31 +100,41 @@ export type MemberTomorrowPagePayload =
 
 export async function getMemberTomorrowPagePayload(now = new Date()): Promise<MemberTomorrowPagePayload> {
   noStore();
-  const [user, section] = await Promise.all([
+  const [user, section, access] = await Promise.all([
     getMemberUserContext(),
     getTomorrowSectionPayload(now),
+    getTomorrowForecastAccessPayload(now),
   ]);
 
-  if (section.mode === "locked") {
+  if (section.mode === "hidden") {
+    const after = formalBatchReady(now);
     return {
-      mode: "locked",
-      summary: section.summary,
-      accessReason: section.accessReason,
+      mode: "hidden",
+      isAdmin: Boolean(user.isAdmin),
+      adminHint: user.isAdmin
+        ? after
+          ? "下一交易日预测仍未正式发布或未通过技术价位校验（TECHNICAL_PRICE_DATA_UNAVAILABLE / 禁止表达）。"
+          : "北京时间20:00前不向会员展示下一交易日模块；草稿仅在后台可见。"
+        : undefined,
     };
+  }
+
+  if (!access.allowed) {
+    return { mode: "hidden", isAdmin: Boolean(user.isAdmin) };
   }
 
   const ready = section.forecasts.filter(isHumanPublishedForecast);
-  const targetDate = ready[0]?.forecastForDate ?? section.summary.nextDateIso ?? getBeijingTomorrowKey(now);
-
   if (ready.length === 0) {
     return {
-      mode: "empty",
-      targetDate,
-      accessReason: section.accessReason,
+      mode: "hidden",
       isAdmin: Boolean(user.isAdmin),
+      adminHint: user.isAdmin
+        ? "正式批次为空：请检查生成任务与发布校验。"
+        : undefined,
     };
   }
 
+  const targetDate = ready[0]?.forecastForDate ?? getBeijingTomorrowKey(now);
   const batchId =
     ready
       .map((f) => f.id)
