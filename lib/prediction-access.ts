@@ -2,9 +2,11 @@
  * Unified prediction access (Asia/Shanghai).
  * Today: LOGIN → ADMIN → ACTIVE_MEMBER → after 08:00 → WAIT_UNTIL_08
  * Tomorrow / Weekly: LOGIN → ADMIN → ACTIVE_MEMBER → MEMBERSHIP_REQUIRED
+ * 08:00 is access gate only — does not generate or copy forecasts.
  */
 
 import { isAdminUser } from "@/lib/auth/is-admin";
+import { getBeijingClock } from "@/lib/calendar/publish-windows";
 
 export type PredictionAccessUser = {
   email?: string | null;
@@ -37,10 +39,10 @@ export type MemberPredictionAccess =
 /** @deprecated alias — prefer PredictionAccessUser */
 export type TodayPredictionAccessUser = PredictionAccessUser;
 
-/** China is permanently UTC+8 — do not use the browser local timezone. */
+/** China is permanently UTC+8 — use Asia/Shanghai clock, never server local TZ. */
 export function hasReachedChinaReleaseTime(now = new Date()): boolean {
-  const chinaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return chinaTime.getUTCHours() >= 8;
+  const clock = getBeijingClock(now);
+  return clock.totalMinutes >= 8 * 60;
 }
 
 /**

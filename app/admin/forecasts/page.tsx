@@ -4,6 +4,7 @@ import {
   AdminRefetchResultButton,
   AdminRunDailyVerifyButton,
 } from "@/components/admin/AdminDailyForecastForm";
+import { AdminForecastOpsPanel } from "@/components/admin/AdminForecastOpsPanel";
 import { AdminTomorrowBatchForm } from "@/components/admin/AdminTomorrowBatchForm";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import {
@@ -34,6 +35,7 @@ export default async function AdminForecastsPage() {
           Wave 数据替代。
         </Text>
 
+        <AdminForecastOpsPanel />
         <AdminTomorrowBatchForm />
         <AdminRunDailyVerifyButton />
         <AdminDailyForecastForm />

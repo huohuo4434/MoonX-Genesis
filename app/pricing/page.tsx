@@ -75,10 +75,14 @@ export default async function PricingPage() {
         <div className="grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
           <Card padding="lg">
             <Text variant="body" weight="semibold" className="block">
-              免费用户
+              注册用户
             </Text>
             <ul className="mt-3 space-y-2 text-body-sm text-foreground-secondary">
-              {["基础市场信息", "历史验证统计", "资产公开研究"].map((x) => (
+              {[
+                "北京时间08:00后可查看今日观点",
+                "历史验证统计",
+                "资产公开研究摘要",
+              ].map((x) => (
                 <li key={x} className="flex items-start gap-2">
                   <span aria-hidden className="text-emerald-400">
                     ✓
@@ -88,7 +92,7 @@ export default async function PricingPage() {
               ))}
             </ul>
             <Text variant="body-sm" color="secondary" className="mt-4">
-              仅展示公开内容与可验证统计。
+              注册用户可在北京时间08:00后查看今日观点；有效会员可全天提前查看完整预测。未登录不展示任何预测内容。
             </Text>
           </Card>
 

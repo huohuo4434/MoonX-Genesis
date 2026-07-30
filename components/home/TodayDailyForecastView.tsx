@@ -81,7 +81,6 @@ export function TodayDailyForecastView({
   publishHint,
   forecastDate,
   accessDenied,
-  denyMessage,
   accessReason,
   teaser,
   detailLevel = "full",
@@ -156,16 +155,17 @@ export function TodayDailyForecastView({
               今日市场观点
             </Text>
             <Text variant="body-sm" color="secondary">
-              登录后可根据账户权限查看今日内容。
+              注册用户可在北京时间08:00后查看今日观点；有效会员可全天提前查看完整预测。
             </Text>
-            {denyMessage ? (
-              <Text variant="caption" color="tertiary">
-                {denyMessage}
-              </Text>
-            ) : null}
+            <Text variant="caption" color="tertiary">
+              未登录不展示方向、概率与路径。
+            </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
                 <Link href="/login?next=/#moonx-view">登录查看</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/pricing">会员方案</Link>
               </Button>
             </div>
           </div>

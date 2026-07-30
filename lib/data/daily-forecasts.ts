@@ -18,6 +18,10 @@ import {
 import { getBeijingTodayKey, getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
+import {
+  PUBLISHED_DAILY_FORECASTS_20260730,
+  PUBLISHED_DAILY_FORECASTS_20260731,
+} from "@/lib/data/published-daily-forecasts-20260730";
 import { applyDailyPriceOverlay } from "@/lib/data/apply-price-overlays";
 import { applyBeijingForecastDateRoll } from "@/lib/data/daily-forecast-date-roll";
 import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
@@ -179,7 +183,11 @@ function buildPendingTomorrow(now: Date): DailyForecast[] {
 }
 
 /** In-memory curated overrides (human-published). */
-const CURATED_FORECASTS: DailyForecast[] = [...PUBLISHED_DAILY_FORECASTS];
+const CURATED_FORECASTS: DailyForecast[] = [
+  ...PUBLISHED_DAILY_FORECASTS,
+  ...PUBLISHED_DAILY_FORECASTS_20260730,
+  ...PUBLISHED_DAILY_FORECASTS_20260731,
+];
 
 function allRawForecasts(now: Date): DailyForecast[] {
   const pending = buildPendingTomorrow(now);

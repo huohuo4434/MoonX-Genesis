@@ -138,7 +138,8 @@ describe("emergency: tomorrow next batch", () => {
   });
 
   test("10) no future batch → empty (not blank substitute)", () => {
-    const now = atBeijing(12, 0, 29);
+    // After the last curated formal date (2026-07-31), tomorrow must stay empty.
+    const now = atBeijing(12, 0, 31);
     assert.equal(getNextPublishedForecastDateKey(now), null);
     assert.equal(getTomorrowCoreForecasts(now).length, 0);
   });

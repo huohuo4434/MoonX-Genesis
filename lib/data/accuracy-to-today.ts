@@ -32,8 +32,10 @@ function assetIdFromSymbol(symbol: string): string {
   return map[symbol] ?? symbol.toLowerCase();
 }
 
+import { getBeijingBusinessDate } from "@/lib/calendar/beijing-date";
+
 function bjDateKey(now = new Date()): string {
-  return new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return getBeijingBusinessDate(now);
 }
 
 export async function getPublishedAccuracyForecastsForToday(now = new Date()): Promise<DailyForecast[]> {
