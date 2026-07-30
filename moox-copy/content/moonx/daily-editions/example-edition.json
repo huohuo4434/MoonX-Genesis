@@ -1,0 +1,143 @@
+{
+  "id": "daily-core-2026-08-01-v1",
+  "forecastDate": "2026-08-01",
+  "memberAvailableAt": "2026-07-31T04:00:00.000Z",
+  "publicAvailableAt": "2026-08-01T04:00:00.000Z",
+  "publishedAt": "2026-07-31T03:40:00.000Z",
+  "version": 1,
+  "overallSummary": {
+    "zhCN": "四大核心市场以人工审核版为准；此文件仅作录入示例。",
+    "zhTW": "四大核心市場以人工審核版為準；此文件僅作錄入示例。",
+    "en": "The four-core-market edition is human-curated; this file is an intake example only."
+  },
+  "status": "published",
+  "entries": [
+    {
+      "assetId": "bitcoin",
+      "symbol": "BTC",
+      "assetName": { "zhCN": "比特币", "zhTW": "比特幣", "en": "Bitcoin" },
+      "marketLabel": { "zhCN": "加密市场", "zhTW": "加密市場", "en": "Crypto" },
+      "mainDirection": "上涨",
+      "intradayPath": "先跌后涨",
+      "initialMainDirection": "上涨",
+      "initialIntradayPath": "先跌后涨",
+      "summary": {
+        "zhCN": "示例：先观察回踩承接，再看日内修复。",
+        "zhTW": "示例：先觀察回踩承接，再看日內修復。",
+        "en": "Example: watch the early retest before an intraday repair."
+      },
+      "frameworkDisclaimer": {
+        "zhCN": "示例文件：框架权重仅作编辑说明，不代表概率模型。",
+        "zhTW": "示例文件：框架權重僅作編輯說明，不代表概率模型。",
+        "en": "Example only: framework weights are editorial references, not probabilities."
+      },
+      "memberEvidenceNote": {
+        "zhCN": "会员可见证据说明示例。",
+        "zhTW": "會員可見證據說明示例。",
+        "en": "Members-only evidence note example."
+      },
+      "confidence": 62,
+      "supportLevels": ["63500", "62800"],
+      "resistanceLevels": ["64800", "65500"],
+      "confirmation": {
+        "zhCN": "有效站回64800后看修复延续。",
+        "zhTW": "有效站回64800後看修復延續。",
+        "en": "A firm reclaim of 64800 confirms the repair."
+      },
+      "invalidation": {
+        "zhCN": "有效跌破62800则修复结构失效。",
+        "zhTW": "有效跌破62800則修復結構失效。",
+        "en": "A decisive break below 62800 invalidates the repair."
+      },
+      "conditions": [],
+      "linkedSignalIds": [],
+      "evidenceRecordIds": [],
+      "frameworkContributions": [],
+      "verification": {
+        "direction": { "result": "pending" },
+        "intradayPath": { "result": "pending" },
+        "levels": { "result": "pending" },
+        "invalidation": { "result": "pending" },
+        "timeWindow": { "result": "pending" }
+      }
+    },
+    {
+      "assetId": "sp500",
+      "symbol": "SPX",
+      "assetName": { "zhCN": "标普500", "zhTW": "標普500", "en": "S&P 500" },
+      "marketLabel": { "zhCN": "美股", "zhTW": "美股", "en": "US equities" },
+      "mainDirection": "震荡",
+      "intradayPath": "震荡",
+      "initialMainDirection": "震荡",
+      "initialIntradayPath": "震荡",
+      "summary": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "frameworkDisclaimer": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "confidence": 55,
+      "supportLevels": [],
+      "resistanceLevels": [],
+      "conditions": [],
+      "linkedSignalIds": [],
+      "evidenceRecordIds": [],
+      "frameworkContributions": [],
+      "verification": {
+        "direction": { "result": "pending" },
+        "intradayPath": { "result": "pending" },
+        "levels": { "result": "pending" },
+        "invalidation": { "result": "pending" },
+        "timeWindow": { "result": "pending" }
+      }
+    },
+    {
+      "assetId": "nasdaq100",
+      "symbol": "NDX",
+      "assetName": { "zhCN": "纳斯达克100", "zhTW": "納斯達克100", "en": "Nasdaq 100" },
+      "marketLabel": { "zhCN": "美股", "zhTW": "美股", "en": "US equities" },
+      "mainDirection": "上涨",
+      "intradayPath": "冲高回落",
+      "initialMainDirection": "上涨",
+      "initialIntradayPath": "冲高回落",
+      "summary": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "frameworkDisclaimer": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "confidence": 58,
+      "supportLevels": [],
+      "resistanceLevels": [],
+      "conditions": [],
+      "linkedSignalIds": [],
+      "evidenceRecordIds": [],
+      "frameworkContributions": [],
+      "verification": {
+        "direction": { "result": "pending" },
+        "intradayPath": { "result": "pending" },
+        "levels": { "result": "pending" },
+        "invalidation": { "result": "pending" },
+        "timeWindow": { "result": "pending" }
+      }
+    },
+    {
+      "assetId": "gold",
+      "symbol": "XAU",
+      "assetName": { "zhCN": "黄金", "zhTW": "黃金", "en": "Gold" },
+      "marketLabel": { "zhCN": "贵金属", "zhTW": "貴金屬", "en": "Precious metals" },
+      "mainDirection": "下跌",
+      "intradayPath": "震荡下跌",
+      "initialMainDirection": "下跌",
+      "initialIntradayPath": "震荡下跌",
+      "summary": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "frameworkDisclaimer": { "zhCN": "示例", "zhTW": "示例", "en": "Example" },
+      "confidence": 57,
+      "supportLevels": [],
+      "resistanceLevels": [],
+      "conditions": [],
+      "linkedSignalIds": [],
+      "evidenceRecordIds": [],
+      "frameworkContributions": [],
+      "verification": {
+        "direction": { "result": "pending" },
+        "intradayPath": { "result": "pending" },
+        "levels": { "result": "pending" },
+        "invalidation": { "result": "pending" },
+        "timeWindow": { "result": "pending" }
+      }
+    }
+  ]
+}
