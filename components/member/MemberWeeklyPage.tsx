@@ -13,6 +13,18 @@ import type {
   WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
 
+
+function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO"): string {
+  const labels = {
+    LIUYAO: "六爻",
+    QIMEN: "奇门",
+    BAZI: "八字",
+    TECHNICAL: "技术",
+    MACRO: "宏观",
+  } as const;
+  return labels[source];
+}
+
 function MetaHeader({ summary }: { summary: WeeklyAnalysisPublicSummary }) {
   return (
     <Card padding="md" className="mb-8 grid gap-2 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
@@ -108,6 +120,26 @@ function PublishedCard({
           <dt className="text-caption text-foreground-tertiary">本周路径</dt>
           <dd className="text-foreground-secondary">{a.weeklyPath}</dd>
         </div>
+        {a.keyDates?.length ? (
+          <div className="sm:col-span-2">
+            <dt className="text-caption text-foreground-tertiary">本周关键日期</dt>
+            <dd className="mt-2 grid gap-2 sm:grid-cols-2">
+              {a.keyDates.map((item) => (
+                <div key={`${a.id}-${item.date}-${item.label}`} className="rounded-md border border-border/60 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-body-sm">{item.date}</span>
+                    <Badge variant="default">{item.expectedEffect}</Badge>
+                  </div>
+                  <div className="mt-1 text-foreground-secondary">{item.label}</div>
+                  <div className="mt-1 text-caption text-foreground-tertiary">
+                    依据：{item.sources.map(sourceLabel).join(" + ")}{item.confidence ? ` · ${item.confidence}%` : ""}
+                  </div>
+                  {item.note ? <div className="mt-1 text-caption text-foreground-tertiary">{item.note}</div> : null}
+                </div>
+              ))}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="text-caption text-foreground-tertiary">关键支撑</dt>
           <dd>{a.keySupport?.join("、") || "—"}</dd>

@@ -54,6 +54,7 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
     probabilities: r.probabilities,
     strongWindow: r.strongWindow,
     weakWindow: r.weakWindow,
+    keyDates: r.keyDates,
     keySupport: r.keySupport,
     keyResistance: r.keyResistance,
     invalidation: r.invalidation,
@@ -152,6 +153,6 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
     coverageCount: WEEKLY_CORE_MARKETS.length,
     assetNames: WEEKLY_CORE_MARKETS.map((m) => m.assetName),
     teasers,
-    nextPublishHint: "下一次固定发布时间：每周日 20:00（北京时间）",
+    nextPublishHint: "系统持续自动生成并发布；管理员仅用于必要修正。",
   };
 }

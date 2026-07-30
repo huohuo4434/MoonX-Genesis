@@ -90,12 +90,12 @@ describe("weekly page + daily generation", () => {
   });
 
   test("15-18) pipeline phases + idempotent ids", () => {
-    const draftAt = new Date("2026-07-29T11:35:00Z"); // 19:35 BJ
-    assert.equal(resolvePipelinePhase(draftAt), "draft");
-    const reviseAt = new Date("2026-07-29T11:55:00Z"); // 19:55 BJ
-    assert.equal(resolvePipelinePhase(reviseAt), "revise");
-    const lockAt = new Date("2026-07-29T12:05:00Z"); // 20:05 BJ
-    assert.equal(resolvePipelinePhase(lockAt), "lock");
+    const morning = new Date("2026-07-29T00:35:00Z");
+    const afternoon = new Date("2026-07-29T07:55:00Z");
+    const evening = new Date("2026-07-29T12:05:00Z");
+    assert.equal(resolvePipelinePhase(morning), "lock");
+    assert.equal(resolvePipelinePhase(afternoon), "lock");
+    assert.equal(resolvePipelinePhase(evening), "lock");
     const a = generateCoreMarketsFromWeeklyPure("2026-07-30", "LOCKED");
     const b = generateCoreMarketsFromWeeklyPure("2026-07-30", "LOCKED");
     assert.deepEqual(
