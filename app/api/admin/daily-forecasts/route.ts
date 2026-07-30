@@ -3,13 +3,34 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { upsertDailyForecastRecord, listDailyForecastRecords } from "@/lib/data/daily-accuracy-store";
 import { defaultCutoffAt } from "@/lib/market-data/daily-prices";
-import { DAILY_ACCURACY_ASSETS, DIRECTION_LABELS, type DailyForecastRecord } from "@/types/daily-accuracy";
+import {
+  DAILY_ACCURACY_ASSETS,
+  DIRECTION_LABELS,
+  PATTERN_LABELS,
+  type DailyAccuracyDirection,
+  type DailyAccuracyPattern,
+  type DailyForecastRecord,
+} from "@/types/daily-accuracy";
 
 const upsertSchema = z.object({
   id: z.string().optional(),
   forecastDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   assetKey: z.enum(["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"]),
   direction: z.enum(["UP", "DOWN", "FLAT"]),
+  predictedPattern: z
+    .enum([
+      "UP",
+      "DOWN",
+      "RANGE",
+      "RANGE_UP",
+      "RANGE_DOWN",
+      "UP_THEN_DOWN",
+      "DOWN_THEN_UP",
+      "SURGE_THEN_PULLBACK",
+      "DIP_THEN_RECOVERY",
+    ])
+    .optional(),
+  expectedPath: z.array(z.string().min(1).max(300)).max(12).optional(),
   probability: z.number().min(0).max(100).optional(),
   summary: z.string().max(2000).optional(),
   source: z.string().min(1).max(200),
@@ -78,7 +99,10 @@ export async function POST(request: NextRequest) {
       symbol: asset.symbol,
       market: asset.market,
       direction: body.direction,
-      directionLabel: DIRECTION_LABELS[body.direction],
+      directionLabel: DIRECTION_LABELS[body.direction as DailyAccuracyDirection],
+      predictedPattern: body.predictedPattern,
+      predictedPatternLabel: body.predictedPattern ? PATTERN_LABELS[body.predictedPattern as DailyAccuracyPattern] : undefined,
+      expectedPath: body.expectedPath,
       probability: body.probability,
       summary: body.summary,
       publishedAt: nowIso,
@@ -112,7 +136,11 @@ export async function POST(request: NextRequest) {
     symbol: asset.symbol,
     market: asset.market,
     direction: body.direction,
-    directionLabel: DIRECTION_LABELS[body.direction],
+    directionLabel: DIRECTION_LABELS[body.direction as DailyAccuracyDirection],
+    predictedPattern: body.predictedPattern ?? existing?.predictedPattern,
+    predictedPatternLabel:
+      body.predictedPattern ? PATTERN_LABELS[body.predictedPattern as DailyAccuracyPattern] : existing?.predictedPatternLabel,
+    expectedPath: body.expectedPath ?? existing?.expectedPath,
     probability: body.probability,
     summary: body.summary,
     publishedAt: body.action === "publish" ? publishedAt : existing?.publishedAt ?? nowIso,

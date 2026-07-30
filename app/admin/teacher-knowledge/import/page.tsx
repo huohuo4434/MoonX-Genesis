@@ -44,10 +44,26 @@ export default function TeacherKnowledgeImportPage() {
 
         <Card padding="md" className="space-y-3">
           <select className={inputCls} value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
-            <option value="json">粘贴 JSON</option>
-            <option value="markdown">粘贴 Markdown</option>
-            <option value="text">粘贴普通文字</option>
+            <option value="json">粘贴 / 上传 JSON</option>
+            <option value="markdown">粘贴 / 上传 Markdown</option>
+            <option value="text">粘贴 / 上传普通文字</option>
           </select>
+          <label className="block rounded-md border border-dashed border-border/[0.18] p-3 text-body-sm">
+            <span className="mb-2 block text-foreground-secondary">选择知识包文件（推荐直接上传 JSON）</span>
+            <input
+              type="file"
+              accept=".json,.md,.markdown,.txt,application/json,text/plain,text/markdown"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                const ext = file.name.toLowerCase();
+                setFormat(ext.endsWith(".json") ? "json" : ext.endsWith(".md") || ext.endsWith(".markdown") ? "markdown" : "text");
+                setContent(await file.text());
+                setMsg(`已读取文件：${file.name}`);
+                setPreview(null);
+              }}
+            />
+          </label>
           <textarea
             className={`${inputCls} min-h-[280px] font-mono text-caption`}
             value={content}

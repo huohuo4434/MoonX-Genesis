@@ -120,6 +120,118 @@ async function fetchYahooDailyBars(
   return parseYahooChart(json, fallbackTz);
 }
 
+
+
+function localDateTimeParts(tsSeconds: number, timeZone: string): { date: string; time: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(tsSeconds * 1000));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  const hour = Number(get("hour"));
+  const minute = Number(get("minute"));
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+    minutes: hour * 60 + minute,
+  };
+}
+
+function marketTimeZone(market: DailyAccuracyMarket): string {
+  if (market === "CN" || market === "HK") return "Asia/Shanghai";
+  if (market === "CRYPTO") return "Asia/Shanghai";
+  return "America/New_York";
+}
+
+function inOfficialSession(market: DailyAccuracyMarket, minutes: number): boolean {
+  if (market === "CRYPTO") return true;
+  if (market === "CN") {
+    return (minutes >= 9 * 60 + 30 && minutes <= 11 * 60 + 30) ||
+      (minutes >= 13 * 60 && minutes <= 15 * 60);
+  }
+  if (market === "HK") {
+    return (minutes >= 9 * 60 + 30 && minutes <= 12 * 60) ||
+      (minutes >= 13 * 60 && minutes <= 16 * 60);
+  }
+  if (market === "US") return minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
+  // WTI continuous contract: use the liquid US daytime window for consistent validation.
+  return minutes >= 8 * 60 && minutes <= 14 * 60 + 30;
+}
+
+/**
+ * Fetch 15-minute bars for path-aware verification.
+ * Returns [] when the provider does not retain intraday history; caller must not invent a path.
+ */
+export async function fetchIntradayBarsForVerification(input: {
+  symbol: string;
+  quoteSymbol: string;
+  market: DailyAccuracyMarket;
+  forecastDate: string;
+}): Promise<import("@/lib/verification/pattern-classifier").IntradayVerificationBar[]> {
+  const quoteSymbol = resolveCanonicalQuoteSymbol(input.symbol, input.quoteSymbol);
+  const day = new Date(`${input.forecastDate}T12:00:00Z`);
+  const period1 = Math.floor((day.getTime() - 2 * 24 * 60 * 60 * 1000) / 1000);
+  const period2 = Math.floor((day.getTime() + 2 * 24 * 60 * 60 * 1000) / 1000);
+  const encoded = encodeURIComponent(quoteSymbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=15m&period1=${period1}&period2=${period2}&includePrePost=false`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; MOOX/1.0)",
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) throw new Error(`Yahoo intraday HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    chart?: {
+      result?: Array<{
+        timestamp?: number[];
+        meta?: { exchangeTimezoneName?: string };
+        indicators?: {
+          quote?: Array<{
+            open?: (number | null)[];
+            high?: (number | null)[];
+            low?: (number | null)[];
+            close?: (number | null)[];
+          }>;
+        };
+      }>;
+    };
+  };
+  const result = json.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  if (!result?.timestamp?.length || !quote) return [];
+  const tz = input.market === "CRYPTO" ? "Asia/Shanghai" : result.meta?.exchangeTimezoneName || marketTimeZone(input.market);
+  const bars: import("@/lib/verification/pattern-classifier").IntradayVerificationBar[] = [];
+  for (let i = 0; i < result.timestamp.length; i++) {
+    const ts = result.timestamp[i]!;
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+    if (open == null || high == null || low == null || close == null) continue;
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    const local = localDateTimeParts(ts, tz);
+    if (local.date !== input.forecastDate) continue;
+    if (!inOfficialSession(input.market, local.minutes)) continue;
+    bars.push({
+      timestamp: ts,
+      localTime: `${local.date} ${local.time}`,
+      open,
+      high,
+      low,
+      close,
+    });
+  }
+  return bars.sort((a, b) => a.timestamp - b.timestamp);
+}
+
 /** Recent daily bars for forecast generation (not verification). */
 export async function fetchRecentDailyBarsForForecast(input: {
   quoteSymbol: string;

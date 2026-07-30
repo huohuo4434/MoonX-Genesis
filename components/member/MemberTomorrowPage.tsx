@@ -56,7 +56,7 @@ function waveShare(f: DailyForecast): number {
   return waveBasisPercentFromProximity(((max - min) / mid) * 100);
 }
 
-function MarketForecastCard({ f }: { f: DailyForecast }) {
+export function MarketForecastCard({ f }: { f: DailyForecast }) {
   const p = f.probabilities ?? {
     up: f.confidence,
     flat: Math.max(0, 100 - f.confidence),
@@ -223,12 +223,18 @@ export function MemberTomorrowHiddenPage({
   );
 }
 
-export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast[] }) {
+export function TomorrowForecastContent({
+  forecasts,
+  embedded = false,
+}: {
+  forecasts: DailyForecast[];
+  embedded?: boolean;
+}) {
   const ordered = sortByDailyAssetOrder(
     forecasts.filter((f) => !isPending(f) && hasConcreteLevels(f))
   );
   if (ordered.length === 0) {
-    return <MemberTomorrowHiddenPage isAdmin={false} />;
+    return embedded ? null : <MemberTomorrowHiddenPage isAdmin={false} />;
   }
   const nextDate = ordered[0]?.forecastForDate ?? "";
   const publishedAt = ordered
@@ -237,33 +243,38 @@ export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast
     .sort()
     .at(-1);
   const version = `V${Math.max(...ordered.map((f) => f.version || 1), 1)}`;
+  const headingAs: "h1" | "h2" = embedded ? "h2" : "h1";
 
-  return (
-    <main>
-      <Section spacing="lg">
-        <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
-          <Badge variant="default" className="mb-3">
-            会员专享
-          </Badge>
-          <Heading as="h1" size="h2" className="mb-2">
-            {TOMORROW_SCHEDULE_COPY.title}
-          </Heading>
-          <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
-            {TOMORROW_SCHEDULE_COPY.description}
-          </Text>
-          <Text variant="caption" color="tertiary" className="mb-6 block">
-            目标交易日 {formatDateChina(nextDate)} · 实际发布{" "}
-            {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version} · 计划{" "}
-            {formatDateTimeChina(plannedPublishAtIso(getBeijingTodayKey()))}
-          </Text>
+  const content = (
+    <Section spacing="lg">
+      <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
+        <Badge variant="default" className="mb-3">
+          会员专享
+        </Badge>
+        <Heading as={headingAs} size={embedded ? "h3" : "h2"} className="mb-2">
+          {TOMORROW_SCHEDULE_COPY.title}
+        </Heading>
+        <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
+          {TOMORROW_SCHEDULE_COPY.description}
+        </Text>
+        <Text variant="caption" color="tertiary" className="mb-6 block">
+          目标交易日 {formatDateChina(nextDate)} · 实际发布{" "}
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version} · 计划{" "}
+          {formatDateTimeChina(plannedPublishAtIso(getBeijingTodayKey()))}
+        </Text>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            {ordered.map((f) => (
-              <MarketForecastCard key={f.id} f={f} />
-            ))}
-          </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {ordered.map((f) => (
+            <MarketForecastCard key={f.id} f={f} />
+          ))}
         </div>
-      </Section>
-    </main>
+      </div>
+    </Section>
   );
+
+  return embedded ? content : <main>{content}</main>;
+}
+
+export function MemberTomorrowFullPage({ forecasts }: { forecasts: DailyForecast[] }) {
+  return <TomorrowForecastContent forecasts={forecasts} />;
 }

@@ -66,9 +66,10 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
     version: r.originalVersion,
     direction:
       isAbstain ? "中性" : r.direction === "UP" ? "看涨" : r.direction === "DOWN" ? "看跌" : "中性",
-    directionLabel: isAbstain ? "暂无判断" : r.directionLabel,
+    directionLabel: isAbstain ? "暂无判断" : r.predictedPatternLabel ?? r.directionLabel,
     confidence: r.probability ?? 50,
     summary: r.summary ?? "",
+    expectedPath: r.expectedPath,
     headline: isAbstain ? `${r.assetName}当前暂无明确结论` : undefined,
     probabilities:
       r.direction === "UP"

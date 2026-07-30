@@ -7,7 +7,12 @@ import {
   upsertDailyForecastRecord,
   upsertDailyVerificationResult,
 } from "@/lib/data/daily-accuracy-store";
-import { getDailyMarketResult } from "@/lib/market-data/daily-prices";
+import {
+  fetchIntradayBarsForVerification,
+  fetchRecentDailyBarsForForecast,
+  getDailyMarketResult,
+} from "@/lib/market-data/daily-prices";
+import { computeAtrPct } from "@/lib/verification/pattern-classifier";
 import {
   resolveCanonicalQuoteSymbol,
   quoteSanityFailure,
@@ -88,7 +93,7 @@ export async function runDailyVerification(
     const prior = existingById.get(forecast.id);
     const locked =
       prior &&
-      (prior.verdict === "HIT" || prior.verdict === "MISS" || prior.verdict === "VOID") &&
+      (["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS", "UNVERIFIABLE", "VOID"].includes(prior.verdict)) &&
       !force.has(forecast.id);
 
     if (locked) {
@@ -116,6 +121,31 @@ export async function runDailyVerification(
       market: forecast.market,
       forecastDate: forecast.forecastDate,
     });
+
+    let intradayBars: Awaited<ReturnType<typeof fetchIntradayBarsForVerification>> = [];
+    let atrPct: number | null = null;
+    if (!("error" in market)) {
+      try {
+        [intradayBars, atrPct] = await Promise.all([
+          fetchIntradayBarsForVerification({
+            symbol: forecast.symbol,
+            quoteSymbol,
+            market: forecast.market,
+            forecastDate: forecast.forecastDate,
+          }).catch(() => []),
+          fetchRecentDailyBarsForForecast({
+            quoteSymbol,
+            market: forecast.market,
+            asOfDate: forecast.forecastDate,
+          })
+            .then((bars) => computeAtrPct(bars))
+            .catch(() => null),
+        ]);
+      } catch {
+        intradayBars = [];
+        atrPct = null;
+      }
+    }
 
     let result: DailyVerificationResult;
     if ("error" in market) {
@@ -158,6 +188,8 @@ export async function runDailyVerification(
           actualLow: market.low,
           actualClose: market.close,
           dataSource: market.dataSource,
+          intradayBars,
+          atrPct,
         }),
         verdict: "VOID",
         verdictLabel: "不计入统计",
@@ -173,6 +205,8 @@ export async function runDailyVerification(
         actualLow: market.low,
         actualClose: market.close,
         dataSource: market.dataSource,
+        intradayBars,
+        atrPct,
       });
       report.verified += 1;
     }

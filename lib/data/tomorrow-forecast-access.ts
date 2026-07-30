@@ -24,7 +24,7 @@ import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, DailyForecastTeaser, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 export type TomorrowSectionPayload =
-  | { mode: "hidden" }
+  | { mode: "hidden"; publishedBatchExists: boolean }
   | {
       mode: "member";
       summary: TomorrowForecastPublicSummary;
@@ -66,15 +66,15 @@ export async function getTomorrowSectionPayload(now = new Date()): Promise<Tomor
     if (payload.allowed && payload.access.reason === "ADMIN") {
       // Admins still get rows (including drafts) only via admin pages — not this public module.
     }
-    return { mode: "hidden" };
+    return { mode: "hidden", publishedBatchExists: false };
   }
 
   if (!payload.allowed) {
-    return { mode: "hidden" };
+    return { mode: "hidden", publishedBatchExists: true };
   }
 
   const ready = payload.forecasts.filter(isHumanPublishedForecast);
-  if (ready.length === 0) return { mode: "hidden" };
+  if (ready.length === 0) return { mode: "hidden", publishedBatchExists: true };
 
   return {
     mode: "member",

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(md, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="moonx-teacher-knowledge-ai-${day}.md"`,
+        "Content-Disposition": `attachment; filename="moox-teacher-knowledge-ai-${day}.md"`,
         "X-Robots-Tag": "noindex, nofollow",
       },
     });
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const json = await exportAiPackJson();
     return NextResponse.json(json, {
       headers: {
-        "Content-Disposition": `attachment; filename="moonx-teacher-knowledge-ai-${day}.json"`,
+        "Content-Disposition": `attachment; filename="moox-teacher-knowledge-ai-${day}.json"`,
         "X-Robots-Tag": "noindex, nofollow",
       },
     });
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const full = await exportFullBackup();
   return NextResponse.json(full, {
     headers: {
-      "Content-Disposition": `attachment; filename="moonx-teacher-knowledge-full-${day}.json"`,
+      "Content-Disposition": `attachment; filename="moox-teacher-knowledge-full-${day}.json"`,
       "X-Robots-Tag": "noindex, nofollow",
     },
   });
