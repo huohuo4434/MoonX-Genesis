@@ -2,9 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { TomorrowForecastContent } from "@/components/member/MemberTomorrowPage";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
-import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
 import { getTomorrowSectionPayload } from "@/lib/data/tomorrow-forecast-access";
-import { formatDateChina } from "@/lib/utils/datetime";
 
 export async function HomeTomorrowSection() {
   noStore();
@@ -19,8 +17,6 @@ export async function HomeTomorrowSection() {
     );
   }
 
-  const targetDate = section.nextDateIso ?? getBeijingTomorrowKey(now);
-
   return (
     <section id="tomorrow" className="scroll-mt-24 py-20 lg:py-28">
       <div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
@@ -30,23 +26,22 @@ export async function HomeTomorrowSection() {
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant="default">会员专享</Badge>
                 <Badge variant="outline">明日观点</Badge>
-                <Badge variant="outline">系统自动更新</Badge>
               </div>
               <Heading as="h2" size="h3">
-                下一交易日预测 · 无固定发布时间
+                下一交易日观点
               </Heading>
               <Text variant="body" color="secondary" className="mt-3">
-                系统持续读取周度、月度与长期研究，结合六爻、奇门、八字背景和技术结构，自动生成并发布下一交易日观点。管理员不操作也不会影响正常发布。
+                完整方向、概率、运行路径与关键价位按账户权限展示。
               </Text>
               <div className="mt-4 grid gap-2 text-body-sm sm:grid-cols-2">
                 <div>
                   <span className="text-foreground-tertiary">目标日期：</span>
-                  <span className="font-medium">{formatDateChina(targetDate)}</span>
+                  <span className="font-medium">各市场按实际交易日显示</span>
                 </div>
                 <div>
                   <span className="text-foreground-tertiary">当前状态：</span>
                   <span className="font-medium">
-                    {section.publishedBatchExists ? "自动预测已生成" : "自动生成中，系统将继续重试"}
+                    {section.publishedBatchExists ? "观点已更新" : "观点准备中"}
                   </span>
                 </div>
                 {section.lastUpdatedLabel && section.lastUpdatedLabel !== "—" ? (

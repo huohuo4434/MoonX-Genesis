@@ -30,6 +30,7 @@ export function WeeklyAccuracySummary({
   items: WeeklyAccuracyPublicItem[];
   stats: WeeklyAccuracyPublicStats;
 }) {
+  const sampleReady = stats.sampleSize >= 12;
   return (
     <section className="mb-12">
       <div className="mb-5">
@@ -41,7 +42,7 @@ export function WeeklyAccuracySummary({
           周度预测表现
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 max-w-3xl">
-          周度方向与周内路径分别验证。加权命中率按“完全命中＋部分命中×0.5”计算；无法验证不进入分母。76%是长期优化目标，不会用人工改数代替真实结果。
+          周度方向与周内路径分别验证。加权命中率按“完全命中＋部分命中×0.5”计算；无法验证不进入分母。
         </Text>
       </div>
 
@@ -52,11 +53,11 @@ export function WeeklyAccuracySummary({
         </Card>
         <Card padding="md">
           <Text variant="caption" color="tertiary">周度加权命中率</Text>
-          <div className="mt-2 text-2xl font-semibold tabular-nums">{pct(stats.weightedAccuracyPct)}</div>
+          <div className="mt-2 text-2xl font-semibold tabular-nums">{sampleReady ? pct(stats.weightedAccuracyPct) : "积累中"}</div>
         </Card>
         <Card padding="md">
           <Text variant="caption" color="tertiary">周度方向命中率</Text>
-          <div className="mt-2 text-2xl font-semibold tabular-nums">{pct(stats.directionAccuracyPct)}</div>
+          <div className="mt-2 text-2xl font-semibold tabular-nums">{sampleReady ? pct(stats.directionAccuracyPct) : "积累中"}</div>
         </Card>
         <Card padding="md">
           <Text variant="caption" color="tertiary">完全 / 部分 / 未命中</Text>
@@ -95,7 +96,7 @@ export function WeeklyAccuracySummary({
         <Card padding="md" className="mt-5">
           <Text variant="body" weight="semibold">周度验证样本正在积累</Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            第一个完整周结束并取得行情数据后，系统会自动写入周度方向、路径和命中结果。
+            第一个完整周结束并取得行情数据后，这里将展示周度方向、路径和命中结果。
           </Text>
         </Card>
       )}

@@ -96,37 +96,44 @@ function toWeeklySource(
   };
 }
 
+export type PublicFallbackMarket = (typeof PUBLIC_FALLBACK_MARKETS)[number];
+
+export function buildWeeklyDerivedFallbackForMarket(
+  marketCode: PublicFallbackMarket,
+  forecastDate: string,
+  accessLevel: "public" | "member" = "public"
+): DailyForecast | null {
+  try {
+    const analysis = weeklyAnalysisForDate(marketCode, forecastDate);
+    if (!analysis) return null;
+    const weekly = toWeeklySource(marketCode, forecastDate, analysis);
+    const generated = generateDailyFromWeekly({
+      weekly,
+      forecastDate,
+      version: 1,
+      status: "LOCKED",
+    });
+    const ui = generatedDailyToUi(generated, accessLevel);
+    return {
+      ...ui,
+      id: `${ui.id}-PUBLIC-FALLBACK`,
+      publishedBy: "moox-auto-engine",
+      reviewedBy: "moox-auto-engine",
+      reviewedAt: ui.publishedAt,
+      accuracyEligible: false,
+      accuracyExclusionReason: "周度推演连续记录，不计入正式准确率",
+    };
+  } catch (error) {
+    console.warn(`[public-daily-fallback] ${marketCode}:${forecastDate}`, error);
+    return null;
+  }
+}
+
 export function buildWeeklyDerivedFallbacks(
   forecastDate: string,
   accessLevel: "public" | "member" = "public"
 ): DailyForecast[] {
-  const rows: DailyForecast[] = [];
-
-  for (const marketCode of PUBLIC_FALLBACK_MARKETS) {
-    try {
-      const analysis = weeklyAnalysisForDate(marketCode, forecastDate);
-      if (!analysis) continue;
-      const weekly = toWeeklySource(marketCode, forecastDate, analysis);
-      const generated = generateDailyFromWeekly({
-        weekly,
-        forecastDate,
-        version: 1,
-        status: "LOCKED",
-      });
-      const ui = generatedDailyToUi(generated, accessLevel);
-      rows.push({
-        ...ui,
-        id: `${ui.id}-PUBLIC-FALLBACK`,
-        publishedBy: "moox-auto-engine",
-        reviewedBy: "moox-auto-engine",
-        reviewedAt: ui.publishedAt,
-        accuracyEligible: false,
-        accuracyExclusionReason: "数据库批次缺失时的周度推演兜底，不计入正式准确率",
-      });
-    } catch (error) {
-      console.warn(`[public-daily-fallback] ${marketCode}:${forecastDate}`, error);
-    }
-  }
-
-  return rows;
+  return PUBLIC_FALLBACK_MARKETS.map((marketCode) =>
+    buildWeeklyDerivedFallbackForMarket(marketCode, forecastDate, accessLevel)
+  ).filter((row): row is DailyForecast => row != null);
 }

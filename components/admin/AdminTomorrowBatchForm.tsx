@@ -5,8 +5,18 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { DAILY_ACCURACY_ASSETS } from "@/types/daily-accuracy";
 import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
+import { getForecastDateOnOrAfter } from "@/lib/calendar/next-trading-day";
+import type { DailyForecastMarket } from "@/types/daily-forecast";
 
 const CORE_KEYS = ["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"] as const;
+
+function toLegacyMarket(market: (typeof DAILY_ACCURACY_ASSETS)[number]["market"]): DailyForecastMarket {
+  if (market === "CRYPTO") return "crypto";
+  if (market === "CN") return "cn";
+  if (market === "HK") return "hk";
+  if (market === "US_FUTURES") return "commodity";
+  return "us";
+}
 
 /**
  * Creates draft next-session rows only. Publish requires technical price validation.
@@ -25,13 +35,14 @@ export function AdminTomorrowBatchForm() {
     for (const key of CORE_KEYS) {
       const asset = DAILY_ACCURACY_ASSETS.find((a) => a.key === key);
       if (!asset) continue;
+      const targetDate = getForecastDateOnOrAfter(toLegacyMarket(asset.market), forecastDate);
       const res = await fetch("/api/admin/daily-forecasts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({
           assetKey: key,
-          forecastDate,
+          forecastDate: targetDate,
           direction: "FLAT",
           probability: 40,
           summary: `${asset.assetName}下一交易日草稿 — 发布前须通过技术价位结构校验，禁止放量/前一日高低点表述。`,
@@ -51,7 +62,7 @@ export function AdminTomorrowBatchForm() {
       setMessage(`已建草稿 ${ok}/7。失败：${errors.join("；")}`);
     } else {
       setMessage(
-        `已创建 ${ok} 个市场草稿（${forecastDate}）。请补全方向后调用「生成技术价位并发布」；系统会自动发布，管理员仅作可选修正。`
+        `已按各市场实际交易日创建 ${ok} 个草稿。请补全方向后调用「生成技术价位并发布」。`
       );
     }
     router.refresh();
@@ -78,7 +89,7 @@ export function AdminTomorrowBatchForm() {
       setMessage(
         fails.length
           ? `部分失败：${fails.map((f) => `${f.symbol}:${f.error}`).join("；")}`
-          : `已按技术结构引擎锁定 ${forecastDate} 批次（需通过发布校验）。`
+          : `已按各市场实际交易日完成技术价位与锁定。`
       );
     }
     router.refresh();
@@ -90,10 +101,10 @@ export function AdminTomorrowBatchForm() {
         下一交易日预测批次
       </Text>
       <Text variant="caption" color="tertiary" className="block">
-        禁止直接发布空壳。必须先建草稿，再用真实K线生成支撑/压力区间；含「放量突破 / 前一日高低点」的内容禁止发布。
+        先创建草稿，再用真实K线生成支撑与压力区间。系统会按各市场实际交易日分别保存。
       </Text>
       <label className="block text-caption text-foreground-tertiary">
-        预测日期（下一交易日）
+        基准日期（非交易日将自动顺延）
         <input
           type="date"
           value={forecastDate}

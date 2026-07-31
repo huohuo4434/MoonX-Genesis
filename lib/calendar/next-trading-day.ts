@@ -127,6 +127,27 @@ export function getNextForecastDate(
   return toIsoDate(cursor);
 }
 
+
+/**
+ * Normalize a requested forecast date to the same day or the next valid session.
+ * Crypto keeps the requested calendar date; other markets roll weekends/holidays forward.
+ */
+export function getForecastDateOnOrAfter(
+  market: DailyForecastMarket,
+  requestedDate: Date | string
+): string {
+  const base = typeof requestedDate === "string" ? parseIsoDate(requestedDate) : new Date(requestedDate);
+  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  if (market === "crypto") return toIsoDate(start);
+
+  let cursor = start;
+  for (let i = 0; i < 14; i += 1) {
+    if (isTradingDay(market, cursor)) return toIsoDate(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return toIsoDate(cursor);
+}
+
 /** Current market session date (today if trading; else previous trading day for equities). */
 export function getCurrentSessionDate(
   market: DailyForecastMarket,

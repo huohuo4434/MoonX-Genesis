@@ -153,6 +153,6 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
     coverageCount: WEEKLY_CORE_MARKETS.length,
     assetNames: WEEKLY_CORE_MARKETS.map((m) => m.assetName),
     teasers,
-    nextPublishHint: "系统持续自动生成并发布；管理员仅用于必要修正。",
+    nextPublishHint: "下一交易日观点持续更新。",
   };
 }

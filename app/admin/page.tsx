@@ -13,12 +13,14 @@ import { isPaymentEmailConfigured } from "@/lib/email/notifications";
 import { computeDailyAccuracyStats } from "@/lib/verification/daily-rules";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
+import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminHomePage() {
-  const [user, users, dash, stocks, results, pending, recentPending, tlcStats] = await Promise.all([
+  const now = new Date();
+  const [user, users, dash, stocks, results, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
     getCurrentUser(),
     listAllAuthUsers(),
     getAutomationDashboard(),
@@ -27,6 +29,8 @@ export default async function AdminHomePage() {
     countPendingPaymentOrders(),
     listPendingPaymentOrders(5),
     getKnowledgeGrowthStats(),
+    loadTodayForecastRows(now),
+    loadTomorrowForecastRows(now),
   ]);
   const stats = computeDailyAccuracyStats(results);
   const memberCount = users.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
@@ -35,8 +39,8 @@ export default async function AdminHomePage() {
   const tiles = [
     { label: "有效会员", value: String(memberCount) },
     { label: "待审核付款", value: String(pending) },
-    { label: "今日观点数", value: String(dash.counts.todayForecasts) },
-    { label: "明日观点数", value: String(dash.counts.tomorrowForecasts) },
+    { label: "今日观点数", value: String(todayRows.length) },
+    { label: "下一交易日观点数", value: String(tomorrowRows.length) },
     { label: "已发布个股", value: String(stocks.length) },
     { label: "日度命中率", value: stats.hitRate == null ? "暂无样本" : `${(stats.hitRate * 100).toFixed(1)}%` },
     { label: "老师课程", value: `${tlcStats.lessonCount}节` },

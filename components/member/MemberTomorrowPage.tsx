@@ -34,6 +34,48 @@ function hasConcreteLevels(f: DailyForecast): boolean {
   );
 }
 
+
+type ZoneKind = "support" | "resistance";
+
+function parseZoneBounds(line: string): [number, number] | null {
+  const nums = [...line.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+  if (nums.length < 2 || !nums.slice(0, 2).every(Number.isFinite)) return null;
+  return [Math.min(nums[0]!, nums[1]!), Math.max(nums[0]!, nums[1]!)];
+}
+
+function orderedZoneLines(lines: string[] | undefined, kind: ZoneKind): string[] {
+  const parsed = (lines ?? [])
+    .map((line) => ({ line, bounds: parseZoneBounds(line) }))
+    .filter((item): item is { line: string; bounds: [number, number] } => item.bounds != null)
+    .sort((a, b) =>
+      kind === "support" ? b.bounds[1] - a.bounds[1] : a.bounds[0] - b.bounds[0]
+    );
+
+  const kept: Array<{ line: string; bounds: [number, number] }> = [];
+  for (const item of parsed) {
+    const overlaps = kept.some((prior) => {
+      const overlap = Math.min(prior.bounds[1], item.bounds[1]) - Math.max(prior.bounds[0], item.bounds[0]);
+      const width = Math.max(1e-9, Math.min(prior.bounds[1] - prior.bounds[0], item.bounds[1] - item.bounds[0]));
+      return overlap > 0 && overlap / width >= 0.5;
+    });
+    if (!overlaps) kept.push(item);
+    if (kept.length >= 2) break;
+  }
+
+  return kept.length ? kept.map((item) => item.line) : lines ?? [];
+}
+
+function cleanConditionText(text: string | undefined, kind: "confirmation" | "invalidation"): string {
+  if (!text) return "—";
+  if (kind === "confirmation") {
+    const match = text.match(/(1小时|30分钟|日线)K?线?收盘[^。；]*?压力区上沿\s*([\d,.]+(?:美元|点|元)?)/);
+    if (match) return `${match[1]}收盘站稳${match[2]}上方，确认突破有效。`;
+  }
+  const match = text.match(/(1小时|30分钟|日线)K?线?收盘[^。；]*?支撑区下沿\s*([\d,.]+(?:美元|点|元)?)/);
+  if (match) return `${match[1]}收盘跌破${match[2]}，原判断失效。`;
+  return text;
+}
+
 function waveShare(f: DailyForecast): number {
   if (!isTomorrowWaveAllowedSymbol(f.symbol)) return 5;
   const nums = [...(f.supportLevels ?? []), ...(f.resistanceLevels ?? [])]
@@ -64,6 +106,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
     confidence: f.confidence,
   });
   const showTech = hasConcreteLevels(f);
+  const supportLines = orderedZoneLines(f.supportLevels, "support");
+  const resistanceLines = orderedZoneLines(f.resistanceLevels, "resistance");
   const wavePct = waveShare(f);
   const basis = buildForecastBasisWeights(wavePct);
   const allowWaveNote = isTomorrowWaveAllowedSymbol(f.symbol);
@@ -79,7 +123,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             </span>
           </Text>
           <Text variant="caption" color="tertiary" className="block">
-            预测版本：V{f.version || 1} · 锁定时间 {formatDateTimeChina(f.publishedAt)}
+            目标交易日：{formatDateChina(f.forecastForDate)} · V{f.version || 1} · 更新于 {formatDateTimeChina(f.publishedAt)}
           </Text>
         </div>
         <Badge variant="default">{iching.directionLabel}</Badge>
@@ -127,25 +171,25 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             【技术结构】
           </Text>
           <dl className="grid gap-2 text-body-sm">
-            {(f.supportLevels ?? []).map((line) => (
+            {supportLines.map((line, index) => (
               <div key={line}>
-                <dt className="text-caption text-foreground-tertiary">支撑区间</dt>
+                <dt className="text-caption text-foreground-tertiary">第{index + 1}支撑区</dt>
                 <dd className="break-words text-foreground-secondary">{line}</dd>
               </div>
             ))}
-            {(f.resistanceLevels ?? []).map((line) => (
+            {resistanceLines.map((line, index) => (
               <div key={line}>
-                <dt className="text-caption text-foreground-tertiary">压力区间</dt>
+                <dt className="text-caption text-foreground-tertiary">第{index + 1}压力区</dt>
                 <dd className="break-words text-foreground-secondary">{line}</dd>
               </div>
             ))}
             <div>
               <dt className="text-caption text-foreground-tertiary">确认条件</dt>
-              <dd className="break-words text-foreground-secondary">{f.confirmation}</dd>
+              <dd className="break-words text-foreground-secondary">{cleanConditionText(f.confirmation, "confirmation")}</dd>
             </div>
             <div>
               <dt className="text-caption text-foreground-tertiary">失效条件</dt>
-              <dd className="break-words text-foreground-secondary">{f.invalidation}</dd>
+              <dd className="break-words text-foreground-secondary">{cleanConditionText(f.invalidation, "invalidation")}</dd>
             </div>
             {f.priceDataSourceLabel ? (
               <div>
@@ -201,10 +245,7 @@ export function MemberTomorrowHiddenPage({
             下一交易日模块未对会员开放
           </Heading>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            {adminHint ?? "自动预测批次暂未生成，系统会继续重试。"}
-          </Text>
-          <Text variant="caption" color="tertiary" className="mt-2 block">
-            发布方式：系统自动生成并持续更新，管理员仅作必要修正。
+            {adminHint ?? "下一交易日观点尚未准备完成。"}
           </Text>
           <div className="mt-4">
             <Button asChild>
@@ -230,7 +271,6 @@ export function TomorrowForecastContent({
   if (ordered.length === 0) {
     return embedded ? null : <MemberTomorrowHiddenPage isAdmin={false} />;
   }
-  const nextDate = ordered[0]?.forecastForDate ?? "";
   const publishedAt = ordered
     .map((f) => f.publishedAt)
     .filter(Boolean)
@@ -249,11 +289,11 @@ export function TomorrowForecastContent({
           下一交易日预测
         </Heading>
         <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
-          系统自动综合周度方向、关键日期与技术结构并持续更新。技术点位暂缺时，方向和路径仍照常展示。
+          完整方向、概率、运行路径与关键价位按账户权限展示。
         </Text>
         <Text variant="caption" color="tertiary" className="mb-6 block">
-          目标交易日 {formatDateChina(nextDate)} · 最后更新{" "}
-          {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version} · 自动发布
+          各市场目标交易日见对应卡片 · 最后更新{" "}
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version}
         </Text>
 
         <div className="grid gap-4 lg:grid-cols-2">

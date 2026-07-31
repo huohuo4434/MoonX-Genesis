@@ -37,6 +37,30 @@ function verdictClass(v: DailyVerdict): string {
   return "text-foreground-tertiary";
 }
 
+function displayVerdictLabel(item: PublicAccuracyHistoryItem): string {
+  if (
+    normalizedVerdict(item.verdict) === "UNVERIFIABLE" &&
+    Boolean(item.predictedPattern) &&
+    Boolean(item.actualPattern) &&
+    item.predictedPattern === item.actualPattern
+  ) {
+    return "方向一致";
+  }
+  return item.verdictLabel;
+}
+
+function displayValidationExplanation(item: PublicAccuracyHistoryItem): string {
+  if (
+    normalizedVerdict(item.verdict) === "UNVERIFIABLE" &&
+    Boolean(item.predictedPattern) &&
+    Boolean(item.actualPattern) &&
+    item.predictedPattern === item.actualPattern
+  ) {
+    return "方向表现一致；路径数据不足，暂不计入完整路径命中率。";
+  }
+  return item.validationExplanation ?? item.pathVerdictLabel ?? "该记录尚未保存完整路径说明。";
+}
+
 function inRange(date: string, range: RangeFilter): boolean {
   if (range === "ALL") return true;
   const days = range === "7D" ? 7 : 30;
@@ -65,7 +89,7 @@ function ScoreRow({ item }: { item: PublicAccuracyHistoryItem }) {
       </div>
       {!hasTechnicalScore ? (
         <Text variant="caption" color="tertiary" className="mt-2 block">
-          支撑压力反应、确认条件和失效条件尚未完成独立技术验证，不以0分冒充错误，也不生成虚假的100分总分。
+          技术条件尚未完成独立验证，本条仅展示已完成的验证项目。
         </Text>
       ) : null}
     </div>
@@ -169,7 +193,7 @@ function HistoryCard({ item }: { item: PublicAccuracyHistoryItem }) {
         <div className="flex flex-wrap items-center gap-2">
           {legacy ? <Badge variant="outline">早期记录仅方向验证</Badge> : null}
           <Badge variant="outline" className={verdictClass(item.verdict)}>
-            {item.verdictLabel}
+            {displayVerdictLabel(item)}
           </Badge>
         </div>
       </div>
@@ -210,7 +234,7 @@ function HistoryCard({ item }: { item: PublicAccuracyHistoryItem }) {
       <div className="mt-3 rounded-md border border-border/[0.08] bg-muted/10 p-3">
         <Text variant="caption" color="tertiary">【验证说明】</Text>
         <Text variant="body-sm" color="secondary" className="mt-2">
-          {item.validationExplanation ?? item.pathVerdictLabel ?? "该记录尚未保存完整路径说明。"}
+          {displayValidationExplanation(item)}
         </Text>
       </div>
       <ScoreRow item={item} />
@@ -233,6 +257,8 @@ export function DailyAccuracyClient({
     const live = computePublicAccuracyStats(items);
     return live.totalForecasts > 0 ? live : stats;
   }, [items, stats]);
+
+  const sampleReady = displayStats.verifiedCount >= 30;
 
   const rows = useMemo(() => {
     return items
@@ -266,9 +292,9 @@ export function DailyAccuracyClient({
           { label: "部分命中", value: String(displayStats.partialHitCount ?? 0) },
           { label: "未命中", value: String(displayStats.missCount) },
           { label: "无法验证", value: String(displayStats.unverifiableCount ?? 0) },
-          { label: "加权命中率", value: formatPct(displayStats.weightedHitRate ?? displayStats.hitRate) },
-          { label: "完整路径命中率", value: formatPct(displayStats.pathHitRate) },
-          { label: "方向命中率", value: formatPct(displayStats.directionHitRate) },
+          { label: "加权命中率", value: sampleReady ? formatPct(displayStats.weightedHitRate ?? displayStats.hitRate) : "样本积累中" },
+          { label: "完整路径命中率", value: sampleReady ? formatPct(displayStats.pathHitRate) : "样本积累中" },
+          { label: "方向命中率", value: sampleReady ? formatPct(displayStats.directionHitRate) : "样本积累中" },
         ].map((t) => (
           <Card key={t.label} padding="md">
             <Text variant="caption" color="tertiary">{t.label}</Text>
@@ -276,6 +302,12 @@ export function DailyAccuracyClient({
           </Card>
         ))}
       </div>
+
+      {!sampleReady && displayStats.verifiedCount > 0 ? (
+        <Text variant="body-sm" color="tertiary" className="mb-6 block">
+          当前有效样本为 {displayStats.verifiedCount} 条；累计满30条后再展示稳定命中率。
+        </Text>
+      ) : null}
 
       {items.length === 0 ? (
         <Card padding="lg" className="mb-8">

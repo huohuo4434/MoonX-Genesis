@@ -34,7 +34,7 @@ export async function DailyMarketForecastSection() {
           每日市场预测
         </Heading>
         <Text variant="body" color="secondary">
-          下一交易日会员预测与今日公开验证内容分开展示；各市场公开时间以每条预测记录的 publicAt 为准。
+          下一交易日会员观点与今日验证记录分开展示，各市场目标日期按实际交易日计算。
         </Text>
       </div>
 
@@ -47,11 +47,11 @@ export async function DailyMarketForecastSection() {
           {!user.isMember ? <LockIcon size={14} className="text-primary" /> : null}
         </div>
         <Text variant="body" weight="semibold" className="mb-1">
-          预测日期：{formatForecastDateZh(summary.nextDateIso)}
+          目标交易日：各市场按实际交易日显示
         </Text>
         <Text variant="body-sm" color="secondary" className="mb-4">
           {summary.allDraft
-            ? `计划覆盖 ${summary.assetCount} 项资产 · 系统自动生成中`
+            ? `计划覆盖 ${summary.assetCount} 项资产 · 观点准备中`
             : `已发布 ${summary.publishedCount} 项预测 · 最后更新 ${summary.lastUpdatedLabel}`}
         </Text>
 

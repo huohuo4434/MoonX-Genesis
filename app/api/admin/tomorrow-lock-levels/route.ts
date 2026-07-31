@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
+import { getForecastDateOnOrAfter } from "@/lib/calendar/next-trading-day";
+import type { DailyForecastMarket } from "@/types/daily-forecast";
 import { upsertDailyForecastRecord, listDailyForecastRecords } from "@/lib/data/daily-accuracy-store";
 import { buildLockedLevelsForAsset, validatePublishedPriceLevels } from "@/lib/market-data/price-levels";
 import { DAILY_ACCURACY_ASSETS, DIRECTION_LABELS } from "@/types/daily-accuracy";
@@ -16,6 +18,14 @@ const schema = z.object({
 
 const CORE = ["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"] as const;
 
+function toLegacyMarket(market: (typeof DAILY_ACCURACY_ASSETS)[number]["market"]): DailyForecastMarket {
+  if (market === "CRYPTO") return "crypto";
+  if (market === "CN") return "cn";
+  if (market === "HK") return "hk";
+  if (market === "US_FUTURES") return "commodity";
+  return "us";
+}
+
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
@@ -24,14 +34,15 @@ export async function POST(request: NextRequest) {
   if (!body.success) {
     return NextResponse.json({ error: "无效参数" }, { status: 400 });
   }
-  const forecastDate = body.data.forecastDate ?? getBeijingTomorrowKey();
+  const requestedDate = body.data.forecastDate ?? getBeijingTomorrowKey();
   const nowIso = new Date().toISOString();
   const existing = await listDailyForecastRecords();
-  const results: Array<{ symbol: string; ok: boolean; error?: string }> = [];
+  const results: Array<{ symbol: string; forecastDate: string; ok: boolean; error?: string }> = [];
 
   for (const key of CORE) {
     const asset = DAILY_ACCURACY_ASSETS.find((a) => a.key === key);
     if (!asset) continue;
+    const forecastDate = getForecastDateOnOrAfter(toLegacyMarket(asset.market), requestedDate);
     try {
       const prior = existing.find(
         (r) => r.forecastDate === forecastDate && r.symbol === asset.symbol
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
         ichingText: prior?.summary,
       });
       if (errors.length) {
-        results.push({ symbol: asset.symbol, ok: false, error: errors.join("；") });
+        results.push({ symbol: asset.symbol, forecastDate, ok: false, error: errors.join("；") });
         continue;
       }
 
@@ -96,10 +107,11 @@ export async function POST(request: NextRequest) {
         priceDataSourceLabel: levels.priceDataSourceLabel,
         priceSnapshotAtLabel: levels.priceSnapshotAtLabel,
       });
-      results.push({ symbol: asset.symbol, ok: true });
+      results.push({ symbol: asset.symbol, forecastDate, ok: true });
     } catch (err) {
       results.push({
         symbol: asset.symbol,
+        forecastDate,
         ok: false,
         error: err instanceof Error ? err.message : "TECHNICAL_PRICE_DATA_UNAVAILABLE",
       });
@@ -111,6 +123,6 @@ export async function POST(request: NextRequest) {
   revalidatePath("/api/forecasts/tomorrow");
   revalidatePath("/verification");
 
-  const ok = results.every((r) => r.ok);
-  return NextResponse.json({ ok, forecastDate, results });
+  const complete = results.every((r) => r.ok);
+  return NextResponse.json({ ok: true, complete, requestedDate, results });
 }

@@ -145,10 +145,9 @@ export async function getAutomationDashboard() {
   const last = runs[0] ?? null;
   const failed = runs.filter((r) => r.status === "failed").slice(0, 20);
   const today = getBeijingTodayKey();
-  const tomorrow = getBeijingTomorrowKey();
 
   const assetStatus = forecasts
-    .filter((f) => f.forecastDate === today || f.forecastDate === tomorrow)
+    .filter((f) => f.forecastDate >= today)
     .map((f) => ({
       assetName: f.assetName,
       symbol: f.symbol,
@@ -169,7 +168,7 @@ export async function getAutomationDashboard() {
       reviews: reviews.length,
       cases: cases.length,
       todayForecasts: forecasts.filter((f) => f.forecastDate === today).length,
-      tomorrowForecasts: forecasts.filter((f) => f.forecastDate === tomorrow).length,
+      tomorrowForecasts: forecasts.filter((f) => f.forecastDate > today).length,
     },
     nextForecastWindow: "全天自动生成今日与下一交易日预测；管理员仅作必要修正",
     nextVerifyWindow: "今日公开转换：北京 08:00；收盘后自动验证",

@@ -10,14 +10,14 @@ import type { ConvictionPublicCard } from "@/types/conviction-asset";
 function AssetTypeBadge({ type }: { type: ConvictionPublicCard["assetType"] }) {
   const label =
     type === "STOCK"
-      ? "Stock"
+      ? "股票"
       : type === "CRYPTO"
-        ? "Crypto"
+        ? "加密资产"
         : type === "ETF"
           ? "ETF"
           : type === "INDEX"
-            ? "Index"
-            : "Commodity";
+            ? "指数"
+            : "商品";
   return (
     <Badge variant="outline" className="border-white/15 bg-white/[0.03] font-mono text-caption text-white/70">
       {label}
@@ -33,7 +33,7 @@ function PublicAssetCard({
   mode: ConvictionListPagePayload["mode"];
 }) {
   const grade = card.rating.includes("+") ? "A+" : card.rating.startsWith("A") ? "A" : "B";
-  const riskBucket = card.riskLevel === "低" ? "Low" : card.riskLevel === "中" ? "Medium" : "High";
+  const riskBucket = card.riskLevel;
   const mcap = formatMarketCapDisplay(card);
   const primaryHref = card.detailHref;
   const locked = mode === "publicOnly";
@@ -51,7 +51,7 @@ function PublicAssetCard({
                 MOOX评级 {grade}
               </Badge>
               <Badge variant="outline" className="border-red-500/25 text-red-300/80">
-                Risk {riskBucket}
+                风险 {riskBucket}
               </Badge>
               <Badge variant="outline" className="border-emerald-500/20 text-emerald-300/80">
                 {card.researchStatusZh}
@@ -75,9 +75,9 @@ function PublicAssetCard({
               {card.exchange ? `交易所：${card.exchange}` : card.network ? `网络：${card.network}` : ""}
             </p>
             <div className="flex flex-wrap gap-3 text-caption text-white/40">
-              <span>Updated：{formatDateChina(card.researchUpdatedAt)}</span>
-              <span>Version：v1</span>
-              <span>{locked ? "Locked：YES" : "Locked：NO"}</span>
+              <span>更新时间：{formatDateChina(card.researchUpdatedAt)}</span>
+              <span>版本：V1</span>
+              <span>{locked ? "会员内容：未解锁" : "会员内容：已解锁"}</span>
             </div>
           </div>
         </div>
@@ -177,8 +177,8 @@ function PublicAssetCard({
 
         <section className="mt-auto rounded-lg border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-body-sm font-medium text-white/85">MOOX Member Research</p>
-            {locked ? <p className="text-caption text-white/45">🔒 Members Only</p> : <p className="text-caption text-emerald-300/70">已解锁</p>}
+            <p className="text-body-sm font-medium text-white/85">MOOX会员研究</p>
+            {locked ? <p className="text-caption text-white/45">🔒 会员专享</p> : <p className="text-caption text-emerald-300/70">已解锁</p>}
           </div>
           <ul className="mt-3 space-y-1.5 text-caption text-white/55">
             {[
@@ -213,14 +213,13 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
     <div className="min-h-screen bg-[#07080a] text-white">
       <div className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pb-20 lg:pt-10">
         <header className="max-w-3xl border-b border-white/[0.08] pb-8">
-          <p className="font-mono text-caption uppercase tracking-[0.22em] text-white/40">MOOX Conviction Assets</p>
+          <p className="font-mono text-caption uppercase tracking-[0.22em] text-white/40">MOOX 重点关注</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            MOOX Conviction Assets
+            MOOX重点关注资产
           </h1>
           <p className="mt-2 text-body text-white/55">
-            A curated list of assets under continuous MOOX research. / MOOX持续研究和验证的重点资产。
+            持续跟踪基本面、市场节奏与关键风险。
           </p>
-          <p className="mt-2 text-body-sm text-white/45">MOOX重点关注资产</p>
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/65">
             <p>
               当前跟踪：<span className="text-white">{payload.trackedCount}</span> 项资产
