@@ -5,6 +5,7 @@ import Link from "next/link";
 
 const adminLinks = [
   { href: "/admin", label: "概览" },
+  { href: "/admin/trading-signals", label: "AI交易信号" },
   { href: "/admin/forecast-control", label: "管理员走势总控" },
   { href: "/admin/support-resistance", label: "支撑压力录入" },
   { href: "/admin/forecasts", label: "今日／明日观点" },
