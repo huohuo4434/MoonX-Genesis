@@ -8,6 +8,7 @@ import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-foreca
 import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
+import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
 import { hasPrisma, prisma } from "@/lib/prisma";
 import type {
   AdminBreakoutEvent,
@@ -309,9 +310,12 @@ async function databaseRows(): Promise<{
 }
 
 export async function buildAdminFullCycleSnapshot(now = new Date()): Promise<AdminFullCycleSnapshot> {
-  const db = await databaseRows();
+  const [db, sixYaoMonthly] = await Promise.all([
+    databaseRows(),
+    buildSixYaoMonthlyFallbackRows(now),
+  ]);
   const forecastMap = new Map<string, AdminCycleForecastRow>();
-  for (const row of [...staticForecastRows(now), ...db.forecasts]) {
+  for (const row of [...sixYaoMonthly, ...staticForecastRows(now), ...db.forecasts]) {
     forecastMap.set(`${row.assetId}:${row.horizon}:${row.periodStart}:${row.version ?? 0}`, row);
   }
   return {

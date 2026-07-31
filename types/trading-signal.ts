@@ -109,6 +109,8 @@ export interface TradeSignalStarStat {
   averageAdversePct: number | null;
 }
 
+export type TradeSignalDatabaseMode = "PRISMA" | "SUPABASE_TABLES_MISSING" | "MISSING";
+
 export interface TradeSignalDashboardSnapshot {
   signals: TradeSignalRecord[];
   starStats: TradeSignalStarStat[];
@@ -116,6 +118,8 @@ export interface TradeSignalDashboardSnapshot {
   armedCount: number;
   closedCount: number;
   databaseReady: boolean;
+  databaseMode: TradeSignalDatabaseMode;
+  databaseMessage: string;
 }
 
 export interface TradeSignalApiPayload {

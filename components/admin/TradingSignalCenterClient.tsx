@@ -5,7 +5,17 @@ import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type { TradeSignalDashboardSnapshot, TradeSignalRecord, TradeSignalStatus } from "@/types/trading-signal";
 
 const inputClass = "min-h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-body-sm text-white outline-none focus:border-primary/60";
-const METHODS = ["六爻", "技术结构", "周期", "奇门", "八字", "基本面", "市场情绪"];
+const METHODS = [
+  { label: "六爻", weight: 30 },
+  { label: "技术结构", weight: 25 },
+  { label: "周期", weight: 12 },
+  { label: "奇门", weight: 10 },
+  { label: "基本面", weight: 8 },
+  { label: "波浪结构", weight: 6 },
+  { label: "市场情绪", weight: 4 },
+  { label: "外部博主观点", weight: 3 },
+  { label: "八字", weight: 2 },
+];
 
 function numberOrNull(value: FormDataEntryValue | null): number | null {
   const text = String(value ?? "").trim();
@@ -169,7 +179,15 @@ export function TradingSignalCenterClient({ initial }: { initial: TradeSignalDas
     <div className="space-y-8">
       {!snapshot.databaseReady ? (
         <Card padding="md" className="border-amber-500/30 bg-amber-500/5">
-          <Text variant="body-sm" className="text-amber-200">数据库尚未连接，页面可以构建，但暂时不能保存信号。</Text>
+          <Text variant="body-sm" className="text-amber-200">
+            {snapshot.databaseMessage}
+          </Text>
+          <a
+            href="/admin/trading-signals/setup"
+            className="mt-3 inline-flex rounded-md border border-amber-300/30 px-3 py-2 text-sm text-amber-100 hover:bg-amber-300/10"
+          >
+            打开数据库设置
+          </a>
         </Card>
       ) : null}
 
@@ -183,10 +201,10 @@ export function TradingSignalCenterClient({ initial }: { initial: TradeSignalDas
       <Card padding="lg" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><Heading size="h3">信号API</Heading><Text variant="body-sm" color="secondary">生成密钥后，MOSS、Webhook或其他执行端可读取结构化信号。</Text></div>
-          <Button variant="outline" onClick={createApiKey}>生成API密钥</Button>
+          <Button variant="outline" onClick={createApiKey} disabled={!snapshot.databaseReady}>生成API密钥</Button>
         </div>
         {apiToken ? <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-sm break-all">{apiToken}<div className="mt-2 text-xs text-amber-200">只显示这一次，请立即保存。</div></div> : null}
-        <div className="rounded-md bg-black/20 p-3 font-mono text-xs text-white/65">GET /api/v1/signals<br/>Authorization: Bearer YOUR_KEY</div>
+        <div className="rounded-md bg-black/20 p-3 font-mono text-xs text-white/65">GET /api/v1/signals<br/>Authorization: Bearer YOUR_KEY<br/>健康检查：GET /api/v1/signals/health</div>
       </Card>
 
       <Card padding="lg">
@@ -217,10 +235,10 @@ export function TradingSignalCenterClient({ initial }: { initial: TradeSignalDas
           </div>
           <div className="space-y-2">
             <Text variant="body-sm" weight="semibold">多方法投票</Text>
-            {METHODS.map((method) => <div key={method} className="grid gap-2 md:grid-cols-[100px_140px_120px_1fr]"><div className="py-2 text-sm">{method}</div><select className={inputClass} name={`method_${method}_direction`} defaultValue="NEUTRAL"><option value="LONG">看涨</option><option value="SHORT">看跌</option><option value="NEUTRAL">中性</option></select><input className={inputClass} name={`method_${method}_weight`} type="number" min="0" max="100" defaultValue="0" placeholder="权重"/><input className={inputClass} name={`method_${method}_evidence`} placeholder="依据"/></div>)}
+            {METHODS.map((method) => <div key={method.label} className="grid gap-2 md:grid-cols-[120px_140px_120px_1fr]"><div className="py-2 text-sm">{method.label}</div><select className={inputClass} name={`method_${method.label}_direction`} defaultValue="NEUTRAL"><option value="LONG">看涨</option><option value="SHORT">看跌</option><option value="NEUTRAL">中性</option></select><input className={inputClass} name={`method_${method.label}_weight`} type="number" min="0" max="100" defaultValue={method.weight} placeholder="权重"/><input className={inputClass} name={`method_${method.label}_evidence`} placeholder="依据"/></div>)}
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="apiVisible" />允许API输出</label>
-          <Button type="submit" isLoading={loading}>保存交易信号</Button>
+          <Button type="submit" isLoading={loading} disabled={!snapshot.databaseReady}>保存交易信号</Button>
           {message ? <Text variant="body-sm" className="ml-3 inline text-primary">{message}</Text> : null}
         </form>
       </Card>

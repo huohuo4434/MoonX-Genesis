@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import type {
   TradeSignalDashboardSnapshot,
   TradeSignalDirection,
@@ -581,6 +582,17 @@ export function calculateStarStats(signals: TradeSignalRecord[]): TradeSignalSta
 
 export async function getTradeSignalDashboardSnapshot(): Promise<TradeSignalDashboardSnapshot> {
   const databaseReady = await ensureTradeSignalTables();
+  const supabaseConfigured = isSupabaseAdminConfigured();
+  const databaseMode = databaseReady
+    ? "PRISMA"
+    : supabaseConfigured
+      ? "SUPABASE_TABLES_MISSING"
+      : "MISSING";
+  const databaseMessage = databaseReady
+    ? "交易信号数据库已连接。"
+    : supabaseConfigured
+      ? "Supabase账号已连接，但交易信号表或DATABASE_URL尚未配置。"
+      : "未检测到DATABASE_URL，也未检测到Supabase服务端连接。";
   const signals = databaseReady ? await listTradeSignals({ includeDrafts: true, limit: 1000 }) : [];
   return {
     signals,
@@ -589,6 +601,8 @@ export async function getTradeSignalDashboardSnapshot(): Promise<TradeSignalDash
     armedCount: signals.filter((signal) => signal.status === "ARMED").length,
     closedCount: signals.filter((signal) => signal.status === "CLOSED").length,
     databaseReady,
+    databaseMode,
+    databaseMessage,
   };
 }
 

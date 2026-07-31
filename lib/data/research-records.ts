@@ -22,6 +22,7 @@ import {
 import { chinaEquityOracle0727Records } from "@/lib/data/china-equity-oracle-0727";
 import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
+import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
@@ -1401,6 +1402,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
   for (const record of [
     ...researchRecords,
     ...externalObservations,
+    ...externalViewpoints20260801,
     ...curatedImportRecords,
     ...chinaEquityOracle0727Records,
     ...preciousMetalsCryptoOracleRecords,
