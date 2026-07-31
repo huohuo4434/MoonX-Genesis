@@ -25,6 +25,7 @@ import { externalObservations } from "@/lib/data/external-observations";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
+import { cycleAnalyst20260731Records } from "@/lib/data/cycle-analyst-20260731";
 import {
   preciousMetalsCryptoCollections,
   preciousMetalsCryptoOracleRecords,
@@ -1407,6 +1408,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...oilSseLiuyao2026Records,
     ...wtiPathExt20260807Records,
     ...btcLiuyao20260727Records,
+    ...cycleAnalyst20260731Records,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);

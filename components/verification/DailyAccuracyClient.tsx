@@ -5,12 +5,10 @@ import Link from "next/link";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type { DailyAccuracyStats, DailyVerdict } from "@/types/daily-accuracy";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/public-history-filter";
-import {
-  computePublicAccuracyStats,
-  OFFICIAL_DAILY_VERIFICATION_START,
-} from "@/lib/accuracy/public-history-filter";
+import { computePublicAccuracyStats, publicStarAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 import { dailySymbolOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatBeijingDateZh } from "@/lib/calendar/beijing-date";
+import { starsText } from "@/lib/forecasts/consensus-confidence";
 
 type AssetFilter = "ALL" | "BTC" | "SPX" | "NDX" | "SSEC" | "HSTECH" | "GLD" | "WTI";
 type RangeFilter = "ALL" | "7D" | "30D";
@@ -187,7 +185,7 @@ function HistoryCard({ item }: { item: PublicAccuracyHistoryItem }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Text variant="body" weight="semibold">
-            {item.assetName} <span className="font-mono text-foreground-tertiary">{item.symbol === "GLD" ? "GOLD" : item.symbol}</span>
+            {item.assetName} <span className="font-mono text-foreground-tertiary">{item.symbol}</span>
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-1">
             预测日期：{formatBeijingDateZh(item.forecastDate)} · V{item.version}
@@ -195,6 +193,11 @@ function HistoryCard({ item }: { item: PublicAccuracyHistoryItem }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {legacy ? <Badge variant="outline">早期记录仅方向验证</Badge> : null}
+          {item.consensusStars ? (
+            <Badge variant="outline" className="border-primary/30 text-primary">
+              {starsText(item.consensusStars)}
+            </Badge>
+          ) : null}
           <Badge variant="outline" className={verdictClass(item.verdict)}>
             {displayVerdictLabel(item)}
           </Badge>
@@ -262,10 +265,16 @@ export function DailyAccuracyClient({
   }, [items, stats]);
 
   const sampleReady = displayStats.verifiedCount >= 30;
+  const starBuckets = useMemo(() => publicStarAccuracyBreakdown(items), [items]);
+  const ratedSampleCount = starBuckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0);
 
   const rows = useMemo(() => {
     return items
-      .filter((f) => (asset === "ALL" ? true : f.symbol === asset))
+      .filter((f) => {
+        if (asset === "ALL") return true;
+        if (asset === "GLD") return f.symbol === "GLD" || f.symbol === "GOLD" || f.symbol === "GC=F";
+        return f.symbol === asset;
+      })
       .filter((f) => inRange(f.forecastDate, range))
       .filter((f) => (verdict === "ALL" ? true : normalizedVerdict(f.verdict) === verdict))
       .sort((a, b) => {
@@ -283,7 +292,7 @@ export function DailyAccuracyClient({
           验证完整预测语义：上涨、下跌、震荡、震荡上涨、震荡下跌、先涨后跌、先跌后涨、冲高回落和探底回升。路径型观点优先使用15分钟K线验证，不再只看收盘红绿。
         </Text>
         <Text variant="body-sm" color="tertiary" className="mt-2 max-w-3xl">
-          正式日度验证自{OFFICIAL_DAILY_VERIFICATION_START}起计入；此前记录保留为试运行归档，不参与公开统计。加权命中率＝（完全命中＋部分命中×0.5）÷有效验证数，无法验证不进入分母。
+          加权命中率＝（完全命中＋部分命中×0.5）÷有效验证数；无法验证不进入分母。早期只保存涨跌方向的记录会单独标记，不进入完整路径命中率。
         </Text>
         <div className="mt-3"><Link href="/pricing" className="text-body-sm text-primary underline-offset-4 hover:underline">会员价格</Link></div>
       </div>
@@ -311,6 +320,38 @@ export function DailyAccuracyClient({
           当前有效样本为 {displayStats.verifiedCount} 条；累计满30条后再展示稳定命中率。
         </Text>
       ) : null}
+
+      <div className="mb-8">
+        <div className="mb-3">
+          <Heading as="h2" size="h3">按共识星级验证</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1">
+            星级在预测发布时锁定。仅统计带星级的新基准记录；旧记录不会倒推星级。
+          </Text>
+        </div>
+        {ratedSampleCount > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {starBuckets.map((bucket) => (
+              <Card key={bucket.stars} padding="md">
+                <Text variant="body" weight="semibold" className="text-primary">
+                  {starsText(bucket.stars)}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-2 block">有效样本</Text>
+                <Text variant="body" weight="semibold">{bucket.sampleCount}</Text>
+                <Text variant="caption" color="tertiary" className="mt-2 block">加权命中率</Text>
+                <Text variant="body-sm" weight="semibold">
+                  {bucket.sampleCount >= 10 ? formatPct(bucket.weightedHitRate) : "样本积累中"}
+                </Text>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card padding="md">
+            <Text variant="body-sm" color="secondary">
+              星级验证从新基准预测开始累计。
+            </Text>
+          </Card>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <Card padding="lg" className="mb-8">

@@ -111,13 +111,19 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
       <Text variant="caption" className="block text-white/45">
         周期：{f.periodStart} 至 {f.periodEnd} · 版本 v{f.version}
       </Text>
-      <ProbRow
-        p={{
-          up: f.upProbability,
-          flat: f.sidewaysProbability,
-          down: f.downProbability,
-        }}
-      />
+      {f.upProbability + f.sidewaysProbability + f.downProbability > 0 ? (
+        <ProbRow
+          p={{
+            up: f.upProbability,
+            flat: f.sidewaysProbability,
+            down: f.downProbability,
+          }}
+        />
+      ) : (
+        <Text variant="caption" className="block text-amber-200/80">
+          正式概率待复核，不参与准确率统计
+        </Text>
+      )}
       <Text variant="body-sm" className="block break-words text-white/75">
         {f.summary}
       </Text>
@@ -164,6 +170,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   const unlockHref = payload.isAuthenticated
     ? "/pricing"
     : `/login?next=${encodeURIComponent(a.detailHref)}`;
+  const isStaticPeriodAsset = ["asteroid", "mu", "hype"].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
   const tabs = payload.periodSlots;
   const [tab, setTab] = useState(tabs[0]?.type ?? "TODAY");
@@ -312,7 +319,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
               <p className="text-caption text-emerald-300/80">管理员全量访问</p>
             ) : null}
 
-            {isAsteroid && payload.forecast?.periods ? (
+            {isStaticPeriodAsset && payload.forecast?.periods ? (
               <PeriodPanel
                 slot={
                   payload.forecast.periods.find((p) => p.type === tab) ?? {

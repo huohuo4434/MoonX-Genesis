@@ -99,9 +99,14 @@ export function computeConsensus(
   allRecords: ResearchRecord[],
   now: Date = new Date("2026-07-26")
 ): ConsensusResult {
-  const eligibleRecords = allRecords.filter(
-    (r) => r.assetId === assetId && r.consensusEligible && r.direction !== "insufficient-evidence"
-  );
+  const nowKey = now.toISOString().slice(0, 10);
+  const eligibleRecords = allRecords.filter((r) => {
+    if (r.assetId !== assetId || !r.consensusEligible || r.direction === "insufficient-evidence") return false;
+    if (r.forecastStart && nowKey < r.forecastStart) return false;
+    if (r.forecastEnd && nowKey > r.forecastEnd) return false;
+    if (r.expiresAt && now.getTime() >= new Date(r.expiresAt).getTime()) return false;
+    return true;
+  });
 
   if (eligibleRecords.length < 2) {
     return {

@@ -11,7 +11,7 @@ import {
 
 /**
  * Collapsible weight mix — supplementary to ForecastEvidencePanel.
- * Includes methodology link; never presents Wave as the forecast subject.
+ * Includes methodology link and the multi-method reference mix.
  */
 export function ForecastBasisWeights({
   wavePercent = 5,
@@ -58,7 +58,7 @@ export function ForecastBasisWeights({
             </p>
           ) : null}
           <p className="mt-2 text-caption text-foreground-tertiary">
-            上述百分比为当日参考分配，会随验证与关键位接近度调整，不是固定承诺。
+            上述比例为研究参考权重。周期观点会随有效期衰减，星级只表示方法一致程度。
           </p>
           <Link
             href="/methodology"

@@ -19,6 +19,7 @@ import type { GeneratedForecastDraft } from "@/types/automation";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
 import { DIRECTION_LABELS, PATTERN_LABELS } from "@/types/daily-accuracy";
 import { patternFromText } from "@/lib/verification/pattern-classifier";
+import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { listResearchRecords } from "@/lib/data/research-records";
 
@@ -34,6 +35,9 @@ type Evidence = {
   pathBits: string[];
   invalidation: string;
   headline: string;
+  frameworkCount: number;
+  hasTechnical: boolean;
+  agreementRatio: number;
 };
 
 function normalizeProbs(up: number, flat: number, down: number): { up: number; flat: number; down: number } {
@@ -76,7 +80,7 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
         (assetKey === "SPX" && (f.symbol === "SPX" || f.symbol === "^GSPC")) ||
         (assetKey === "SSE" && (f.symbol === "000001.SS" || f.symbol === "SSEC")) ||
         (assetKey === "HSTECH" && f.symbol === "HSTECH") ||
-        (assetKey === "GLD" && f.symbol === "GLD") ||
+        (assetKey === "GLD" && (f.symbol === "GLD" || f.symbol === "GOLD" || f.symbol === "GC=F")) ||
         (assetKey === "WTI" && (f.symbol === "WTI" || f.symbol === "CL=F")))
   );
   if (curated) {
@@ -103,6 +107,9 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
       pathBits: curated.expectedPath ?? [],
       invalidation: curated.invalidation ?? "关键结构被破坏则原判断失效。",
       headline: curated.headline ?? `${curated.assetName}日度推演`,
+      frameworkCount: Math.max(2, new Set(["cycle", ...(curated.evidenceRecordIds ?? []).map(() => "research")]).size),
+      hasTechnical: Boolean(tech),
+      agreementRatio: Math.max(curated.probabilities?.up ?? 0, curated.probabilities?.flat ?? 0, curated.probabilities?.down ?? 0) / 100,
     };
   }
 
@@ -118,6 +125,9 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
   };
   const hints = assetHints[assetKey];
   const matched = records.filter((r) => {
+    if (r.forecastStart && forecastDate < r.forecastStart) return false;
+    if (r.forecastEnd && forecastDate > r.forecastEnd) return false;
+    if (r.expiresAt && new Date(`${forecastDate}T12:00:00Z`).getTime() >= new Date(r.expiresAt).getTime()) return false;
     const blob = `${r.id} ${r.assetId ?? ""} ${JSON.stringify(r.title ?? {})}`.toLowerCase();
     if (assetKey === "SPX" && /nasdaq|ndx|纳指/.test(blob) && !hints.some((h) => blob.includes(h.toLowerCase()))) {
       return false;
@@ -146,6 +156,9 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
       pathBits: ["暂无判断，不生成正式方向"],
       invalidation: "出现可验证的上涨、下跌或震荡依据后再发布。",
       headline: `${DAILY_ACCURACY_ASSETS.find((a) => a.key === assetKey)?.assetName ?? assetKey}暂无明确结论`,
+      frameworkCount: tech ? 1 : 0,
+      hasTechnical: Boolean(tech),
+      agreementRatio: 0,
     };
   }
 
@@ -172,6 +185,9 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
       pathBits: ["暂无判断，不生成正式方向"],
       invalidation: "出现可验证的上涨、下跌或震荡依据后再发布。",
       headline: `${DAILY_ACCURACY_ASSETS.find((a) => a.key === assetKey)?.assetName ?? assetKey}暂无明确结论`,
+      frameworkCount: tech ? 1 : 0,
+      hasTechnical: Boolean(tech),
+      agreementRatio: 0,
     };
   }
 
@@ -190,6 +206,14 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
             }`
           : "";
 
+  const activeVoters = directionVoters.length ? directionVoters : matched;
+  const leanMatches = activeVoters.filter((record) => {
+    const d = String(record.direction ?? "");
+    if (lean === "UP") return /bullish/i.test(d) && !/bearish/i.test(d);
+    if (lean === "DOWN") return /bearish/i.test(d);
+    return /neutral|mixed/i.test(d);
+  }).length;
+  const agreementRatio = activeVoters.length ? leanMatches / activeVoters.length : 0;
   const primary = directionVoters[0] ?? matched[0];
   return {
     sourceIds: ids,
@@ -209,6 +233,9 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
     pathBits: ["围绕既有节奏观察", "关注关键位得失"],
     invalidation: primary?.invalidation?.zhCN ?? "有效研究框架被价格结构明确破坏。",
     headline: `${DAILY_ACCURACY_ASSETS.find((a) => a.key === assetKey)?.assetName}日度综合推演`,
+    frameworkCount: new Set(activeVoters.map((r) => r.framework)).size,
+    hasTechnical: Boolean(tech),
+    agreementRatio,
   };
 }
 
@@ -256,6 +283,14 @@ export async function generateForecastBatch(
       confidence = Math.min(confidence, 49);
     }
 
+    const consensus = consensusStarsFromInputs({
+      confidence,
+      frameworkCount: Math.max(1, evidence.frameworkCount),
+      hasTechnical: evidence.hasTechnical,
+      pathDefined: evidence.pathBits.length > 0,
+      agreementRatio: evidence.agreementRatio,
+    });
+
     const probs =
       direction === "UP"
         ? normalizeProbs(confidence, Math.round((100 - confidence) * 0.55), Math.round((100 - confidence) * 0.45))
@@ -274,6 +309,9 @@ export async function generateForecastBatch(
         direction === "UP" ? "上涨" : direction === "DOWN" ? "下跌" : "震荡",
       probabilities: probs,
       confidence,
+      consensusStars: consensus.stars,
+      consensusScore: consensus.score,
+      consensusLabel: consensus.label,
       headline: evidence.headline,
       summary: evidence.summaryBits.join(" "),
       expectedPath: evidence.pathBits,
@@ -329,6 +367,9 @@ function draftToRecord(d: GeneratedForecastDraft): DailyForecastRecord {
     predictedPatternLabel: PATTERN_LABELS[pattern.pattern],
     expectedPath: d.expectedPath,
     probability: d.confidence,
+    consensusStars: d.consensusStars,
+    consensusScore: d.consensusScore,
+    consensusLabel: d.consensusLabel,
     summary: `[${d.sourceLabel}] ${d.summary}`,
     publishedAt: d.generatedAt,
     cutoffAt: d.cutoffAt,

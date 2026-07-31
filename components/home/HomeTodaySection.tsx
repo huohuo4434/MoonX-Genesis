@@ -58,7 +58,7 @@ export async function HomeTodaySection() {
           (f) =>
             (k === "NDX" && f.symbol === "NDX") ||
             (k === "SPX" && (f.symbol === "SPX" || f.symbol === "^GSPC")) ||
-            (k === "GLD" && f.symbol === "GLD") ||
+            (k === "GLD" && (f.symbol === "GLD" || f.symbol === "GOLD" || f.symbol === "GC=F")) ||
             (k === "WTI" && (f.symbol === "WTI" || f.symbol === "CL=F"))
         )
     );

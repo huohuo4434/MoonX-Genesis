@@ -16,7 +16,9 @@ import {
   buildForecastModuleEvidence,
   dailyForecastToEvidenceSource,
 } from "@/lib/methodology/evidence";
-import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
+import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { getTradingSessionDisplay } from "@/lib/calendar/trading-session-display";
+import { deriveForecastConsensus, starsText } from "@/lib/forecasts/consensus-confidence";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isPending(f: DailyForecast) {
@@ -111,6 +113,13 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
   const wavePct = waveShare(f);
   const basis = buildForecastBasisWeights(wavePct);
   const allowWaveNote = isTomorrowWaveAllowedSymbol(f.symbol);
+  const session = getTradingSessionDisplay({
+    market: f.market,
+    forecastDate: f.forecastForDate,
+    publishedAt: f.publishedAt,
+    symbol: f.symbol,
+  });
+  const consensus = deriveForecastConsensus(f);
 
   return (
     <Card padding="lg" className="flex flex-col gap-4">
@@ -122,11 +131,54 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
               {displayMarketCode(f.symbol)}
             </span>
           </Text>
+          <div className="flex flex-wrap items-center gap-2">
+            <Text
+              variant="caption"
+              className={`block ${session.isDeferred ? "font-semibold text-amber-400" : "text-foreground-tertiary"}`}
+            >
+              {session.title}：{session.targetDateZh}
+            </Text>
+            {session.alertLabel ? (
+              <Badge variant="outline" className="border-amber-400/40 bg-amber-400/10 text-amber-300">
+                {session.alertLabel}
+              </Badge>
+            ) : null}
+          </div>
+          {session.exchangeTimeLine ? (
+            <Text variant="caption" color="tertiary" className="block">
+              {session.exchangeTimeLine}
+            </Text>
+          ) : null}
+          {session.beijingTimeLine ? (
+            <Text variant="caption" color="tertiary" className="block">
+              {session.beijingTimeLine}
+            </Text>
+          ) : null}
           <Text variant="caption" color="tertiary" className="block">
-            目标交易日：{formatDateChina(f.forecastForDate)} · V{f.version || 1} · 更新于 {formatDateTimeChina(f.publishedAt)}
+            V{f.version || 1} · 更新于 {formatDateTimeChina(f.publishedAt)}
           </Text>
         </div>
         <Badge variant="default">{iching.directionLabel}</Badge>
+      </div>
+
+      <div className="rounded-md border border-primary/20 bg-primary/[0.06] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <Text variant="caption" color="tertiary" className="block">方法共识度</Text>
+            <Text variant="body" weight="semibold" className="mt-1 block text-primary">
+              {starsText(consensus.stars)} · {consensus.label}
+            </Text>
+          </div>
+          <div className="text-right">
+            <Text variant="caption" color="tertiary" className="block">共识分</Text>
+            <Text variant="body" weight="semibold" className="font-mono tabular-nums">
+              {consensus.score}
+            </Text>
+          </div>
+        </div>
+        <Text variant="caption" color="tertiary" className="mt-2 block">
+          {consensus.note} 星级表示方法一致程度，不代表预期涨幅。
+        </Text>
       </div>
 
       <div className="space-y-2 rounded-md border border-border/[0.08] bg-muted/20 p-3">
@@ -210,12 +262,18 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
         </Text>
       ) : null}
 
+      {session.weekendRiskLabel ? (
+        <Text variant="caption" className="rounded-md border border-amber-400/20 bg-amber-400/[0.06] p-2 text-amber-200/80">
+          {session.weekendRiskLabel}
+        </Text>
+      ) : null}
+
       <ForecastBasisWeights
         weights={basis}
         wavePercent={wavePct}
         waveNote={
           allowWaveNote
-            ? "仅作辅助证据；接近波浪关键位时权重可升至最高 20%，不构成预测主体。"
+            ? "仅作技术结构补充，不单独决定方向，也不单独提高共识星级。"
             : null
         }
       />

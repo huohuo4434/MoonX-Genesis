@@ -6,6 +6,7 @@ import "server-only";
 import { listDailyForecastRecords } from "@/lib/data/moonx-data-store";
 import { sessionLabelForMarket } from "@/lib/calendar/next-trading-day";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
+import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import type { DailyForecast, DailyForecastMarket } from "@/types/daily-forecast";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
 
@@ -26,6 +27,8 @@ function assetIdFromSymbol(symbol: string): string {
     "000001.SS": "shanghai-composite",
     HSTECH: "hang-seng",
     GLD: "gold",
+    GOLD: "gold",
+    "GC=F": "gold",
     WTI: "wti-crude",
     "CL=F": "wti-crude",
   };
@@ -44,16 +47,32 @@ function isFormalStoreStatus(status: DailyForecastRecord["status"]): boolean {
 function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyForecast {
   const market = marketToLegacy(r.market);
   const isAbstain = /暂无判断|依据不足|观望/.test(r.summary ?? "") || r.source === "依据不足";
+  const consensus = r.consensusStars
+    ? {
+        stars: r.consensusStars,
+        score: r.consensusScore ?? r.probability ?? 50,
+        label: r.consensusLabel ?? "方法共识",
+        activeModules: 2,
+        note: "星级在发布时锁定，用于后续按共识等级分类验证。",
+      }
+    : consensusStarsFromInputs({
+        confidence: r.probability ?? 50,
+        frameworkCount: /综合|周期|六爻|老师|技术/.test(`${r.source} ${r.summary ?? ""}`) ? 2 : 1,
+        hasTechnical: Boolean(r.supportLevels?.length && r.resistanceLevels?.length),
+        pathDefined: Boolean(r.expectedPath?.length),
+      });
   const tradingSessionLabel =
-    r.symbol === "WTI" || r.market === "US_FUTURES"
+    r.symbol === "WTI" || r.symbol === "CL=F"
       ? "NYMEX WTI近月连续合约交易日"
+      : r.symbol === "GOLD" || r.symbol === "GC=F"
+        ? "COMEX国际金价交易日"
       : r.symbol === "SPX"
         ? "美股常规交易时段"
         : sessionLabelForMarket(market);
   return {
     id: r.id,
     assetId: assetIdFromSymbol(r.symbol),
-    assetName: r.symbol === "WTI" ? "WTI原油" : r.assetName,
+    assetName: r.symbol === "WTI" ? "WTI原油" : r.symbol === "GOLD" || r.symbol === "GC=F" || r.symbol === "GLD" ? "国际金价" : r.assetName,
     symbol: r.symbol === "SSEC" ? "000001.SS" : r.symbol,
     market,
     forecastForDate: r.forecastDate,
@@ -68,6 +87,11 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
       isAbstain ? "中性" : r.direction === "UP" ? "看涨" : r.direction === "DOWN" ? "看跌" : "中性",
     directionLabel: isAbstain ? "暂无判断" : r.predictedPatternLabel ?? r.directionLabel,
     confidence: r.probability ?? 50,
+    consensusStars: consensus.stars,
+    consensusScore: consensus.score,
+    consensusLabel: consensus.label,
+    consensusModuleCount: consensus.activeModules,
+    consensusNote: consensus.note,
     summary: r.summary ?? "",
     expectedPath: r.expectedPath,
     headline: isAbstain ? `${r.assetName}当前暂无明确结论` : undefined,

@@ -2,6 +2,7 @@
  * Map GeneratedDailyForecastRecord → UI DailyForecast.
  */
 import { sessionLabelForMarket } from "@/lib/calendar/next-trading-day";
+import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { DailyForecast } from "@/types/daily-forecast";
@@ -18,9 +19,16 @@ export function generatedDailyToUi(
     SHCOMP: "shanghai-composite",
     HSTECH: "hang-seng",
     GLD: "gold",
+    GOLD: "gold",
     WTI: "wti-crude",
   };
   const formal = r.direction;
+  const consensus = consensusStarsFromInputs({
+    confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
+    frameworkCount: [r.liuyaoEvidence, r.qimenEvidence, r.calendarEvidence, r.newsEvidence].filter(Boolean).length || 1,
+    hasTechnical: Boolean(r.supportLevels?.length && r.resistanceLevels?.length),
+    pathDefined: Boolean(r.expectedPath),
+  });
   // Complex paths must not be collapsed by the last matching character.
   // “先涨后跌/冲高回落” belong to the down family, while
   // “先跌后涨/探底回升” belong to the up family.
@@ -48,6 +56,11 @@ export function generatedDailyToUi(
     direction,
     directionLabel: formal,
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
+    consensusStars: consensus.stars,
+    consensusScore: consensus.score,
+    consensusLabel: consensus.label,
+    consensusModuleCount: consensus.activeModules,
+    consensusNote: consensus.note,
     headline: `${meta.assetName}${formal}`,
     summary: [r.expectedPath, r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
     expectedPath: r.expectedPath ? [r.expectedPath] : [],

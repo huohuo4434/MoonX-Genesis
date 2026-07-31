@@ -16,6 +16,11 @@ import {
 } from "@/lib/data/conviction/asteroid-forecasts";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
+  listMuHypePeriodForecasts,
+  periodMetaForAsset,
+  PERIOD_ORDER_BY_ASSET,
+} from "@/lib/data/conviction/mu-hype-forecasts";
+import {
   getConvictionAssetBySlug,
   listPublicConvictionCards,
   toPublicCard,
@@ -108,9 +113,14 @@ function filterPastVerifiedHistory(
   });
 }
 
-function buildAsteroidPeriodSlots(includeBody: boolean): ConvictionPeriodSlot[] {
-  const published = listAsteroidPeriodForecasts();
-  return ASTEROID_PERIOD_ORDER.map((type) => {
+function buildStaticPeriodSlots(
+  assetId: "asteroid" | "mu" | "hype",
+  includeBody: boolean
+): ConvictionPeriodSlot[] {
+  const published =
+    assetId === "asteroid" ? listAsteroidPeriodForecasts() : listMuHypePeriodForecasts(assetId);
+  const order = assetId === "asteroid" ? ASTEROID_PERIOD_ORDER : PERIOD_ORDER_BY_ASSET[assetId];
+  return order.map((type) => {
     const hit = published.find((f) => f.forecastType === type) ?? null;
     return {
       type,
@@ -130,17 +140,25 @@ export async function getConvictionDetailPayload(
   const access = await getAccessUser();
   const full = hasConvictionFullAccess(access);
   const pub = toPublicCard(asset);
-  const isAsteroid = asset.slug === "asteroid";
+  const staticPeriodAsset =
+    asset.slug === "asteroid" || asset.slug === "mu" || asset.slug === "hype"
+      ? asset.slug
+      : null;
 
-  const publicPeriodMeta = ASTEROID_PERIOD_ORDER.map((type) => ({
-    type,
-    labelZh: ASTEROID_PERIOD_LABELS[type].zh,
-    emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
-    hasResearch:
-      type === "TODAY" || type === "TOMORROW"
-        ? false
-        : Boolean(listAsteroidPeriodForecasts().find((f) => f.forecastType === type)),
-  }));
+  const publicPeriodMeta =
+    staticPeriodAsset === "asteroid"
+      ? ASTEROID_PERIOD_ORDER.map((type) => ({
+          type,
+          labelZh: ASTEROID_PERIOD_LABELS[type].zh,
+          emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
+          hasResearch:
+            type === "TODAY" || type === "TOMORROW"
+              ? false
+              : Boolean(listAsteroidPeriodForecasts().find((f) => f.forecastType === type)),
+        }))
+      : staticPeriodAsset === "mu" || staticPeriodAsset === "hype"
+        ? periodMetaForAsset(staticPeriodAsset)
+        : [];
 
   if (!full) {
     return {
@@ -149,7 +167,7 @@ export async function getConvictionDetailPayload(
       isAuthenticated: access.authenticated,
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
-      periodSlots: isAsteroid
+      periodSlots: staticPeriodAsset
         ? publicPeriodMeta
         : [
             { type: "TODAY", labelZh: "今日", emptyZh: "今日分析尚未发布", hasResearch: true },
@@ -160,8 +178,8 @@ export async function getConvictionDetailPayload(
     };
   }
 
-  if (isAsteroid) {
-    const periods = buildAsteroidPeriodSlots(true);
+  if (staticPeriodAsset) {
+    const periods = buildStaticPeriodSlots(staticPeriodAsset, true);
     return {
       mode: "fullAccess",
       isAdmin: access.isAdmin,

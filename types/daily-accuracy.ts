@@ -69,6 +69,10 @@ export type DailyForecastRecord = {
   predictedPatternLabel?: DailyAccuracyPatternLabel;
   expectedPath?: string[];
   probability?: number;
+  /** Locked at publication for star-bucket verification. */
+  consensusStars?: 1 | 2 | 3 | 4 | 5;
+  consensusScore?: number;
+  consensusLabel?: string;
   summary?: string;
   publishedAt: string;
   cutoffAt: string;
@@ -251,7 +255,7 @@ export const DAILY_ACCURACY_ASSETS = [
     key: "GLD",
     assetName: "国际金价",
     shortName: "黄金",
-    symbol: "GLD",
+    symbol: "GOLD",
     quoteSymbol: "GC=F",
     market: "US_FUTURES" as const,
     displayOrder: 6,

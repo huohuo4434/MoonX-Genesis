@@ -66,6 +66,9 @@ export type PublicAccuracyHistoryItem = {
   dataSource?: string;
   errorMessage?: string;
   probability?: number;
+  consensusStars?: 1 | 2 | 3 | 4 | 5;
+  consensusScore?: number;
+  consensusLabel?: string;
   summary?: string;
   expectedPath?: string[];
   supportLevels?: string[];
@@ -154,7 +157,7 @@ export function filterPublicAccuracyHistory(input: {
     items.push({
       forecastId: r.forecastId,
       forecastDate: r.forecastDate,
-      assetName: r.symbol === "GLD" ? "国际金价" : (r.assetName || f?.assetName || r.symbol),
+      assetName: r.symbol === "GLD" || r.symbol === "GOLD" ? "国际金价" : (r.assetName || f?.assetName || r.symbol),
       symbol: r.symbol,
       market: f?.market ?? "CRYPTO",
       predictedDirection,
@@ -182,6 +185,9 @@ export function filterPublicAccuracyHistory(input: {
       dataSource: r.dataSource,
       errorMessage: r.errorMessage,
       probability: f?.probability,
+      consensusStars: f?.consensusStars,
+      consensusScore: f?.consensusScore,
+      consensusLabel: f?.consensusLabel,
       summary: f?.summary,
       expectedPath: f?.expectedPath,
       supportLevels: f?.supportLevels,
@@ -310,4 +316,45 @@ export function publicConfidenceAccuracyBreakdown(
     miss: buckets[bucket].miss,
     hitRate: rate(buckets[bucket].hit, buckets[bucket].miss),
   }));
+}
+
+
+export type PublicStarAccuracyBucket = {
+  stars: 1 | 2 | 3 | 4 | 5;
+  sampleCount: number;
+  fullHit: number;
+  partialHit: number;
+  miss: number;
+  weightedHitRate: number | null;
+};
+
+/** Star ratings are locked at publish time; unrated legacy rows are excluded. */
+export function publicStarAccuracyBreakdown(
+  items: PublicAccuracyHistoryItem[]
+): PublicStarAccuracyBucket[] {
+  const buckets = new Map<number, { fullHit: number; partialHit: number; miss: number }>();
+  for (let stars = 1; stars <= 5; stars += 1) {
+    buckets.set(stars, { fullHit: 0, partialHit: 0, miss: 0 });
+  }
+  for (const item of items) {
+    if (!item.consensusStars || !isPublicCountableVerdict(item.verdict)) continue;
+    const bucket = buckets.get(item.consensusStars)!;
+    if (item.verdict === "PARTIAL_HIT") bucket.partialHit += 1;
+    else if (item.verdict === "MISS") bucket.miss += 1;
+    else bucket.fullHit += 1;
+  }
+  return [5, 4, 3, 2, 1].map((stars) => {
+    const bucket = buckets.get(stars)!;
+    const sampleCount = bucket.fullHit + bucket.partialHit + bucket.miss;
+    return {
+      stars: stars as 1 | 2 | 3 | 4 | 5,
+      sampleCount,
+      fullHit: bucket.fullHit,
+      partialHit: bucket.partialHit,
+      miss: bucket.miss,
+      weightedHitRate: sampleCount
+        ? (bucket.fullHit + bucket.partialHit * 0.5) / sampleCount
+        : null,
+    };
+  });
 }

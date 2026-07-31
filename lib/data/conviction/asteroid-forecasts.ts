@@ -12,16 +12,17 @@ export type ConvictionForecastType =
   | "MONTH_1"
   | "MONTH_3"
   | "YEAR_1"
-  | "YEAR_5";
+  | "YEAR_5"
+  | "YEAR_10";
 
 export type ConvictionPeriodForecast = {
   id: string;
-  assetId: "asteroid";
+  assetId: string;
   forecastType: ConvictionForecastType;
   targetDate?: string | null;
   periodStart: string;
   periodEnd: string;
-  direction: FormalDirection;
+  direction: FormalDirection | "待复核";
   upProbability: number;
   sidewaysProbability: number;
   downProbability: number;
@@ -229,6 +230,7 @@ export const ASTEROID_PERIOD_LABELS: Record<
   MONTH_3: { zh: "3个月", en: "3M", emptyZh: "该周期预测尚未发布" },
   YEAR_1: { zh: "1年", en: "1Y", emptyZh: "该周期预测尚未发布" },
   YEAR_5: { zh: "5年", en: "5Y", emptyZh: "该周期预测尚未发布" },
+  YEAR_10: { zh: "10年", en: "10Y", emptyZh: "该周期预测尚未发布" },
 };
 
 export function listAsteroidPeriodForecasts(): ConvictionPeriodForecast[] {

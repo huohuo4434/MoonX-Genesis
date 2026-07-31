@@ -1,25 +1,27 @@
 /**
- * Tomorrow-page evidence mix. Wave starts at 5% and only rises near key levels.
- * Rules: ≤5%→8, ≤3%→12, ≤1.5%→15, ≤0.5% (confirm zone)→20; else 5. Cap 20.
+ * Multi-method forecast reference mix.
+ * The percentages describe research influence, not statistical guarantees.
  */
 
 export type ForecastBasisWeights = {
-  ai: number;
-  liuyao: number;
   technical: number;
-  wave: number;
+  liuyao: number;
+  cycle: number;
+  qimen: number;
   macro: number;
+  bazi: number;
 };
 
 export const DEFAULT_BASIS_WEIGHTS: ForecastBasisWeights = {
-  ai: 35,
-  liuyao: 25,
-  technical: 20,
-  wave: 5,
-  macro: 15,
+  technical: 35,
+  liuyao: 30,
+  cycle: 15,
+  qimen: 10,
+  macro: 5,
+  bazi: 5,
 };
 
-/** Distance to Wave key level as % of price → Wave module weight (max 20). */
+/** Kept for backward compatibility with older call sites. */
 export function waveBasisPercentFromProximity(
   distancePct: number | null | undefined
 ): number {
@@ -31,43 +33,32 @@ export function waveBasisPercentFromProximity(
   return 5;
 }
 
+/**
+ * Daily cards use a stable baseline. Cycle-source opinions are time-decayed
+ * before they enter the evidence set, so their 15% bucket cannot persist
+ * after the source window expires.
+ */
 export function buildForecastBasisWeights(
-  wavePercent: number = DEFAULT_BASIS_WEIGHTS.wave
+  _legacyWavePercent: number = 5
 ): ForecastBasisWeights {
-  const wave = Math.min(20, Math.max(5, Math.round(wavePercent)));
-  const delta = wave - DEFAULT_BASIS_WEIGHTS.wave;
-
-  let ai = DEFAULT_BASIS_WEIGHTS.ai - Math.round(delta * 0.5);
-  let technical = DEFAULT_BASIS_WEIGHTS.technical - Math.round(delta * 0.3);
-  let macro = DEFAULT_BASIS_WEIGHTS.macro - Math.round(delta * 0.2);
-  const liuyao = DEFAULT_BASIS_WEIGHTS.liuyao;
-
-  ai = Math.max(22, Math.min(40, ai));
-  technical = Math.max(10, Math.min(25, technical));
-  macro = Math.max(8, Math.min(20, macro));
-
-  let sum = ai + liuyao + technical + wave + macro;
-  if (sum !== 100) {
-    ai = Math.max(20, ai + (100 - sum));
-    sum = ai + liuyao + technical + wave + macro;
-  }
-
-  return { ai, liuyao, technical, wave, macro };
+  return { ...DEFAULT_BASIS_WEIGHTS };
 }
 
 export const BASIS_LABELS: Array<{ key: keyof ForecastBasisWeights; label: string }> = [
-  { key: "ai", label: "AI模型" },
-  { key: "liuyao", label: "六爻模型" },
   { key: "technical", label: "技术结构" },
-  { key: "macro", label: "资金与宏观" },
-  { key: "wave", label: "波浪分析" },
+  { key: "liuyao", label: "六爻方向" },
+  { key: "cycle", label: "周期分析" },
+  { key: "qimen", label: "奇门择时" },
+  { key: "macro", label: "资金与消息" },
+  { key: "bazi", label: "八字长期背景" },
 ];
 
 /** Markets allowed to attach Wave evidence notes on tomorrow page. */
 export const TOMORROW_WAVE_ALLOWED_SYMBOLS = new Set([
   "BTC",
   "BTCUSDT",
-  "GLD",
+  "GOLD",
+  "GC=F",
   "XAUUSD",
   "WTI",
   "CL",

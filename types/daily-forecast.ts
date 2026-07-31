@@ -70,6 +70,13 @@ export interface DailyForecast {
   directionLabel?: string;
   confidence: number;
 
+  /** Locked multi-method agreement rating. Stars describe agreement, not upside size. */
+  consensusStars?: 1 | 2 | 3 | 4 | 5;
+  consensusScore?: number;
+  consensusLabel?: string;
+  consensusModuleCount?: number;
+  consensusNote?: string;
+
   headline?: string;
   summary: string;
   expectedPath?: string[];

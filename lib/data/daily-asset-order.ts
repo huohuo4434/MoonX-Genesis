@@ -18,7 +18,15 @@ export function dailyAssetOrderIndex(assetId: string): number {
 
 export function dailySymbolOrderIndex(symbol: string): number {
   const normalized =
-    symbol === "000001.SS" ? "SSEC" : symbol === "^GSPC" ? "SPX" : symbol === "CL=F" ? "WTI" : symbol;
+    symbol === "000001.SS"
+      ? "SSEC"
+      : symbol === "^GSPC"
+        ? "SPX"
+        : symbol === "CL=F"
+          ? "WTI"
+          : symbol === "GOLD" || symbol === "GC=F"
+            ? "GLD"
+            : symbol;
   const i = (DAILY_SYMBOL_ORDER as readonly string[]).indexOf(normalized);
   return i < 0 ? 999 : i;
 }

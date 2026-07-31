@@ -150,6 +150,9 @@ export type GeneratedForecastDraft = {
   directionLabel: "上涨" | "下跌" | "震荡" | "暂无判断" | "观望";
   probabilities: { up: number; flat: number; down: number };
   confidence: number;
+  consensusStars?: 1 | 2 | 3 | 4 | 5;
+  consensusScore?: number;
+  consensusLabel?: string;
   headline: string;
   summary: string;
   expectedPath: string[];

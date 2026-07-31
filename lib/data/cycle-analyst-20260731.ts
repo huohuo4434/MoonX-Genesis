@@ -1,0 +1,167 @@
+import { lt } from "@/lib/i18n/config";
+import type { ResearchRecord } from "@/types/research";
+
+/**
+ * Public cycle observations supplied on 2026-07-31.
+ * These records are deliberately low-weight, time-bounded and anonymous.
+ */
+export const cycleAnalyst20260731Records: ResearchRecord[] = [
+  {
+    id: "CYCLE-PUBLIC-SPX-20260731",
+    publishedAt: "2026-07-31",
+    sourcePublishedAt: "2026-07-31",
+    sourcePublishedAtVerified: false,
+    ingestedAt: "2026-07-31T20:00:00+08:00",
+    forecastStart: "2026-07-31",
+    forecastEnd: "2026-09-07",
+    expiresAt: "2026-09-08T00:00:00-04:00",
+    excludeFromLongTermConsensus: true,
+    assetId: "sp500",
+    assetName: lt("标普500", "標普500", "S&P 500"),
+    symbol: "SPX",
+    market: "us-equity",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    publicSourceLabel: lt("公开周期观察", "公開週期觀察", "Public Cycle Observation"),
+    direction: "bearish",
+    editorialConfidence: 38,
+    consensusEligible: true,
+    horizon: lt("2026年8月上旬至9月初", "2026年8月上旬至9月初", "Early August to early September 2026"),
+    title: lt("标普小周期谷底窗口", "標普小週期谷底窗口", "S&P Small-Cycle Low Window"),
+    rawSource: lt(
+      "来源认为标普尚未完成调整，小周期谷底可能出现在8月3日至12日，谷底后可能反弹至8月底或9月初。来源文中提到7000，仅保留为原始观点，不作为MoonX技术目标。",
+      "來源認為標普尚未完成調整，小週期谷底可能出現在8月3日至12日，谷底後可能反彈至8月底或9月初。來源文中提到7000，僅保留為原始觀點，不作為MoonX技術目標。",
+      "The source expects further adjustment into an Aug 3–12 cycle-low window, followed by a rebound into late August or early September. A cited 7000 level is retained as source text only, not a MoonX technical target."
+    ),
+    summary: lt(
+      "短期周期观点偏空，重点观察8月3日至12日是否形成谷底；该观点仅作辅助，并随时间窗口结束自动失效。",
+      "短期週期觀點偏空，重點觀察8月3日至12日是否形成谷底；該觀點僅作輔助，並隨時間窗口結束自動失效。",
+      "Short-cycle view is bearish into an Aug 3–12 low window. It is auxiliary and expires after the stated window."
+    ),
+    thesis: [lt("8月3日至12日为来源给出的主要谷底窗口。", "8月3日至12日為來源給出的主要谷底窗口。", "Aug 3–12 is the source's primary low window.")],
+    turningWindows: [
+      { id: "spx-cycle-low-202608", start: "2026-08-03", end: "2026-08-12", label: lt("小周期谷底窗口", "小週期谷底窗口", "Small-cycle low window") },
+      { id: "spx-cycle-rebound-202608", start: "2026-08-13", end: "2026-09-07", label: lt("谷底后反弹观察", "谷底後反彈觀察", "Post-low rebound watch") },
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: ["sp500", "cycle", "public-analyst", "time-decay", "low-weight"],
+  },
+  {
+    id: "CYCLE-PUBLIC-MU-20260731",
+    publishedAt: "2026-07-31",
+    sourcePublishedAt: "2026-07-23",
+    sourcePublishedAtVerified: false,
+    ingestedAt: "2026-07-31T20:00:00+08:00",
+    forecastStart: "2026-07-31",
+    forecastEnd: "2026-08-31",
+    expiresAt: "2026-09-01T00:00:00-04:00",
+    excludeFromLongTermConsensus: true,
+    assetId: "micron",
+    assetName: lt("美光科技", "美光科技", "Micron Technology"),
+    symbol: "MU",
+    market: "semiconductor",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    publicSourceLabel: lt("公开周期观察", "公開週期觀察", "Public Cycle Observation"),
+    direction: "slightly-bearish",
+    editorialConfidence: 42,
+    consensusEligible: true,
+    horizon: lt("2026年7月底至8月中下旬", "2026年7月底至8月中下旬", "Late July to mid/late August 2026"),
+    title: lt("美光周期波峰与下一谷底", "美光週期波峰與下一谷底", "Micron Cycle Peak and Next Low"),
+    rawSource: lt(
+      "来源认为美光7月中旬从小周期谷底反弹，7月底附近可能到达小周期波峰；随后可能回调至8月中下旬的下一周期谷底。原文给出阻力1030—1080、支撑670—810，仅保留为来源区间，不替代实时技术价位。",
+      "來源認為美光7月中旬從小週期谷底反彈，7月底附近可能到達小週期波峰；隨後可能回調至8月中下旬的下一週期谷底。原文給出阻力1030—1080、支撐670—810，僅保留為來源區間，不替代即時技術價位。",
+      "The source sees a mid-July small-cycle rebound reaching a possible late-July peak, followed by a pullback into a mid/late-August low. Source ranges 1030–1080 and 670–810 are archived, not used as live technical levels."
+    ),
+    summary: lt(
+      "周期模块对美光短期偏谨慎，关注8月中下旬是否形成下一谷底；该模块为辅助权重，实时价位仍以技术结构为准。",
+      "週期模組對美光短期偏審慎，關注8月中下旬是否形成下一谷底；該模組為輔助權重，即時價位仍以技術結構為準。",
+      "Cycle module is cautious near term and watches for a mid/late-August low. Live levels remain technical-structure driven."
+    ),
+    thesis: [lt("7月底可能处于小周期波峰附近。", "7月底可能處於小週期波峰附近。", "Late July may be near a small-cycle peak.")],
+    turningWindows: [
+      { id: "mu-cycle-low-202608", start: "2026-08-12", end: "2026-08-25", label: lt("下一周期谷底观察", "下一週期谷底觀察", "Next cycle-low watch") },
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: ["micron", "mu", "cycle", "public-analyst", "time-decay", "low-weight"],
+  },
+  {
+    id: "CYCLE-PUBLIC-ETH-20260731",
+    publishedAt: "2026-07-31",
+    sourcePublishedAt: "2026-07-24",
+    sourcePublishedAtVerified: false,
+    ingestedAt: "2026-07-31T20:00:00+08:00",
+    forecastStart: "2026-07-31",
+    forecastEnd: "2027-06-30",
+    expiresAt: "2027-07-01T00:00:00Z",
+    excludeFromLongTermConsensus: false,
+    assetId: "ethereum",
+    assetName: lt("以太坊", "以太坊", "Ethereum"),
+    symbol: "ETH",
+    market: "crypto",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    publicSourceLabel: lt("公开周期观察", "公開週期觀察", "Public Cycle Observation"),
+    direction: "bullish",
+    editorialConfidence: 34,
+    consensusEligible: true,
+    horizon: lt("2026年下半年至2027年上半年", "2026年下半年至2027年上半年", "H2 2026 to H1 2027"),
+    title: lt("以太坊18月大周期反弹情景", "以太坊18月大週期反彈情境", "Ethereum 18-Month Cycle Rebound Scenario"),
+    rawSource: lt(
+      "来源认为2026年6月至7月可能形成18月大周期谷底，并提出反弹延续至2027年上半年、目标4000的情景。该目标仅作为外部来源观点保存。",
+      "來源認為2026年6月至7月可能形成18月大週期谷底，並提出反彈延續至2027年上半年、目標4000的情境。該目標僅作為外部來源觀點保存。",
+      "The source proposes a June–July 2026 18-month cycle low and a rebound into H1 2027, with a 4000 scenario target retained only as external-source context."
+    ),
+    summary: lt(
+      "长期周期观点偏多，但权重较低，不能替代六爻、技术结构和正式价格验证。",
+      "長期週期觀點偏多，但權重較低，不能替代六爻、技術結構和正式價格驗證。",
+      "Long-cycle view is bullish but low-weight and cannot replace Liu Yao, technical structure or formal price validation."
+    ),
+    thesis: [lt("来源将2026年6月至7月视为潜在大周期谷底。", "來源將2026年6月至7月視為潛在大週期谷底。", "The source treats June–July 2026 as a potential major-cycle low.")],
+    status: "active",
+    visibility: "internal",
+    tags: ["ethereum", "cycle", "public-analyst", "low-weight"],
+  },
+  {
+    id: "CYCLE-PUBLIC-WTI-20260731",
+    publishedAt: "2026-07-31",
+    sourcePublishedAt: "2026-07-13",
+    sourcePublishedAtVerified: false,
+    ingestedAt: "2026-07-31T20:00:00+08:00",
+    forecastStart: "2026-07-31",
+    forecastEnd: "2026-10-10",
+    expiresAt: "2026-10-11T00:00:00Z",
+    excludeFromLongTermConsensus: true,
+    assetId: "wti-crude",
+    assetName: lt("WTI原油", "WTI原油", "WTI Crude Oil"),
+    symbol: "WTI",
+    market: "commodity",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    publicSourceLabel: lt("公开周期观察", "公開週期觀察", "Public Cycle Observation"),
+    direction: "slightly-bearish",
+    editorialConfidence: 32,
+    consensusEligible: true,
+    horizon: lt("2026年7月底至10月上旬", "2026年7月底至10月上旬", "Late July to early October 2026"),
+    title: lt("原油波峰与下一周期谷底", "原油波峰與下一週期谷底", "Oil Peak and Next Cycle Low"),
+    rawSource: lt(
+      "来源认为原油在7月底附近处于小周期波峰与阻力区，短期可能调整消化，下一天周期谷底窗口在8月下旬至10月上旬。",
+      "來源認為原油在7月底附近處於小週期波峰與阻力區，短期可能調整消化，下一天週期谷底窗口在8月下旬至10月上旬。",
+      "The source places oil near a late-July small-cycle peak/resistance area and watches for a broader low from late August to early October."
+    ),
+    summary: lt(
+      "周期模块短期偏谨慎，作为WTI方向的低权重背景；实时方向仍由周度六爻与技术结构决定。",
+      "週期模組短期偏審慎，作為WTI方向的低權重背景；即時方向仍由週度六爻與技術結構決定。",
+      "Cycle module is cautious near term and remains low-weight; weekly Liu Yao and technical structure retain priority."
+    ),
+    thesis: [lt("7月底附近可能处于小周期波峰。", "7月底附近可能處於小週期波峰。", "Late July may be near a small-cycle peak.")],
+    turningWindows: [
+      { id: "wti-cycle-low-20260810", start: "2026-08-20", end: "2026-10-10", label: lt("天周期谷底窗口", "天週期谷底窗口", "Broader cycle-low window") },
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: ["wti", "oil", "cycle", "public-analyst", "time-decay", "low-weight"],
+  },
+];

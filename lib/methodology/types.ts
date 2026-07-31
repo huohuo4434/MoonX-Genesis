@@ -7,7 +7,9 @@ export type MethodologyModuleId =
   | "macro_flows"
   | "wave"
   | "ai_quant"
-  | "analyst";
+  | "analyst"
+  | "cycle"
+  | "bazi";
 
 export type MethodologyModule = {
   id: MethodologyModuleId;
