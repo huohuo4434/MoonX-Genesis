@@ -7,6 +7,7 @@ const adminLinks = [
   { href: "/admin", label: "概览" },
   { href: "/admin/forecasts", label: "今日／明日观点" },
   { href: "/admin/weekly", label: "本周行情" },
+  { href: "/admin/full-cycle", label: "全周期／关键日" },
   { href: "/admin/stocks", label: "重点关注" },
   { href: "/admin/asset-research", label: "资产材料导入" },
   { href: "/admin/iching/library", label: "六爻研究库" },

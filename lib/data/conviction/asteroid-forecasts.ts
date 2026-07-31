@@ -63,6 +63,17 @@ export type ConvictionPeriodForecast = {
     weight: number;
     summary: string;
   }>;
+  /** Exact key dates derived from teacher rules or formally entered by an administrator. */
+  keyDates?: Array<{
+    date?: string | null;
+    ganzhi?: string | null;
+    branchRule?: string | null;
+    type: "上涨候选" | "下跌风险" | "转折" | "波动放大" | "阶段高点" | "阶段低点" | "突破确认";
+    label: string;
+    source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "ADMIN";
+    confidence?: number | null;
+    note?: string | null;
+  }>;
   /** Compact text for the long-horizon archive. */
   archiveSummary?: string | null;
 };

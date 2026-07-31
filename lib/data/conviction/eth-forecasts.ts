@@ -53,6 +53,17 @@ export const ETH_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
       { id: "eth-liuyiao-week", label: "六爻·阶段", direction: "先跌后涨", weight: 85, summary: "财爻伏藏、世爻旬空，立秋前后冲空后再看修复。" },
       { id: "eth-cycle", label: "周期观察", direction: "震荡上涨", weight: 15, summary: "外部周期观点将2026年6月至7月视为潜在大周期低点，但只作低权重背景。" },
     ],
+    keyDates: [
+      {
+        date: "2026-08-07",
+        ganzhi: "癸丑日",
+        type: "波动放大",
+        label: "立秋前后冲空与修复观察窗口",
+        source: "LIUYAO",
+        confidence: 65,
+        note: "原始分段判断指向8月7日前后先放大波动、再观察反弹修复；不表述为必涨日。",
+      },
+    ],
     ichingEvidence: {
       primaryHexagram: "水雷屯",
       changingHexagram: "风雷益",

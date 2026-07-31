@@ -161,6 +161,31 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </Text>
       </section>
 
+      {f.keyDates?.length ? (
+        <section className="space-y-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.03] p-4">
+          <div>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-amber-200/70">关键日期</p>
+            <p className="mt-1 text-caption text-white/40">仅展示有老师原始规则、正式卦象或管理员确认依据的日期。</p>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {f.keyDates.map((item, index) => (
+              <div key={`${item.date ?? item.branchRule ?? index}-${item.label}`} className="rounded-lg border border-white/[0.07] bg-black/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-body-sm font-semibold text-amber-200">
+                    {item.date ?? item.branchRule ?? "干支日期待确认"}
+                    {item.ganzhi ? ` · ${item.ganzhi}` : ""}
+                  </p>
+                  <Badge variant="outline">{item.type}</Badge>
+                </div>
+                <p className="mt-1 text-caption text-white/70">{item.label}</p>
+                <p className="mt-1 text-caption text-white/40">来源：{item.source}{item.confidence ? ` · 置信度${item.confidence}%` : ""}</p>
+                {item.note ? <p className="mt-1 text-caption leading-relaxed text-white/50">{item.note}</p> : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {f.methodViews?.length ? (
         <section className="space-y-2">
           <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">多方法观点</p>

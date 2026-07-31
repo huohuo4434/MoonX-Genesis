@@ -5,6 +5,8 @@ import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
 import { getChinaDateKey } from "@/lib/date/china-date";
+import { getSexagenaryDay } from "@/lib/calendar/sexagenary-calendar";
+import { hasPrisma, prisma } from "@/lib/prisma";
 import { getAccessUser } from "@/lib/auth/get-access-user";
 import { hasConvictionFullAccess } from "@/lib/data/conviction/access-mode";
 import {
@@ -164,6 +166,72 @@ function buildStaticPeriodSlots(
   });
 }
 
+async function attachAdminKeyDates(
+  assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth",
+  periods: ConvictionPeriodSlot[]
+): Promise<ConvictionPeriodSlot[]> {
+  if (!hasPrisma() || !prisma) return periods;
+  const rows = await prisma.forecastOverride.findMany({
+    where: { scope: { startsWith: "KEY_DATE" }, assetId, enabled: true },
+    orderBy: { targetDate: "asc" },
+  });
+  if (!rows.length) return periods;
+  return periods.map((slot) => {
+    if (!slot.forecast) return slot;
+    const matched = rows.filter(
+      (row) => row.targetDate >= slot.forecast!.periodStart && row.targetDate <= slot.forecast!.periodEnd
+    );
+    if (!matched.length) return slot;
+    const adminDates = matched.map((row) => {
+      let meta: Record<string, unknown> = {};
+      if (row.note) {
+        try {
+          const parsed = JSON.parse(row.note) as unknown;
+          if (parsed && typeof parsed === "object") meta = parsed as Record<string, unknown>;
+        } catch {
+          meta = { text: row.note };
+        }
+      }
+      let ganzhi: string | null = null;
+      try {
+        ganzhi = getSexagenaryDay(row.targetDate).label;
+      } catch {
+        ganzhi = typeof meta.ganzhi === "string" ? meta.ganzhi : null;
+      }
+      const rawType = row.direction || String(meta.effect || "转折");
+      const allowed = ["上涨候选", "下跌风险", "转折", "波动放大", "阶段高点", "阶段低点", "突破确认"] as const;
+      const type = allowed.includes(rawType as (typeof allowed)[number])
+        ? (rawType as (typeof allowed)[number])
+        : "转折";
+      return {
+        date: row.targetDate,
+        ganzhi,
+        branchRule: typeof meta.branchRule === "string" ? meta.branchRule : null,
+        type,
+        label: String(meta.label || "管理员确认关键日"),
+        source: (typeof meta.source === "string" ? meta.source : "ADMIN") as
+          | "LIUYAO"
+          | "QIMEN"
+          | "BAZI"
+          | "TECHNICAL"
+          | "ADMIN",
+        note: typeof meta.text === "string" ? meta.text : null,
+      };
+    });
+    const existing = slot.forecast.keyDates ?? [];
+    const deduped = new Map(
+      [...existing, ...adminDates].map((item) => [
+        `${item.date ?? item.branchRule}:${item.type}:${item.label}`,
+        item,
+      ])
+    );
+    return {
+      ...slot,
+      forecast: { ...slot.forecast, keyDates: [...deduped.values()] },
+    };
+  });
+}
+
 function publicPeriodMeta(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
@@ -215,7 +283,10 @@ export async function getConvictionDetailPayload(
   }
 
   if (staticPeriodAsset) {
-    const periods = buildStaticPeriodSlots(staticPeriodAsset, true);
+    const periods = await attachAdminKeyDates(
+      staticPeriodAsset,
+      buildStaticPeriodSlots(staticPeriodAsset, true)
+    );
     return {
       mode: "fullAccess",
       isAdmin: access.isAdmin,

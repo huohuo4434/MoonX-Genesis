@@ -125,6 +125,7 @@ export const AUDIT_ROUTES = [
   "/admin/settings",
   "/admin/forecasts",
   "/admin/weekly",
+  "/admin/full-cycle",
   "/admin/stocks",
   "/admin/teacher-knowledge",
   ...INTERNAL_LEGACY_ROUTES,
