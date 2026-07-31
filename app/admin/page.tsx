@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
-import { getAutomationDashboard } from "@/lib/automation/cycle";
 import { listPublishedStocks } from "@/lib/data/stocks-store";
 import { listDailyVerificationResults } from "@/lib/data/moonx-data-store";
 import {
@@ -20,10 +19,9 @@ export const revalidate = 0;
 
 export default async function AdminHomePage() {
   const now = new Date();
-  const [user, users, dash, stocks, results, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
+  const [user, users, stocks, results, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
     getCurrentUser(),
     listAllAuthUsers(),
-    getAutomationDashboard(),
     listPublishedStocks(),
     listDailyVerificationResults(),
     countPendingPaymentOrders(),
