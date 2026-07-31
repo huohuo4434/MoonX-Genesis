@@ -1,40 +1,40 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/reconcile-payments",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/expire-memberships",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/generate-daily-forecasts",
-      "schedule": "15 */2 * * *"
-    },
-    {
-      "path": "/api/cron/moonx-cycle",
-      "schedule": "35 */2 * * *"
-    },
-    {
-      "path": "/api/cron/verify-daily",
-      "schedule": "15 16 * * *"
-    },
-    {
-      "path": "/api/cron/verify-daily-late",
-      "schedule": "10 21 * * *"
-    },
-    {
-      "path": "/api/cron/verify-weekly",
-      "schedule": "15 16 * * 0"
-    },
-    {
-      "path": "/api/cron/generate-social-cards",
-      "schedule": "10 16 * * *"
-    },
-    {
-      "path": "/api/cron/process-lessons",
-      "schedule": "20 16 * * *"
-    }
-  ]
+    "crons":  [
+                  {
+                      "path":  "/api/cron/reconcile-payments",
+                      "schedule":  "0 2 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/expire-memberships",
+                      "schedule":  "0 3 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/generate-daily-forecasts",
+                      "schedule":  "0 10 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/moonx-cycle",
+                      "schedule":  "0 12 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/verify-daily",
+                      "schedule":  "15 16 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/verify-daily-late",
+                      "schedule":  "10 21 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/verify-weekly",
+                      "schedule":  "15 16 * * 0"
+                  },
+                  {
+                      "path":  "/api/cron/generate-social-cards",
+                      "schedule":  "10 16 * * *"
+                  },
+                  {
+                      "path":  "/api/cron/process-lessons",
+                      "schedule":  "20 16 * * *"
+                  }
+              ]
 }
