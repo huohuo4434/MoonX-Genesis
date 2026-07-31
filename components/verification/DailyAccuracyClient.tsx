@@ -5,7 +5,10 @@ import Link from "next/link";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type { DailyAccuracyStats, DailyVerdict } from "@/types/daily-accuracy";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/public-history-filter";
-import { computePublicAccuracyStats } from "@/lib/accuracy/public-history-filter";
+import {
+  computePublicAccuracyStats,
+  OFFICIAL_DAILY_VERIFICATION_START,
+} from "@/lib/accuracy/public-history-filter";
 import { dailySymbolOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatBeijingDateZh } from "@/lib/calendar/beijing-date";
 
@@ -184,7 +187,7 @@ function HistoryCard({ item }: { item: PublicAccuracyHistoryItem }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Text variant="body" weight="semibold">
-            {item.assetName} <span className="font-mono text-foreground-tertiary">{item.symbol}</span>
+            {item.assetName} <span className="font-mono text-foreground-tertiary">{item.symbol === "GLD" ? "GOLD" : item.symbol}</span>
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-1">
             预测日期：{formatBeijingDateZh(item.forecastDate)} · V{item.version}
@@ -280,7 +283,7 @@ export function DailyAccuracyClient({
           验证完整预测语义：上涨、下跌、震荡、震荡上涨、震荡下跌、先涨后跌、先跌后涨、冲高回落和探底回升。路径型观点优先使用15分钟K线验证，不再只看收盘红绿。
         </Text>
         <Text variant="body-sm" color="tertiary" className="mt-2 max-w-3xl">
-          加权命中率＝（完全命中＋部分命中×0.5）÷有效验证数；无法验证不进入分母。早期只保存涨跌方向的记录会单独标记，不进入完整路径命中率。
+          正式日度验证自{OFFICIAL_DAILY_VERIFICATION_START}起计入；此前记录保留为试运行归档，不参与公开统计。加权命中率＝（完全命中＋部分命中×0.5）÷有效验证数，无法验证不进入分母。
         </Text>
         <div className="mt-3"><Link href="/pricing" className="text-body-sm text-primary underline-offset-4 hover:underline">会员价格</Link></div>
       </div>
@@ -320,7 +323,7 @@ export function DailyAccuracyClient({
         <div className="flex flex-wrap gap-2">
           {([
             ["ALL", "全部资产"], ["BTC", "比特币"], ["SPX", "标普500"], ["NDX", "纳斯达克100"],
-            ["SSEC", "上证指数"], ["HSTECH", "恒生科技指数"], ["GLD", "黄金ETF"], ["WTI", "WTI原油"],
+            ["SSEC", "上证指数"], ["HSTECH", "恒生科技指数"], ["GLD", "国际金价"], ["WTI", "WTI原油"],
           ] as const).map(([k, label]) => (
             <Button key={k} size="sm" variant={asset === k ? "primary" : "outline"} onClick={() => setAsset(k)}>{label}</Button>
           ))}

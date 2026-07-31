@@ -94,7 +94,11 @@ export function formatAssetPrice(
     const text = Number.isInteger(raw) ? String(raw) : raw.toFixed(1);
     return { raw, display: `${text}点`, unit: "点" };
   }
-  if (asset === "GLD" || asset === "WTI") {
+  if (asset === "GLD") {
+    const raw = Math.round(price * 100) / 100;
+    return { raw, display: `${raw.toFixed(2)}美元/盎司`, unit: "美元/盎司" };
+  }
+  if (asset === "WTI") {
     const raw = Math.round(price * 100) / 100;
     return { raw, display: `${raw.toFixed(2)}美元`, unit: "美元" };
   }
@@ -110,7 +114,13 @@ export function assetKeyFromSymbol(symbol: string): Parameters<typeof formatAsse
   if (s === "HSTECH" || s === "3033.HK" || s === "HSTECH.HK" || s === "^HSTECH") return "HSTECH";
   if (s === "SPX" || s === "^GSPC") return "SPX";
   if (s === "NDX" || s === "^NDX") return "NDX";
-  if (s === "GLD") return "GLD";
+  if (
+    s === "GLD" ||
+    s === "GOLD" ||
+    s === "XAU" ||
+    s === "XAUUSD" ||
+    s === "GC=F"
+  ) return "GLD";
   if (s === "WTI" || s === "CL=F") return "WTI";
   return "CN_STOCK";
 }

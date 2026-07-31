@@ -8,6 +8,7 @@ import { Badge, Button, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { formatForecastDateEn, formatForecastDateZh } from "@/lib/calendar/next-trading-day";
 import { displayDirection } from "@/lib/data/daily-forecasts";
+import { displayMarketCode } from "@/lib/forecasts/formal-direction";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 const LOCKED_ROWS = [
@@ -167,7 +168,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
             {forecast.assetName}
           </Text>
           <Text variant="caption" color="tertiary" className="font-mono">
-            {forecast.symbol}
+            {displayMarketCode(forecast.symbol)}
           </Text>
         </div>
         <Badge variant={pending ? "neutral" : "default"}>

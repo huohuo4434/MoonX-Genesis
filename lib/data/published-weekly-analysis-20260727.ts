@@ -21,7 +21,7 @@ export const WEEKLY_CORE_MARKETS = [
     assetName: "上证指数",
   },
   { assetId: "hang-seng", symbol: "HSTECH", displaySymbol: "HSTECH", assetName: "恒生科技" },
-  { assetId: "gold", symbol: "GLD", displaySymbol: "GLD", assetName: "黄金" },
+  { assetId: "gold", symbol: "GLD", displaySymbol: "GOLD", assetName: "国际金价" },
   { assetId: "wti-crude", symbol: "WTI", displaySymbol: "CL", assetName: "WTI原油" },
 ] as const;
 
@@ -177,9 +177,9 @@ export const PUBLISHED_WEEKLY_ANALYSES: WeeklyAnalysisRecord[] = [
   {
     id: "WEEKLY-GLD-20260727-V1",
     assetId: "gold",
-    assetName: "黄金",
+    assetName: "国际金价",
     symbol: "GLD",
-    displaySymbol: "GLD",
+    displaySymbol: "GOLD",
     weekStart: WEEK_START,
     weekEnd: WEEK_END,
     overallDirection: "先涨后跌",
@@ -188,9 +188,9 @@ export const PUBLISHED_WEEKLY_ANALYSES: WeeklyAnalysisRecord[] = [
     probabilities: { up: 28, flat: 27, down: 45 },
     strongWindow: "周初至周中前半段",
     weakWindow: "周中后至周末",
-    keySupport: ["310", "305"],
-    keyResistance: ["322", "328"],
-    invalidation: "若放量突破322并连续收在高位，未见冲高回落，则先涨后跌判断失效。",
+    keySupport: [],
+    keyResistance: [],
+    invalidation: "若周后段仍持续走强且未出现预期回落，则先涨后跌判断失效。",
     catalysts: ["避险需求", "实际利率回落窗口"],
     risks: ["美元反弹", "高位回吐"],
     riskLevel: "中高",

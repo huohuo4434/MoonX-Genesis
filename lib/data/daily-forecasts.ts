@@ -59,7 +59,7 @@ export const CORE_TOMORROW_ASSETS = [
   },
   {
     assetId: "gold",
-    assetName: "黄金ETF",
+    assetName: "国际金价",
     symbol: "GLD",
     market: "commodity" as const,
   },

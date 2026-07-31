@@ -1,5 +1,5 @@
 /**
- * Precious metals pack — GLD weekly, XAU annual, SLV verified result.
+ * Precious metals pack — international gold weekly, XAU annual, SLV verified result.
  * BTC annual lives only on ORACLE-0009 (merged there; do not duplicate here).
  * No invented support/resistance from six-yao alone.
  */
@@ -41,9 +41,9 @@ export const preciousMetalsCryptoCollections: ResearchCollection[] = [
     id: "precious-metals-research-2026-07",
     title: lt("贵金属研究", "貴金屬研究", "Precious Metals Research"),
     description: lt(
-      "黄金ETF周度六爻、国际黄金年度展望，以及白银已完成交易周的验证复盘。",
-      "黃金ETF週度六爻、國際黃金年度展望，以及白銀已完成交易週的驗證復盤。",
-      "Gold ETF weekly six-yao, international gold annual outlook, and silver completed-week verification review."
+      "国际金价周度六爻、国际黄金年度展望，以及白银已完成交易周的验证复盘。",
+      "國際金價週度六爻、國際黃金年度展望，以及白銀已完成交易週的驗證復盤。",
+      "International gold weekly six-yao, international gold annual outlook, and silver completed-week verification review."
     ),
     frameworks: ["oracle-six-yao"],
     sourceType: "private-teacher",
@@ -75,9 +75,9 @@ export const preciousMetalsCryptoOracleRecords: ResearchRecord[] = [
     forecastStart: "2026-07-27",
     forecastEnd: "2026-07-31",
     assetId: "gold",
-    assetName: lt("黄金ETF", "黃金ETF", "Gold ETF"),
-    symbol: "GLD",
-    sourceSymbol: "GLD",
+    assetName: lt("国际金价", "國際金價", "International Gold"),
+    symbol: "GOLD",
+    sourceSymbol: "GC=F",
     appliedAssetId: "gold",
     market: "commodity",
     framework: "oracle-six-yao",

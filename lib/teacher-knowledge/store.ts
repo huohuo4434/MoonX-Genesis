@@ -7,6 +7,7 @@ import "server-only";
 import { randomBytes } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
+import seedData from "@/data/teacher-knowledge-seed.json";
 import type {
   ConflictRecordRow,
   KnowledgeStatus,
@@ -64,12 +65,63 @@ function empty(): StoreFile {
   };
 }
 
+function normalizeStore(input: Partial<StoreFile> | null | undefined): StoreFile {
+  const base = empty();
+  const parsed = input ?? {};
+  return {
+    ...base,
+    ...parsed,
+    version: 1,
+    lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
+    versions: Array.isArray(parsed.versions) ? parsed.versions : [],
+    rules: Array.isArray(parsed.rules) ? parsed.rules : [],
+    cases: Array.isArray(parsed.cases) ? parsed.cases : [],
+    concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
+    quotes: Array.isArray(parsed.quotes) ? parsed.quotes : [],
+    methods: Array.isArray(parsed.methods) ? parsed.methods : [],
+    conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
+    seq: parsed.seq ?? { lesson: 0, rule: 0, case: 0 },
+    aiReaderLogs: Array.isArray(parsed.aiReaderLogs) ? parsed.aiReaderLogs : [],
+  };
+}
+
+function readSeed(): StoreFile {
+  return normalizeStore(seedData as unknown as Partial<StoreFile>);
+}
+
+function mergeRows<T extends { id: string }>(current: T[], seed: T[]): T[] {
+  const ids = new Set(current.map((row) => row.id));
+  return [...current, ...seed.filter((row) => !ids.has(row.id))];
+}
+
+function mergeSeed(current: StoreFile): StoreFile {
+  const seed = readSeed();
+  return {
+    ...current,
+    lessons: mergeRows(current.lessons, seed.lessons),
+    versions: mergeRows(current.versions, seed.versions),
+    rules: mergeRows(current.rules, seed.rules),
+    cases: mergeRows(current.cases, seed.cases),
+    concepts: mergeRows(current.concepts, seed.concepts),
+    quotes: mergeRows(current.quotes, seed.quotes),
+    methods: mergeRows(current.methods, seed.methods),
+    conflicts: mergeRows(current.conflicts, seed.conflicts),
+    seq: {
+      lesson: Math.max(current.seq.lesson, seed.seq.lesson),
+      rule: Math.max(current.seq.rule, seed.seq.rule),
+      case: Math.max(current.seq.case, seed.seq.case),
+    },
+  };
+}
+
 function readLocal(): StoreFile {
   try {
-    if (!existsSync(LOCAL)) return empty();
-    return { ...empty(), ...(JSON.parse(readFileSync(LOCAL, "utf8")) as StoreFile), version: 1 };
+    const local = existsSync(LOCAL)
+      ? normalizeStore(JSON.parse(readFileSync(LOCAL, "utf8")) as Partial<StoreFile>)
+      : empty();
+    return mergeSeed(local);
   } catch {
-    return empty();
+    return mergeSeed(empty());
   }
 }
 
@@ -86,21 +138,7 @@ async function loadStore(): Promise<StoreFile> {
       const { data } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
       if (data) {
         const parsed = JSON.parse(await data.text()) as Partial<StoreFile>;
-        return {
-          ...empty(),
-          ...parsed,
-          version: 1,
-          lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
-          versions: Array.isArray(parsed.versions) ? parsed.versions : [],
-          rules: Array.isArray(parsed.rules) ? parsed.rules : [],
-          cases: Array.isArray(parsed.cases) ? parsed.cases : [],
-          concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
-          quotes: Array.isArray(parsed.quotes) ? parsed.quotes : [],
-          methods: Array.isArray(parsed.methods) ? parsed.methods : [],
-          conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
-          seq: parsed.seq ?? { lesson: 0, rule: 0, case: 0 },
-          aiReaderLogs: Array.isArray(parsed.aiReaderLogs) ? parsed.aiReaderLogs : [],
-        };
+        return mergeSeed(normalizeStore(parsed));
       }
     }
   } catch {

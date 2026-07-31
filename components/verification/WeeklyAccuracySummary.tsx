@@ -74,7 +74,7 @@ export function WeeklyAccuracySummary({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <Text variant="body" weight="semibold">
-                    {item.symbol} · {item.weekStart} 至 {item.weekEnd}
+                    {item.symbol === "GLD" ? "GOLD" : item.symbol} · {item.weekStart} 至 {item.weekEnd}
                   </Text>
                   <Text variant="body-sm" color="secondary" className="mt-1">
                     预测：{item.predictedPattern} · 实际：{item.actualPattern ?? "持续跟踪中"}

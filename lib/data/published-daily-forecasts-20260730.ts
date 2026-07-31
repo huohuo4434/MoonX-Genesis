@@ -123,7 +123,7 @@ export const PUBLISHED_DAILY_FORECASTS_20260730: DailyForecast[] = [
   {
     id: "DAILY-GLD-20260730-V1",
     assetId: "gold",
-    assetName: "黄金ETF",
+    assetName: "国际金价",
     symbol: "GLD",
     market: "commodity",
     forecastForDate: "2026-07-30",
@@ -320,7 +320,7 @@ export const PUBLISHED_DAILY_FORECASTS_20260731: DailyForecast[] = [
   {
     id: "DAILY-GLD-20260731-V1",
     assetId: "gold",
-    assetName: "黄金ETF",
+    assetName: "国际金价",
     symbol: "GLD",
     market: "commodity",
     forecastForDate: "2026-07-31",

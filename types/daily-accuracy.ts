@@ -249,12 +249,13 @@ export const DAILY_ACCURACY_ASSETS = [
   },
   {
     key: "GLD",
-    assetName: "黄金ETF",
+    assetName: "国际金价",
     shortName: "黄金",
     symbol: "GLD",
-    quoteSymbol: "GLD",
-    market: "US" as const,
+    quoteSymbol: "GC=F",
+    market: "US_FUTURES" as const,
     displayOrder: 6,
+    displayNote: "行情及验证使用COMEX黄金期货连续合约GC=F，单位为美元/盎司。",
   },
   {
     key: "WTI",

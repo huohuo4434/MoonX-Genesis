@@ -13,6 +13,7 @@ import {
 import { getTodayForecastAccessPayload, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { getCurrentWeeklyEdition } from "@/lib/data/weekly-edition";
 import { routes } from "@/lib/navigation";
+import { displayMarketCode } from "@/lib/forecasts/formal-direction";
 
 /** Daily page: tomorrow member entry + today's gated forecasts + weekly rhythm context. */
 export async function DailyMarketForecastSection() {
@@ -63,7 +64,7 @@ export async function DailyMarketForecastSection() {
                 <Card key={f.id} padding="md" className="flex flex-col gap-2">
                   <Text variant="body" weight="semibold">
                     {f.assetName}{" "}
-                    <span className="font-mono text-foreground-tertiary">{f.symbol}</span>
+                    <span className="font-mono text-foreground-tertiary">{displayMarketCode(f.symbol)}</span>
                   </Text>
                   <Text variant="caption" color="tertiary">
                     {f.tradingSessionLabel} · {formatForecastDateZh(f.forecastForDate)}
@@ -161,7 +162,7 @@ export async function DailyMarketForecastSection() {
                   <Card key={f.id} padding="md" className="flex flex-col gap-2">
                     <Text variant="body" weight="semibold">
                       {f.assetName}{" "}
-                      <span className="font-mono text-foreground-tertiary">{f.symbol}</span>
+                      <span className="font-mono text-foreground-tertiary">{displayMarketCode(f.symbol)}</span>
                     </Text>
                     <Text variant="caption" color="tertiary">
                       预测针对 {formatForecastDateZh(f.forecastForDate)}
@@ -225,7 +226,7 @@ export async function DailyMarketForecastSection() {
                 <Card key={card.assetId} padding="md" className="flex flex-col gap-2">
                   <Text variant="body" weight="semibold">
                     {card.nameZhCN}{" "}
-                    <span className="font-mono text-foreground-tertiary">{card.symbol}</span>
+                    <span className="font-mono text-foreground-tertiary">{displayMarketCode(card.symbol)}</span>
                   </Text>
                   {slot ? (
                     <>

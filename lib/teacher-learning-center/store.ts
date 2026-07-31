@@ -233,15 +233,32 @@ export async function searchTeacherKnowledge(query: string) {
 }
 
 export async function getKnowledgeGrowthStats(): Promise<KnowledgeGrowthStats> {
-  const store = readLocal();
-  const learningSeconds = store.lessons.reduce((s, l) => s + (l.durationSec || 0), 0);
-  return {
-    lessonCount: store.lessons.length,
-    learningHours: Math.round((learningSeconds / 3600) * 10) / 10,
-    ruleCount: store.published.rules.length,
-    caseCount: store.published.cases.length,
-    quoteCount: store.published.quotes.length,
-  };
+  try {
+    const formal = await import("@/lib/teacher-knowledge/store");
+    const [lessons, rules, cases, quotes] = await Promise.all([
+      formal.listLessons(),
+      formal.listRules(),
+      formal.listCases(),
+      formal.listQuotes(),
+    ]);
+    return {
+      lessonCount: lessons.length,
+      learningHours: 0,
+      ruleCount: rules.filter((r) => r.status === "APPROVED").length,
+      caseCount: cases.filter((c) => c.status === "APPROVED").length,
+      quoteCount: quotes.filter((q) => q.status === "APPROVED").length,
+    };
+  } catch {
+    const store = readLocal();
+    const learningSeconds = store.lessons.reduce((s, l) => s + (l.durationSec || 0), 0);
+    return {
+      lessonCount: store.lessons.length,
+      learningHours: Math.round((learningSeconds / 3600) * 10) / 10,
+      ruleCount: store.published.rules.length,
+      caseCount: store.published.cases.length,
+      quoteCount: store.published.quotes.length,
+    };
+  }
 }
 
 export async function listActiveTeacherRules(limit = 50) {

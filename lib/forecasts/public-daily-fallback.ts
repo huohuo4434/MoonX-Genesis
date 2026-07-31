@@ -25,7 +25,7 @@ export const PUBLIC_FALLBACK_MARKETS = [
 
 function analysisCodes(marketCode: string): string[] {
   if (marketCode === "SHCOMP") return ["SHCOMP", "000001.SS", "SSEC"];
-  if (marketCode === "GLD") return ["GLD", "Gold"];
+  if (marketCode === "GLD") return ["GLD", "Gold", "GOLD", "XAU", "GC=F"];
   return [marketCode];
 }
 

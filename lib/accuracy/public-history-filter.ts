@@ -17,6 +17,8 @@ import { inferPredictedPattern } from "@/lib/verification/pattern-classifier";
  * Public history: HIT / MISS only (PARTIAL maps here if introduced later).
  * VOID / MANUAL_REVIEW / PENDING / DRAFT / LOCKED never appear on public pages.
  */
+export const OFFICIAL_DAILY_VERIFICATION_START = "2026-08-01";
+
 export const PUBLIC_FINAL_VERDICTS = new Set<DailyVerdict>([
   "HIT",
   "FULL_HIT",
@@ -111,6 +113,8 @@ export function filterPublicAccuracyHistory(input: {
   const items: PublicAccuracyHistoryItem[] = [];
   for (const r of input.results) {
     if (r.isSystemTest) continue;
+    // Records before the official baseline remain internal trial archives.
+    if (r.forecastDate < OFFICIAL_DAILY_VERIFICATION_START) continue;
     if (!r.verifiedAt) continue;
     if (!isPublicFinalVerdict(r.verdict)) continue;
     // Strict: forecastDate < today (never <=)
@@ -150,7 +154,7 @@ export function filterPublicAccuracyHistory(input: {
     items.push({
       forecastId: r.forecastId,
       forecastDate: r.forecastDate,
-      assetName: r.assetName || f?.assetName || r.symbol,
+      assetName: r.symbol === "GLD" ? "国际金价" : (r.assetName || f?.assetName || r.symbol),
       symbol: r.symbol,
       market: f?.market ?? "CRYPTO",
       predictedDirection,

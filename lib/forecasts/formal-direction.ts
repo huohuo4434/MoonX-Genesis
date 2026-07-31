@@ -67,9 +67,18 @@ export function normalizeTomorrowDirection(raw: string | null | undefined): stri
 }
 
 export function displayMarketCode(symbol: string): string {
-  if (symbol === "000001.SS" || symbol === "SSEC") return "SHCOMP";
-  if (symbol === "^GSPC") return "SPX";
-  if (symbol === "CL=F" || symbol === "CL") return "WTI";
-  if (symbol === "XAUUSD") return "GLD";
+  const code = symbol.trim().toUpperCase();
+  if (code === "000001.SS" || code === "SSEC" || code === "SSE") return "SHCOMP";
+  if (code === "^GSPC") return "SPX";
+  if (code === "CL=F" || code === "CL") return "WTI";
+  if (
+    code === "GLD" ||
+    code === "GOLD" ||
+    code === "XAU" ||
+    code === "XAUUSD" ||
+    code === "GC=F"
+  ) {
+    return "GOLD";
+  }
   return symbol;
 }

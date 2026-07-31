@@ -36,7 +36,7 @@ function analysisAsWeeklySource(
     marketCode === "SHCOMP" || marketCode === "SSEC"
       ? ["SHCOMP", "000001.SS", "SSEC"]
       : marketCode === "GLD"
-        ? ["GLD", "Gold"]
+        ? ["GLD", "Gold", "GOLD", "XAU", "GC=F"]
         : [marketCode];
   const candidates = ALL_WEEKLY_ANALYSES.filter((w: WeeklyAnalysisRecord) => {
     const display = w.displaySymbol ?? "";

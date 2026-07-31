@@ -32,7 +32,19 @@ export function resolveCanonicalQuoteSymbol(symbol: string, quoteSymbol: string)
   if (s === "SSEC" || s === "SSE" || q === "000001.SS") return "000001.SS";
   if (s === "WTI" || q === "WTI" || q === "CL=F") return "CL=F";
   if (s === "BTC" || q === "BTC-USD") return "BTC-USD";
-  if (s === "GLD" || q === "GLD") return "GLD";
+  if (
+    s === "GLD" ||
+    s === "GOLD" ||
+    s === "XAU" ||
+    s === "XAUUSD" ||
+    q.toUpperCase() === "GLD" ||
+    q.toUpperCase() === "GOLD" ||
+    q.toUpperCase() === "XAU" ||
+    q.toUpperCase() === "XAUUSD" ||
+    q.toUpperCase() === "GC=F"
+  ) {
+    return "GC=F";
+  }
   return q || quoteSymbol;
 }
 

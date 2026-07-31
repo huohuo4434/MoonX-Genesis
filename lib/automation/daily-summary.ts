@@ -30,7 +30,7 @@ export function assetAccuracyBreakdown(results: DailyVerificationResult[]): Arra
     NDX: "纳斯达克100",
     SSEC: "上证指数",
     HSTECH: "恒生科技指数",
-    GLD: "黄金ETF",
+    GLD: "国际金价",
     WTI: "WTI原油",
   };
   const symbols = ["BTC", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "WTI"];

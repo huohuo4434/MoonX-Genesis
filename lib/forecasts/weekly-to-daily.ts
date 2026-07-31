@@ -26,8 +26,10 @@ const MARKET_META: Record<
   SHCOMP: { assetName: "上证指数", legacyMarket: "cn", quoteSymbol: "000001.SS" },
   SSEC: { assetName: "上证指数", legacyMarket: "cn", quoteSymbol: "000001.SS" },
   HSTECH: { assetName: "恒生科技", legacyMarket: "hk", quoteSymbol: "HSTECH.HK" },
-  GLD: { assetName: "黄金", legacyMarket: "us", quoteSymbol: "GLD" },
-  Gold: { assetName: "黄金", legacyMarket: "us", quoteSymbol: "GLD" },
+  GLD: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
+  Gold: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
+  GOLD: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
+  XAU: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
   WTI: { assetName: "WTI原油", legacyMarket: "commodity", quoteSymbol: "CL=F" },
 };
 
