@@ -142,9 +142,9 @@ function PublicAssetCard({
               <div className="mt-3">
                 <p className="text-caption text-white/35">关注逻辑</p>
                 <ol className="mt-2 space-y-2 pl-5">
-                  {card.thesisZh.map((line, idx) => (
+                  {card.thesisZh.map((line) => (
                     <li key={line} className="list-decimal text-body-sm text-white/75">
-                      {idx + 1}. {line}
+                      {line}
                     </li>
                   ))}
                 </ol>
@@ -182,14 +182,12 @@ function PublicAssetCard({
           </div>
           <ul className="mt-3 space-y-1.5 text-caption text-white/55">
             {[
-              "今日分析",
-              "下一交易日",
-              "本周路径",
-              "关键价格",
-              "AI分析",
-              "Master I Ching分析",
-              "Wave分析",
-              "历史验证",
+              "本周分析",
+              "月度分析",
+              "六爻依据",
+              "多方法观点（有来源时）",
+              "总趋势资料库",
+              "历史验证（新基准后）",
             ].map((label) => (
               <li key={label} className="flex items-center gap-2">
                 {locked ? <span aria-hidden className="text-white/45">🔒</span> : <span aria-hidden className="text-emerald-300/70">✓</span>}

@@ -88,6 +88,16 @@ function WeeklyPanel({ weekly }: { weekly: MemberStockWeeklyMemberView }) {
   );
 }
 
+function Stars({ value }: { value: number }) {
+  const safe = Math.max(1, Math.min(5, Math.round(value)));
+  return (
+    <span className="font-mono text-amber-300" aria-label={`${safe}星共识`}>
+      {"★".repeat(safe)}
+      <span className="text-white/15">{"★".repeat(5 - safe)}</span>
+    </span>
+  );
+}
+
 function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
   if (!slot.forecast) {
     return (
@@ -99,19 +109,34 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
     );
   }
   const f = slot.forecast;
+  const currentDate = new Date().toISOString().slice(0, 10);
+  const ended = f.periodEnd < currentDate;
   return (
-    <Card padding="md" className="min-w-0 space-y-2 overflow-hidden border-white/[0.08] bg-[#0c0e12]">
-      <div className="flex flex-wrap items-center gap-2">
-        <Text variant="body" weight="semibold" className="text-white">
-          {slot.labelZh}分析
-        </Text>
-        <Badge variant="outline">{f.direction}</Badge>
-        <Badge variant="outline">风险 {f.riskLevel}</Badge>
+    <Card padding="md" className="min-w-0 space-y-5 overflow-hidden border-white/[0.08] bg-[#0c0e12]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Text variant="body" weight="semibold" className="text-white">
+              {slot.labelZh}分析
+            </Text>
+            <Badge variant="outline">{f.direction}</Badge>
+            <Badge variant="outline">风险 {f.riskLevel}</Badge>
+            {ended ? <Badge variant="outline">周期已结束 · 等待更新</Badge> : null}
+          </div>
+          <Text variant="caption" className="block text-white/45">
+            周期：{f.periodStart} 至 {f.periodEnd} · 版本 V{f.version}
+          </Text>
+        </div>
+        {f.consensusStars ? (
+          <div className="rounded-lg border border-amber-400/15 bg-amber-400/[0.04] px-3 py-2 text-right">
+            <p className="text-caption text-white/40">方法共识</p>
+            <Stars value={f.consensusStars} />
+          </div>
+        ) : null}
       </div>
-      <Text variant="caption" className="block text-white/45">
-        周期：{f.periodStart} 至 {f.periodEnd} · 版本 v{f.version}
-      </Text>
-      {f.upProbability + f.sidewaysProbability + f.downProbability > 0 ? (
+
+      <section className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">综合判断</p>
         <ProbRow
           p={{
             up: f.upProbability,
@@ -119,47 +144,98 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
             down: f.downProbability,
           }}
         />
-      ) : (
-        <Text variant="caption" className="block text-amber-200/80">
-          正式概率待复核，不参与准确率统计
+        <Text variant="body-sm" className="block break-words leading-relaxed text-white/80">
+          {f.summary}
         </Text>
-      )}
-      <Text variant="body-sm" className="block break-words text-white/75">
-        {f.summary}
-      </Text>
-      <Text variant="caption" className="block break-words text-white/55">
-        路径：{f.expectedPath}
-      </Text>
-      <Text variant="caption" className="block text-white/45">
-        六爻：{f.ichingEvidence.primaryHexagram}
-        {f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}
-      </Text>
-      <Text variant="caption" className="block text-white/40">
-        {f.ichingEvidence.notes}
-      </Text>
-      {f.risks.length ? (
-        <Text variant="caption" className="block text-white/45">
-          风险：{f.risks.join("；")}
+        {f.consensusLabel ? (
+          <Text variant="caption" className="block text-amber-200/75">
+            共识说明：{f.consensusLabel}
+          </Text>
+        ) : null}
+      </section>
+
+      <section className="space-y-2">
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">运行路径</p>
+        <Text variant="body-sm" className="block break-words leading-relaxed text-white/70">
+          {f.expectedPath}
         </Text>
+      </section>
+
+      {f.methodViews?.length ? (
+        <section className="space-y-2">
+          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">多方法观点</p>
+          <div className="grid gap-2 md:grid-cols-2">
+            {f.methodViews.map((view) => (
+              <div key={view.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-body-sm font-medium text-white/80">{view.label}</p>
+                  <span className="text-caption text-white/40">权重 {view.weight}%</span>
+                </div>
+                <p className="mt-1 text-caption text-primary">{view.direction}</p>
+                <p className="mt-1 text-caption leading-relaxed text-white/55">{view.summary}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       ) : null}
-      <ForecastEvidencePanel
-        items={buildForecastModuleEvidence({
-          directionLabel: f.direction,
-          summary: f.summary,
-          expectedPath: f.expectedPath ? [f.expectedPath] : undefined,
-          probabilities: {
-            up: f.upProbability,
-            flat: f.sidewaysProbability,
-            down: f.downProbability,
-          },
-          risks: f.risks,
-          catalysts: f.ichingEvidence?.primaryHexagram
-            ? [`六爻：${f.ichingEvidence.primaryHexagram}`, f.ichingEvidence.notes].filter(Boolean)
-            : undefined,
-          evidenceRecordIds: f.ichingEvidence?.primaryHexagram ? [`iching:${f.id}`] : undefined,
-        })}
-      />
+
+      <section className="space-y-2">
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">六爻依据</p>
+        <Text variant="body-sm" className="block text-white/75">
+          {f.ichingEvidence.primaryHexagram}
+          {f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}
+        </Text>
+        <Text variant="caption" className="block break-words leading-relaxed text-white/50">
+          {f.ichingEvidence.notes}
+        </Text>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <section className="space-y-2 rounded-lg border border-white/[0.06] p-3">
+          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">催化因素</p>
+          <ul className="space-y-1 text-caption text-white/60">
+            {f.catalysts.length ? f.catalysts.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立催化信号</li>}
+          </ul>
+        </section>
+        <section className="space-y-2 rounded-lg border border-white/[0.06] p-3">
+          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">主要风险</p>
+          <ul className="space-y-1 text-caption text-white/60">
+            {f.risks.length ? f.risks.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立风险信号</li>}
+          </ul>
+        </section>
+      </div>
     </Card>
+  );
+}
+
+function LongTermArchive({ periods }: { periods: ConvictionPeriodSlot[] }) {
+  const items = periods.filter((slot) => slot.forecast?.archiveSummary);
+  if (!items.length) return null;
+  return (
+    <details className="rounded-xl border border-white/[0.08] bg-[#0c0e12] p-4">
+      <summary className="cursor-pointer list-none text-body-sm font-medium text-white/80">
+        总趋势资料库
+        <span className="ml-2 text-caption font-normal text-white/40">长期材料仅作大方向背景</span>
+      </summary>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {items.map((slot) => {
+          const f = slot.forecast!;
+          return (
+            <div key={f.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-body-sm font-medium text-white/80">{slot.labelZh}</p>
+                <Badge variant="outline">{f.direction}</Badge>
+              </div>
+              <p className="mt-2 text-caption leading-relaxed text-white/55">{f.archiveSummary}</p>
+              <p className="mt-2 text-caption text-white/35">
+                {f.ichingEvidence.primaryHexagram}
+                {f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 
@@ -170,10 +246,12 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   const unlockHref = payload.isAuthenticated
     ? "/pricing"
     : `/login?next=${encodeURIComponent(a.detailHref)}`;
-  const isStaticPeriodAsset = ["asteroid", "mu", "hype"].includes(a.slug);
+  const isStaticPeriodAsset = ["cxmt", "asteroid", "mu", "hype", "eth"].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
   const tabs = payload.periodSlots;
-  const [tab, setTab] = useState(tabs[0]?.type ?? "TODAY");
+  const visibleTypes = new Set(tabs.map((item) => item.type));
+  const archivePeriods = payload.forecast?.periods?.filter((item) => !visibleTypes.has(item.type)) ?? [];
+  const [tab, setTab] = useState(tabs[0]?.type ?? "WEEK");
 
   return (
     <div className="min-h-screen bg-[#07080a] text-white">
@@ -290,7 +368,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <section className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-transparent p-5">
             <h2 className="text-h3 text-white">会员专享预测</h2>
             <p className="mt-2 text-body-sm text-white/55">
-              完整方向、概率、路径与关键价位仅对有效会员与管理员开放。
+              本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员与管理员开放。
             </p>
             <ul className="mt-4 space-y-2 text-body-sm text-white/60">
               {payload.locks.map((lock) => (
@@ -320,16 +398,19 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             ) : null}
 
             {isStaticPeriodAsset && payload.forecast?.periods ? (
-              <PeriodPanel
-                slot={
-                  payload.forecast.periods.find((p) => p.type === tab) ?? {
-                    type: tab,
-                    labelZh: tabs.find((t) => t.type === tab)?.labelZh ?? tab,
-                    emptyZh: tabs.find((t) => t.type === tab)?.emptyZh ?? "该周期预测尚未发布",
-                    forecast: null,
+              <>
+                <PeriodPanel
+                  slot={
+                    payload.forecast.periods.find((p) => p.type === tab) ?? {
+                      type: tab,
+                      labelZh: tabs.find((t) => t.type === tab)?.labelZh ?? tab,
+                      emptyZh: tabs.find((t) => t.type === tab)?.emptyZh ?? "该周期预测尚未发布",
+                      forecast: null,
+                    }
                   }
-                }
-              />
+                />
+                <LongTermArchive periods={archivePeriods} />
+              </>
             ) : (
               <>
                 {tab === "TODAY" ? (
@@ -384,7 +465,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                 ))
               ) : (
                 <Text variant="body-sm" className="text-white/55">
-                  暂无已完成验证的历史预测
+                  正式验证从2026年8月1日新基准开始积累
                 </Text>
               )}
             </section>

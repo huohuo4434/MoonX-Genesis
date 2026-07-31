@@ -16,10 +16,22 @@ import {
 } from "@/lib/data/conviction/asteroid-forecasts";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
+  LONGXIN_FULL_PERIOD_ORDER,
+  LONGXIN_VISIBLE_PERIOD_ORDER,
+  listLongxinPeriodForecasts,
+} from "@/lib/data/conviction/longxin-forecasts";
+import {
   listMuHypePeriodForecasts,
   periodMetaForAsset,
   PERIOD_ORDER_BY_ASSET,
+  VISIBLE_PERIOD_ORDER_BY_ASSET,
 } from "@/lib/data/conviction/mu-hype-forecasts";
+import {
+  ETH_PERIOD_ORDER,
+  ETH_VISIBLE_PERIOD_ORDER,
+  ethPeriodMeta,
+  listEthPeriodForecasts,
+} from "@/lib/data/conviction/eth-forecasts";
 import {
   getConvictionAssetBySlug,
   listPublicConvictionCards,
@@ -105,7 +117,9 @@ function filterPastVerifiedHistory(
   now = new Date()
 ): MemberStockVerificationResult[] {
   const todayKey = getChinaDateKey(now);
+  const officialBaseline = "2026-08-01";
   return results.filter((r) => {
+    if (r.forecastDate < officialBaseline) return false;
     if (!(r.forecastDate < todayKey)) return false;
     const v = String(r.verdict);
     if (v === "pending" || v === "not_eligible" || v === "manual_review") return false;
@@ -113,14 +127,33 @@ function filterPastVerifiedHistory(
   });
 }
 
+function staticPublished(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+  if (assetId === "cxmt") return listLongxinPeriodForecasts();
+  if (assetId === "asteroid") return listAsteroidPeriodForecasts();
+  if (assetId === "eth") return listEthPeriodForecasts();
+  return listMuHypePeriodForecasts(assetId);
+}
+
+function fullOrder(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+  if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
+  if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
+  if (assetId === "eth") return ETH_PERIOD_ORDER;
+  return PERIOD_ORDER_BY_ASSET[assetId];
+}
+
+function visibleOrder(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+  if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
+  if (assetId === "asteroid") return ["WEEK", "MONTH_1"] as ConvictionForecastType[];
+  if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
+  return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
+}
+
 function buildStaticPeriodSlots(
-  assetId: "asteroid" | "mu" | "hype",
+  assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth",
   includeBody: boolean
 ): ConvictionPeriodSlot[] {
-  const published =
-    assetId === "asteroid" ? listAsteroidPeriodForecasts() : listMuHypePeriodForecasts(assetId);
-  const order = assetId === "asteroid" ? ASTEROID_PERIOD_ORDER : PERIOD_ORDER_BY_ASSET[assetId];
-  return order.map((type) => {
+  const published = staticPublished(assetId);
+  return fullOrder(assetId).map((type) => {
     const hit = published.find((f) => f.forecastType === type) ?? null;
     return {
       type,
@@ -129,6 +162,18 @@ function buildStaticPeriodSlots(
       forecast: includeBody ? hit : null,
     };
   });
+}
+
+function publicPeriodMeta(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+  if (assetId === "eth") return ethPeriodMeta();
+  if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
+  const published = staticPublished(assetId);
+  return visibleOrder(assetId).map((type) => ({
+    type,
+    labelZh: ASTEROID_PERIOD_LABELS[type].zh,
+    emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
+    hasResearch: published.some((f) => f.forecastType === type),
+  }));
 }
 
 export async function getConvictionDetailPayload(
@@ -141,24 +186,15 @@ export async function getConvictionDetailPayload(
   const full = hasConvictionFullAccess(access);
   const pub = toPublicCard(asset);
   const staticPeriodAsset =
-    asset.slug === "asteroid" || asset.slug === "mu" || asset.slug === "hype"
+    asset.slug === "cxmt" ||
+    asset.slug === "asteroid" ||
+    asset.slug === "mu" ||
+    asset.slug === "hype" ||
+    asset.slug === "eth"
       ? asset.slug
       : null;
 
-  const publicPeriodMeta =
-    staticPeriodAsset === "asteroid"
-      ? ASTEROID_PERIOD_ORDER.map((type) => ({
-          type,
-          labelZh: ASTEROID_PERIOD_LABELS[type].zh,
-          emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
-          hasResearch:
-            type === "TODAY" || type === "TOMORROW"
-              ? false
-              : Boolean(listAsteroidPeriodForecasts().find((f) => f.forecastType === type)),
-        }))
-      : staticPeriodAsset === "mu" || staticPeriodAsset === "hype"
-        ? periodMetaForAsset(staticPeriodAsset)
-        : [];
+  const visiblePeriodMeta = staticPeriodAsset ? publicPeriodMeta(staticPeriodAsset) : [];
 
   if (!full) {
     return {
@@ -168,7 +204,7 @@ export async function getConvictionDetailPayload(
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
       periodSlots: staticPeriodAsset
-        ? publicPeriodMeta
+        ? visiblePeriodMeta
         : [
             { type: "TODAY", labelZh: "今日", emptyZh: "今日分析尚未发布", hasResearch: true },
             { type: "TOMORROW", labelZh: "明日", emptyZh: "下一交易日分析尚未发布", hasResearch: true },
@@ -186,7 +222,7 @@ export async function getConvictionDetailPayload(
       isAuthenticated: true,
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
-      periodSlots: publicPeriodMeta,
+      periodSlots: visiblePeriodMeta,
       forecast: {
         today: null,
         tomorrow: null,
@@ -208,7 +244,7 @@ export async function getConvictionDetailPayload(
       isAuthenticated: true,
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
-      periodSlots: publicPeriodMeta,
+      periodSlots: visiblePeriodMeta,
       forecast: {
         today: null,
         tomorrow: null,

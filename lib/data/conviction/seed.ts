@@ -4,7 +4,7 @@
  */
 import type { ConvictionAsset } from "@/types/conviction-asset";
 
-export const CONVICTION_ASSETS_MAX = 5;
+export const CONVICTION_ASSETS_MAX = 12;
 
 export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
   {
@@ -75,7 +75,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: null,
     marketCapCurrency: "CNY",
     marketCapUpdatedAt: null,
-    researchUpdatedAt: "2026-07-28",
+    researchUpdatedAt: "2026-07-31",
     displayOrder: 1,
     isPublished: true,
     memberForecastStockId: "688825",
@@ -154,7 +154,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: 26_180_000,
     marketCapCurrency: "USD",
     marketCapUpdatedAt: "2026-07-29T14:55:00+08:00",
-    researchUpdatedAt: "2026-07-29",
+    researchUpdatedAt: "2026-07-31",
     displayOrder: 2,
     isPublished: true,
     memberForecastStockId: null,
@@ -247,6 +247,53 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     isPublished: true,
     memberForecastStockId: null,
   },
+  {
+    id: "eth",
+    slug: "eth",
+    assetType: "CRYPTO",
+    nameZh: "以太坊",
+    nameEn: "Ethereum",
+    aliases: ["ETH", "Ethereum", "以太坊"],
+    symbol: "ETH",
+    exchange: null,
+    network: "Ethereum",
+    contractAddress: null,
+    contractPendingAdminConfirm: false,
+    status: "published",
+    riskLevel: "高",
+    rating: "A",
+    tags: ["Layer 1", "Smart Contract", "DeFi", "7×24", "Cycle Watch"],
+    summaryZh:
+      "以太坊是主流智能合约平台和加密资产基础设施。MOOX将ETH作为长期重点观察资产，分别跟踪短期方向、中期周期、长期存续性与深度回撤风险。",
+    summaryEn:
+      "Ethereum is a major smart-contract platform and crypto-market infrastructure asset. MOOX tracks ETH across short-term direction, medium-term cycles, long-term durability, and drawdown risk.",
+    thesisZh: [
+      "智能合约、DeFi、稳定币和链上结算构成长期基础需求。",
+      "价格同时受加密市场风险偏好、流动性、监管与网络升级影响。",
+      "六爻材料显示短期存在阶段性上行窗口，但一年尺度并不支持持续单边上涨。",
+      "三年和十年材料更偏向多轮牛熊循环，而不是归零或十年直线上涨。",
+      "按北京时间自然日进行7×24方向验证，并与技术结构、周期观点分开统计。",
+    ],
+    thesisEn: [
+      "Smart contracts, DeFi, stablecoins, and on-chain settlement provide structural demand.",
+      "Price remains sensitive to crypto risk appetite, liquidity, regulation, and protocol upgrades.",
+      "Liu Yao material supports a tactical near-term upside window but not a one-way one-year bull market.",
+      "Three- and ten-year readings imply repeated boom-bust cycles rather than extinction or uninterrupted appreciation.",
+      "Daily validation uses the Beijing calendar day, with technical and cycle modules tracked separately.",
+    ],
+    catalystsZh: ["网络升级", "稳定币与链上结算", "DeFi活跃度", "机构配置", "加密市场风险偏好"],
+    catalystsEn: ["Network upgrades", "Stablecoins and settlement", "DeFi activity", "Institutional allocation", "Crypto risk appetite"],
+    risksZh: ["加密市场深度回撤", "监管风险", "Layer 1竞争", "网络与合约安全", "周期顶部后的快速下跌"],
+    risksEn: ["Crypto drawdowns", "Regulatory risk", "Layer-1 competition", "Network and smart-contract risk", "Fast declines after cycle peaks"],
+    marketCap: null,
+    marketCapCurrency: "USD",
+    marketCapUpdatedAt: null,
+    researchUpdatedAt: "2026-07-31",
+    displayOrder: 5,
+    isPublished: true,
+    memberForecastStockId: null,
+  },
+
 ];
 
 if (CONVICTION_ASSET_SEED.length > CONVICTION_ASSETS_MAX) {
@@ -254,12 +301,10 @@ if (CONVICTION_ASSET_SEED.length > CONVICTION_ASSETS_MAX) {
 }
 
 export const CONVICTION_MEMBER_LOCKS = [
-  { key: "today", labelZh: "今日分析", labelEn: "Today analysis" },
-  { key: "tomorrow", labelZh: "下一交易日", labelEn: "Next session" },
-  { key: "weekly", labelZh: "本周路径", labelEn: "Weekly path" },
-  { key: "levels", labelZh: "关键价格", labelEn: "Key price levels" },
-  { key: "ai", labelZh: "AI分析", labelEn: "AI analysis" },
-  { key: "master_iching", labelZh: "Master I Ching分析", labelEn: "Master I Ching analysis" },
-  { key: "wave", labelZh: "Wave分析", labelEn: "Wave intelligence" },
+  { key: "weekly", labelZh: "本周分析", labelEn: "Weekly analysis" },
+  { key: "monthly", labelZh: "月度分析", labelEn: "Monthly analysis" },
+  { key: "iching", labelZh: "六爻依据", labelEn: "Liu Yao evidence" },
+  { key: "consensus", labelZh: "多方法观点", labelEn: "Multi-method views" },
+  { key: "archive", labelZh: "总趋势资料库", labelEn: "Long-term archive" },
   { key: "history", labelZh: "历史验证", labelEn: "Historical verification" },
 ] as const;

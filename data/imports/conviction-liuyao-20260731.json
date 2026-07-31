@@ -1,0 +1,99 @@
+{
+  "batchId": "conviction-liuyao-20260731",
+  "importedAt": "2026-07-31T21:20:00+08:00",
+  "policy": {
+    "publicFocusHorizons": [
+      "WEEK",
+      "MONTH_1"
+    ],
+    "longHorizons": "archive_only",
+    "dailyFocusForecasts": false,
+    "rawImagesStoredInRepository": false
+  },
+  "assets": [
+    {
+      "assetId": "cxmt",
+      "nameZh": "长鑫科技",
+      "sources": [
+        {
+          "question": "开盘一周走势",
+          "primary": "地山谦",
+          "changed": "水山蹇",
+          "role": "weekly_supplement"
+        },
+        {
+          "question": "当前至2026-08-02走势",
+          "primary": "山雷颐",
+          "changed": "风地观",
+          "role": "weekly_primary"
+        },
+        {
+          "question": "未来1个月走势",
+          "primary": "地火明夷",
+          "changed": "山地剥",
+          "role": "monthly_primary"
+        },
+        {
+          "question": "未来3个月走势",
+          "primary": "山水蒙",
+          "changed": "风山渐",
+          "role": "archive"
+        },
+        {
+          "question": "未来1年走势",
+          "primary": "地火明夷",
+          "changed": "水火既济",
+          "role": "archive"
+        },
+        {
+          "question": "未来10年走势",
+          "primary": "地雷复",
+          "changed": "水地比",
+          "role": "archive"
+        }
+      ]
+    },
+    {
+      "assetId": "asteroid",
+      "nameZh": "Asteroid（太空狗）",
+      "sources": [
+        {
+          "question": "未来7天走势",
+          "primary": "火地晋",
+          "changed": null,
+          "role": "weekly_primary"
+        },
+        {
+          "question": "未来1个月走势",
+          "primary": "水地比",
+          "changed": "水山蹇",
+          "role": "monthly_primary"
+        },
+        {
+          "question": "未来3个月走势（首次）",
+          "primary": "艮为山",
+          "changed": "风山渐",
+          "role": "archive_support"
+        },
+        {
+          "question": "未来3个月走势（复测）",
+          "primary": "地火明夷",
+          "changed": "雷火丰",
+          "role": "archive_primary"
+        },
+        {
+          "question": "未来1年走势",
+          "primary": "地风升",
+          "changed": "地山谦",
+          "role": "archive"
+        },
+        {
+          "question": "未来5年走势",
+          "primary": "山天大畜",
+          "changed": "离为火",
+          "role": "archive"
+        }
+      ]
+    }
+  ]
+}
