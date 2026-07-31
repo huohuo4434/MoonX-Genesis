@@ -45,7 +45,7 @@ export default async function AdminWeeklyPage() {
             下一次固定发布
           </Text>
           <Text variant="body" weight="semibold" className="mt-1">
-            每周日 20:00
+            系统自动更新
           </Text>
         </Card>
       </div>

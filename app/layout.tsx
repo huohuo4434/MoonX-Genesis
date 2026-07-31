@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import { FooterShell, NavbarShell } from "@/components/layout";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
@@ -7,18 +6,6 @@ import { DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { siteConfig } from "@/lib/site-config";
 import { runResearchDataValidation } from "@/lib/research/run-validation";
 import "@/styles/globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -49,7 +36,7 @@ export default async function RootLayout({
 
   return (
     <html lang={DEFAULT_LOCALE}>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <LocaleProvider>
           <NavbarShell />
           <div className="pb-16 md:pb-0">{children}</div>

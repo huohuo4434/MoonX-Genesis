@@ -16,14 +16,8 @@ import {
   buildForecastModuleEvidence,
   dailyForecastToEvidenceSource,
 } from "@/lib/methodology/evidence";
-import {
-  FORMAL_PUBLISH_LABEL,
-  TOMORROW_SCHEDULE_COPY,
-  plannedPublishAtIso,
-} from "@/lib/calendar/publish-windows";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast } from "@/types/daily-forecast";
-import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 
 function isPending(f: DailyForecast) {
   return f.confidence <= 0 || f.summary === "研究尚未完成" || f.status === "draft";
@@ -207,10 +201,10 @@ export function MemberTomorrowHiddenPage({
             下一交易日模块未对会员开放
           </Heading>
           <Text variant="body-sm" color="secondary" className="mt-2">
-            {adminHint ?? "未到北京时间20:00，或正式 PUBLISHED 批次不存在。"}
+            {adminHint ?? "自动预测批次暂未生成，系统会继续重试。"}
           </Text>
           <Text variant="caption" color="tertiary" className="mt-2 block">
-            固定发布时间：{FORMAL_PUBLISH_LABEL}
+            发布方式：系统自动生成并持续更新，管理员仅作必要修正。
           </Text>
           <div className="mt-4">
             <Button asChild>
@@ -231,7 +225,7 @@ export function TomorrowForecastContent({
   embedded?: boolean;
 }) {
   const ordered = sortByDailyAssetOrder(
-    forecasts.filter((f) => !isPending(f) && hasConcreteLevels(f))
+    forecasts.filter((f) => !isPending(f))
   );
   if (ordered.length === 0) {
     return embedded ? null : <MemberTomorrowHiddenPage isAdmin={false} />;
@@ -252,15 +246,14 @@ export function TomorrowForecastContent({
           会员专享
         </Badge>
         <Heading as={headingAs} size={embedded ? "h3" : "h2"} className="mb-2">
-          {TOMORROW_SCHEDULE_COPY.title}
+          下一交易日预测
         </Heading>
         <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
-          {TOMORROW_SCHEDULE_COPY.description}
+          系统自动综合周度方向、关键日期与技术结构并持续更新。技术点位暂缺时，方向和路径仍照常展示。
         </Text>
         <Text variant="caption" color="tertiary" className="mb-6 block">
-          目标交易日 {formatDateChina(nextDate)} · 实际发布{" "}
-          {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version} · 计划{" "}
-          {formatDateTimeChina(plannedPublishAtIso(getBeijingTodayKey()))}
+          目标交易日 {formatDateChina(nextDate)} · 最后更新{" "}
+          {publishedAt ? formatDateTimeChina(publishedAt) : "—"} · {version} · 自动发布
         </Text>
 
         <div className="grid gap-4 lg:grid-cols-2">

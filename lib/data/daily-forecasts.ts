@@ -85,12 +85,18 @@ function eveningIso(dateIso: string, hour = 21, minute = 30): string {
   return d.toISOString();
 }
 
-/** Human-reviewed publish gate — AI must not auto-publish. */
+/**
+ * Publish eligibility. Both locked system forecasts and administrator overrides are valid.
+ * The site must never be blank merely because an administrator did not act.
+ */
 export function isHumanPublishedForecast(f: DailyForecast): boolean {
   if (f.status === "draft" || f.status === "scheduled") return false;
-  if (!f.reviewedBy || !f.reviewedAt || !f.publishedBy) return false;
+  const hasPublisher = Boolean(f.publishedBy);
+  const isSystemPublisher = f.publishedBy === "weekly-to-daily" || f.publishedBy === "moox-auto-engine";
+  const hasReview = Boolean(f.reviewedBy && f.reviewedAt);
+  if (!hasPublisher || (!hasReview && !isSystemPublisher)) return false;
   if (f.confidence <= 0) return false;
-  if (f.summary === "研究尚未完成") return false;
+  if (!f.summary || f.summary === "研究尚未完成") return false;
   return f.status === "published" || f.status === "revised" || f.status === "expired" || f.status === "verified";
 }
 

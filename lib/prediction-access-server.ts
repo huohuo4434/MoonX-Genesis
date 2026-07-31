@@ -85,6 +85,23 @@ async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
   for (const f of fromLegacy) {
     if (f.forecastForDate === today) byAsset.set(f.assetId, f);
   }
+
+  // Autonomous fallback: derive today's formal rows from the locked weekly source
+  // whenever the database batch is missing. This prevents a blank homepage.
+  try {
+    const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
+    const { generateCoreMarketsFromWeeklyPure } = await import("@/lib/forecasts/daily-pipeline");
+    const { generatedDailyToUi } = await import("@/lib/forecasts/generated-to-ui");
+    const persisted = await listGeneratedDailiesForDate(today);
+    const generated = persisted.length ? persisted : generateCoreMarketsFromWeeklyPure(today, "LOCKED");
+    for (const g of generated) {
+      const ui = generatedDailyToUi(g, "public");
+      if (ui.forecastForDate === today && !byAsset.has(ui.assetId)) byAsset.set(ui.assetId, ui);
+    }
+  } catch (err) {
+    console.warn("[today] autonomous weekly fallback skipped", err);
+  }
+
   return sortByDailyAssetOrder(
     [...byAsset.values()]
       .filter(isHumanPublishedForecast)
@@ -97,7 +114,6 @@ async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
 export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
   const { getStoreForecastsForTomorrow } = await import("@/lib/data/store-to-ui-forecasts");
-  const { formalBatchReady } = await import("@/lib/calendar/publish-windows");
   const storeTomorrow = await getStoreForecastsForTomorrow(now);
   const legacy = getMemberTomorrowForecasts(now);
   const byAsset = new Map<string, DailyForecast>();
@@ -108,7 +124,7 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     if (isHumanPublishedForecast(f) && f.forecastForDate > today) byAsset.set(f.assetId, f);
   }
 
-  // Weekly→daily: fill missing markets after Beijing 20:00 (or always merge locked DB rows).
+  // Weekly→daily: always merge locked DB rows and deterministic fallbacks.
   try {
     const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
     const { generateCoreMarketsFromWeeklyPure, CORE_DAILY_MARKETS } = await import(
@@ -133,14 +149,12 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
       }
     }
 
-    if (formalBatchReady(now)) {
-      for (const date of [...targetDates].sort()) {
-        const generated = generateCoreMarketsFromWeeklyPure(date, "LOCKED");
-        for (const g of generated) {
-          const ui = generatedDailyToUi(g, "member");
-          if (ui.forecastForDate > today && !byAsset.has(ui.assetId)) {
-            byAsset.set(ui.assetId, ui);
-          }
+    for (const date of [...targetDates].sort()) {
+      const generated = generateCoreMarketsFromWeeklyPure(date, "LOCKED");
+      for (const g of generated) {
+        const ui = generatedDailyToUi(g, "member");
+        if (ui.forecastForDate > today && !byAsset.has(ui.assetId)) {
+          byAsset.set(ui.assetId, ui);
         }
       }
     }
@@ -150,15 +164,9 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
 
   // Keep all markets even when target dates differ (holiday roll per market).
   // Never surface published rows that still lack technical zones (no empty shells).
-  const rows = [...byAsset.values()].filter((f) => {
-    if (!(isHumanPublishedForecast(f) && f.forecastForDate > today)) return false;
-    const hasZones =
-      Boolean(f.supportLevels?.some((s) => /\d/.test(s) && /—|–|-/.test(s))) &&
-      Boolean(f.resistanceLevels?.some((s) => /\d/.test(s) && /—|–|-/.test(s))) &&
-      Boolean(f.confirmation && /\d/.test(f.confirmation)) &&
-      Boolean(f.invalidation && /\d/.test(f.invalidation));
-    return hasZones;
-  });
+  const rows = [...byAsset.values()].filter(
+    (f) => isHumanPublishedForecast(f) && f.forecastForDate > today
+  );
   return sortByDailyAssetOrder(rows.map(sanitizeForecastForClient));
 }
 
@@ -248,7 +256,6 @@ export async function getTomorrowForecastAccessPayload(
 ): Promise<TomorrowForecastAccessPayload> {
   noStore();
   const { access } = await resolveTomorrowPredictionAccess(now);
-  const { formalBatchReady } = await import("@/lib/calendar/publish-windows");
 
   if (!access.allowed) {
     return {
@@ -259,16 +266,6 @@ export async function getTomorrowForecastAccessPayload(
         access.reason === "LOGIN_REQUIRED"
           ? TOMORROW_PREDICTION_MESSAGES.LOGIN_REQUIRED
           : TOMORROW_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
-    };
-  }
-
-  // Members: only after Beijing 20:00 with published rows.
-  // Admins may inspect via /admin; member API still respects the public gate.
-  if (access.reason !== "ADMIN" && !formalBatchReady(now)) {
-    return {
-      allowed: true,
-      access,
-      forecasts: [],
     };
   }
 

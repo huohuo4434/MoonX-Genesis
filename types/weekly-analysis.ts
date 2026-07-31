@@ -26,6 +26,16 @@ export type WeeklyAnalysisRevision = {
   reason: string;
 };
 
+export type WeeklyKeyDate = {
+  /** Gregorian date in YYYY-MM-DD. Never expose only a stem/branch label. */
+  date: string;
+  label: string;
+  expectedEffect: "上涨" | "下跌" | "转折" | "波动放大" | "企稳" | "冲高回落" | "探底回升";
+  sources: Array<"LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO">;
+  confidence?: number;
+  note?: string;
+};
+
 export type WeeklyAnalysisRecord = {
   id: string;
   assetId: string;
@@ -41,6 +51,8 @@ export type WeeklyAnalysisRecord = {
   probabilities: { up: number; flat: number; down: number };
   strongWindow?: string;
   weakWindow?: string;
+  /** Key dates converted to exact Gregorian dates by CalendarService. */
+  keyDates?: WeeklyKeyDate[];
   keySupport?: string[];
   keyResistance?: string[];
   invalidation: string;

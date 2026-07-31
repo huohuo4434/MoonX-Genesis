@@ -11,13 +11,7 @@ export async function GET() {
   const payload = await getTodayForecastAccessPayload();
 
   if (!payload.allowed) {
-    const safeTeaser = {
-      published: false,
-      marketCount: 0,
-      forecastDate: null as string | null,
-      publishedAt: null as string | null,
-      locked: true as const,
-    };
+    const safeTeaser = payload.teaser;
     if (payload.access.reason === "LOGIN_REQUIRED") {
       return NextResponse.json(
         {

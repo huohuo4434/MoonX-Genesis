@@ -1,6 +1,7 @@
 /**
  * Server-only gate for tomorrow forecasts.
- * Before Beijing 20:00 or without PUBLISHED rows: hide the entire module (no shells).
+ * The autonomous engine publishes continuously. Membership controls visibility,
+ * but administrator action and a fixed clock time are never publication dependencies.
  */
 import "server-only";
 
@@ -10,7 +11,6 @@ import {
   type MemberUserContext,
 } from "@/lib/access/member-preview";
 import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
-import { formalBatchReady } from "@/lib/calendar/publish-windows";
 import {
   buildTomorrowPublicSummary,
   isHumanPublishedForecast,
@@ -24,7 +24,7 @@ import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { DailyForecast, DailyForecastTeaser, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
 export type TomorrowSectionPayload =
-  | { mode: "hidden"; publishedBatchExists: boolean }
+  | { mode: "hidden"; publishedBatchExists: boolean; nextDateIso?: string; lastUpdatedLabel?: string }
   | {
       mode: "member";
       summary: TomorrowForecastPublicSummary;
@@ -60,21 +60,26 @@ export async function getTomorrowSectionPayload(now = new Date()): Promise<Tomor
     loadTomorrowForecastRows(now),
   ]);
   const readyMeta = nextBatch.filter(isHumanPublishedForecast);
-
-  // Public/member UI: never show shells before 20:00 or without a published batch.
-  if (!formalBatchReady(now) || readyMeta.length === 0) {
-    if (payload.allowed && payload.access.reason === "ADMIN") {
-      // Admins still get rows (including drafts) only via admin pages — not this public module.
-    }
-    return { mode: "hidden", publishedBatchExists: false };
-  }
+  const summary = buildSummary(readyMeta, now);
 
   if (!payload.allowed) {
-    return { mode: "hidden", publishedBatchExists: true };
+    return {
+      mode: "hidden",
+      publishedBatchExists: readyMeta.length > 0,
+      nextDateIso: summary.nextDateIso,
+      lastUpdatedLabel: summary.lastUpdatedLabel,
+    };
   }
 
   const ready = payload.forecasts.filter(isHumanPublishedForecast);
-  if (ready.length === 0) return { mode: "hidden", publishedBatchExists: true };
+  if (ready.length === 0) {
+    return {
+      mode: "hidden",
+      publishedBatchExists: false,
+      nextDateIso: summary.nextDateIso,
+      lastUpdatedLabel: summary.lastUpdatedLabel,
+    };
+  }
 
   return {
     mode: "member",
@@ -107,14 +112,11 @@ export async function getMemberTomorrowPagePayload(now = new Date()): Promise<Me
   ]);
 
   if (section.mode === "hidden") {
-    const after = formalBatchReady(now);
     return {
       mode: "hidden",
       isAdmin: Boolean(user.isAdmin),
       adminHint: user.isAdmin
-        ? after
-          ? "下一交易日预测仍未正式发布或未通过技术价位校验（TECHNICAL_PRICE_DATA_UNAVAILABLE / 禁止表达）。"
-          : "北京时间20:00前不向会员展示下一交易日模块；草稿仅在后台可见。"
+        ? "自动预测批次暂未生成。系统会在下一轮定时任务继续重试；管理员也可在预测后台手动触发。"
         : undefined,
     };
   }
@@ -128,9 +130,7 @@ export async function getMemberTomorrowPagePayload(now = new Date()): Promise<Me
     return {
       mode: "hidden",
       isAdmin: Boolean(user.isAdmin),
-      adminHint: user.isAdmin
-        ? "正式批次为空：请检查生成任务与发布校验。"
-        : undefined,
+      adminHint: user.isAdmin ? "自动预测批次为空，请检查周度来源与生成任务。" : undefined,
     };
   }
 
@@ -162,18 +162,10 @@ export async function getTodayPublicForecastPayload(now = new Date()): Promise<{
 }> {
   const { getTodayForecastAccessPayload } = await import("@/lib/prediction-access-server");
   const payload = await getTodayForecastAccessPayload(now);
-  if (!payload.allowed) {
-    return {
-      forecasts: [],
-      verifying: false,
-      accessAllowed: false,
-      accessReason: payload.access.reason,
-    };
-  }
   return {
-    forecasts: payload.forecasts,
-    verifying: payload.verifying,
-    accessAllowed: true,
+    forecasts: payload.allowed ? payload.forecasts : [],
+    verifying: payload.allowed ? payload.verifying : false,
+    accessAllowed: payload.allowed,
     accessReason: payload.access.reason,
   };
 }

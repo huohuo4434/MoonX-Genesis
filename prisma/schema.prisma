@@ -583,6 +583,9 @@ model TeacherLesson {
   lessonCode        String   @unique
   title             String
   teacherName       String   @default("")
+  /// LIUYAO | QIMEN | BAZI | DAYAN | TECHNICAL | MACRO
+  primaryMethod     String   @default("LIUYAO")
+  auxiliaryMethods Json?
   courseSeries      String   @default("")
   lessonNumber      String   @default("")
   lessonDate        DateTime?
@@ -613,6 +616,7 @@ model TeacherLesson {
 
   @@index([status])
   @@index([teacherName])
+  @@index([primaryMethod])
   @@index([courseSeries])
   @@index([createdAt])
   @@map("teacher_lessons")
@@ -803,4 +807,50 @@ model TeacherLearningLog {
   @@index([day])
   @@index([createdAt])
   @@map("teacher_learning_logs")
+}
+
+/// Objective weekly verification. Separate from daily accuracy.
+model WeeklyVerificationRecord {
+  id              String   @id
+  weeklyAnalysisId String  @unique
+  assetId         String
+  symbol          String
+  weekStart       String
+  weekEnd         String
+  predictedPattern String
+  actualPattern   String?
+  result          String   @default("PENDING")
+  directionScore  Int?
+  pathScore       Int?
+  levelScore      Int?
+  totalScore      Int?
+  dataSource      String?
+  explanation     String?
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([weekEnd, result])
+  @@index([assetId, weekStart])
+}
+
+/// Optional administrator override. Automation remains the default publisher.
+model ForecastOverride {
+  id            String   @id
+  scope         String
+  assetId       String
+  targetDate    String
+  direction     String?
+  supportLevels Json?
+  resistanceLevels Json?
+  confirmation  String?
+  invalidation  String?
+  note          String?
+  enabled       Boolean  @default(true)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([scope, assetId, targetDate])
+  @@index([targetDate, enabled])
 }

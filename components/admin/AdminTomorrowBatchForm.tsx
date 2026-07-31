@@ -51,7 +51,7 @@ export function AdminTomorrowBatchForm() {
       setMessage(`已建草稿 ${ok}/7。失败：${errors.join("；")}`);
     } else {
       setMessage(
-        `已创建 ${ok} 个市场草稿（${forecastDate}）。请补全方向后调用「生成技术价位并发布」；北京时间20:00前会员页不展示。`
+        `已创建 ${ok} 个市场草稿（${forecastDate}）。请补全方向后调用「生成技术价位并发布」；系统会自动发布，管理员仅作可选修正。`
       );
     }
     router.refresh();

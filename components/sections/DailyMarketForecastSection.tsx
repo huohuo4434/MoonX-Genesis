@@ -8,10 +8,9 @@ import {
   buildTomorrowPublicSummary,
   CORE_TOMORROW_ASSETS,
   displayDirection,
-  getMemberTomorrowForecasts,
   isHumanPublishedForecast,
 } from "@/lib/data/daily-forecasts";
-import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
+import { getTodayForecastAccessPayload, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { getCurrentWeeklyEdition } from "@/lib/data/weekly-edition";
 import { routes } from "@/lib/navigation";
 
@@ -25,7 +24,7 @@ export async function DailyMarketForecastSection() {
     Promise.resolve(buildTomorrowPublicSummary(now)),
     getTodayForecastAccessPayload(now),
   ]);
-  const memberForecasts = user.isMember ? getMemberTomorrowForecasts(now) : [];
+  const memberForecasts = user.isMember ? await loadTomorrowForecastRows(now) : [];
   const todayForecasts = todayPayload.allowed ? todayPayload.forecasts : [];
 
   return (
@@ -52,7 +51,7 @@ export async function DailyMarketForecastSection() {
         </Text>
         <Text variant="body-sm" color="secondary" className="mb-4">
           {summary.allDraft
-            ? `计划覆盖 ${summary.assetCount} 项资产 · 预测草稿待人工审核`
+            ? `计划覆盖 ${summary.assetCount} 项资产 · 系统自动生成中`
             : `已发布 ${summary.publishedCount} 项预测 · 最后更新 ${summary.lastUpdatedLabel}`}
         </Text>
 
