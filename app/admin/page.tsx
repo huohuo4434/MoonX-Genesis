@@ -109,6 +109,8 @@ export default async function AdminHomePage() {
           {(
             [
               ["/admin/forecasts", "今日／明日观点"],
+              ["/admin/forecast-control", "管理员走势总控"],
+              ["/admin/support-resistance", "支撑压力录入"],
               ["/admin/stocks", "个股分析"],
               ["/admin/users", "用户与会员"],
               ["/admin/payments", "支付审核"],
