@@ -102,6 +102,22 @@ async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
     console.warn("[today] autonomous weekly fallback skipped", err);
   }
 
+  // Lightweight fallback: independent of Prisma, Supabase, technical market data,
+  // and the automation pipeline. A persistence/provider failure must not leave
+  // the homepage blank when a valid weekly forecast exists.
+  try {
+    const { buildWeeklyDerivedFallbacks } = await import(
+      "@/lib/forecasts/public-daily-fallback"
+    );
+    for (const ui of buildWeeklyDerivedFallbacks(today, "public")) {
+      if (ui.forecastForDate === today && !byAsset.has(ui.assetId)) {
+        byAsset.set(ui.assetId, ui);
+      }
+    }
+  } catch (err) {
+    console.warn("[today] lightweight weekly fallback skipped", err);
+  }
+
   return sortByDailyAssetOrder(
     [...byAsset.values()]
       .filter(isHumanPublishedForecast)
@@ -160,6 +176,28 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     }
   } catch (err) {
     console.warn("[tomorrow] weekly-to-daily merge skipped", err);
+  }
+
+  // Independent weekly fallback for the next calendar/session dates.
+  try {
+    const { buildWeeklyDerivedFallbacks, PUBLIC_FALLBACK_MARKETS } = await import(
+      "@/lib/forecasts/public-daily-fallback"
+    );
+    const { getNextForecastDate } = await import("@/lib/calendar/next-trading-day");
+    const { marketMeta } = await import("@/lib/forecasts/weekly-to-daily");
+    const dates = new Set<string>();
+    for (const marketCode of PUBLIC_FALLBACK_MARKETS) {
+      dates.add(getNextForecastDate(marketMeta(marketCode).legacyMarket, today));
+    }
+    for (const date of [...dates].sort()) {
+      for (const ui of buildWeeklyDerivedFallbacks(date, "member")) {
+        if (ui.forecastForDate > today && !byAsset.has(ui.assetId)) {
+          byAsset.set(ui.assetId, ui);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[tomorrow] lightweight weekly fallback skipped", err);
   }
 
   // Keep all markets even when target dates differ (holiday roll per market).

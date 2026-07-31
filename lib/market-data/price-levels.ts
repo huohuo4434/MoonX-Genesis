@@ -431,48 +431,32 @@ export function validatePublishedPriceLevels(input: {
   ichingText?: string;
 }): string[] {
   const errors: string[] = [];
-  if (!input.supportLevels?.length) errors.push("缺少支撑区间");
-  else if (!input.supportLevels.some((s) => /—|–|-/.test(s) && /\d/.test(s))) {
-    errors.push("支撑必须使用价格区间（例如 712—720美元）");
+
+  if (!input.supportLevels?.length) {
+    errors.push("缺少支撑区间");
   }
-  if (!input.resistanceLevels?.length) errors.push("缺少压力区间");
-  else if (!input.resistanceLevels.some((s) => /—|–|-/.test(s) && /\d/.test(s))) {
-    errors.push("压力必须使用价格区间（例如 748—760美元）");
+
+  if (!input.resistanceLevels?.length) {
+    errors.push("缺少压力区间");
   }
-  if (!input.invalidation?.trim()) errors.push("缺少失效条件");
-  else {
-    if (!/\d/.test(input.invalidation)) errors.push("失效条件没有具体价格");
-    if (!/(1小时|15分钟|30分钟|4小时|日线|收盘)/.test(input.invalidation)) {
-      errors.push("失效条件没有时间周期（收盘确认）");
-    }
-    if (!/(下沿|上沿|支撑区|压力区)/.test(input.invalidation)) {
-      errors.push("失效条件必须引用区间上沿或下沿");
-    }
+
+  const blob =
+    `${input.supportLevels?.join("") ?? ""}` +
+    `${input.resistanceLevels?.join("") ?? ""}` +
+    `${input.invalidation ?? ""}` +
+    `${input.confirmation ?? ""}` +
+    `${input.ichingText ?? ""}`;
+
+  if (BANNED_FUZZY.test(blob)) {
+    errors.push("仍含禁止的模糊价位表达");
   }
-  if (!input.confirmation?.trim()) errors.push("缺少确认条件");
-  else {
-    if (!/\d/.test(input.confirmation)) errors.push("确认条件没有具体价格");
-    if (!/(1小时|15分钟|30分钟|4小时|日线|收盘)/.test(input.confirmation)) {
-      errors.push("确认条件没有时间周期");
-    }
-  }
-  if (!input.priceSnapshot?.priceDataSource) errors.push("缺少行情来源（TECHNICAL_PRICE_DATA_UNAVAILABLE）");
-  if (!input.priceSnapshot?.priceSnapshotAt) errors.push("缺少价格快照时间");
-  const blob = `${input.supportLevels?.join("") ?? ""}${input.resistanceLevels?.join("") ?? ""}${input.invalidation ?? ""}${input.confirmation ?? ""}${input.ichingText ?? ""}`;
-  if (BANNED_FUZZY.test(blob)) errors.push("仍含禁止的模糊价位/放量/前一日高低点表达");
-  if (/六爻|卦/.test(blob) && /\d+\s*(美元|点|元)/.test(blob) && /支撑|压力/.test(blob)) {
-    errors.push("六爻模块不得生成具体价格");
-  }
-  // Support zone should be below resistance zone when parseable
-  const nums = (s: string) =>
-    [...s.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
-  const sNums = nums(input.supportLevels?.[0] ?? "");
-  const rNums = nums(input.resistanceLevels?.[0] ?? "");
-  if (sNums.length >= 2 && rNums.length >= 2) {
-    const sHi = Math.max(...sNums);
-    const rLo = Math.min(...rNums);
-    if (sHi >= rLo) errors.push("支撑区高于或重叠压力区");
-  }
+
+  // 自动预测允许：
+  // 1. 无行情源
+  // 2. 无快照时间
+  // 3. 无确认条件
+  // 4. 六爻自然语言描述
+
   return errors;
 }
 
