@@ -197,6 +197,52 @@ function normalizeLevelTimeframe(scope: string): AdminLevelTimeframe {
   return "1D";
 }
 
+function isMissingDatabaseTable(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    code === "P2021" ||
+    /does not exist in the current database/i.test(message) ||
+    /relation .* does not exist/i.test(message)
+  );
+}
+
+async function optionalIChingResearchRows() {
+  if (!prisma) return [];
+  try {
+    return await prisma.iChingResearch.findMany({
+      orderBy: [{ forecastStartAt: "asc" }, { updatedAt: "desc" }],
+      take: 500,
+    });
+  } catch (error) {
+    if (!isMissingDatabaseTable(error)) throw error;
+    console.warn(
+      "IChingResearch table is unavailable; using built-in research records instead."
+    );
+    return [];
+  }
+}
+
+async function optionalForecastOverrideRows() {
+  if (!prisma) return [];
+  try {
+    return await prisma.forecastOverride.findMany({
+      where: { enabled: true },
+      orderBy: [{ targetDate: "asc" }, { updatedAt: "desc" }],
+      take: 500,
+    });
+  } catch (error) {
+    if (!isMissingDatabaseTable(error)) throw error;
+    console.warn(
+      "ForecastOverride table is unavailable; continuing without database overrides."
+    );
+    return [];
+  }
+}
+
 async function databaseRows(): Promise<{
   forecasts: AdminCycleForecastRow[];
   keyDates: AdminKeyDateRecord[];
@@ -208,15 +254,8 @@ async function databaseRows(): Promise<{
   }
 
   const [research, overrides] = await Promise.all([
-    prisma.iChingResearch.findMany({
-      orderBy: [{ forecastStartAt: "asc" }, { updatedAt: "desc" }],
-      take: 500,
-    }),
-    prisma.forecastOverride.findMany({
-      where: { enabled: true },
-      orderBy: [{ targetDate: "asc" }, { updatedAt: "desc" }],
-      take: 500,
-    }),
+    optionalIChingResearchRows(),
+    optionalForecastOverrideRows(),
   ]);
 
   const forecasts: AdminCycleForecastRow[] = research.map((row) => {
@@ -579,14 +618,22 @@ export async function evaluateBreakout(input: {
         : "IN_RANGE";
 
   const aliases = ASSET_ALIASES[input.assetId] ?? [input.assetId];
-  const research = await prisma.iChingResearch.findMany({
-    where: {
-      assetId: { in: aliases },
-      forecastEndAt: { gte: input.eventDate },
-    },
-    orderBy: [{ updatedAt: "desc" }],
-    take: 20,
-  });
+  let research: Awaited<ReturnType<typeof prisma.iChingResearch.findMany>> = [];
+  try {
+    research = await prisma.iChingResearch.findMany({
+      where: {
+        assetId: { in: aliases },
+        forecastEndAt: { gte: input.eventDate },
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 20,
+    });
+  } catch (error) {
+    if (!isMissingDatabaseTable(error)) throw error;
+    console.warn(
+      "IChingResearch table is unavailable; breakout alignment will use no database research."
+    );
+  }
   const evidence = research
     .map((row) =>
       row.masterDirectionConclusion || row.internalDirectionConclusion || row.directionConclusion || ""
