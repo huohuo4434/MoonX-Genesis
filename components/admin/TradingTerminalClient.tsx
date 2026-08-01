@@ -171,10 +171,36 @@ export function TradingTerminalClient({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  async function readApiJson<T>(
+    res: Response,
+    label: string
+  ): Promise<T> {
+    const text = await res.text();
+    if (!text.trim()) {
+      throw new Error(`${label}接口没有返回内容（HTTP ${res.status}）`);
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      const isHtml =
+        text.trimStart().startsWith("<!DOCTYPE") ||
+        text.trimStart().startsWith("<html");
+      throw new Error(
+        isHtml
+          ? `${label}接口返回了网页错误页（HTTP ${res.status}），监控接口可能未部署完整。`
+          : `${label}接口返回格式错误（HTTP ${res.status}）。`
+      );
+    }
+  }
+
   async function refresh() {
     const res = await fetch("/api/admin/trading-v2", { cache: "no-store" });
-    const json = (await res.json()) as TradingV2Snapshot & { error?: string };
-    if (!res.ok) throw new Error(json.error || "刷新失败");
+    const json = await readApiJson<TradingV2Snapshot & { error?: string }>(
+      res,
+      "交易终端刷新"
+    );
+    if (!res.ok) throw new Error(json.error || `刷新失败（HTTP ${res.status}）`);
     setSnapshot(json);
   }
 
@@ -188,17 +214,30 @@ export function TradingTerminalClient({
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: body ? JSON.stringify(body) : undefined,
       });
-      const json = (await res.json()) as {
+      const json = await readApiJson<{
         ok?: boolean;
         error?: string;
         result?: { message?: string };
-      };
-      if (!res.ok || json.error) throw new Error(json.error || "操作失败");
-      await refresh();
-      setMessage(json.result?.message || "操作完成");
+      }>(res, "模拟交易");
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `操作失败（HTTP ${res.status}）`);
+      }
+
+      const successMessage = json.result?.message || "操作完成";
+      try {
+        await refresh();
+        setMessage(successMessage);
+      } catch {
+        // 操作接口已成功时，刷新接口异常不应把成功结果误报为失败。
+        window.location.reload();
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "操作失败");
     } finally {
@@ -303,9 +342,14 @@ export function TradingTerminalClient({
       setMessage("价格无效");
       return;
     }
-    const confirmed = window.confirm(
-      "若触及止损，是否已经满足4小时或日线收盘确认？"
+
+    const needsStopConfirmation = ["ACTIVE", "TAKE_PROFIT"].includes(
+      signal.status
     );
+    const confirmed = needsStopConfirmation
+      ? window.confirm("若已经触及止损，是否满足4小时或日线收盘确认？")
+      : false;
+
     await request(
       `/api/admin/trading-v2/signals/${signal.id}/monitor`,
       "POST",
