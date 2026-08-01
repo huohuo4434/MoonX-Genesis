@@ -1,0 +1,1188 @@
+import "server-only";
+
+import { randomUUID } from "crypto";
+import { buildAdminFullCycleSnapshot } from "@/lib/admin/full-cycle-control";
+import {
+  getBitgetDemoDashboard,
+  getBitgetMirrorSettings,
+  syncBitgetDemoOrders,
+} from "@/lib/bitget/demo-connector";
+import { getChinaDateKey } from "@/lib/date/china-date";
+import { getCrypto15mMarketContext } from "@/lib/market-data/crypto-candles";
+import { prisma } from "@/lib/prisma";
+import {
+  listGeneratedDailiesForDate,
+  listWeeklyForecastSources,
+} from "@/lib/weekly-source/store";
+import {
+  createTradeSignal,
+  getTradeSignalById,
+} from "@/lib/trading-signals/store";
+import {
+  ensureTradingV2Tables,
+  getPaperAccount,
+  monitorTradeSignal,
+} from "@/lib/trading-signals/v2-store";
+import type { AdminCycleForecastRow } from "@/types/admin-full-cycle";
+import type {
+  PredictionAutoDecision,
+  PredictionAutoDirection,
+  PredictionAutoRunLog,
+  PredictionAutoRunReport,
+  PredictionAutoRunStatus,
+  PredictionAutoSetup,
+  PredictionAutoSymbol,
+  PredictionAutoTraderDashboard,
+  PredictionAutoTraderSettings,
+  PredictionForecastLeg,
+  PredictionMarketContext,
+  PredictionStrategyPlan,
+} from "@/types/prediction-auto-trader";
+
+type DbSettings = {
+  enabled: boolean;
+  btc_enabled: boolean;
+  eth_enabled: boolean;
+  position_pct: number;
+  stop_loss_pct: number;
+  target_1_pct: number;
+  target_2_pct: number;
+  target_3_pct: number;
+  min_dip_pct: number;
+  rebound_confirm_pct: number;
+  min_rally_pct: number;
+  reversal_confirm_pct: number;
+  min_forecast_confidence: number;
+  max_trades_per_symbol_day: number;
+  require_daily_weekly_alignment: boolean;
+  started_at: Date | string | null;
+  last_run_at: Date | string | null;
+  last_message: string;
+  updated_at: Date | string;
+};
+
+type DbRun = {
+  id: string;
+  symbol: PredictionAutoSymbol;
+  trading_date: string | Date;
+  status: PredictionAutoRunStatus;
+  action: string;
+  direction: PredictionAutoDirection;
+  price: number | null;
+  weekly_forecast_id: string | null;
+  daily_forecast_id: string | null;
+  signal_id: string | null;
+  reason: string;
+  payload: Record<string, unknown> | null;
+  created_at: Date | string;
+};
+
+type PathPattern =
+  | "UP_THEN_DOWN"
+  | "DOWN_THEN_UP"
+  | "UP"
+  | "DOWN"
+  | "NEUTRAL";
+
+const SYMBOL_META: Record<
+  PredictionAutoSymbol,
+  { assetId: string; assetName: string; tradeSymbol: string }
+> = {
+  BTC: { assetId: "bitcoin", assetName: "比特币", tradeSymbol: "BTC" },
+  ETH: { assetId: "eth", assetName: "以太坊", tradeSymbol: "ETH" },
+};
+
+const DEFAULT_SETTINGS: PredictionAutoTraderSettings = {
+  enabled: false,
+  btcEnabled: true,
+  ethEnabled: true,
+  positionPct: 2,
+  stopLossPct: 1,
+  target1Pct: 1.5,
+  target2Pct: 2.5,
+  target3Pct: 3.5,
+  minDipPct: 0.6,
+  reboundConfirmPct: 0.25,
+  minRallyPct: 0.6,
+  reversalConfirmPct: 0.25,
+  minForecastConfidence: 55,
+  maxTradesPerSymbolDay: 1,
+  requireDailyWeeklyAlignment: true,
+  startedAt: null,
+  lastRunAt: null,
+  lastMessage: "尚未运行",
+  updatedAt: new Date(0).toISOString(),
+};
+
+function iso(value: Date | string | null): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function mapSettings(row: DbSettings | undefined): PredictionAutoTraderSettings {
+  if (!row) return { ...DEFAULT_SETTINGS };
+  return {
+    enabled: Boolean(row.enabled),
+    btcEnabled: Boolean(row.btc_enabled),
+    ethEnabled: Boolean(row.eth_enabled),
+    positionPct: Number(row.position_pct),
+    stopLossPct: Number(row.stop_loss_pct),
+    target1Pct: Number(row.target_1_pct),
+    target2Pct: Number(row.target_2_pct),
+    target3Pct: Number(row.target_3_pct),
+    minDipPct: Number(row.min_dip_pct),
+    reboundConfirmPct: Number(row.rebound_confirm_pct),
+    minRallyPct: Number(row.min_rally_pct),
+    reversalConfirmPct: Number(row.reversal_confirm_pct),
+    minForecastConfidence: Number(row.min_forecast_confidence),
+    maxTradesPerSymbolDay: Number(row.max_trades_per_symbol_day),
+    requireDailyWeeklyAlignment: Boolean(row.require_daily_weekly_alignment),
+    startedAt: iso(row.started_at),
+    lastRunAt: iso(row.last_run_at),
+    lastMessage: row.last_message || "尚未运行",
+    updatedAt: iso(row.updated_at) ?? new Date().toISOString(),
+  };
+}
+
+function mapRun(row: DbRun): PredictionAutoRunLog {
+  const tradingDate =
+    row.trading_date instanceof Date
+      ? row.trading_date.toISOString().slice(0, 10)
+      : String(row.trading_date).slice(0, 10);
+  return {
+    id: row.id,
+    symbol: row.symbol,
+    tradingDate,
+    status: row.status,
+    action: row.action,
+    direction: row.direction,
+    price: row.price == null ? null : Number(row.price),
+    weeklyForecastId: row.weekly_forecast_id,
+    dailyForecastId: row.daily_forecast_id,
+    signalId: row.signal_id,
+    reason: row.reason,
+    payload: row.payload,
+    createdAt: iso(row.created_at) ?? new Date().toISOString(),
+  };
+}
+
+let ensured = false;
+export async function ensurePredictionAutoTraderTables(): Promise<boolean> {
+  if (!(await ensureTradingV2Tables()) || !prisma) return false;
+  if (ensured) return true;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS trade_prediction_auto_settings (
+        id TEXT PRIMARY KEY,
+        enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        btc_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        eth_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        position_pct DOUBLE PRECISION NOT NULL DEFAULT 2,
+        stop_loss_pct DOUBLE PRECISION NOT NULL DEFAULT 1,
+        target_1_pct DOUBLE PRECISION NOT NULL DEFAULT 1.5,
+        target_2_pct DOUBLE PRECISION NOT NULL DEFAULT 2.5,
+        target_3_pct DOUBLE PRECISION NOT NULL DEFAULT 3.5,
+        min_dip_pct DOUBLE PRECISION NOT NULL DEFAULT 0.6,
+        rebound_confirm_pct DOUBLE PRECISION NOT NULL DEFAULT 0.25,
+        min_rally_pct DOUBLE PRECISION NOT NULL DEFAULT 0.6,
+        reversal_confirm_pct DOUBLE PRECISION NOT NULL DEFAULT 0.25,
+        min_forecast_confidence DOUBLE PRECISION NOT NULL DEFAULT 55,
+        max_trades_per_symbol_day INTEGER NOT NULL DEFAULT 1,
+        require_daily_weekly_alignment BOOLEAN NOT NULL DEFAULT TRUE,
+        started_at TIMESTAMPTZ,
+        last_run_at TIMESTAMPTZ,
+        last_message TEXT NOT NULL DEFAULT '尚未运行',
+        run_lock_until TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO trade_prediction_auto_settings (id)
+      VALUES ('default') ON CONFLICT (id) DO NOTHING
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS trade_prediction_auto_runs (
+        id TEXT PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        trading_date DATE NOT NULL,
+        status TEXT NOT NULL,
+        action TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        price DOUBLE PRECISION,
+        weekly_forecast_id TEXT,
+        daily_forecast_id TEXT,
+        signal_id TEXT,
+        reason TEXT NOT NULL DEFAULT '',
+        payload JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS trade_prediction_auto_runs_time_idx
+      ON trade_prediction_auto_runs(created_at DESC)
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS trade_prediction_auto_runs_symbol_date_idx
+      ON trade_prediction_auto_runs(symbol, trading_date, status)
+    `);
+    ensured = true;
+    return true;
+  } catch (error) {
+    console.error("Prediction auto trader tables unavailable", error);
+    return false;
+  }
+}
+
+export async function getPredictionAutoTraderSettings(): Promise<PredictionAutoTraderSettings> {
+  if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
+    return { ...DEFAULT_SETTINGS };
+  }
+  const rows = await prisma.$queryRawUnsafe<DbSettings[]>(
+    `SELECT * FROM trade_prediction_auto_settings WHERE id = 'default' LIMIT 1`
+  );
+  return mapSettings(rows[0]);
+}
+
+export type PredictionAutoSettingsUpdate = Pick<
+  PredictionAutoTraderSettings,
+  | "btcEnabled"
+  | "ethEnabled"
+  | "positionPct"
+  | "stopLossPct"
+  | "target1Pct"
+  | "target2Pct"
+  | "target3Pct"
+  | "minDipPct"
+  | "reboundConfirmPct"
+  | "minRallyPct"
+  | "reversalConfirmPct"
+  | "minForecastConfidence"
+  | "maxTradesPerSymbolDay"
+  | "requireDailyWeeklyAlignment"
+>;
+
+export async function updatePredictionAutoTraderSettings(
+  input: PredictionAutoSettingsUpdate
+): Promise<PredictionAutoTraderSettings> {
+  if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
+    throw new Error("交易数据库未连接");
+  }
+  await prisma.$executeRaw`
+    UPDATE trade_prediction_auto_settings SET
+      btc_enabled = ${input.btcEnabled},
+      eth_enabled = ${input.ethEnabled},
+      position_pct = ${input.positionPct},
+      stop_loss_pct = ${input.stopLossPct},
+      target_1_pct = ${input.target1Pct},
+      target_2_pct = ${input.target2Pct},
+      target_3_pct = ${input.target3Pct},
+      min_dip_pct = ${input.minDipPct},
+      rebound_confirm_pct = ${input.reboundConfirmPct},
+      min_rally_pct = ${input.minRallyPct},
+      reversal_confirm_pct = ${input.reversalConfirmPct},
+      min_forecast_confidence = ${input.minForecastConfidence},
+      max_trades_per_symbol_day = ${input.maxTradesPerSymbolDay},
+      require_daily_weekly_alignment = ${input.requireDailyWeeklyAlignment},
+      updated_at = NOW()
+    WHERE id = 'default'
+  `;
+  return getPredictionAutoTraderSettings();
+}
+
+export async function setPredictionAutoTraderEnabled(
+  enabled: boolean
+): Promise<PredictionAutoTraderSettings> {
+  if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
+    throw new Error("交易数据库未连接");
+  }
+  if (enabled) {
+    const dashboard = await getBitgetDemoDashboard();
+    if (!dashboard.settings.enabled) {
+      throw new Error("请先开启Bitget Demo镜像，再开启预测自动交易");
+    }
+    if (!dashboard.environment.executionAllowed) {
+      throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+    }
+  }
+  await prisma.$executeRaw`
+    UPDATE trade_prediction_auto_settings SET
+      enabled = ${enabled},
+      started_at = CASE
+        WHEN ${enabled} = TRUE AND enabled = FALSE THEN NOW()
+        ELSE started_at
+      END,
+      last_message = ${enabled ? "预测自动交易已开启" : "预测自动交易已停止"},
+      updated_at = NOW()
+    WHERE id = 'default'
+  `;
+  return getPredictionAutoTraderSettings();
+}
+
+function patternFromText(text: string): PathPattern {
+  if (/先涨(?:后|再)跌|冲高回落|先扬后抑|高开低走/.test(text)) return "UP_THEN_DOWN";
+  if (/先跌(?:后|再)涨|探底回升|先抑后扬|先压后修复|低开高走/.test(text)) {
+    return "DOWN_THEN_UP";
+  }
+  if (/强势看涨|震荡上涨|偏强|走强|上涨|反弹|修复|上行/.test(text)) return "UP";
+  if (/强势看跌|震荡下跌|偏弱|走弱|下跌|回落|下行/.test(text)) return "DOWN";
+  return "NEUTRAL";
+}
+
+function directionalFromPattern(pattern: PathPattern): PredictionAutoDirection {
+  if (pattern === "UP" || pattern === "DOWN_THEN_UP") return "LONG";
+  if (pattern === "DOWN" || pattern === "UP_THEN_DOWN") return "SHORT";
+  return "NEUTRAL";
+}
+
+function forecastConfidence(
+  row: AdminCycleForecastRow,
+  direction: PredictionAutoDirection
+): number {
+  const label = row.probabilityLabel;
+  const up = label.match(/涨\s*(\d{1,3}(?:\.\d+)?)%/)?.[1];
+  const down = label.match(/跌\s*(\d{1,3}(?:\.\d+)?)%/)?.[1];
+  const directional = direction === "LONG" ? up : direction === "SHORT" ? down : undefined;
+  if (directional) return Math.min(100, Math.max(0, Number(directional)));
+  const pct = label.match(/(\d{1,3}(?:\.\d+)?)%/)?.[1];
+  if (pct) return Math.min(100, Math.max(0, Number(pct)));
+  return 55;
+}
+
+function forecastScore(row: AdminCycleForecastRow): number {
+  const status = row.status.toLowerCase();
+  const pending = /draft|待|pending|研究尚未完成|暂无判断/.test(
+    `${status} ${row.direction} ${row.path}`
+  );
+  const databaseBonus = /自动日预测数据库|周预测源数据库/.test(row.sourceLabel) ? 500 : 0;
+  return (
+    (pending ? -1000 : 0) +
+    databaseBonus +
+    (row.version ?? 0) * 10 +
+    (/publish|verified|locked|正式/.test(status) ? 100 : 0)
+  );
+}
+
+function marketCodeAssetId(code: string): string | null {
+  const normalized = code.trim().toUpperCase();
+  if (normalized === "BTC" || normalized === "BTCUSDT") return "bitcoin";
+  if (normalized === "ETH" || normalized === "ETHUSDT") return "eth";
+  return null;
+}
+
+async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecastRow[]> {
+  const today = getChinaDateKey(now);
+  const [snapshot, generatedDaily, weeklySources] = await Promise.all([
+    buildAdminFullCycleSnapshot(now),
+    listGeneratedDailiesForDate(today),
+    listWeeklyForecastSources(),
+  ]);
+  const rows = [...snapshot.forecasts];
+
+  for (const item of generatedDaily) {
+    const assetId = marketCodeAssetId(item.marketCode);
+    if (!assetId) continue;
+    rows.push({
+      id: item.id,
+      assetId,
+      horizon: "DAY",
+      periodStart: item.forecastDate,
+      periodEnd: item.forecastDate,
+      direction: item.direction,
+      path: item.expectedPath,
+      probabilityLabel: `涨${item.upProbability}% / 震${item.sidewaysProbability}% / 跌${item.downProbability}%`,
+      sourceLabel: `自动日预测数据库 · ${item.sourceWeeklyForecastId}`,
+      status: item.status,
+      version: item.version,
+    });
+  }
+
+  for (const item of weeklySources) {
+    const assetId = marketCodeAssetId(item.marketCode);
+    if (!assetId) continue;
+    rows.push({
+      id: item.id,
+      assetId,
+      horizon: "WEEK",
+      periodStart: item.periodStart,
+      periodEnd: item.periodEnd,
+      direction: item.weeklyDirection,
+      path: item.weeklyPath,
+      probabilityLabel: "55%置信度",
+      sourceLabel: `周预测源数据库 · ${item.sourceType}`,
+      status: item.status,
+      version: item.version,
+    });
+  }
+
+  return rows;
+}
+
+function selectForecast(
+  rows: AdminCycleForecastRow[],
+  assetId: string,
+  horizon: "DAY" | "WEEK",
+  today: string
+): AdminCycleForecastRow | null {
+  return (
+    rows
+      .filter(
+        (row) =>
+          row.assetId === assetId &&
+          row.horizon === horizon &&
+          row.periodStart <= today &&
+          row.periodEnd >= today
+      )
+      .sort((a, b) => forecastScore(b) - forecastScore(a))[0] ?? null
+  );
+}
+
+function forecastLeg(
+  row: AdminCycleForecastRow | null,
+  direction: PredictionAutoDirection
+): PredictionForecastLeg | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd,
+    direction: row.direction,
+    path: row.path,
+    confidence: forecastConfidence(row, direction),
+    sourceLabel: row.sourceLabel,
+    status: row.status,
+  };
+}
+
+function weeklyPhaseDirection(
+  row: AdminCycleForecastRow | null,
+  now: Date
+): PredictionAutoDirection {
+  if (!row) return "NEUTRAL";
+  const pattern = patternFromText(`${row.direction} ${row.path}`);
+  if (pattern !== "UP_THEN_DOWN" && pattern !== "DOWN_THEN_UP") {
+    return directionalFromPattern(pattern);
+  }
+  const start = Date.parse(`${row.periodStart}T00:00:00+08:00`);
+  const end = Date.parse(`${row.periodEnd}T23:59:59+08:00`);
+  const progress = Math.min(1, Math.max(0, (now.getTime() - start) / Math.max(1, end - start)));
+  if (pattern === "UP_THEN_DOWN") return progress < 0.55 ? "LONG" : "SHORT";
+  return progress < 0.45 ? "SHORT" : "LONG";
+}
+
+function buildPlan(
+  symbol: PredictionAutoSymbol,
+  rows: AdminCycleForecastRow[],
+  settings: PredictionAutoTraderSettings,
+  now: Date
+): PredictionStrategyPlan {
+  const meta = SYMBOL_META[symbol];
+  const today = getChinaDateKey(now);
+  const weeklyRow = selectForecast(rows, meta.assetId, "WEEK", today);
+  const dailyRow = selectForecast(rows, meta.assetId, "DAY", today);
+  const weeklyDirection = weeklyPhaseDirection(weeklyRow, now);
+  const dailyPattern = dailyRow
+    ? patternFromText(`${dailyRow.direction} ${dailyRow.path}`)
+    : "NEUTRAL";
+  const dailyDirection = directionalFromPattern(dailyPattern);
+  const weekly = forecastLeg(weeklyRow, weeklyDirection);
+  const daily = forecastLeg(dailyRow, dailyDirection);
+
+  let setup: PredictionAutoSetup = "HOLD";
+  let reason = "日周方向没有形成可执行共振，暂不下单。";
+  if (!weekly || !daily) {
+    setup = "MISSING_FORECAST";
+    reason = !weekly
+      ? "缺少覆盖今天的周预测，禁止自动下单。"
+      : "缺少覆盖今天的日预测，禁止自动下单。";
+  } else if (
+    weekly.confidence < settings.minForecastConfidence ||
+    daily.confidence < settings.minForecastConfidence
+  ) {
+    reason = `预测置信度不足${settings.minForecastConfidence}%，只观察不下单。`;
+  } else if (weeklyDirection === "LONG") {
+    const supportsLong =
+      dailyPattern === "DOWN_THEN_UP" || dailyPattern === "UP";
+    if (supportsLong || !settings.requireDailyWeeklyAlignment) {
+      setup = "BUY_DIP";
+      reason =
+        dailyPattern === "DOWN_THEN_UP"
+          ? "周趋势当前处于上涨阶段，日预测先跌后涨，等待下探止跌后逢低做多。"
+          : "周趋势当前偏多，日预测不反对多头，等待回落确认后做多。";
+    }
+  } else if (weeklyDirection === "SHORT") {
+    const supportsShort =
+      dailyPattern === "UP_THEN_DOWN" || dailyPattern === "DOWN";
+    if (supportsShort || !settings.requireDailyWeeklyAlignment) {
+      setup = "SELL_RALLY";
+      reason =
+        dailyPattern === "UP_THEN_DOWN"
+          ? "周趋势当前处于下跌阶段，日预测先涨后跌，等待冲高转弱后逢高做空。"
+          : "周趋势当前偏空，日预测不反对空头，等待反弹确认后做空。";
+    }
+  }
+
+  const confidence = weekly && daily ? Math.round((weekly.confidence + daily.confidence) / 2) : 0;
+  return {
+    symbol,
+    assetId: meta.assetId,
+    assetName: meta.assetName,
+    weeklyForecast: weekly,
+    dailyForecast: daily,
+    weeklyDirection,
+    dailyDirection,
+    setup,
+    confidence,
+    reason,
+  };
+}
+
+export async function resolvePredictionStrategyPlans(
+  settings: PredictionAutoTraderSettings,
+  now = new Date()
+): Promise<PredictionStrategyPlan[]> {
+  const rows = await loadPredictionForecastRows(now);
+  return (["BTC", "ETH"] as PredictionAutoSymbol[]).map((symbol) =>
+    buildPlan(symbol, rows, settings, now)
+  );
+}
+
+function directionForSetup(setup: PredictionAutoSetup): PredictionAutoDirection {
+  if (setup === "BUY_DIP") return "LONG";
+  if (setup === "SELL_RALLY") return "SHORT";
+  return "NEUTRAL";
+}
+
+function latestTrendConfirmed(
+  market: PredictionMarketContext,
+  direction: PredictionAutoDirection
+): boolean {
+  if (market.lastCloses.length < 3) return false;
+  const previous = market.lastCloses[market.lastCloses.length - 2];
+  const latest = market.lastCloses[market.lastCloses.length - 1];
+  if (previous == null || latest == null) return false;
+  return direction === "LONG" ? latest > previous : direction === "SHORT" ? latest < previous : false;
+}
+
+function triggerMessage(
+  plan: PredictionStrategyPlan,
+  market: PredictionMarketContext,
+  settings: PredictionAutoTraderSettings
+): { triggered: boolean; message: string } {
+  if (market.candleCount < 4) {
+    return { triggered: false, message: "今日15分钟K线不足4根，继续等待形成日内结构。" };
+  }
+  if (plan.setup === "BUY_DIP") {
+    const dipReady = market.dipPct >= settings.minDipPct;
+    const reboundReady = market.reboundPct >= settings.reboundConfirmPct;
+    const trendReady = latestTrendConfirmed(market, "LONG");
+    return {
+      triggered: dipReady && reboundReady && trendReady,
+      message: `逢低做多监控：下探${market.dipPct.toFixed(2)}% / 要求${settings.minDipPct}%，低点反弹${market.reboundPct.toFixed(2)}% / 要求${settings.reboundConfirmPct}%，15分钟回升确认${trendReady ? "已满足" : "未满足"}。`,
+    };
+  }
+  if (plan.setup === "SELL_RALLY") {
+    const rallyReady = market.rallyPct >= settings.minRallyPct;
+    const reversalReady = market.reversalPct >= settings.reversalConfirmPct;
+    const trendReady = latestTrendConfirmed(market, "SHORT");
+    return {
+      triggered: rallyReady && reversalReady && trendReady,
+      message: `逢高做空监控：冲高${market.rallyPct.toFixed(2)}% / 要求${settings.minRallyPct}%，高点回落${market.reversalPct.toFixed(2)}% / 要求${settings.reversalConfirmPct}%，15分钟转弱确认${trendReady ? "已满足" : "未满足"}。`,
+    };
+  }
+  return { triggered: false, message: plan.reason };
+}
+
+function roundPrice(value: number): number {
+  if (value >= 1000) return Math.round(value * 100) / 100;
+  if (value >= 10) return Math.round(value * 1000) / 1000;
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function priceLevels(
+  direction: PredictionAutoDirection,
+  price: number,
+  settings: PredictionAutoTraderSettings
+): { stop: number; target1: number; target2: number; target3: number } {
+  const sign = direction === "LONG" ? 1 : -1;
+  return {
+    stop: roundPrice(price * (1 - sign * (settings.stopLossPct / 100))),
+    target1: roundPrice(price * (1 + sign * (settings.target1Pct / 100))),
+    target2: roundPrice(price * (1 + sign * (settings.target2Pct / 100))),
+    target3: roundPrice(price * (1 + sign * (settings.target3Pct / 100))),
+  };
+}
+
+async function acquireRunLock(): Promise<boolean> {
+  if (!prisma) return false;
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`
+    UPDATE trade_prediction_auto_settings
+    SET run_lock_until = NOW() + INTERVAL '3 minutes', updated_at = NOW()
+    WHERE id = 'default'
+      AND (run_lock_until IS NULL OR run_lock_until < NOW())
+    RETURNING id
+  `);
+  return Boolean(rows[0]);
+}
+
+async function releaseRunLock(message: string): Promise<void> {
+  if (!prisma) return;
+  await prisma.$executeRaw`
+    UPDATE trade_prediction_auto_settings SET
+      run_lock_until = NULL,
+      last_run_at = NOW(),
+      last_message = ${message},
+      updated_at = NOW()
+    WHERE id = 'default'
+  `;
+}
+
+async function saveRun(input: {
+  plan: PredictionStrategyPlan;
+  status: PredictionAutoRunStatus;
+  action: string;
+  price: number | null;
+  signalId?: string | null;
+  reason: string;
+  market?: PredictionMarketContext | null;
+  now: Date;
+}): Promise<void> {
+  if (!prisma) return;
+  const payload = JSON.stringify({ plan: input.plan, market: input.market ?? null });
+  await prisma.$executeRaw`
+    INSERT INTO trade_prediction_auto_runs (
+      id, symbol, trading_date, status, action, direction, price,
+      weekly_forecast_id, daily_forecast_id, signal_id, reason, payload, created_at
+    ) VALUES (
+      ${`par_${randomUUID()}`}, ${input.plan.symbol}, ${getChinaDateKey(input.now)}::date,
+      ${input.status}, ${input.action}, ${directionForSetup(input.plan.setup)},
+      ${input.price}, ${input.plan.weeklyForecast?.id ?? null},
+      ${input.plan.dailyForecast?.id ?? null}, ${input.signalId ?? null},
+      ${input.reason}, ${payload}::jsonb, NOW()
+    )
+  `;
+}
+
+async function recentRuns(limit = 40): Promise<PredictionAutoRunLog[]> {
+  if (!(await ensurePredictionAutoTraderTables()) || !prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<DbRun[]>(
+    `SELECT * FROM trade_prediction_auto_runs ORDER BY created_at DESC LIMIT $1`,
+    Math.max(1, Math.min(200, limit))
+  );
+  return rows.map(mapRun);
+}
+
+async function cleanOldRuns(): Promise<void> {
+  if (!prisma) return;
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM trade_prediction_auto_runs WHERE created_at < NOW() - INTERVAL '30 days'`
+  );
+}
+
+async function openAutoSymbols(): Promise<Set<PredictionAutoSymbol>> {
+  if (!prisma) return new Set();
+  const rows = await prisma.$queryRawUnsafe<Array<{ symbol: string }>>(`
+    SELECT DISTINCT p.symbol
+    FROM trade_paper_positions p
+    JOIN trade_signals s ON s.id = p.signal_id
+    WHERE p.status <> 'CLOSED' AND s.draft_source = 'PREDICTION_AUTO_TRADER'
+  `);
+  const result = new Set<PredictionAutoSymbol>();
+  for (const row of rows) {
+    const symbol = row.symbol.trim().toUpperCase().replace(/[-_/]/g, "");
+    if (symbol === "BTC" || symbol === "BTCUSDT") result.add("BTC");
+    if (symbol === "ETH" || symbol === "ETHUSDT") result.add("ETH");
+  }
+  return result;
+}
+
+async function autoSignalIds(): Promise<string[]> {
+  if (!prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`
+    SELECT id FROM trade_signals
+    WHERE draft_source = 'PREDICTION_AUTO_TRADER'
+      AND status IN ('ARMED','TRIGGERED','ACTIVE','TAKE_PROFIT')
+    ORDER BY updated_at ASC
+  `);
+  return rows.map((row) => row.id);
+}
+
+async function todayEntryCount(symbol: PredictionAutoSymbol, now: Date): Promise<number> {
+  if (!prisma) return 0;
+  const dayKey = getChinaDateKey(now);
+  const start = new Date(`${dayKey}T00:00:00+08:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const symbolFilter =
+    symbol === "BTC"
+      ? "('BTC','BTCUSDT')"
+      : "('ETH','ETHUSDT')";
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number }>>(
+    `SELECT COUNT(*) AS count
+     FROM trade_paper_orders o
+     JOIN trade_paper_positions p ON p.id = o.position_id
+     JOIN trade_signals s ON s.id = o.signal_id
+     WHERE o.order_type = 'ENTRY'
+       AND s.draft_source = 'PREDICTION_AUTO_TRADER'
+       AND UPPER(REPLACE(REPLACE(REPLACE(p.symbol, '-', ''), '_', ''), '/', '')) IN ${symbolFilter}
+       AND o.created_at >= $1::timestamptz
+       AND o.created_at < $2::timestamptz`,
+    start.toISOString(),
+    end.toISOString()
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+async function autoDraftExists(key: string): Promise<boolean> {
+  if (!prisma) return false;
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM trade_signals WHERE auto_draft_key = $1 LIMIT 1`,
+    key
+  );
+  return Boolean(rows[0]);
+}
+
+async function manageExistingSignals(
+  marketMap: Map<PredictionAutoSymbol, PredictionMarketContext>,
+  plans: Map<PredictionAutoSymbol, PredictionStrategyPlan>,
+  now: Date
+): Promise<PredictionAutoDecision[]> {
+  const decisions: PredictionAutoDecision[] = [];
+  for (const id of await autoSignalIds()) {
+    const signal = await getTradeSignalById(id);
+    if (!signal) continue;
+    const normalized = signal.symbol.trim().toUpperCase().replace(/[-_/]/g, "");
+    const symbol: PredictionAutoSymbol | null =
+      normalized === "BTC" || normalized === "BTCUSDT"
+        ? "BTC"
+        : normalized === "ETH" || normalized === "ETHUSDT"
+          ? "ETH"
+          : null;
+    if (!symbol) continue;
+    const market = marketMap.get(symbol);
+    const plan = plans.get(symbol);
+    if (!market || !plan) continue;
+    try {
+      const result = await monitorTradeSignal({
+        signalId: signal.id,
+        price: market.currentPrice,
+        confirmed: true,
+        execute: true,
+      });
+      const status: PredictionAutoRunStatus = result.executedActions.length ? "MANAGED" : "WAITING";
+      const message = result.message;
+      decisions.push({
+        symbol,
+        status,
+        action: result.executedActions.join("+") || result.recommendation,
+        price: market.currentPrice,
+        plan,
+        market,
+        signalId: signal.id,
+        message,
+      });
+      if (result.executedActions.length) {
+        await saveRun({
+          plan,
+          status,
+          action: result.executedActions.join("+"),
+          price: market.currentPrice,
+          signalId: signal.id,
+          reason: message,
+          market,
+          now,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "持仓管理失败";
+      decisions.push({
+        symbol,
+        status: "ERROR",
+        action: "MANAGE_ERROR",
+        price: market.currentPrice,
+        plan,
+        market,
+        signalId: signal.id,
+        message,
+      });
+      await saveRun({
+        plan,
+        status: "ERROR",
+        action: "MANAGE_ERROR",
+        price: market.currentPrice,
+        signalId: signal.id,
+        reason: message,
+        market,
+        now,
+      });
+    }
+  }
+  return decisions;
+}
+
+async function createAndEnterSignal(input: {
+  plan: PredictionStrategyPlan;
+  market: PredictionMarketContext;
+  settings: PredictionAutoTraderSettings;
+  now: Date;
+}): Promise<string> {
+  if (!prisma) throw new Error("交易数据库未连接");
+  const direction = directionForSetup(input.plan.setup);
+  if (direction === "NEUTRAL") throw new Error("当前计划没有明确方向");
+  const account = await getPaperAccount();
+  const levels = priceLevels(direction, input.market.currentPrice, input.settings);
+  const dayKey = getChinaDateKey(input.now);
+  const autoKey = `prediction-auto:${input.plan.symbol}:${dayKey}:${input.plan.weeklyForecast?.id ?? "none"}:${input.plan.dailyForecast?.id ?? "none"}:${direction}`;
+  if (await autoDraftExists(autoKey)) throw new Error("今天相同预测组合已经生成过交易信号");
+
+  const signal = await createTradeSignal({
+    assetId: input.plan.assetId,
+    symbol: SYMBOL_META[input.plan.symbol].tradeSymbol,
+    assetName: input.plan.assetName,
+    market: "CRYPTO",
+    timeframe: "15m/1D/1W",
+    direction,
+    status: "ARMED",
+    starLevel: input.plan.confidence >= 75 ? 4 : 3,
+    consensusScore: input.plan.confidence,
+    entryMode: "MARKET",
+    entryLow: input.market.currentPrice,
+    entryHigh: input.market.currentPrice,
+    triggerPrice: null,
+    stopLoss: levels.stop,
+    stopConfirmTimeframe: "INTRADAY",
+    target1: levels.target1,
+    target2: levels.target2,
+    target3: levels.target3,
+    quantity: null,
+    notionalAmount: account.currentEquity * (input.settings.positionPct / 100),
+    positionSizePct: input.settings.positionPct,
+    maxRiskPct: input.settings.positionPct * (input.settings.stopLossPct / 100),
+    validFrom: input.now.toISOString(),
+    validUntil: new Date(`${dayKey}T23:59:59+08:00`).toISOString(),
+    rationale: `${input.plan.reason} 周预测：${input.plan.weeklyForecast?.direction ?? "缺失"} / ${input.plan.weeklyForecast?.path ?? "缺失"}。日预测：${input.plan.dailyForecast?.direction ?? "缺失"} / ${input.plan.dailyForecast?.path ?? "缺失"}。`,
+    executionPlan: `${input.plan.setup === "BUY_DIP" ? "逢低做多" : "逢高做空"}；15分钟结构确认后市价进入；仓位上限${input.settings.positionPct}%；止损${input.settings.stopLossPct}%；分批止盈${input.settings.target1Pct}% / ${input.settings.target2Pct}% / ${input.settings.target3Pct}%。`,
+    invalidation: `${direction === "LONG" ? "跌破" : "突破"}自动止损价${levels.stop}立即退出。`,
+    sourceForecastId: input.plan.dailyForecast?.id ?? input.plan.weeklyForecast?.id ?? null,
+    apiVisible: true,
+    paperOnly: true,
+    createdBy: "prediction-auto-trader",
+    methods: [
+      {
+        method: "周预测趋势阶段",
+        direction: input.plan.weeklyDirection,
+        weight: 45,
+        confidence: input.plan.weeklyForecast?.confidence ?? 0,
+        evidence: `${input.plan.weeklyForecast?.direction ?? "缺失"}；${input.plan.weeklyForecast?.path ?? "缺失"}`,
+      },
+      {
+        method: "日预测运行节奏",
+        direction: input.plan.dailyDirection,
+        weight: 35,
+        confidence: input.plan.dailyForecast?.confidence ?? 0,
+        evidence: `${input.plan.dailyForecast?.direction ?? "缺失"}；${input.plan.dailyForecast?.path ?? "缺失"}`,
+      },
+      {
+        method: "15分钟价格确认",
+        direction,
+        weight: 20,
+        confidence: 70,
+        evidence: `日内开盘${input.market.sessionOpen}，高${input.market.sessionHigh}，低${input.market.sessionLow}，现价${input.market.currentPrice}。`,
+      },
+    ],
+  });
+
+  await prisma.$executeRaw`
+    UPDATE trade_signals SET
+      auto_draft_key = ${autoKey},
+      draft_source = 'PREDICTION_AUTO_TRADER',
+      updated_at = NOW()
+    WHERE id = ${signal.id}
+  `;
+
+  await monitorTradeSignal({
+    signalId: signal.id,
+    price: input.market.currentPrice,
+    confirmed: true,
+    execute: true,
+  });
+  return signal.id;
+}
+
+export async function runPredictionAutoTrader(
+  now = new Date()
+): Promise<PredictionAutoRunReport> {
+  if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
+    throw new Error("交易数据库未连接");
+  }
+  const locked = await acquireRunLock();
+  if (!locked) {
+    return {
+      ok: true,
+      enabled: true,
+      locked: true,
+      generatedAt: now.toISOString(),
+      decisions: [],
+      bitgetSync: null,
+      message: "已有一轮策略检查正在运行，本轮跳过。",
+    };
+  }
+
+  let finalMessage = "策略检查完成";
+  try {
+    await cleanOldRuns();
+    const settings = await getPredictionAutoTraderSettings();
+    if (!settings.enabled) {
+      finalMessage = "预测自动交易尚未开启";
+      return {
+        ok: true,
+        enabled: false,
+        locked: false,
+        generatedAt: now.toISOString(),
+        decisions: [],
+        bitgetSync: null,
+        message: finalMessage,
+      };
+    }
+
+    const mirror = await getBitgetMirrorSettings();
+    const bitgetDashboard = await getBitgetDemoDashboard();
+    const plans = await resolvePredictionStrategyPlans(settings, now);
+    const enabledSymbols = plans.filter(
+      (plan) =>
+        (plan.symbol === "BTC" && settings.btcEnabled) ||
+        (plan.symbol === "ETH" && settings.ethEnabled)
+    );
+    const decisions: PredictionAutoDecision[] = [];
+
+    if (!mirror.enabled || !bitgetDashboard.environment.executionAllowed) {
+      for (const plan of enabledSymbols) {
+        const message = !mirror.enabled
+          ? "Bitget Demo镜像未开启，自动交易被风控拦截。"
+          : "Bitget Demo下单总开关未开启，自动交易被风控拦截。";
+        const decision: PredictionAutoDecision = {
+          symbol: plan.symbol,
+          status: "BLOCKED",
+          action: "BLOCKED",
+          price: null,
+          plan,
+          market: null,
+          signalId: null,
+          message,
+        };
+        decisions.push(decision);
+        await saveRun({
+          plan,
+          status: "BLOCKED",
+          action: "BLOCKED",
+          price: null,
+          reason: message,
+          now,
+        });
+      }
+      finalMessage = "Bitget Demo执行条件未满足，没有下单";
+      return {
+        ok: true,
+        enabled: true,
+        locked: false,
+        generatedAt: now.toISOString(),
+        decisions,
+        bitgetSync: null,
+        message: finalMessage,
+      };
+    }
+
+    const marketMap = new Map<PredictionAutoSymbol, PredictionMarketContext>();
+    for (const plan of enabledSymbols) {
+      try {
+        marketMap.set(plan.symbol, await getCrypto15mMarketContext(plan.symbol, now));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "行情读取失败";
+        decisions.push({
+          symbol: plan.symbol,
+          status: "ERROR",
+          action: "MARKET_ERROR",
+          price: null,
+          plan,
+          market: null,
+          signalId: null,
+          message,
+        });
+        await saveRun({
+          plan,
+          status: "ERROR",
+          action: "MARKET_ERROR",
+          price: null,
+          reason: message,
+          now,
+        });
+      }
+    }
+
+    const planMap = new Map(enabledSymbols.map((plan) => [plan.symbol, plan] as const));
+    decisions.push(...(await manageExistingSignals(marketMap, planMap, now)));
+    const openSymbols = await openAutoSymbols();
+
+    for (const plan of enabledSymbols) {
+      const market = marketMap.get(plan.symbol);
+      if (!market) continue;
+      if (openSymbols.has(plan.symbol)) {
+        decisions.push({
+          symbol: plan.symbol,
+          status: "WAITING",
+          action: "POSITION_OPEN",
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId: null,
+          message: "该品种已有预测自动交易持仓，只管理原仓位，不重复开仓。",
+        });
+        continue;
+      }
+      if (plan.setup === "MISSING_FORECAST" || plan.setup === "HOLD") {
+        decisions.push({
+          symbol: plan.symbol,
+          status: "SKIPPED",
+          action: plan.setup,
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId: null,
+          message: plan.reason,
+        });
+        continue;
+      }
+      const count = await todayEntryCount(plan.symbol, now);
+      if (count >= settings.maxTradesPerSymbolDay) {
+        decisions.push({
+          symbol: plan.symbol,
+          status: "SKIPPED",
+          action: "DAILY_LIMIT",
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId: null,
+          message: `今天已开仓${count}次，达到每日上限${settings.maxTradesPerSymbolDay}次。`,
+        });
+        continue;
+      }
+
+      const trigger = triggerMessage(plan, market, settings);
+      if (!trigger.triggered) {
+        decisions.push({
+          symbol: plan.symbol,
+          status: "WAITING",
+          action: plan.setup,
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId: null,
+          message: trigger.message,
+        });
+        continue;
+      }
+
+      try {
+        const signalId = await createAndEnterSignal({ plan, market, settings, now });
+        const message = `${plan.reason} ${trigger.message} 已建立MoonX模拟仓位，等待镜像到Bitget Demo。`;
+        decisions.push({
+          symbol: plan.symbol,
+          status: "EXECUTED",
+          action: plan.setup,
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId,
+          message,
+        });
+        await saveRun({
+          plan,
+          status: "EXECUTED",
+          action: plan.setup,
+          price: market.currentPrice,
+          signalId,
+          reason: message,
+          market,
+          now,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "自动开仓失败";
+        decisions.push({
+          symbol: plan.symbol,
+          status: "ERROR",
+          action: "ENTRY_ERROR",
+          price: market.currentPrice,
+          plan,
+          market,
+          signalId: null,
+          message,
+        });
+        await saveRun({
+          plan,
+          status: "ERROR",
+          action: "ENTRY_ERROR",
+          price: market.currentPrice,
+          reason: message,
+          market,
+          now,
+        });
+      }
+    }
+
+    let bitgetSync: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
+    try {
+      bitgetSync = await syncBitgetDemoOrders();
+    } catch (error) {
+      decisions.push(
+        ...enabledSymbols.slice(0, 1).map((plan) => ({
+          symbol: plan.symbol,
+          status: "ERROR" as const,
+          action: "BITGET_SYNC_ERROR",
+          price: marketMap.get(plan.symbol)?.currentPrice ?? null,
+          plan,
+          market: marketMap.get(plan.symbol) ?? null,
+          signalId: null,
+          message: error instanceof Error ? error.message : "Bitget同步失败",
+        }))
+      );
+    }
+
+    const executed = decisions.filter((row) => row.status === "EXECUTED").length;
+    const managed = decisions.filter((row) => row.status === "MANAGED").length;
+    finalMessage = `策略检查完成：新开仓${executed}，持仓动作${managed}，其余继续等待。`;
+    return {
+      ok: true,
+      enabled: true,
+      locked: false,
+      generatedAt: now.toISOString(),
+      decisions,
+      bitgetSync,
+      message: finalMessage,
+    };
+  } catch (error) {
+    finalMessage = `策略检查失败：${error instanceof Error ? error.message : "未知错误"}`;
+    throw error;
+  } finally {
+    try {
+      await releaseRunLock(finalMessage);
+    } catch (error) {
+      console.error("Prediction auto trader lock release failed", error);
+    }
+  }
+}
+
+export async function getPredictionAutoTraderDashboard(
+  now = new Date()
+): Promise<PredictionAutoTraderDashboard> {
+  const databaseReady = await ensurePredictionAutoTraderTables();
+  const settings = await getPredictionAutoTraderSettings();
+  const bitget = await getBitgetDemoDashboard();
+  return {
+    generatedAt: now.toISOString(),
+    databaseReady,
+    settings,
+    mirrorEnabled: bitget.settings.enabled,
+    executionAllowed: bitget.environment.executionAllowed,
+    plans: databaseReady ? await resolvePredictionStrategyPlans(settings, now) : [],
+    recentRuns: databaseReady ? await recentRuns() : [],
+  };
+}
