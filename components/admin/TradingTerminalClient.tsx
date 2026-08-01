@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type { TradeSignalRecord } from "@/types/trading-signal";
 import type {
@@ -170,6 +170,25 @@ export function TradingTerminalClient({
   const [snapshot, setSnapshot] = useState(initial);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autoMonitorEnabled, setAutoMonitorEnabled] = useState(false);
+  const [autoMonitorRunning, setAutoMonitorRunning] = useState(false);
+  const [autoMonitorReport, setAutoMonitorReport] = useState<{
+    generatedAt: string;
+    prices: Array<{
+      symbol: string;
+      price: number;
+      provider: string;
+      capturedAt: string;
+    }>;
+    warnings: string[];
+    results: Array<{
+      symbol: string;
+      recommendation: string;
+      message: string;
+      executedActions: string[];
+    }>;
+  } | null>(null);
+  const autoMonitorBusyRef = useRef(false);
 
   async function readApiJson<T>(
     res: Response,
@@ -244,6 +263,88 @@ export function TradingTerminalClient({
       setLoading(false);
     }
   }
+
+  async function runCryptoAutoMonitor() {
+    if (autoMonitorBusyRef.current) return;
+    autoMonitorBusyRef.current = true;
+    setAutoMonitorRunning(true);
+    try {
+      const res = await fetch("/api/admin/trading-v2/auto-monitor", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      });
+      const json = await readApiJson<{
+        ok?: boolean;
+        error?: string;
+        generatedAt: string;
+        prices: Array<{
+          symbol: string;
+          price: number;
+          provider: string;
+          capturedAt: string;
+        }>;
+        warnings: string[];
+        results: Array<{
+          symbol: string;
+          recommendation: string;
+          message: string;
+          executedActions: string[];
+        }>;
+      }>(res, "加密自动行情");
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `自动行情失败（HTTP ${res.status}）`);
+      }
+
+      setAutoMonitorReport(json);
+      const executedCount = json.results.reduce(
+        (sum, row) => sum + row.executedActions.length,
+        0
+      );
+      if (executedCount > 0) {
+        setMessage(`自动行情已执行 ${executedCount} 个模拟动作。`);
+      }
+      await refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "加密自动行情监控失败"
+      );
+    } finally {
+      autoMonitorBusyRef.current = false;
+      setAutoMonitorRunning(false);
+    }
+  }
+
+  function toggleAutoMonitor() {
+    const next = !autoMonitorEnabled;
+    setAutoMonitorEnabled(next);
+    window.localStorage.setItem(
+      "moonx.cryptoAutoMonitor",
+      next ? "enabled" : "disabled"
+    );
+  }
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("moonx.cryptoAutoMonitor");
+    if (saved === "enabled") setAutoMonitorEnabled(true);
+  }, []);
+
+  useEffect(() => {
+    if (!autoMonitorEnabled) return;
+
+    void runCryptoAutoMonitor();
+    const timer = window.setInterval(() => {
+      void runCryptoAutoMonitor();
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+    // 只在开关变化时重新建立定时器，避免每次刷新快照都重置。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMonitorEnabled]);
 
   async function generateDrafts() {
     await request("/api/admin/trading-v2/generate-drafts", "POST");
@@ -412,8 +513,83 @@ export function TradingTerminalClient({
         <Text variant="body-sm" weight="semibold">API如何工作</Text>
         <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">
           自动生成的等待触发信号会立即出现在 /api/v1/signals。API密钥只给MOSS或外部程序读取，不需要再粘贴回MoonX网站。
-          当前网站模拟成交仍由你输入真实价格后触发，不连接真实资金。
+          BTC、ETH、HYPE可由页面自动取价并模拟执行；其他品种暂时仍需手工输入价格。始终不连接真实资金。
         </Text>
+      </Card>
+
+      <Card padding="lg" className="border-emerald-400/20 bg-emerald-400/[0.035]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Heading size="h3">加密资产自动行情监控</Heading>
+              <Badge variant="outline">BTC / ETH / HYPE</Badge>
+            </div>
+            <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl leading-relaxed">
+              开启后每30秒从Bitget公共行情取价，缺失时使用Hyperliquid备用行情。
+              自动更新浮盈并执行模拟入场和分批止盈；需要4小时或日线收盘确认的止损只生成红色提醒。
+            </Text>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={autoMonitorEnabled ? "danger" : "primary"}
+              onClick={toggleAutoMonitor}
+            >
+              {autoMonitorEnabled ? "关闭自动监控" : "开启自动监控"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void runCryptoAutoMonitor()}
+              isLoading={autoMonitorRunning}
+            >
+              立即刷新行情
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {["BTC", "ETH", "HYPE"].map((symbol) => {
+            const ticker = autoMonitorReport?.prices.find(
+              (row) => row.symbol === symbol
+            );
+            return (
+              <div
+                key={symbol}
+                className="rounded-lg border border-white/10 bg-black/15 p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Text variant="body-sm" weight="semibold">{symbol}</Text>
+                  <Text variant="caption" color="tertiary">
+                    {ticker?.provider ?? "等待取价"}
+                  </Text>
+                </div>
+                <Heading size="h3" className="mt-2">
+                  {ticker ? ticker.price.toLocaleString("en-US") : "—"}
+                </Heading>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Badge variant="outline">
+            {autoMonitorEnabled
+              ? autoMonitorRunning
+                ? "正在检查"
+                : "每30秒运行"
+              : "当前关闭"}
+          </Badge>
+          <Text variant="caption" color="tertiary">
+            页面需保持打开；浏览器休眠或关闭后将停止。太空狗和传统市场暂时仍需手工价格。
+          </Text>
+        </div>
+
+        {autoMonitorReport?.warnings.length ? (
+          <Text variant="caption" className="mt-3 block text-amber-200">
+            {autoMonitorReport.warnings.join("；")}
+          </Text>
+        ) : null}
       </Card>
 
       <section id="step-risk" className="scroll-mt-24 grid gap-5 xl:grid-cols-[1fr_1fr]">
