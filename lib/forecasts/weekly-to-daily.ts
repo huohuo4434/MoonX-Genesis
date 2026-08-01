@@ -21,6 +21,7 @@ const MARKET_META: Record<
   { assetName: string; legacyMarket: DailyForecastMarket; quoteSymbol: string }
 > = {
   BTC: { assetName: "比特币", legacyMarket: "crypto", quoteSymbol: "BTC-USD" },
+  ETH: { assetName: "以太坊", legacyMarket: "crypto", quoteSymbol: "ETH-USD" },
   SPX: { assetName: "标普500", legacyMarket: "us", quoteSymbol: "^GSPC" },
   NDX: { assetName: "纳斯达克100", legacyMarket: "us", quoteSymbol: "^NDX" },
   SHCOMP: { assetName: "上证指数", legacyMarket: "cn", quoteSymbol: "000001.SS" },

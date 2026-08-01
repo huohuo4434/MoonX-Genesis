@@ -8,6 +8,7 @@ import {
   syncBitgetDemoOrders,
 } from "@/lib/bitget/demo-connector";
 import { getChinaDateKey } from "@/lib/date/china-date";
+import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { getCrypto15mMarketContext } from "@/lib/market-data/crypto-candles";
 import { prisma } from "@/lib/prisma";
 import {
@@ -439,6 +440,17 @@ function forecastConfidence(
   direction: PredictionAutoDirection
 ): number {
   const label = row.probabilityLabel;
+  const pathPattern = patternFromText(`${row.direction} ${row.path}`);
+  const sideways = label.match(/震\s*(\d{1,3}(?:\.\d+)?)%/)?.[1];
+  if (
+    (pathPattern === "UP_THEN_DOWN" || pathPattern === "DOWN_THEN_UP") &&
+    sideways
+  ) {
+    // Two-leg forecasts describe an intraday path, not a single close direction.
+    // Their usable confidence is the probability of leaving the sideways case.
+    return Math.min(100, Math.max(0, 100 - Number(sideways)));
+  }
+
   const up = label.match(/涨\s*(\d{1,3}(?:\.\d+)?)%/)?.[1];
   const down = label.match(/跌\s*(\d{1,3}(?:\.\d+)?)%/)?.[1];
   const directional = direction === "LONG" ? up : direction === "SHORT" ? down : undefined;
@@ -468,6 +480,69 @@ function marketCodeAssetId(code: string): string | null {
   } catch {
     return null;
   }
+}
+
+const AUTO_DAILY_FORECAST_MARKETS = new Set(["BTC", "ETH"]);
+
+type DailyForecastSupplyReport = {
+  checkedDate: string;
+  requested: string[];
+  generated: string[];
+  skipped: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+async function ensureAutoTradingDailyForecasts(
+  symbols: readonly PredictionAutoSymbol[],
+  now: Date
+): Promise<DailyForecastSupplyReport> {
+  const checkedDate = getChinaDateKey(now);
+  const requested = [...new Set(
+    symbols
+      .map((symbol) => normalizeSymbol(symbol))
+      .filter((symbol) => AUTO_DAILY_FORECAST_MARKETS.has(symbol))
+  )];
+  const current = await listGeneratedDailiesForDate(checkedDate);
+  const present = new Set(current.map((item) => normalizeSymbol(item.marketCode)));
+  const missing = requested.filter((symbol) => !present.has(symbol));
+
+  if (!missing.length) {
+    return {
+      checkedDate,
+      requested,
+      generated: [],
+      skipped: [],
+      warnings: [],
+      errors: [],
+    };
+  }
+
+  const targetDateByMarket = Object.fromEntries(
+    missing.map((symbol) => [symbol, checkedDate])
+  );
+  const report = await runDailyForecastPipeline({
+    now,
+    forcePhase: "lock",
+    markets: missing,
+    targetDateByMarket,
+    technicalAttempts: 1,
+  });
+
+  return {
+    checkedDate,
+    requested,
+    generated: report.records
+      .filter((item) => item.forecastDate === checkedDate)
+      .map((item) => normalizeSymbol(item.marketCode)),
+    skipped: report.skipped,
+    warnings: report.warnings.map(
+      (item) => `${item.market}:${item.date}:${item.error}`
+    ),
+    errors: report.errors.map(
+      (item) => `${item.market}:${item.date ?? checkedDate}:${item.error}`
+    ),
+  };
 }
 
 async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecastRow[]> {
@@ -1084,6 +1159,7 @@ export async function runPredictionAutoTrader(
       ...Array.from(openBefore),
       ...settings.watchSymbols,
     ]);
+    const forecastSupply = await ensureAutoTradingDailyForecasts(monitoredSymbols, now);
     const planSettings = { ...settings, watchSymbols: monitoredSymbols };
     const plans = await resolvePredictionStrategyPlans(planSettings, now);
     const watchSet = new Set(normalizeWatchSymbols(settings.watchSymbols));
@@ -1301,9 +1377,16 @@ export async function runPredictionAutoTrader(
     const executed = decisions.filter((row) => row.status === "EXECUTED").length;
     const managed = decisions.filter((row) => row.status === "MANAGED").length;
     const marketErrors = decisions.filter((row) => row.action === "MARKET_ERROR").length;
+    const supplySummary = forecastSupply.generated.length
+      ? ` 已自动补齐${forecastSupply.checkedDate}的${forecastSupply.generated.join("、")}日预测。`
+      : forecastSupply.errors.length
+        ? ` 日预测自动补齐异常：${forecastSupply.errors.join("；")}`
+        : forecastSupply.skipped.length
+          ? ` 日预测仍缺少来源：${forecastSupply.skipped.join("；")}`
+          : "";
     finalMessage = fullScan
-      ? `完整策略检查完成：监控${plans.length}币，新开仓${executed}，持仓动作${managed}，行情异常${marketErrors}。`
-      : `每分钟持仓监控完成：监控${plans.length}币，持仓动作${managed}，行情异常${marketErrors}；本轮不评估新开仓。`;
+      ? `完整策略检查完成：监控${plans.length}币，新开仓${executed}，持仓动作${managed}，行情异常${marketErrors}。${supplySummary}`
+      : `每分钟持仓监控完成：监控${plans.length}币，持仓动作${managed}，行情异常${marketErrors}；本轮不评估新开仓。${supplySummary}`;
     return {
       ok: true,
       enabled: true,

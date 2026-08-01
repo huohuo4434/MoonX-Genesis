@@ -13,12 +13,14 @@ import {
   upsertGeneratedDaily,
 } from "@/lib/weekly-source/store";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
-import { ALL_WEEKLY_ANALYSES } from "@/lib/data/published-weekly-analysis-20260727";
+import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
+import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 
 export const CORE_DAILY_MARKETS = ["BTC", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "WTI"] as const;
+export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS, "ETH"] as const;
 
 export type PipelinePhase = "idle" | "draft" | "revise" | "lock";
 
@@ -38,7 +40,7 @@ function analysisAsWeeklySource(
       : marketCode === "GLD"
         ? ["GLD", "Gold", "GOLD", "XAU", "GC=F"]
         : [marketCode];
-  const candidates = ALL_WEEKLY_ANALYSES.filter((w: WeeklyAnalysisRecord) => {
+  const candidates = listAllWeeklyAnalyses().filter((w: WeeklyAnalysisRecord) => {
     const display = w.displaySymbol ?? "";
     const symbol = w.symbol ?? "";
     return (
@@ -90,13 +92,51 @@ function analysisAsWeeklySource(
   };
 }
 
+function ethResearchAsWeeklySource(
+  forecastDate: string
+): WeeklyForecastSourceRecord | null {
+  const hit = listEthPeriodForecasts()
+    .filter(
+      (item) =>
+        item.forecastType.startsWith("WEEK") &&
+        item.periodStart <= forecastDate &&
+        item.periodEnd >= forecastDate
+    )
+    .sort((a, b) => b.version - a.version)[0];
+  if (!hit) return null;
+
+  return {
+    id: hit.id,
+    marketCode: "ETH",
+    periodStart: hit.periodStart,
+    periodEnd: hit.periodEnd,
+    primaryHexagram: hit.ichingEvidence.primaryHexagram || null,
+    changedHexagram: hit.ichingEvidence.changingHexagram ?? null,
+    movingLines: [],
+    specialPatterns: [],
+    weeklyDirection: hit.direction,
+    weeklyPath: hit.expectedPath,
+    interpretation: hit.summary,
+    riskSummary: hit.risks.join("；") || hit.riskLevel,
+    sourceType: "LIUYAO_WEEKLY",
+    version: hit.version,
+    status: "LOCKED",
+    publishedAt: hit.publishedAt,
+    lockedAt: hit.lockedAt,
+    createdAt: hit.publishedAt,
+    updatedAt: hit.lockedAt,
+  };
+}
+
 async function resolveWeekly(
   marketCode: string,
   forecastDate: string
 ): Promise<WeeklyForecastSourceRecord | null> {
-  const fromDb = await getWeeklySourceForMarketDate(marketCode, forecastDate);
+  const normalized = marketCode.toUpperCase();
+  const fromDb = await getWeeklySourceForMarketDate(normalized, forecastDate);
   if (fromDb) return fromDb;
-  return analysisAsWeeklySource(marketCode, forecastDate);
+  if (normalized === "ETH") return ethResearchAsWeeklySource(forecastDate);
+  return analysisAsWeeklySource(normalized, forecastDate);
 }
 
 function emptySnapshot(): MarketSnapshot {
@@ -208,6 +248,8 @@ export async function runDailyForecastPipeline(input?: {
   forcePhase?: PipelinePhase;
   targetDateByMarket?: Partial<Record<string, string>>;
   forceDraftDate?: string;
+  markets?: readonly string[];
+  technicalAttempts?: number;
 }): Promise<PipelineReport> {
   const now = input?.now ?? new Date();
   const phase = input?.forcePhase ?? resolvePipelinePhase();
@@ -228,7 +270,11 @@ export async function runDailyForecastPipeline(input?: {
     return report;
   }
 
-  for (const market of CORE_DAILY_MARKETS) {
+  const markets = input?.markets?.length
+    ? [...new Set(input.markets.map((item) => item.toUpperCase()))]
+    : [...AUTOMATED_DAILY_MARKETS];
+
+  for (const market of markets) {
     const targets = targetDatesForMarket({
       market,
       beijingDate,
@@ -265,37 +311,53 @@ export async function runDailyForecastPipeline(input?: {
         // Technical levels are best-effort. Direction/path must still publish when the
         // market-data provider is temporarily unavailable; empty level fields are hidden
         // by the UI and may later be filled by the automatic retry or admin override.
-        try {
-          const technical = await buildTechnicalLevelsWithRetry({
-            marketCode: market,
-            direction: record.direction,
-            forecastDate: target,
-            publishedAt: now.toISOString(),
-            attempts: phase === "lock" ? 3 : 2,
-          });
-          record = {
-            ...record,
-            supportLevels: technical.supportLevels,
-            resistanceLevels: technical.resistanceLevels,
-            confirmationLevel: technical.confirmation,
-            invalidationLevel: technical.invalidation,
-            technicalEvidence: [
-              "裸K波段与平台结构；EMA60；MACD零轴与动能共振",
-              `行情来源 ${technical.priceDataSourceLabel}`,
-              `快照 ${technical.priceSnapshotAtLabel}`,
-            ].join("。"),
-          };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          report.warnings.push({ market, date: target, error: message });
+        // The legacy crypto level builder is BTC-specific, so ETH must not reuse BTC prices.
+        if (market === "ETH") {
           record = {
             ...record,
             supportLevels: [],
             resistanceLevels: [],
             confirmationLevel: null,
             invalidationLevel: null,
-            technicalEvidence: "技术价位数据暂不可用；方向与路径照常发布，点位栏暂不展示。",
+            technicalEvidence:
+              "ETH日预测由本周研究自动推演；自动交易入场由Bitget ETH 15分钟K线独立确认，不复用BTC价位。",
           };
+        } else {
+          try {
+            const technical = await buildTechnicalLevelsWithRetry({
+              marketCode: market,
+              direction: record.direction,
+              forecastDate: target,
+              publishedAt: now.toISOString(),
+              attempts: Math.max(
+                1,
+                Math.min(3, input?.technicalAttempts ?? (phase === "lock" ? 3 : 2))
+              ),
+            });
+            record = {
+              ...record,
+              supportLevels: technical.supportLevels,
+              resistanceLevels: technical.resistanceLevels,
+              confirmationLevel: technical.confirmation,
+              invalidationLevel: technical.invalidation,
+              technicalEvidence: [
+                "裸K波段与平台结构；EMA60；MACD零轴与动能共振",
+                `行情来源 ${technical.priceDataSourceLabel}`,
+                `快照 ${technical.priceSnapshotAtLabel}`,
+              ].join("。"),
+            };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            report.warnings.push({ market, date: target, error: message });
+            record = {
+              ...record,
+              supportLevels: [],
+              resistanceLevels: [],
+              confirmationLevel: null,
+              invalidationLevel: null,
+              technicalEvidence: "技术价位数据暂不可用；方向与路径照常发布，点位栏暂不展示。",
+            };
+          }
         }
 
         if (phase === "lock") {
