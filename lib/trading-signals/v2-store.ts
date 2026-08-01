@@ -559,8 +559,15 @@ async function snapshotEquity(): Promise<void> {
   `;
 }
 
+const AUTO_PERCENT_PLAN_MARKER = "[AUTO_PERCENT_PLAN]";
+
+function isAutoPercentPlan(signal: TradeSignalRecord): boolean {
+  return signal.executionPlan.includes(AUTO_PERCENT_PLAN_MARKER);
+}
+
 export function validateTradePlan(signal: TradeSignalRecord): TradePlanReadiness {
   const missing: string[] = [];
+  const autoPercentPlan = isAutoPercentPlan(signal);
   if (signal.direction === "NEUTRAL") missing.push("明确做多或做空方向");
   if (
     signal.entryMode !== "MARKET" &&
@@ -569,9 +576,12 @@ export function validateTradePlan(signal: TradeSignalRecord): TradePlanReadiness
   ) {
     missing.push("入场区间或触发价");
   }
-  if (signal.stopLoss == null) missing.push("止损价");
-  if (signal.target1 == null) missing.push("至少一个止盈目标");
-  if (!signal.invalidation.trim() || signal.invalidation.includes("尚未录入")) {
+  if (signal.stopLoss == null && !autoPercentPlan) missing.push("止损价");
+  if (signal.target1 == null && !autoPercentPlan) missing.push("至少一个止盈目标");
+  if (
+    (!signal.invalidation.trim() || signal.invalidation.includes("尚未录入")) &&
+    !autoPercentPlan
+  ) {
     missing.push("明确失效条件");
   }
   if (signal.validUntil && new Date(signal.validUntil).getTime() < Date.now()) {
@@ -581,8 +591,14 @@ export function validateTradePlan(signal: TradeSignalRecord): TradePlanReadiness
 }
 
 function parseDirection(text: string): TradeSignalDirection {
-  if (/下跌|偏弱|走弱|回落|下行|先涨后跌|冲高回落|低位/.test(text)) return "SHORT";
-  if (/上涨|偏强|走强|反弹|修复|震荡上行|先跌后涨/.test(text)) return "LONG";
+  if (/下跌|偏弱|走弱|回落|下行|先涨后跌|冲高回落/.test(text)) return "SHORT";
+  if (
+    /上涨|偏强|走强|反弹|修复|震荡上行|先跌后涨|探底回升|先抑后扬|先压后修复|低位修复/.test(
+      text
+    )
+  ) {
+    return "LONG";
+  }
   return "NEUTRAL";
 }
 
@@ -689,7 +705,16 @@ function pickZone(
   };
 }
 
-function confidenceFromLabel(label: string): number {
+function confidenceFromLabel(
+  label: string,
+  direction?: TradeSignalDirection
+): number {
+  const up = label.match(/涨\s*(\d{1,3})(?:\.\d+)?%/)?.[1];
+  const down = label.match(/跌\s*(\d{1,3})(?:\.\d+)?%/)?.[1];
+  const flat = label.match(/震\s*(\d{1,3})(?:\.\d+)?%/)?.[1];
+  const picked =
+    direction === "LONG" ? up : direction === "SHORT" ? down : flat;
+  if (picked) return Math.min(100, Math.max(0, Number(picked)));
   const pct = label.match(/(\d{1,3})(?:\.\d+)?%/)?.[1];
   if (pct) return Math.min(100, Math.max(0, Number(pct)));
   if (/高|强/.test(label)) return 75;
@@ -700,6 +725,65 @@ function confidenceFromLabel(label: string): number {
 
 function dateTime(dateKey: string, end = false): string {
   return `${dateKey}T${end ? "23:59:59" : "00:00:00"}+08:00`;
+}
+
+function autoStopPct(asset: AdminCycleAsset): number {
+  if (asset.id === "asteroid") return 8;
+  if (asset.id === "hype") return 5;
+  if (asset.id === "eth") return 4;
+  if (asset.id === "bitcoin") return 3;
+  if (asset.assetClass === "FOCUS") return 4;
+  if (asset.market === "commodity") return 2;
+  return 1.5;
+}
+
+function roundPlanPrice(value: number): number {
+  if (value >= 1000) return Math.round(value * 100) / 100;
+  if (value >= 10) return Math.round(value * 1000) / 1000;
+  return Math.round(value * 1000000) / 1000000;
+}
+
+async function materializeAutoPercentPlan(
+  signal: TradeSignalRecord,
+  price: number
+): Promise<TradeSignalRecord> {
+  if (!prisma || !isAutoPercentPlan(signal)) return signal;
+  if (signal.stopLoss != null && signal.target1 != null) return signal;
+
+  const snapshot = await buildAdminFullCycleSnapshot();
+  const asset = snapshot.assets.find((item) => item.id === signal.assetId);
+  const stopPct = asset ? autoStopPct(asset) : 3;
+  const risk = price * (stopPct / 100);
+  const long = signal.direction === "LONG";
+
+  const stopLoss = roundPlanPrice(long ? price - risk : price + risk);
+  const target1 = roundPlanPrice(long ? price + risk : price - risk);
+  const target2 = roundPlanPrice(long ? price + risk * 2 : price - risk * 2);
+  const target3 = roundPlanPrice(long ? price + risk * 3 : price - risk * 3);
+  const invalidation = `${signal.stopConfirmTimeframe}确认${
+    long ? "跌破" : "突破"
+  }自动止损价 ${stopLoss}，原方向失效。`;
+  const executionPlan = `${AUTO_PERCENT_PLAN_MARKER} 首次真实价格 ${price} 已生成自动计划：止损 ${stopLoss}，目标 ${target1} / ${target2} / ${target3}。`;
+
+  await prisma.$executeRaw`
+    UPDATE trade_signals SET
+      entry_mode = 'MARKET',
+      entry_low = ${price},
+      entry_high = ${price},
+      trigger_price = NULL,
+      stop_loss = ${stopLoss},
+      target_1 = ${target1},
+      target_2 = ${target2},
+      target_3 = ${target3},
+      invalidation = ${invalidation},
+      execution_plan = ${executionPlan},
+      updated_at = NOW()
+    WHERE id = ${signal.id}
+  `;
+
+  const updated = await getTradeSignalById(signal.id);
+  if (!updated) throw new Error("自动交易计划生成失败");
+  return updated;
 }
 
 function keyDateEvidence(
@@ -765,14 +849,21 @@ export async function generateForecastSignalDrafts(
           allowed.has(row.horizon) &&
           row.periodEnd >= today
       )
-      .sort((a, b) => `${a.periodStart}:${a.horizon}`.localeCompare(`${b.periodStart}:${b.horizon}`));
-    const day = candidates.find((row) => row.horizon === "DAY");
-    const week = candidates.find((row) => row.horizon === "WEEK");
-    if (day) selected.push(day);
-    if (week) selected.push(week);
+      .sort((a, b) => {
+        const dateOrder = b.periodStart.localeCompare(a.periodStart);
+        if (dateOrder !== 0) return dateOrder;
+        return a.horizon === "DAY" ? -1 : 1;
+      });
+    const todayForecast = candidates.find(
+      (row) => row.horizon === "DAY" && row.periodStart === today
+    );
+    const upcomingWeek = candidates.find((row) => row.horizon === "WEEK");
+    const picked = todayForecast ?? upcomingWeek;
+    if (picked) selected.push(picked);
   }
 
   const result: ForecastDraftGenerationResult = {
+    message: "",
     created: 0,
     existing: 0,
     skipped: 0,
@@ -794,7 +885,7 @@ export async function generateForecastSignalDrafts(
       continue;
     }
 
-    const key = `forecast:${forecast.id}:v${forecast.version ?? 0}`;
+    const key = `forecast:${forecast.id}:v${forecast.version ?? 0}:auto-sim-v2`;
     if (await autoDraftExists(key)) {
       result.existing += 1;
       result.details.push({
@@ -809,12 +900,16 @@ export async function generateForecastSignalDrafts(
     const zones = snapshot.priceZones.filter((item) => item.assetId === asset.id);
     const zone = pickZone(zones, direction);
     const keyEvidence = keyDateEvidence(snapshot.keyDates, forecast, direction);
-    const sourceConfidence = confidenceFromLabel(forecast.probabilityLabel);
+    const sourceConfidence = confidenceFromLabel(forecast.probabilityLabel, direction);
     const hasCompleteLevels =
       zone.stopLoss != null &&
       zone.target1 != null &&
       (zone.triggerPrice != null || (zone.entryLow != null && zone.entryHigh != null));
-    const starLevel = Math.min(5, 3 + (hasCompleteLevels ? 1 : 0) + (keyEvidence?.confidence === 70 ? 1 : 0));
+    const autoPercentPlan = !hasCompleteLevels;
+    const starLevel = Math.min(
+      5,
+      3 + (hasCompleteLevels ? 1 : 0) + (keyEvidence?.confidence === 70 ? 1 : 0)
+    );
     const consensusScore = Math.min(
       90,
       Math.round(sourceConfidence * 0.65 + (hasCompleteLevels ? 20 : 5) + (keyEvidence ? 10 : 0))
@@ -853,10 +948,10 @@ export async function generateForecastSignalDrafts(
       market: marketLabel(asset),
       timeframe: forecast.horizon === "DAY" ? "1D" : forecast.horizon === "WEEK" ? "1W" : "1M",
       direction,
-      status: "DRAFT",
+      status: "ARMED",
       starLevel,
       consensusScore,
-      entryMode: zone.entryMode,
+      entryMode: autoPercentPlan ? "MARKET" : zone.entryMode,
       entryLow: zone.entryLow,
       entryHigh: zone.entryHigh,
       triggerPrice: zone.triggerPrice,
@@ -873,11 +968,13 @@ export async function generateForecastSignalDrafts(
       validUntil: dateTime(forecast.periodEnd, true),
       rationale: `来源：${forecast.sourceLabel}。方向：${forecast.direction}。路径：${forecast.path}`,
       executionPlan: hasCompleteLevels
-        ? `按支撑压力计划等待触发；达到目标1减仓，剩余仓位止损移至成本附近。`
-        : `当前只有方向草稿。管理员补齐入场、止损和止盈后，才能进入等待触发。`,
-      invalidation: zone.invalidation,
+        ? `按支撑压力计划自动进入等待触发；达到目标1减仓，剩余仓位止损移至成本附近。`
+        : `${AUTO_PERCENT_PLAN_MARKER} 首次输入真实价格后，系统按资产波动率自动生成止损与1R/2R/3R目标，并立即进行模拟入场判断。`,
+      invalidation: hasCompleteLevels
+        ? zone.invalidation
+        : `${AUTO_PERCENT_PLAN_MARKER} 首次真实价格生成止损后，以对应确认周期突破止损位为失效条件。`,
       sourceForecastId: forecast.id,
-      apiVisible: false,
+      apiVisible: true,
       paperOnly: true,
       createdBy,
       methods,
@@ -885,7 +982,7 @@ export async function generateForecastSignalDrafts(
     await prisma.$executeRaw`
       UPDATE trade_signals SET
         auto_draft_key = ${key},
-        draft_source = 'FORECAST_AUTO',
+        draft_source = 'FORECAST_AUTO_ARMED',
         updated_at = NOW()
       WHERE id = ${signal.id}
     `;
@@ -894,10 +991,16 @@ export async function generateForecastSignalDrafts(
       assetId: asset.id,
       forecastId: forecast.id,
       result: "CREATED",
-      reason: hasCompleteLevels ? "已生成完整草稿，等待管理员审核。" : "已生成方向草稿，仍需补齐价位。",
+      reason: hasCompleteLevels
+        ? "已自动发布并进入等待触发。"
+        : "已自动进入等待触发；首次输入真实价格时生成止损和目标。",
     });
   }
 
+  result.message =
+    result.created > 0
+      ? `已自动生成并进入模拟监控 ${result.created} 条；已存在 ${result.existing} 条；跳过 ${result.skipped} 条。无需人工审核。`
+      : `没有新增信号；已存在 ${result.existing} 条，跳过 ${result.skipped} 条。请查看下方原因。`;
   return result;
 }
 
@@ -1552,8 +1655,20 @@ export async function monitorTradeSignal(input: {
   execute: boolean;
 }): Promise<MonitorResult> {
   if (!(await ensureTradingV2Tables())) throw new Error("交易数据库未连接");
-  const signal = await getTradeSignalById(input.signalId);
+  let signal = await getTradeSignalById(input.signalId);
   if (!signal) throw new Error("信号不存在");
+  if (new Date(signal.validFrom).getTime() > Date.now()) {
+    return {
+      signalId: signal.id,
+      price: input.price,
+      recommendation: "NONE",
+      message: `信号尚未到有效开始时间：${signal.validFrom}`,
+      executedActions: [],
+    };
+  }
+  if (signal.status === "ARMED" && isAutoPercentPlan(signal)) {
+    signal = await materializeAutoPercentPlan(signal, input.price);
+  }
   await markPosition(signal.id, input.price);
 
   const executedActions: TradeSignalAction[] = [];
@@ -1595,7 +1710,7 @@ export async function monitorTradeSignal(input: {
       signalId: signal.id,
       price: input.price,
       recommendation: "ENTER",
-      message: input.execute ? "已按规则建立模拟仓位。" : "入场条件满足，等待管理员确认。",
+      message: input.execute ? "已按规则建立模拟仓位。" : "入场条件满足，可执行模拟入场。",
       executedActions,
     };
   }

@@ -9,6 +9,7 @@ import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-fore
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
 import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
+import { REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
 import { hasPrisma, prisma } from "@/lib/prisma";
 import type {
@@ -130,6 +131,9 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
   }
 
   for (const item of CORE_MARKET_CYCLE_ADMIN_ROWS_20260801) {
+    rows.push({ ...item });
+  }
+  for (const item of REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801) {
     rows.push({ ...item });
   }
 

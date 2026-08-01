@@ -24,6 +24,8 @@ import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { coreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-20260801";
+import { remainingCoreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-remaining-20260801";
+import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
@@ -1403,7 +1405,9 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...researchRecords,
     ...externalObservations,
     ...externalViewpoints20260801,
+    ...externalViewpointsFollowup20260801,
     ...coreMarketLiuyao20260801Records,
+    ...remainingCoreMarketLiuyao20260801Records,
     ...curatedImportRecords,
     ...chinaEquityOracle0727Records,
     ...preciousMetalsCryptoOracleRecords,

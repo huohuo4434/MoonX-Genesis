@@ -1,8 +1,7 @@
 /**
  * Next-week research published on Saturday 2026-08-01.
- * Four markets have completed, source-backed research:
- * BTC, SPX, NDX and WTI. Other core markets remain explicitly unpublished;
- * no previous-week copying.
+ * All seven core markets now have completed, source-backed research.
+ * No previous-week copying.
  */
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 
@@ -174,6 +173,121 @@ export const PUBLISHED_WEEKLY_ANALYSES_20260803: WeeklyAnalysisRecord[] = [
       "ORACLE-WTI-AUG3-9-20260801",
       "六爻：雷天大壮（六冲静卦）",
       "ORACLE-WTI-AUG-20260801",
+    ],
+    version: 1,
+    originalLocked: true,
+  },
+
+  {
+    id: "WEEKLY-HSTECH-20260803-V1",
+    assetId: "hang-seng",
+    assetName: "恒生科技",
+    symbol: "HSTECH",
+    displaySymbol: "HSTECH",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "冲高回落",
+    weeklyPath:
+      "前半周仍可能延续反弹或冲高；但妻财土发动后转父母、父母持世转官鬼，资金容易由主动追涨转为观望和风险控制。进入8月7日前后，波动扩大，后段更容易回吐。",
+    headline:
+      "恒生科技下周更接近早段偏强、后段回吐；上涨存在，但不确认稳定主升。",
+    probabilities: { up: 30, flat: 35, down: 35 },
+    strongWindow: "8月3日至5日的惯性修复窗口",
+    weakWindow: "8月6日至9日的分歧与回吐窗口",
+    keySupport: [],
+    keyResistance: [],
+    invalidation:
+      "若周后段仍连续放量站稳新平台且回踩不破，则冲高回落判断失效，需生成新版本。",
+    confirmation:
+      "早段冲高后无法维持新平台，并在周中后重新跌回原整理区，可确认回吐路径。",
+    catalysts: ["妻财丑土、戌土仍在，短线并非没有资金", "进入申月后部分子孙金增强"],
+    risks: ["财动后转父母", "父母持世转官鬼", "游魂结构使资金留存度不足"],
+    riskLevel: "高",
+    confidence: 62,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "ORACLE-HSTECH-AUG3-9-20260801",
+      "六爻：泽风大过（游魂）→水天需（游魂）",
+      "ORACLE-HSTECH-AUG-20260801",
+    ],
+    version: 1,
+    originalLocked: true,
+  },
+  {
+    id: "WEEKLY-GOLD-20260803-V1",
+    assetId: "gold",
+    assetName: "国际金价",
+    symbol: "GOLD",
+    displaySymbol: "GC",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "先跌后涨",
+    weeklyPath:
+      "周初妻财子水仍受未月土压，价格更容易先弱或继续整理；8月7日前后进入申月，子孙申金转旺并生财子水，可能出现短促修复。但财爻发动化兄弟丑土，反弹持续性有限。",
+    headline:
+      "黄金下周基准路径是先压后修复；反弹只按逆势修复处理，不改变八月偏弱背景。",
+    probabilities: { up: 32, flat: 38, down: 30 },
+    strongWindow: "8月7日至9日的短线修复窗口",
+    weakWindow: "8月3日至6日的下压阶段",
+    keySupport: [],
+    keyResistance: [],
+    invalidation:
+      "若立秋后持续放量站稳新的高位平台，则先跌后涨中的“短修复”定义失效，需提高上行情景权重。",
+    confirmation:
+      "周初下压后不再创新低，且8月7日后出现价格回收和承接，可确认短修复路径。",
+    catalysts: ["申月子孙金生财水", "周初风险释放后的技术修复"],
+    risks: ["妻财子水在未月受压", "财发动化兄弟丑土", "三个月总卦仍偏弱"],
+    riskLevel: "高",
+    confidence: 63,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "ORACLE-GOLD-AUG3-9-20260801",
+      "六爻：水天需（游魂）→雷风恒",
+      "ORACLE-GOLD-AUG-20260801-V2",
+    ],
+    version: 1,
+    originalLocked: true,
+  },
+  {
+    id: "WEEKLY-SHCOMP-20260803-V1",
+    assetId: "shanghai-composite",
+    assetName: "上证指数",
+    symbol: "SHCOMP",
+    displaySymbol: "SHCOMP",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "冲高回落",
+    weeklyPath:
+      "周初可能出现政策或情绪反弹，但妻财寅木空亡，多条动爻最终转向父母、官鬼和兄弟，资金承接不足；进入申月后兄弟金增强，周后段更容易回落。",
+    headline:
+      "上证下周可有早段反弹，但主情景仍是冲高后回吐，暂不确认新主升。",
+    probabilities: { up: 28, flat: 35, down: 37 },
+    strongWindow: "周初政策与情绪修复窗口",
+    weakWindow: "8月6日至9日的回吐窗口",
+    keySupport: [],
+    keyResistance: [],
+    invalidation:
+      "若周中后仍持续放量创新高并连续站稳新平台，则冲高回落判断失效，需生成新版本。",
+    confirmation:
+      "反弹无法站稳新平台，并在周中后重新跌回原区间，可确认偏弱路径。",
+    catalysts: ["政策与父母爻主导，可带来短促修复", "后半月卦仍保留风险后修复条件"],
+    risks: ["妻财寅木空亡", "动爻多化父母、官鬼与兄弟", "申月兄弟金增强"],
+    riskLevel: "高",
+    confidence: 64,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "ORACLE-SHCOMP-AUG3-9-20260801",
+      "六爻：火天大有（归魂）→天风姤",
+      "ORACLE-SHCOMP-AUG-20260801-V2",
     ],
     version: 1,
     originalLocked: true,

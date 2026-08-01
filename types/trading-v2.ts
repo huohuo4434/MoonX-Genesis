@@ -138,6 +138,7 @@ export interface PositionSizingPlan {
 }
 
 export interface ForecastDraftGenerationResult {
+  message: string;
   created: number;
   existing: number;
   skipped: number;

@@ -84,7 +84,6 @@ function EquityCurve({ rows }: { rows: PaperEquitySnapshot[] }) {
 }
 
 function WorkflowGuide({ snapshot }: { snapshot: TradingV2Snapshot }) {
-  const readyDrafts = snapshot.drafts.filter((item) => item.readiness.ready).length;
   const armedSignals = snapshot.actionableSignals.filter((item) =>
     ["ARMED", "TRIGGERED", "ACTIVE", "TAKE_PROFIT"].includes(item.status)
   ).length;
@@ -92,37 +91,37 @@ function WorkflowGuide({ snapshot }: { snapshot: TradingV2Snapshot }) {
     {
       number: 1,
       title: "保存风控",
-      detail: "先确认单笔亏损、星级仓位和暂停纪律。",
+      detail: "确认单笔亏损、星级仓位和暂停纪律。",
       href: "#step-risk",
       state: "可随时修改",
     },
     {
       number: 2,
-      title: "生成草稿",
-      detail: "从正式预测生成模拟交易草稿。",
+      title: "自动生成信号",
+      detail: "正式预测直接发布到模拟盘并进入API。",
       href: "#step-generate",
-      state: snapshot.drafts.length ? `已有${snapshot.drafts.length}条` : "尚未生成",
+      state: armedSignals ? `${armedSignals}条监控中` : "等待生成",
     },
     {
       number: 3,
-      title: "补齐交易计划",
-      detail: "填写入场、止损、目标、有效期并保存。",
-      href: "#step-review",
-      state: readyDrafts ? `${readyDrafts}条可执行` : "等待补齐",
+      title: "输入真实价格",
+      detail: "在信号卡片点击“检查并模拟执行”。",
+      href: "#step-monitor",
+      state: armedSignals ? "可以操作" : "等待信号",
     },
     {
       number: 4,
-      title: "进入等待触发",
-      detail: "草稿资料完整后，点击“进入等待触发”。",
-      href: "#step-review",
-      state: armedSignals ? `${armedSignals}条监控中` : "尚未触发",
+      title: "自动生成计划",
+      detail: "无价位时按资产波动率计算止损和1R/2R/3R目标。",
+      href: "#step-monitor",
+      state: "系统自动",
     },
     {
       number: 5,
-      title: "检查并模拟执行",
-      detail: "输入真实价格，系统按止盈止损纪律模拟执行。",
+      title: "模拟成交与风控",
+      detail: "系统计算仓位并执行止盈、止损和净值统计。",
       href: "#step-monitor",
-      state: armedSignals ? "按钮已开放" : "等待第4步",
+      state: armedSignals ? "监控已开放" : "等待第2步",
     },
   ];
 
@@ -132,7 +131,7 @@ function WorkflowGuide({ snapshot }: { snapshot: TradingV2Snapshot }) {
         <div>
           <Heading size="h3">模拟交易操作导航</Heading>
           <Text variant="body-sm" color="secondary" className="mt-1 block">
-            按1到5依次操作。没有完成前一步时，后面的按钮不会出现或不能点击。
+            现在只需保存风控、自动生成信号、输入真实价格。发布、等待触发和交易计划均由系统完成。
           </Text>
         </div>
         <Badge variant="outline">仅模拟盘</Badge>
@@ -351,17 +350,25 @@ export function TradingTerminalClient({
       <Card id="step-generate" padding="lg" className="scroll-mt-24 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Heading size="h3">第2步：从正式预测生成草稿</Heading>
+            <Heading size="h3">第2步：自动生成并进入模拟监控</Heading>
             <Text variant="body-sm" color="secondary" className="mt-1 block">
-              七大市场读取最近日度和周度预测；重点关注读取最近周度预测。只有明确方向才生成，全部先进入草稿。
+              系统读取最新有效日度或周度预测。方向明确且达到三星以上时，自动发布、进入等待触发并开放API；无需人工审核。
             </Text>
           </div>
           <Button onClick={generateDrafts} isLoading={loading}>
-            从正式预测生成草稿
+            自动生成并进入模拟监控
           </Button>
         </div>
         <Text variant="caption" className="block text-amber-200">
-          自动草稿不会进入API、不会建立仓位，也不会计入收益。管理员补齐价位并审核后才能执行。
+          已有支撑压力时直接使用；没有价位时，首次输入真实价格后自动生成止损和1R/2R/3R目标。只有模拟成交后才计入收益。
+        </Text>
+      </Card>
+
+      <Card padding="md" className="border-white/10 bg-black/15">
+        <Text variant="body-sm" weight="semibold">API如何工作</Text>
+        <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">
+          自动生成的等待触发信号会立即出现在 /api/v1/signals。API密钥只给MOSS或外部程序读取，不需要再粘贴回MoonX网站。
+          当前网站模拟成交仍由你输入真实价格后触发，不连接真实资金。
         </Text>
       </Card>
 
@@ -418,7 +425,7 @@ export function TradingTerminalClient({
       </section>
 
       <section id="step-review" className="scroll-mt-24 space-y-4">
-        <Heading size="h3">第3—4步：补齐交易计划并进入等待触发</Heading>
+        <Heading size="h3">异常草稿／人工修正（通常无需操作）</Heading>
         {snapshot.drafts.map((signal) => (
           <Card key={signal.id} padding="lg" className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -570,7 +577,7 @@ export function TradingTerminalClient({
         {!snapshot.drafts.length ? (
           <Card padding="lg">
             <Text variant="body-sm" color="secondary">
-              暂无草稿。先到上方第1步保存风控，再点击第2步“从正式预测生成草稿”。
+              当前没有需要人工处理的异常草稿。自动信号会直接出现在下方模拟监控区。
             </Text>
           </Card>
         ) : null}
@@ -637,7 +644,7 @@ export function TradingTerminalClient({
         {!snapshot.actionableSignals.length ? (
           <Card padding="lg">
             <Text variant="body-sm" color="secondary">
-              暂无等待触发的信号。第3步补齐入场、止损和目标后，点击“进入等待触发”，这里才会出现“检查并模拟执行”。
+              暂无可监控信号。先保存风控，再点击上方“自动生成并进入模拟监控”；系统会在这里显示可执行信号。
             </Text>
           </Card>
         ) : null}
