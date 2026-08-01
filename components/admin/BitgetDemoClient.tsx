@@ -34,6 +34,13 @@ type Dashboard = {
 type TestResult = {
   availableUsdt: number;
   equityUsdt: number;
+  bonusUsdt?: number;
+  demoFundsUsdt?: number;
+  detectedUsdt?: number;
+  fundingAvailableUsdt?: number;
+  fundingBalanceUsdt?: number;
+  balanceSource?: string;
+  balanceNote?: string;
   apiMode: "UTA_V3";
   accountMode: string;
   accountLevel: string;
@@ -83,7 +90,16 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
         throw new Error(json.error || "连接测试失败");
       }
       setTestResult(json.connection);
-      setMessage("Bitget Demo连接测试成功，没有下单。");
+      const detected =
+        json.connection.detectedUsdt ??
+        json.connection.demoFundsUsdt ??
+        json.connection.availableUsdt ??
+        0;
+      setMessage(
+        detected > 0
+          ? `Bitget Demo连接成功，已读取${detected.toLocaleString("en-US")} USDT模拟资金，没有下单。`
+          : "Bitget Demo连接成功，但当前仍未检测到模拟资金，没有下单。"
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "连接测试失败");
     } finally {
@@ -229,15 +245,48 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
         <Card padding="lg" className="space-y-4">
           <Heading size="h3">连接测试结果</Heading>
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-white/10 p-3">
-              <Text variant="caption" color="tertiary">可用USDT</Text>
-              <Heading size="h3" className="mt-2">{testResult.availableUsdt.toLocaleString("en-US")}</Heading>
+            <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
+              <Text variant="caption" color="tertiary">检测到的模拟资金</Text>
+              <Heading size="h3" className="mt-2">
+                {(testResult.detectedUsdt ?? testResult.demoFundsUsdt ?? testResult.availableUsdt).toLocaleString("en-US")}
+              </Heading>
+              <Text variant="caption" color="secondary" className="mt-1 block">
+                {testResult.balanceSource ?? "UTA交易账户"}
+              </Text>
             </div>
             <div className="rounded-lg border border-white/10 p-3">
               <Text variant="caption" color="tertiary">账户权益</Text>
               <Heading size="h3" className="mt-2">{testResult.equityUsdt.toLocaleString("en-US")}</Heading>
+              <Text variant="caption" color="secondary" className="mt-1 block">
+                Bitget UTA接口口径
+              </Text>
             </div>
           </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">UTA可用余额</Text>
+              <Text variant="body-sm" className="mt-1 block">
+                {testResult.availableUsdt.toLocaleString("en-US")}
+              </Text>
+            </div>
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">模拟赠金 bonus</Text>
+              <Text variant="body-sm" className="mt-1 block">
+                {(testResult.bonusUsdt ?? 0).toLocaleString("en-US")}
+              </Text>
+            </div>
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">资金账户USDT</Text>
+              <Text variant="body-sm" className="mt-1 block">
+                {(testResult.fundingBalanceUsdt ?? testResult.fundingAvailableUsdt ?? 0).toLocaleString("en-US")}
+              </Text>
+            </div>
+          </div>
+          {testResult.balanceNote ? (
+            <Text variant="caption" className="block text-amber-200/80">
+              {testResult.balanceNote}
+            </Text>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 p-3">
               <Text variant="caption" color="tertiary">接口模式</Text>

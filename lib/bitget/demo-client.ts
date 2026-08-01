@@ -46,7 +46,15 @@ type BitgetUtaAssets = {
   usdtEquity?: string;
   effEquity?: string;
   unrealisedPnl?: string;
+  bonus?: string;
   assets?: BitgetUtaAssetRow[];
+};
+
+type BitgetFundingAssetRow = {
+  coin?: string;
+  balance?: string;
+  available?: string;
+  frozen?: string;
 };
 
 type BitgetUtaSettings = {
@@ -170,7 +178,7 @@ async function signedRequest<T>(input: {
   });
   const url = `${BASE_URL}${input.path}${query ? `?${query}` : ""}`;
 
-  const response = await fetchWithTimeout(url, {
+  const requestInit: RequestInit = {
     method: input.method,
     headers: {
       "ACCESS-KEY": env.apiKey,
@@ -181,10 +189,12 @@ async function signedRequest<T>(input: {
       Accept: "application/json",
       locale: "zh-CN",
       paptrading: "1",
-      "User-Agent": "MoonX-Bitget-UTA-Demo/1.0",
+      "User-Agent": "MoonX-Bitget-UTA-Demo/1.1",
     },
-    body: input.method === "POST" ? body : undefined,
-  });
+  };
+  if (input.method === "POST") requestInit.body = body;
+
+  const response = await fetchWithTimeout(url, requestInit);
 
   const raw = await response.text();
   let envelope: BitgetEnvelope<T>;
@@ -212,26 +222,99 @@ async function getUtaSettings(): Promise<BitgetUtaSettings> {
   });
 }
 
+function finiteNumber(...values: unknown[]): number {
+  let zeroValue = 0;
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) continue;
+    if (parsed !== 0) return parsed;
+    zeroValue = parsed;
+  }
+  return zeroValue;
+}
+
+function normalizeUtaAssets(payload: BitgetUtaAssets | BitgetUtaAssets[]): BitgetUtaAssets {
+  if (!Array.isArray(payload)) return payload ?? {};
+  return payload.find((row) => row && typeof row === "object") ?? {};
+}
+
 export async function testBitgetDemoConnection(): Promise<{
   availableUsdt: number;
   equityUsdt: number;
+  bonusUsdt: number;
+  demoFundsUsdt: number;
+  detectedUsdt: number;
+  fundingAvailableUsdt: number;
+  fundingBalanceUsdt: number;
+  balanceSource: string;
+  balanceNote: string;
   apiMode: "UTA_V3";
   accountMode: string;
   accountLevel: string;
   holdMode: string;
   symbols: BitgetContractConfig[];
 }> {
-  const [account, settings] = await Promise.all([
-    signedRequest<BitgetUtaAssets>({
+  const [accountPayload, settings, fundingResult] = await Promise.all([
+    signedRequest<BitgetUtaAssets | BitgetUtaAssets[]>({
       method: "GET",
       path: "/api/v3/account/assets",
     }),
     getUtaSettings(),
+    signedRequest<BitgetFundingAssetRow[]>({
+      method: "GET",
+      path: "/api/v3/account/funding-assets",
+      query: { coin: "USDT" },
+    }).catch(() => [] as BitgetFundingAssetRow[]),
   ]);
 
+  const account = normalizeUtaAssets(accountPayload);
   const usdt = account.assets?.find(
     (row) => String(row.coin ?? "").toUpperCase() === "USDT"
   );
+  const fundingUsdt = fundingResult.find(
+    (row) => String(row.coin ?? "").toUpperCase() === "USDT"
+  );
+
+  const availableUsdt = finiteNumber(usdt?.available, usdt?.balance);
+  const equityUsdt = finiteNumber(
+    account.usdtEquity,
+    usdt?.equity,
+    usdt?.balance,
+    account.accountEquity
+  );
+  // Bitget在2026-07-23为UTA资产接口新增bonus字段。
+  // Demo页面“添加的虚拟USDT”可能只出现在bonus中，而available/equity仍为0。
+  const bonusUsdt = finiteNumber(usdt?.bonus, account.bonus);
+  const demoFundsUsdt = availableUsdt + bonusUsdt;
+  const fundingAvailableUsdt = finiteNumber(
+    fundingUsdt?.available,
+    fundingUsdt?.balance
+  );
+  const fundingBalanceUsdt = finiteNumber(
+    fundingUsdt?.balance,
+    fundingUsdt?.available
+  );
+  const detectedUsdt =
+    demoFundsUsdt > 0
+      ? demoFundsUsdt
+      : Math.max(equityUsdt, fundingBalanceUsdt, fundingAvailableUsdt, 0);
+
+  let balanceSource = "未检测到USDT";
+  let balanceNote = "UTA余额、模拟赠金和资金账户均为0。";
+  if (availableUsdt > 0 && bonusUsdt > 0) {
+    balanceSource = "UTA余额 + 模拟赠金";
+    balanceNote = "MoonX已同时读取UTA可用余额与Bitget模拟赠金。";
+  } else if (bonusUsdt > 0) {
+    balanceSource = "UTA模拟赠金";
+    balanceNote = "Bitget添加的虚拟USDT记录在bonus字段，旧页面漏读了该字段。";
+  } else if (availableUsdt > 0 || equityUsdt > 0) {
+    balanceSource = "UTA交易账户";
+    balanceNote = "已读取统一交易账户中的USDT余额。";
+  } else if (fundingBalanceUsdt > 0) {
+    balanceSource = "资金账户";
+    balanceNote = "USDT位于资金账户；若下单提示余额不足，需要在Bitget Demo中转入UTA。";
+  }
 
   const symbols = await Promise.all(
     (["BTCUSDT", "ETHUSDT", "HYPEUSDT"] as BitgetSupportedSymbol[]).map(
@@ -240,14 +323,15 @@ export async function testBitgetDemoConnection(): Promise<{
   );
 
   return {
-    availableUsdt: Number(usdt?.available ?? usdt?.balance ?? 0),
-    equityUsdt: Number(
-      account.usdtEquity ??
-        usdt?.equity ??
-        usdt?.balance ??
-        account.accountEquity ??
-        0
-    ),
+    availableUsdt,
+    equityUsdt,
+    bonusUsdt,
+    demoFundsUsdt,
+    detectedUsdt,
+    fundingAvailableUsdt,
+    fundingBalanceUsdt,
+    balanceSource,
+    balanceNote,
     apiMode: "UTA_V3",
     accountMode: String(settings.accountMode ?? "unknown"),
     accountLevel: String(settings.accountLevel ?? "unknown"),
