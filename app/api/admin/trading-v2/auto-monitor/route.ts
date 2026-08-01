@@ -8,6 +8,7 @@ import {
   getCryptoLivePrices,
   isAutoCryptoSymbol,
 } from "@/lib/market-data/crypto-live-prices";
+import { syncBitgetDemoOrders } from "@/lib/bitget/demo-connector";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -97,6 +98,15 @@ export async function POST() {
       }
     }
 
+    let bitgetDemo: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
+    try {
+      bitgetDemo = await syncBitgetDemoOrders();
+    } catch (error) {
+      market.warnings.push(
+        `Bitget Demo同步异常：${error instanceof Error ? error.message : "未知错误"}`
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -106,6 +116,7 @@ export async function POST() {
       warnings: market.warnings,
       monitoredSignals: signals.length,
       results,
+      bitgetDemo,
       note:
         "止盈可自动执行；4小时或日线确认止损只生成纪律提醒，确认收盘后再执行止损。",
     });
