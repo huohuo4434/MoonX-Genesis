@@ -56,9 +56,11 @@ function MetaHeader({ summary }: { summary: WeeklyAnalysisPublicSummary }) {
 function UnpublishedCard({
   assetName,
   displaySymbol,
+  nextWeek,
 }: {
   assetName: string;
   displaySymbol: string;
+  nextWeek?: boolean;
 }) {
   return (
     <Card padding="lg" className="flex min-w-0 flex-col gap-3 overflow-hidden">
@@ -72,7 +74,9 @@ function UnpublishedCard({
         <Badge variant="outline">尚未发布</Badge>
       </div>
       <Text variant="body-sm" color="secondary">
-        本周该市场分析尚未发布。发布后将在此处显示方向、概率与路径。
+        {nextWeek
+          ? "下周该市场尚未形成真实研究结论，暂不复制本周内容。发布后将在此处显示方向、概率与路径。"
+          : "本周该市场分析尚未发布。发布后将在此处显示方向、概率与路径。"}
       </Text>
     </Card>
   );
@@ -210,10 +214,10 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
             <Badge variant="default">会员</Badge>
           </div>
           <Heading as="h1" size="h2">
-            本周行情分析
+            {summary.headingZh ?? "本周行情分析"}
           </Heading>
           <Text variant="body" color="secondary">
-            覆盖比特币、标普500、纳斯达克100、上证、恒生科技、黄金与WTI原油七个市场。登录有效会员后可查看完整方向、概率与路径。
+            {summary.subtitleZh ?? "覆盖比特币、标普500、纳斯达克100、上证、恒生科技、黄金与WTI原油七个市场。登录有效会员后可查看完整方向、概率与路径。"}
           </Text>
           <MetaHeader summary={summary} />
           <div className="grid gap-3">
@@ -275,10 +279,10 @@ export function MemberWeeklyFullPage({
             会员
           </Badge>
           <Heading as="h1" size="h2" className="mb-2">
-            本周行情分析
+            {summary.headingZh ?? "本周行情分析"}
           </Heading>
           <Text variant="body" color="secondary" className="mb-6 max-w-2xl">
-            提前了解本周七个核心市场的整体方向、周内运行顺序和关键风险窗口。
+            {summary.subtitleZh ?? "提前了解本周七个核心市场的整体方向、周内运行顺序和关键风险窗口。"}
           </Text>
           <MetaHeader summary={summary} />
 
@@ -295,6 +299,7 @@ export function MemberWeeklyFullPage({
                   key={slot.assetId}
                   assetName={slot.assetName}
                   displaySymbol={slot.displaySymbol}
+                  nextWeek={summary.displayMode === "NEXT_WEEK"}
                 />
               )
             )}

@@ -2,53 +2,62 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import {
   WEEKLY_CORE_MARKETS,
-  listAllWeeklyAnalyses,
+  buildWeeklyPublicSummary,
+  listPublishedWeeklyAnalyses,
+  resolveWeeklyDisplayWindow,
 } from "@/lib/data/weekly-analysis";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminWeeklyPage() {
-  const rows = listAllWeeklyAnalyses();
+  const now = new Date();
+  const window = resolveWeeklyDisplayWindow(now);
+  const summary = buildWeeklyPublicSummary(now);
+  const rows = listPublishedWeeklyAnalyses(now);
   const byAsset = new Map(rows.map((r) => [r.assetId, r]));
-  const published = rows.filter((r) => r.status === "published");
 
   return (
     <main className="mx-auto w-full max-w-container px-4 py-8 sm:px-6 lg:px-8">
       <AdminNav current="/admin/weekly" />
       <Heading as="h1" size="h2" className="mb-2">
-        本周行情分析
+        周度行情管理
       </Heading>
       <Text variant="body-sm" color="secondary" className="mb-6">
-        固定覆盖 7 个市场。会员页按此顺序展示；缺失项显示「尚未发布」。当前数据来自代码种子，后续可通过迁移写入库表发布。
+        周一至周五展示本周；周六、周日自动切换到下周。只发布有真实研究依据的市场，缺失项目不会复制旧预测。
       </Text>
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+      <div className="mb-8 grid gap-3 sm:grid-cols-4">
         <Card padding="md">
-          <Text variant="caption" color="tertiary">
-            覆盖市场
-          </Text>
+          <Text variant="caption" color="tertiary">当前窗口</Text>
           <Text variant="body" weight="semibold" className="mt-1">
-            {WEEKLY_CORE_MARKETS.length}
+            {window.displayMode === "NEXT_WEEK" ? "下周" : "本周"}
           </Text>
         </Card>
         <Card padding="md">
-          <Text variant="caption" color="tertiary">
-            已发布
-          </Text>
-          <Text variant="body" weight="semibold" className="mt-1">
-            {published.length}
+          <Text variant="caption" color="tertiary">分析周期</Text>
+          <Text variant="body-sm" weight="semibold" className="mt-1">
+            {summary.weekLabel}
           </Text>
         </Card>
         <Card padding="md">
-          <Text variant="caption" color="tertiary">
-            下一次固定发布
-          </Text>
+          <Text variant="caption" color="tertiary">已发布</Text>
           <Text variant="body" weight="semibold" className="mt-1">
-            系统自动更新
+            {summary.publishedCount} / {summary.coverageCount}
+          </Text>
+        </Card>
+        <Card padding="md">
+          <Text variant="caption" color="tertiary">切换规则</Text>
+          <Text variant="body-sm" weight="semibold" className="mt-1">
+            每周六切换下周
           </Text>
         </Card>
       </div>
+
+      <Card padding="md" className="mb-6 border-amber-500/20 bg-amber-500/[0.04]">
+        <Text variant="body-sm">{summary.nextPublishHint}</Text>
+      </Card>
 
       <div className="space-y-4">
         {WEEKLY_CORE_MARKETS.map((m) => {
@@ -60,29 +69,24 @@ export default async function AdminWeeklyPage() {
                   {m.assetName} · {m.displaySymbol}
                 </Text>
                 <Badge variant={r?.status === "published" ? "default" : "outline"}>
-                  {r?.status ?? "unpublished"}
+                  {r?.status === "published" ? "已发布" : "待发布"}
                 </Badge>
                 {r ? <Badge variant="outline">{r.overallDirection}</Badge> : null}
               </div>
               {r ? (
                 <>
-                  <Text variant="body-sm" color="secondary">
-                    {r.headline}
-                  </Text>
+                  <Text variant="body-sm" color="secondary">{r.headline}</Text>
                   <Text variant="caption" color="tertiary" className="block">
-                    周期：{r.weekStart} → {r.weekEnd} · 版本 v{r.version} · 更新{" "}
+                    周期：{r.weekStart} → {r.weekEnd} · V{r.version} · 更新{" "}
                     {formatDateTimeChina(r.updatedAt)}
                   </Text>
                   <Text variant="caption" color="tertiary" className="block break-all">
                     内部来源：{(r.sourceIds ?? []).join(", ") || "—"}
                   </Text>
-                  <Text variant="caption" color="tertiary" className="block">
-                    方向可用：上涨／下跌／震荡／震荡上涨／震荡下跌／先涨后跌／先跌后涨／冲高回落／探底回升
-                  </Text>
                 </>
               ) : (
                 <Text variant="body-sm" color="secondary">
-                  尚未发布 — 请在种子数据或后续后台表单中录入本周预测。
+                  当前窗口没有完成研究。会员页会显示“待发布”，不会沿用上一周方向。
                 </Text>
               )}
             </Card>

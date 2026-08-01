@@ -31,11 +31,11 @@ export type WeeklySectionPayload =
       accessReason: "ADMIN" | "ACTIVE_MEMBER";
     };
 
-export async function getWeeklySectionPayload(): Promise<WeeklySectionPayload> {
+export async function getWeeklySectionPayload(now = new Date()): Promise<WeeklySectionPayload> {
   noStore();
   const decision = await getWeeklyForecastAccessDecision();
-  const summary = buildWeeklyPublicSummary();
-  const slots = buildWeeklyMarketSlots();
+  const summary = buildWeeklyPublicSummary(now);
+  const slots = buildWeeklyMarketSlots(now);
 
   if (!decision.allowed) {
     return {

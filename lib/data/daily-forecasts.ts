@@ -13,6 +13,7 @@ import type {
   TomorrowForecastPublicSummary,
 } from "@/types/daily-forecast";
 import {
+  isTradingDay,
   sessionLabelForMarket,
 } from "@/lib/calendar/next-trading-day";
 import { getBeijingTodayKey, getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
@@ -114,6 +115,16 @@ export function rewriteTodayFacingCopy(
   return text.replaceAll("下一交易日", "今日").replaceAll("明日", "今日");
 }
 
+export function applyTradingSessionEligibility(f: DailyForecast): DailyForecast {
+  if (isTradingDay(f.market, f.forecastForDate)) return f;
+  return {
+    ...f,
+    accuracyEligible: false,
+    accuracyExclusionReason:
+      f.accuracyExclusionReason || "该市场当日休市，不计入正式日度验证",
+  };
+}
+
 export function applyTodayFacingCopy(f: DailyForecast, now = new Date()): DailyForecast {
   const today = getBeijingTodayKey(now);
   if (f.forecastForDate !== today) return f;
@@ -209,6 +220,7 @@ function allRawForecasts(now: Date): DailyForecast[] {
 
 export function listDailyForecasts(now = new Date()): DailyForecast[] {
   return applyBeijingForecastDateRoll(allRawForecasts(now), now)
+    .map(applyTradingSessionEligibility)
     .map((f) => applyForecastLifecycle(f, now))
     .map(applyDailyPriceOverlay);
 }
@@ -262,6 +274,7 @@ export function getPublicTodayForecasts(now = new Date()): DailyForecast[] {
       (f) =>
         f.assetId === asset.assetId &&
         f.forecastForDate === today &&
+        isTradingDay(f.market, today) &&
         isHumanPublishedForecast(f)
     );
   }).filter((f): f is DailyForecast => Boolean(f));

@@ -3,7 +3,9 @@ import {
   PUBLISHED_WEEKLY_ANALYSES,
   WEEKLY_CORE_MARKETS,
 } from "@/lib/data/published-weekly-analysis-20260727";
+import { PUBLISHED_WEEKLY_ANALYSES_20260803 } from "@/lib/data/published-weekly-analysis-20260803";
 import { applyWeeklyPriceOverlay } from "@/lib/data/apply-price-overlays";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type {
   WeeklyAnalysisMemberView,
@@ -15,12 +17,54 @@ import type {
 
 export { WEEKLY_CORE_MARKETS };
 
-export function listAllWeeklyAnalyses(): WeeklyAnalysisRecord[] {
-  return ALL_WEEKLY_ANALYSES.map(applyWeeklyPriceOverlay);
+const ALL_PUBLISHED: WeeklyAnalysisRecord[] = [
+  ...PUBLISHED_WEEKLY_ANALYSES,
+  ...PUBLISHED_WEEKLY_ANALYSES_20260803,
+];
+
+const ALL_RECORDS: WeeklyAnalysisRecord[] = [
+  ...ALL_WEEKLY_ANALYSES,
+  ...PUBLISHED_WEEKLY_ANALYSES_20260803,
+];
+
+function addUtcDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
-export function listPublishedWeeklyAnalyses(): WeeklyAnalysisRecord[] {
-  return PUBLISHED_WEEKLY_ANALYSES.filter((r) => r.status === "published").map(applyWeeklyPriceOverlay);
+export function resolveWeeklyDisplayWindow(now = new Date()): {
+  displayMode: "CURRENT_WEEK" | "NEXT_WEEK";
+  weekStart: string;
+  weekEnd: string;
+} {
+  const today = getBeijingTodayKey(now);
+  const day = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const weekend = day === 0 || day === 6;
+  const daysToMonday = weekend ? (day === 6 ? 2 : 1) : 1 - day;
+  const weekStart = addUtcDays(today, daysToMonday);
+  return {
+    displayMode: weekend ? "NEXT_WEEK" : "CURRENT_WEEK",
+    weekStart,
+    weekEnd: addUtcDays(weekStart, 6),
+  };
+}
+
+export function listAllWeeklyAnalyses(): WeeklyAnalysisRecord[] {
+  return ALL_RECORDS.map(applyWeeklyPriceOverlay);
+}
+
+/** All published weeks, used by history and verification. */
+export function listAllPublishedWeeklyAnalyses(): WeeklyAnalysisRecord[] {
+  return ALL_PUBLISHED.filter((r) => r.status === "published").map(applyWeeklyPriceOverlay);
+}
+
+/** The week currently shown to members: current week on weekdays, next week from Saturday. */
+export function listPublishedWeeklyAnalyses(now = new Date()): WeeklyAnalysisRecord[] {
+  const window = resolveWeeklyDisplayWindow(now);
+  return listAllPublishedWeeklyAnalyses().filter(
+    (r) => r.weekStart === window.weekStart && r.weekEnd === window.weekEnd
+  );
 }
 
 export function toWeeklyTeaser(r: WeeklyAnalysisRecord): WeeklyAnalysisTeaser {
@@ -76,9 +120,9 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
 }
 
 /** Always 7 slots in canonical order — missing markets show as unpublished. */
-export function buildWeeklyMarketSlots(): WeeklyMarketSlot[] {
+export function buildWeeklyMarketSlots(now = new Date()): WeeklyMarketSlot[] {
   const byAsset = new Map(
-    listPublishedWeeklyAnalyses().map((r) => [r.assetId, toWeeklyMemberView(r)])
+    listPublishedWeeklyAnalyses(now).map((r) => [r.assetId, toWeeklyMemberView(r)])
   );
   return WEEKLY_CORE_MARKETS.map((m) => {
     const analysis = byAsset.get(m.assetId);
@@ -93,14 +137,12 @@ export function buildWeeklyMarketSlots(): WeeklyMarketSlot[] {
   });
 }
 
-export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
-  const slots = buildWeeklyMarketSlots();
+export function buildWeeklyPublicSummary(now = new Date()): WeeklyAnalysisPublicSummary {
+  const window = resolveWeeklyDisplayWindow(now);
+  const slots = buildWeeklyMarketSlots(now);
   const published = slots
     .filter((s): s is Extract<WeeklyMarketSlot, { kind: "published" }> => s.kind === "published")
     .map((s) => s.analysis);
-  const first = published[0];
-  const weekStart = first?.weekStart ?? "2026-07-27";
-  const weekEnd = first?.weekEnd ?? "2026-08-02";
   const updated = published
     .map((r) => r.updatedAt || r.publishedAt)
     .filter(Boolean)
@@ -129,13 +171,13 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
       };
     }
     return {
-      id: `WEEKLY-EMPTY-${s.assetId}`,
+      id: `WEEKLY-EMPTY-${window.weekStart}-${s.assetId}`,
       assetId: s.assetId,
       assetName: s.assetName,
       symbol: s.symbol,
       displaySymbol: s.displaySymbol,
-      weekStart,
-      weekEnd,
+      weekStart: window.weekStart,
+      weekEnd: window.weekEnd,
       status: "draft",
       publishedAt: "",
       updatedAt: "",
@@ -143,16 +185,26 @@ export function buildWeeklyPublicSummary(): WeeklyAnalysisPublicSummary {
     };
   });
 
+  const nextWeek = window.displayMode === "NEXT_WEEK";
   return {
-    weekStart,
-    weekEnd,
-    weekLabel: `${formatDateChina(weekStart)}至${formatDateChina(weekEnd)}`,
+    displayMode: window.displayMode,
+    headingZh: nextWeek ? "下周行情分析" : "本周行情分析",
+    subtitleZh: nextWeek
+      ? "每周六起自动展示下一周；只发布已有真实研究依据的市场，未完成的项目明确标记待发布。"
+      : "提前了解本周七个核心市场的整体方向、周内运行顺序和关键风险窗口。",
+    weekStart: window.weekStart,
+    weekEnd: window.weekEnd,
+    weekLabel: `${formatDateChina(window.weekStart)}至${formatDateChina(window.weekEnd)}`,
     publishedAtLabel: publishedAt ? formatDateTimeChina(publishedAt) : "—",
     lastUpdatedLabel: updated ? formatDateTimeChina(updated) : "—",
     publishedCount: published.length,
     coverageCount: WEEKLY_CORE_MARKETS.length,
     assetNames: WEEKLY_CORE_MARKETS.map((m) => m.assetName),
     teasers,
-    nextPublishHint: "下一交易日观点持续更新。",
+    nextPublishHint: nextWeek
+      ? published.length > 0
+        ? `已进入下周窗口，当前已发布 ${published.length} / ${WEEKLY_CORE_MARKETS.length} 个有依据的市场；其余不会复制上周内容冒充新预测。`
+        : "已进入下周窗口，下周预测待发布；系统不会复制上周内容冒充新预测。"
+      : "本周观点在周五结束后进入历史验证；周六自动切换下周窗口。",
   };
 }

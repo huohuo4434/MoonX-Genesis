@@ -83,6 +83,86 @@ function EquityCurve({ rows }: { rows: PaperEquitySnapshot[] }) {
   );
 }
 
+function WorkflowGuide({ snapshot }: { snapshot: TradingV2Snapshot }) {
+  const readyDrafts = snapshot.drafts.filter((item) => item.readiness.ready).length;
+  const armedSignals = snapshot.actionableSignals.filter((item) =>
+    ["ARMED", "TRIGGERED", "ACTIVE", "TAKE_PROFIT"].includes(item.status)
+  ).length;
+  const steps = [
+    {
+      number: 1,
+      title: "保存风控",
+      detail: "先确认单笔亏损、星级仓位和暂停纪律。",
+      href: "#step-risk",
+      state: "可随时修改",
+    },
+    {
+      number: 2,
+      title: "生成草稿",
+      detail: "从正式预测生成模拟交易草稿。",
+      href: "#step-generate",
+      state: snapshot.drafts.length ? `已有${snapshot.drafts.length}条` : "尚未生成",
+    },
+    {
+      number: 3,
+      title: "补齐交易计划",
+      detail: "填写入场、止损、目标、有效期并保存。",
+      href: "#step-review",
+      state: readyDrafts ? `${readyDrafts}条可执行` : "等待补齐",
+    },
+    {
+      number: 4,
+      title: "进入等待触发",
+      detail: "草稿资料完整后，点击“进入等待触发”。",
+      href: "#step-review",
+      state: armedSignals ? `${armedSignals}条监控中` : "尚未触发",
+    },
+    {
+      number: 5,
+      title: "检查并模拟执行",
+      detail: "输入真实价格，系统按止盈止损纪律模拟执行。",
+      href: "#step-monitor",
+      state: armedSignals ? "按钮已开放" : "等待第4步",
+    },
+  ];
+
+  return (
+    <Card padding="lg" className="border-primary/25 bg-primary/[0.04]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Heading size="h3">模拟交易操作导航</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">
+            按1到5依次操作。没有完成前一步时，后面的按钮不会出现或不能点击。
+          </Text>
+        </div>
+        <Badge variant="outline">仅模拟盘</Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-5">
+        {steps.map((step) => (
+          <a
+            key={step.number}
+            href={step.href}
+            className="rounded-lg border border-white/10 bg-black/15 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {step.number}
+              </span>
+              <span className="text-caption text-amber-200/80">{step.state}</span>
+            </div>
+            <Text variant="body-sm" weight="semibold" className="mt-3 block">
+              {step.title}
+            </Text>
+            <Text variant="caption" color="tertiary" className="mt-1 block leading-relaxed">
+              {step.detail}
+            </Text>
+          </a>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function TradingTerminalClient({
   initial,
 }: {
@@ -247,6 +327,8 @@ export function TradingTerminalClient({
         </Card>
       ) : null}
 
+      <WorkflowGuide snapshot={snapshot} />
+
       <section className="grid gap-3 md:grid-cols-4">
         <Card padding="md">
           <Text variant="caption" color="tertiary">账户净值</Text>
@@ -266,10 +348,10 @@ export function TradingTerminalClient({
         </Card>
       </section>
 
-      <Card padding="lg" className="space-y-4">
+      <Card id="step-generate" padding="lg" className="scroll-mt-24 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Heading size="h3">预测自动生成交易草稿</Heading>
+            <Heading size="h3">第2步：从正式预测生成草稿</Heading>
             <Text variant="body-sm" color="secondary" className="mt-1 block">
               七大市场读取最近日度和周度预测；重点关注读取最近周度预测。只有明确方向才生成，全部先进入草稿。
             </Text>
@@ -283,10 +365,10 @@ export function TradingTerminalClient({
         </Text>
       </Card>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+      <section id="step-risk" className="scroll-mt-24 grid gap-5 xl:grid-cols-[1fr_1fr]">
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <Heading size="h3">全局风险纪律</Heading>
+            <Heading size="h3">第1步：保存全局风险纪律</Heading>
             <Badge variant="outline">
               {snapshot.account.paused ? "账户已暂停" : "允许模拟开仓"}
             </Badge>
@@ -335,8 +417,8 @@ export function TradingTerminalClient({
         <EquityCurve rows={snapshot.equityCurve} />
       </section>
 
-      <section className="space-y-4">
-        <Heading size="h3">交易草稿审核</Heading>
+      <section id="step-review" className="scroll-mt-24 space-y-4">
+        <Heading size="h3">第3—4步：补齐交易计划并进入等待触发</Heading>
         {snapshot.drafts.map((signal) => (
           <Card key={signal.id} padding="lg" className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -488,14 +570,14 @@ export function TradingTerminalClient({
         {!snapshot.drafts.length ? (
           <Card padding="lg">
             <Text variant="body-sm" color="secondary">
-              暂无草稿。点“从正式预测生成草稿”，或在AI交易信号中心手工建立。
+              暂无草稿。先到上方第1步保存风控，再点击第2步“从正式预测生成草稿”。
             </Text>
           </Card>
         ) : null}
       </section>
 
-      <section className="space-y-4">
-        <Heading size="h3">信号执行与价格监控</Heading>
+      <section id="step-monitor" className="scroll-mt-24 space-y-4">
+        <Heading size="h3">第5步：检查价格并模拟执行</Heading>
         {snapshot.actionableSignals.map((signal) => (
           <Card key={signal.id} padding="lg" className="space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -554,7 +636,9 @@ export function TradingTerminalClient({
         ))}
         {!snapshot.actionableSignals.length ? (
           <Card padding="lg">
-            <Text variant="body-sm" color="secondary">暂无已发布或执行中的信号。</Text>
+            <Text variant="body-sm" color="secondary">
+              暂无等待触发的信号。第3步补齐入场、止损和目标后，点击“进入等待触发”，这里才会出现“检查并模拟执行”。
+            </Text>
           </Card>
         ) : null}
       </section>

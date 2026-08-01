@@ -13,14 +13,15 @@ const FILE = "conviction-assets.json";
 type Store = { version: 1; updatedAt: string; records: ConvictionAsset[] };
 
 async function readOverrides(): Promise<ConvictionAsset[]> {
-  const admin = getAdminClient();
-  if (!admin) return [];
-  const { data } = await admin.storage.from(BUCKET).download(FILE);
-  if (!data) return [];
   try {
+    const admin = getAdminClient();
+    if (!admin) return [];
+    const { data, error } = await admin.storage.from(BUCKET).download(FILE);
+    if (error || !data) return [];
     const parsed = JSON.parse(await data.text()) as Store;
     return Array.isArray(parsed.records) ? parsed.records : [];
-  } catch {
+  } catch (error) {
+    console.error("conviction override store unavailable; using built-in research", error);
     return [];
   }
 }

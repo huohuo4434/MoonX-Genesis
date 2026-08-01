@@ -3,7 +3,7 @@
     "home": "首頁",
     "todayView": "今日觀點",
     "tomorrowForecast": "明日觀點",
-    "weeklyAnalysis": "本週行情",
+    "weeklyAnalysis": "週度行情",
     "featuredStocks": "Featured Stocks",
     "stocks": "個股分析",
     "account": "我的帳戶",
@@ -28,7 +28,8 @@
     "openMenu": "打開選單",
     "closeMenu": "關閉選單",
     "language": "語言",
-    "memberStocks": "會員個股"
+    "memberStocks": "會員個股",
+    "tradingSignals": "AI交易訊號"
   },
   "footer": {
     "tagline": "每日市場研究與公開驗證",

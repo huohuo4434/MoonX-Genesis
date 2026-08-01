@@ -3,7 +3,7 @@
     "home": "首页",
     "todayView": "今日观点",
     "tomorrowForecast": "明日观点",
-    "weeklyAnalysis": "本周行情",
+    "weeklyAnalysis": "周度行情",
     "featuredStocks": "重点关注",
     "stocks": "个股分析",
     "account": "我的账户",
@@ -29,7 +29,8 @@
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
     "language": "语言",
-    "memberStocks": "重点关注"
+    "memberStocks": "重点关注",
+    "tradingSignals": "AI交易信号"
   },
   "footer": {
     "tagline": "每日市场研究与公开验证",

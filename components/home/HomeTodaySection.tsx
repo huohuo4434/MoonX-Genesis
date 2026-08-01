@@ -3,7 +3,12 @@ import { TodayDailyForecastView } from "@/components/home/TodayDailyForecastView
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
 import { getBeijingClock, US_BATCH_KEYS, WTI_BATCH_KEYS } from "@/lib/calendar/publish-windows";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
-import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
+import { isTradingDay } from "@/lib/calendar/next-trading-day";
+import {
+  CORE_TOMORROW_ASSETS,
+  displayDirection,
+  isHumanPublishedForecast,
+} from "@/lib/data/daily-forecasts";
 
 export async function HomeTodaySection() {
   noStore();
@@ -31,10 +36,17 @@ export async function HomeTodaySection() {
     );
   }
 
-  // Strict Asia/Shanghai today only — never roll yesterday into “今日观点”.
+  // “今日观点”只展示该市场今天真实开市的预测。
+  // 周末/休市日：BTC等7×24资产照常展示，A股、港股、美股、黄金和原油转到“下一交易日预测”。
   const ready = payload.forecasts.filter(
-    (f) => isHumanPublishedForecast(f) && f.forecastForDate === beijingToday
+    (f) =>
+      isHumanPublishedForecast(f) &&
+      f.forecastForDate === beijingToday &&
+      isTradingDay(f.market, beijingToday)
   );
+  const closedMarkets = CORE_TOMORROW_ASSETS.filter(
+    (asset) => asset.market !== "crypto" && !isTradingDay(asset.market, beijingToday)
+  ).map((asset) => asset.assetName);
   const forecastDate = beijingToday;
   const detailLevel =
     payload.access.reason === "REGISTERED_AFTER_RELEASE" ? "summary" : "full";
@@ -47,6 +59,9 @@ export async function HomeTodaySection() {
 
   const publishedCount = ready.length;
   let publishHint: string | undefined;
+  if (closedMarkets.length > 0) {
+    publishHint = `今日休市：${closedMarkets.join("、")}。这些市场不生成“今日预测”，请查看下一交易日观点；休市日不计入正式日度验证。`;
+  }
   if (
     payload.access.reason === "REGISTERED_AFTER_RELEASE" &&
     publishedCount > 0 &&
@@ -63,7 +78,8 @@ export async function HomeTodaySection() {
         )
     );
     if (missingUs && clock.totalMinutes < 6 * 60 + 30) {
-      publishHint = `已发布${publishedCount}项，剩余美股／原油观点将按批次发布时间陆续公开。`;
+      const batchHint = `已发布${publishedCount}项，剩余美股／原油观点将按批次发布时间陆续公开。`;
+      publishHint = publishHint ? `${publishHint} ${batchHint}` : batchHint;
     }
   }
 

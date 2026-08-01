@@ -94,6 +94,10 @@ export type WeeklyAnalysisTeaser = {
 export type WeeklyAnalysisMemberView = Omit<WeeklyAnalysisRecord, "sourceIds" | "revisions">;
 
 export type WeeklyAnalysisPublicSummary = {
+  /** Saturday/Sunday automatically switch to the next Monday-Sunday window. */
+  displayMode?: "CURRENT_WEEK" | "NEXT_WEEK";
+  headingZh?: string;
+  subtitleZh?: string;
   weekStart: string;
   weekEnd: string;
   weekLabel: string;

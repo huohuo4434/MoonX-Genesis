@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { listPublishedWeeklyAnalyses } from "@/lib/data/weekly-analysis";
+import { listAllPublishedWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { fetchRecentDailyBarsForForecast } from "@/lib/market-data/daily-prices";
 import { resolveCanonicalQuoteSymbol } from "@/lib/market-data/quote-symbols";
 import type { DailyAccuracyMarket } from "@/types/daily-accuracy";
@@ -58,7 +58,7 @@ export async function runWeeklyVerification(now = new Date()) {
     month: "2-digit",
     day: "2-digit",
   }).format(now);
-  const records = listPublishedWeeklyAnalyses().filter((r) => r.weekEnd < today);
+  const records = listAllPublishedWeeklyAnalyses().filter((r) => r.weekEnd < today);
   const report = { scanned: 0, verified: 0, skipped: 0, errors: [] as string[] };
 
   for (const record of records) {

@@ -488,9 +488,42 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                     </div>
                   </Card>
                 ))
+              ) : isStaticPeriodAsset && payload.forecast?.periods?.length ? (
+                <div className="space-y-3">
+                  <Card padding="md" className="border-white/[0.08] bg-[#0c0e12]">
+                    <Text variant="body-sm" weight="semibold" className="text-white">
+                      已锁定研究样本 {payload.forecast.periods.filter((item) => item.forecast).length} 条
+                    </Text>
+                    <Text variant="caption" className="mt-1 block text-white/45">
+                      周期结束并取得真实行情后才进入命中率；不会为了页面好看提前填写“命中”。
+                    </Text>
+                  </Card>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {payload.forecast.periods
+                      .filter((item) => item.forecast)
+                      .slice(0, 4)
+                      .map((item) => (
+                        <Card key={`sample-${item.forecast!.id}`} padding="md" className="border-white/[0.08] bg-[#0c0e12]">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Text variant="body-sm" weight="semibold" className="text-white">
+                              {item.labelZh} · {item.forecast!.direction}
+                            </Text>
+                            <Badge variant="outline">
+                              {item.forecast!.validationStatus === "UNVERIFIED"
+                                ? "待验证"
+                                : item.forecast!.validationStatus}
+                            </Badge>
+                          </div>
+                          <Text variant="caption" className="mt-1 block text-white/45">
+                            {item.forecast!.periodStart} 至 {item.forecast!.periodEnd} · V{item.forecast!.version}
+                          </Text>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
               ) : (
                 <Text variant="body-sm" className="text-white/55">
-                  正式验证从2026年8月1日新基准开始积累
+                  正式验证从2026年8月1日新基准开始积累；当前暂无完成周期的真实样本。
                 </Text>
               )}
             </section>

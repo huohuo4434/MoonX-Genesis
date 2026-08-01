@@ -171,10 +171,20 @@ async function attachAdminKeyDates(
   periods: ConvictionPeriodSlot[]
 ): Promise<ConvictionPeriodSlot[]> {
   if (!hasPrisma() || !prisma) return periods;
-  const rows = await prisma.forecastOverride.findMany({
-    where: { scope: { startsWith: "KEY_DATE" }, assetId, enabled: true },
-    orderBy: { targetDate: "asc" },
-  });
+  let rows: Array<{
+    targetDate: string;
+    note: string | null;
+    direction: string | null;
+  }> = [];
+  try {
+    rows = await prisma.forecastOverride.findMany({
+      where: { scope: { startsWith: "KEY_DATE" }, assetId, enabled: true },
+      orderBy: { targetDate: "asc" },
+    });
+  } catch (error) {
+    console.error("conviction key dates unavailable; using static research", error);
+    return periods;
+  }
   if (!rows.length) return periods;
   return periods.map((slot) => {
     if (!slot.forecast) return slot;
@@ -329,12 +339,18 @@ export async function getConvictionDetailPayload(
     };
   }
 
-  const [today, tomorrow, weekly, verifications] = await Promise.all([
-    getPublishedTodayForecast(stockId),
-    getPublishedTomorrowForecast(stockId),
-    getPublishedWeeklyAnalysis(stockId),
-    listStockVerifications(stockId),
-  ]);
+  const [todayResult, tomorrowResult, weeklyResult, verificationResult] =
+    await Promise.allSettled([
+      getPublishedTodayForecast(stockId),
+      getPublishedTomorrowForecast(stockId),
+      getPublishedWeeklyAnalysis(stockId),
+      listStockVerifications(stockId),
+    ]);
+  const today = todayResult.status === "fulfilled" ? todayResult.value : null;
+  const tomorrow = tomorrowResult.status === "fulfilled" ? tomorrowResult.value : null;
+  const weekly = weeklyResult.status === "fulfilled" ? weeklyResult.value : null;
+  const verifications =
+    verificationResult.status === "fulfilled" ? verificationResult.value : [];
 
   const ipoHighVolWarning = Boolean(
     (today && isIpoHighVolatilityDate(stockId, today.forecastDate)) ||

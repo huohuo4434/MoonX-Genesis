@@ -3,7 +3,7 @@
     "home": "Home",
     "todayView": "Today",
     "tomorrowForecast": "Tomorrow",
-    "weeklyAnalysis": "Weekly",
+    "weeklyAnalysis": "Weekly Outlook",
     "featuredStocks": "Conviction List",
     "stocks": "Stocks",
     "account": "Account",
@@ -26,7 +26,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "language": "Language",
-    "memberStocks": "Conviction List"
+    "memberStocks": "Conviction List",
+    "tradingSignals": "AI Trading Signals"
   },
   "footer": {
     "tagline": "Daily market research with public verification",

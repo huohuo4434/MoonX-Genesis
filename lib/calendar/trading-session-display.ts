@@ -88,46 +88,92 @@ function calendarGapDays(fromIso: string, toIso: string): number {
 
 function weekdayZh(iso: string): string {
   const d = new Date(`${iso}T12:00:00Z`);
-  return new Intl.DateTimeFormat("zh-CN", { weekday: "long", timeZone: "UTC" }).format(d);
+  return new Intl.DateTimeFormat("zh-CN", {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(d);
 }
 
-function buildUsSession(forecastDate: string, publishedAt: string): TradingSessionDisplay {
+function marketName(input: {
+  market: DailyForecastMarket;
+  symbol?: string;
+}): { title: string; short: string } {
+  if (input.market === "us") return { title: "下一美股常规交易时段", short: "美股" };
+  if (input.market === "cn") return { title: "下一A股交易日", short: "A股" };
+  if (input.market === "hk") return { title: "下一港股交易日", short: "港股" };
+  if (input.symbol === "WTI" || input.symbol === "CL=F") {
+    return { title: "下一WTI交易日", short: "WTI" };
+  }
+  return { title: "下一国际金价交易日", short: "黄金" };
+}
+
+function deferredMeta(input: {
+  market: DailyForecastMarket;
+  symbol?: string;
+  forecastDate: string;
+  publishedAt: string;
+}): {
+  isDeferred: boolean;
+  alertLabel: string | null;
+  weekendRiskLabel: string | null;
+} {
+  if (input.market === "crypto") {
+    return { isDeferred: false, alertLabel: null, weekendRiskLabel: null };
+  }
+  const publishedChinaDate = dateOnlyFromIsoTimestamp(input.publishedAt, "Asia/Shanghai");
+  const gap = calendarGapDays(publishedChinaDate, input.forecastDate);
+  const isDeferred = gap > 1;
+  if (!isDeferred) {
+    return { isDeferred: false, alertLabel: null, weekendRiskLabel: null };
+  }
+  const weekday = weekdayZh(input.forecastDate);
+  const name = marketName(input).short;
+  return {
+    isDeferred: true,
+    alertLabel:
+      weekday === "星期一"
+        ? `跨周预测 · 下周一${name}`
+        : `休市顺延 · ${weekday}${name}`,
+    weekendRiskLabel: "休市期间仅作风险观察，不计入正式日度验证。",
+  };
+}
+
+function buildUsSession(input: {
+  forecastDate: string;
+  publishedAt: string;
+  symbol?: string;
+}): TradingSessionDisplay {
   const startUtc = zonedLocalToUtc({
-    isoDate: forecastDate,
+    isoDate: input.forecastDate,
     hour: 9,
     minute: 30,
     timeZone: "America/New_York",
   });
   const endUtc = zonedLocalToUtc({
-    isoDate: forecastDate,
+    isoDate: input.forecastDate,
     hour: 16,
     minute: 0,
     timeZone: "America/New_York",
   });
   const startBj = formatTimeInZone(startUtc, "Asia/Shanghai");
   const endBj = formatTimeInZone(endUtc, "Asia/Shanghai");
-  const publishedChinaDate = dateOnlyFromIsoTimestamp(publishedAt, "Asia/Shanghai");
-  const gap = calendarGapDays(publishedChinaDate, forecastDate);
-  const isDeferred = gap > 1;
-  const weekday = weekdayZh(forecastDate);
-  const alertLabel = isDeferred
-    ? weekday === "星期一"
-      ? "跨周预测 · 下周一美股"
-      : `休市顺延 · ${weekday}`
-    : null;
   const beijingRange =
     startBj.date === endBj.date
       ? `${startBj.date} ${startBj.time}—${endBj.time}`
       : `${startBj.date} ${startBj.time}—${endBj.date} ${endBj.time}`;
+  const deferred = deferredMeta({
+    market: "us",
+    symbol: input.symbol,
+    forecastDate: input.forecastDate,
+    publishedAt: input.publishedAt,
+  });
 
   return {
     title: "下一美股常规交易时段",
-    targetDateZh: formatDateZh(forecastDate),
-    exchangeTimeLine: `美东时间：${formatDateZh(forecastDate)} 09:30—16:00`,
+    targetDateZh: formatDateZh(input.forecastDate),
+    exchangeTimeLine: `美东时间：${formatDateZh(input.forecastDate)} 09:30—16:00`,
     beijingTimeLine: `北京时间：${beijingRange}`,
-    alertLabel,
-    isDeferred,
-    weekendRiskLabel: isDeferred ? "休市期间仅作风险观察，不计入正式日度验证。" : null,
+    ...deferred,
   };
 }
 
@@ -138,7 +184,7 @@ export function getTradingSessionDisplay(input: {
   symbol?: string;
 }): TradingSessionDisplay {
   if (input.market === "us") {
-    return buildUsSession(input.forecastDate, input.publishedAt);
+    return buildUsSession(input);
   }
   if (input.market === "crypto") {
     return {
@@ -151,21 +197,13 @@ export function getTradingSessionDisplay(input: {
       weekendRiskLabel: null,
     };
   }
-  const marketTitle =
-    input.market === "cn"
-      ? "下一A股交易日"
-      : input.market === "hk"
-        ? "下一港股交易日"
-        : input.symbol === "WTI" || input.symbol === "CL=F"
-          ? "下一WTI交易日"
-          : "下一商品交易日";
+
+  const name = marketName(input);
   return {
-    title: marketTitle,
+    title: name.title,
     targetDateZh: formatDateZh(input.forecastDate),
     exchangeTimeLine: null,
     beijingTimeLine: null,
-    alertLabel: null,
-    isDeferred: false,
-    weekendRiskLabel: null,
+    ...deferredMeta(input),
   };
 }
