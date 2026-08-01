@@ -59,8 +59,23 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "无权限" }, { status: 403 });
   try {
     const body = createSchema.parse(await request.json());
-    const signal = await createTradeSignal({ ...body, createdBy: user.email });
-    return NextResponse.json({ ok: true, signal });
+    const requestedStatus = body.status;
+    const signal = await createTradeSignal({
+      ...body,
+      status: "DRAFT",
+      apiVisible: false,
+      paperOnly: true,
+      createdBy: user.email,
+    });
+    return NextResponse.json({
+      ok: true,
+      signal,
+      forcedDraft: requestedStatus !== "DRAFT",
+      message:
+        requestedStatus === "DRAFT"
+          ? "草稿已保存"
+          : "为防止绕过风控，信号已保存为草稿；请到量化交易终端审核发布。",
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "保存失败" },
