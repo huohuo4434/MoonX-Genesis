@@ -1,40 +1,180 @@
 /**
  * Next-week research published on Saturday 2026-08-01.
- * Only BTC has a completed, source-backed weekly study.
- * Other core markets remain explicitly unpublished; no previous-week copying.
+ * Four markets have completed, source-backed research:
+ * BTC, SPX, NDX and WTI. Other core markets remain explicitly unpublished;
+ * no previous-week copying.
  */
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 
+const PUBLISHED_AT = "2026-08-01T11:58:00+08:00";
+
 export const PUBLISHED_WEEKLY_ANALYSES_20260803: WeeklyAnalysisRecord[] = [
   {
-    id: "WEEKLY-BTC-20260803-V1",
+    id: "WEEKLY-BTC-20260803-V2",
     assetId: "bitcoin",
     assetName: "比特币",
     symbol: "BTC",
     displaySymbol: "BTC",
     weekStart: "2026-08-03",
     weekEnd: "2026-08-09",
-    overallDirection: "震荡",
+    overallDirection: "探底回升",
     weeklyPath:
-      "周初以震荡整理为主，期间可能出现修复反弹；但妻财伏藏受兄弟压制，连续大涨的基础不足。8月7日前后进入波动放大和方向重新选择窗口。",
+      "周初更容易小幅下探或震荡整理；若前低与日线支撑区域继续出现买盘，随后进入修复反弹。六爻妻财伏藏受兄弟压制，说明反弹仍不是稳定主升；8月7日前后进入波动放大和方向重新选择窗口。",
     headline:
-      "下周BTC更接近震荡与弱修复，不支持直接定义为连续主升；反弹后仍需观察承接。",
-    probabilities: { up: 30, flat: 45, down: 25 },
+      "下周BTC以“先探底、后修复”为主情景；直接连续暴跌不是基准，但反弹仍需守住关键支撑并观察承接。",
+    probabilities: { up: 35, flat: 40, down: 25 },
     strongWindow: "周中至8月7日前后的修复窗口",
-    weakWindow: "反弹后的承接不足阶段",
+    weakWindow: "周初小幅下探与前低争夺阶段",
+    keySupport: ["62,660", "61,000", "59,000"],
+    keyResistance: ["66,000", "70,000（1至2个月上行情景，不是周目标）"],
+    invalidation:
+      "若价格明确跌破59,000并持续收在其下，日线右肩与短线探底回升结构失效；若直接放量站稳66,000上方，则需提高上行情景权重并生成新版本。",
+    confirmation:
+      "4小时收盘重新站稳前低62,660上方，并在61,000至59,000区域出现缩量止跌或买盘回流，可确认修复情景。",
+    catalysts: [
+      "子孙酉金持世带来的修复力量",
+      "申月临近后金气增强",
+      "公开技术来源05：下降通道并非流畅五段暴跌，前低附近出现主动买盘",
+    ],
+    risks: [
+      "妻财子水伏于兄弟未土之下",
+      "父母巳火发动化官鬼寅木",
+      "反弹持续性不足",
+      "公开技术观点仅为第1个事前验证样本，不单独计入自动共识",
+    ],
+    riskLevel: "高",
+    confidence: 64,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "BTC-W1-20260801-V2",
+      "六爻：火泽睽→火水未济",
+      "EXT-BTC-CAPTAIN-TECH-20260801",
+    ],
+    version: 2,
+    originalLocked: true,
+  },
+  {
+    id: "WEEKLY-SPX-20260803-V1",
+    assetId: "sp500",
+    assetName: "标普500",
+    symbol: "SPX",
+    displaySymbol: "SPX",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "冲高回落",
+    weeklyPath:
+      "周初仍可能出现惯性反弹或冲高，但官鬼戌土、官鬼丑土发动，风险和高位压力逐步显现；8月7日前后进入申月，父母申金力量增强，市场更受技术结构与政策预期约束，周后段偏弱。",
+    headline:
+      "下周标普不是稳定主升：周初可能反弹，周中后更容易出现冲高回落或探底。",
+    probabilities: { up: 28, flat: 32, down: 40 },
+    strongWindow: "周初的惯性反弹窗口",
+    weakWindow: "8月6日至9日的风险释放窗口",
     keySupport: [],
     keyResistance: [],
     invalidation:
-      "若下周形成持续放量突破并连续站稳新平台，则“震荡与弱修复”判断失效，需生成新版本。",
-    catalysts: ["子孙酉金持世带来的修复力量", "申月临近后金气增强"],
-    risks: ["妻财子水伏于兄弟未土之下", "父母巳火发动化官鬼寅木", "反弹持续性不足"],
+      "若周中后仍持续放量创新高并连续站稳新平台，则“冲高回落”判断失效，需生成新版本。",
+    confirmation:
+      "周中后跌破短线支撑并出现放量，或反弹无法重新站稳前高压力带，可确认偏弱路径。",
+    catalysts: ["月卦坤为地化地雷复，早期压力后仍保留修复基础"],
+    risks: [
+      "官鬼戌土和官鬼丑土发动",
+      "父母申金在立秋后增强",
+      "丰卦表面强势不能替代六亲风险结构",
+    ],
     riskLevel: "高",
-    confidence: 60,
-    publishedAt: "2026-08-01T11:05:00+08:00",
-    updatedAt: "2026-08-01T11:05:00+08:00",
+    confidence: 64,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
     status: "published",
     visibility: "member",
-    sourceIds: ["BTC-W1-20260801-V2", "六爻：火泽睽→火水未济"],
+    sourceIds: [
+      "ORACLE-SPX-AUG3-9-20260801",
+      "六爻：雷火丰→火雷噬嗑",
+      "ORACLE-SPX-AUG-20260801",
+    ],
+    version: 1,
+    originalLocked: true,
+  },
+  {
+    id: "WEEKLY-NDX-20260803-V1",
+    assetId: "nasdaq-100",
+    assetName: "纳斯达克100",
+    symbol: "NDX",
+    displaySymbol: "NDX",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "探底回升",
+    weeklyPath:
+      "前半周多动爻分歧较大，妻财子水既有化兄弟、化官鬼的压力，也有官鬼化财的修复条件；进入8月7日前后，申金生财子水，指数更容易在下探后出现修复，但六冲结构使反弹波动很大。",
+    headline:
+      "纳指下周更接近先压后修复；立秋前后可能出现反弹，但暂不定义为新主升。",
+    probabilities: { up: 34, flat: 38, down: 28 },
+    strongWindow: "8月7日至9日的修复窗口",
+    weakWindow: "8月3日至6日的下探与分歧阶段",
+    keySupport: [],
+    keyResistance: [],
+    invalidation:
+      "若8月7日后仍连续放量破低且无修复，探底回升判断失效；若提前强势突破并站稳压力带，则需提高上行情景权重。",
+    confirmation:
+      "下探后成交量收缩、重新收复前一短线支撑，并在8月7日后出现资金回流，可确认修复路径。",
+    catalysts: ["官鬼寅木发动化妻财子水", "申月金生财水"],
+    risks: ["妻财子水发动化兄弟戌土", "妻财子水发动化官鬼寅木", "坎为水六冲放大波动"],
+    riskLevel: "高",
+    confidence: 62,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "ORACLE-NDX-AUG3-9-20260801",
+      "六爻：山天大畜→坎为水",
+      "ORACLE-NDX-AUG-20260801",
+    ],
+    version: 1,
+    originalLocked: true,
+  },
+  {
+    id: "WEEKLY-WTI-20260803-V1",
+    assetId: "wti-crude",
+    assetName: "WTI原油",
+    symbol: "WTI",
+    displaySymbol: "CL",
+    weekStart: "2026-08-03",
+    weekEnd: "2026-08-09",
+    overallDirection: "先跌后涨",
+    weeklyPath:
+      "周初妻财子水在未月受压，价格更容易偏弱或继续整理；8月7日前后进入申月，子孙申金临月并生财子水，可能出现短促修复。静卦六冲说明波动较大，反弹不等于中期下降结构结束。",
+    headline:
+      "WTI下周以周初偏弱、立秋前后短修复为主；整体仍处在八月偏弱背景中。",
+    probabilities: { up: 32, flat: 38, down: 30 },
+    strongWindow: "8月7日至9日的短线修复窗口",
+    weakWindow: "8月3日至6日的偏弱阶段",
+    keySupport: [],
+    keyResistance: [],
+    invalidation:
+      "若立秋后持续放量突破并连续站稳新的高位平台，则“偏弱背景中的短修复”判断失效。",
+    confirmation:
+      "周初回落后不再创新低，且8月7日后出现缩量止跌和价格回收，可确认短修复路径。",
+    catalysts: ["子孙申金临月生财子水", "前期风险释放后的技术修复"],
+    risks: [
+      "妻财子水在未月受兄弟土压制",
+      "雷天大壮静卦六冲",
+      "整月财爻空墓且兄弟申金发动，反弹不改变中期偏弱",
+    ],
+    riskLevel: "高",
+    confidence: 60,
+    publishedAt: PUBLISHED_AT,
+    updatedAt: PUBLISHED_AT,
+    status: "published",
+    visibility: "member",
+    sourceIds: [
+      "ORACLE-WTI-AUG3-9-20260801",
+      "六爻：雷天大壮（六冲静卦）",
+      "ORACLE-WTI-AUG-20260801",
+    ],
     version: 1,
     originalLocked: true,
   },

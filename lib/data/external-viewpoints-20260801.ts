@@ -267,4 +267,103 @@ export const externalViewpoints20260801: ResearchRecord[] = [
     visibility: "internal",
     tags: ["mu", "options-flow", "policy:options-flow", "uploaded-20260801"],
   },
+
+  {
+    id: "EXT-BTC-CAPTAIN-TECH-20260801",
+    publishedAt: "2026-08-01",
+    sourcePublishedAt: "2026-08-01",
+    sourcePublishedAtVerified: true,
+    ingestedAt: "2026-08-01T11:58:00+08:00",
+    expiresAt: "2026-08-15T23:59:59+08:00",
+    assetId: "bitcoin",
+    assetName: lt("比特币", "比特幣", "Bitcoin"),
+    symbol: "BTC",
+    market: "crypto",
+    framework: "technical",
+    sourceType: "public-analyst",
+    internalSourceRef: "用户上传：队长分析比特币.zip；2026-08-01视频与字幕",
+    publicSourceLabel: lt("公开技术来源05", "公開技術來源05", "Public Technical Source 05"),
+    direction: "slightly-bullish",
+    editorialConfidence: 7,
+    consensusEligible: false,
+    excludeFromLongTermConsensus: true,
+    layer: "tactical",
+    horizon: lt("未来3至7天；延伸观察1至2个月", "未來3至7天；延伸觀察1至2個月", "Next 3–7 days; extended 1–2 month watch"),
+    title: lt(
+      "BTC下降通道中的先探后修复与日线右肩情景",
+      "BTC下降通道中的先探後修復與日線右肩情境",
+      "BTC dip-then-repair inside a descending channel and daily right-shoulder scenario"
+    ),
+    summary: lt(
+      "该来源认为，7月21日至8月1日的4小时走势属于下降通道，并未形成流畅五段暴跌；长阴放量后仍收回前低62,660上方，说明空方未取得绝对优势。其主情景为再小幅下探、站稳后反弹（主观70%），直接暴跌为次情景（主观30%）。日线与周线MACD底背离支持1至2个月修复，61,000和59,000为右肩观察区，强情景上看70,000；反弹完成后，11月至次年1月仍需防范更大回撤。",
+      "該來源認為，7月21日至8月1日的4小時走勢屬於下降通道，並未形成流暢五段暴跌；長陰放量後仍收回前低62,660上方，說明空方未取得絕對優勢。其主情境為再小幅下探、站穩後反彈（主觀70%），直接暴跌為次情境（主觀30%）。日線與週線MACD底背離支持1至2個月修復，61,000和59,000為右肩觀察區，強情境上看70,000；反彈完成後，11月至次年1月仍需防範更大回撤。",
+      "The source reads the Jul 21–Aug 1 four-hour chart as a descending channel rather than a clean five-leg crash. A high-volume bearish candle still closed back above the prior 62,660 low, suggesting bears lacked full control. The preferred scenario is a further small dip followed by stabilization and rebound (subjective 70%), versus direct collapse (30%). Daily and weekly MACD divergences support a one-to-two-month repair, with 61,000 and 59,000 as right-shoulder zones and 70,000 as a strong-case target; larger downside risk returns after the rebound, around November to January."
+    ),
+    shortHorizonSummary: lt(
+      "未来3至7天：更偏向小幅下探后修复，不支持把当前下降通道直接等同于连续暴跌。",
+      "未來3至7天：更偏向小幅下探後修復，不支持把當前下降通道直接等同於連續暴跌。",
+      "Next 3–7 days: a small dip followed by repair is favored over an immediate waterfall decline."
+    ),
+    mediumHorizonSummary: lt(
+      "未来1至2个月：观察日线头肩底右肩，强情景可向70,000修复；反弹结束后仍需防范11月至次年1月的大回撤。",
+      "未來1至2個月：觀察日線頭肩底右肩，強情境可向70,000修復；反彈結束後仍需防範11月至次年1月的大回撤。",
+      "Next 1–2 months: watch a daily inverse-head-and-shoulders right shoulder, with 70,000 as a strong-case rebound target; larger drawdown risk may return around November–January."
+    ),
+    thesis: [
+      lt("前低62,660能否继续被4小时收盘守住，是判断空方是否占据绝对优势的第一条件。", "前低62,660能否繼續被4小時收盤守住，是判斷空方是否佔據絕對優勢的第一條件。", "Whether four-hour closes keep holding 62,660 is the first test of bear control."),
+      lt("61,000为较强右肩支撑观察区，59,000上方为较弱但仍有效的右肩区域。", "61,000為較強右肩支撐觀察區，59,000上方為較弱但仍有效的右肩區域。", "61,000 is the stronger right-shoulder support zone; above 59,000 is the weaker but still valid zone."),
+      lt("上涨路径更可能是ABC修复或上行通道，不按单边暴涨处理。", "上漲路徑更可能是ABC修復或上行通道，不按單邊暴漲處理。", "The rebound is framed as an ABC repair or rising channel, not a vertical bull run."),
+    ],
+    supports: [62660, 61000, 59000],
+    targets: [70000],
+    invalidation: lt(
+      "若价格决定性跌破59,000并持续收在其下，日线右肩与短期探底回升情景失效。",
+      "若價格決定性跌破59,000並持續收在其下，日線右肩與短期探底回升情境失效。",
+      "A decisive, sustained break below 59,000 invalidates the right-shoulder and dip-then-repair scenarios."
+    ),
+    turningWindows: [
+      {
+        id: "captain-btc-3-7d",
+        start: "2026-08-01",
+        end: "2026-08-07",
+        label: lt("小幅下探后企稳反弹窗口", "小幅下探後企穩反彈窗口", "Small dip then stabilization window"),
+      },
+      {
+        id: "captain-btc-1-2m",
+        start: "2026-08-01",
+        end: "2026-09-30",
+        label: lt("日线头肩底／ABC修复观察", "日線頭肩底／ABC修復觀察", "Daily inverse-H&S / ABC repair watch"),
+      },
+    ],
+    verificationChecklist: [
+      lt("4小时收盘是否守住62,660，或在61,000至59,000区域出现明确买盘。", "4小時收盤是否守住62,660，或在61,000至59,000區域出現明確買盤。", "Do four-hour closes hold 62,660 or show clear demand in the 61,000–59,000 zone?"),
+      lt("未来3至7天是否先小幅下探，再出现站稳和反弹。", "未來3至7天是否先小幅下探，再出現站穩和反彈。", "Does the next 3–7 days produce a small dip, stabilization, and rebound?"),
+      lt("若反弹延续，能否构成日线右肩并向70,000靠近。", "若反彈延續，能否構成日線右肩並向70,000靠近。", "If the rebound extends, does it form a daily right shoulder and approach 70,000?"),
+    ],
+    sourceReliability: {
+      overall: lt("首个事前样本，暂不统计稳定命中率", "首個事前樣本，暫不統計穩定命中率", "First forward sample; no stable hit rate yet"),
+      strengths: [
+        lt("给出明确时间尺度、结构、支撑、失效位和主次情景。", "給出明確時間尺度、結構、支撐、失效位和主次情境。", "Provides explicit timeframe, structure, support, invalidation, and scenarios."),
+        lt("同时区分4小时、日线和周线，不把短线与中线混为一谈。", "同時區分4小時、日線和週線，不把短線與中線混為一談。", "Separates four-hour, daily, and weekly horizons."),
+      ],
+      weaknesses: [
+        lt("目前只有一个事前样本，70%／30%为来源主观概率，不是统计胜率。", "目前只有一個事前樣本，70%／30%為來源主觀概率，不是統計勝率。", "Only one forward sample; 70/30 are subjective source probabilities, not statistical hit rates."),
+        lt("头肩底和手绘路径仍需价格收盘确认。", "頭肩底和手繪路徑仍需價格收盤確認。", "The inverse-H&S and drawn path still require price-close confirmation."),
+      ],
+      note: lt(
+        "暂归入“技术与周期博主”4%基础池，但consensusEligible=false，不自动改变星级；累计至少10个事前样本后再评估独立权重。",
+        "暫歸入「技術與週期博主」4%基礎池，但consensusEligible=false，不自動改變星級；累計至少10個事前樣本後再評估獨立權重。",
+        "Temporarily classified in the 4% technical-blogger pool, but consensusEligible=false; it does not automatically change star ratings. Reassess independent weight after at least 10 forward samples."
+      ),
+      methods: [
+        lt("下降通道", "下降通道", "Descending channel"),
+        lt("成交量与前低收盘", "成交量與前低收盤", "Volume and prior-low close"),
+        lt("MACD底背离", "MACD底背離", "MACD bullish divergence"),
+        lt("头肩底与ABC结构", "頭肩底與ABC結構", "Inverse H&S and ABC structure"),
+      ],
+    },
+    status: "active",
+    visibility: "internal",
+    tags: ["bitcoin", "technical", "policy:technical-blogger", "uploaded-20260801", "forward-sample-1"],
+  },
 ];

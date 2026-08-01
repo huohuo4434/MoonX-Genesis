@@ -8,7 +8,7 @@ import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-foreca
 import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
-import { listBtcAdminCycleForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
 import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
 import { hasPrisma, prisma } from "@/lib/prisma";
 import type {
@@ -129,10 +129,13 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     });
   }
 
+  for (const item of CORE_MARKET_CYCLE_ADMIN_ROWS_20260801) {
+    rows.push({ ...item });
+  }
+
   const focusGroups = [
     ...listLongxinPeriodForecasts(),
     ...listAsteroidPeriodForecasts(),
-    ...listBtcAdminCycleForecasts20260801(),
     ...listMuHypePeriodForecasts("mu"),
     ...listMuHypePeriodForecasts("hype"),
     ...listEthPeriodForecasts(),
