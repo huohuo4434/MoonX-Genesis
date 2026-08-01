@@ -34,6 +34,10 @@ type Dashboard = {
 type TestResult = {
   availableUsdt: number;
   equityUsdt: number;
+  apiMode: "UTA_V3";
+  accountMode: string;
+  accountLevel: string;
+  holdMode: string;
   symbols: Array<{
     symbol: string;
     available: boolean;
@@ -190,7 +194,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
           </div>
           <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">模式</Text>
-            <Text variant="body-sm" className="mt-1 block">逐仓 · 单向 · {dashboard.environment.leverage}倍</Text>
+            <Text variant="body-sm" className="mt-1 block">UTA V3 · 逐仓 · {dashboard.environment.leverage}倍</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">开始时间</Text>
@@ -232,6 +236,22 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
             <div className="rounded-lg border border-white/10 p-3">
               <Text variant="caption" color="tertiary">账户权益</Text>
               <Heading size="h3" className="mt-2">{testResult.equityUsdt.toLocaleString("en-US")}</Heading>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">接口模式</Text>
+              <Text variant="body-sm" className="mt-1 block">{testResult.apiMode}</Text>
+            </div>
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">账户模式</Text>
+              <Text variant="body-sm" className="mt-1 block">
+                {testResult.accountMode} / {testResult.accountLevel}
+              </Text>
+            </div>
+            <div className="rounded-lg border border-white/10 p-3">
+              <Text variant="caption" color="tertiary">持仓模式</Text>
+              <Text variant="body-sm" className="mt-1 block">{testResult.holdMode}</Text>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">

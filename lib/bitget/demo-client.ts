@@ -4,7 +4,6 @@ import { createHash, createHmac } from "crypto";
 
 const BASE_URL = "https://api.bitget.com";
 const PRODUCT_TYPE = "USDT-FUTURES";
-const MARGIN_COIN = "USDT";
 
 export type BitgetSupportedSymbol = "BTCUSDT" | "ETHUSDT" | "HYPEUSDT";
 
@@ -31,20 +30,46 @@ type BitgetEnvelope<T> = {
   data?: T;
 };
 
-type BitgetAccountRow = {
-  marginCoin?: string;
-  available?: string;
-  accountEquity?: string;
+type BitgetUtaAssetRow = {
+  coin?: string;
   equity?: string;
-  unrealizedPL?: string;
+  usdValue?: string;
+  balance?: string;
+  available?: string;
+  debt?: string;
+  locked?: string;
+  bonus?: string;
 };
 
-type BitgetContractRow = {
+type BitgetUtaAssets = {
+  accountEquity?: string;
+  usdtEquity?: string;
+  effEquity?: string;
+  unrealisedPnl?: string;
+  assets?: BitgetUtaAssetRow[];
+};
+
+type BitgetUtaSettings = {
+  accountMode?: string;
+  accountLevel?: string;
+  assetMode?: string;
+  holdMode?: "one_way_mode" | "hedge_mode" | string;
+  symbolConfigList?: Array<{
+    category?: string;
+    symbol?: string;
+    marginMode?: string;
+    leverage?: string;
+  }>;
+};
+
+type BitgetInstrumentRow = {
   symbol?: string;
-  minTradeNum?: string;
-  sizeMultiplier?: string;
-  volumePlace?: string;
-  symbolStatus?: string;
+  category?: string;
+  minOrderQty?: string;
+  quantityMultiplier?: string;
+  quantityPrecision?: string;
+  minOrderAmount?: string;
+  status?: string;
 };
 
 type BitgetOrderResponse = {
@@ -144,6 +169,7 @@ async function signedRequest<T>(input: {
     secretKey: env.secretKey,
   });
   const url = `${BASE_URL}${input.path}${query ? `?${query}` : ""}`;
+
   const response = await fetchWithTimeout(url, {
     method: input.method,
     headers: {
@@ -155,7 +181,7 @@ async function signedRequest<T>(input: {
       Accept: "application/json",
       locale: "zh-CN",
       paptrading: "1",
-      "User-Agent": "MoonX-Bitget-Demo/1.0",
+      "User-Agent": "MoonX-Bitget-UTA-Demo/1.0",
     },
     body: input.method === "POST" ? body : undefined,
   });
@@ -175,30 +201,57 @@ async function signedRequest<T>(input: {
       }`
     );
   }
+
   return envelope.data as T;
+}
+
+async function getUtaSettings(): Promise<BitgetUtaSettings> {
+  return signedRequest<BitgetUtaSettings>({
+    method: "GET",
+    path: "/api/v3/account/settings",
+  });
 }
 
 export async function testBitgetDemoConnection(): Promise<{
   availableUsdt: number;
   equityUsdt: number;
+  apiMode: "UTA_V3";
+  accountMode: string;
+  accountLevel: string;
+  holdMode: string;
   symbols: BitgetContractConfig[];
 }> {
-  const accounts = await signedRequest<BitgetAccountRow[]>({
-    method: "GET",
-    path: "/api/v2/mix/account/accounts",
-    query: { productType: PRODUCT_TYPE },
-  });
-  const usdt = accounts.find(
-    (row) => String(row.marginCoin ?? "").toUpperCase() === "USDT"
+  const [account, settings] = await Promise.all([
+    signedRequest<BitgetUtaAssets>({
+      method: "GET",
+      path: "/api/v3/account/assets",
+    }),
+    getUtaSettings(),
+  ]);
+
+  const usdt = account.assets?.find(
+    (row) => String(row.coin ?? "").toUpperCase() === "USDT"
   );
+
   const symbols = await Promise.all(
     (["BTCUSDT", "ETHUSDT", "HYPEUSDT"] as BitgetSupportedSymbol[]).map(
       getContractConfig
     )
   );
+
   return {
-    availableUsdt: Number(usdt?.available ?? 0),
-    equityUsdt: Number(usdt?.accountEquity ?? usdt?.equity ?? 0),
+    availableUsdt: Number(usdt?.available ?? usdt?.balance ?? 0),
+    equityUsdt: Number(
+      account.usdtEquity ??
+        usdt?.equity ??
+        usdt?.balance ??
+        account.accountEquity ??
+        0
+    ),
+    apiMode: "UTA_V3",
+    accountMode: String(settings.accountMode ?? "unknown"),
+    accountLevel: String(settings.accountLevel ?? "unknown"),
+    holdMode: String(settings.holdMode ?? "unknown"),
     symbols,
   };
 }
@@ -207,14 +260,16 @@ export async function getContractConfig(
   symbol: BitgetSupportedSymbol
 ): Promise<BitgetContractConfig> {
   try {
-    const rows = await signedRequest<BitgetContractRow[]>({
+    const rows = await signedRequest<BitgetInstrumentRow[]>({
       method: "GET",
-      path: "/api/v2/mix/market/contracts",
-      query: { productType: PRODUCT_TYPE, symbol },
+      path: "/api/v3/market/instruments",
+      query: { category: PRODUCT_TYPE, symbol },
     });
+
     const row = rows.find(
       (item) => String(item.symbol ?? "").toUpperCase() === symbol
     );
+
     if (!row) {
       return {
         symbol,
@@ -222,16 +277,18 @@ export async function getContractConfig(
         minTradeNum: 0,
         sizeMultiplier: 0,
         volumePlace: 8,
-        symbolStatus: "missing",
+        symbolStatus: "UTA V3模拟盘未返回该合约",
       };
     }
+
+    const status = String(row.status ?? "unknown");
     return {
       symbol,
-      available: true,
-      minTradeNum: Number(row.minTradeNum ?? 0),
-      sizeMultiplier: Number(row.sizeMultiplier ?? 0),
-      volumePlace: Number(row.volumePlace ?? 8),
-      symbolStatus: String(row.symbolStatus ?? "unknown"),
+      available: status === "online",
+      minTradeNum: Number(row.minOrderQty ?? 0),
+      sizeMultiplier: Number(row.quantityMultiplier ?? 0),
+      volumePlace: Number(row.quantityPrecision ?? 8),
+      symbolStatus: status,
     };
   } catch (error) {
     return {
@@ -258,10 +315,15 @@ export function normalizeOrderSize(
   contract: BitgetContractConfig
 ): string {
   if (!contract.available) throw new Error(`${contract.symbol}模拟盘暂不支持`);
-  const step = contract.sizeMultiplier > 0 ? contract.sizeMultiplier : 10 ** -contract.volumePlace;
+
+  const step =
+    contract.sizeMultiplier > 0
+      ? contract.sizeMultiplier
+      : 10 ** -contract.volumePlace;
   const floored = Math.floor((quantity + Number.EPSILON) / step) * step;
   const places = Math.max(decimalPlaces(step), contract.volumePlace, 0);
   const normalized = Number(floored.toFixed(Math.min(places, 12)));
+
   if (!Number.isFinite(normalized) || normalized <= 0) {
     throw new Error(`${contract.symbol}数量计算为0`);
   }
@@ -270,77 +332,64 @@ export function normalizeOrderSize(
       `${contract.symbol}数量${normalized}低于最小下单量${contract.minTradeNum}`
     );
   }
+
   return normalized.toFixed(Math.min(places, 12)).replace(/\.?0+$/, "");
 }
 
-async function safeConfigureSymbol(symbol: BitgetSupportedSymbol): Promise<string[]> {
-  const warnings: string[] = [];
+async function configureUtaSymbol(
+  symbol: BitgetSupportedSymbol
+): Promise<string[]> {
   const env = getBitgetDemoEnvironment();
-  const calls: Array<{ label: string; path: string; body: Record<string, unknown> }> = [
-    {
-      label: "单向持仓",
-      path: "/api/v2/mix/account/set-position-mode",
-      body: { productType: PRODUCT_TYPE, posMode: "one_way_mode" },
-    },
-    {
-      label: "逐仓",
-      path: "/api/v2/mix/account/set-margin-mode",
+
+  try {
+    await signedRequest<string>({
+      method: "POST",
+      path: "/api/v3/account/set-leverage",
       body: {
+        category: PRODUCT_TYPE,
         symbol,
-        productType: PRODUCT_TYPE,
-        marginCoin: MARGIN_COIN,
+        leverage: String(env.leverage),
         marginMode: "isolated",
       },
-    },
-    {
-      label: `${env.leverage}倍杠杆`,
-      path: "/api/v2/mix/account/set-leverage",
-      body: {
-        symbol,
-        productType: PRODUCT_TYPE,
-        marginCoin: MARGIN_COIN,
-        leverage: String(env.leverage),
-      },
-    },
-  ];
-  for (const call of calls) {
-    try {
-      await signedRequest<unknown>({
-        method: "POST",
-        path: call.path,
-        body: call.body,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "配置失败";
-      if (/already|same|无需|一致|重复/i.test(message)) continue;
-      warnings.push(`${call.label}：${message}`);
-    }
+    });
+    return [`UTA V3已设置逐仓${env.leverage}倍`];
+  } catch (error) {
+    throw new Error(
+      `无法设置${symbol}逐仓${env.leverage}倍：${
+        error instanceof Error ? error.message : "未知错误"
+      }`
+    );
   }
-  return warnings;
 }
 
 function clientOid(paperOrderId: string): string {
-  const hash = createHash("sha256").update(paperOrderId).digest("hex").slice(0, 22);
+  const hash = createHash("sha256")
+    .update(paperOrderId)
+    .digest("hex")
+    .slice(0, 22);
   return `mx${hash}`;
 }
 
 async function findOrderByClientOid(
-  symbol: BitgetSupportedSymbol,
   oid: string
 ): Promise<BitgetOrderResponse | null> {
   try {
     return await signedRequest<BitgetOrderResponse>({
       method: "GET",
-      path: "/api/v2/mix/order/detail",
-      query: {
-        symbol,
-        productType: PRODUCT_TYPE,
-        clientOid: oid,
-      },
+      path: "/api/v3/trade/order-info",
+      query: { clientOid: oid },
     });
   } catch {
     return null;
   }
+}
+
+function inferHedgePositionSide(input: {
+  side: "buy" | "sell";
+  reduceOnly: boolean;
+}): "long" | "short" {
+  if (!input.reduceOnly) return input.side === "buy" ? "long" : "short";
+  return input.side === "sell" ? "long" : "short";
 }
 
 export async function placeBitgetDemoMarketOrder(input: {
@@ -360,40 +409,53 @@ export async function placeBitgetDemoMarketOrder(input: {
   if (!env.executionAllowed) {
     throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
   }
-  const contract = await getContractConfig(input.symbol);
+
+  const [contract, settings] = await Promise.all([
+    getContractConfig(input.symbol),
+    getUtaSettings(),
+  ]);
   const size = normalizeOrderSize(input.quantity, contract);
-  const warnings = input.reduceOnly ? [] : await safeConfigureSymbol(input.symbol);
+  const warnings = input.reduceOnly
+    ? []
+    : await configureUtaSymbol(input.symbol);
   const oid = clientOid(input.paperOrderId);
 
-  const existing = await findOrderByClientOid(input.symbol, oid);
+  const existing = await findOrderByClientOid(oid);
   if (existing?.orderId) {
     return {
       orderId: existing.orderId,
       clientOid: existing.clientOid ?? oid,
       size,
-      warnings: [...warnings, "检测到相同clientOid，已复用原订单，未重复下单"],
+      warnings: [...warnings, "检测到相同clientOid，未重复下单"],
       raw: existing,
     };
+  }
+
+  const hedgeMode = settings.holdMode === "hedge_mode";
+  const body: Record<string, unknown> = {
+    category: PRODUCT_TYPE,
+    symbol: input.symbol,
+    qty: size,
+    side: input.side,
+    orderType: "market",
+    clientOid: oid,
+    reduceOnly: input.reduceOnly ? "yes" : "no",
+    marginMode: "isolated",
+  };
+
+  if (hedgeMode) {
+    body.posSide = inferHedgePositionSide(input);
   }
 
   try {
     const response = await signedRequest<BitgetOrderResponse>({
       method: "POST",
-      path: "/api/v2/mix/order/place-order",
-      body: {
-        symbol: input.symbol,
-        productType: PRODUCT_TYPE,
-        marginMode: "isolated",
-        marginCoin: MARGIN_COIN,
-        size,
-        side: input.side,
-        orderType: "market",
-        force: "gtc",
-        clientOid: oid,
-        reduceOnly: input.reduceOnly ? "YES" : "NO",
-      },
+      path: "/api/v3/trade/place-order",
+      body,
     });
+
     if (!response?.orderId) throw new Error("Bitget未返回orderId");
+
     return {
       orderId: response.orderId,
       clientOid: response.clientOid ?? oid,
@@ -402,7 +464,7 @@ export async function placeBitgetDemoMarketOrder(input: {
       raw: response,
     };
   } catch (error) {
-    const afterError = await findOrderByClientOid(input.symbol, oid);
+    const afterError = await findOrderByClientOid(oid);
     if (afterError?.orderId) {
       return {
         orderId: afterError.orderId,
