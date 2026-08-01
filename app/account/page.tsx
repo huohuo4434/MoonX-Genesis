@@ -138,6 +138,9 @@ export default async function AccountPage() {
                 <Button asChild size="sm" variant="outline">
                   <Link href="/member/weekly">本周行情</Link>
                 </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/member/btc-eth-cycle">BTC／ETH周期</Link>
+                </Button>
               </>
             ) : (
               <Button asChild size="sm">

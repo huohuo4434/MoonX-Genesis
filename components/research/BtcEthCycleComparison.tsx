@@ -1,0 +1,136 @@
+import { Badge, Card, Heading, Text } from "@/components/ui";
+import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import type { CryptoCycleAlignment } from "@/lib/data/crypto-cycle-comparison-20260801";
+
+function ForecastCard({
+  item,
+  symbol,
+}: {
+  item: ConvictionPeriodForecast;
+  symbol: "BTC" | "ETH";
+}) {
+  return (
+    <Card padding="lg" className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Text variant="body" weight="semibold">
+            {symbol} · {item.forecastType}
+          </Text>
+          <Text variant="caption" color="tertiary" className="mt-1 block">
+            {item.periodStart} 至 {item.periodEnd}
+          </Text>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{item.direction}</Badge>
+          {item.consensusStars ? (
+            <Badge variant="outline">{"★".repeat(item.consensusStars)}{"☆".repeat(5 - item.consensusStars)}</Badge>
+          ) : null}
+        </div>
+      </div>
+      <Text variant="body-sm" className="block leading-relaxed text-white/80">
+        {item.summary}
+      </Text>
+      <div className="rounded-lg border border-white/10 bg-black/15 p-3">
+        <Text variant="caption" className="block text-white/55">
+          路径
+        </Text>
+        <Text variant="body-sm" className="mt-1 block leading-relaxed text-white/75">
+          {item.expectedPath}
+        </Text>
+      </div>
+      <Text variant="caption" className="block text-white/45">
+        六爻：{item.ichingEvidence.primaryHexagram}
+        {item.ichingEvidence.changingHexagram
+          ? ` → ${item.ichingEvidence.changingHexagram}`
+          : ""}
+      </Text>
+      {item.consensusLabel ? (
+        <Text variant="caption" className="block text-amber-200/80">
+          交叉判断：{item.consensusLabel}
+        </Text>
+      ) : null}
+    </Card>
+  );
+}
+
+export function BtcEthCycleComparison({
+  btc,
+  eth,
+  alignments,
+  admin = false,
+}: {
+  btc: ConvictionPeriodForecast[];
+  eth: ConvictionPeriodForecast[];
+  alignments: CryptoCycleAlignment[];
+  admin?: boolean;
+}) {
+  const btcVisible = admin ? btc : btc.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
+  const ethVisible = admin ? eth : eth.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
+
+  return (
+    <div className="space-y-8">
+      <section>
+        <Heading as="h1" size="h2" className="mb-2">
+          BTC／ETH周期交叉验证
+        </Heading>
+        <Text variant="body-sm" color="secondary" className="max-w-4xl">
+          两套卦独立起卦、分别判断。只有方向和路径同向时才记为交叉印证；出现分歧时改用相对强弱，不把相关性误写成共同结论。
+        </Text>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        {alignments.map((item) => (
+          <Card key={item.id} padding="lg" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Text variant="body" weight="semibold">
+                {item.period}
+              </Text>
+              <Badge variant="outline">{item.alignment}</Badge>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-md border border-white/10 p-3">
+                <Text variant="caption" className="block text-white/45">BTC</Text>
+                <Text variant="body-sm" className="mt-1 block">{item.btcDirection}</Text>
+              </div>
+              <div className="rounded-md border border-white/10 p-3">
+                <Text variant="caption" className="block text-white/45">ETH</Text>
+                <Text variant="body-sm" className="mt-1 block">{item.ethDirection}</Text>
+              </div>
+            </div>
+            <Text variant="body-sm" className="block leading-relaxed text-white/75">
+              {item.conclusion}
+            </Text>
+            <Text variant="caption" className="block text-amber-200/75">
+              交易含义：{item.tradingMeaning}
+            </Text>
+          </Card>
+        ))}
+      </section>
+
+      <section>
+        <Heading as="h2" size="h3" className="mb-4">BTC多周期研究</Heading>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {btcVisible.map((item) => (
+            <ForecastCard key={item.id} item={item} symbol="BTC" />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <Heading as="h2" size="h3" className="mb-4">ETH多周期研究</Heading>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {ethVisible.map((item) => (
+            <ForecastCard key={item.id} item={item} symbol="ETH" />
+          ))}
+        </div>
+      </section>
+
+      <Card padding="lg" className="border-amber-500/20 bg-amber-500/[0.04]">
+        <Text variant="body" weight="semibold">十年卦使用限制</Text>
+        <Text variant="body-sm" className="mt-2 block leading-relaxed text-white/70">
+          十年卦只能判断资产长期存续性、财富结构、制度化程度和牛熊循环性质，不能据此精确编排每一个年份，也不能直接替代短期入场、止损和仓位规则。
+        </Text>
+      </Card>
+    </div>
+  );
+}

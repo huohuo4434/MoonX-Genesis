@@ -12,6 +12,7 @@ const adminLinks = [
   { href: "/admin/support-resistance", label: "支撑压力录入" },
   { href: "/admin/forecasts", label: "今日／明日观点" },
   { href: "/admin/weekly", label: "本周行情" },
+  { href: "/admin/btc-eth-cycle", label: "BTC／ETH周期" },
   { href: "/admin/full-cycle", label: "全周期／关键日" },
   { href: "/admin/stocks", label: "重点关注" },
   { href: "/admin/asset-research", label: "资产材料导入" },
