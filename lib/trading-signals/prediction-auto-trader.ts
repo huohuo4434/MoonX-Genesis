@@ -43,6 +43,8 @@ type DbSettings = {
   enabled: boolean;
   btc_enabled: boolean;
   eth_enabled: boolean;
+  watch_symbols: unknown;
+  strategy_interval_minutes: number;
   position_pct: number;
   stop_loss_pct: number;
   target_1_pct: number;
@@ -57,6 +59,8 @@ type DbSettings = {
   require_daily_weekly_alignment: boolean;
   started_at: Date | string | null;
   last_run_at: Date | string | null;
+  last_full_scan_at: Date | string | null;
+  last_run_source: string | null;
   last_message: string;
   updated_at: Date | string;
 };
@@ -84,18 +88,68 @@ type PathPattern =
   | "DOWN"
   | "NEUTRAL";
 
-const SYMBOL_META: Record<
-  PredictionAutoSymbol,
-  { assetId: string; assetName: string; tradeSymbol: string }
-> = {
+type SymbolMeta = {
+  assetId: string;
+  assetName: string;
+  tradeSymbol: string;
+};
+
+const SYMBOL_CATALOG: Record<string, SymbolMeta> = {
   BTC: { assetId: "bitcoin", assetName: "比特币", tradeSymbol: "BTC" },
   ETH: { assetId: "eth", assetName: "以太坊", tradeSymbol: "ETH" },
+  SOL: { assetId: "solana", assetName: "Solana", tradeSymbol: "SOL" },
+  BNB: { assetId: "bnb", assetName: "BNB", tradeSymbol: "BNB" },
+  XRP: { assetId: "xrp", assetName: "XRP", tradeSymbol: "XRP" },
+  DOGE: { assetId: "dogecoin", assetName: "狗狗币", tradeSymbol: "DOGE" },
+  ADA: { assetId: "cardano", assetName: "Cardano", tradeSymbol: "ADA" },
+  AVAX: { assetId: "avalanche", assetName: "Avalanche", tradeSymbol: "AVAX" },
+  LINK: { assetId: "chainlink", assetName: "Chainlink", tradeSymbol: "LINK" },
+  HYPE: { assetId: "hype", assetName: "Hyperliquid", tradeSymbol: "HYPE" },
 };
+
+const DEFAULT_WATCH_SYMBOLS = ["BTC", "ETH"];
+const EXPECTED_SERVER_INTERVAL_MINUTES = 1;
+
+function normalizeSymbol(value: string): PredictionAutoSymbol {
+  const normalized = value.trim().toUpperCase().replace(/[-_\/\s]/g, "");
+  const base = normalized.endsWith("USDT") ? normalized.slice(0, -4) : normalized;
+  if (!/^[A-Z0-9]{2,15}$/.test(base)) throw new Error(`币种代码${value}格式无效`);
+  return base;
+}
+
+function normalizeWatchSymbols(value: unknown, fallback = DEFAULT_WATCH_SYMBOLS): string[] {
+  const raw = Array.isArray(value) ? value : fallback;
+  const result: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    try {
+      const symbol = normalizeSymbol(item);
+      if (!result.includes(symbol)) result.push(symbol);
+    } catch {
+      // 忽略旧数据中的无效币种。
+    }
+    if (result.length >= 10) break;
+  }
+  return result.length ? result : [...fallback];
+}
+
+function symbolMeta(symbol: PredictionAutoSymbol): SymbolMeta {
+  const normalized = normalizeSymbol(symbol);
+  return (
+    SYMBOL_CATALOG[normalized] ?? {
+      assetId: normalized.toLowerCase(),
+      assetName: normalized,
+      tradeSymbol: normalized,
+    }
+  );
+}
 
 const DEFAULT_SETTINGS: PredictionAutoTraderSettings = {
   enabled: false,
+  watchSymbols: [...DEFAULT_WATCH_SYMBOLS],
   btcEnabled: true,
   ethEnabled: true,
+  strategyIntervalMinutes: 5,
   positionPct: 2,
   stopLossPct: 1,
   target1Pct: 1.5,
@@ -110,6 +164,8 @@ const DEFAULT_SETTINGS: PredictionAutoTraderSettings = {
   requireDailyWeeklyAlignment: true,
   startedAt: null,
   lastRunAt: null,
+  lastFullScanAt: null,
+  lastRunSource: "UNKNOWN",
   lastMessage: "尚未运行",
   updatedAt: new Date(0).toISOString(),
 };
@@ -120,12 +176,26 @@ function iso(value: Date | string | null): string | null {
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
 }
 
+function runSource(value: string | null | undefined): "CRON" | "ADMIN" | "BROWSER" | "UNKNOWN" {
+  return value === "CRON" || value === "ADMIN" || value === "BROWSER" ? value : "UNKNOWN";
+}
+
 function mapSettings(row: DbSettings | undefined): PredictionAutoTraderSettings {
-  if (!row) return { ...DEFAULT_SETTINGS };
+  if (!row) return { ...DEFAULT_SETTINGS, watchSymbols: [...DEFAULT_WATCH_SYMBOLS] };
+  const legacyFallback = [
+    ...(row.btc_enabled ? ["BTC"] : []),
+    ...(row.eth_enabled ? ["ETH"] : []),
+  ];
+  const watchSymbols = normalizeWatchSymbols(
+    row.watch_symbols,
+    legacyFallback.length ? legacyFallback : DEFAULT_WATCH_SYMBOLS
+  );
   return {
     enabled: Boolean(row.enabled),
-    btcEnabled: Boolean(row.btc_enabled),
-    ethEnabled: Boolean(row.eth_enabled),
+    watchSymbols,
+    btcEnabled: watchSymbols.includes("BTC"),
+    ethEnabled: watchSymbols.includes("ETH"),
+    strategyIntervalMinutes: Math.max(1, Math.min(15, Number(row.strategy_interval_minutes || 5))),
     positionPct: Number(row.position_pct),
     stopLossPct: Number(row.stop_loss_pct),
     target1Pct: Number(row.target_1_pct),
@@ -140,6 +210,8 @@ function mapSettings(row: DbSettings | undefined): PredictionAutoTraderSettings 
     requireDailyWeeklyAlignment: Boolean(row.require_daily_weekly_alignment),
     startedAt: iso(row.started_at),
     lastRunAt: iso(row.last_run_at),
+    lastFullScanAt: iso(row.last_full_scan_at),
+    lastRunSource: runSource(row.last_run_source),
     lastMessage: row.last_message || "尚未运行",
     updatedAt: iso(row.updated_at) ?? new Date().toISOString(),
   };
@@ -178,6 +250,8 @@ export async function ensurePredictionAutoTraderTables(): Promise<boolean> {
         enabled BOOLEAN NOT NULL DEFAULT FALSE,
         btc_enabled BOOLEAN NOT NULL DEFAULT TRUE,
         eth_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        watch_symbols JSONB NOT NULL DEFAULT '["BTC","ETH"]'::jsonb,
+        strategy_interval_minutes INTEGER NOT NULL DEFAULT 5,
         position_pct DOUBLE PRECISION NOT NULL DEFAULT 2,
         stop_loss_pct DOUBLE PRECISION NOT NULL DEFAULT 1,
         target_1_pct DOUBLE PRECISION NOT NULL DEFAULT 1.5,
@@ -192,14 +266,35 @@ export async function ensurePredictionAutoTraderTables(): Promise<boolean> {
         require_daily_weekly_alignment BOOLEAN NOT NULL DEFAULT TRUE,
         started_at TIMESTAMPTZ,
         last_run_at TIMESTAMPTZ,
+        last_full_scan_at TIMESTAMPTZ,
+        last_run_source TEXT,
         last_message TEXT NOT NULL DEFAULT '尚未运行',
         run_lock_until TIMESTAMPTZ,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
     await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_prediction_auto_settings
+        ADD COLUMN IF NOT EXISTS watch_symbols JSONB NOT NULL DEFAULT '["BTC","ETH"]'::jsonb,
+        ADD COLUMN IF NOT EXISTS strategy_interval_minutes INTEGER NOT NULL DEFAULT 5,
+        ADD COLUMN IF NOT EXISTS last_full_scan_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS last_run_source TEXT
+    `);
+    await prisma.$executeRawUnsafe(`
       INSERT INTO trade_prediction_auto_settings (id)
       VALUES ('default') ON CONFLICT (id) DO NOTHING
+    `);
+    await prisma.$executeRawUnsafe(`
+      UPDATE trade_prediction_auto_settings
+      SET watch_symbols = CASE
+        WHEN watch_symbols IS NULL OR jsonb_array_length(watch_symbols) = 0
+        THEN to_jsonb(ARRAY_REMOVE(ARRAY[
+          CASE WHEN btc_enabled THEN 'BTC' ELSE NULL END,
+          CASE WHEN eth_enabled THEN 'ETH' ELSE NULL END
+        ], NULL))
+        ELSE watch_symbols
+      END
+      WHERE id = 'default'
     `);
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_prediction_auto_runs (
@@ -236,7 +331,7 @@ export async function ensurePredictionAutoTraderTables(): Promise<boolean> {
 
 export async function getPredictionAutoTraderSettings(): Promise<PredictionAutoTraderSettings> {
   if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, watchSymbols: [...DEFAULT_WATCH_SYMBOLS] };
   }
   const rows = await prisma.$queryRawUnsafe<DbSettings[]>(
     `SELECT * FROM trade_prediction_auto_settings WHERE id = 'default' LIMIT 1`
@@ -246,8 +341,8 @@ export async function getPredictionAutoTraderSettings(): Promise<PredictionAutoT
 
 export type PredictionAutoSettingsUpdate = Pick<
   PredictionAutoTraderSettings,
-  | "btcEnabled"
-  | "ethEnabled"
+  | "watchSymbols"
+  | "strategyIntervalMinutes"
   | "positionPct"
   | "stopLossPct"
   | "target1Pct"
@@ -268,10 +363,14 @@ export async function updatePredictionAutoTraderSettings(
   if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
     throw new Error("交易数据库未连接");
   }
+  const watchSymbols = normalizeWatchSymbols(input.watchSymbols);
+  const watchJson = JSON.stringify(watchSymbols);
   await prisma.$executeRaw`
     UPDATE trade_prediction_auto_settings SET
-      btc_enabled = ${input.btcEnabled},
-      eth_enabled = ${input.ethEnabled},
+      watch_symbols = ${watchJson}::jsonb,
+      btc_enabled = ${watchSymbols.includes("BTC")},
+      eth_enabled = ${watchSymbols.includes("ETH")},
+      strategy_interval_minutes = ${input.strategyIntervalMinutes},
       position_pct = ${input.positionPct},
       stop_loss_pct = ${input.stopLossPct},
       target_1_pct = ${input.target1Pct},
@@ -312,7 +411,7 @@ export async function setPredictionAutoTraderEnabled(
         WHEN ${enabled} = TRUE AND enabled = FALSE THEN NOW()
         ELSE started_at
       END,
-      last_message = ${enabled ? "预测自动交易已开启" : "预测自动交易已停止"},
+      last_message = ${enabled ? "预测自动交易已开启，等待服务器Cron心跳" : "预测自动交易已停止"},
       updated_at = NOW()
     WHERE id = 'default'
   `;
@@ -364,10 +463,11 @@ function forecastScore(row: AdminCycleForecastRow): number {
 }
 
 function marketCodeAssetId(code: string): string | null {
-  const normalized = code.trim().toUpperCase();
-  if (normalized === "BTC" || normalized === "BTCUSDT") return "bitcoin";
-  if (normalized === "ETH" || normalized === "ETHUSDT") return "eth";
-  return null;
+  try {
+    return symbolMeta(normalizeSymbol(code)).assetId;
+  } catch {
+    return null;
+  }
 }
 
 async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecastRow[]> {
@@ -476,7 +576,8 @@ function buildPlan(
   settings: PredictionAutoTraderSettings,
   now: Date
 ): PredictionStrategyPlan {
-  const meta = SYMBOL_META[symbol];
+  const normalizedSymbol = normalizeSymbol(symbol);
+  const meta = symbolMeta(normalizedSymbol);
   const today = getChinaDateKey(now);
   const weeklyRow = selectForecast(rows, meta.assetId, "WEEK", today);
   const dailyRow = selectForecast(rows, meta.assetId, "DAY", today);
@@ -501,8 +602,7 @@ function buildPlan(
   ) {
     reason = `预测置信度不足${settings.minForecastConfidence}%，只观察不下单。`;
   } else if (weeklyDirection === "LONG") {
-    const supportsLong =
-      dailyPattern === "DOWN_THEN_UP" || dailyPattern === "UP";
+    const supportsLong = dailyPattern === "DOWN_THEN_UP" || dailyPattern === "UP";
     if (supportsLong || !settings.requireDailyWeeklyAlignment) {
       setup = "BUY_DIP";
       reason =
@@ -511,8 +611,7 @@ function buildPlan(
           : "周趋势当前偏多，日预测不反对多头，等待回落确认后做多。";
     }
   } else if (weeklyDirection === "SHORT") {
-    const supportsShort =
-      dailyPattern === "UP_THEN_DOWN" || dailyPattern === "DOWN";
+    const supportsShort = dailyPattern === "UP_THEN_DOWN" || dailyPattern === "DOWN";
     if (supportsShort || !settings.requireDailyWeeklyAlignment) {
       setup = "SELL_RALLY";
       reason =
@@ -524,7 +623,8 @@ function buildPlan(
 
   const confidence = weekly && daily ? Math.round((weekly.confidence + daily.confidence) / 2) : 0;
   return {
-    symbol,
+    symbol: normalizedSymbol,
+    tradeSymbol: meta.tradeSymbol,
     assetId: meta.assetId,
     assetName: meta.assetName,
     weeklyForecast: weekly,
@@ -542,7 +642,7 @@ export async function resolvePredictionStrategyPlans(
   now = new Date()
 ): Promise<PredictionStrategyPlan[]> {
   const rows = await loadPredictionForecastRows(now);
-  return (["BTC", "ETH"] as PredictionAutoSymbol[]).map((symbol) =>
+  return normalizeWatchSymbols(settings.watchSymbols).map((symbol) =>
     buildPlan(symbol, rows, settings, now)
   );
 }
@@ -625,13 +725,19 @@ async function acquireRunLock(): Promise<boolean> {
   return Boolean(rows[0]);
 }
 
-async function releaseRunLock(message: string): Promise<void> {
+async function releaseRunLock(input: {
+  message: string;
+  source: "CRON" | "ADMIN" | "BROWSER" | "UNKNOWN";
+  fullScan: boolean;
+}): Promise<void> {
   if (!prisma) return;
   await prisma.$executeRaw`
     UPDATE trade_prediction_auto_settings SET
       run_lock_until = NULL,
       last_run_at = NOW(),
-      last_message = ${message},
+      last_full_scan_at = CASE WHEN ${input.fullScan} THEN NOW() ELSE last_full_scan_at END,
+      last_run_source = ${input.source},
+      last_message = ${input.message},
       updated_at = NOW()
     WHERE id = 'default'
   `;
@@ -689,9 +795,11 @@ async function openAutoSymbols(): Promise<Set<PredictionAutoSymbol>> {
   `);
   const result = new Set<PredictionAutoSymbol>();
   for (const row of rows) {
-    const symbol = row.symbol.trim().toUpperCase().replace(/[-_/]/g, "");
-    if (symbol === "BTC" || symbol === "BTCUSDT") result.add("BTC");
-    if (symbol === "ETH" || symbol === "ETHUSDT") result.add("ETH");
+    try {
+      result.add(normalizeSymbol(row.symbol));
+    } catch {
+      // 跳过非加密币种。
+    }
   }
   return result;
 }
@@ -712,10 +820,8 @@ async function todayEntryCount(symbol: PredictionAutoSymbol, now: Date): Promise
   const dayKey = getChinaDateKey(now);
   const start = new Date(`${dayKey}T00:00:00+08:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  const symbolFilter =
-    symbol === "BTC"
-      ? "('BTC','BTCUSDT')"
-      : "('ETH','ETHUSDT')";
+  const base = normalizeSymbol(symbol);
+  const contract = `${base}USDT`;
   const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number }>>(
     `SELECT COUNT(*) AS count
      FROM trade_paper_orders o
@@ -723,11 +829,13 @@ async function todayEntryCount(symbol: PredictionAutoSymbol, now: Date): Promise
      JOIN trade_signals s ON s.id = o.signal_id
      WHERE o.order_type = 'ENTRY'
        AND s.draft_source = 'PREDICTION_AUTO_TRADER'
-       AND UPPER(REPLACE(REPLACE(REPLACE(p.symbol, '-', ''), '_', ''), '/', '')) IN ${symbolFilter}
+       AND UPPER(REPLACE(REPLACE(REPLACE(p.symbol, '-', ''), '_', ''), '/', '')) IN ($3, $4)
        AND o.created_at >= $1::timestamptz
        AND o.created_at < $2::timestamptz`,
     start.toISOString(),
-    end.toISOString()
+    end.toISOString(),
+    base,
+    contract
   );
   return Number(rows[0]?.count ?? 0);
 }
@@ -750,14 +858,12 @@ async function manageExistingSignals(
   for (const id of await autoSignalIds()) {
     const signal = await getTradeSignalById(id);
     if (!signal) continue;
-    const normalized = signal.symbol.trim().toUpperCase().replace(/[-_/]/g, "");
-    const symbol: PredictionAutoSymbol | null =
-      normalized === "BTC" || normalized === "BTCUSDT"
-        ? "BTC"
-        : normalized === "ETH" || normalized === "ETHUSDT"
-          ? "ETH"
-          : null;
-    if (!symbol) continue;
+    let symbol: PredictionAutoSymbol;
+    try {
+      symbol = normalizeSymbol(signal.symbol);
+    } catch {
+      continue;
+    }
     const market = marketMap.get(symbol);
     const plan = plans.get(symbol);
     if (!market || !plan) continue;
@@ -836,7 +942,7 @@ async function createAndEnterSignal(input: {
 
   const signal = await createTradeSignal({
     assetId: input.plan.assetId,
-    symbol: SYMBOL_META[input.plan.symbol].tradeSymbol,
+    symbol: input.plan.tradeSymbol,
     assetName: input.plan.assetName,
     market: "CRYPTO",
     timeframe: "15m/1D/1W",
@@ -908,9 +1014,25 @@ async function createAndEnterSignal(input: {
   return signal.id;
 }
 
+function isFullStrategyScanDue(
+  settings: PredictionAutoTraderSettings,
+  now: Date,
+  forceFullScan: boolean
+): boolean {
+  if (forceFullScan || !settings.lastFullScanAt) return true;
+  const previous = new Date(settings.lastFullScanAt).getTime();
+  if (!Number.isFinite(previous)) return true;
+  return now.getTime() - previous >= settings.strategyIntervalMinutes * 60_000;
+}
+
 export async function runPredictionAutoTrader(
-  now = new Date()
+  now = new Date(),
+  options: {
+    source?: "CRON" | "ADMIN" | "BROWSER" | "UNKNOWN";
+    forceFullScan?: boolean;
+  } = {}
 ): Promise<PredictionAutoRunReport> {
+  const source = options.source ?? "UNKNOWN";
   if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
     throw new Error("交易数据库未连接");
   }
@@ -920,6 +1042,8 @@ export async function runPredictionAutoTrader(
       ok: true,
       enabled: true,
       locked: true,
+      mode: "MONITOR",
+      source,
       generatedAt: now.toISOString(),
       decisions: [],
       bitgetSync: null,
@@ -928,15 +1052,22 @@ export async function runPredictionAutoTrader(
   }
 
   let finalMessage = "策略检查完成";
+  let fullScanPerformed = false;
   try {
     await cleanOldRuns();
     const settings = await getPredictionAutoTraderSettings();
+    const fullScan = isFullStrategyScanDue(settings, now, Boolean(options.forceFullScan));
+    fullScanPerformed = fullScan;
+    const mode = fullScan ? "FULL" as const : "MONITOR" as const;
+
     if (!settings.enabled) {
       finalMessage = "预测自动交易尚未开启";
       return {
         ok: true,
         enabled: false,
         locked: false,
+        mode,
+        source,
         generatedAt: now.toISOString(),
         decisions: [],
         bitgetSync: null,
@@ -944,22 +1075,26 @@ export async function runPredictionAutoTrader(
       };
     }
 
-    const mirror = await getBitgetMirrorSettings();
-    const bitgetDashboard = await getBitgetDemoDashboard();
-    const plans = await resolvePredictionStrategyPlans(settings, now);
-    const enabledSymbols = plans.filter(
-      (plan) =>
-        (plan.symbol === "BTC" && settings.btcEnabled) ||
-        (plan.symbol === "ETH" && settings.ethEnabled)
-    );
+    const [mirror, bitgetDashboard, openBefore] = await Promise.all([
+      getBitgetMirrorSettings(),
+      getBitgetDemoDashboard(),
+      openAutoSymbols(),
+    ]);
+    const monitoredSymbols = normalizeWatchSymbols([
+      ...Array.from(openBefore),
+      ...settings.watchSymbols,
+    ]);
+    const planSettings = { ...settings, watchSymbols: monitoredSymbols };
+    const plans = await resolvePredictionStrategyPlans(planSettings, now);
+    const watchSet = new Set(normalizeWatchSymbols(settings.watchSymbols));
     const decisions: PredictionAutoDecision[] = [];
 
     if (!mirror.enabled || !bitgetDashboard.environment.executionAllowed) {
-      for (const plan of enabledSymbols) {
+      for (const plan of plans) {
         const message = !mirror.enabled
           ? "Bitget Demo镜像未开启，自动交易被风控拦截。"
           : "Bitget Demo下单总开关未开启，自动交易被风控拦截。";
-        const decision: PredictionAutoDecision = {
+        decisions.push({
           symbol: plan.symbol,
           status: "BLOCKED",
           action: "BLOCKED",
@@ -968,22 +1103,25 @@ export async function runPredictionAutoTrader(
           market: null,
           signalId: null,
           message,
-        };
-        decisions.push(decision);
-        await saveRun({
-          plan,
-          status: "BLOCKED",
-          action: "BLOCKED",
-          price: null,
-          reason: message,
-          now,
         });
+        if (fullScan) {
+          await saveRun({
+            plan,
+            status: "BLOCKED",
+            action: "BLOCKED",
+            price: null,
+            reason: message,
+            now,
+          });
+        }
       }
       finalMessage = "Bitget Demo执行条件未满足，没有下单";
       return {
         ok: true,
         enabled: true,
         locked: false,
+        mode,
+        source,
         generatedAt: now.toISOString(),
         decisions,
         bitgetSync: null,
@@ -992,21 +1130,32 @@ export async function runPredictionAutoTrader(
     }
 
     const marketMap = new Map<PredictionAutoSymbol, PredictionMarketContext>();
-    for (const plan of enabledSymbols) {
-      try {
-        marketMap.set(plan.symbol, await getCrypto15mMarketContext(plan.symbol, now));
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "行情读取失败";
-        decisions.push({
-          symbol: plan.symbol,
-          status: "ERROR",
-          action: "MARKET_ERROR",
-          price: null,
-          plan,
-          market: null,
-          signalId: null,
-          message,
-        });
+    const marketResults = await Promise.allSettled(
+      plans.map(async (plan) => ({
+        plan,
+        market: await getCrypto15mMarketContext(plan.symbol, now),
+      }))
+    );
+    for (let index = 0; index < marketResults.length; index += 1) {
+      const result = marketResults[index];
+      const plan = plans[index];
+      if (!plan || !result) continue;
+      if (result.status === "fulfilled") {
+        marketMap.set(plan.symbol, result.value.market);
+        continue;
+      }
+      const message = result.reason instanceof Error ? result.reason.message : "行情读取失败";
+      decisions.push({
+        symbol: plan.symbol,
+        status: "ERROR",
+        action: "MARKET_ERROR",
+        price: null,
+        plan,
+        market: null,
+        signalId: null,
+        message,
+      });
+      if (fullScan || openBefore.has(plan.symbol)) {
         await saveRun({
           plan,
           status: "ERROR",
@@ -1018,113 +1167,115 @@ export async function runPredictionAutoTrader(
       }
     }
 
-    const planMap = new Map(enabledSymbols.map((plan) => [plan.symbol, plan] as const));
+    const planMap = new Map(plans.map((plan) => [plan.symbol, plan] as const));
     decisions.push(...(await manageExistingSignals(marketMap, planMap, now)));
     const openSymbols = await openAutoSymbols();
 
-    for (const plan of enabledSymbols) {
-      const market = marketMap.get(plan.symbol);
-      if (!market) continue;
-      if (openSymbols.has(plan.symbol)) {
-        decisions.push({
-          symbol: plan.symbol,
-          status: "WAITING",
-          action: "POSITION_OPEN",
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId: null,
-          message: "该品种已有预测自动交易持仓，只管理原仓位，不重复开仓。",
-        });
-        continue;
-      }
-      if (plan.setup === "MISSING_FORECAST" || plan.setup === "HOLD") {
-        decisions.push({
-          symbol: plan.symbol,
-          status: "SKIPPED",
-          action: plan.setup,
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId: null,
-          message: plan.reason,
-        });
-        continue;
-      }
-      const count = await todayEntryCount(plan.symbol, now);
-      if (count >= settings.maxTradesPerSymbolDay) {
-        decisions.push({
-          symbol: plan.symbol,
-          status: "SKIPPED",
-          action: "DAILY_LIMIT",
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId: null,
-          message: `今天已开仓${count}次，达到每日上限${settings.maxTradesPerSymbolDay}次。`,
-        });
-        continue;
-      }
+    if (fullScan) {
+      for (const plan of plans.filter((item) => watchSet.has(item.symbol))) {
+        const market = marketMap.get(plan.symbol);
+        if (!market) continue;
+        if (openSymbols.has(plan.symbol)) {
+          decisions.push({
+            symbol: plan.symbol,
+            status: "WAITING",
+            action: "POSITION_OPEN",
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message: "该品种已有预测自动交易持仓，只管理原仓位，不重复开仓。",
+          });
+          continue;
+        }
+        if (plan.setup === "MISSING_FORECAST" || plan.setup === "HOLD") {
+          decisions.push({
+            symbol: plan.symbol,
+            status: "SKIPPED",
+            action: plan.setup,
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message: plan.reason,
+          });
+          continue;
+        }
+        const count = await todayEntryCount(plan.symbol, now);
+        if (count >= settings.maxTradesPerSymbolDay) {
+          decisions.push({
+            symbol: plan.symbol,
+            status: "SKIPPED",
+            action: "DAILY_LIMIT",
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message: `今天已开仓${count}次，达到每日上限${settings.maxTradesPerSymbolDay}次。`,
+          });
+          continue;
+        }
 
-      const trigger = triggerMessage(plan, market, settings);
-      if (!trigger.triggered) {
-        decisions.push({
-          symbol: plan.symbol,
-          status: "WAITING",
-          action: plan.setup,
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId: null,
-          message: trigger.message,
-        });
-        continue;
-      }
+        const trigger = triggerMessage(plan, market, settings);
+        if (!trigger.triggered) {
+          decisions.push({
+            symbol: plan.symbol,
+            status: "WAITING",
+            action: plan.setup,
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message: trigger.message,
+          });
+          continue;
+        }
 
-      try {
-        const signalId = await createAndEnterSignal({ plan, market, settings, now });
-        const message = `${plan.reason} ${trigger.message} 已建立MoonX模拟仓位，等待镜像到Bitget Demo。`;
-        decisions.push({
-          symbol: plan.symbol,
-          status: "EXECUTED",
-          action: plan.setup,
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId,
-          message,
-        });
-        await saveRun({
-          plan,
-          status: "EXECUTED",
-          action: plan.setup,
-          price: market.currentPrice,
-          signalId,
-          reason: message,
-          market,
-          now,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "自动开仓失败";
-        decisions.push({
-          symbol: plan.symbol,
-          status: "ERROR",
-          action: "ENTRY_ERROR",
-          price: market.currentPrice,
-          plan,
-          market,
-          signalId: null,
-          message,
-        });
-        await saveRun({
-          plan,
-          status: "ERROR",
-          action: "ENTRY_ERROR",
-          price: market.currentPrice,
-          reason: message,
-          market,
-          now,
-        });
+        try {
+          const signalId = await createAndEnterSignal({ plan, market, settings, now });
+          const message = `${plan.reason} ${trigger.message} 已建立MoonX模拟仓位，等待镜像到Bitget Demo。`;
+          decisions.push({
+            symbol: plan.symbol,
+            status: "EXECUTED",
+            action: plan.setup,
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId,
+            message,
+          });
+          await saveRun({
+            plan,
+            status: "EXECUTED",
+            action: plan.setup,
+            price: market.currentPrice,
+            signalId,
+            reason: message,
+            market,
+            now,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "自动开仓失败";
+          decisions.push({
+            symbol: plan.symbol,
+            status: "ERROR",
+            action: "ENTRY_ERROR",
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message,
+          });
+          await saveRun({
+            plan,
+            status: "ERROR",
+            action: "ENTRY_ERROR",
+            price: market.currentPrice,
+            reason: message,
+            market,
+            now,
+          });
+        }
       }
     }
 
@@ -1132,27 +1283,33 @@ export async function runPredictionAutoTrader(
     try {
       bitgetSync = await syncBitgetDemoOrders();
     } catch (error) {
-      decisions.push(
-        ...enabledSymbols.slice(0, 1).map((plan) => ({
-          symbol: plan.symbol,
-          status: "ERROR" as const,
+      const firstPlan = plans[0];
+      if (firstPlan) {
+        decisions.push({
+          symbol: firstPlan.symbol,
+          status: "ERROR",
           action: "BITGET_SYNC_ERROR",
-          price: marketMap.get(plan.symbol)?.currentPrice ?? null,
-          plan,
-          market: marketMap.get(plan.symbol) ?? null,
+          price: marketMap.get(firstPlan.symbol)?.currentPrice ?? null,
+          plan: firstPlan,
+          market: marketMap.get(firstPlan.symbol) ?? null,
           signalId: null,
           message: error instanceof Error ? error.message : "Bitget同步失败",
-        }))
-      );
+        });
+      }
     }
 
     const executed = decisions.filter((row) => row.status === "EXECUTED").length;
     const managed = decisions.filter((row) => row.status === "MANAGED").length;
-    finalMessage = `策略检查完成：新开仓${executed}，持仓动作${managed}，其余继续等待。`;
+    const marketErrors = decisions.filter((row) => row.action === "MARKET_ERROR").length;
+    finalMessage = fullScan
+      ? `完整策略检查完成：监控${plans.length}币，新开仓${executed}，持仓动作${managed}，行情异常${marketErrors}。`
+      : `每分钟持仓监控完成：监控${plans.length}币，持仓动作${managed}，行情异常${marketErrors}；本轮不评估新开仓。`;
     return {
       ok: true,
       enabled: true,
       locked: false,
+      mode,
+      source,
       generatedAt: now.toISOString(),
       decisions,
       bitgetSync,
@@ -1163,11 +1320,22 @@ export async function runPredictionAutoTrader(
     throw error;
   } finally {
     try {
-      await releaseRunLock(finalMessage);
+      await releaseRunLock({
+        message: finalMessage,
+        source,
+        fullScan: fullScanPerformed,
+      });
     } catch (error) {
       console.error("Prediction auto trader lock release failed", error);
     }
   }
+}
+
+function addMinutes(isoValue: string | null, minutes: number): string | null {
+  if (!isoValue) return null;
+  const timestamp = new Date(isoValue).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return new Date(timestamp + minutes * 60_000).toISOString();
 }
 
 export async function getPredictionAutoTraderDashboard(
@@ -1176,10 +1344,47 @@ export async function getPredictionAutoTraderDashboard(
   const databaseReady = await ensurePredictionAutoTraderTables();
   const settings = await getPredictionAutoTraderSettings();
   const bitget = await getBitgetDemoDashboard();
+  const lastRunTimestamp = settings.lastRunAt ? new Date(settings.lastRunAt).getTime() : Number.NaN;
+  const heartbeatAgeSeconds = Number.isFinite(lastRunTimestamp)
+    ? Math.max(0, Math.floor((now.getTime() - lastRunTimestamp) / 1000))
+    : null;
+  const cronSecretConfigured = Boolean(process.env.CRON_SECRET?.trim());
+  const serverHealthy = Boolean(
+    settings.enabled &&
+      cronSecretConfigured &&
+      settings.lastRunSource === "CRON" &&
+      heartbeatAgeSeconds != null &&
+      heartbeatAgeSeconds <= EXPECTED_SERVER_INTERVAL_MINUTES * 180
+  );
+  const statusText = !settings.enabled
+    ? "自动交易未开启"
+    : !cronSecretConfigured
+      ? "Vercel尚未配置CRON_SECRET，服务器定时任务会被拒绝"
+      : serverHealthy
+      ? "服务器Cron心跳正常，电脑和浏览器可以关闭"
+      : settings.lastRunAt
+        ? "尚未检测到连续服务器Cron心跳；当前不要依赖关机运行"
+        : "尚无服务器Cron运行记录";
+
   return {
     generatedAt: now.toISOString(),
     databaseReady,
     settings,
+    server: {
+      expectedIntervalMinutes: EXPECTED_SERVER_INTERVAL_MINUTES,
+      strategyIntervalMinutes: settings.strategyIntervalMinutes,
+      serverHealthy,
+      cronSecretConfigured,
+      heartbeatAgeSeconds,
+      nextExpectedRunAt: settings.enabled
+        ? addMinutes(settings.lastRunAt ?? now.toISOString(), EXPECTED_SERVER_INTERVAL_MINUTES)
+        : null,
+      nextFullScanAt: settings.enabled
+        ? addMinutes(settings.lastFullScanAt ?? now.toISOString(), settings.strategyIntervalMinutes)
+        : null,
+      statusText,
+      requiresVercelProForOneMinute: true,
+    },
     mirrorEnabled: bitget.settings.enabled,
     executionAllowed: bitget.environment.executionAllowed,
     plans: databaseReady ? await resolvePredictionStrategyPlans(settings, now) : [],

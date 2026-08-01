@@ -6,10 +6,22 @@ import {
   updatePredictionAutoTraderSettings,
 } from "@/lib/trading-signals/prediction-auto-trader";
 
+const symbolSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(19)
+  .regex(/^[A-Za-z0-9_\-/\s]+$/, "币种代码格式无效")
+  .transform((value) => {
+    const normalized = value.toUpperCase().replace(/[-_/\s]/g, "");
+    return normalized.endsWith("USDT") ? normalized.slice(0, -4) : normalized;
+  })
+  .refine((value) => /^[A-Z0-9]{2,15}$/.test(value), "币种代码格式无效");
+
 const settingsSchema = z
   .object({
-    btcEnabled: z.boolean(),
-    ethEnabled: z.boolean(),
+    watchSymbols: z.array(symbolSchema).min(1).max(10),
+    strategyIntervalMinutes: z.number().int().min(1).max(15),
     positionPct: z.number().min(0.1).max(10),
     stopLossPct: z.number().min(0.2).max(10),
     target1Pct: z.number().min(0.2).max(20),
@@ -26,7 +38,11 @@ const settingsSchema = z
   .refine(
     (value) => value.target1Pct < value.target2Pct && value.target2Pct < value.target3Pct,
     { message: "止盈目标必须按目标1、目标2、目标3递增" }
-  );
+  )
+  .transform((value) => ({
+    ...value,
+    watchSymbols: Array.from(new Set(value.watchSymbols)).slice(0, 10),
+  }));
 
 export async function PUT(request: NextRequest) {
   if (!(await requireAdmin())) {

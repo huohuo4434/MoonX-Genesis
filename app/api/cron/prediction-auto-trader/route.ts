@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    return NextResponse.json(await runPredictionAutoTrader());
+    return NextResponse.json(
+      await runPredictionAutoTrader(new Date(), { source: "CRON" })
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "strategy failed" },

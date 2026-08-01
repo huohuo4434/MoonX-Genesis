@@ -10,7 +10,12 @@ export async function POST() {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
   try {
-    return NextResponse.json(await runPredictionAutoTrader());
+    return NextResponse.json(
+      await runPredictionAutoTrader(new Date(), {
+        source: "ADMIN",
+        forceFullScan: true,
+      })
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "策略检查失败" },

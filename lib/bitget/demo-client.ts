@@ -5,7 +5,14 @@ import { createHash, createHmac } from "crypto";
 const BASE_URL = "https://api.bitget.com";
 const PRODUCT_TYPE = "USDT-FUTURES";
 
-export type BitgetSupportedSymbol = "BTCUSDT" | "ETHUSDT" | "HYPEUSDT";
+export type BitgetSupportedSymbol = `${string}USDT`;
+
+export function normalizeBitgetUsdtSymbol(value: string): BitgetSupportedSymbol | null {
+  const normalized = value.trim().toUpperCase().replace(/[-_\/\s]/g, "");
+  const base = normalized.endsWith("USDT") ? normalized.slice(0, -4) : normalized;
+  if (!/^[A-Z0-9]{2,15}$/.test(base)) return null;
+  return `${base}USDT`;
+}
 
 export type BitgetContractConfig = {
   symbol: BitgetSupportedSymbol;

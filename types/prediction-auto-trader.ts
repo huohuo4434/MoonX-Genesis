@@ -1,4 +1,4 @@
-export type PredictionAutoSymbol = "BTC" | "ETH";
+export type PredictionAutoSymbol = string;
 export type PredictionAutoDirection = "LONG" | "SHORT" | "NEUTRAL";
 export type PredictionAutoSetup =
   | "BUY_DIP"
@@ -12,11 +12,19 @@ export type PredictionAutoRunStatus =
   | "BLOCKED"
   | "SKIPPED"
   | "ERROR";
+export type PredictionAutoRunSource = "CRON" | "ADMIN" | "BROWSER" | "UNKNOWN";
+export type PredictionAutoRunMode = "MONITOR" | "FULL";
 
 export interface PredictionAutoTraderSettings {
   enabled: boolean;
+  /** 最多10个币种基础代码，例如 BTC、ETH、SOL。 */
+  watchSymbols: PredictionAutoSymbol[];
+  /** 兼容旧页面和旧数据库。 */
   btcEnabled: boolean;
+  /** 兼容旧页面和旧数据库。 */
   ethEnabled: boolean;
+  /** 每多少分钟允许重新评估新开仓；持仓与镜像仍每分钟检查。 */
+  strategyIntervalMinutes: number;
   positionPct: number;
   stopLossPct: number;
   target1Pct: number;
@@ -31,6 +39,8 @@ export interface PredictionAutoTraderSettings {
   requireDailyWeeklyAlignment: boolean;
   startedAt: string | null;
   lastRunAt: string | null;
+  lastFullScanAt: string | null;
+  lastRunSource: PredictionAutoRunSource;
   lastMessage: string;
   updatedAt: string;
 }
@@ -48,6 +58,7 @@ export interface PredictionForecastLeg {
 
 export interface PredictionStrategyPlan {
   symbol: PredictionAutoSymbol;
+  tradeSymbol: string;
   assetId: string;
   assetName: string;
   weeklyForecast: PredictionForecastLeg | null;
@@ -92,6 +103,8 @@ export interface PredictionAutoRunReport {
   ok: boolean;
   enabled: boolean;
   locked: boolean;
+  mode: PredictionAutoRunMode;
+  source: PredictionAutoRunSource;
   generatedAt: string;
   decisions: PredictionAutoDecision[];
   bitgetSync: {
@@ -121,10 +134,23 @@ export interface PredictionAutoRunLog {
   createdAt: string;
 }
 
+export interface PredictionAutoTraderServerStatus {
+  expectedIntervalMinutes: number;
+  strategyIntervalMinutes: number;
+  serverHealthy: boolean;
+  cronSecretConfigured: boolean;
+  heartbeatAgeSeconds: number | null;
+  nextExpectedRunAt: string | null;
+  nextFullScanAt: string | null;
+  statusText: string;
+  requiresVercelProForOneMinute: boolean;
+}
+
 export interface PredictionAutoTraderDashboard {
   generatedAt: string;
   databaseReady: boolean;
   settings: PredictionAutoTraderSettings;
+  server: PredictionAutoTraderServerStatus;
   mirrorEnabled: boolean;
   executionAllowed: boolean;
   plans: PredictionStrategyPlan[];

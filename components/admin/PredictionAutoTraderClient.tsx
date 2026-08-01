@@ -93,8 +93,11 @@ export function PredictionAutoTraderClient({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          btcEnabled: form.get("btcEnabled") === "on",
-          ethEnabled: form.get("ethEnabled") === "on",
+          watchSymbols: String(form.get("watchSymbols") ?? "")
+            .split(/[\s,，;；]+/)
+            .map((value) => value.trim())
+            .filter(Boolean),
+          strategyIntervalMinutes: Number(form.get("strategyIntervalMinutes")),
           positionPct: Number(form.get("positionPct")),
           stopLossPct: Number(form.get("stopLossPct")),
           target1Pct: Number(form.get("target1Pct")),
@@ -154,11 +157,20 @@ export function PredictionAutoTraderClient({
 
   useEffect(() => {
     if (!dashboard.settings.enabled) return;
-    const timer = window.setInterval(() => void runNow(true), 60_000);
-    return () => window.clearInterval(timer);
-    // 开关变化时重建定时器；服务器Cron仍是无人值守主通道。
+    const refreshTimer = window.setInterval(() => {
+      if (busyRef.current) return;
+      void refresh().catch(() => undefined);
+    }, 30_000);
+    const fallbackTimer = dashboard.server.serverHealthy
+      ? null
+      : window.setInterval(() => void runNow(true), 60_000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      if (fallbackTimer != null) window.clearInterval(fallbackTimer);
+    };
+    // 服务器心跳正常时网页只刷新；否则保留笔记本浏览器兜底执行。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboard.settings.enabled]);
+  }, [dashboard.settings.enabled, dashboard.server.serverHealthy]);
 
   const settings = dashboard.settings;
 
@@ -175,7 +187,7 @@ export function PredictionAutoTraderClient({
           <div>
             <Heading size="h3">预测驱动自动交易</Heading>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-              周预测决定当前主方向，日预测决定先跌后涨或先涨后跌的进场节奏，Bitget 15分钟K线负责确认。只连接模拟盘。
+              周预测决定当前主方向，日预测决定先跌后涨或先涨后跌的进场节奏，Bitget 15分钟K线负责确认。服务器每分钟管理持仓，只连接模拟盘。
             </Text>
           </div>
           <Badge variant={settings.enabled ? "success" : "outline"}>
@@ -183,7 +195,13 @@ export function PredictionAutoTraderClient({
           </Badge>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">服务器无人值守</Text>
+            <Text variant="body-sm" className="mt-1 block">
+              {dashboard.server.serverHealthy ? "心跳正常，可关电脑" : "尚未确认"}
+            </Text>
+          </div>
           <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">Bitget镜像</Text>
             <Text variant="body-sm" className="mt-1 block">
@@ -205,10 +223,25 @@ export function PredictionAutoTraderClient({
             </Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">下次预计检查</Text>
+            <Text variant="body-sm" className="mt-1 block">
+              {dashboard.server.nextExpectedRunAt
+                ? new Date(dashboard.server.nextExpectedRunAt).toLocaleTimeString("zh-CN")
+                : "—"}
+            </Text>
+          </div>
+          <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">最近结果</Text>
             <Text variant="body-sm" className="mt-1 block">{settings.lastMessage}</Text>
           </div>
         </div>
+
+        <Card padding="md" className={dashboard.server.serverHealthy ? "border-emerald-400/25 bg-emerald-400/[0.04]" : "border-amber-400/25 bg-amber-400/[0.04]"}>
+          <Text variant="body-sm">{dashboard.server.statusText}</Text>
+          <Text variant="caption" color="tertiary" className="mt-1 block">
+            CRON_SECRET：{dashboard.server.cronSecretConfigured ? "已配置" : "未配置"}；运行来源：{settings.lastRunSource}；心跳间隔：每{dashboard.server.expectedIntervalMinutes}分钟；完整开仓评估：每{settings.strategyIntervalMinutes}分钟。
+          </Text>
+        </Card>
 
         <div className="flex flex-wrap gap-2">
           {settings.enabled ? (
@@ -240,7 +273,7 @@ export function PredictionAutoTraderClient({
           </Button>
         </div>
         <Text variant="caption" className="block text-amber-200/80">
-          服务器默认每5分钟检查一次；网页打开时每60秒补查。缺少当天日预测、缺少本周预测、日周冲突或Bitget镜像未开启时，系统不会开仓。
+          Vercel Pro服务器每1分钟管理持仓和同步订单，每{settings.strategyIntervalMinutes}分钟重新评估新开仓。服务器心跳正常时可关闭浏览器和电脑；尚未确认心跳时，网页会保留每60秒兜底执行。
         </Text>
       </Card>
 
@@ -285,6 +318,7 @@ export function PredictionAutoTraderClient({
       {report ? (
         <Card padding="lg" className="space-y-3">
           <Heading size="h3">本次策略检查</Heading>
+          <Text variant="caption" color="tertiary" className="block">模式：{report.mode === "FULL" ? "完整开仓评估" : "每分钟持仓监控"}；来源：{report.source}</Text>
           {report.decisions.length ? (
             <div className="space-y-3">
               {report.decisions.map((decision: PredictionAutoDecision, index) => (
@@ -319,6 +353,19 @@ export function PredictionAutoTraderClient({
         <Heading size="h3">第一版自动风控参数</Heading>
         <form onSubmit={saveSettings} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <label className="space-y-1 md:col-span-2">
+              <Text variant="caption" color="tertiary">监控币种（逗号分隔，最多10个）</Text>
+              <input
+                className={inputClass}
+                name="watchSymbols"
+                defaultValue={settings.watchSymbols.join(", ")}
+                placeholder="BTC, ETH, SOL, BNB"
+              />
+            </label>
+            <label className="space-y-1">
+              <Text variant="caption" color="tertiary">完整开仓评估间隔（分钟）</Text>
+              <input className={inputClass} name="strategyIntervalMinutes" type="number" step="1" min="1" max="15" defaultValue={settings.strategyIntervalMinutes} />
+            </label>
             <label className="space-y-1">
               <Text variant="caption" color="tertiary">单笔仓位（账户净值%）</Text>
               <input className={inputClass} name="positionPct" type="number" step="0.1" defaultValue={settings.positionPct} />
@@ -365,14 +412,6 @@ export function PredictionAutoTraderClient({
             </label>
           </div>
           <div className="flex flex-wrap gap-5">
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <input name="btcEnabled" type="checkbox" defaultChecked={settings.btcEnabled} />
-              BTC自动交易
-            </label>
-            <label className="flex items-center gap-2 text-sm text-white/80">
-              <input name="ethEnabled" type="checkbox" defaultChecked={settings.ethEnabled} />
-              ETH自动交易
-            </label>
             <label className="flex items-center gap-2 text-sm text-white/80">
               <input
                 name="requireDailyWeeklyAlignment"

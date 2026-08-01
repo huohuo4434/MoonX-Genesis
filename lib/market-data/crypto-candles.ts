@@ -12,10 +12,18 @@ type BitgetCandleEnvelope = {
   data?: string[][];
 };
 
-const BITGET_SYMBOLS: Record<PredictionAutoSymbol, string> = {
-  BTC: "BTCUSDT",
-  ETH: "ETHUSDT",
-};
+function normalizeBaseSymbol(value: string): string {
+  const normalized = value.trim().toUpperCase().replace(/[-_/\s]/g, "");
+  const base = normalized.endsWith("USDT") ? normalized.slice(0, -4) : normalized;
+  if (!/^[A-Z0-9]{2,15}$/.test(base)) {
+    throw new Error(`币种代码${value}格式无效`);
+  }
+  return base;
+}
+
+export function toBitgetUsdtSymbol(value: string): `${string}USDT` {
+  return `${normalizeBaseSymbol(value)}USDT`;
+}
 
 function percent(numerator: number, denominator: number): number {
   if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
@@ -46,7 +54,8 @@ export async function getCrypto15mMarketContext(
   symbol: PredictionAutoSymbol,
   now = new Date()
 ): Promise<PredictionMarketContext> {
-  const sourceSymbol = BITGET_SYMBOLS[symbol];
+  const baseSymbol = normalizeBaseSymbol(symbol);
+  const sourceSymbol = toBitgetUsdtSymbol(baseSymbol);
   const query = new URLSearchParams({
     category: "USDT-FUTURES",
     symbol: sourceSymbol,
@@ -60,18 +69,18 @@ export async function getCrypto15mMarketContext(
       method: "GET",
       headers: {
         Accept: "application/json",
-        "User-Agent": "MoonX-Prediction-Auto-Trader/1.0",
+        "User-Agent": "MoonX-Prediction-Auto-Trader/2.0",
       },
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Bitget 15分钟行情HTTP ${response.status}`);
+    throw new Error(`Bitget ${sourceSymbol} 15分钟行情HTTP ${response.status}`);
   }
 
   const payload = (await response.json()) as BitgetCandleEnvelope;
   if (payload.code !== "00000" || !Array.isArray(payload.data)) {
-    throw new Error(payload.msg || "Bitget 15分钟行情返回异常");
+    throw new Error(payload.msg || `Bitget ${sourceSymbol} 15分钟行情返回异常`);
   }
 
   const dayKey = getChinaDateKey(now);
@@ -100,12 +109,12 @@ export async function getCrypto15mMarketContext(
     .sort((a, b) => a.timestamp - b.timestamp);
 
   if (!rows.length) {
-    throw new Error(`${symbol}今日尚未取得有效15分钟K线`);
+    throw new Error(`${baseSymbol}今日尚未取得有效15分钟K线`);
   }
 
   const first = rows[0];
   const latest = rows[rows.length - 1];
-  if (!first || !latest) throw new Error(`${symbol}行情数据不完整`);
+  if (!first || !latest) throw new Error(`${baseSymbol}行情数据不完整`);
 
   const sessionHigh = Math.max(...rows.map((row) => row.high));
   const sessionLow = Math.min(...rows.map((row) => row.low));
@@ -113,7 +122,7 @@ export async function getCrypto15mMarketContext(
   const currentPrice = latest.close;
 
   return {
-    symbol,
+    symbol: baseSymbol,
     sourceSymbol,
     provider: "BITGET",
     interval: "15m",

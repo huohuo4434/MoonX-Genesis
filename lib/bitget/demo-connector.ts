@@ -6,6 +6,7 @@ import {
   getBitgetDemoEnvironment,
   placeBitgetDemoMarketOrder,
   testBitgetDemoConnection,
+  normalizeBitgetUsdtSymbol,
   type BitgetSupportedSymbol,
 } from "@/lib/bitget/demo-client";
 import { ensureTradingV2Tables } from "@/lib/trading-signals/v2-store";
@@ -198,11 +199,7 @@ export async function setBitgetMirrorEnabled(
 }
 
 function mapBitgetSymbol(symbol: string): BitgetSupportedSymbol | null {
-  const normalized = symbol.trim().toUpperCase().replace(/[-_/]/g, "");
-  if (normalized === "BTC" || normalized === "BTCUSDT") return "BTCUSDT";
-  if (normalized === "ETH" || normalized === "ETHUSDT") return "ETHUSDT";
-  if (normalized === "HYPE" || normalized === "HYPEUSDT") return "HYPEUSDT";
-  return null;
+  return normalizeBitgetUsdtSymbol(symbol);
 }
 
 function bitgetSide(side: string): "buy" | "sell" {
@@ -302,7 +299,7 @@ export async function syncBitgetDemoOrders(): Promise<{
     const symbol = mapBitgetSymbol(order.symbol);
     if (!symbol) {
       skipped += 1;
-      const message = `${order.symbol}不在BTC/ETH/HYPE支持范围内`;
+      const message = `${order.symbol}不是有效的USDT合约币种代码`;
       await saveMirrorAttempt({
         order,
         bitgetSymbol: "UNSUPPORTED",

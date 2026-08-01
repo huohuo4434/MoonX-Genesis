@@ -38,7 +38,7 @@
                   },
                   {
                       "path":  "/api/cron/prediction-auto-trader",
-                      "schedule":  "*/5 * * * *"
+                      "schedule":  "* * * * *"
                   }
               ]
 }
