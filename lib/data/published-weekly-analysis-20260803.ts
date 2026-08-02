@@ -1,9 +1,10 @@
 /**
  * Next-week research published on Saturday 2026-08-01.
- * All seven core markets now have completed, source-backed research.
+ * All nine core markets now have completed, source-backed research.
  * No previous-week copying.
  */
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
+import { SILVER_WEEKLY_ANALYSIS_20260803 } from "@/lib/data/silver-research-20260802";
 
 const PUBLISHED_AT = "2026-08-01T11:58:00+08:00";
 
@@ -326,39 +327,6 @@ export const PUBLISHED_WEEKLY_ANALYSES_20260803: WeeklyAnalysisRecord[] = [
     version: 1,
     originalLocked: true,
   },
-  {
-    id: "WEEKLY-SILVER-20260803-V1",
-    assetId: "silver",
-    assetName: "国际银价",
-    symbol: "SILVER",
-    displaySymbol: "SI",
-    weekStart: "2026-08-03",
-    weekEnd: "2026-08-09",
-    overallDirection: "震荡下跌",
-    weeklyPath:
-      "周初仍可能反复震荡，但老师三个月卦明确指出8月7日进入申月后更弱；兄弟申金克财，白银振幅较黄金更大，反抽不改变偏弱主线。",
-    headline:
-      "白银下周以震荡偏弱为主，8月7日后下行和大幅波动风险进一步上升。",
-    probabilities: { up: 15, flat: 25, down: 60 },
-    strongWindow: "快速反抽只作为高波动修复观察",
-    weakWindow: "8月7日至9日的申月初段",
-    keySupport: [],
-    keyResistance: [],
-    invalidation:
-      "若8月7日后持续放量收复前期主要压力平台，则原三个月卦的偏弱判断需要重新起卦验证。",
-    confirmation:
-      "8月7日后跌破短线平台且反抽无法收回，可确认偏弱路径。",
-    catalysts: ["白银高波动带来的短线反抽"],
-    risks: ["兄弟申金克财", "白银振幅大于黄金", "原始研究仅覆盖至8月19日"],
-    riskLevel: "高",
-    confidence: 70,
-    publishedAt: PUBLISHED_AT,
-    updatedAt: PUBLISHED_AT,
-    status: "published",
-    visibility: "member",
-    sourceIds: ["lesson:白银未来三个月走势情况"],
-    version: 1,
-    originalLocked: true,
-  },
+  SILVER_WEEKLY_ANALYSIS_20260803,
 
 ];

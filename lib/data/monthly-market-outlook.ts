@@ -1,3 +1,5 @@
+import { SILVER_AUGUST_MONTHLY_OUTLOOK } from "@/lib/data/silver-research-20260802";
+
 export type MonthlyMarketOutlook = {
   assetId: string;
   assetName: string;
@@ -16,8 +18,8 @@ export type MonthlyMarketOutlook = {
 
 /**
  * August 2026 member outlooks. Every item is based on an existing locked Liu-Yao
- * source in this repository. Silver is only valid through 2026-08-19 because the
- * teacher's original three-month window ends on that date.
+ * source in this repository. The 2026-08-02 silver month/week sources now
+ * provide full August coverage; overlapping older sources remain risk context.
  */
 export const MONTHLY_MARKET_OUTLOOKS_202608: MonthlyMarketOutlook[] = [
   {
@@ -83,15 +85,7 @@ export const MONTHLY_MARKET_OUTLOOKS_202608: MonthlyMarketOutlook[] = [
     risk: "年卦仍处强弩之末背景，短线反弹不能直接定义为新主升。",
     sourceNote: "黄金八月月卦与年度背景交叉。", sourceComplete: true,
   },
-  {
-    assetId: "silver", assetName: "国际银价", symbol: "SILVER", venue: "COMEX白银期货",
-    periodStart: "2026-08-01", periodEnd: "2026-08-19", direction: "震荡下跌",
-    probabilities: { up: 15, flat: 25, down: 60 },
-    path: "8月7日前仍可能反复；进入申月后兄弟金克财，弱势和大幅波动风险进一步上升。",
-    keyWindow: "8月7日后是原三个月研究中最弱阶段。",
-    risk: "白银振幅通常大于黄金，可能出现快速反抽，但不改变原研究窗口内偏弱主线。",
-    sourceNote: "老师5月19日起卦的三个月白银研究；概率为MOOX基于原结论的结构化表达。", sourceComplete: false,
-  },
+  { ...SILVER_AUGUST_MONTHLY_OUTLOOK },
   {
     assetId: "wti-crude", assetName: "WTI原油", symbol: "WTI", venue: "NYMEX原油期货",
     periodStart: "2026-08-01", periodEnd: "2026-08-31", direction: "震荡下跌",

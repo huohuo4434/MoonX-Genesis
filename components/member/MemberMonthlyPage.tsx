@@ -23,8 +23,8 @@ export function MemberMonthlyPage() {
       <Card padding="md" className="border-primary/20 bg-primary/[0.025]">
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <span>当前周期：2026年8月</span>
-          <span>完整覆盖：8项</span>
-          <span>限时覆盖：白银至8月19日</span>
+          <span>完整覆盖：9项</span>
+          <span>白银：已补齐8月全月</span>
         </div>
       </Card>
       <div className="grid gap-4 xl:grid-cols-2">
@@ -51,7 +51,6 @@ export function MemberMonthlyPage() {
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">重点窗口</Text><Text variant="body-sm" className="mt-1 block">{item.keyWindow}</Text></div>
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">主要风险</Text><Text variant="body-sm" className="mt-1 block">{item.risk}</Text></div>
             </div>
-            {!item.sourceComplete ? <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.035] p-3 text-sm text-amber-100/80">当前原始研究只覆盖至8月19日；之后需要新的白银月卦或周卦，系统不会继续沿用旧结论。</div> : null}
           </Card>
         ))}
       </div>
