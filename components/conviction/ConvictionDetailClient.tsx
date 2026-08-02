@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
+import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
@@ -156,6 +157,19 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </Text>
       </section>
 
+      {f.benchmarkEvidence ? (
+        <section className="space-y-2 rounded-lg border border-sky-400/12 bg-sky-400/[0.025] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-sky-200/70">与大盘比较</p>
+            <Badge variant="outline">{f.benchmarkEvidence.relation}</Badge>
+          </div>
+          <p className="text-body-sm text-white/70">
+            {f.benchmarkEvidence.benchmarkNameZh}（{f.benchmarkEvidence.benchmarkSymbol}）：{f.benchmarkEvidence.benchmarkDirection}
+          </p>
+          <p className="text-caption leading-relaxed text-white/50">{f.benchmarkEvidence.summary}</p>
+        </section>
+      ) : null}
+
       {f.keyDates?.length ? (
         <section className="space-y-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.03] p-4">
           <div>
@@ -266,7 +280,17 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   const unlockHref = payload.isAuthenticated
     ? "/pricing"
     : `/login?next=${encodeURIComponent(a.detailHref)}`;
-  const isStaticPeriodAsset = ["cxmt", "asteroid", "mu", "hype", "eth"].includes(a.slug);
+  const isStaticPeriodAsset = [
+    "cxmt",
+    "asteroid",
+    "mu",
+    "hype",
+    "eth",
+    "googl",
+    "msft",
+    "tencent",
+    "kingsoft-office",
+  ].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
   const tabs = payload.periodSlots;
   const visibleTypes = new Set(tabs.map((item) => item.type));
@@ -360,6 +384,10 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             ))}
           </ul>
         </section>
+
+        {payload.mode === "fullAccess" && payload.vibeEvidence ? (
+          <VibeEvidencePanel evidence={payload.vibeEvidence} />
+        ) : null}
 
         <section className="space-y-3">
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">会员预测周期</h2>

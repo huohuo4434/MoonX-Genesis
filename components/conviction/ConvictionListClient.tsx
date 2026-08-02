@@ -7,6 +7,7 @@ import { formatDateChina } from "@/lib/utils/datetime";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
 import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
+import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 
 function AssetTypeBadge({ type }: { type: ConvictionPublicCard["assetType"] }) {
   const label =
@@ -29,9 +30,11 @@ function AssetTypeBadge({ type }: { type: ConvictionPublicCard["assetType"] }) {
 function PublicAssetCard({
   card,
   mode,
+  evidence,
 }: {
   card: ConvictionPublicCard;
   mode: ConvictionListPagePayload["mode"];
+  evidence?: VibeEvidencePublicView;
 }) {
   const grade = card.rating.includes("+") ? "A+" : card.rating.startsWith("A") ? "A" : "B";
   const riskBucket = card.riskLevel;
@@ -153,6 +156,25 @@ function PublicAssetCard({
           </ul>
         </section>
 
+        {mode === "fullAccess" && evidence ? (
+          <section className="rounded-lg border border-cyan-400/12 bg-cyan-400/[0.025] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-body-sm font-medium text-white/85">Vibe客观证据</p>
+                <p className="mt-1 text-caption text-white/45">
+                  数据完整度 {evidence.completeness}% · 月度权重 {evidence.monthlyWeight}%
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`font-mono text-lg font-semibold ${evidence.effectiveScore >= 18 ? "text-emerald-300" : evidence.effectiveScore <= -18 ? "text-red-300" : "text-amber-200"}`}>
+                  {evidence.effectiveScore > 0 ? "+" : ""}{evidence.effectiveScore}
+                </p>
+                <p className="text-caption text-white/45">{evidence.stance}</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="mt-auto rounded-lg border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-body-sm font-medium text-white/85">MOOX会员研究</p>
@@ -216,6 +238,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
               key={card.id}
               card={card}
               mode={payload.mode}
+              evidence={payload.vibeEvidence[card.id]}
             />
           ))}
         </div>

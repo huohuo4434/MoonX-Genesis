@@ -20,6 +20,10 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "wti-crude", nameZh: "WTI原油", symbol: "WTI", displaySymbol: "CL", venue: "NYMEX原油期货", marketLabel: "能源商品", aliases: ["CL", "CL=F"] },
   { assetId: "changxin-memory", nameZh: "长鑫科技", symbol: "688825", displaySymbol: "688825", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688825.SS"] },
   { assetId: "micron", nameZh: "美光科技", symbol: "MU", displaySymbol: "MU", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: [] },
+  { assetId: "alphabet", nameZh: "Alphabet", symbol: "GOOGL", displaySymbol: "GOOGL", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["GOOG", "Google", "谷歌"] },
+  { assetId: "microsoft", nameZh: "微软", symbol: "MSFT", displaySymbol: "MSFT", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["Microsoft"] },
+  { assetId: "tencent", nameZh: "腾讯控股", symbol: "00700", displaySymbol: "00700", venue: "香港交易所", marketLabel: "股票", aliases: ["0700.HK", "700.HK", "Tencent", "腾讯"] },
+  { assetId: "kingsoft-office", nameZh: "金山办公", symbol: "688111", displaySymbol: "688111", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688111.SS", "WPS"] },
   { assetId: "hype", nameZh: "HYPE", symbol: "HYPE", displaySymbol: "HYPE", venue: "Hyperliquid", marketLabel: "加密资产", aliases: ["HYPEUSDT"] },
   { assetId: "asteroid", nameZh: "Asteroid（太空狗）", symbol: "ASTEROID", displaySymbol: "ASTEROID", venue: "以太坊链上市场", marketLabel: "加密资产", aliases: ["ASTER"] },
 ];

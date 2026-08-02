@@ -74,6 +74,14 @@ export type ConvictionPeriodForecast = {
     confidence?: number | null;
     note?: string | null;
   }>;
+  /** Benchmark relationship captured at publication time. */
+  benchmarkEvidence?: {
+    benchmarkSymbol: string;
+    benchmarkNameZh: string;
+    benchmarkDirection: string;
+    relation: string;
+    summary: string;
+  } | null;
   /** Compact text for the long-horizon archive. */
   archiveSummary?: string | null;
 };

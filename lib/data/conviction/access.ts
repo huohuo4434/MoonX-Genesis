@@ -40,6 +40,15 @@ import {
   toPublicCard,
 } from "@/lib/data/conviction/store";
 import {
+  VIBE_FOCUS_PERIOD_ORDER,
+  VIBE_FOCUS_VISIBLE_PERIOD_ORDER,
+  listVibeFocusPeriodForecasts,
+  vibeFocusPeriodMeta,
+  type VibeFocusAssetId,
+} from "@/lib/data/conviction/vibe-focus-forecasts";
+import { getVibeEvidence, getVibeEvidenceMap, toVibePublicView } from "@/lib/data/vibe/store";
+import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
+import {
   getPublishedTodayForecast,
   getPublishedTomorrowForecast,
   getPublishedWeeklyAnalysis,
@@ -64,25 +73,29 @@ export type ConvictionListPagePayload = {
   trackedCount: number;
   latestResearchUpdatedAt: string | null;
   locks: typeof CONVICTION_MEMBER_LOCKS;
+  vibeEvidence: Partial<Record<string, VibeEvidencePublicView>>;
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
   noStore();
   const access = await getAccessUser();
   const cards = await listPublicConvictionCards();
+  const fullAccess = hasConvictionFullAccess(access);
+  const vibeEvidence = fullAccess ? await getVibeEvidenceMap() : {};
   const latestResearchUpdatedAt =
     cards
       .map((c) => c.researchUpdatedAt)
       .sort()
       .at(-1) ?? null;
   return {
-    mode: hasConvictionFullAccess(access) ? "fullAccess" : "publicOnly",
+    mode: fullAccess ? "fullAccess" : "publicOnly",
     isAdmin: access.isAdmin,
     isAuthenticated: access.authenticated,
     cards,
     trackedCount: cards.length,
     latestResearchUpdatedAt,
     locks: CONVICTION_MEMBER_LOCKS,
+    vibeEvidence,
   };
 }
 
@@ -101,6 +114,7 @@ export type ConvictionDetailPayload = {
   public: ConvictionPublicCard;
   locks: typeof CONVICTION_MEMBER_LOCKS;
   periodSlots: Array<{ type: ConvictionForecastType; labelZh: string; emptyZh: string; hasResearch: boolean }>;
+  vibeEvidence: VibeEvidencePublicView | null;
   /** Only present when fullAccess — never sent to unauthorized clients via API. */
   forecast: null | {
     today: MemberStockDailyMemberView | null;
@@ -129,29 +143,62 @@ function filterPastVerifiedHistory(
   });
 }
 
-function staticPublished(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+type StaticPeriodAssetId =
+  | "cxmt"
+  | "asteroid"
+  | "mu"
+  | "hype"
+  | "eth"
+  | VibeFocusAssetId;
+
+const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
+  "cxmt",
+  "asteroid",
+  "mu",
+  "hype",
+  "eth",
+  "googl",
+  "msft",
+  "tencent",
+  "kingsoft-office",
+]);
+
+function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
+  return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
+}
+
+function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return listLongxinPeriodForecasts();
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "eth") return listEthPeriodForecasts();
+  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+    return listVibeFocusPeriodForecasts(assetId);
+  }
   return listMuHypePeriodForecasts(assetId);
 }
 
-function fullOrder(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
+  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+    return VIBE_FOCUS_PERIOD_ORDER;
+  }
   return PERIOD_ORDER_BY_ASSET[assetId];
 }
 
-function visibleOrder(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
+  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+    return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
+  }
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
 function buildStaticPeriodSlots(
-  assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth",
+  assetId: StaticPeriodAssetId,
   includeBody: boolean
 ): ConvictionPeriodSlot[] {
   const published = staticPublished(assetId);
@@ -167,7 +214,7 @@ function buildStaticPeriodSlots(
 }
 
 async function attachAdminKeyDates(
-  assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth",
+  assetId: StaticPeriodAssetId,
   periods: ConvictionPeriodSlot[]
 ): Promise<ConvictionPeriodSlot[]> {
   if (!hasPrisma() || !prisma) return periods;
@@ -242,9 +289,12 @@ async function attachAdminKeyDates(
   });
 }
 
-function publicPeriodMeta(assetId: "cxmt" | "asteroid" | "mu" | "hype" | "eth") {
+function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
+  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+    return vibeFocusPeriodMeta(assetId);
+  }
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({
     type,
@@ -263,14 +313,9 @@ export async function getConvictionDetailPayload(
   const access = await getAccessUser();
   const full = hasConvictionFullAccess(access);
   const pub = toPublicCard(asset);
-  const staticPeriodAsset =
-    asset.slug === "cxmt" ||
-    asset.slug === "asteroid" ||
-    asset.slug === "mu" ||
-    asset.slug === "hype" ||
-    asset.slug === "eth"
-      ? asset.slug
-      : null;
+  const staticPeriodAsset = isStaticPeriodAsset(asset.slug) ? asset.slug : null;
+  const vibeSnapshot = full ? await getVibeEvidence(asset.id) : null;
+  const vibeEvidence = vibeSnapshot ? toVibePublicView(vibeSnapshot) : null;
 
   const visiblePeriodMeta = staticPeriodAsset ? publicPeriodMeta(staticPeriodAsset) : [];
 
@@ -288,6 +333,7 @@ export async function getConvictionDetailPayload(
             { type: "TOMORROW", labelZh: "明日", emptyZh: "下一交易日分析尚未发布", hasResearch: true },
             { type: "WEEK", labelZh: "本周", emptyZh: "该周期预测尚未发布", hasResearch: true },
           ],
+      vibeEvidence: null,
       forecast: null,
     };
   }
@@ -304,6 +350,7 @@ export async function getConvictionDetailPayload(
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
       periodSlots: visiblePeriodMeta,
+      vibeEvidence,
       forecast: {
         today: null,
         tomorrow: null,
@@ -326,6 +373,7 @@ export async function getConvictionDetailPayload(
       public: pub,
       locks: CONVICTION_MEMBER_LOCKS,
       periodSlots: visiblePeriodMeta,
+      vibeEvidence,
       forecast: {
         today: null,
         tomorrow: null,
@@ -374,6 +422,7 @@ export async function getConvictionDetailPayload(
       },
       { type: "WEEK", labelZh: "本周", emptyZh: "该周期预测尚未发布", hasResearch: Boolean(weekly) },
     ],
+    vibeEvidence,
     forecast: {
       today: today ? toDailyMemberView(today) : null,
       tomorrow: tomorrow ? toDailyMemberView(tomorrow) : null,
