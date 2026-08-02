@@ -21,7 +21,7 @@ export async function AnalystFrameworkSection() {
           Seven internal frameworks behind every forecast
         </Heading>
         <Text variant="body" color="secondary" className="max-w-2xl">
-          MoonX reconciles signal from seven internal analysis frameworks rather than relying on
+          MOOX reconciles signal from seven internal analysis frameworks rather than relying on
           any single methodology or analyst.
         </Text>
       </div>

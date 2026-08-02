@@ -4,6 +4,8 @@
  */
 import "server-only";
 
+import { siteConfig } from "@/lib/site-config";
+
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
   PLAN_DAYS,
@@ -63,7 +65,7 @@ function newOrderId(): string {
 
 function newOrderNumber(): string {
   const rand = Math.random().toString(36).slice(2, 10).toUpperCase();
-  return `MOONX-${rand}`;
+  return `${siteConfig.orderPrefix}-${rand}`;
 }
 
 function normalizeHash(h: string): string {
@@ -181,9 +183,9 @@ export async function listPaymentOrders(): Promise<PaymentOrderRecord[]> {
   return [...map.values()].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
 }
 
-export async function countPendingPaymentOrders(): Promise<number> {
+export async function countPendingPaymentOrders(options: { includeTests?: boolean } = {}): Promise<number> {
   const rows = await listPaymentOrders();
-  return rows.filter((r) => r.status === "pending").length;
+  return rows.filter((r) => r.status === "pending" && (options.includeTests || !r.isTest)).length;
 }
 
 export async function findPaymentOrderByTxHash(txHash: string): Promise<PaymentOrderRecord | null> {
@@ -203,8 +205,8 @@ export async function listPaymentOrdersForEmail(email: string): Promise<PaymentO
   return rows.filter((r) => r.userEmail === key);
 }
 
-export async function listPendingPaymentOrders(limit = 5): Promise<PaymentOrderRecord[]> {
-  return (await listPaymentOrders()).filter((r) => r.status === "pending").slice(0, limit);
+export async function listPendingPaymentOrders(limit = 5, options: { includeTests?: boolean } = {}): Promise<PaymentOrderRecord[]> {
+  return (await listPaymentOrders()).filter((r) => r.status === "pending" && (options.includeTests || !r.isTest)).slice(0, limit);
 }
 
 export async function createPaymentOrder(input: {

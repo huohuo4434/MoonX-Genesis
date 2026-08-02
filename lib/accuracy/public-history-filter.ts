@@ -271,10 +271,10 @@ export function publicSourceAccuracyBreakdown(
   const buckets = new Map<string, { hit: number; miss: number }>();
   const normalize = (s: string) => {
     if (/老师|teacher/i.test(s)) return "老师研究";
-    if (/周期|推演|cycle|综合|composite|MoonX/i.test(s)) return "MoonX综合判断";
+    if (/周期|推演|cycle|综合|composite|MoonX/i.test(s)) return "MOOX综合判断";
     if (/技术|technical/i.test(s)) return "技术分析";
     if (/自测|用户|user/i.test(s)) return "用户自测";
-    return s || "MoonX综合判断";
+    return s || "MOOX综合判断";
   };
   for (const r of items) {
     if (!isPublicCountableVerdict(r.verdict)) continue;

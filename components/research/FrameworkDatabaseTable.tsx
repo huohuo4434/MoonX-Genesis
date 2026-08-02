@@ -11,7 +11,7 @@ export interface FrameworkDatabaseTableProps {
 }
 
 const FRAMEWORK_ZH: Record<string, { name: string; category: string; description: string }> = {
-  "oracle-six-yao": { name: "六爻", category: "象数体系", description: "MoonX 用于建模市场结构周期变化与转换点的结构化象数框架。" },
+  "oracle-six-yao": { name: "六爻", category: "象数体系", description: "MOOX 用于建模市场结构周期变化与转换点的结构化象数框架。" },
   "cycle-structure": { name: "周期结构", category: "时间与周期", description: "研究历史数据中反复出现的时间间隔、高点、低点与转折窗口。" },
   "gann-structure": { name: "江恩结构", category: "时间与周期", description: "运用几何时间与价格周期分析，界定潜在的拐点窗口。" },
   "harmonic-structure": { name: "谐波结构", category: "价格结构", description: "识别价格行为中重复出现的结构波段与谐波形态，为潜在转折点提供背景。" },

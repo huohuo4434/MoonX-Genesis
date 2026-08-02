@@ -1,7 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminPaymentApproveActions } from "@/components/admin/AdminPaymentApproveActions";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
-import { isPaymentEmailConfigured } from "@/lib/email/notifications";
+import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
 import { getPaymentConfig } from "@/lib/payments/config";
 import { listPaymentOrders } from "@/lib/payments/payment-orders-store";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
@@ -24,12 +24,14 @@ function statusBadge(status: string, isTest: boolean) {
 
 export default async function AdminPaymentsPage() {
   const orders = await listPaymentOrders();
-  const pending = orders.filter((o) => o.status === "pending");
-  const approved = orders.filter((o) => o.status === "approved");
-  const rejected = orders.filter((o) => o.status === "rejected");
+  const production = orders.filter((o) => !o.isTest);
+  const pending = production.filter((o) => o.status === "pending");
+  const approved = production.filter((o) => o.status === "approved");
+  const rejected = production.filter((o) => o.status === "rejected");
   const tests = orders.filter((o) => o.isTest);
   const cfg = getPaymentConfig();
   const emailConfigured = isPaymentEmailConfigured();
+  const emailProductionReady = isPaymentEmailProductionReady();
 
   function renderOrder(o: (typeof orders)[number], showActions: boolean) {
     return (
@@ -38,8 +40,8 @@ export default async function AdminPaymentsPage() {
           <Text variant="body-sm" weight="semibold">
             {o.userEmail}
           </Text>
-          {statusBadge(o.status, false)}
-          {o.isTest ? <Badge variant="outline">系统测试</Badge> : null}
+          {statusBadge(o.status, o.isTest)}
+          
         </div>
         <Text variant="caption" color="tertiary" className="mt-2 block">
           订单号：{o.orderNumber}
@@ -91,6 +93,11 @@ export default async function AdminPaymentsPage() {
             <Text variant="body-sm">
               邮件通知尚未配置，但后台订单提醒正常工作。
             </Text>
+          </Card>
+        ) : null}
+        {emailConfigured && !emailProductionReady ? (
+          <Card padding="md" className="mt-4 border border-amber-500/40 bg-amber-500/10">
+            <Text variant="body-sm">邮件目前使用Resend测试发件人。正式运营请在Vercel配置 MOOX_EMAIL_FROM，例如 MOOX Intelligence &lt;support@mooxintel.com&gt;，并完成域名验证。</Text>
           </Card>
         ) : null}
         <Card padding="md" className="mt-4 mb-6 space-y-1">

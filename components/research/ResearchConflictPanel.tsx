@@ -24,7 +24,7 @@ export function ResearchConflictPanel({ conflict }: { conflict: ResearchConflict
       </Text>
 
       <Text variant="body-sm" color="secondary">
-        框架之间存在分歧，不等同于数据错误。MoonX保留不同来源原始判断，并通过后续价格验证裁决。
+        框架之间存在分歧，不等同于数据错误。MOOX保留不同来源原始判断，并通过后续价格验证裁决。
       </Text>
 
       <Text variant="caption" color="tertiary">
@@ -85,7 +85,7 @@ export function ResearchConflictPanel({ conflict }: { conflict: ResearchConflict
       </div>
 
       <Text variant="body-sm" color="secondary" className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
-        <span className="font-medium text-foreground">MoonX 当前综合判断：</span>
+        <span className="font-medium text-foreground">MOOX 当前综合判断：</span>
         {pickLocalized(conflict.currentMoonXView, locale)}
       </Text>
     </Card>

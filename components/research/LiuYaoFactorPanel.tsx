@@ -144,7 +144,7 @@ export function LiuYaoFactorPanel({ analysis }: { analysis: LiuYaoFactorAnalysis
       )}
 
       <Text variant="caption" color="tertiary" className="border-t border-border/[0.06] pt-3">
-        六爻属于传统象数研究框架，因子分数由 MoonX 进行结构化整理，尚非科学统计模型，不构成投资建议。
+        六爻属于传统象数研究框架，因子分数由 MOOX 进行结构化整理，尚非科学统计模型，不构成投资建议。
       </Text>
     </Card>
   );

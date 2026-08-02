@@ -7,7 +7,6 @@ export const ADMIN_ONLY_ROUTE_PREFIXES = [
   "/timeline",
   "/markets/watchlist",
   "/forecasts",
-  "/methodology",
   "/verification/long-term",
   "/verification/learning",
   "/member-preview",

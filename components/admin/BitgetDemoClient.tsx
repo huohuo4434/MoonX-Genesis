@@ -326,7 +326,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
         <div>
           <Heading size="h3">最近镜像记录</Heading>
           <Text variant="body-sm" color="secondary" className="mt-1 block">
-            MoonX内部模拟订单为主记录；Bitget Demo仅镜像相同方向和数量，不使用真实资金。
+            MOOX内部模拟订单为主记录；Bitget Demo仅镜像相同方向和数量，不使用真实资金。
           </Text>
         </div>
         {dashboard.logs.length ? (

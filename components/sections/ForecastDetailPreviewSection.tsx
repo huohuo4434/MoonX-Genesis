@@ -16,7 +16,7 @@ export function ForecastDetailPreviewSection() {
           <Badge variant="neutral">Demo Analysis</Badge>
         </div>
         <Heading as="h2" size="h2" className="max-w-2xl">
-          See how a MoonX forecast comes together
+          See how a MOOX forecast comes together
         </Heading>
       </div>
 
@@ -47,7 +47,7 @@ export function ForecastDetailPreviewSection() {
           </div>
 
           <Text variant="body-sm" color="secondary" className="max-w-sm">
-            This is a demo analysis illustrating how MoonX combines multiple internal frameworks
+            This is a demo analysis illustrating how MOOX combines multiple internal frameworks
             into one forecast. It does not represent real market analysis or investment advice.
           </Text>
         </div>

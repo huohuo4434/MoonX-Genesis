@@ -89,7 +89,7 @@ export function VibeEvidenceAdminClient({
           <div>
             <Text variant="body" weight="semibold">Vibe-Research连接</Text>
             <Text variant="body-sm" color="secondary" className="mt-1 block max-w-3xl">
-              MoonX只读取客观数据端点，再计算证据分。Vibe不直接预测涨跌，不触发自动下单，也不会覆盖已锁定的六爻预测。
+              MOOX只读取客观数据端点，再计算证据分。Vibe不直接预测涨跌，不触发自动下单，也不会覆盖已锁定的六爻预测。
             </Text>
           </div>
           <div className="flex flex-wrap gap-2">

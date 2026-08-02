@@ -3,13 +3,13 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
 import { listPublishedStocks } from "@/lib/data/stocks-store";
-import { listDailyVerificationResults } from "@/lib/data/moonx-data-store";
 import {
   countPendingPaymentOrders,
   listPendingPaymentOrders,
 } from "@/lib/payments/payment-orders-store";
-import { isPaymentEmailConfigured } from "@/lib/email/notifications";
-import { computeDailyAccuracyStats } from "@/lib/verification/daily-rules";
+import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
+import { isSandboxUser } from "@/lib/admin/sandbox-data";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
@@ -19,20 +19,22 @@ export const revalidate = 0;
 
 export default async function AdminHomePage() {
   const now = new Date();
-  const [user, users, stocks, results, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
+  const [user, users, stocks, publicAccuracy, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
     getCurrentUser(),
     listAllAuthUsers(),
     listPublishedStocks(),
-    listDailyVerificationResults(),
+    getPublicAccuracyHistory(now),
     countPendingPaymentOrders(),
     listPendingPaymentOrders(5),
     getKnowledgeGrowthStats(),
     loadTodayForecastRows(now),
     loadTomorrowForecastRows(now),
   ]);
-  const stats = computeDailyAccuracyStats(results);
-  const memberCount = users.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
+  const stats = publicAccuracy.stats;
+  const productionUsers = users.filter((u) => !isSandboxUser(u));
+  const memberCount = productionUsers.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
   const emailConfigured = isPaymentEmailConfigured();
+  const emailProductionReady = isPaymentEmailProductionReady();
 
   const tiles = [
     { label: "有效会员", value: String(memberCount) },
@@ -40,7 +42,8 @@ export default async function AdminHomePage() {
     { label: "今日观点数", value: String(todayRows.length) },
     { label: "下一交易日观点数", value: String(tomorrowRows.length) },
     { label: "已发布个股", value: String(stocks.length) },
-    { label: "日度命中率", value: stats.hitRate == null ? "暂无样本" : `${(stats.hitRate * 100).toFixed(1)}%` },
+    { label: "公开验证样本", value: String(stats.verifiedCount) },
+    { label: "公开加权命中率", value: stats.weightedHitRate == null ? "暂无样本" : `${(stats.weightedHitRate * 100).toFixed(1)}%` },
     { label: "老师课程", value: `${tlcStats.lessonCount}节` },
     { label: "老师规则", value: `${tlcStats.ruleCount}条` },
     { label: "老师案例", value: `${tlcStats.caseCount}个` },
@@ -62,6 +65,11 @@ export default async function AdminHomePage() {
             <Text variant="body-sm">
               邮件通知尚未配置，但后台订单提醒正常工作。
             </Text>
+          </Card>
+        ) : null}
+        {emailConfigured && !emailProductionReady ? (
+          <Card padding="md" className="mt-4 border border-amber-500/40 bg-amber-500/10">
+            <Text variant="body-sm">邮件目前使用Resend测试发件人。正式运营请在Vercel配置 MOOX_EMAIL_FROM，例如 MOOX Intelligence &lt;support@mooxintel.com&gt;，并完成域名验证。</Text>
           </Card>
         ) : null}
 

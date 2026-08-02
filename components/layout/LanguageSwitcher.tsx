@@ -7,7 +7,7 @@ import {
   DropdownTrigger,
 } from "@/components/ui";
 import { GlobeIcon, CheckIcon, ChevronsUpDownIcon } from "@/components/icons";
-import { LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
+import { PUBLIC_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         </button>
       </DropdownTrigger>
       <DropdownContent align="end" className="min-w-[9rem]">
-        {LOCALES.map((option) => (
+        {PUBLIC_LOCALES.map((option) => (
           <DropdownItem
             key={option}
             onSelect={() => setLocale(option)}
@@ -59,7 +59,7 @@ export function MobileLanguageSwitcher({ className }: { className?: string }) {
         {t("nav.language")}
       </span>
       <div className="flex items-center gap-2 px-3" role="group" aria-label={t("nav.language")}>
-        {LOCALES.map((option) => {
+        {PUBLIC_LOCALES.map((option) => {
           const active = option === locale;
           return (
             <button

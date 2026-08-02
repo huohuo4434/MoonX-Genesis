@@ -48,6 +48,15 @@ export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalR
         </a>
       </div>
 
+      <Card padding="md" className="border-primary/15 bg-primary/[0.025]">
+        <div className="grid gap-3 text-body-sm md:grid-cols-4">
+          <div><span className="font-medium">星级</span><span className="mt-1 block text-foreground-secondary">方法共识度，不代表预期涨幅。</span></div>
+          <div><span className="font-medium">共识分</span><span className="mt-1 block text-foreground-secondary">发布时锁定的证据一致程度。</span></div>
+          <div><span className="font-medium">执行状态</span><span className="mt-1 block text-foreground-secondary">观察、等待确认、已触发或失效。</span></div>
+          <div><span className="font-medium">风险</span><span className="mt-1 block text-foreground-secondary">与方向独立；高风险不等于看空。</span></div>
+        </div>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-2">
         {visible.map((signal) => {
           const wait = waitingReason(signal);
@@ -60,7 +69,7 @@ export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalR
                   <Text variant="body" weight="semibold">{name} <span className="text-foreground-tertiary">{symbol}</span></Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">{assetVenue(signal.symbol)} · {timeframeLabel(signal.timeframe)} · {signalStatusLabel(signal.status)}</Text>
                 </div>
-                <Badge variant="outline">{stars(signal.starLevel)} {signal.consensusScore}</Badge>
+                <Badge variant="outline" title="方法共识星级与共识分">{stars(signal.starLevel)} · 共识分 {signal.consensusScore}</Badge>
               </div>
 
               <div className="grid gap-2 text-sm md:grid-cols-2">

@@ -10,7 +10,7 @@ export function ResearchSection() {
           Research
         </Text>
         <Heading as="h2" size="h2" className="max-w-2xl">
-          Notes on how MoonX thinks about forecasting
+          Notes on how MOOX thinks about forecasting
         </Heading>
       </div>
 

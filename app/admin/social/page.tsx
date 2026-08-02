@@ -16,10 +16,10 @@ export default async function AdminSocialContentPage() {
       <Section spacing="lg">
         <AdminNav current="/admin/social" />
         <Heading as="h1" size="h2">
-          Social Content
+          社交内容
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          每日北京时间 00:10 自动生成社交媒体传播卡片。仅展示公开营销内容，不含会员专享、六爻原文、内部权重与详细路径。
+          每日北京时间00:10自动生成公开传播卡片。任务失败会自动重试一次；若仍失败，请在网站诊断中查看错误并手动重建。
         </Text>
         <AdminSocialContentClient
           initialToday={todayCards}

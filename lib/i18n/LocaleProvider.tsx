@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import zhCN from "@/messages/zh-CN.json";
 import zhTW from "@/messages/zh-TW.json";
 import en from "@/messages/en.json";
-import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, LOCALES, type Locale } from "./config";
+import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, PUBLIC_LOCALES, type Locale } from "./config";
 
 type Dictionary = typeof zhCN;
 
@@ -47,7 +47,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-      if (saved && (LOCALES as string[]).includes(saved)) {
+      if (saved && (PUBLIC_LOCALES as string[]).includes(saved)) {
         setLocaleState(saved as Locale);
       }
     } catch {
@@ -66,7 +66,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [locale]);
 
-  const setLocale = useCallback((next: Locale) => setLocaleState(next), []);
+  const setLocale = useCallback((next: Locale) => {
+    if ((PUBLIC_LOCALES as string[]).includes(next)) setLocaleState(next);
+  }, []);
 
   const t = useCallback(
     (key: string, vars?: TranslateVars) => {

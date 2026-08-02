@@ -14,6 +14,12 @@ function sourceLabel(mode: VibeEvidencePublicView["sourceMode"]): string {
   return "内置证据快照";
 }
 
+function freshnessLabel(evidence: VibeEvidencePublicView): string {
+  if (evidence.sourceMode === "SEEDED") return "快照（不按实时新鲜度评分）";
+  if (evidence.sourceMode === "MANUAL") return `人工记录 · 质量分 ${evidence.freshness}%`;
+  return `实时源新鲜度 ${evidence.freshness}%`;
+}
+
 export function VibeEvidencePanel({ evidence }: { evidence: VibeEvidencePublicView }) {
   return (
     <Card padding="md" className="space-y-4 border-cyan-400/15 bg-cyan-400/[0.025]">
@@ -69,7 +75,7 @@ export function VibeEvidencePanel({ evidence }: { evidence: VibeEvidencePublicVi
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 text-caption text-white/40">
         <span>数据完整度 {evidence.completeness}%</span>
-        <span>数据新鲜度 {evidence.freshness}%</span>
+        <span>{freshnessLabel(evidence)}</span>
         <span>日度/周度/月度权重 {evidence.dailyWeight}% / {evidence.weeklyWeight}% / {evidence.monthlyWeight}%</span>
         <span>更新 {formatDateTimeChina(evidence.updatedAt)}</span>
       </div>

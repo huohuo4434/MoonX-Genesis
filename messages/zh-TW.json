@@ -31,7 +31,8 @@
     "memberStocks": "會員個股",
     "tradingSignals": "AI交易訊號",
     "aiTradingDesk": "AI交易公開台",
-    "monthlyAnalysis": "月度走勢"
+    "monthlyAnalysis": "月度走勢",
+    "support": "客服與幫助"
   },
   "footer": {
     "tagline": "每日市場研究與公開驗證",
@@ -74,7 +75,9 @@
     "verificationCol": "驗證",
     "accountLegal": "帳戶與法律",
     "monthly": "月度走勢",
-    "aiTrading": "AI交易公開台"
+    "aiTrading": "AI交易公開台",
+    "today": "今日觀點",
+    "weekly": "週度行情"
   },
   "hero": {
     "eyebrow": "MOOX",

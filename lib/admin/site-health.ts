@@ -11,6 +11,8 @@ import { listPublicConvictionCards } from "@/lib/data/conviction/store";
 import { VIBE_EVIDENCE_ASSETS } from "@/lib/data/vibe/assets";
 import { getVibeConnectionConfig } from "@/lib/data/vibe/client";
 import { listVibeEvidence } from "@/lib/data/vibe/store";
+import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { listSocialCardsForDate } from "@/lib/social-cards/store";
 
 export type SiteHealthSection = {
   key: string;
@@ -30,6 +32,9 @@ export type SiteHealthReport = {
     bitgetConfigured: boolean;
     vibeConfigured: boolean;
     vibeEvidenceReady: number;
+    emailConfigured: boolean;
+    emailProductionReady: boolean;
+    socialCardsToday: number;
     note: string;
   };
   notes: string[];
@@ -53,9 +58,10 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
   const todayExpected = CORE_TOMORROW_ASSETS.filter((item) => isTradingDay(item.market, todayKey));
   const weeklySlots = buildWeeklyMarketSlots(now);
   const monthly = listCurrentMonthlyMarketOutlooks();
-  const [focusCards, vibeRows] = await Promise.all([
+  const [focusCards, vibeRows, socialCardsToday] = await Promise.all([
     listPublicConvictionCards(),
     listVibeEvidence(),
+    listSocialCardsForDate(todayKey),
   ]);
   const focusIds = new Set(focusCards.map((item) => item.id));
   const vibeIds = new Set(
@@ -148,6 +154,16 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
           reason: "没有可用证据快照，或数据完整度为0",
         })),
     },
+    {
+      key: "delivery",
+      label: "交付与通知",
+      expected: 2,
+      ready: Number(isPaymentEmailProductionReady()) + Number(socialCardsToday.length > 0),
+      missing: [
+        ...(!isPaymentEmailProductionReady() ? [{ assetId: "email", assetName: "付款邮件", reason: isPaymentEmailConfigured() ? "已连接Resend，但尚未使用已验证的mooxintel.com发件域名" : "缺少RESEND_API_KEY与正式发件人配置" }] : []),
+        ...(socialCardsToday.length === 0 ? [{ assetId: "social", assetName: "今日社交卡", reason: "今日尚未生成公开传播卡；Cron会自动重试一次" }] : []),
+      ],
+    },
   ];
 
   const hasMissing = sections.some((section) => section.missing.length > 0);
@@ -164,12 +180,16 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       ),
       vibeConfigured: Boolean(vibeConnection.baseUrl),
       vibeEvidenceReady: vibeIds.size,
+      emailConfigured: isPaymentEmailConfigured(),
+      emailProductionReady: isPaymentEmailProductionReady(),
+      socialCardsToday: socialCardsToday.length,
       note: "诊断只显示是否配置和覆盖数量，不返回密钥、余额、订单号或用户资料。",
     },
     notes: [
       "周末今日页只要求展示仍在交易的市场；休市市场应转至下一交易日观点，不算缺失。",
       "正式日度生成已统一使用九个核心市场流水线，不再按旧的亚洲、美股、原油批次分开生成。",
-      "Vibe后端未配置时可继续使用内置证据快照；配置后由独立Cron刷新，不参与每分钟持仓管理。",
+      "Vibe后端未配置时可继续使用内置证据快照；快照不会再显示为实时新鲜度100%。",
+      "付款邮件与社交卡均进入交付健康检查；生产发件域名未验证时会明确提示。",
       "诊断页可替代逐页截图；系统不会创建额外管理员账号。",
     ],
   };

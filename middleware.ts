@@ -60,9 +60,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!url || !anonKey) {
-    const res = NextResponse.next();
-    Object.entries(noStoreHeaders).forEach(([k, v]) => res.headers.set(k, v));
-    return res;
+    return NextResponse.next();
   }
 
   let response = NextResponse.next({ request });
@@ -89,11 +87,17 @@ export async function middleware(request: NextRequest) {
   });
 
   await supabase.auth.getUser();
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-  response.headers.set("Vary", "Cookie");
+  const privatePath = ["/admin", "/account", "/member", "/checkout"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+  if (privatePath) {
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    response.headers.set("Vary", "Cookie");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

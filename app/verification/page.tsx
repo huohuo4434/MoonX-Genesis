@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { Section } from "@/components/ui";
 import { DailyAccuracyClient } from "@/components/verification/DailyAccuracyClient";
 import { WeeklyAccuracySummary } from "@/components/verification/WeeklyAccuracySummary";
+import { VerificationMethodDisclosure } from "@/components/verification/VerificationMethodDisclosure";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 import { getWeeklyAccuracyHistory } from "@/lib/accuracy/get-weekly-history";
 
@@ -25,6 +26,7 @@ export default async function VerificationPage() {
   return (
     <main>
       <Section spacing="lg">
+        <VerificationMethodDisclosure />
         <WeeklyAccuracySummary items={weekly.items} stats={weekly.stats} />
         <DailyAccuracyClient items={items} stats={stats} />
       </Section>

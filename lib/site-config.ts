@@ -1,42 +1,30 @@
-/**
- * Single source of truth for site-wide identity (name, description, URL).
- * Reference this instead of hardcoding brand strings across metadata,
- * structured data, and UI copy so they can't drift out of sync.
- */
 function resolveSiteUrl(): string {
-  const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.APP_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-  ];
+  const candidates = [process.env.NEXT_PUBLIC_SITE_URL, process.env.APP_URL, process.env.NEXT_PUBLIC_APP_URL];
   for (const raw of candidates) {
     if (!raw) continue;
-    const u = raw.trim().replace(/\/$/, "");
-    if (!u || /localhost|127\.0\.0\.1/i.test(u)) continue;
-    if (/^https?:\/\//i.test(u)) {
-      // Canonical production host — never leave www or legacy vercel.app as metadataBase.
+    const value = raw.trim().replace(/\/$/, "");
+    if (!value || /localhost|127\.0\.0\.1/i.test(value)) continue;
+    if (/^https?:\/\//i.test(value)) {
       try {
-        const parsed = new URL(u);
+        const parsed = new URL(value);
         if (parsed.hostname === "www.mooxintel.com") return "https://mooxintel.com";
-        if (parsed.hostname.endsWith("vercel.app") && process.env.VERCEL_ENV === "production") {
-          return "https://mooxintel.com";
-        }
-      } catch {
-        /* keep u */
-      }
-      return u;
+        if (parsed.hostname.endsWith("vercel.app") && process.env.VERCEL_ENV === "production") return "https://mooxintel.com";
+      } catch { /* keep value */ }
+      return value;
     }
   }
-  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
-    return "https://mooxintel.com";
-  }
+  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") return "https://mooxintel.com";
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
 export const siteConfig = {
   name: "MOOX Intelligence",
   shortName: "MOOX",
-  description:
-    "MOOX融合市场数据、AI分析、技术结构与六爻研究，提供日度、周度、月度市场判断及公开历史验证。",
+  description: "先判方向，再等确认。MOOX结合六爻方向研究、奇门择时、技术结构与公开验证，提供可追溯的市场情景判断。",
   url: resolveSiteUrl(),
+  supportEmail: process.env.MOOX_SUPPORT_EMAIL?.trim() || "support@mooxintel.com",
+  billingEmail: process.env.MOOX_BILLING_EMAIL?.trim() || "billing@mooxintel.com",
+  privacyEmail: process.env.MOOX_PRIVACY_EMAIL?.trim() || "privacy@mooxintel.com",
+  telegram: "@jackuwin",
+  orderPrefix: "MOOX",
 } as const;

@@ -29,7 +29,8 @@
     "memberStocks": "Conviction List",
     "tradingSignals": "AI Trading Signals",
     "aiTradingDesk": "AI Trading Desk",
-    "monthlyAnalysis": "Monthly Outlook"
+    "monthlyAnalysis": "Monthly Outlook",
+    "support": "Support"
   },
   "footer": {
     "tagline": "Daily market research with public verification",
@@ -69,7 +70,9 @@
     "verificationCol": "Verification",
     "accountLegal": "Account & Legal",
     "monthly": "Monthly Outlook",
-    "aiTrading": "AI Trading Desk"
+    "aiTrading": "AI Trading Desk",
+    "today": "Today's View",
+    "weekly": "Weekly Outlook"
   },
   "hero": {
     "eyebrow": "MOOX",

@@ -40,6 +40,8 @@ export default async function AdminSiteHealthPage() {
           <Text variant="body-sm">Bitget连接参数：{report.automation.bitgetConfigured ? "已配置" : "未配置"}</Text>
           <Text variant="body-sm">Vibe实时后端：{report.automation.vibeConfigured ? "已配置" : "未配置（使用内置快照）"}</Text>
           <Text variant="body-sm">Vibe可用证据：{report.automation.vibeEvidenceReady} 项</Text>
+          <Text variant="body-sm">邮件服务：{report.automation.emailConfigured ? (report.automation.emailProductionReady ? "生产域名已配置" : "已连接，但仍是测试发件人") : "未配置"}</Text>
+          <Text variant="body-sm">今日社交卡：{report.automation.socialCardsToday} 张</Text>
           <Text variant="caption" color="tertiary">{report.automation.note}</Text>
         </Card>
       </Section>

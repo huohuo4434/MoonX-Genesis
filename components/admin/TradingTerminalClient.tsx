@@ -512,7 +512,7 @@ export function TradingTerminalClient({
       <Card padding="md" className="border-white/10 bg-black/15">
         <Text variant="body-sm" weight="semibold">API如何工作</Text>
         <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">
-          自动生成的等待触发信号会立即出现在 /api/v1/signals。API密钥只给MOSS或外部程序读取，不需要再粘贴回MoonX网站。
+          自动生成的等待触发信号会立即出现在 /api/v1/signals。API密钥只给MOSS或外部程序读取，不需要再粘贴回MOOX网站。
           BTC、ETH、HYPE可由页面自动取价并模拟执行；其他品种暂时仍需手工输入价格。始终不连接真实资金。
         </Text>
       </Card>

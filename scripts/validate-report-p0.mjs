@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+const root=process.cwd();
+const read=(p)=>readFileSync(resolve(root,p),"utf8");
+assert.ok(existsSync(resolve(root,"app/support/page.tsx")),"support page missing");
+assert.ok(existsSync(resolve(root,"app/api/public/verification/route.ts")),"verification export missing");
+const methodology=read("app/methodology/page.tsx");
+assert.doesNotMatch(methodology,/requireAdmin|noindex|index:\s*false/);
+assert.match(methodology,/canonical:\s*"\/methodology"/);
+assert.doesNotMatch(read("lib/auth/admin-only-routes.ts"),/"\/methodology"/);
+const nav=read("config/navigation.ts");
+assert.match(nav,/NAV_ROUTES\.methodology/);
+assert.match(nav,/NAV_ROUTES\.support/);
+const primary=(nav.match(/export const PUBLIC_PRIMARY_NAV[\s\S]*?\n\];/)?.[0].match(/\{ key:/g)||[]).length;
+assert.ok(primary<=7,`primary navigation is crowded: ${primary}`);
+for (const route of ["library","rules","cases","validation"]) {
+  const page=read(`app/admin/iching/${route}/page.tsx`);
+  assert.match(page,/iching-knowledge-safe|loadAdminIChing/);
+}
+assert.match(read("lib/admin/iching-knowledge-safe.ts"),/TEACHER_KNOWLEDGE_FALLBACK/);
+const vibe=read("components/conviction/VibeEvidencePanel.tsx");
+assert.match(vibe,/快照（不按实时新鲜度评分）/);
+assert.doesNotMatch(vibe,/数据新鲜度 \{evidence\.freshness\}%/);
+const email=read("lib/email/notifications.ts");
+assert.match(email,/MOOX收到新的会员付款申请/);
+assert.match(email,/attempt <= 2/);
+assert.doesNotMatch(email,/subject: "MoonX/);
+const payment=read("lib/payments/payment-orders-store.ts");
+assert.match(payment,/!r\.isTest/);
+assert.match(payment,/siteConfig\.orderPrefix/);
+assert.match(read("app/admin/page.tsx"),/getPublicAccuracyHistory/);
+assert.match(read("app/verification/page.tsx"),/VerificationMethodDisclosure/);
+assert.match(read("lib/i18n/config.ts"),/NEXT_PUBLIC_ENABLE_ENGLISH/);
+assert.match(read("app/layout.tsx"),/openGraph/);
+assert.doesNotMatch(read("next.config.ts"),/source: "\/methodology"/);
+console.log("REPORT P0 REGRESSION CHECK PASSED");

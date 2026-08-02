@@ -1,107 +1,46 @@
-import { AdminNav } from "@/components/admin/AdminNav";
-import { Badge, Button, Heading, Section, Text } from "@/components/ui";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { KnowledgeSourceNotice } from "@/components/admin/KnowledgeSourceNotice";
+import { Badge, Button, Heading, Section, Text } from "@/components/ui";
+import { loadAdminIChingValidations } from "@/lib/admin/iching-knowledge-safe";
+import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminIchingValidationPage() {
-  if (!prisma) return <Text variant="body-sm">未配置数据库</Text>;
-
-  const validations = await prisma.iChingValidation.findMany({
-    orderBy: { verifiedAt: "desc" },
-    take: 200,
-  });
-
+  const result = await loadAdminIChingValidations();
   return (
     <main>
       <Section spacing="lg">
         <AdminNav current="/admin/iching/validation" />
-        <Heading as="h1" size="h2">
-          六爻验证
-        </Heading>
-        <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          保存六爻研究的验证结果（仅管理员可见）。
+        <Heading as="h1" size="h2">六爻验证</Heading>
+        <Text variant="body-sm" color="secondary" className="mt-2 mb-5 block">
+          展示已完成的六爻研究验证；主验证表不可用时从老师案例验证状态生成兼容视图。
         </Text>
-        <div className="mb-4">
-          <Link href="/admin/iching/validation/new">
-            <Button>新增验证结果</Button>
-          </Link>
+        <KnowledgeSourceNotice source={result.source} warning={result.warning} />
+        <div className="mb-4 flex flex-wrap gap-3">
+          <Button asChild><Link href="/admin/iching/validation/new">新增验证结果</Link></Button>
+          <Button asChild variant="secondary"><Link href="/verification">查看公开验证</Link></Button>
         </div>
-
         <div className="overflow-x-auto rounded-lg border border-border/[0.08]">
-          <table className="w-full min-w-[860px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border/[0.08] bg-surface/60">
-                <th className="p-lg">
-                  <Text variant="label" color="tertiary">
-                    researchId
-                  </Text>
-                </th>
-                <th className="p-lg">
-                  <Text variant="label" color="tertiary">
-                    actualDirection / result
-                  </Text>
-                </th>
-                <th className="p-lg">
-                  <Text variant="label" color="tertiary">
-                    actualPath
-                  </Text>
-                </th>
-                <th className="p-lg">
-                  <Text variant="label" color="tertiary">
-                    分数
-                  </Text>
-                </th>
-                <th className="p-lg">
-                  <Text variant="label" color="tertiary">
-                    verifiedAt
-                  </Text>
-                </th>
-              </tr>
-            </thead>
+          <table className="w-full min-w-[900px] border-collapse text-left">
+            <thead><tr className="border-b border-border/[0.08] bg-surface/60">
+              {['研究／案例ID','结果','实际方向','实际路径','分数','验证时间','操作'].map((label) => <th key={label} className="p-4"><Text variant="label" color="tertiary">{label}</Text></th>)}
+            </tr></thead>
             <tbody>
-              {validations.map((v) => (
-                <tr key={v.id} className="border-b border-border/[0.06] last:border-0 hover:bg-surface/40">
-                  <td className="p-lg align-top">
-                    <Text variant="mono" className="text-foreground-secondary">
-                      {v.researchId}
-                    </Text>
-                  </td>
-                  <td className="p-lg align-top">
-                    <div className="flex flex-col gap-1">
-                      <Badge variant={v.result === "HIT" ? "default" : "neutral"}>{v.result ?? "UNVERIFIABLE"}</Badge>
-                      <Text variant="caption" color="tertiary">
-                        actualDirection: {v.actualDirection ?? "-"}
-                      </Text>
-                    </div>
-                  </td>
-                  <td className="p-lg align-top max-w-md">
-                    <Text variant="body-sm" color="secondary" className="whitespace-pre-wrap">
-                      {v.actualPath ?? "-"}
-                    </Text>
-                  </td>
-                  <td className="p-lg align-top">
-                    <Text variant="caption" color="tertiary">
-                      total: {v.totalScore ?? "-"} · direction: {v.directionScore ?? "-"} · timing: {v.timingScore ?? "-"}
-                    </Text>
-                  </td>
-                  <td className="p-lg align-top">
-                    <Text variant="caption" color="tertiary">
-                      {v.verifiedAt ? v.verifiedAt.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "-"}
-                    </Text>
-                  </td>
+              {result.items.map((row) => (
+                <tr key={row.id} className="border-b border-border/[0.06] last:border-0 hover:bg-surface/40">
+                  <td className="p-4 align-top"><Text variant="mono" className="text-foreground-secondary">{row.researchId}</Text></td>
+                  <td className="p-4 align-top"><Badge variant={row.result === 'HIT' || row.result === 'FULL_HIT' ? 'default' : 'neutral'}>{row.result}</Badge></td>
+                  <td className="p-4 align-top"><Text variant="body-sm" color="secondary">{row.actualDirection ?? '—'}</Text></td>
+                  <td className="max-w-md p-4 align-top"><Text variant="body-sm" color="secondary" className="whitespace-pre-wrap">{row.actualPath ?? '—'}</Text></td>
+                  <td className="p-4 align-top"><Text variant="caption" color="tertiary">总分 {row.totalScore ?? '—'} · 方向 {row.directionScore ?? '—'} · 时机 {row.timingScore ?? '—'}</Text></td>
+                  <td className="p-4 align-top"><Text variant="caption" color="tertiary">{formatDateTimeChina(row.verifiedAt)}</Text></td>
+                  <td className="p-4 align-top">{row.editHref ? <Button asChild size="sm"><Link href={row.editHref}>打开</Link></Button> : <Text variant="caption" color="tertiary">只读</Text>}</td>
                 </tr>
               ))}
-              {!validations.length ? (
-                <tr>
-                  <td colSpan={5} className="p-lg">
-                    <Text variant="body-sm" color="secondary">
-                      暂无验证记录。
-                    </Text>
-                  </td>
-                </tr>
-              ) : null}
+              {!result.items.length ? <tr><td colSpan={7} className="p-6"><Text variant="body-sm" color="secondary">暂无已完成验证记录。</Text></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -109,4 +48,3 @@ export default async function AdminIchingValidationPage() {
     </main>
   );
 }
-

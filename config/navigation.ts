@@ -1,6 +1,6 @@
 /**
- * Single source of truth for MoonX public + account navigation.
- * Header, footer, and mobile menus must all use this module.
+ * Single source of truth for MOOX public + account navigation.
+ * Header, footer, mobile menus, sitemap and audits should derive from this file.
  */
 
 export interface NavItem {
@@ -24,11 +24,11 @@ export const NAV_ROUTES = {
   researchTechnical: "/research/technical",
   researchLongTerm: "/research/long-term",
   timeline: "/timeline",
-  /** @deprecated use featuredStocks — kept for redirects / audit */
   memberStocks: "/member/stocks",
   verification: "/verification",
   methodology: "/methodology",
   pricing: "/pricing",
+  support: "/support",
   login: "/login",
   account: "/account",
   accountOrders: "/account/orders",
@@ -37,7 +37,7 @@ export const NAV_ROUTES = {
   terms: "/terms",
 } as const;
 
-/** Old long-horizon routes — public/member must 404; admin may redirect to intelligence. */
+/** Old long-horizon/internal routes. Public/member users receive a standard 404. */
 export const INTERNAL_LEGACY_ROUTES = [
   "/research",
   "/research/library",
@@ -50,34 +50,32 @@ export const INTERNAL_LEGACY_ROUTES = [
   "/markets/watchlist",
   "/forecasts",
   "/forecasts/daily",
-  "/methodology",
   "/verification/long-term",
 ] as const;
 
-/**
- * Desktop primary nav — public product structure only.
- * Today/Tomorrow/Weekly remain reachable for authenticated flows via homepage CTA / member URLs,
- * but are not marketed as open public pages.
- */
+/** Compact desktop primary nav: the product story, not every route. */
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
-  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
-  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
-  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
+  { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
+  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度" },
+  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度" },
   { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
-  { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
-  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+  { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
 ];
 
-/** All public product links are shown directly in the compact desktop header. */
-export const PUBLIC_MORE_NAV: NavItem[] = [];
+/** Secondary destinations live under “更多”, preventing header crowding. */
+export const PUBLIC_MORE_NAV: NavItem[] = [
+  { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
+  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+  { key: "nav.support", href: NAV_ROUTES.support, labelZh: "客服与帮助" },
+];
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
+  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
-  { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员" },
   { key: "nav.login", href: NAV_ROUTES.login, labelZh: "账户" },
 ];
 
@@ -85,7 +83,7 @@ export function buildPublicPrimaryNav(_options?: { includeMemberStocks?: boolean
   return PUBLIC_PRIMARY_NAV;
 }
 
-export function buildPublicFooterColumns(options?: {
+export function buildPublicFooterColumns(_options?: {
   includeMemberStocks?: boolean;
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
@@ -96,57 +94,26 @@ export function buildPublicFooterColumns(options?: {
     { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
-    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+    { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
   ];
-
   const accountLegal: NavItem[] = [
+    { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
+    { key: "footer.contact", href: NAV_ROUTES.support, labelZh: "客服与帮助" },
     { key: "footer.myAccount", href: NAV_ROUTES.account, labelZh: "我的账户" },
-    { key: "footer.login", href: NAV_ROUTES.login, labelZh: "登录注册" },
     { key: "footer.privacyPolicy", href: NAV_ROUTES.privacy, labelZh: "隐私政策" },
     { key: "footer.termsOfService", href: NAV_ROUTES.terms, labelZh: "服务条款" },
   ];
-
-  void options;
-
   return [
     { titleKey: "footer.product", titleZh: "产品", links: product },
     { titleKey: "footer.accountLegal", titleZh: "账户与法律", links: accountLegal },
   ];
 }
 
-/** Audit + crawl route list (primary surfaces). */
 export const AUDIT_ROUTES = [
-  "/",
-  "/login",
-  "/login?next=/pricing",
-  "/login?next=/admin",
-  "/account",
-  "/account/orders",
-  "/pricing",
-  "/checkout",
-  "/member/tomorrow",
-  "/member/weekly",
-  "/member/monthly",
-  "/member/ai-trading",
-  "/featured-stocks",
-  "/featured-stocks/cxmt",
-  "/featured-stocks/asteroid",
-  "/featured-stocks/googl",
-  "/featured-stocks/msft",
-  "/featured-stocks/tencent",
-  "/featured-stocks/kingsoft-office",
-  "/verification",
-  "/privacy",
-  "/terms",
-  "/admin",
-  "/admin/payments",
-  "/admin/settings",
-  "/admin/market-prices",
-  "/admin/vibe-evidence",
-  "/admin/forecasts",
-  "/admin/weekly",
-  "/admin/full-cycle",
-  "/admin/stocks",
-  "/admin/teacher-knowledge",
-  ...INTERNAL_LEGACY_ROUTES,
+  "/", "/login", "/account", "/account/orders", "/pricing", "/support",
+  "/methodology", "/member/tomorrow", "/member/weekly", "/member/monthly",
+  "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
+  "/privacy", "/terms", "/admin", "/admin/payments", "/admin/settings",
+  "/admin/site-health", "/admin/iching/library", "/admin/iching/rules",
+  "/admin/iching/cases", "/admin/iching/validation", ...INTERNAL_LEGACY_ROUTES,
 ] as const;

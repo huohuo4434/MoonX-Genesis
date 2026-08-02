@@ -230,8 +230,8 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         {zh ? (
           <>
             预测卡片底部可展开「预测依据」。也可直接从会员页返回{" "}
-            <Link href="/forecasts/daily" className="text-primary underline-offset-2 hover:underline">
-              今日观点
+            <Link href="/#moonx-view" className="text-primary underline-offset-2 hover:underline">
+              今日研判
             </Link>
             。
           </>

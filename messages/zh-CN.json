@@ -32,7 +32,8 @@
     "memberStocks": "重点关注",
     "tradingSignals": "AI交易信号",
     "aiTradingDesk": "AI交易公开台",
-    "monthlyAnalysis": "月度走势"
+    "monthlyAnalysis": "月度走势",
+    "support": "客服与帮助"
   },
   "footer": {
     "tagline": "每日市场研究与公开验证",
@@ -75,7 +76,9 @@
     "verificationCol": "验证",
     "accountLegal": "账户与法律",
     "monthly": "月度走势",
-    "aiTrading": "AI交易公开台"
+    "aiTrading": "AI交易公开台",
+    "today": "今日观点",
+    "weekly": "周度行情"
   },
   "hero": {
     "eyebrow": "MOOX",

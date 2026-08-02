@@ -22,7 +22,7 @@ export default async function AdminBitgetDemoPage() {
         <AdminNav current="/admin/bitget-demo" />
         <Heading as="h1" size="h2">Bitget Demo执行连接器</Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-          把MoonX预测产生的模拟成交镜像到Bitget模拟盘。自动交易最多监控10个USDT合约币种，默认逐仓、单向、1倍杠杆；具体币种仍需Bitget Demo支持。
+          把MOOX预测产生的模拟成交镜像到Bitget模拟盘。自动交易最多监控10个USDT合约币种，默认逐仓、单向、1倍杠杆；具体币种仍需Bitget Demo支持。
         </Text>
         <div className="space-y-10">
           <BitgetDemoClient initial={dashboard} />

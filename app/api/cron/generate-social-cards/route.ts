@@ -1,34 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { generateSocialCardsForToday } from "@/lib/social-cards/generate";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
-}
-
-/**
- * Beijing 00:10 → UTC 16:10 previous calendar day (CST = UTC+8).
- * Scheduled in vercel.json as `10 16 * * *`.
- */
+function authorizeCron(request: NextRequest): boolean { const secret=process.env.CRON_SECRET; return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`); }
+function wait(ms: number): Promise<void> { return new Promise((resolve) => setTimeout(resolve, ms)); }
 export async function GET(request: NextRequest) {
-  if (!authorizeCron(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!authorizeCron(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let lastError="social card generation failed";
+  for (let attempt=1; attempt<=2; attempt+=1) {
+    try { const result=await generateSocialCardsForToday({ source: "cron" }); return NextResponse.json({ ok:true, attempt, forecastDate:result.forecastDate, count:result.count, cardIds:result.cards.map((card)=>card.id) }); }
+    catch (error) { lastError=error instanceof Error ? error.message : String(error); if (attempt<2) await wait(900); }
   }
-
-  try {
-    const result = await generateSocialCardsForToday({ source: "cron" });
-    return NextResponse.json({
-      ok: true,
-      forecastDate: result.forecastDate,
-      count: result.count,
-      cardIds: result.cards.map((c) => c.id),
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "cron failed" },
-      { status: 500 }
-    );
-  }
+  console.error("[social-cards-cron] failed after retry", lastError);
+  return NextResponse.json({ ok:false, error:lastError, retried:true }, { status:500 });
 }
