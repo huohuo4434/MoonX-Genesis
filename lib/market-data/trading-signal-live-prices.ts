@@ -5,13 +5,20 @@ import {
   isAutoCryptoSymbol,
   type CryptoLivePrice,
 } from "@/lib/market-data/crypto-live-prices";
+import { getMoonXDexLivePrices } from "@/lib/market-data/orderly-live-prices";
+import {
+  getFreshManualMarketPrices,
+  normalizeManualPriceSymbol,
+} from "@/lib/market-data/manual-market-prices";
 
 export type TradingSignalPriceProvider =
   | "BITGET"
   | "HYPERLIQUID"
   | "YAHOO"
   | "STOOQ"
-  | "DEXSCREENER";
+  | "DEXSCREENER"
+  | "MOONXDEX"
+  | "MANUAL";
 
 export type TradingSignalLivePrice = {
   symbol: string;
@@ -25,6 +32,15 @@ export type TradingSignalLivePrice = {
 const ASTEROID_CONTRACT = "0xf280b16ef293d8e534e370794ef26bf312694126";
 
 const YAHOO_SYMBOLS: Record<string, string> = {
+  BTC: "BTC-USD",
+  ETH: "ETH-USD",
+  HYPE: "HYPE-USD",
+  SPX: "^GSPC",
+  NDX: "^NDX",
+  SSE: "000001.SS",
+  HSTECH: "^HSTECH",
+  GOLD: "GC=F",
+  SILVER: "SI=F",
   MU: "MU",
   WTI: "CL=F",
   "688825": "688825.SS",
@@ -34,6 +50,12 @@ export const AUTOMATIC_SIGNAL_PRICE_SYMBOLS = [
   "BTC",
   "ETH",
   "HYPE",
+  "SPX",
+  "NDX",
+  "SSE",
+  "HSTECH",
+  "GOLD",
+  "SILVER",
   "MU",
   "WTI",
   "688825",
@@ -41,13 +63,7 @@ export const AUTOMATIC_SIGNAL_PRICE_SYMBOLS = [
 ] as const;
 
 function normalizeSymbol(value: string): string {
-  const normalized = value.trim().toUpperCase().replace(/[-_/\s]/g, "");
-  if (normalized === "BTCUSDT" || normalized === "BTCUSD") return "BTC";
-  if (normalized === "ETHUSDT" || normalized === "ETHUSD") return "ETH";
-  if (normalized === "HYPEUSDT" || normalized === "HYPEUSD") return "HYPE";
-  if (normalized === "CL" || normalized === "CL=F" || normalized === "WTIUSD") return "WTI";
-  if (normalized === "688825SS") return "688825";
-  return normalized;
+  return normalizeManualPriceSymbol(value);
 }
 
 export function isTradingSignalAutoPriceSupported(symbol: string): boolean {
@@ -330,14 +346,24 @@ export async function getTradingSignalLivePrices(
   const prices = new Map<string, TradingSignalLivePrice>();
   const warnings: string[] = [];
 
-  const cryptoSymbols = [...requested].filter((symbol) => isAutoCryptoSymbol(symbol));
-  if (cryptoSymbols.length) {
-    const crypto = await getCryptoLivePrices(cryptoSymbols);
+  // moonxdex.io is an Orderly trading application. Read the same zero-auth public
+  // market list directly instead of scraping rendered HTML.
+  const moonxDex = await getMoonXDexLivePrices([...requested]);
+  moonxDex.prices.forEach((row) => prices.set(row.normalizedSymbol, row));
+  warnings.push(...moonxDex.warnings);
+
+  const missingCrypto = [...requested].filter(
+    (symbol) => !prices.has(symbol) && isAutoCryptoSymbol(symbol)
+  );
+  if (missingCrypto.length) {
+    const crypto = await getCryptoLivePrices(missingCrypto);
     crypto.prices.forEach((row) => prices.set(row.symbol, fromCryptoPrice(row)));
     warnings.push(...crypto.warnings);
   }
 
-  const yahooRequests = [...requested].filter((symbol) => YAHOO_SYMBOLS[symbol]);
+  const yahooRequests = [...requested].filter(
+    (symbol) => !prices.has(symbol) && Boolean(YAHOO_SYMBOLS[symbol])
+  );
   const yahooResults = await Promise.allSettled(
     yahooRequests.map((symbol) => fetchYahooPrice(symbol, YAHOO_SYMBOLS[symbol]!))
   );
@@ -346,7 +372,11 @@ export async function getTradingSignalLivePrices(
     if (result.status === "fulfilled") {
       prices.set(symbol, result.value);
     } else {
-      warnings.push(`${symbol}主行情源不可用：${result.reason instanceof Error ? result.reason.message : "未知错误"}`);
+      warnings.push(
+        `${symbol}备用行情不可用：${
+          result.reason instanceof Error ? result.reason.message : "未知错误"
+        }`
+      );
     }
   });
 
@@ -354,25 +384,50 @@ export async function getTradingSignalLivePrices(
     try {
       prices.set("WTI", await fetchStooqWtiPrice());
     } catch (error) {
-      warnings.push(`WTI备用行情不可用：${error instanceof Error ? error.message : "未知错误"}`);
+      warnings.push(
+        `WTI备用行情不可用：${error instanceof Error ? error.message : "未知错误"}`
+      );
     }
   }
 
-  if (requested.has("ASTEROID")) {
+  if (requested.has("ASTEROID") && !prices.has("ASTEROID")) {
     try {
       prices.set("ASTEROID", await fetchAsteroidPrice());
     } catch (error) {
       warnings.push(
-        `ASTEROID自动行情不可用：${error instanceof Error ? error.message : "未知错误"}`
+        `ASTEROID自动行情不可用：${
+          error instanceof Error ? error.message : "未知错误"
+        }`
+      );
+    }
+  }
+
+  const stillMissing = [...requested].filter((symbol) => !prices.has(symbol));
+  if (stillMissing.length) {
+    try {
+      const manualRows = await getFreshManualMarketPrices(stillMissing, 96);
+      for (const row of manualRows) {
+        prices.set(row.symbol, {
+          symbol: row.symbol,
+          normalizedSymbol: row.symbol,
+          price: row.price,
+          provider: "MANUAL",
+          sourceSymbol: row.note ? `管理员录入：${row.note}` : "管理员手动录入",
+          capturedAt: row.capturedAt,
+        });
+      }
+    } catch (error) {
+      warnings.push(
+        `手动行情兜底读取失败：${error instanceof Error ? error.message : "未知错误"}`
       );
     }
   }
 
   for (const symbol of requested) {
     if (!isTradingSignalAutoPriceSupported(symbol)) {
-      warnings.push(`${symbol}尚未配置自动行情`);
+      warnings.push(`${symbol}尚未加入行情清单`);
     } else if (!prices.has(symbol)) {
-      warnings.push(`${symbol}本轮没有取得有效实时价格`);
+      warnings.push(`${symbol}本轮没有取得有效价格，可在后台“行情录入”手动补充`);
     }
   }
 

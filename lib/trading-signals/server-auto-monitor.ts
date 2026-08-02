@@ -2,6 +2,7 @@ import "server-only";
 
 import { syncBitgetDemoOrders } from "@/lib/bitget/demo-connector";
 import {
+  AUTOMATIC_SIGNAL_PRICE_SYMBOLS,
   getTradingSignalLivePrices,
   isTradingSignalAutoPriceSupported,
   tradingSignalPriceKey,
@@ -104,7 +105,7 @@ export async function runTradingSignalServerMonitor(): Promise<TradingSignalAuto
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
-    supportedSymbols: ["BTC", "ETH", "HYPE", "MU", "WTI", "688825", "ASTEROID"],
+    supportedSymbols: [...AUTOMATIC_SIGNAL_PRICE_SYMBOLS],
     prices: market.prices,
     warnings: market.warnings,
     monitoredSignals: signals.length,
