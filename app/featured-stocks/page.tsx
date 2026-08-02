@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "MOOX Conviction List | 重点关注",
-  description: "MOOX持续研究和验证的少数重点资产。公开基本面，会员查看完整预测。",
+  title: "重点关注资产",
+  description: "MOOX持续研究和验证的重点资产。公开基本面，会员查看完整周期研究。",
+  alternates: { canonical: "/featured-stocks" },
 };
 
 export default async function FeaturedStocksPage() {

@@ -14,28 +14,33 @@ import {
 } from "../lib/data/weekly-analysis.ts";
 
 describe("weekly member analysis", () => {
-  test("publishes seven core markets", () => {
-    assert.equal(WEEKLY_CORE_MARKETS.length, 7);
+  test("publishes nine canonical core markets", () => {
+    assert.equal(WEEKLY_CORE_MARKETS.length, 9);
     assert.equal(PUBLISHED_WEEKLY_ANALYSES.length, 7);
     assert.deepEqual(
       WEEKLY_CORE_MARKETS.map((m) => m.displaySymbol),
-      ["BTC", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "CL"]
+      ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GC", "SI", "CL"]
     );
   });
 
-  test("SPX NDX WTI are published on member list", () => {
-    const published = listPublishedWeeklyAnalyses();
+  test("all nine markets are published on the 2026-08-03 member list", () => {
+    const now = new Date("2026-08-02T12:00:00+08:00");
+    const published = listPublishedWeeklyAnalyses(now);
     assert.ok(published.some((r) => r.symbol === "SPX"));
     assert.ok(published.some((r) => r.symbol === "NDX"));
     assert.ok(published.some((r) => r.symbol === "WTI"));
     assert.equal(INTERNAL_WEEKLY_ANALYSES.length, 0);
-    assert.equal(buildWeeklyMarketSlots().length, 7);
+    assert.equal(published.length, 9);
+    assert.ok(published.some((r) => r.symbol === "ETH"));
+    assert.ok(published.some((r) => r.symbol === "SILVER"));
+    assert.equal(buildWeeklyMarketSlots(now).length, 9);
   });
 
   test("public summary and teaser omit direction and levels", () => {
-    const summary = buildWeeklyPublicSummary();
-    assert.equal(summary.coverageCount, 7);
-    assert.equal(summary.publishedCount, 7);
+    const now = new Date("2026-08-02T12:00:00+08:00");
+    const summary = buildWeeklyPublicSummary(now);
+    assert.equal(summary.coverageCount, 9);
+    assert.equal(summary.publishedCount, 9);
     assert.ok(summary.weekLabel.includes("2026"));
     const teaser = toWeeklyTeaser(PUBLISHED_WEEKLY_ANALYSES[0]!);
     assert.equal("overallDirection" in teaser, false);

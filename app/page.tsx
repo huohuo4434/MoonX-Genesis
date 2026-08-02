@@ -10,6 +10,7 @@ export const revalidate = 0;
 
 export const metadata = {
   title: { absolute: "MOOX Intelligence" },
+  alternates: { canonical: "/" },
   robots: { index: true, follow: true },
 };
 

@@ -42,7 +42,7 @@ export const FEATURED_STOCKS: FeaturedStock[] = [
   {
     id: "asteroid",
     name: "Asteroid",
-    symbol: "ASTER",
+    symbol: "ASTEROID",
     marketLabel: "Crypto · Micro Cap",
     convictionStars: 4,
     tags: ["Micro Cap", "Community", "High Risk"],

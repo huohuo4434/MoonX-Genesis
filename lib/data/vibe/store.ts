@@ -58,22 +58,29 @@ export async function getVibeEvidence(
 export async function writeVibeEvidence(records: VibeEvidenceSnapshot[]): Promise<void> {
   const admin = getAdminClient();
   if (!admin) throw new Error("Supabase service role not configured");
-  const { data: buckets } = await admin.storage.listBuckets();
+  const { data: buckets, error: listError } = await admin.storage.listBuckets();
+  if (listError) throw new Error(`无法检查Vibe证据存储桶：${listError.message}`);
   if (!buckets?.some((bucket) => bucket.name === BUCKET)) {
-    await admin.storage.createBucket(BUCKET, {
+    const { error: createError } = await admin.storage.createBucket(BUCKET, {
       public: false,
       fileSizeLimit: 5 * 1024 * 1024,
     });
+    if (createError && !/already exists/i.test(createError.message)) {
+      throw new Error(`无法创建Vibe证据存储桶：${createError.message}`);
+    }
   }
   const payload: StorePayload = {
     version: 1,
     updatedAt: new Date().toISOString(),
     records,
   };
-  await admin.storage.from(BUCKET).upload(FILE, JSON.stringify(payload, null, 2), {
-    contentType: "application/json",
-    upsert: true,
-  });
+  const { error: uploadError } = await admin.storage
+    .from(BUCKET)
+    .upload(FILE, JSON.stringify(payload, null, 2), {
+      contentType: "application/json",
+      upsert: true,
+    });
+  if (uploadError) throw new Error(`无法保存Vibe证据：${uploadError.message}`);
 }
 
 export function toVibePublicView(snapshot: VibeEvidenceSnapshot): VibeEvidencePublicView {

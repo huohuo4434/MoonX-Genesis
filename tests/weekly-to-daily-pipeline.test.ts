@@ -68,8 +68,8 @@ describe("weekly liuyao six sources", () => {
 });
 
 describe("weekly page + daily generation", () => {
-  test("9-12) weekly coverage includes SPX NDX WTI (7 markets)", () => {
-    assert.equal(WEEKLY_CORE_MARKETS.length, 7);
+  test("9-12) weekly coverage includes all 9 core markets", () => {
+    assert.equal(WEEKLY_CORE_MARKETS.length, 9);
     const syms = WEEKLY_CORE_MARKETS.map((m) => m.displaySymbol);
     assert.ok(syms.includes("SPX"));
     assert.ok(syms.includes("NDX"));
@@ -241,7 +241,7 @@ describe("access + empty + methodology + asteroid + referral", () => {
     const a = CONVICTION_ASSET_SEED.find((x) => x.slug === "asteroid")!;
     assert.equal(a.contractAddress, "0xf280b16ef293d8e534e370794ef26bf312694126");
     assert.equal(a.marketCap, 26_180_000);
-    assert.equal(a.network, "待确认");
+    assert.equal(a.network, "Ethereum / 以太坊");
     assert.match(a.nameZh, /Asteroid/);
     const mcap = formatMarketCapDisplay(a)!;
     assert.match(mcap.labelZh, /2618/);
@@ -260,7 +260,7 @@ describe("access + empty + methodology + asteroid + referral", () => {
     assert.equal(g.ganzhiLabel, "甲子");
   });
 
-  test("core markets list is 7", () => {
-    assert.equal(CORE_DAILY_MARKETS.length, 7);
+  test("core daily markets list is 9", () => {
+    assert.equal(CORE_DAILY_MARKETS.length, 9);
   });
 });

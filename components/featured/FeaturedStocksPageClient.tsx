@@ -134,9 +134,9 @@ function UnlockPremiumDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-white/10 bg-[#0c0e12] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white">Unlock MOOX Premium</DialogTitle>
+          <DialogTitle className="text-white">解锁MOOX会员研究</DialogTitle>
           <DialogDescription className="text-white/55">
-            会员可查看完整 Featured Stocks Forecast 与多周期 Research。
+            会员可查看完整重点资产预测与多周期研究。
           </DialogDescription>
         </DialogHeader>
         <ul className="mt-2 space-y-2 text-body-sm text-white/75">
@@ -158,7 +158,7 @@ function UnlockPremiumDialog({
         </ul>
         <DialogFooter className="mt-4 sm:justify-start">
           <Button asChild className="w-full sm:w-auto">
-            <Link href="/pricing">Become a Member</Link>
+            <Link href="/pricing">查看会员方案</Link>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -183,10 +183,10 @@ export function FeaturedStocksPageClient({ isMember }: { isMember: boolean }) {
             MOOX Research Desk
           </p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            MOOX Featured Stocks
+            MOOX重点关注资产
           </h1>
           <p className="mt-3 text-body text-white/55">
-            A curated list of high-conviction assets under long-term research.
+            持续研究、验证并跟踪少数高关注度资产。
           </p>
           <div className="mt-6 space-y-2 text-body-sm text-white/70">
             <p className="font-medium text-white/85">MOOX长期重点关注标的</p>

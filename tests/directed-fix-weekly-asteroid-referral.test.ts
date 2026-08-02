@@ -1,5 +1,5 @@
 /**
- * Directed fix coverage: weekly 7 markets, asteroid, methodology UI, referral storage.
+ * Directed fix coverage: canonical weekly 9 markets, asteroid, methodology UI, referral storage.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -19,25 +19,27 @@ import { formatMarketCapDisplay } from "../lib/data/conviction/format-market-cap
 import { DEFAULT_METHODOLOGY_MODULES } from "../lib/methodology/defaults.ts";
 
 describe("directed fix: weekly / asteroid / methodology / referral", () => {
-  test("1-4) weekly coverage is 7 markets including SPX NDX WTI", () => {
-    assert.equal(WEEKLY_CORE_MARKETS.length, 7);
-    assert.equal(buildWeeklyMarketSlots().length, 7);
-    const symbols = listPublishedWeeklyAnalyses().map((r) => r.symbol);
-    assert.ok(symbols.includes("SPX"));
-    assert.ok(symbols.includes("NDX"));
-    assert.ok(symbols.includes("WTI"));
+  test("1-4) canonical weekly coverage is 9 markets including ETH and SILVER", () => {
+    const nextWeekWindow = new Date("2026-08-02T12:00:00+08:00");
+    assert.equal(WEEKLY_CORE_MARKETS.length, 9);
+    assert.equal(buildWeeklyMarketSlots(nextWeekWindow).length, 9);
+    const symbols = listPublishedWeeklyAnalyses(nextWeekWindow).map((r) => r.symbol);
+    for (const symbol of ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GOLD", "SILVER", "WTI"]) {
+      assert.ok(symbols.includes(symbol), `missing current weekly symbol: ${symbol}`);
+    }
+    // The 2026-07-27 historical batch remains seven locked records; it is not the canonical coverage count.
     assert.equal(PUBLISHED_WEEKLY_ANALYSES.length, 7);
-    const summary = buildWeeklyPublicSummary();
-    assert.equal(summary.coverageCount, 7);
-    assert.equal(summary.publishedCount, 7);
-    assert.equal(summary.teasers.length, 7);
+    const summary = buildWeeklyPublicSummary(nextWeekWindow);
+    assert.equal(summary.coverageCount, 9);
+    assert.equal(summary.publishedCount, 9);
+    assert.equal(summary.teasers.length, 9);
   });
 
   test("5-7) Asteroid contract + market cap ~2618万美元 not 26万", () => {
     const a = CONVICTION_ASSET_SEED.find((x) => x.slug === "asteroid")!;
     assert.equal(a.assetType, "CRYPTO");
     assert.equal(a.nameZh, "Asteroid（太空狗）");
-    assert.equal(a.network, "待确认");
+    assert.equal(a.network, "Ethereum / 以太坊");
     assert.equal(a.nameEn, "Asteroid");
     assert.ok(a.aliases?.includes("火箭狗"));
     assert.equal(a.contractAddress, "0xf280b16ef293d8e534e370794ef26bf312694126");

@@ -9,9 +9,9 @@ function scoreTone(score: number): string {
 }
 
 function sourceLabel(mode: VibeEvidencePublicView["sourceMode"]): string {
-  if (mode === "VIBE_API") return "Vibe实时证据";
-  if (mode === "MANUAL") return "管理员证据";
-  return "接入前置快照";
+  if (mode === "VIBE_API") return "实时客观证据";
+  if (mode === "MANUAL") return "人工核验证据";
+  return "内置证据快照";
 }
 
 export function VibeEvidencePanel({ evidence }: { evidence: VibeEvidencePublicView }) {

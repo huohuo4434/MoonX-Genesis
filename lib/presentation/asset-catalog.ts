@@ -25,7 +25,7 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "tencent", nameZh: "腾讯控股", symbol: "00700", displaySymbol: "00700", venue: "香港交易所", marketLabel: "股票", aliases: ["0700.HK", "700.HK", "Tencent", "腾讯"] },
   { assetId: "kingsoft-office", nameZh: "金山办公", symbol: "688111", displaySymbol: "688111", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688111.SS", "WPS"] },
   { assetId: "hype", nameZh: "HYPE", symbol: "HYPE", displaySymbol: "HYPE", venue: "Hyperliquid", marketLabel: "加密资产", aliases: ["HYPEUSDT"] },
-  { assetId: "asteroid", nameZh: "Asteroid（太空狗）", symbol: "ASTEROID", displaySymbol: "ASTEROID", venue: "以太坊链上市场", marketLabel: "加密资产", aliases: ["ASTER"] },
+  { assetId: "asteroid", nameZh: "Asteroid（太空狗）", symbol: "ASTEROID", displaySymbol: "ASTEROID", venue: "以太坊链上市场", marketLabel: "加密资产", aliases: ["太空狗", "Asteroid"] },
 ];
 
 function normalized(value: string): string {

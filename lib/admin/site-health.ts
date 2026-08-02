@@ -6,6 +6,11 @@ import { listCurrentMonthlyMarketOutlooks } from "@/lib/data/monthly-market-outl
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { isTradingDay } from "@/lib/calendar/next-trading-day";
+import { CONVICTION_ASSET_SEED } from "@/lib/data/conviction/seed";
+import { listPublicConvictionCards } from "@/lib/data/conviction/store";
+import { VIBE_EVIDENCE_ASSETS } from "@/lib/data/vibe/assets";
+import { getVibeConnectionConfig } from "@/lib/data/vibe/client";
+import { listVibeEvidence } from "@/lib/data/vibe/store";
 
 export type SiteHealthSection = {
   key: string;
@@ -23,6 +28,8 @@ export type SiteHealthReport = {
   automation: {
     cronSecretConfigured: boolean;
     bitgetConfigured: boolean;
+    vibeConfigured: boolean;
+    vibeEvidenceReady: number;
     note: string;
   };
   notes: string[];
@@ -46,6 +53,18 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
   const todayExpected = CORE_TOMORROW_ASSETS.filter((item) => isTradingDay(item.market, todayKey));
   const weeklySlots = buildWeeklyMarketSlots(now);
   const monthly = listCurrentMonthlyMarketOutlooks();
+  const [focusCards, vibeRows] = await Promise.all([
+    listPublicConvictionCards(),
+    listVibeEvidence(),
+  ]);
+  const focusIds = new Set(focusCards.map((item) => item.id));
+  const vibeIds = new Set(
+    vibeRows.filter((item) => item.completeness > 0).map((item) => item.assetId)
+  );
+  const expectedFocus = CONVICTION_ASSET_SEED.filter(
+    (item) => item.isPublished && item.status === "published"
+  );
+  const vibeConnection = getVibeConnectionConfig();
 
   const sections: SiteHealthSection[] = [
     {
@@ -55,7 +74,11 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       ready: todayExpected.filter((item) => todayIds.has(item.assetId)).length,
       missing: todayExpected
         .filter((item) => !todayIds.has(item.assetId))
-        .map((item) => ({ assetId: item.assetId, assetName: item.assetName, reason: "今天有交易时段，但尚未生成可展示的正式观点" })),
+        .map((item) => ({
+          assetId: item.assetId,
+          assetName: item.assetName,
+          reason: "今天有交易时段，但尚未生成可展示的正式观点",
+        })),
     },
     {
       key: "tomorrow",
@@ -64,7 +87,11 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       ready: CORE_TOMORROW_ASSETS.filter((item) => tomorrowIds.has(item.assetId)).length,
       missing: CORE_TOMORROW_ASSETS
         .filter((item) => !tomorrowIds.has(item.assetId))
-        .map((item) => ({ assetId: item.assetId, assetName: item.assetName, reason: "缺少覆盖下一交易日的正式预测或周度来源" })),
+        .map((item) => ({
+          assetId: item.assetId,
+          assetName: item.assetName,
+          reason: "缺少覆盖下一交易日的正式预测或周度来源",
+        })),
     },
     {
       key: "weekly",
@@ -72,8 +99,15 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       expected: weeklySlots.length,
       ready: weeklySlots.filter((slot) => slot.kind === "published").length,
       missing: weeklySlots
-        .filter((slot): slot is Extract<(typeof weeklySlots)[number], { kind: "unpublished" }> => slot.kind === "unpublished")
-        .map((slot) => ({ assetId: slot.assetId, assetName: slot.assetName, reason: "本周没有已锁定的原始研究记录" })),
+        .filter(
+          (slot): slot is Extract<(typeof weeklySlots)[number], { kind: "unpublished" }> =>
+            slot.kind === "unpublished"
+        )
+        .map((slot) => ({
+          assetId: slot.assetId,
+          assetName: slot.assetName,
+          reason: "本周没有已锁定的原始研究记录",
+        })),
     },
     {
       key: "monthly",
@@ -82,7 +116,37 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       ready: monthly.length,
       missing: CORE_TOMORROW_ASSETS
         .filter((item) => !monthly.some((row) => row.assetId === item.assetId))
-        .map((item) => ({ assetId: item.assetId, assetName: item.assetName, reason: "缺少当前月有效卦象或月度研究" })),
+        .map((item) => ({
+          assetId: item.assetId,
+          assetName: item.assetName,
+          reason: "缺少当前月有效卦象或月度研究",
+        })),
+    },
+    {
+      key: "focus",
+      label: "重点关注资产",
+      expected: expectedFocus.length,
+      ready: expectedFocus.filter((item) => focusIds.has(item.id)).length,
+      missing: expectedFocus
+        .filter((item) => !focusIds.has(item.id))
+        .map((item) => ({
+          assetId: item.id,
+          assetName: item.nameZh,
+          reason: "重点关注资产未发布或数据覆盖被覆盖配置关闭",
+        })),
+    },
+    {
+      key: "vibe",
+      label: "Vibe客观证据",
+      expected: VIBE_EVIDENCE_ASSETS.length,
+      ready: VIBE_EVIDENCE_ASSETS.filter((item) => vibeIds.has(item.assetId)).length,
+      missing: VIBE_EVIDENCE_ASSETS
+        .filter((item) => !vibeIds.has(item.assetId))
+        .map((item) => ({
+          assetId: item.assetId,
+          assetName: item.nameZh,
+          reason: "没有可用证据快照，或数据完整度为0",
+        })),
     },
   ];
 
@@ -94,13 +158,19 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
     sections,
     automation: {
       cronSecretConfigured: Boolean(process.env.CRON_SECRET),
-      bitgetConfigured: Boolean((process.env.BITGET_DEMO_API_KEY || process.env.BITGET_API_KEY) && (process.env.BITGET_DEMO_SECRET_KEY || process.env.BITGET_SECRET_KEY)),
-      note: "诊断只显示是否配置，不返回密钥、余额、订单号或用户资料。",
+      bitgetConfigured: Boolean(
+        (process.env.BITGET_DEMO_API_KEY || process.env.BITGET_API_KEY) &&
+          (process.env.BITGET_DEMO_SECRET_KEY || process.env.BITGET_SECRET_KEY)
+      ),
+      vibeConfigured: Boolean(vibeConnection.baseUrl),
+      vibeEvidenceReady: vibeIds.size,
+      note: "诊断只显示是否配置和覆盖数量，不返回密钥、余额、订单号或用户资料。",
     },
     notes: [
       "周末今日页只要求展示仍在交易的市场；休市市场应转至下一交易日观点，不算缺失。",
-      "白银已补齐2026年8月整月、四段周卦及9月至12月月卦；重合卦按精确周期优先处理。",
-      "诊断页可替代逐页截图；不会创建额外管理员账号。",
+      "正式日度生成已统一使用九个核心市场流水线，不再按旧的亚洲、美股、原油批次分开生成。",
+      "Vibe后端未配置时可继续使用内置证据快照；配置后由独立Cron刷新，不参与每分钟持仓管理。",
+      "诊断页可替代逐页截图；系统不会创建额外管理员账号。",
     ],
   };
 }

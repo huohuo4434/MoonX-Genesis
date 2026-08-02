@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { getAutomationDashboard, runMoonxCycle } from "@/lib/automation/cycle";
-import { generateTomorrowForecasts } from "@/lib/automation/generate-forecasts";
+import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { generateReviewsForVerified } from "@/lib/automation/generate-reviews";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { getAutomationSettings, saveAutomationSettings } from "@/lib/data/moonx-data-store";
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, report });
   }
   if (body.action === "generate_tomorrow") {
-    const report = await generateTomorrowForecasts();
+    const report = await runDailyForecastPipeline({ forcePhase: "lock" });
     return NextResponse.json({ ok: true, report });
   }
   if (body.action === "verify_closed") {

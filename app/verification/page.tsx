@@ -9,6 +9,7 @@ import { getWeeklyAccuracyHistory } from "@/lib/accuracy/get-weekly-history";
 export const metadata: Metadata = {
   title: "历史准确率",
   description: "日度与周度分别统计，仅展示已经完成市场验证的历史预测。",
+  alternates: { canonical: "/verification" },
 };
 
 export const dynamic = "force-dynamic";

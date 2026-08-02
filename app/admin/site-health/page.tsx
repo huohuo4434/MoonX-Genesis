@@ -15,7 +15,7 @@ export default async function AdminSiteHealthPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Heading as="h1" size="h2">网站诊断</Heading>
-            <Text variant="body-sm" color="secondary" className="mt-2 block">集中检查今日、下一交易日、周度和月度覆盖。无需逐页截图，也不会显示密钥或用户隐私。</Text>
+            <Text variant="body-sm" color="secondary" className="mt-2 block">集中检查日度、周度、月度、重点关注与Vibe证据覆盖。无需逐页截图，也不会显示密钥或用户隐私。</Text>
           </div>
           <Button asChild variant="outline"><a href="/api/admin/site-health">下载诊断JSON</a></Button>
         </div>
@@ -38,6 +38,8 @@ export default async function AdminSiteHealthPage() {
           <Heading as="h2" size="h3">自动化配置</Heading>
           <Text variant="body-sm">服务器定时任务密钥：{report.automation.cronSecretConfigured ? "已配置" : "未配置"}</Text>
           <Text variant="body-sm">Bitget连接参数：{report.automation.bitgetConfigured ? "已配置" : "未配置"}</Text>
+          <Text variant="body-sm">Vibe实时后端：{report.automation.vibeConfigured ? "已配置" : "未配置（使用内置快照）"}</Text>
+          <Text variant="body-sm">Vibe可用证据：{report.automation.vibeEvidenceReady} 项</Text>
           <Text variant="caption" color="tertiary">{report.automation.note}</Text>
         </Card>
       </Section>

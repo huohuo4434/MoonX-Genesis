@@ -90,7 +90,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     aliases: ["Asteroid", "太空狗", "Asteroid（太空狗）", "火箭狗", "asteroid", "ASTEROID"],
     symbol: "ASTEROID",
     exchange: null,
-    network: "待确认",
+    network: "Ethereum / 以太坊",
     contractAddress: "0xf280b16ef293d8e534e370794ef26bf312694126",
     contractPendingAdminConfirm: false,
     status: "published",

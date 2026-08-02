@@ -22,6 +22,7 @@ import {
 import { siteBaseUrl } from "@/lib/referral/site-url";
 import { isActiveMembershipForPredictionAccess } from "@/lib/prediction-access";
 import { isAdminUser } from "@/lib/auth/is-admin";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export { REFERRAL_REWARD_DAYS, siteBaseUrl };
 
@@ -39,6 +40,46 @@ function canGenerateReferral(user: AuthUserView, now = new Date()): boolean {
     },
     now
   );
+}
+
+/**
+ * ReferralInvite has a database foreign key to public.profiles(id) in production.
+ * Older accounts can exist in auth.users/app_metadata without a mirrored profile row
+ * (for example, accounts created before the profile trigger was installed). Ensure the
+ * mirror exists before Prisma creates the invite so the user sees an invite code rather
+ * than a raw foreign-key error.
+ */
+async function ensureReferralProfileMirror(user: AuthUserView): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) return;
+
+  const role = isAdminUser({ email: user.email, role: user.app_metadata.role })
+    ? "admin"
+    : "user";
+  const membershipStatus =
+    role === "admin" ? "active" : user.app_metadata.membership_status ?? "inactive";
+
+  const { error } = await admin.from("profiles").upsert(
+    {
+      id: user.id,
+      email: user.email.toLowerCase(),
+      display_name: user.app_metadata.display_name ?? user.email.split("@")[0] ?? null,
+      role,
+      membership_status: membershipStatus,
+      membership_started_at:
+        role === "admin"
+          ? user.app_metadata.membership_started_at ?? user.created_at
+          : user.app_metadata.membership_started_at ?? null,
+      membership_expires_at:
+        role === "admin" ? null : user.app_metadata.membership_expires_at ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    throw new Error(`邀请账户资料同步失败：${error.message}`);
+  }
 }
 
 export type MyInviteResult =
@@ -75,6 +116,7 @@ export async function getOrCreateMyInvite(
   }
 
   try {
+    await ensureReferralProfileMirror(user);
     const invite = await ensureReferralInvite(
       user.id,
       user.app_metadata.referral_code ?? undefined
@@ -98,10 +140,11 @@ export async function getOrCreateMyInvite(
       rewardDaysPerSuccess: REFERRAL_REWARD_DAYS,
     };
   } catch (err) {
+    console.error("[referral] invite creation failed", err);
     return {
       ok: false,
       error: "INVITE_CREATE_FAILED",
-      message: err instanceof Error ? err.message : "邀请码生成失败",
+      message: "邀请信息暂时无法生成，请刷新页面后重试。",
     };
   }
 }

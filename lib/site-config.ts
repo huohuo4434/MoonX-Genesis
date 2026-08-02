@@ -37,6 +37,6 @@ export const siteConfig = {
   name: "MOOX Intelligence",
   shortName: "MOOX",
   description:
-    "MOOX Intelligence — prediction intelligence with verified historical accuracy. USDT membership unlocks full daily, next-session, and weekly views.",
+    "MOOX融合市场数据、AI分析、技术结构与六爻研究，提供日度、周度、月度市场判断及公开历史验证。",
   url: resolveSiteUrl(),
 } as const;

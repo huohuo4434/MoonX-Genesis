@@ -13,14 +13,14 @@ export const revalidate = 0;
 
 export async function GET() {
   noStore();
-  await requireAdmin();
+  if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
   const assets = await listConvictionAssetsForAdmin();
   return NextResponse.json({ assets }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(req: Request) {
   noStore();
-  await requireAdmin();
+  if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
   const body = (await req.json()) as { asset?: Partial<ConvictionAsset> & { id: string } };
   if (!body.asset?.id) {
     return NextResponse.json({ error: "asset.id required" }, { status: 400 });

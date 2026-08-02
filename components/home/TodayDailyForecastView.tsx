@@ -56,7 +56,7 @@ function MetaRow({
       </div>
       <div>
         <p className="text-caption text-foreground-tertiary">最近更新</p>
-        <p className="text-body-sm text-foreground">{publishedAt ? formatDateTimeChina(publishedAt) : "尚未发布"}</p>
+        <p className="text-body-sm text-foreground">{publishedAt ? formatDateTimeChina(publishedAt) : accessLabel === "登录后查看" ? "登录后查看" : "尚未发布"}</p>
       </div>
       <div>
         <p className="text-caption text-foreground-tertiary">查看权限</p>

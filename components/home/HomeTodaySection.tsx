@@ -1,7 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { TodayDailyForecastView } from "@/components/home/TodayDailyForecastView";
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
-import { getBeijingClock, US_BATCH_KEYS, WTI_BATCH_KEYS } from "@/lib/calendar/publish-windows";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { isTradingDay } from "@/lib/calendar/next-trading-day";
 import {
@@ -14,7 +13,6 @@ export async function HomeTodaySection() {
   noStore();
   const now = new Date();
   const payload = await getTodayForecastAccessPayload(now);
-  const clock = getBeijingClock(now);
   const beijingToday = getBeijingTodayKey(now);
 
   if (!payload.allowed) {
@@ -57,32 +55,10 @@ export async function HomeTodaySection() {
     summary = `今日已发布${ready.length}项市场观点（${dirs}）。`;
   }
 
-  const publishedCount = ready.length;
   let publishHint: string | undefined;
   if (closedMarkets.length > 0) {
     publishHint = `今日休市：${closedMarkets.join("、")}。这些市场不生成“今日预测”，请查看下一交易日观点；休市日不计入正式日度验证。`;
   }
-  if (
-    payload.access.reason === "REGISTERED_AFTER_RELEASE" &&
-    publishedCount > 0 &&
-    publishedCount < 7
-  ) {
-    const missingUs = [...US_BATCH_KEYS, ...WTI_BATCH_KEYS].some(
-      (k) =>
-        !ready.some(
-          (f) =>
-            (k === "NDX" && f.symbol === "NDX") ||
-            (k === "SPX" && (f.symbol === "SPX" || f.symbol === "^GSPC")) ||
-            (k === "GLD" && (f.symbol === "GLD" || f.symbol === "GOLD" || f.symbol === "GC=F")) ||
-            (k === "WTI" && (f.symbol === "WTI" || f.symbol === "CL=F"))
-        )
-    );
-    if (missingUs && clock.totalMinutes < 6 * 60 + 30) {
-      const batchHint = `已发布${publishedCount}项，剩余美股／原油观点将按批次发布时间陆续公开。`;
-      publishHint = publishHint ? `${publishHint} ${batchHint}` : batchHint;
-    }
-  }
-
   return (
     <TodayDailyForecastView
       forecasts={ready}

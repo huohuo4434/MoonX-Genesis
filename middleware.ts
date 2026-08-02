@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminOnlyPublicPath } from "@/lib/auth/admin-only-routes";
-import { isAdminEmail } from "@/lib/auth/admin-emails";
+import { isAdminUser } from "@/lib/auth/is-admin";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -41,8 +41,11 @@ export async function middleware(request: NextRequest) {
       },
     });
     const { data } = await supabase.auth.getUser();
-    const email = data.user?.email?.trim().toLowerCase() ?? "";
-    isAdmin = Boolean(email && isAdminEmail(email));
+    isAdmin = isAdminUser({
+      email: data.user?.email,
+      role: typeof data.user?.app_metadata?.role === "string" ? data.user.app_metadata.role : null,
+      isAdmin: data.user?.app_metadata?.isAdmin === true,
+    });
     if (!isAdmin) {
       // Standard 404 — never 403 that confirms the route exists.
       return NextResponse.rewrite(new URL("/not-found", request.url), {

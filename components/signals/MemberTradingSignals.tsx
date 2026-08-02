@@ -24,7 +24,7 @@ function formatBeijingTime(value: string): string {
 function waitingReason(signal: TradeSignalRecord): string | null {
   if (signal.status !== "ARMED") return null;
   if (signal.entryLow == null || signal.entryHigh == null) {
-    return "本轮计划尚未写入参考价格。服务器会每分钟继续同步；自动源失败时可由管理员在“行情录入”补充。";
+    return "系统会持续重试多个行情源；在取得有效价格前不会生成入场计划或模拟交易。";
   }
   if (new Date(signal.validFrom).getTime() > Date.now()) {
     return `实时价格已经取得，入场、止损和目标已生成。信号将于北京时间 ${formatBeijingTime(signal.validFrom)} 开始监控，开始前不会提前模拟入场。`;

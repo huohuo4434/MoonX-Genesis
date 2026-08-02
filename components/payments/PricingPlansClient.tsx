@@ -6,18 +6,6 @@ import { Badge, Button, Card, Text } from "@/components/ui";
 import { PLAN_DISPLAY, PLAN_PURCHASE_LABEL } from "@/lib/payments/plan-display";
 import type { MembershipPlan } from "@/types/membership";
 
-const BENEFITS = [
-  "今日完整预测",
-  "下一交易日预测",
-  "本周行情路径",
-  "重点资产研究",
-  "长鑫科技会员分析",
-  "Asteroid会员分析",
-  "Master I Ching分析",
-  "Wave Intelligence",
-  "AI综合判断",
-  "风险和失效条件",
-];
 
 function CopyAddress({ label, address }: { label: string; address: string }) {
   const [copied, setCopied] = useState(false);
@@ -65,17 +53,6 @@ export function PricingPlansClient({
 }) {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-5 overflow-x-hidden">
-      <Card padding="lg" className="flex flex-col gap-2">
-        <Text variant="body" weight="semibold" className="block">
-          会员权益
-        </Text>
-        <ul className="space-y-1 text-body-sm text-foreground-secondary">
-          {BENEFITS.map((b) => (
-            <li key={b}>· {b}</li>
-          ))}
-        </ul>
-      </Card>
-
       {plans.map((plan) => {
         const meta = PLAN_DISPLAY[plan.code];
         const purchaseLabel = PLAN_PURCHASE_LABEL[plan.code] ?? "立即购买";
@@ -119,12 +96,26 @@ export function PricingPlansClient({
           <p className="text-body-sm text-foreground-secondary">2. 使用对应网络转账USDT</p>
           <p className="text-body-sm text-foreground-secondary">3. 提交交易哈希</p>
           <p className="text-body-sm text-foreground-secondary">
-            4. 管理员人工审核开通（暂不自动链上核验）
+            4. 等待人工审核开通（暂不自动链上核验）
           </p>
-          <p className="text-body-sm text-foreground-secondary">4. 管理员审核后开通</p>
         </div>
-        <p className="text-body-sm text-foreground-secondary">客服邮箱</p>
-        <p className="text-body-sm">{supportEmail || "jackzwin999@gmail.com"}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-body-sm text-foreground-secondary">客服邮箱</p>
+            <p className="mt-1 break-all text-body-sm">{supportEmail || "jackzwin999@gmail.com"}</p>
+          </div>
+          <div>
+            <p className="text-body-sm text-foreground-secondary">电报客服</p>
+            <a
+              href="https://t.me/jackuwin"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-body-sm text-primary hover:underline"
+            >
+              @jackuwin
+            </a>
+          </div>
+        </div>
       </Card>
     </div>
   );

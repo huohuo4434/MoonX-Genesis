@@ -12,7 +12,8 @@ export const revalidate = 0;
 
 export const metadata = {
   title: "会员价格",
-  description: "USDT 转账后提交交易哈希，由管理员人工审核开通。",
+  description: "查看MOOX会员方案、权益与USDT付款说明。",
+  alternates: { canonical: "/pricing" },
 };
 
 function buildPlans(): MembershipPlan[] {
@@ -67,13 +68,10 @@ export default async function PricingPage() {
       <Section spacing="lg" className="flex flex-col items-center gap-6">
         <div className="max-w-3xl text-center">
           <Heading as="h1" size="display">
-            Unlock MOOX Intelligence
+            MOOX会员方案
           </Heading>
           <Text variant="body" color="secondary" className="mt-3">
-            解锁MOOX完整市场研究
-          </Text>
-          <Text variant="body-sm" color="secondary" className="mt-2">
-            不降价。
+            解锁完整市场研究、交易计划与历史验证
           </Text>
         </div>
 

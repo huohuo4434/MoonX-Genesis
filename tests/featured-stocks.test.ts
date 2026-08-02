@@ -18,7 +18,7 @@ test("conviction list has cxmt and asteroid", () => {
   assert.equal(CONVICTION_ASSET_SEED[1]?.slug, "asteroid");
   assert.equal(CONVICTION_ASSET_SEED[1]?.nameZh, "Asteroid（太空狗）");
   assert.equal(CONVICTION_ASSET_SEED[1]?.nameEn, "Asteroid");
-  assert.equal(CONVICTION_ASSET_SEED[1]?.network, "待确认");
+  assert.equal(CONVICTION_ASSET_SEED[1]?.network, "Ethereum / 以太坊");
   assert.equal(CONVICTION_ASSET_SEED[1]?.assetType, "CRYPTO");
   assert.equal(CONVICTION_ASSET_SEED[1]?.contractPendingAdminConfirm, false);
   assert.equal(
@@ -29,15 +29,17 @@ test("conviction list has cxmt and asteroid", () => {
   assert.ok(!/火箭狗/.test(CONVICTION_ASSET_SEED[1]?.nameZh ?? ""));
 });
 
-test("focused-assets nav uses the watchlist route with single entry", () => {
+test("focused-assets nav uses the public featured-stocks route once", () => {
   const keys = PUBLIC_PRIMARY_NAV.map((n) => n.href);
-  const daily = keys.indexOf(NAV_ROUTES.dailyForecasts);
-  const focused = keys.indexOf(NAV_ROUTES.watchlist);
-  const research = keys.indexOf(NAV_ROUTES.research);
-  assert.ok(daily >= 0 && focused === daily + 1 && research === focused + 1);
-  assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.watchlist).length, 1);
+  const signals = keys.indexOf(NAV_ROUTES.tradingSignals);
+  const focused = keys.indexOf(NAV_ROUTES.featuredStocks);
+  const verification = keys.indexOf(NAV_ROUTES.verification);
+
+  assert.ok(signals >= 0 && focused === signals + 1 && verification === focused + 1);
+  assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.featuredStocks).length, 1);
+  assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.watchlist), false);
   assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.memberStocks), false);
-  assert.equal(PUBLIC_PRIMARY_NAV.find((n) => n.href === NAV_ROUTES.watchlist)?.labelZh, "重点资产");
+  assert.equal(PUBLIC_PRIMARY_NAV.find((n) => n.href === NAV_ROUTES.featuredStocks)?.labelZh, "重点关注");
 });
 
 test("asteroid periods: no fabricated today/tomorrow; long horizons published", () => {
@@ -48,13 +50,20 @@ test("asteroid periods: no fabricated today/tomorrow; long horizons published", 
   assert.ok(getAsteroidForecastByType("MONTH_3"));
   assert.ok(getAsteroidForecastByType("YEAR_1"));
   assert.ok(getAsteroidForecastByType("YEAR_5"));
-  assert.equal(listAsteroidPeriodForecasts().length, 5);
+  assert.equal(listAsteroidPeriodForecasts().length, 8);
   const ids = ASTEROID_PERIOD_FORECASTS.map((f) => f.id);
-  assert.ok(ids.includes("ASTEROID-WEEK-20260729-V1"));
-  assert.ok(ids.includes("ASTEROID-M1-20260729-V1"));
-  assert.ok(ids.includes("ASTEROID-M3-20260729-V1"));
-  assert.ok(ids.includes("ASTEROID-Y1-20260729-V1"));
-  assert.ok(ids.includes("ASTEROID-Y5-20260729-V1"));
+  for (const id of [
+    "ASTEROID-W1-20260803-V3",
+    "ASTEROID-W2-20260810-V1",
+    "ASTEROID-W3-20260817-V1",
+    "ASTEROID-W4-20260824-V1",
+    "ASTEROID-M1-20260801-V3",
+    "ASTEROID-M3-20260801-V2",
+    "ASTEROID-Y1-20260801-V2",
+    "ASTEROID-Y5-20260729-V1",
+  ]) {
+    assert.ok(ids.includes(id), `missing ${id}`);
+  }
   for (const f of listAsteroidPeriodForecasts()) {
     assert.equal(f.status, "published");
     assert.ok(!JSON.stringify(f).includes("待验证"));

@@ -17,7 +17,15 @@ export function AdminAutomationClient({
     counts: Record<string, number>;
     nextForecastWindow: string;
     nextVerifyWindow: string;
-    publishSchedule?: { asia: string; us: string; publicFlip: string };
+    publishSchedule?: {
+      /** New unified schedule text used by the nine-market pipeline. */
+      formal?: string;
+      /** Legacy fields kept optional so older stored dashboard shapes remain readable. */
+      asia?: string;
+      us?: string;
+      wti?: string;
+      publicFlip: string;
+    };
     assetStatus?: Array<{
       assetName: string;
       symbol: string;
@@ -84,8 +92,9 @@ export function AdminAutomationClient({
         </Text>
         {dashboard.publishSchedule && (
           <Text variant="caption" color="tertiary" className="block">
-            BTC／A股／港股 {dashboard.publishSchedule.asia} · 纳指／GLD {dashboard.publishSchedule.us} ·
-            今日公开 {dashboard.publishSchedule.publicFlip}
+            {dashboard.publishSchedule.formal
+              ? `${dashboard.publishSchedule.formal} · 今日公开 ${dashboard.publishSchedule.publicFlip}`
+              : `BTC／A股／港股 ${dashboard.publishSchedule.asia ?? "自动更新"} · 纳指／GLD ${dashboard.publishSchedule.us ?? "自动更新"} · 今日公开 ${dashboard.publishSchedule.publicFlip}`}
           </Text>
         )}
         <Text variant="caption" color="tertiary" className="block">

@@ -41,8 +41,7 @@ function PublicAssetCard({
   const mcap = formatMarketCapDisplay(card);
   const primaryHref = card.detailHref;
   const locked = mode === "publicOnly";
-  const lockedHref = "/pricing";
-  const primaryLabel = locked ? "查看完整研究" : "查看完整研究";
+  const primaryLabel = "查看研究档案";
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0e12]">
@@ -197,8 +196,13 @@ function PublicAssetCard({
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button asChild size="sm">
-              <Link href={locked ? lockedHref : primaryHref}>{primaryLabel}</Link>
+              <Link href={primaryHref}>{primaryLabel}</Link>
             </Button>
+            {locked ? (
+              <Button asChild size="sm" variant="outline">
+                <Link href="/pricing">开通会员</Link>
+              </Button>
+            ) : null}
           </div>
         </section>
       </div>
