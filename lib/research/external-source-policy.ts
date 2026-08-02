@@ -1,7 +1,7 @@
 export type ExternalSourcePolicy = {
   id: string;
   label: string;
-  category: "WAVE" | "INDUSTRY_CYCLE" | "TECHNICAL_BLOGGER" | "OPTIONS_FLOW" | "ARCHIVE_ONLY";
+  category: "WAVE" | "INDUSTRY_CYCLE" | "TECHNICAL_BLOGGER" | "OPTIONS_FLOW" | "EXTERNAL_LIUYAO" | "ARCHIVE_ONLY";
   baseWeight: number;
   maxWeight: number;
   expiryDays: number;
@@ -10,6 +10,16 @@ export type ExternalSourcePolicy = {
 };
 
 export const EXTERNAL_SOURCE_POLICIES: ExternalSourcePolicy[] = [
+  {
+    id: "teacher02-liuyao",
+    label: "辅助导师02六爻路径",
+    category: "EXTERNAL_LIUYAO",
+    baseWeight: 10,
+    maxWeight: 35,
+    expiryDays: 9,
+    automaticConsensus: false,
+    rule: "只在六爻模块内部按资产专项权重参与；不覆盖已锁定预测、不单独触发交易，累计至少10个正式样本后再动态调整。",
+  },
   {
     id: "wave-analyst",
     label: "波浪结构老师",

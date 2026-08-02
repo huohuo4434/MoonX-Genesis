@@ -7,12 +7,14 @@ import { getResearchConflictForRecord } from "../lib/data/research-conflicts.ts"
 describe("research records", () => {
   it("includes new oil and SSE annual records exactly once", async () => {
     const records = await listResearchRecords();
-    assert.equal(records.length, 52);
     const ids = records.map((r) => r.id);
+    assert.equal(new Set(ids).size, records.length);
+    assert.ok(records.length >= 57);
     const oil = ids.filter((id) => id === "MX-OIL-20260602-0903-LIUYAO-001");
     const sse = ids.filter((id) => id === "MX-SSE-2026-ANNUAL-LIUYAO-001");
     assert.equal(oil.length, 1);
     assert.equal(sse.length, 1);
+    assert.equal(ids.filter((id) => id.startsWith("T02-")).length, 5);
   });
 
   it("marks long-horizon research as internal for public surfaces", async () => {

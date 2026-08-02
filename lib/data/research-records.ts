@@ -26,6 +26,7 @@ import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260
 import { coreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-20260801";
 import { remainingCoreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
+import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
@@ -1406,6 +1407,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...externalObservations,
     ...externalViewpoints20260801,
     ...externalViewpointsFollowup20260801,
+    ...teacher02Liuyao20260802Records,
     ...coreMarketLiuyao20260801Records,
     ...remainingCoreMarketLiuyao20260801Records,
     ...curatedImportRecords,

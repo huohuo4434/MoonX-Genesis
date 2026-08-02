@@ -22,6 +22,8 @@ import { patternFromText } from "@/lib/verification/pattern-classifier";
 import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { listResearchRecords } from "@/lib/data/research-records";
+import { buildTeacherSourceBlend, teacherBlendAssetIdForDailyKey } from "@/lib/research/teacher-source-weights";
+import { computeWeightedResearchVote } from "@/lib/research/weighted-research-vote";
 
 type AssetKey = (typeof DAILY_ACCURACY_ASSETS)[number]["key"];
 
@@ -167,14 +169,16 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
   const directionVoters = matched.filter(
     (r) => !(assetKey === "WTI" && r.id === WTI_EXT_PATH_RECORD_ID)
   );
-  const ids = matched.slice(0, 5).map((r) => r.id);
-  const dirs = (directionVoters.length ? directionVoters : matched)
-    .map((r) => String(r.direction ?? ""))
-    .join(" ");
-  let lean: Evidence["lean"] = "ABSTAIN";
-  if (/bearish|slightly-bearish|strong-bearish/i.test(dirs)) lean = "DOWN";
-  else if (/bullish|slightly-bullish|strong-bullish/i.test(dirs)) lean = "UP";
-  else if (/neutral|mixed|insufficient/i.test(dirs)) lean = "FLAT";
+  const teacherAssetId = teacherBlendAssetIdForDailyKey(assetKey);
+  const teacherBlend = teacherAssetId
+    ? buildTeacherSourceBlend({ assetId: teacherAssetId, asOfDate: forecastDate, records })
+    : null;
+  const vote = computeWeightedResearchVote({
+    records: directionVoters.length ? directionVoters : matched,
+    teacherBlend,
+  });
+  const ids = vote.sourceIds.length ? vote.sourceIds : matched.slice(0, 5).map((r) => r.id);
+  const lean: Evidence["lean"] = vote.lean;
 
   if (lean === "ABSTAIN") {
     return {
@@ -208,23 +212,18 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
             }`
           : "";
 
-  const activeVoters = directionVoters.length ? directionVoters : matched;
-  const leanMatches = activeVoters.filter((record) => {
-    const d = String(record.direction ?? "");
-    if (lean === "UP") return /bullish/i.test(d) && !/bearish/i.test(d);
-    if (lean === "DOWN") return /bearish/i.test(d);
-    return /neutral|mixed/i.test(d);
-  }).length;
-  const agreementRatio = activeVoters.length ? leanMatches / activeVoters.length : 0;
-  const primary = directionVoters[0] ?? matched[0];
+  const primary = vote.primaryRecord ?? directionVoters[0] ?? matched[0];
   return {
     sourceIds: ids,
     sourceType: "cycle_derivation",
-    sourceLabel: "内部周期资料与技术结构综合推演",
+    sourceLabel: teacherBlend
+      ? "六爻主体系、辅助六爻与技术结构综合推演"
+      : "内部周期资料与技术结构综合推演",
     lean,
-    confidence: Math.min(62, Math.max(50, primary?.editorialConfidence ?? 55)),
+    confidence: vote.confidence,
     summaryBits: [
       focusNote,
+      teacherBlend?.publicSummary ?? "",
       "基于仍在有效期内的内部周期资料进行日度推演，非今日新起六爻卦。",
       // Never paste long-horizon external WTI summary into public draft text.
       primary?.id === WTI_EXT_PATH_RECORD_ID
@@ -232,12 +231,14 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
         : primary?.summary?.zhCN ?? primary?.title?.zhCN ?? "",
       tech ?? "",
     ].filter(Boolean),
-    pathBits: ["围绕既有节奏观察", "关注关键位得失"],
+    pathBits: teacherBlend
+      ? ["主六爻定方向", "辅助六爻补充周内窗口", "价格结构确认后执行"]
+      : ["围绕既有节奏观察", "关注关键位得失"],
     invalidation: primary?.invalidation?.zhCN ?? "有效研究框架被价格结构明确破坏。",
     headline: `${DAILY_ACCURACY_ASSETS.find((a) => a.key === assetKey)?.assetName}日度综合推演`,
-    frameworkCount: new Set(activeVoters.map((r) => r.framework)).size,
+    frameworkCount: Math.max(vote.frameworkCount, tech ? 2 : 1),
     hasTechnical: Boolean(tech),
-    agreementRatio,
+    agreementRatio: vote.agreementRatio,
   };
 }
 
