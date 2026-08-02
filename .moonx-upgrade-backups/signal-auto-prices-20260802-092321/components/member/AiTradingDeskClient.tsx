@@ -89,17 +89,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               实时展示MoonX正在等待的交易机会、Bitget模拟盘实际持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
             </Text>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <Badge variant={statusVariant}>{snapshot.syncStatus === "OK" ? "同步正常" : snapshot.syncStatus === "PARTIAL" ? "部分同步" : snapshot.syncStatus === "DISABLED" ? "栏目关闭" : "同步异常"}</Badge>
-            <a
-              href="https://t.me/jackuwin"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-primary transition hover:opacity-80"
-            >
-              电报客服 @jackuwin
-            </a>
-          </div>
+          <Badge variant={statusVariant}>{snapshot.syncStatus === "OK" ? "同步正常" : snapshot.syncStatus === "PARTIAL" ? "部分同步" : snapshot.syncStatus === "DISABLED" ? "栏目关闭" : "同步异常"}</Badge>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

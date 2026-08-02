@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
-import { runTradingSignalServerMonitor } from "@/lib/trading-signals/server-auto-monitor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -19,22 +18,13 @@ export async function GET(request: NextRequest) {
   const now = new Date();
   try {
     const report = await runPredictionAutoTrader(now, { source: "CRON" });
-    let generalSignalMonitor: Awaited<ReturnType<typeof runTradingSignalServerMonitor>> | { error: string };
-    try {
-      generalSignalMonitor = await runTradingSignalServerMonitor();
-    } catch (error) {
-      generalSignalMonitor = {
-        error: error instanceof Error ? error.message : "AI交易信号自动行情同步失败",
-      };
-    }
-
     let memberDeskSync = "OK";
     try {
       await syncMemberAiTradingDeskSnapshot(now);
     } catch (error) {
       memberDeskSync = error instanceof Error ? error.message : "同步失败";
     }
-    return NextResponse.json({ ...report, generalSignalMonitor, memberDeskSync });
+    return NextResponse.json({ ...report, memberDeskSync });
   } catch (error) {
     try {
       await syncMemberAiTradingDeskSnapshot(now);
