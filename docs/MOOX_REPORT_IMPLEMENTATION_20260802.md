@@ -18,7 +18,7 @@
 
 ## 需要管理员在外部完成
 
-- 在 Resend 验证 `mooxintel.com`，并在 Vercel 配置 `MOOX_EMAIL_FROM` 与 `PAYMENT_NOTIFICATION_EMAIL`。
+- 公开联系与通知接收统一使用 `jackzwin999@gmail.com`，该地址无需在 Vercel 验证。只有通过 Resend 向会员发送正式系统邮件时，才需要在 Resend 验证发件域名。
 - 完整英文内容翻译、母语复核完成后，才设置 `NEXT_PUBLIC_ENABLE_ENGLISH=true`。
 - staging / production 数据库、钱包、邮件与密钥的物理隔离属于部署治理，代码包不会擅自迁移生产数据。
 - 管理员 MFA、双人审批和法律文本主体信息需要结合实际公司主体与账户系统继续配置。

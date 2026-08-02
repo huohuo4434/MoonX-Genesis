@@ -22,9 +22,9 @@ export const siteConfig = {
   shortName: "MOOX",
   description: "先判方向，再等确认。MOOX结合六爻方向研究、奇门择时、技术结构与公开验证，提供可追溯的市场情景判断。",
   url: resolveSiteUrl(),
-  supportEmail: process.env.MOOX_SUPPORT_EMAIL?.trim() || "support@mooxintel.com",
-  billingEmail: process.env.MOOX_BILLING_EMAIL?.trim() || "billing@mooxintel.com",
-  privacyEmail: process.env.MOOX_PRIVACY_EMAIL?.trim() || "privacy@mooxintel.com",
+  supportEmail: process.env.MOOX_SUPPORT_EMAIL?.trim() || "jackzwin999@gmail.com",
+  billingEmail: process.env.MOOX_BILLING_EMAIL?.trim() || "jackzwin999@gmail.com",
+  privacyEmail: process.env.MOOX_PRIVACY_EMAIL?.trim() || "jackzwin999@gmail.com",
   telegram: "@jackuwin",
   orderPrefix: "MOOX",
 } as const;

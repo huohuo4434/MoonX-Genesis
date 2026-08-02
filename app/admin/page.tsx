@@ -69,7 +69,7 @@ export default async function AdminHomePage() {
         ) : null}
         {emailConfigured && !emailProductionReady ? (
           <Card padding="md" className="mt-4 border border-amber-500/40 bg-amber-500/10">
-            <Text variant="body-sm">邮件目前使用Resend测试发件人。正式运营请在Vercel配置 MOOX_EMAIL_FROM，例如 MOOX Intelligence &lt;support@mooxintel.com&gt;，并完成域名验证。</Text>
+            <Text variant="body-sm">网站统一联系邮箱为 jackzwin999@gmail.com，作为联系地址不需要在Vercel验证。系统自动发信仍由Resend负责；向会员发送正式邮件时，需要在Resend验证发件域名，Vercel只负责保存API密钥和环境变量。</Text>
           </Card>
         ) : null}
 
