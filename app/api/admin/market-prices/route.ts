@@ -11,6 +11,7 @@ import {
   AUTOMATIC_SIGNAL_PRICE_SYMBOLS,
   getTradingSignalLivePrices,
 } from "@/lib/market-data/trading-signal-live-prices";
+import { runTradingSignalServerMonitor } from "@/lib/trading-signals/server-auto-monitor";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -37,11 +38,27 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await getTradingSignalLivePrices([...AUTOMATIC_SIGNAL_PRICE_SYMBOLS]);
+  let sync: { monitoredSignals: number; pricedSignals: number; warnings: string[] } | null = null;
+  try {
+    const report = await runTradingSignalServerMonitor();
+    sync = {
+      monitoredSignals: report.monitoredSignals,
+      pricedSignals: report.results.filter((row) => row.price != null).length,
+      warnings: report.warnings,
+    };
+  } catch (error) {
+    sync = {
+      monitoredSignals: 0,
+      pricedSignals: 0,
+      warnings: [error instanceof Error ? error.message : "AI交易信号同步失败"],
+    };
+  }
   return NextResponse.json({
     assets: MANUAL_PRICE_ASSETS,
     manual,
     live: result.prices,
-    warnings: result.warnings,
+    warnings: [...result.warnings, ...(sync?.warnings ?? [])],
+    sync,
     testedAt: new Date().toISOString(),
   });
 }

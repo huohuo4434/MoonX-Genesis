@@ -7,10 +7,27 @@ function stars(level: number) {
   return `${"★".repeat(level)}${"☆".repeat(5 - level)}`;
 }
 
+function formatBeijingTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function waitingReason(signal: TradeSignalRecord): string | null {
   if (signal.status !== "ARMED") return null;
   if (signal.entryLow == null || signal.entryHigh == null) {
-    return "正在等待自动行情取得有效价格。取得后会生成入场区、止损和分批目标；没有有效价格前不会模拟入场。";
+    return "本轮计划尚未写入参考价格。服务器会每分钟继续同步；自动源失败时可由管理员在“行情录入”补充。";
+  }
+  if (new Date(signal.validFrom).getTime() > Date.now()) {
+    return `实时价格已经取得，入场、止损和目标已生成。信号将于北京时间 ${formatBeijingTime(signal.validFrom)} 开始监控，开始前不会提前模拟入场。`;
   }
   return "计划价位已经生成，正在等待价格进入入场区并满足确认条件。";
 }

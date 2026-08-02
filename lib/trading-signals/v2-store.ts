@@ -1657,18 +1657,25 @@ export async function monitorTradeSignal(input: {
   if (!(await ensureTradingV2Tables())) throw new Error("交易数据库未连接");
   let signal = await getTradeSignalById(input.signalId);
   if (!signal) throw new Error("信号不存在");
+
+  // A published future-period signal should still receive its reference price,
+  // stop and targets immediately. Only actual entry monitoring waits for validFrom.
+  // This keeps the member page honest: "price available, plan prepared" instead
+  // of incorrectly showing that the market quote could not be obtained.
+  if (signal.status === "ARMED" && isAutoPercentPlan(signal)) {
+    signal = await materializeAutoPercentPlan(signal, input.price);
+  }
+
   if (new Date(signal.validFrom).getTime() > Date.now()) {
     return {
       signalId: signal.id,
       price: input.price,
       recommendation: "NONE",
-      message: `信号尚未到有效开始时间：${signal.validFrom}`,
+      message: `计划价位已生成，信号将在有效期开始后进入自动监控：${signal.validFrom}`,
       executedActions: [],
     };
   }
-  if (signal.status === "ARMED" && isAutoPercentPlan(signal)) {
-    signal = await materializeAutoPercentPlan(signal, input.price);
-  }
+
   await markPosition(signal.id, input.price);
 
   const executedActions: TradeSignalAction[] = [];

@@ -13,6 +13,7 @@ type ApiPayload = {
   live?: TradingSignalLivePrice[];
   warnings?: string[];
   testedAt?: string;
+  sync?: { monitoredSignals: number; pricedSignals: number; warnings?: string[] } | null;
   error?: string;
 };
 
@@ -123,7 +124,9 @@ export function ManualMarketPricesClient({
       setLive(payload.live ?? []);
       setWarnings(payload.warnings ?? []);
       setManual(payload.manual ?? manual);
-      setMessage(`行情测试完成：取得 ${payload.live?.length ?? 0} 项价格`);
+      const monitored = payload.sync?.monitoredSignals ?? 0;
+      const priced = payload.sync?.pricedSignals ?? 0;
+      setMessage(`行情测试完成：取得 ${payload.live?.length ?? 0} 项价格；已同步 ${priced}/${monitored} 条AI交易信号`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "行情测试失败");
     } finally {
@@ -163,7 +166,7 @@ export function ManualMarketPricesClient({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" disabled={loading} onClick={testLive}>
-              测试自动行情
+              测试行情并同步AI信号
             </Button>
             <Button disabled={loading} onClick={saveAll}>
               {loading ? "处理中…" : "保存全部已填写价格"}
