@@ -1,22 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ForecastBasisWeights } from "@/components/forecasts/ForecastBasisWeights";
-import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { sortByDailyAssetOrder } from "@/lib/data/daily-asset-order";
-import {
-  buildForecastBasisWeights,
-  isTomorrowWaveAllowedSymbol,
-  waveBasisPercentFromProximity,
-} from "@/lib/forecasts/basis-weights";
 import { buildIChingDirectionView } from "@/lib/forecasts/iching-direction-engine";
 import { displayMarketCode } from "@/lib/forecasts/tomorrow-direction";
-import {
-  buildForecastModuleEvidence,
-  dailyForecastToEvidenceSource,
-} from "@/lib/methodology/evidence";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { getTradingSessionDisplay } from "@/lib/calendar/trading-session-display";
 import { deriveForecastConsensus, starsText } from "@/lib/forecasts/consensus-confidence";
 import type { DailyForecast } from "@/types/daily-forecast";
@@ -78,22 +68,6 @@ function cleanConditionText(text: string | undefined, kind: "confirmation" | "in
   return text;
 }
 
-function waveShare(f: DailyForecast): number {
-  if (!isTomorrowWaveAllowedSymbol(f.symbol)) return 5;
-  const nums = [...(f.supportLevels ?? []), ...(f.resistanceLevels ?? [])]
-    .map((x) => {
-      const m = String(x).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
-      return m ? Number(m[0]) : null;
-    })
-    .filter((n): n is number => n != null && Number.isFinite(n));
-  if (nums.length < 2) return waveBasisPercentFromProximity(null);
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const mid = (min + max) / 2;
-  if (mid <= 0) return 5;
-  return waveBasisPercentFromProximity(((max - min) / mid) * 100);
-}
-
 export function MarketForecastCard({ f }: { f: DailyForecast }) {
   const p = f.probabilities ?? {
     up: f.confidence,
@@ -110,9 +84,6 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
   const showTech = hasConcreteLevels(f);
   const supportLines = orderedZoneLines(f.supportLevels, "support");
   const resistanceLines = orderedZoneLines(f.resistanceLevels, "resistance");
-  const wavePct = waveShare(f);
-  const basis = buildForecastBasisWeights(wavePct);
-  const allowWaveNote = isTomorrowWaveAllowedSymbol(f.symbol);
   const session = getTradingSessionDisplay({
     market: f.market,
     forecastDate: f.forecastForDate,
@@ -131,6 +102,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
               {displayMarketCode(f.symbol)}
             </span>
           </Text>
+          <Text variant="caption" color="tertiary" className="block">{assetVenue(f.symbol)}</Text>
           <div className="flex flex-wrap items-center gap-2">
             <Text
               variant="caption"
@@ -155,7 +127,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             </Text>
           ) : null}
           <Text variant="caption" color="tertiary" className="block">
-            V{f.version || 1} · 更新于 {formatDateTimeChina(f.publishedAt)}
+            最近更新：{formatDateTimeChina(f.publishedAt)}
           </Text>
         </div>
         <Badge variant="default">{iching.directionLabel}</Badge>
@@ -243,15 +215,6 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
               <dt className="text-caption text-foreground-tertiary">失效条件</dt>
               <dd className="break-words text-foreground-secondary">{cleanConditionText(f.invalidation, "invalidation")}</dd>
             </div>
-            {f.priceDataSourceLabel ? (
-              <div>
-                <dt className="text-caption text-foreground-tertiary">技术价位依据</dt>
-                <dd className="text-foreground-secondary">
-                  行情来源 {f.priceDataSourceLabel}
-                  {f.priceSnapshotAtLabel ? ` · 快照 ${formatDateTimeChina(f.priceSnapshotAtLabel)}` : ""}
-                </dd>
-              </div>
-            ) : null}
           </dl>
         </div>
       ) : null}
@@ -268,18 +231,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
         </Text>
       ) : null}
 
-      <ForecastBasisWeights
-        weights={basis}
-        wavePercent={wavePct}
-        waveNote={
-          allowWaveNote
-            ? "仅作技术结构补充，不单独决定方向，也不单独提高共识星级。"
-            : null
-        }
-      />
-      <ForecastEvidencePanel
-        items={buildForecastModuleEvidence(dailyForecastToEvidenceSource(f))}
-      />
+
+
     </Card>
   );
 }

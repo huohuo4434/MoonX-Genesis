@@ -8,6 +8,7 @@ import { Badge, Button, Text } from "@/components/ui";
 import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
+import { assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isDraft(f: DailyForecast) {
@@ -41,35 +42,25 @@ function ProbabilityBars({ up, flat, down }: { up: number; flat: number; down: n
 function MetaRow({
   forecastDate,
   publishedAt,
-  version,
-  lockStatus,
+  accessLabel,
 }: {
   forecastDate?: string;
   publishedAt?: string;
-  version?: string;
-  lockStatus: string;
+  accessLabel: string;
 }) {
   return (
-    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-4 grid gap-2 rounded-xl border border-border/[0.08] bg-card/70 p-4 sm:grid-cols-3">
       <div>
         <p className="text-caption text-foreground-tertiary">预测日期</p>
-        <p className="text-body-sm text-foreground">
-          {forecastDate ? formatDateChina(forecastDate) : "—"}
-        </p>
+        <p className="text-body-sm text-foreground">{forecastDate ? formatDateChina(forecastDate) : "待更新"}</p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">发布时间</p>
-        <p className="text-body-sm text-foreground">
-          {publishedAt ? formatDateTimeChina(publishedAt) : "—"}
-        </p>
+        <p className="text-caption text-foreground-tertiary">最近更新</p>
+        <p className="text-body-sm text-foreground">{publishedAt ? formatDateTimeChina(publishedAt) : "尚未发布"}</p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">版本</p>
-        <p className="text-body-sm text-foreground">{version ?? "—"}</p>
-      </div>
-      <div>
-        <p className="text-caption text-foreground-tertiary">锁定状态</p>
-        <p className="text-body-sm text-foreground">{lockStatus}</p>
+        <p className="text-caption text-foreground-tertiary">查看权限</p>
+        <p className="text-body-sm text-foreground">{accessLabel}</p>
       </div>
     </div>
   );
@@ -81,7 +72,7 @@ export function TodayDailyForecastView({
   publishHint,
   forecastDate,
   accessDenied,
-  accessReason,
+  accessReason: _accessReason,
   teaser,
   detailLevel = "full",
 }: {
@@ -115,20 +106,13 @@ export function TodayDailyForecastView({
         .map((f) => f.publishedAt)
         .filter(Boolean)
         .sort()[0];
-  const sectionVersion =
-    readyForecasts.length > 0
-      ? `V${Math.max(...readyForecasts.map((f) => f.version || 1), 1)}`
-      : "—";
-
-  const lockStatus = accessDenied
+  const accessLabel = accessDenied
     ? accessDenied === "LOGIN_REQUIRED"
-      ? "需登录"
-      : "08:00开放"
-    : accessReason === "ADMIN"
-      ? "管理员"
-      : accessReason === "ACTIVE_MEMBER"
-        ? "会员"
-        : "已开放";
+      ? "登录后查看"
+      : "北京时间08:00开放"
+    : detailLevel === "full"
+      ? "完整观点"
+      : "方向摘要";
 
   const autoSummary =
     readyForecasts.length === 0
@@ -145,8 +129,7 @@ export function TodayDailyForecastView({
         <MetaRow
           forecastDate={sectionDate}
           publishedAt={earliestPublish}
-          version={sectionVersion}
-          lockStatus={lockStatus}
+          accessLabel={accessLabel}
         />
 
         {accessDenied === "LOGIN_REQUIRED" ? (
@@ -211,16 +194,17 @@ export function TodayDailyForecastView({
                     className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-xl border border-border/[0.1] bg-card p-4"
                   >
                     <div className="flex min-w-0 items-start justify-between gap-2">
-                      <Text variant="body" weight="semibold" className="min-w-0 break-words">
-                        {f.assetName}
-                      </Text>
+                      <div className="min-w-0">
+                        <Text variant="body" weight="semibold" className="min-w-0 break-words">
+                          {f.assetName} <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{assetDisplaySymbol(f.symbol)}</span>
+                        </Text>
+                        <Text variant="caption" color="tertiary" className="mt-1 block">{assetVenue(f.symbol)}</Text>
+                      </div>
                       <Badge variant="outline">{displayDirection(f)}</Badge>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-caption text-foreground-tertiary">
-                      <p>预测日期：{formatDateChina(f.forecastForDate)}</p>
-                      <p>发布时间：{formatDateTimeChina(f.publishedAt)}</p>
-                      <p>版本号：V{f.version ?? 1}</p>
-                      <p>锁定：已开放</p>
+                    <div className="grid gap-2 text-caption text-foreground-tertiary sm:grid-cols-2">
+                      <p>{f.tradingSessionLabel}</p>
+                      <p>更新：{formatDateTimeChina(f.publishedAt)}</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />
                     <p className="break-words text-body-sm text-foreground-secondary">
@@ -245,12 +229,8 @@ export function TodayDailyForecastView({
                                 resistance={f.resistanceLevels}
                                 invalidation={f.invalidation}
                                 confirmation={f.confirmation}
-                                priceSource={f.priceDataSourceLabel}
-                                snapshotAt={
-                                  f.priceSnapshotAtLabel
-                                    ? formatDateTimeChina(f.priceSnapshotAtLabel)
-                                    : undefined
-                                }
+                                priceSource={undefined}
+                                snapshotAt={undefined}
                               />
                             </div>
                             {f.expectedPath?.length ? (

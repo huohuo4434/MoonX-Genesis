@@ -1,15 +1,17 @@
 /** Fixed public display order for daily forecast cards. */
 export const DAILY_ASSET_ORDER_IDS = [
   "bitcoin",
+  "eth",
   "sp500",
   "nasdaq-100",
   "shanghai-composite",
   "hang-seng",
   "gold",
+  "silver",
   "wti-crude",
 ] as const;
 
-export const DAILY_SYMBOL_ORDER = ["BTC", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "WTI"] as const;
+export const DAILY_SYMBOL_ORDER = ["BTC", "ETH", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 
 export function dailyAssetOrderIndex(assetId: string): number {
   const i = (DAILY_ASSET_ORDER_IDS as readonly string[]).indexOf(assetId);
@@ -26,7 +28,9 @@ export function dailySymbolOrderIndex(symbol: string): number {
           ? "WTI"
           : symbol === "GOLD" || symbol === "GC=F"
             ? "GLD"
-            : symbol;
+            : symbol === "SI=F" || symbol === "SLV"
+              ? "SILVER"
+              : symbol;
   const i = (DAILY_SYMBOL_ORDER as readonly string[]).indexOf(normalized);
   return i < 0 ? 999 : i;
 }

@@ -21,8 +21,8 @@ import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 
-export const CORE_DAILY_MARKETS = ["BTC", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "WTI"] as const;
-export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS, "ETH"] as const;
+export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
+export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
 
 export type PipelinePhase = "idle" | "draft" | "revise" | "lock";
 
@@ -41,7 +41,9 @@ function analysisAsWeeklySource(
       ? ["SHCOMP", "000001.SS", "SSEC"]
       : marketCode === "GLD"
         ? ["GLD", "Gold", "GOLD", "XAU", "GC=F"]
-        : [marketCode];
+        : marketCode === "SILVER"
+          ? ["SILVER", "SI", "SI=F", "SLV"]
+          : [marketCode];
   const candidates = listAllWeeklyAnalyses().filter((w: WeeklyAnalysisRecord) => {
     const display = w.displaySymbol ?? "";
     const symbol = w.symbol ?? "";

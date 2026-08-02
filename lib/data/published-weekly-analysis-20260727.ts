@@ -1,6 +1,6 @@
 /**
  * Member weekly analysis for week 2026-07-27 → 2026-08-02.
- * Canonical coverage: BTC / SPX / NDX / SHCOMP / HSTECH / GLD / WTI (7 markets).
+ * Canonical coverage: BTC / ETH / SPX / NDX / SHCOMP / HSTECH / GOLD / SILVER / WTI.
  */
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 
@@ -12,6 +12,7 @@ const UPDATED_AT = "2026-07-29T14:00:00+08:00";
 /** Fixed order for member + admin weekly surfaces. */
 export const WEEKLY_CORE_MARKETS = [
   { assetId: "bitcoin", symbol: "BTC", displaySymbol: "BTC", assetName: "比特币" },
+  { assetId: "eth", symbol: "ETH", displaySymbol: "ETH", assetName: "以太坊" },
   { assetId: "sp500", symbol: "SPX", displaySymbol: "SPX", assetName: "标普500" },
   { assetId: "nasdaq-100", symbol: "NDX", displaySymbol: "NDX", assetName: "纳斯达克100" },
   {
@@ -21,7 +22,8 @@ export const WEEKLY_CORE_MARKETS = [
     assetName: "上证指数",
   },
   { assetId: "hang-seng", symbol: "HSTECH", displaySymbol: "HSTECH", assetName: "恒生科技" },
-  { assetId: "gold", symbol: "GLD", displaySymbol: "GOLD", assetName: "国际金价" },
+  { assetId: "gold", symbol: "GLD", displaySymbol: "GC", assetName: "国际金价" },
+  { assetId: "silver", symbol: "SILVER", displaySymbol: "SI", assetName: "国际银价" },
   { assetId: "wti-crude", symbol: "WTI", displaySymbol: "CL", assetName: "WTI原油" },
 ] as const;
 

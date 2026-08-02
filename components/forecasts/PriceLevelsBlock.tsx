@@ -4,8 +4,6 @@ export function PriceLevelsBlock({
   resistance,
   invalidation,
   confirmation,
-  priceSource,
-  snapshotAt,
 }: {
   support?: string[];
   resistance?: string[];
@@ -42,14 +40,6 @@ export function PriceLevelsBlock({
           <p className="text-caption text-foreground-tertiary">方向确认条件</p>
           <p className="break-words text-caption text-foreground-secondary">{confirmation}</p>
         </div>
-      ) : null}
-      {priceSource ? (
-        <p className="break-words text-caption text-foreground-tertiary">行情来源：{priceSource}</p>
-      ) : null}
-      {snapshotAt ? (
-        <p className="break-words text-caption text-foreground-tertiary">
-          价格快照时间：{snapshotAt}
-        </p>
       ) : null}
     </div>
   );

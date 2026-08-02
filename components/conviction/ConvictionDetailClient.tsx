@@ -7,6 +7,7 @@ import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePa
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
+import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { ConvictionDetailPayload, ConvictionPeriodSlot } from "@/lib/data/conviction/access";
 import type {
@@ -44,12 +45,6 @@ function DailyPanel({ title, forecast }: { title: string; forecast: MemberStockD
         resistance={forecast.keyResistance}
         invalidation={forecast.invalidation}
         confirmation={forecast.confirmation}
-        priceSource={forecast.priceDataSourceLabel}
-        snapshotAt={
-          forecast.priceSnapshotAtLabel
-            ? formatDateTimeChina(forecast.priceSnapshotAtLabel)
-            : undefined
-        }
       />
       <ForecastEvidencePanel
         items={buildForecastModuleEvidence({
@@ -124,7 +119,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
             {ended ? <Badge variant="outline">周期已结束 · 等待更新</Badge> : null}
           </div>
           <Text variant="caption" className="block text-white/45">
-            周期：{f.periodStart} 至 {f.periodEnd} · 版本 V{f.version}
+            周期：{f.periodStart} 至 {f.periodEnd}
           </Text>
         </div>
         {f.consensusStars ? (
@@ -165,7 +160,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         <section className="space-y-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.03] p-4">
           <div>
             <p className="font-mono text-caption uppercase tracking-[0.14em] text-amber-200/70">关键日期</p>
-            <p className="mt-1 text-caption text-white/40">仅展示有老师原始规则、正式卦象或管理员确认依据的日期。</p>
+            <p className="mt-1 text-caption text-white/40">仅展示有老师原始规则或正式卦象依据的日期。</p>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             {f.keyDates.map((item, index) => (
@@ -293,11 +288,11 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           </Heading>
           <p className="mt-2 font-mono text-body-sm text-white/50">
             {isAsteroid
-              ? "Asteroid · CRYPTO"
-              : `${a.nameEn}${a.aliasZh && a.aliasZh !== a.nameZh ? ` · ${a.aliasZh}` : ""} · ${a.symbol}${a.exchange ? ` · ${a.exchange}` : ""}`}
+              ? `ASTEROID · ${assetVenue("ASTEROID")}`
+              : `${a.nameEn}${a.aliasZh && a.aliasZh !== a.nameZh ? ` · ${a.aliasZh}` : ""} · ${a.symbol} · ${assetVenue(a.symbol)}`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="outline">资产类型：{a.assetType}</Badge>
+            <Badge variant="outline">{a.assetType === "STOCK" ? "股票" : a.assetType === "CRYPTO" ? "加密资产" : a.assetType === "ETF" ? "ETF" : a.assetType === "INDEX" ? "指数" : "商品"}</Badge>
             <Badge variant="outline">MOOX评级：{a.rating}</Badge>
             <Badge variant="outline">风险等级：{a.riskLevel}</Badge>
             <Badge variant="outline">{a.researchStatusZh}</Badge>
@@ -325,12 +320,12 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
               合约地址：<span className="font-mono text-caption">{a.contractAddress}</span>
             </p>
           ) : a.contractPendingAdminConfirm ? (
-            <p className="text-caption text-amber-200/80">合约信息待管理员确认</p>
+            <p className="text-caption text-white/50">合约信息尚未公开。</p>
           ) : null}
           {a.network ? (
             <p className="text-body-sm text-white/65">所属链：{a.network}</p>
           ) : null}
-          <p className="text-body-sm text-white/65">资产类型：{a.assetType}</p>
+          
         </section>
 
         <section className="space-y-2">
@@ -393,7 +388,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <section className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-transparent p-5">
             <h2 className="text-h3 text-white">会员专享预测</h2>
             <p className="mt-2 text-body-sm text-white/55">
-              本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员与管理员开放。
+              本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。
             </p>
             <ul className="mt-4 space-y-2 text-body-sm text-white/60">
               {payload.locks.map((lock) => (
@@ -402,7 +397,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                   className="flex items-center justify-between gap-3 border-b border-white/[0.05] py-2 last:border-0"
                 >
                   <span>{lock.labelZh}</span>
-                  <span className="font-mono text-caption text-white/35">已锁定</span>
+                  <span className="font-mono text-caption text-white/35">研究记录</span>
                 </li>
               ))}
             </ul>
@@ -419,7 +414,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <section className="space-y-4">
             <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">会员专享预测</h2>
             {payload.isAdmin ? (
-              <p className="text-caption text-emerald-300/80">管理员全量访问</p>
+              <p className="text-caption text-emerald-300/80">完整研究已开放</p>
             ) : null}
 
             {isStaticPeriodAsset && payload.forecast?.periods ? (
@@ -492,7 +487,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                 <div className="space-y-3">
                   <Card padding="md" className="border-white/[0.08] bg-[#0c0e12]">
                     <Text variant="body-sm" weight="semibold" className="text-white">
-                      已锁定研究样本 {payload.forecast.periods.filter((item) => item.forecast).length} 条
+                      已发布周期研究 {payload.forecast.periods.filter((item) => item.forecast).length} 条
                     </Text>
                     <Text variant="caption" className="mt-1 block text-white/45">
                       周期结束并取得真实行情后才进入命中率；不会为了页面好看提前填写“命中”。
@@ -515,7 +510,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                             </Badge>
                           </div>
                           <Text variant="caption" className="mt-1 block text-white/45">
-                            {item.forecast!.periodStart} 至 {item.forecast!.periodEnd} · V{item.forecast!.version}
+                            {item.forecast!.periodStart} 至 {item.forecast!.periodEnd}
                           </Text>
                         </Card>
                       ))}

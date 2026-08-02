@@ -31,6 +31,22 @@ export function WeeklyAccuracySummary({
   stats: WeeklyAccuracyPublicStats;
 }) {
   const sampleReady = stats.sampleSize >= 12;
+  if (stats.sampleSize === 0 && items.length === 0) {
+    return (
+      <section className="mb-12">
+        <div className="mb-5">
+          <Badge variant="default">周度验证</Badge>
+          <Heading as="h2" size="h3" className="mt-2">周度预测表现</Heading>
+        </div>
+        <Card padding="lg">
+          <Text variant="body" weight="semibold">周度验证样本正在积累</Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            第一个完整周结束并取得真实行情后，才会显示方向、路径和命中统计。
+          </Text>
+        </Card>
+      </section>
+    );
+  }
   return (
     <section className="mb-12">
       <div className="mb-5">

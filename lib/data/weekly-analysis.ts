@@ -119,7 +119,7 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
   };
 }
 
-/** Always 7 slots in canonical order — missing markets show as unpublished. */
+/** Canonical core-market slots — missing markets show as unpublished with a clear reason. */
 export function buildWeeklyMarketSlots(now = new Date()): WeeklyMarketSlot[] {
   const byAsset = new Map(
     listPublishedWeeklyAnalyses(now).map((r) => [r.assetId, toWeeklyMemberView(r)])
@@ -191,7 +191,7 @@ export function buildWeeklyPublicSummary(now = new Date()): WeeklyAnalysisPublic
     headingZh: nextWeek ? "下周行情分析" : "本周行情分析",
     subtitleZh: nextWeek
       ? "每周六起自动展示下一周；只发布已有真实研究依据的市场，未完成的项目明确标记待发布。"
-      : "提前了解本周七个核心市场的整体方向、周内运行顺序和关键风险窗口。",
+      : "提前了解核心市场的整体方向、周内运行顺序和关键风险窗口。",
     weekStart: window.weekStart,
     weekEnd: window.weekEnd,
     weekLabel: `${formatDateChina(window.weekStart)}至${formatDateChina(window.weekEnd)}`,

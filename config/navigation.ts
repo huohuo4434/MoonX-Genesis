@@ -17,6 +17,7 @@ export const NAV_ROUTES = {
   tradingSignals: "/member/signals",
   aiTradingDesk: "/member/ai-trading",
   weeklyAnalysis: "/member/weekly",
+  monthlyAnalysis: "/member/monthly",
   featuredStocks: "/featured-stocks",
   watchlist: "/markets/watchlist",
   research: "/research",
@@ -62,6 +63,7 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
   { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
   { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
+  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度行情" },
   { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
   { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
@@ -86,8 +88,12 @@ export function buildPublicFooterColumns(options?: {
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
   const product: NavItem[] = [
+    { key: "footer.today", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
+    { key: "footer.weekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
+    { key: "footer.monthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度行情" },
+    { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史准确率" },
+    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
     { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   ];
 
@@ -118,6 +124,7 @@ export const AUDIT_ROUTES = [
   "/checkout",
   "/member/tomorrow",
   "/member/weekly",
+  "/member/monthly",
   "/member/ai-trading",
   "/featured-stocks",
   "/featured-stocks/cxmt",

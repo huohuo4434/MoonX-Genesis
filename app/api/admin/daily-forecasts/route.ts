@@ -15,7 +15,7 @@ import {
 const upsertSchema = z.object({
   id: z.string().optional(),
   forecastDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  assetKey: z.enum(["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"]),
+  assetKey: z.enum(["BTC", "ETH", "SPX", "NDX", "SSE", "HSTECH", "GLD", "SILVER", "WTI"]),
   direction: z.enum(["UP", "DOWN", "FLAT"]),
   predictedPattern: z
     .enum([

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge, Button, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { formatDateChina } from "@/lib/utils/datetime";
+import { assetVenue } from "@/lib/presentation/asset-catalog";
 import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 
@@ -72,12 +73,11 @@ function PublicAssetCard({
             <p className="font-mono text-body-sm text-white/50">
               代码：{card.symbol}
               {" · "}
-              {card.exchange ? `交易所：${card.exchange}` : card.network ? `网络：${card.network}` : ""}
+              {assetVenue(card.symbol)}
             </p>
             <div className="flex flex-wrap gap-3 text-caption text-white/40">
-              <span>更新时间：{formatDateChina(card.researchUpdatedAt)}</span>
-              <span>版本：V1</span>
-              <span>{locked ? "会员内容：未解锁" : "会员内容：已解锁"}</span>
+              <span>研究更新：{formatDateChina(card.researchUpdatedAt)}</span>
+              <span>{locked ? "会员可查看完整周期研究" : "完整周期研究已开放"}</span>
             </div>
           </div>
         </div>
@@ -117,40 +117,18 @@ function PublicAssetCard({
             <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">合约地址</h3>
             <p className="mt-2 break-all font-mono text-caption text-white/70">{card.contractAddress}</p>
           </section>
-        ) : card.contractPendingAdminConfirm ? (
-          <p className="rounded-md border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-caption text-amber-200/80">
-            合约信息待管理员确认
-          </p>
         ) : null}
 
         <section>
-          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">公开研究内容</h3>
-          <div className="mt-3 space-y-3">
-            <div>
-              <h4 className="text-caption text-white/55">为什么关注</h4>
-              <div className="mt-2">
-                <p className="text-caption text-white/35">产业趋势</p>
-                <ul className="mt-2 space-y-2">
-                  {card.thesisZh.slice(0, 3).map((line) => (
-                    <li key={line} className="flex gap-2 text-body-sm text-white/75">
-                      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/35" aria-hidden />
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mt-3">
-                <p className="text-caption text-white/35">关注逻辑</p>
-                <ol className="mt-2 space-y-2 pl-5">
-                  {card.thesisZh.map((line) => (
-                    <li key={line} className="list-decimal text-body-sm text-white/75">
-                      {line}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-          </div>
+          <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">关注逻辑</h3>
+          <ul className="mt-3 space-y-2">
+            {card.thesisZh.map((line) => (
+              <li key={line} className="flex gap-2 text-body-sm text-white/75">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/35" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section>
@@ -178,7 +156,7 @@ function PublicAssetCard({
         <section className="mt-auto rounded-lg border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-body-sm font-medium text-white/85">MOOX会员研究</p>
-            {locked ? <p className="text-caption text-white/45">🔒 会员专享</p> : <p className="text-caption text-emerald-300/70">已解锁</p>}
+            {locked ? <p className="text-caption text-white/45">会员专享</p> : <p className="text-caption text-emerald-300/70">完整研究可见</p>}
           </div>
           <ul className="mt-3 space-y-1.5 text-caption text-white/55">
             {[
@@ -190,8 +168,8 @@ function PublicAssetCard({
               "历史验证（新基准后）",
             ].map((label) => (
               <li key={label} className="flex items-center gap-2">
-                {locked ? <span aria-hidden className="text-white/45">🔒</span> : <span aria-hidden className="text-emerald-300/70">✓</span>}
-                <span>{label} · {locked ? "锁定" : "可见"}</span>
+                <span aria-hidden className={locked ? "text-white/45" : "text-emerald-300/70"}>{locked ? "•" : "✓"}</span>
+                <span>{label}</span>
               </li>
             ))}
           </ul>

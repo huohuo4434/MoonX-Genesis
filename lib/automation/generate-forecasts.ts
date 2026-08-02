@@ -115,12 +115,14 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
 
   const records = await listResearchRecords();
   const assetHints: Record<AssetKey, string[]> = {
-    BTC: ["bitcoin", "btc"],
+    BTC: ["bitcoin", "btc", "比特币"],
+    ETH: ["ethereum", "eth", "以太坊"],
     SPX: ["sp500", "spx", "s&p", "标普", "breadth", "宽度"],
     NDX: ["nasdaq", "ndx", "us-equity", "半导体", "ai"],
     SSE: ["shanghai", "sse", "a-share", "上证"],
     HSTECH: ["hang-seng", "hstech", "恒生"],
     GLD: ["gold", "gld", "黄金"],
+    SILVER: ["silver", "si=f", "白银", "银价", "comex silver"],
     WTI: ["crude", "oil", "wti", "原油", "nymex"],
   };
   const hints = assetHints[assetKey];

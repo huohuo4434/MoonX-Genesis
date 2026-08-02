@@ -10,7 +10,7 @@ import { dailySymbolOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatBeijingDateZh } from "@/lib/calendar/beijing-date";
 import { starsText } from "@/lib/forecasts/consensus-confidence";
 
-type AssetFilter = "ALL" | "BTC" | "SPX" | "NDX" | "SSEC" | "HSTECH" | "GLD" | "WTI";
+type AssetFilter = "ALL" | "BTC" | "ETH" | "SPX" | "NDX" | "SSEC" | "HSTECH" | "GLD" | "SILVER" | "WTI";
 type RangeFilter = "ALL" | "7D" | "30D";
 type VerdictFilter = "ALL" | "FULL_HIT" | "PARTIAL_HIT" | "MISS" | "UNVERIFIABLE";
 
@@ -273,6 +273,7 @@ export function DailyAccuracyClient({
       .filter((f) => {
         if (asset === "ALL") return true;
         if (asset === "GLD") return f.symbol === "GLD" || f.symbol === "GOLD" || f.symbol === "GC=F";
+        if (asset === "SILVER") return f.symbol === "SILVER" || f.symbol === "SI=F" || f.symbol === "SLV";
         return f.symbol === asset;
       })
       .filter((f) => inRange(f.forecastDate, range))
@@ -287,16 +288,25 @@ export function DailyAccuracyClient({
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <Heading as="h1" size="h2">历史准确率</Heading>
+        <Heading as="h1" size="h2">历史验证</Heading>
         <Text variant="body" color="secondary" className="mt-3 max-w-3xl">
-          验证完整预测语义：上涨、下跌、震荡、震荡上涨、震荡下跌、先涨后跌、先跌后涨、冲高回落和探底回升。路径型观点优先使用15分钟K线验证，不再只看收盘红绿。
+          预测周期结束后，系统按真实行情验证方向与运行路径；今日和未来观点不会提前计入成绩。
         </Text>
         <Text variant="body-sm" color="tertiary" className="mt-2 max-w-3xl">
-          加权命中率＝（完全命中＋部分命中×0.5）÷有效验证数；无法验证不进入分母。早期只保存涨跌方向的记录会单独标记，不进入完整路径命中率。
+          路径型观点优先使用15分钟K线核对；缺少可靠行情的数据不会进入统计。
         </Text>
         <div className="mt-3"><Link href="/pricing" className="text-body-sm text-primary underline-offset-4 hover:underline">会员价格</Link></div>
       </div>
 
+      {items.length === 0 ? (
+        <Card padding="lg" className="mb-8">
+          <Text variant="body" weight="semibold">历史验证样本正在积累</Text>
+          <Text variant="body-sm" color="secondary" className="mt-2">
+            只有预测周期结束并取得真实行情后才计入统计；不会用未来预测或空白数据填充命中率。
+          </Text>
+        </Card>
+      ) : (
+        <>
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {[
           { label: "有效验证数", value: String(displayStats.verifiedCount) },
@@ -353,18 +363,14 @@ export function DailyAccuracyClient({
         )}
       </div>
 
-      {items.length === 0 ? (
-        <Card padding="lg" className="mb-8">
-          <Text variant="body" weight="semibold">暂无已完成验证的历史预测</Text>
-          <Text variant="body-sm" color="secondary" className="mt-2">今日与未来预测不会在此展示。</Text>
-        </Card>
-      ) : null}
+        </>
+      )}
 
-      <div className="mb-4 flex flex-col gap-3">
+      {items.length > 0 ? <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           {([
-            ["ALL", "全部资产"], ["BTC", "比特币"], ["SPX", "标普500"], ["NDX", "纳斯达克100"],
-            ["SSEC", "上证指数"], ["HSTECH", "恒生科技指数"], ["GLD", "国际金价"], ["WTI", "WTI原油"],
+            ["ALL", "全部资产"], ["BTC", "比特币"], ["ETH", "以太坊"], ["SPX", "标普500"], ["NDX", "纳斯达克100"],
+            ["SSEC", "上证指数"], ["HSTECH", "恒生科技指数"], ["GLD", "国际金价"], ["SILVER", "国际银价"], ["WTI", "WTI原油"],
           ] as const).map(([k, label]) => (
             <Button key={k} size="sm" variant={asset === k ? "primary" : "outline"} onClick={() => setAsset(k)}>{label}</Button>
           ))}
@@ -379,7 +385,7 @@ export function DailyAccuracyClient({
             <Button key={k} size="sm" variant={verdict === k ? "primary" : "outline"} onClick={() => setVerdict(k)}>{label}</Button>
           ))}
         </div>
-      </div>
+      </div> : null}
 
       <div className="flex flex-col gap-3">
         {rows.map((item) => <HistoryCard key={item.forecastId} item={item} />)}

@@ -79,11 +79,15 @@ export function roundBtcUsd(price: number): number {
 
 export function formatAssetPrice(
   price: number,
-  asset: "BTC" | "SSE" | "HSTECH" | "SPX" | "NDX" | "GLD" | "WTI" | "CN_STOCK"
+  asset: "BTC" | "ETH" | "SSE" | "HSTECH" | "SPX" | "NDX" | "GLD" | "SILVER" | "WTI" | "CN_STOCK"
 ): { raw: number; display: string; unit: string } {
   if (asset === "BTC") {
     const raw = roundBtcUsd(price);
     return { raw, display: `${raw.toLocaleString("en-US")}美元`, unit: "美元" };
+  }
+  if (asset === "ETH") {
+    const raw = Math.round(price * 100) / 100;
+    return { raw, display: `${raw.toLocaleString("en-US", { maximumFractionDigits: 2 })}美元`, unit: "美元" };
   }
   if (asset === "SSE" || asset === "HSTECH" || asset === "NDX") {
     const raw = Math.round(price);
@@ -94,7 +98,7 @@ export function formatAssetPrice(
     const text = Number.isInteger(raw) ? String(raw) : raw.toFixed(1);
     return { raw, display: `${text}点`, unit: "点" };
   }
-  if (asset === "GLD") {
+  if (asset === "GLD" || asset === "SILVER") {
     const raw = Math.round(price * 100) / 100;
     return { raw, display: `${raw.toFixed(2)}美元/盎司`, unit: "美元/盎司" };
   }
@@ -110,6 +114,7 @@ export function formatAssetPrice(
 export function assetKeyFromSymbol(symbol: string): Parameters<typeof formatAssetPrice>[1] {
   const s = symbol.toUpperCase();
   if (s === "BTC" || s === "BTC-USD") return "BTC";
+  if (s === "ETH" || s === "ETH-USD") return "ETH";
   if (s === "000001.SS" || s === "SSEC" || s === "SSE") return "SSE";
   if (s === "HSTECH" || s === "3033.HK" || s === "HSTECH.HK" || s === "^HSTECH") return "HSTECH";
   if (s === "SPX" || s === "^GSPC") return "SPX";
@@ -121,13 +126,14 @@ export function assetKeyFromSymbol(symbol: string): Parameters<typeof formatAsse
     s === "XAUUSD" ||
     s === "GC=F"
   ) return "GLD";
+  if (s === "SILVER" || s === "SI" || s === "SI=F" || s === "SLV") return "SILVER";
   if (s === "WTI" || s === "CL=F") return "WTI";
   return "CN_STOCK";
 }
 
 export function defaultConfirmationMethod(symbol: string): ConfirmationMethod {
   const key = assetKeyFromSymbol(symbol);
-  if (key === "BTC" || key === "WTI") return "1小时收盘";
+  if (key === "BTC" || key === "ETH" || key === "WTI") return "1小时收盘";
   if (key === "CN_STOCK") return "30分钟内未收回";
   return "30分钟收盘";
 }
@@ -148,7 +154,7 @@ async function fetchYahooChart(quoteSymbol: string, interval: string, period1: n
 }
 
 /** Aggregate Yahoo 1h bars into Asia/Shanghai natural-day OHLC. */
-export async function fetchBtcBeijingDayOhlc(dayKey: string): Promise<{
+export async function fetchCryptoBeijingDayOhlc(quoteSymbol: string, dayKey: string): Promise<{
   open: number;
   high: number;
   low: number;
@@ -160,11 +166,11 @@ export async function fetchBtcBeijingDayOhlc(dayKey: string): Promise<{
   const end = new Date(start.getTime() + 36 * 3600 * 1000);
   const period1 = Math.floor((start.getTime() - 6 * 3600 * 1000) / 1000);
   const period2 = Math.floor(end.getTime() / 1000);
-  const json = await fetchYahooChart("BTC-USD", "1h", period1, period2);
+  const json = await fetchYahooChart(quoteSymbol, "1h", period1, period2);
   const result = json?.chart?.result?.[0];
   const ts: number[] = result?.timestamp ?? [];
   const quote = result?.indicators?.quote?.[0];
-  if (!ts.length || !quote) throw new Error("BTC小时线为空");
+  if (!ts.length || !quote) throw new Error(`${quoteSymbol}小时线为空`);
 
   let open: number | null = null;
   let high = -Infinity;
@@ -186,9 +192,14 @@ export async function fetchBtcBeijingDayOhlc(dayKey: string): Promise<{
     barCount += 1;
   }
   if (open == null || close == null || !Number.isFinite(high) || !Number.isFinite(low) || barCount < 1) {
-    throw new Error(`无法计算BTC北京时间自然日OHLC：${dayKey}`);
+    throw new Error(`无法计算${quoteSymbol}北京时间自然日OHLC：${dayKey}`);
   }
-  return { open, high, low, close, dataSource: "yahoo-finance-1h-BJ", barCount };
+  return { open, high, low, close, dataSource: `yahoo-finance-1h-BJ:${quoteSymbol}`, barCount };
+}
+
+/** Backward-compatible BTC helper. */
+export async function fetchBtcBeijingDayOhlc(dayKey: string) {
+  return fetchCryptoBeijingDayOhlc("BTC-USD", dayKey);
 }
 
 export async function fetchPreviousSessionOhlc(input: {
@@ -205,7 +216,7 @@ export async function fetchPreviousSessionOhlc(input: {
     input.quoteSymbol
   );
 
-  if (input.market === "CRYPTO" || quoteSymbol === "BTC-USD") {
+  if (input.market === "CRYPTO" || quoteSymbol === "BTC-USD" || quoteSymbol === "ETH-USD") {
     // previous Beijing natural day
     const d = new Date(`${input.asOfDate}T12:00:00+08:00`);
     d.setDate(d.getDate() - 1);
@@ -215,7 +226,7 @@ export async function fetchPreviousSessionOhlc(input: {
       month: "2-digit",
       day: "2-digit",
     }).format(d);
-    const ohlc = await fetchBtcBeijingDayOhlc(prevKey);
+    const ohlc = await fetchCryptoBeijingDayOhlc(quoteSymbol, prevKey);
     return {
       previous: {
         date: prevKey,

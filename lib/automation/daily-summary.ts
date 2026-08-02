@@ -33,7 +33,7 @@ export function assetAccuracyBreakdown(results: DailyVerificationResult[]): Arra
     GLD: "国际金价",
     WTI: "WTI原油",
   };
-  const symbols = ["BTC", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "WTI"];
+  const symbols = ["BTC", "ETH", "SPX", "NDX", "SSEC", "HSTECH", "GLD", "SILVER", "WTI"];
   return symbols.map((symbol) => {
     const rows = results.filter((r) => !r.isSystemTest && isCountable(r) && r.symbol === symbol);
     const hit = rows.filter((r) => isFull(r) || r.verdict === "PARTIAL_HIT").length;

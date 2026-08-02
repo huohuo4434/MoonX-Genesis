@@ -35,6 +35,12 @@ export const CORE_TOMORROW_ASSETS = [
     market: "crypto" as const,
   },
   {
+    assetId: "eth",
+    assetName: "以太坊",
+    symbol: "ETH",
+    market: "crypto" as const,
+  },
+  {
     assetId: "sp500",
     assetName: "标普500指数",
     symbol: "SPX",
@@ -62,6 +68,12 @@ export const CORE_TOMORROW_ASSETS = [
     assetId: "gold",
     assetName: "国际金价",
     symbol: "GLD",
+    market: "commodity" as const,
+  },
+  {
+    assetId: "silver",
+    assetName: "国际银价",
+    symbol: "SILVER",
     market: "commodity" as const,
   },
   {

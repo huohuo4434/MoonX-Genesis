@@ -8,7 +8,7 @@ import { getBeijingTomorrowKey } from "@/lib/calendar/beijing-date";
 import { getForecastDateOnOrAfter } from "@/lib/calendar/next-trading-day";
 import type { DailyForecastMarket } from "@/types/daily-forecast";
 
-const CORE_KEYS = ["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"] as const;
+const CORE_KEYS = ["BTC", "ETH", "SPX", "NDX", "SSE", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 
 function toLegacyMarket(market: (typeof DAILY_ACCURACY_ASSETS)[number]["market"]): DailyForecastMarket {
   if (market === "CRYPTO") return "crypto";
@@ -59,7 +59,7 @@ export function AdminTomorrowBatchForm() {
     }
     setLoading(false);
     if (errors.length) {
-      setMessage(`已建草稿 ${ok}/7。失败：${errors.join("；")}`);
+      setMessage(`已建草稿 ${ok}/9。失败：${errors.join("；")}`);
     } else {
       setMessage(
         `已按各市场实际交易日创建 ${ok} 个草稿。请补全方向后调用「生成技术价位并发布」。`

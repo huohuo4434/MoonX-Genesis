@@ -16,7 +16,7 @@ export const revalidate = 0;
 export default async function ResearchIndexPage() {
   await requireAdminOrNotFound();
   const cards = [
-    { href: "/forecasts/daily", title: "Daily Forecasts", body: "四大核心市场每日版（仅管理员）。" },
+    { href: "/forecasts/daily", title: "Daily Forecasts", body: "九个核心市场每日版。" },
     { href: "/research/technical", title: "Technical Analysis", body: "结构化技术信号（仅管理员）。" },
     { href: "/research/long-term", title: "Long-term Research", body: "长期研究模块（仅管理员）。" },
     { href: "/markets/watchlist", title: "Focused Assets", body: "观察名单内部版（仅管理员）。" },

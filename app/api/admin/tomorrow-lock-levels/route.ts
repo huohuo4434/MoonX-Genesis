@@ -16,7 +16,7 @@ const schema = z.object({
   forecastDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-const CORE = ["BTC", "SPX", "NDX", "SSE", "HSTECH", "GLD", "WTI"] as const;
+const CORE = ["BTC", "ETH", "SPX", "NDX", "SSE", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 
 function toLegacyMarket(market: (typeof DAILY_ACCURACY_ASSETS)[number]["market"]): DailyForecastMarket {
   if (market === "CRYPTO") return "crypto";

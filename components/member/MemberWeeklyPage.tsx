@@ -2,11 +2,9 @@
 
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
-import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { LockIcon } from "@/components/icons";
+import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
-import { formatDateTimeChina } from "@/lib/utils/datetime";
-import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
 import type {
   WeeklyAnalysisMemberView,
   WeeklyAnalysisPublicSummary,
@@ -27,17 +25,13 @@ function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO"
 
 function MetaHeader({ summary }: { summary: WeeklyAnalysisPublicSummary }) {
   return (
-    <Card padding="md" className="mb-8 grid gap-2 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
+    <Card padding="md" className="mb-8 grid gap-2 overflow-hidden sm:grid-cols-3">
       <div>
         <p className="text-caption text-foreground-tertiary">分析周期</p>
         <p className="text-body-sm font-medium">{summary.weekLabel}</p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">发布时间</p>
-        <p className="text-body-sm font-medium">{summary.publishedAtLabel}</p>
-      </div>
-      <div>
-        <p className="text-caption text-foreground-tertiary">最后更新时间</p>
+        <p className="text-caption text-foreground-tertiary">最近更新</p>
         <p className="text-body-sm font-medium">{summary.lastUpdatedLabel}</p>
       </div>
       <div>
@@ -46,7 +40,7 @@ function MetaHeader({ summary }: { summary: WeeklyAnalysisPublicSummary }) {
           {summary.publishedCount} / {summary.coverageCount}
         </p>
       </div>
-      <Text variant="caption" color="tertiary" className="sm:col-span-2 lg:col-span-4">
+      <Text variant="caption" color="tertiary" className="sm:col-span-3">
         {summary.nextPublishHint}
       </Text>
     </Card>
@@ -71,12 +65,12 @@ function UnpublishedCard({
             {displaySymbol}
           </span>
         </Text>
-        <Badge variant="outline">尚未发布</Badge>
+        <Badge variant="outline">资料待补充</Badge>
       </div>
       <Text variant="body-sm" color="secondary">
         {nextWeek
-          ? "下周该市场尚未形成真实研究结论，暂不复制本周内容。发布后将在此处显示方向、概率与路径。"
-          : "本周该市场分析尚未发布。发布后将在此处显示方向、概率与路径。"}
+          ? "下周尚缺少可验证的原始研究依据；补充后会自动显示方向、概率与路径。"
+          : "本周尚缺少可验证的原始研究依据；补充后会自动显示方向、概率与路径。"}
       </Text>
     </Card>
   );
@@ -95,7 +89,7 @@ function PublishedCard({
       <div className="flex items-start justify-between gap-2">
         <Text variant="body" weight="semibold" className="min-w-0 break-words">
           {a.assetName}{" "}
-          <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{code}</span>
+          <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{code} · {assetVenue(code)}</span>
         </Text>
         <Badge variant="default">{a.overallDirection}</Badge>
       </div>
@@ -160,14 +154,6 @@ function PublishedCard({
           <dt className="text-caption text-foreground-tertiary">主要催化</dt>
           <dd>{a.catalysts?.length ? a.catalysts.join("、") : a.strongWindow || "—"}</dd>
         </div>
-        <div>
-          <dt className="text-caption text-foreground-tertiary">发布时间</dt>
-          <dd>{formatDateTimeChina(a.publishedAt)}</dd>
-        </div>
-        <div>
-          <dt className="text-caption text-foreground-tertiary">版本号</dt>
-          <dd className="font-mono">V{a.version || 1}</dd>
-        </div>
       </dl>
 
       <PriceLevelsBlock
@@ -175,31 +161,10 @@ function PublishedCard({
         resistance={a.keyResistance}
         invalidation={a.invalidation}
         confirmation={a.confirmation}
-        priceSource={a.priceDataSourceLabel}
-        snapshotAt={
-          a.priceSnapshotAtLabel ? formatDateTimeChina(a.priceSnapshotAtLabel) : undefined
-        }
       />
       <Text variant="caption" color="tertiary">
         分析周期：{weekLabel}
       </Text>
-      <ForecastEvidencePanel
-        items={buildForecastModuleEvidence({
-          id: a.id,
-          symbol: a.symbol,
-          directionLabel: a.overallDirection,
-          summary: a.headline,
-          expectedPath: a.weeklyPath ? [a.weeklyPath] : undefined,
-          probabilities: a.probabilities,
-          supportLevels: a.keySupport,
-          resistanceLevels: a.keyResistance,
-          invalidation: a.invalidation,
-          confirmation: a.confirmation,
-          confidence: a.confidence,
-          catalysts: a.catalysts,
-          risks: a.risks,
-        })}
-      />
     </Card>
   );
 }
@@ -217,7 +182,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
             {summary.headingZh ?? "本周行情分析"}
           </Heading>
           <Text variant="body" color="secondary">
-            {summary.subtitleZh ?? "覆盖比特币、标普500、纳斯达克100、上证、恒生科技、黄金与WTI原油七个市场。登录有效会员后可查看完整方向、概率与路径。"}
+            {summary.subtitleZh ?? "覆盖比特币、以太坊、标普500、纳斯达克100、上证、恒生科技、黄金、白银与WTI原油。登录有效会员后可查看完整方向、概率与路径。"}
           </Text>
           <MetaHeader summary={summary} />
           <div className="grid gap-3">
@@ -229,7 +194,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
                     {t.displaySymbol ?? t.symbol}
                   </span>
                 </Text>
-                <Badge variant="outline">{t.isReady ? "会员锁定" : "尚未发布"}</Badge>
+                <Badge variant="outline">{t.isReady ? "会员可查看" : "资料待补充"}</Badge>
               </Card>
             ))}
           </div>
@@ -282,7 +247,7 @@ export function MemberWeeklyFullPage({
             {summary.headingZh ?? "本周行情分析"}
           </Heading>
           <Text variant="body" color="secondary" className="mb-6 max-w-2xl">
-            {summary.subtitleZh ?? "提前了解本周七个核心市场的整体方向、周内运行顺序和关键风险窗口。"}
+            {summary.subtitleZh ?? "提前了解九个核心市场的整体方向、周内运行顺序和关键风险窗口。"}
           </Text>
           <MetaHeader summary={summary} />
 

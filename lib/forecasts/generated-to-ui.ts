@@ -14,12 +14,14 @@ export function generatedDailyToUi(
   const meta = marketMeta(r.marketCode);
   const assetIdMap: Record<string, string> = {
     BTC: "bitcoin",
+    ETH: "eth",
     SPX: "sp500",
     NDX: "nasdaq-100",
     SHCOMP: "shanghai-composite",
     HSTECH: "hang-seng",
     GLD: "gold",
     GOLD: "gold",
+    SILVER: "silver",
     WTI: "wti-crude",
   };
   const formal = r.direction;

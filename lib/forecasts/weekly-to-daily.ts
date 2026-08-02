@@ -32,6 +32,8 @@ const MARKET_META: Record<
   Gold: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
   GOLD: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
   XAU: { assetName: "国际金价", legacyMarket: "commodity", quoteSymbol: "GC=F" },
+  SILVER: { assetName: "国际银价", legacyMarket: "commodity", quoteSymbol: "SI=F" },
+  SI: { assetName: "国际银价", legacyMarket: "commodity", quoteSymbol: "SI=F" },
   WTI: { assetName: "WTI原油", legacyMarket: "commodity", quoteSymbol: "CL=F" },
 };
 

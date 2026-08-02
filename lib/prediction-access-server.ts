@@ -182,11 +182,13 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
 
       const assetIdByMarket: Record<string, string> = {
         BTC: "bitcoin",
+        ETH: "eth",
         SPX: "sp500",
         NDX: "nasdaq-100",
         SHCOMP: "shanghai-composite",
         HSTECH: "hang-seng",
         GLD: "gold",
+        SILVER: "silver",
         WTI: "wti-crude",
       };
       if (!byAsset.has(assetIdByMarket[marketCode] ?? marketCode.toLowerCase())) {

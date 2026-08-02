@@ -6,6 +6,8 @@ import type {
   AiTradingDeskPlan,
   AiTradingDeskSnapshot,
 } from "@/types/ai-trading-desk";
+import { assetDisplayName, assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
+import { cleanMemberCopy } from "@/lib/presentation/public-copy";
 
 function number(value: number | null, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -83,10 +85,10 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Heading size="h2">AI交易公开台</Heading>
-              <Badge variant="warning">Bitget Demo模拟盘</Badge>
+              <Badge variant="warning">Bitget 模拟交易</Badge>
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-              实时展示MoonX正在等待的交易机会、Bitget模拟盘实际持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
+              展示AI正在等待的交易机会、Bitget模拟交易持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
             </Text>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -104,19 +106,19 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">自动策略</Text>
+            <Text variant="caption" color="tertiary">策略状态</Text>
             <Text variant="body-sm" className="mt-1 block">{snapshot.strategyEnabled ? "运行中" : "已停止"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">Bitget镜像</Text>
+            <Text variant="caption" color="tertiary">交易同步</Text>
             <Text variant="body-sm" className="mt-1 block">{snapshot.mirrorEnabled ? "已开启" : "未开启"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">下单权限</Text>
-            <Text variant="body-sm" className="mt-1 block">{snapshot.executionAllowed ? "允许Demo下单" : "禁止下单"}</Text>
+            <Text variant="caption" color="tertiary">模拟执行</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.executionAllowed ? "已开启" : "已关闭"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">服务器心跳</Text>
+            <Text variant="caption" color="tertiary">自动运行状态</Text>
             <Text variant="body-sm" className="mt-1 block">{snapshot.serverHealthy ? "正常" : "等待确认"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
@@ -126,13 +128,13 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
 
         <Text variant="caption" color="tertiary" className={snapshot.syncStatus === "ERROR" ? "text-red-300" : undefined}>
-          {error || snapshot.syncMessage}
+          {cleanMemberCopy(error || snapshot.syncMessage)}
         </Text>
       </Card>
 
       <section className="space-y-4">
         <div>
-          <Heading size="h3">AI预期要做的</Heading>
+          <Heading size="h3">AI当前计划</Heading>
           <Text variant="body-sm" color="secondary" className="mt-1 block">
             周预测决定主方向，日预测决定进场节奏，15分钟结构确认后才允许开仓。
           </Text>
@@ -142,9 +144,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <Card key={plan.symbol} padding="lg" className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Text variant="body" weight="semibold">{plan.assetName} · {plan.symbol}</Text>
+                  <Text variant="body" weight="semibold">{assetDisplayName(plan.symbol, plan.assetName)} · {assetDisplaySymbol(plan.symbol)}</Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">
-                    当前价 {number(plan.currentPrice, 4)} · 置信度 {plan.confidence}%
+                    {assetVenue(plan.symbol)} · 参考价 {plan.currentPrice == null ? "等待行情" : number(plan.currentPrice, 4)} · 置信度 {plan.confidence}%
                   </Text>
                 </div>
                 <Badge variant={planBadge(plan)}>{plan.statusLabel}</Badge>
@@ -153,22 +155,22 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-lg border border-white/10 p-3">
                   <Text variant="caption" color="tertiary">周度方向</Text>
-                  <Text variant="body-sm" className="mt-1 block">{plan.weeklyText}</Text>
+                  <Text variant="body-sm" className="mt-1 block">{cleanMemberCopy(plan.weeklyText)}</Text>
                 </div>
                 <div className="rounded-lg border border-white/10 p-3">
                   <Text variant="caption" color="tertiary">日内节奏</Text>
-                  <Text variant="body-sm" className="mt-1 block">{plan.dailyText}</Text>
+                  <Text variant="body-sm" className="mt-1 block">{cleanMemberCopy(plan.dailyText)}</Text>
                 </div>
               </div>
 
               <div className="rounded-lg border border-primary/20 bg-primary/[0.035] p-4">
                 <Text variant="caption" color="tertiary">当前系统动作</Text>
-                <Text variant="body-sm" className="mt-1 block">{plan.actionText}</Text>
+                <Text variant="body-sm" className="mt-1 block">{cleanMemberCopy(plan.actionText)}</Text>
               </div>
 
               <div className="space-y-2 text-sm text-white/70">
-                <div><span className="text-white/45">触发条件：</span>{plan.triggerText}</div>
-                <div><span className="text-white/45">失效条件：</span>{plan.invalidationText}</div>
+                <div><span className="text-white/45">触发条件：</span>{cleanMemberCopy(plan.triggerText)}</div>
+                <div><span className="text-white/45">失效条件：</span>{cleanMemberCopy(plan.invalidationText)}</div>
                 {plan.keyLevel != null ? <div><span className="text-white/45">关键点位：</span>{number(plan.keyLevel, 4)}</div> : null}
                 <div><span className="text-white/45">最近检查：</span>{time(plan.lastCheckedAt)}</div>
               </div>
@@ -182,9 +184,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
       <section className="space-y-4">
         <div>
-          <Heading size="h3">Bitget当前持仓</Heading>
+          <Heading size="h3">Bitget 模拟交易当前持仓</Heading>
           <Text variant="body-sm" color="secondary" className="mt-1 block">
-            直接读取Bitget Demo持仓；不公开API密钥、账户总资产和实际持仓数量。
+            同步读取模拟交易持仓；不公开API密钥、账户总资产和实际持仓数量。
           </Text>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
@@ -192,9 +194,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <Card key={`${position.symbol}-${position.direction}`} padding="lg" className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Text variant="body" weight="semibold">{position.symbol}</Text>
+                  <Text variant="body" weight="semibold">{assetDisplayName(position.symbol)} · {assetDisplaySymbol(position.symbol)}</Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">
-                    {position.marginMode} · {position.leverage}倍 · 开仓 {time(position.openedAt)}
+                    {assetVenue(position.symbol)} · {position.marginMode} · {position.leverage}倍 · 开仓 {time(position.openedAt)}
                   </Text>
                 </div>
                 <Badge variant={position.direction === "LONG" ? "success" : "danger"}>
@@ -216,10 +218,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           ))}
         </div>
         {!snapshot.positions.length ? (
-          <Card padding="lg"><Text variant="body-sm" color="secondary">Bitget Demo当前没有持仓。</Text></Card>
+          <Card padding="lg"><Text variant="body-sm" color="secondary">当前没有模拟持仓。</Text></Card>
         ) : null}
       </section>
 
+      {snapshot.stats.closedTrades > 0 ? (
       <section className="space-y-4">
         <Heading size="h3">策略表现</Heading>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -233,6 +236,16 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           回撤按每笔成交收益率构造，仅用于比较策略稳定性，不等同于账户净值回撤。
         </Text>
       </section>
+
+      ) : (
+        <section className="space-y-4">
+          <Heading size="h3">策略表现</Heading>
+          <Card padding="lg">
+            <Text variant="body" weight="semibold">交易样本正在积累</Text>
+            <Text variant="body-sm" color="secondary" className="mt-2">完成第一笔模拟交易后再显示胜率、收益与回撤。</Text>
+          </Card>
+        </section>
+      )}
 
       <section className="space-y-4">
         <Heading size="h3">最近结束交易</Heading>
@@ -252,7 +265,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               {snapshot.recentTrades.map((trade) => (
                 <tr key={trade.id} className="border-b border-white/[0.06] last:border-0">
                   <td className="px-4 py-3 text-white/60">{time(trade.closedAt)}</td>
-                  <td className="px-4 py-3">{trade.symbol}</td>
+                  <td className="px-4 py-3">{assetDisplayName(trade.symbol)} · {assetDisplaySymbol(trade.symbol)}</td>
                   <td className="px-4 py-3">{trade.direction === "LONG" ? "做多" : "做空"}</td>
                   <td className="px-4 py-3">{number(trade.openPrice, 4)}</td>
                   <td className="px-4 py-3">{number(trade.closePrice, 4)}</td>
@@ -260,7 +273,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                 </tr>
               ))}
               {!snapshot.recentTrades.length ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-white/45">暂无已经结束的Bitget Demo交易。</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-white/45">暂无已经结束的模拟交易。</td></tr>
               ) : null}
             </tbody>
           </table>

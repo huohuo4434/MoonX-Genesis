@@ -104,7 +104,7 @@ export type WeeklyAnalysisPublicSummary = {
   publishedAtLabel: string;
   lastUpdatedLabel: string;
   publishedCount: number;
-  /** Always 7 for core coverage slots. */
+  /** Canonical core coverage count. */
   coverageCount: number;
   assetNames: string[];
   teasers: WeeklyAnalysisTeaser[];

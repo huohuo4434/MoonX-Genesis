@@ -7,6 +7,7 @@
  * data is temporarily unavailable.
  */
 import { ALL_WEEKLY_ANALYSES } from "@/lib/data/published-weekly-analysis-20260727";
+import { PUBLISHED_WEEKLY_ANALYSES_20260803 } from "@/lib/data/published-weekly-analysis-20260803";
 import { generatedDailyToUi } from "@/lib/forecasts/generated-to-ui";
 import { generateDailyFromWeekly } from "@/lib/forecasts/weekly-to-daily";
 import type { DailyForecast } from "@/types/daily-forecast";
@@ -15,17 +16,20 @@ import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 
 export const PUBLIC_FALLBACK_MARKETS = [
   "BTC",
+  "ETH",
   "SPX",
   "NDX",
   "SHCOMP",
   "HSTECH",
   "GLD",
+  "SILVER",
   "WTI",
 ] as const;
 
 function analysisCodes(marketCode: string): string[] {
   if (marketCode === "SHCOMP") return ["SHCOMP", "000001.SS", "SSEC"];
   if (marketCode === "GLD") return ["GLD", "Gold", "GOLD", "XAU", "GC=F"];
+  if (marketCode === "SILVER") return ["SILVER", "SI", "SI=F", "SLV"];
   return [marketCode];
 }
 
@@ -34,7 +38,7 @@ function weeklyAnalysisForDate(
   forecastDate: string
 ): WeeklyAnalysisRecord | null {
   const codes = analysisCodes(marketCode);
-  const candidates = ALL_WEEKLY_ANALYSES.filter((record) => {
+  const candidates = [...ALL_WEEKLY_ANALYSES, ...PUBLISHED_WEEKLY_ANALYSES_20260803].filter((record) => {
     const display = record.displaySymbol ?? "";
     const symbol = record.symbol ?? "";
     return codes.includes(display) || codes.includes(symbol);
