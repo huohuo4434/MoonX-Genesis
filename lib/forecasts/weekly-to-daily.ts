@@ -2,6 +2,7 @@ import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganz
 import { isTradingDay } from "@/lib/calendar/next-trading-day";
 import type { DailyForecastMarket } from "@/types/daily-forecast";
 import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
+import { applyCryptoPointGuidanceToDaily } from "@/lib/forecasts/crypto-point-guidance";
 import {
   listTradingDaysInPeriod,
   movingLinesActiveNearDate,
@@ -196,7 +197,7 @@ export function generateDailyFromWeekly(input: {
     .filter(Boolean)
     .join("。");
 
-  return {
+  const baseRecord: GeneratedDailyForecastRecord = {
     id,
     marketCode: weekly.marketCode,
     forecastDate,
@@ -232,6 +233,8 @@ export function generateDailyFromWeekly(input: {
     validatedAt: null,
     validationStatus: null,
   };
+
+  return applyCryptoPointGuidanceToDaily(baseRecord);
 }
 
 /** Create V2 when invalidation requires a new version — never mutates V1 fields. */

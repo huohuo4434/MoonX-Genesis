@@ -64,36 +64,44 @@ export async function ensureCanonicalWeeklySourcesInDb(): Promise<{
     return { upserted: 0, usedPrisma: false };
   }
   let upserted = 0;
-  for (const s of CANONICAL_WEEKLY_LIUYAO_SOURCES) {
-    await prisma.weeklyForecastSource.upsert({
-      where: { id: s.id },
-      create: {
-        id: s.id,
-        marketCode: s.marketCode,
-        periodStart: s.periodStart,
-        periodEnd: s.periodEnd,
-        primaryHexagram: s.primaryHexagram,
-        changedHexagram: s.changedHexagram,
-        movingLines: s.movingLines,
-        specialPatterns: s.specialPatterns,
-        weeklyDirection: s.weeklyDirection,
-        weeklyPath: s.weeklyPath,
-        interpretation: s.interpretation,
-        riskSummary: s.riskSummary,
-        sourceType: s.sourceType,
-        version: s.version,
-        status: s.status,
-        publishedAt: s.publishedAt ? new Date(s.publishedAt) : null,
-        lockedAt: s.lockedAt ? new Date(s.lockedAt) : null,
-      },
-      update: {
-        // Non-destructive: never blank locked content; only refresh metadata if still draft.
-        updatedAt: new Date(),
-      },
-    });
-    upserted += 1;
+  try {
+    for (const s of CANONICAL_WEEKLY_LIUYAO_SOURCES) {
+      await prisma.weeklyForecastSource.upsert({
+        where: { id: s.id },
+        create: {
+          id: s.id,
+          marketCode: s.marketCode,
+          periodStart: s.periodStart,
+          periodEnd: s.periodEnd,
+          primaryHexagram: s.primaryHexagram,
+          changedHexagram: s.changedHexagram,
+          movingLines: s.movingLines,
+          specialPatterns: s.specialPatterns,
+          weeklyDirection: s.weeklyDirection,
+          weeklyPath: s.weeklyPath,
+          interpretation: s.interpretation,
+          riskSummary: s.riskSummary,
+          sourceType: s.sourceType,
+          version: s.version,
+          status: s.status,
+          publishedAt: s.publishedAt ? new Date(s.publishedAt) : null,
+          lockedAt: s.lockedAt ? new Date(s.lockedAt) : null,
+        },
+        update: {
+          // Non-destructive: never blank locked content; only refresh metadata if still draft.
+          updatedAt: new Date(),
+        },
+      });
+      upserted += 1;
+    }
+    return { upserted, usedPrisma: true };
+  } catch (error) {
+    // Some deployed databases predate the optional WeeklyForecastSource table.
+    // Canonical in-code sources remain authoritative, so a missing table must never
+    // stop daily forecast generation or the automatic trader.
+    console.warn("[weekly-source] optional WeeklyForecastSource table unavailable; using code sources", error);
+    return { upserted: 0, usedPrisma: false };
   }
-  return { upserted, usedPrisma: true };
 }
 
 export async function listWeeklyForecastSources(): Promise<WeeklyForecastSourceRecord[]> {

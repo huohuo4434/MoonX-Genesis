@@ -15,6 +15,8 @@ import {
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
+import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guidance";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
@@ -92,6 +94,51 @@ function analysisAsWeeklySource(
   };
 }
 
+function btcResearchAsWeeklySource(
+  forecastDate: string
+): WeeklyForecastSourceRecord | null {
+  const hit = listBtcPeriodForecasts20260801()
+    .filter(
+      (item) =>
+        item.forecastType.startsWith("WEEK") &&
+        item.periodStart <= forecastDate &&
+        item.periodEnd >= forecastDate
+    )
+    .sort((a, b) => b.version - a.version)[0];
+  if (!hit) return null;
+
+  const pointGate = getCryptoPointGuidanceForDate("BTC", forecastDate);
+  const weeklyDirection =
+    pointGate && hit.forecastType === "WEEK" ? "先跌后涨" : hit.direction;
+  const pointText = pointGate
+    ? `关键点位卦：${pointGate.threshold.toLocaleString("en-US")}以4小时收盘判定；${pointGate.summary}`
+    : "";
+
+  return {
+    id: pointGate ? `${hit.id}-POINT-${pointGate.threshold}` : hit.id,
+    marketCode: "BTC",
+    periodStart: hit.periodStart,
+    periodEnd: hit.periodEnd,
+    primaryHexagram: hit.ichingEvidence.primaryHexagram || null,
+    changedHexagram: hit.ichingEvidence.changingHexagram ?? null,
+    movingLines: [],
+    specialPatterns: pointGate ? [pointGate.specialPattern] : [],
+    weeklyDirection,
+    weeklyPath: [hit.expectedPath, pointText].filter(Boolean).join("；"),
+    interpretation: [hit.summary, pointGate?.movingSummary].filter(Boolean).join("；"),
+    riskSummary: [hit.risks.join("；") || hit.riskLevel, pointGate?.invalidationRule]
+      .filter(Boolean)
+      .join("；"),
+    sourceType: "LIUYAO_WEEKLY",
+    version: hit.version,
+    status: "LOCKED",
+    publishedAt: hit.publishedAt,
+    lockedAt: hit.lockedAt,
+    createdAt: hit.publishedAt,
+    updatedAt: hit.lockedAt,
+  };
+}
+
 function ethResearchAsWeeklySource(
   forecastDate: string
 ): WeeklyForecastSourceRecord | null {
@@ -105,19 +152,26 @@ function ethResearchAsWeeklySource(
     .sort((a, b) => b.version - a.version)[0];
   if (!hit) return null;
 
+  const pointGate = getCryptoPointGuidanceForDate("ETH", forecastDate);
+  const pointText = pointGate
+    ? `关键点位卦：${pointGate.threshold.toLocaleString("en-US")}以4小时收盘判定；${pointGate.summary}`
+    : "";
+
   return {
-    id: hit.id,
+    id: pointGate ? `${hit.id}-POINT-${pointGate.threshold}` : hit.id,
     marketCode: "ETH",
     periodStart: hit.periodStart,
     periodEnd: hit.periodEnd,
     primaryHexagram: hit.ichingEvidence.primaryHexagram || null,
     changedHexagram: hit.ichingEvidence.changingHexagram ?? null,
     movingLines: [],
-    specialPatterns: [],
+    specialPatterns: pointGate ? [pointGate.specialPattern] : [],
     weeklyDirection: hit.direction,
-    weeklyPath: hit.expectedPath,
-    interpretation: hit.summary,
-    riskSummary: hit.risks.join("；") || hit.riskLevel,
+    weeklyPath: [hit.expectedPath, pointText].filter(Boolean).join("；"),
+    interpretation: [hit.summary, pointGate?.movingSummary].filter(Boolean).join("；"),
+    riskSummary: [hit.risks.join("；") || hit.riskLevel, pointGate?.invalidationRule]
+      .filter(Boolean)
+      .join("；"),
     sourceType: "LIUYAO_WEEKLY",
     version: hit.version,
     status: "LOCKED",
@@ -133,9 +187,18 @@ async function resolveWeekly(
   forecastDate: string
 ): Promise<WeeklyForecastSourceRecord | null> {
   const normalized = marketCode.toUpperCase();
+  // BTC/ETH use the current locked research files first. This avoids stale database
+  // rows and keeps the auto trader aligned with the user's latest weekly hexagrams.
+  if (normalized === "BTC") {
+    const btc = btcResearchAsWeeklySource(forecastDate);
+    if (btc) return btc;
+  }
+  if (normalized === "ETH") {
+    const eth = ethResearchAsWeeklySource(forecastDate);
+    if (eth) return eth;
+  }
   const fromDb = await getWeeklySourceForMarketDate(normalized, forecastDate);
   if (fromDb) return fromDb;
-  if (normalized === "ETH") return ethResearchAsWeeklySource(forecastDate);
   return analysisAsWeeklySource(normalized, forecastDate);
 }
 
@@ -315,12 +378,9 @@ export async function runDailyForecastPipeline(input?: {
         if (market === "ETH") {
           record = {
             ...record,
-            supportLevels: [],
             resistanceLevels: [],
-            confirmationLevel: null,
-            invalidationLevel: null,
             technicalEvidence:
-              "ETH日预测由本周研究自动推演；自动交易入场由Bitget ETH 15分钟K线独立确认，不复用BTC价位。",
+              "ETH日预测由本周研究和点位卦自动推演；自动交易入场由Bitget ETH 15分钟K线独立确认，不复用BTC价位。",
           };
         } else {
           try {
@@ -336,10 +396,10 @@ export async function runDailyForecastPipeline(input?: {
             });
             record = {
               ...record,
-              supportLevels: technical.supportLevels,
+              supportLevels: [...new Set([...record.supportLevels, ...technical.supportLevels])],
               resistanceLevels: technical.resistanceLevels,
-              confirmationLevel: technical.confirmation,
-              invalidationLevel: technical.invalidation,
+              confirmationLevel: record.confirmationLevel ?? technical.confirmation,
+              invalidationLevel: record.invalidationLevel ?? technical.invalidation,
               technicalEvidence: [
                 "裸K波段与平台结构；EMA60；MACD零轴与动能共振",
                 `行情来源 ${technical.priceDataSourceLabel}`,

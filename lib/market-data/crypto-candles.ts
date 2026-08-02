@@ -50,6 +50,55 @@ async function fetchWithTimeout(
   }
 }
 
+async function getLatestClosed4hClose(
+  sourceSymbol: string,
+  now: Date
+): Promise<{ close: number; closedAt: string } | null> {
+  try {
+    const query = new URLSearchParams({
+      category: "USDT-FUTURES",
+      symbol: sourceSymbol,
+      interval: "4H",
+      type: "market",
+      limit: "20",
+    });
+    const response = await fetchWithTimeout(
+      `https://api.bitget.com/api/v3/market/candles?${query.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "MoonX-Prediction-Auto-Trader/2.1",
+        },
+      }
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as BitgetCandleEnvelope;
+    if (payload.code !== "00000" || !Array.isArray(payload.data)) return null;
+    const fourHoursMs = 4 * 60 * 60 * 1000;
+    const closed = payload.data
+      .map((row) => ({
+        timestamp: Number(row[0]),
+        close: Number(row[4]),
+      }))
+      .filter(
+        (row) =>
+          Number.isFinite(row.timestamp) &&
+          Number.isFinite(row.close) &&
+          row.close > 0 &&
+          row.timestamp + fourHoursMs <= now.getTime()
+      )
+      .sort((a, b) => b.timestamp - a.timestamp)[0];
+    if (!closed) return null;
+    return {
+      close: closed.close,
+      closedAt: new Date(closed.timestamp + fourHoursMs).toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getCrypto15mMarketContext(
   symbol: PredictionAutoSymbol,
   now = new Date()
@@ -120,6 +169,7 @@ export async function getCrypto15mMarketContext(
   const sessionLow = Math.min(...rows.map((row) => row.low));
   const sessionOpen = first.open;
   const currentPrice = latest.close;
+  const latest4h = await getLatestClosed4hClose(sourceSymbol, now);
 
   return {
     symbol: baseSymbol,
@@ -137,5 +187,7 @@ export async function getCrypto15mMarketContext(
     rallyPct: percent(sessionHigh - sessionOpen, sessionOpen),
     reversalPct: percent(sessionHigh - currentPrice, sessionHigh),
     lastCloses: rows.slice(-3).map((row) => row.close),
+    latestClosed4hClose: latest4h?.close ?? null,
+    latestClosed4hAt: latest4h?.closedAt ?? null,
   };
 }

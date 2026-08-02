@@ -56,6 +56,17 @@ export interface PredictionForecastLeg {
   status: string;
 }
 
+export interface PredictionPointGuidance {
+  id: string;
+  threshold: number;
+  validUntil: string;
+  closeInterval: "4H";
+  supportConfidence: number;
+  summary: string;
+  invalidationRule: string;
+  sourceLabel: string;
+}
+
 export interface PredictionStrategyPlan {
   symbol: PredictionAutoSymbol;
   tradeSymbol: string;
@@ -68,6 +79,7 @@ export interface PredictionStrategyPlan {
   setup: PredictionAutoSetup;
   confidence: number;
   reason: string;
+  pointGuidance: PredictionPointGuidance | null;
 }
 
 export interface PredictionMarketContext {
@@ -86,6 +98,8 @@ export interface PredictionMarketContext {
   rallyPct: number;
   reversalPct: number;
   lastCloses: number[];
+  latestClosed4hClose: number | null;
+  latestClosed4hAt: string | null;
 }
 
 export interface PredictionAutoDecision {

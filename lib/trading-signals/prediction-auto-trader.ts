@@ -9,8 +9,12 @@ import {
 } from "@/lib/bitget/demo-connector";
 import { getChinaDateKey } from "@/lib/date/china-date";
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
+import { generateDailyFromWeekly } from "@/lib/forecasts/weekly-to-daily";
+import { getCryptoPointGuidance } from "@/lib/forecasts/crypto-point-guidance";
 import { getCrypto15mMarketContext } from "@/lib/market-data/crypto-candles";
 import { prisma } from "@/lib/prisma";
+import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
 import {
   listGeneratedDailiesForDate,
   listWeeklyForecastSources,
@@ -25,6 +29,7 @@ import {
   monitorTradeSignal,
 } from "@/lib/trading-signals/v2-store";
 import type { AdminCycleForecastRow } from "@/types/admin-full-cycle";
+import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type {
   PredictionAutoDecision,
   PredictionAutoDirection,
@@ -466,9 +471,13 @@ function forecastScore(row: AdminCycleForecastRow): number {
     `${status} ${row.direction} ${row.path}`
   );
   const databaseBonus = /自动日预测数据库|周预测源数据库/.test(row.sourceLabel) ? 500 : 0;
+  const authoritativeResearchBonus = /自动交易正式周研究/.test(row.sourceLabel) ? 450 : 0;
+  const runtimeDailyBonus = /自动交易运行时日预测/.test(row.sourceLabel) ? 450 : 0;
   return (
     (pending ? -1000 : 0) +
     databaseBonus +
+    authoritativeResearchBonus +
+    runtimeDailyBonus +
     (row.version ?? 0) * 10 +
     (/publish|verified|locked|正式/.test(status) ? 100 : 0)
   );
@@ -545,6 +554,114 @@ async function ensureAutoTradingDailyForecasts(
   };
 }
 
+function probabilityLabelFromPeriod(input: {
+  upProbability: number;
+  sidewaysProbability: number;
+  downProbability: number;
+}): string {
+  return `涨${input.upProbability}% / 震${input.sidewaysProbability}% / 跌${input.downProbability}%`;
+}
+
+function currentCryptoResearchWeeklyRows(
+  today: string,
+  now: Date
+): AdminCycleForecastRow[] {
+  const rows: AdminCycleForecastRow[] = [];
+  const groups = [
+    ...listBtcPeriodForecasts20260801(),
+    ...listEthPeriodForecasts(),
+  ];
+  for (const item of groups) {
+    if (
+      !item.forecastType.startsWith("WEEK") ||
+      item.periodStart > today ||
+      item.periodEnd < today
+    ) {
+      continue;
+    }
+    const symbol = item.assetId === "bitcoin" ? "BTC" : item.assetId === "eth" ? "ETH" : "";
+    if (!symbol) continue;
+    const point = getCryptoPointGuidance(symbol, now);
+    rows.push({
+      id: point ? `${item.id}-POINT-${point.threshold}` : item.id,
+      assetId: item.assetId,
+      horizon: "WEEK",
+      periodStart: item.periodStart,
+      periodEnd: item.periodEnd,
+      direction:
+        symbol === "BTC" && point && item.forecastType === "WEEK"
+          ? "先跌后涨"
+          : item.direction,
+      path: [
+        item.expectedPath,
+        point
+          ? `关键点位${point.threshold.toLocaleString("en-US")}按4小时收盘判定；${point.summary}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("；"),
+      probabilityLabel: probabilityLabelFromPeriod(item),
+      sourceLabel: "自动交易正式周研究 · 六爻周卦与点位卦",
+      status: "locked",
+      version: item.version,
+    });
+  }
+  return rows;
+}
+
+function weeklyRowAsSource(
+  row: AdminCycleForecastRow,
+  symbol: string
+): WeeklyForecastSourceRecord {
+  return {
+    id: row.id,
+    marketCode: symbol,
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd,
+    primaryHexagram: null,
+    changedHexagram: null,
+    movingLines: [],
+    specialPatterns: [],
+    weeklyDirection: row.direction,
+    weeklyPath: row.path,
+    interpretation: row.path,
+    riskSummary: "周卦拆日仅用于执行节奏；关键点位失效时禁止逆势开仓。",
+    sourceType: "LIUYAO_WEEKLY",
+    version: row.version ?? 1,
+    status: "LOCKED",
+    publishedAt: new Date().toISOString(),
+    lockedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function runtimeDailyRow(
+  weeklyRow: AdminCycleForecastRow,
+  symbol: "BTC" | "ETH",
+  today: string
+): AdminCycleForecastRow {
+  const generated = generateDailyFromWeekly({
+    weekly: weeklyRowAsSource(weeklyRow, symbol),
+    forecastDate: today,
+    version: 1,
+    status: "LOCKED",
+  });
+  return {
+    id: `RUNTIME-${generated.id}`,
+    assetId: symbol === "BTC" ? "bitcoin" : "eth",
+    horizon: "DAY",
+    periodStart: today,
+    periodEnd: today,
+    direction: generated.direction,
+    path: generated.expectedPath,
+    probabilityLabel: `涨${generated.upProbability}% / 震${generated.sidewaysProbability}% / 跌${generated.downProbability}%`,
+    sourceLabel: "自动交易运行时日预测 · 周卦拆日 + 点位卦",
+    status: "locked",
+    version: generated.version,
+  };
+}
+
 async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecastRow[]> {
   const today = getChinaDateKey(now);
   const [snapshot, generatedDaily, weeklySources] = await Promise.all([
@@ -552,7 +669,7 @@ async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecast
     listGeneratedDailiesForDate(today),
     listWeeklyForecastSources(),
   ]);
-  const rows = [...snapshot.forecasts];
+  const rows = [...snapshot.forecasts, ...currentCryptoResearchWeeklyRows(today, now)];
 
   for (const item of generatedDaily) {
     const assetId = marketCodeAssetId(item.marketCode);
@@ -588,6 +705,22 @@ async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecast
       status: item.status,
       version: item.version,
     });
+  }
+
+  // The automatic trader must remain functional even when the optional
+  // GeneratedDailyForecast/WeeklyForecastSource tables have not been migrated.
+  for (const symbol of ["BTC", "ETH"] as const) {
+    const assetId = symbol === "BTC" ? "bitcoin" : "eth";
+    const hasDaily = rows.some(
+      (row) =>
+        row.assetId === assetId &&
+        row.horizon === "DAY" &&
+        row.periodStart <= today &&
+        row.periodEnd >= today
+    );
+    if (hasDaily) continue;
+    const weekly = selectForecast(rows, assetId, "WEEK", today);
+    if (weekly) rows.push(runtimeDailyRow(weekly, symbol, today));
   }
 
   return rows;
@@ -697,6 +830,7 @@ function buildPlan(
   }
 
   const confidence = weekly && daily ? Math.round((weekly.confidence + daily.confidence) / 2) : 0;
+  const activePoint = getCryptoPointGuidance(normalizedSymbol, now);
   return {
     symbol: normalizedSymbol,
     tradeSymbol: meta.tradeSymbol,
@@ -709,6 +843,18 @@ function buildPlan(
     setup,
     confidence,
     reason,
+    pointGuidance: activePoint
+      ? {
+          id: activePoint.id,
+          threshold: activePoint.threshold,
+          validUntil: activePoint.validUntil,
+          closeInterval: activePoint.closeInterval,
+          supportConfidence: activePoint.supportConfidence,
+          summary: activePoint.summary,
+          invalidationRule: activePoint.invalidationRule,
+          sourceLabel: activePoint.sourceLabel,
+        }
+      : null,
   };
 }
 
@@ -737,6 +883,52 @@ function latestTrendConfirmed(
   const latest = market.lastCloses[market.lastCloses.length - 1];
   if (previous == null || latest == null) return false;
   return direction === "LONG" ? latest > previous : direction === "SHORT" ? latest < previous : false;
+}
+
+function pointGateDecision(
+  plan: PredictionStrategyPlan,
+  market: PredictionMarketContext,
+  now: Date
+): { blocked: boolean; status: "WAITING" | "BLOCKED"; message: string } | null {
+  const gate = getCryptoPointGuidance(plan.symbol, now);
+  if (!gate) return null;
+  const threshold = gate.threshold;
+  const bufferPct = gate.symbol === "BTC" ? 1.5 : 1.2;
+  const distancePct = ((market.currentPrice - threshold) / threshold) * 100;
+  const latest4h = market.latestClosed4hClose;
+  const invalidated = latest4h != null && latest4h < threshold;
+  const nearSupport = market.currentPrice <= threshold * (1 + bufferPct / 100);
+
+  if (plan.setup === "BUY_DIP" && invalidated) {
+    return {
+      blocked: true,
+      status: "BLOCKED",
+      message: `${gate.symbol}点位卦风控：最近已收盘4小时K线${latest4h?.toLocaleString("en-US")}低于${threshold.toLocaleString("en-US")}，支撑按失效处理，禁止新开多单。`,
+    };
+  }
+  if (
+    plan.setup === "BUY_DIP" &&
+    market.currentPrice < threshold &&
+    latest4h == null
+  ) {
+    return {
+      blocked: true,
+      status: "WAITING",
+      message: `${gate.symbol}现价已低于${threshold.toLocaleString("en-US")}，但尚未取得已收盘4小时K线确认；等待确认，不抢多。`,
+    };
+  }
+  if (plan.setup === "SELL_RALLY" && nearSupport) {
+    return {
+      blocked: true,
+      status: "WAITING",
+      message: `${gate.symbol}距离关键支撑${threshold.toLocaleString("en-US")}为${distancePct.toFixed(2)}%，已进入点位卦保护区，禁止追空，等待支撑确认或有效跌破。`,
+    };
+  }
+  return {
+    blocked: false,
+    status: "WAITING",
+    message: `${gate.symbol}点位卦监控：关键支撑${threshold.toLocaleString("en-US")}，最近已收盘4小时K线${latest4h == null ? "暂缺" : latest4h.toLocaleString("en-US")}。`,
+  };
 }
 
 function triggerMessage(
@@ -1040,7 +1232,7 @@ async function createAndEnterSignal(input: {
     maxRiskPct: input.settings.positionPct * (input.settings.stopLossPct / 100),
     validFrom: input.now.toISOString(),
     validUntil: new Date(`${dayKey}T23:59:59+08:00`).toISOString(),
-    rationale: `${input.plan.reason} 周预测：${input.plan.weeklyForecast?.direction ?? "缺失"} / ${input.plan.weeklyForecast?.path ?? "缺失"}。日预测：${input.plan.dailyForecast?.direction ?? "缺失"} / ${input.plan.dailyForecast?.path ?? "缺失"}。`,
+    rationale: `${input.plan.reason} 周预测：${input.plan.weeklyForecast?.direction ?? "缺失"} / ${input.plan.weeklyForecast?.path ?? "缺失"}。日预测：${input.plan.dailyForecast?.direction ?? "缺失"} / ${input.plan.dailyForecast?.path ?? "缺失"}。${input.plan.pointGuidance ? `点位卦：${input.plan.pointGuidance.summary} ${input.plan.pointGuidance.invalidationRule}` : ""}`,
     executionPlan: `${input.plan.setup === "BUY_DIP" ? "逢低做多" : "逢高做空"}；15分钟结构确认后市价进入；仓位上限${input.settings.positionPct}%；止损${input.settings.stopLossPct}%；分批止盈${input.settings.target1Pct}% / ${input.settings.target2Pct}% / ${input.settings.target3Pct}%。`,
     invalidation: `${direction === "LONG" ? "跌破" : "突破"}自动止损价${levels.stop}立即退出。`,
     sourceForecastId: input.plan.dailyForecast?.id ?? input.plan.weeklyForecast?.id ?? null,
@@ -1288,6 +1480,21 @@ export async function runPredictionAutoTrader(
             market,
             signalId: null,
             message: `今天已开仓${count}次，达到每日上限${settings.maxTradesPerSymbolDay}次。`,
+          });
+          continue;
+        }
+
+        const pointGate = pointGateDecision(plan, market, now);
+        if (pointGate?.blocked) {
+          decisions.push({
+            symbol: plan.symbol,
+            status: pointGate.status,
+            action: "POINT_GATE",
+            price: market.currentPrice,
+            plan,
+            market,
+            signalId: null,
+            message: pointGate.message,
           });
           continue;
         }

@@ -305,6 +305,19 @@ export function PredictionAutoTraderClient({
               </div>
             </div>
             <Text variant="body-sm">{plan.reason}</Text>
+            {plan.pointGuidance ? (
+              <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.04] p-3">
+                <Text variant="caption" className="block text-amber-100/90">
+                  关键点位卦：{plan.pointGuidance.threshold.toLocaleString("en-US")} · {plan.pointGuidance.closeInterval}收盘判定 · 支撑倾向{plan.pointGuidance.supportConfidence}%
+                </Text>
+                <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">
+                  {plan.pointGuidance.summary}
+                </Text>
+                <Text variant="caption" color="tertiary" className="mt-1 block leading-relaxed">
+                  失效规则：{plan.pointGuidance.invalidationRule}
+                </Text>
+              </div>
+            ) : null}
             <Text variant="caption" color="tertiary" className="block leading-relaxed">
               周：{plan.weeklyForecast?.direction ?? "缺失"}；{plan.weeklyForecast?.path ?? "缺失"}
             </Text>
@@ -337,7 +350,7 @@ export function PredictionAutoTraderClient({
                   </Text>
                   {decision.market ? (
                     <Text variant="caption" color="tertiary" className="mt-2 block">
-                      现价 {decision.market.currentPrice.toLocaleString("en-US")}；下探 {decision.market.dipPct.toFixed(2)}%；低点反弹 {decision.market.reboundPct.toFixed(2)}%；冲高 {decision.market.rallyPct.toFixed(2)}%；高点回落 {decision.market.reversalPct.toFixed(2)}%
+                      现价 {decision.market.currentPrice.toLocaleString("en-US")}；下探 {decision.market.dipPct.toFixed(2)}%；低点反弹 {decision.market.reboundPct.toFixed(2)}%；冲高 {decision.market.rallyPct.toFixed(2)}%；高点回落 {decision.market.reversalPct.toFixed(2)}%；最近已收4H {decision.market.latestClosed4hClose == null ? "暂缺" : decision.market.latestClosed4hClose.toLocaleString("en-US")}
                     </Text>
                   ) : null}
                 </div>
