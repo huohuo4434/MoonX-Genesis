@@ -1,20 +1,17 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { BitgetDemoClient } from "@/components/admin/BitgetDemoClient";
 import { PredictionAutoTraderClient } from "@/components/admin/PredictionAutoTraderClient";
-import { AiTradingDeskSettingsClient } from "@/components/admin/AiTradingDeskSettingsClient";
 import { Heading, Section, Text } from "@/components/ui";
 import { getBitgetDemoDashboard } from "@/lib/bitget/demo-connector";
 import { getPredictionAutoTraderDashboard } from "@/lib/trading-signals/prediction-auto-trader";
-import { getMemberAiTradingDeskSettings } from "@/lib/trading-signals/member-ai-trading-desk";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminBitgetDemoPage() {
-  const [dashboard, autoTrader, publicDeskSettings] = await Promise.all([
+  const [dashboard, autoTrader] = await Promise.all([
     getBitgetDemoDashboard(),
     getPredictionAutoTraderDashboard(),
-    getMemberAiTradingDeskSettings(),
   ]);
   return (
     <main>
@@ -27,7 +24,6 @@ export default async function AdminBitgetDemoPage() {
         <div className="space-y-10">
           <BitgetDemoClient initial={dashboard} />
           <PredictionAutoTraderClient initial={autoTrader} />
-          <AiTradingDeskSettingsClient initial={publicDeskSettings} />
         </div>
       </Section>
     </main>

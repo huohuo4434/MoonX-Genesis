@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
-import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -10,19 +9,13 @@ export async function POST() {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
-  const now = new Date();
   try {
-    const report = await runPredictionAutoTrader(now, {
-      source: "ADMIN",
-      forceFullScan: true,
-    });
-    let memberDeskSync = "OK";
-    try {
-      await syncMemberAiTradingDeskSnapshot(now);
-    } catch (error) {
-      memberDeskSync = error instanceof Error ? error.message : "同步失败";
-    }
-    return NextResponse.json({ ...report, memberDeskSync });
+    return NextResponse.json(
+      await runPredictionAutoTrader(new Date(), {
+        source: "ADMIN",
+        forceFullScan: true,
+      })
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "策略检查失败" },
