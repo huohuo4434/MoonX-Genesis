@@ -63,8 +63,12 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
   { key: "nav.tomorrowForecast", href: NAV_ROUTES.tomorrowForecast, labelZh: "明日观点" },
   { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
-  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度行情" },
+  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
   { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
+];
+
+/** Secondary desktop items live under “更多” to keep the header on one line. */
+export const PUBLIC_MORE_NAV: NavItem[] = [
   { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
@@ -90,7 +94,7 @@ export function buildPublicFooterColumns(options?: {
   const product: NavItem[] = [
     { key: "footer.today", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
     { key: "footer.weekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
-    { key: "footer.monthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度行情" },
+    { key: "footer.monthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
     { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },

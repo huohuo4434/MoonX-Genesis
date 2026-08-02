@@ -12,6 +12,7 @@ export type CryptoLivePrice = {
 
 type BitgetTickerRow = {
   symbol?: string;
+  lastPrice?: string;
   lastPr?: string;
   markPrice?: string;
   ts?: string;
@@ -27,10 +28,10 @@ const SUPPORTED_SYMBOLS = ["BTC", "ETH", "HYPE"] as const;
 type SupportedSymbol = (typeof SUPPORTED_SYMBOLS)[number];
 
 function normalizeSupportedSymbol(value: string): SupportedSymbol | null {
-  const normalized = value.trim().toUpperCase().replace(/[-_/]/g, "");
-  if (normalized === "BTC" || normalized === "BTCUSDT") return "BTC";
-  if (normalized === "ETH" || normalized === "ETHUSDT") return "ETH";
-  if (normalized === "HYPE" || normalized === "HYPEUSDT") return "HYPE";
+  const normalized = value.trim().toUpperCase().replace(/[-_/\s]/g, "");
+  if (normalized === "BTC" || normalized === "BTCUSDT" || normalized === "BTCUSD") return "BTC";
+  if (normalized === "ETH" || normalized === "ETHUSDT" || normalized === "ETHUSD") return "ETH";
+  if (normalized === "HYPE" || normalized === "HYPEUSDT" || normalized === "HYPEUSD") return "HYPE";
   return null;
 }
 
@@ -52,49 +53,77 @@ async function fetchWithTimeout(
   }
 }
 
-async function fetchBitgetPrices(): Promise<Map<SupportedSymbol, CryptoLivePrice>> {
-  const result = new Map<SupportedSymbol, CryptoLivePrice>();
-  const response = await fetchWithTimeout(
-    "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "MoonX-Paper-Monitor/1.0",
-      },
-    }
-  );
+function tickerPrice(row: BitgetTickerRow): number {
+  return Number(row.lastPrice ?? row.lastPr ?? row.markPrice);
+}
 
-  if (!response.ok) {
-    throw new Error(`Bitget行情HTTP ${response.status}`);
-  }
+function tickerTimestamp(row: BitgetTickerRow): string {
+  const timestamp = Number(row.ts);
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? new Date(timestamp).toISOString()
+    : new Date().toISOString();
+}
+
+async function fetchBitgetEndpoint(
+  url: string
+): Promise<Map<SupportedSymbol, CryptoLivePrice>> {
+  const result = new Map<SupportedSymbol, CryptoLivePrice>();
+  const response = await fetchWithTimeout(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "MoonX-Paper-Monitor/1.2",
+    },
+  });
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
   const payload = (await response.json()) as BitgetTickerResponse;
   if (payload.code !== "00000" || !Array.isArray(payload.data)) {
-    throw new Error(payload.msg || "Bitget行情返回异常");
+    throw new Error(payload.msg || "行情返回异常");
   }
 
   for (const row of payload.data) {
     const symbol = normalizeSupportedSymbol(String(row.symbol ?? ""));
     if (!symbol || result.has(symbol)) continue;
-
-    const price = Number(row.lastPr ?? row.markPrice);
+    const price = tickerPrice(row);
     if (!Number.isFinite(price) || price <= 0) continue;
-
-    const timestamp = Number(row.ts);
     result.set(symbol, {
       symbol,
       price,
       provider: "BITGET",
-      sourceSymbol: String(row.symbol),
-      capturedAt:
-        Number.isFinite(timestamp) && timestamp > 0
-          ? new Date(timestamp).toISOString()
-          : new Date().toISOString(),
+      sourceSymbol: String(row.symbol ?? `${symbol}USDT`),
+      capturedAt: tickerTimestamp(row),
     });
   }
 
   return result;
+}
+
+async function fetchBitgetPrices(): Promise<Map<SupportedSymbol, CryptoLivePrice>> {
+  const errors: string[] = [];
+  const endpoints = [
+    // UTA V3 is the current Bitget market-data path and returns `lastPrice`.
+    "https://api.bitget.com/api/v3/market/tickers?category=USDT-FUTURES",
+    // Keep the classic endpoint only as a compatibility fallback.
+    "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const rows = await fetchBitgetEndpoint(endpoint);
+      if (rows.size) return rows;
+      errors.push(`${endpoint.includes("/v3/") ? "V3" : "V2"}未返回有效价格`);
+    } catch (error) {
+      errors.push(
+        `${endpoint.includes("/v3/") ? "V3" : "V2"}：${
+          error instanceof Error ? error.message : "未知错误"
+        }`
+      );
+    }
+  }
+
+  throw new Error(errors.join("；"));
 }
 
 async function fetchHyperliquidPrices(): Promise<
@@ -108,15 +137,13 @@ async function fetchHyperliquidPrices(): Promise<
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "MoonX-Paper-Monitor/1.0",
+        "User-Agent": "MoonX-Paper-Monitor/1.2",
       },
       body: JSON.stringify({ type: "allMids" }),
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`Hyperliquid行情HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
   const payload = (await response.json()) as Record<string, string>;
   for (const symbol of SUPPORTED_SYMBOLS) {

@@ -15,7 +15,7 @@ export function MemberMonthlyPage() {
     <div className="space-y-7">
       <div>
         <Badge variant="default">会员专享</Badge>
-        <Heading as="h1" size="h2" className="mt-3">月度行情</Heading>
+        <Heading as="h1" size="h2" className="mt-3">月度走势分析</Heading>
         <Text variant="body" color="secondary" className="mt-2 block max-w-4xl">
           展示已有原始研究依据的月度方向和运行路径。没有当前有效卦象的项目不会补写结论。
         </Text>

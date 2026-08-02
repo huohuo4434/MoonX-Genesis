@@ -3,11 +3,11 @@
  * Prefer config/navigation.ts.
  */
 export type { NavItem } from "@/config/navigation";
-export { NAV_ROUTES as routes, PUBLIC_PRIMARY_NAV as primaryNav, buildPublicFooterColumns } from "@/config/navigation";
+export { NAV_ROUTES as routes, PUBLIC_PRIMARY_NAV as primaryNav, PUBLIC_MORE_NAV, buildPublicFooterColumns } from "@/config/navigation";
 
-import { PUBLIC_PRIMARY_NAV, buildPublicFooterColumns, NAV_ROUTES } from "@/config/navigation";
+import { PUBLIC_PRIMARY_NAV, PUBLIC_MORE_NAV, buildPublicFooterColumns, NAV_ROUTES } from "@/config/navigation";
 
-export const moreNav: Array<{ key: string; href: string }> = [];
+export const moreNav = PUBLIC_MORE_NAV.map(({ key, href }) => ({ key, href }));
 
 export const footerColumns = buildPublicFooterColumns().map((col) => ({
   titleKey: col.titleKey,

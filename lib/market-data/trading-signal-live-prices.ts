@@ -10,6 +10,7 @@ export type TradingSignalPriceProvider =
   | "BITGET"
   | "HYPERLIQUID"
   | "YAHOO"
+  | "STOOQ"
   | "DEXSCREENER";
 
 export type TradingSignalLivePrice = {
@@ -90,22 +91,11 @@ type YahooChartResponse = {
   };
 };
 
-async function fetchYahooPrice(
+function yahooResultToPrice(
   normalizedSymbol: string,
-  quoteSymbol: string
-): Promise<TradingSignalLivePrice> {
-  const encoded = encodeURIComponent(quoteSymbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1m&range=5d&includePrePost=true`;
-  const response = await fetchWithTimeout(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "Mozilla/5.0 (compatible; MoonX-Signal-Monitor/1.0)",
-    },
-  });
-  if (!response.ok) throw new Error(`Yahoo ${quoteSymbol} HTTP ${response.status}`);
-
-  const payload = (await response.json()) as YahooChartResponse;
+  quoteSymbol: string,
+  payload: YahooChartResponse
+): TradingSignalLivePrice {
   const result = payload.chart?.result?.[0];
   if (!result) {
     throw new Error(payload.chart?.error?.description || `${quoteSymbol}没有行情数据`);
@@ -143,34 +133,163 @@ async function fetchYahooPrice(
   };
 }
 
+async function fetchYahooPrice(
+  normalizedSymbol: string,
+  quoteSymbol: string
+): Promise<TradingSignalLivePrice> {
+  const encoded = encodeURIComponent(quoteSymbol);
+  const attempts = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1m&range=5d&includePrePost=true`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1m&range=5d&includePrePost=true`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=1mo&includePrePost=false`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=1mo&includePrePost=false`,
+  ];
+  const errors: string[] = [];
+
+  for (const url of attempts) {
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (compatible; MoonX-Signal-Monitor/1.2)",
+        },
+      }, 5_000);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return yahooResultToPrice(
+        normalizedSymbol,
+        quoteSymbol,
+        (await response.json()) as YahooChartResponse
+      );
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "未知错误");
+    }
+  }
+
+  throw new Error(errors.join("；"));
+}
+
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]!;
+    if (char === '"') {
+      if (quoted && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+async function fetchStooqWtiPrice(): Promise<TradingSignalLivePrice> {
+  const response = await fetchWithTimeout(
+    "https://stooq.com/q/l/?s=cl.f&f=sd2t2ohlcv&h&e=csv",
+    {
+      method: "GET",
+      headers: {
+        Accept: "text/csv,text/plain,*/*",
+        "User-Agent": "Mozilla/5.0 (compatible; MoonX-Signal-Monitor/1.2)",
+      },
+    },
+    6_000
+  );
+  if (!response.ok) throw new Error(`Stooq CL.F HTTP ${response.status}`);
+  const lines = (await response.text())
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2) throw new Error("Stooq没有返回WTI行情");
+
+  const headers = parseCsvLine(lines[0]!).map((value) => value.toLowerCase());
+  const values = parseCsvLine(lines[1]!);
+  const closeIndex = headers.findIndex((value) => value === "close" || value === "last");
+  const dateIndex = headers.findIndex((value) => value === "date");
+  const timeIndex = headers.findIndex((value) => value === "time");
+  const price = Number(values[closeIndex]);
+  if (closeIndex < 0 || !Number.isFinite(price) || price <= 0) {
+    throw new Error("Stooq返回的WTI价格无效");
+  }
+
+  const dateText = dateIndex >= 0 ? values[dateIndex] : "";
+  const timeText = timeIndex >= 0 ? values[timeIndex] : "";
+  const parsedDate = dateText
+    ? new Date(`${dateText}T${timeText && timeText !== "N/D" ? timeText : "00:00:00"}Z`)
+    : new Date();
+
+  return {
+    symbol: "WTI",
+    normalizedSymbol: "WTI",
+    price,
+    provider: "STOOQ",
+    sourceSymbol: "CL.F",
+    capturedAt: Number.isNaN(parsedDate.getTime())
+      ? new Date().toISOString()
+      : parsedDate.toISOString(),
+  };
+}
+
 type DexScreenerPair = {
   chainId?: string;
   pairAddress?: string;
   priceUsd?: string;
   liquidity?: { usd?: number };
   baseToken?: { address?: string; symbol?: string };
+  quoteToken?: { address?: string; symbol?: string };
 };
 
-async function fetchAsteroidPrice(): Promise<TradingSignalLivePrice> {
-  const response = await fetchWithTimeout(
-    `https://api.dexscreener.com/token-pairs/v1/ethereum/${ASTEROID_CONTRACT}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "MoonX-Signal-Monitor/1.0",
-      },
-    }
-  );
-  if (!response.ok) throw new Error(`DexScreener ASTEROID HTTP ${response.status}`);
+type DexScreenerPayload = DexScreenerPair[] | { pairs?: DexScreenerPair[] };
 
-  const payload = (await response.json()) as DexScreenerPair[];
-  if (!Array.isArray(payload) || !payload.length) {
-    throw new Error("ASTEROID没有可用交易池");
+function dexPairs(payload: DexScreenerPayload): DexScreenerPair[] {
+  return Array.isArray(payload) ? payload : Array.isArray(payload.pairs) ? payload.pairs : [];
+}
+
+async function fetchDexPayload(url: string): Promise<DexScreenerPair[]> {
+  const response = await fetchWithTimeout(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "MoonX-Signal-Monitor/1.2",
+    },
+  }, 6_000);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return dexPairs((await response.json()) as DexScreenerPayload);
+}
+
+async function fetchAsteroidPrice(): Promise<TradingSignalLivePrice> {
+  const endpoints = [
+    `https://api.dexscreener.com/token-pairs/v1/ethereum/${ASTEROID_CONTRACT}`,
+    `https://api.dexscreener.com/latest/dex/tokens/${ASTEROID_CONTRACT}`,
+  ];
+  const allPairs: DexScreenerPair[] = [];
+  const errors: string[] = [];
+
+  for (const endpoint of endpoints) {
+    try {
+      allPairs.push(...(await fetchDexPayload(endpoint)));
+      if (allPairs.length) break;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "未知错误");
+    }
+  }
+
+  if (!allPairs.length) {
+    throw new Error(errors.length ? errors.join("；") : "没有可用交易池");
   }
 
   const contract = ASTEROID_CONTRACT.toLowerCase();
-  const candidates = payload
+  const candidates = allPairs
     .filter((row) => row.baseToken?.address?.toLowerCase() === contract)
     .map((row) => ({
       row,
@@ -181,7 +300,7 @@ async function fetchAsteroidPrice(): Promise<TradingSignalLivePrice> {
     .sort((a, b) => b.liquidity - a.liquidity);
 
   const selected = candidates[0];
-  if (!selected) throw new Error("ASTEROID没有有效美元价格");
+  if (!selected) throw new Error("没有找到以ASTEROID为基础代币的有效美元价格");
 
   return {
     symbol: "ASTEROID",
@@ -227,9 +346,17 @@ export async function getTradingSignalLivePrices(
     if (result.status === "fulfilled") {
       prices.set(symbol, result.value);
     } else {
-      warnings.push(`${symbol}自动行情不可用：${result.reason instanceof Error ? result.reason.message : "未知错误"}`);
+      warnings.push(`${symbol}主行情源不可用：${result.reason instanceof Error ? result.reason.message : "未知错误"}`);
     }
   });
+
+  if (requested.has("WTI") && !prices.has("WTI")) {
+    try {
+      prices.set("WTI", await fetchStooqWtiPrice());
+    } catch (error) {
+      warnings.push(`WTI备用行情不可用：${error instanceof Error ? error.message : "未知错误"}`);
+    }
+  }
 
   if (requested.has("ASTEROID")) {
     try {
@@ -243,7 +370,7 @@ export async function getTradingSignalLivePrices(
 
   for (const symbol of requested) {
     if (!isTradingSignalAutoPriceSupported(symbol)) {
-      warnings.push(`${symbol}尚未配置自动行情，需要人工输入真实价格`);
+      warnings.push(`${symbol}尚未配置自动行情`);
     } else if (!prices.has(symbol)) {
       warnings.push(`${symbol}本轮没有取得有效实时价格`);
     }

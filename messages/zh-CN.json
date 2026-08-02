@@ -31,7 +31,8 @@
     "language": "语言",
     "memberStocks": "重点关注",
     "tradingSignals": "AI交易信号",
-    "aiTradingDesk": "AI交易公开台"
+    "aiTradingDesk": "AI交易公开台",
+    "monthlyAnalysis": "月度走势"
   },
   "footer": {
     "tagline": "每日市场研究与公开验证",
@@ -72,7 +73,9 @@
     "myOrders": "我的订单",
     "signOut": "退出",
     "verificationCol": "验证",
-    "accountLegal": "账户与法律"
+    "accountLegal": "账户与法律",
+    "monthly": "月度走势",
+    "aiTrading": "AI交易公开台"
   },
   "hero": {
     "eyebrow": "MOOX",

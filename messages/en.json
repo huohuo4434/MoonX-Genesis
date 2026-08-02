@@ -28,7 +28,8 @@
     "language": "Language",
     "memberStocks": "Conviction List",
     "tradingSignals": "AI Trading Signals",
-    "aiTradingDesk": "AI Trading Desk"
+    "aiTradingDesk": "AI Trading Desk",
+    "monthlyAnalysis": "Monthly Outlook"
   },
   "footer": {
     "tagline": "Daily market research with public verification",
@@ -66,7 +67,9 @@
     "copyright": "© {year} {name}. All rights reserved.",
     "disclaimer": "Daily views on this site are for reference only and do not constitute investment advice.",
     "verificationCol": "Verification",
-    "accountLegal": "Account & Legal"
+    "accountLegal": "Account & Legal",
+    "monthly": "Monthly Outlook",
+    "aiTrading": "AI Trading Desk"
   },
   "hero": {
     "eyebrow": "MOOX",

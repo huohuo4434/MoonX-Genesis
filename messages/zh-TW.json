@@ -30,7 +30,8 @@
     "language": "語言",
     "memberStocks": "會員個股",
     "tradingSignals": "AI交易訊號",
-    "aiTradingDesk": "AI交易公開台"
+    "aiTradingDesk": "AI交易公開台",
+    "monthlyAnalysis": "月度走勢"
   },
   "footer": {
     "tagline": "每日市場研究與公開驗證",
@@ -71,7 +72,9 @@
     "myOrders": "我的訂單",
     "signOut": "退出",
     "verificationCol": "驗證",
-    "accountLegal": "帳戶與法律"
+    "accountLegal": "帳戶與法律",
+    "monthly": "月度走勢",
+    "aiTrading": "AI交易公開台"
   },
   "hero": {
     "eyebrow": "MOOX",

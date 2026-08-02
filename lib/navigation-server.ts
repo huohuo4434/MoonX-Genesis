@@ -3,6 +3,7 @@ import "server-only";
 import {
   buildPublicFooterColumns,
   buildPublicPrimaryNav,
+  PUBLIC_MORE_NAV,
   type NavItem,
 } from "@/config/navigation";
 
@@ -13,7 +14,7 @@ export async function getPublicPrimaryNav(): Promise<NavItem[]> {
 }
 
 export function getPublicMoreNav(): NavItem[] {
-  return [];
+  return PUBLIC_MORE_NAV;
 }
 
 export async function getPublicFooterColumns(): Promise<

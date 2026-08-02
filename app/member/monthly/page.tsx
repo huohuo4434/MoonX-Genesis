@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const metadata = { title: "月度行情 | MOOX Intelligence", description: "会员专享月度方向、运行路径与关键风险。" };
+export const metadata = { title: "月度走势分析 | MOOX Intelligence", description: "会员专享月度方向、运行路径与关键风险。" };
 
 export default async function MonthlyPage() {
   const user = await requireMember();
