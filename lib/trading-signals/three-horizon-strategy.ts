@@ -22,6 +22,7 @@ import {
   type BitgetSupportedSymbol,
 } from "@/lib/bitget/demo-client";
 import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
+import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
 import {
   getPredictionAutoTraderSettings,
   resolvePredictionStrategyPlans,
@@ -1513,9 +1514,13 @@ async function executeReadyDecision(input: {
   const environment = getBitgetDemoEnvironment();
   const horizonExecutionAllowed = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
   const mirror = await getBitgetMirrorSettings();
+  const reliabilityGate = await getTradingReliabilityOpeningGate();
   let blockReason = "";
   let blockCode = "";
-  if (!horizonExecutionAllowed) {
+  if (!reliabilityGate.allowed) {
+    blockCode = reliabilityGate.code;
+    blockReason = reliabilityGate.reason;
+  } else if (!horizonExecutionAllowed) {
     blockCode = "THREE_HORIZON_EXECUTION_OFF";
     blockReason = "BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED尚未设为true。";
   } else if (!environment.executionAllowed) {

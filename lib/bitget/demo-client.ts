@@ -1,9 +1,14 @@
 import "server-only";
 
-import { createHash, createHmac } from "crypto";
+import { createHash, createHmac, randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
 
 const BASE_URL = "https://api.bitget.com";
 const PRODUCT_TYPE = "USDT-FUTURES";
+const CLOCK_SYNC_TTL_MS = 5 * 60_000;
+const MAX_SAFE_CLOCK_SKEW_MS = 5_000;
+let serverClockOffsetMs = 0;
+let serverClockSyncedAt = 0;
 
 export type BitgetSupportedSymbol = `${string}USDT`;
 
@@ -38,6 +43,28 @@ type BitgetEnvelope<T> = {
   requestTime?: number;
   data?: T;
 };
+
+class BitgetApiError extends Error {
+  readonly code: string;
+  readonly httpStatus: number | null;
+  readonly ambiguousWrite: boolean;
+
+  constructor(input: { message: string; code?: string; httpStatus?: number | null; ambiguousWrite?: boolean }) {
+    super(input.message);
+    this.name = "BitgetApiError";
+    this.code = input.code ?? "UNKNOWN";
+    this.httpStatus = input.httpStatus ?? null;
+    this.ambiguousWrite = Boolean(input.ambiguousWrite);
+  }
+}
+
+function isOrderNotFoundError(error: unknown): boolean {
+  return error instanceof BitgetApiError && ["25204", "43001", "45057"].includes(error.code);
+}
+
+function isAmbiguousBitgetWriteError(error: unknown): boolean {
+  return error instanceof BitgetApiError && error.ambiguousWrite;
+}
 
 type BitgetUtaAssetRow = {
   coin?: string;
@@ -89,10 +116,29 @@ type BitgetInstrumentRow = {
   status?: string;
 };
 
-type BitgetOrderResponse = {
+export type BitgetDemoOrderDetails = {
   orderId?: string;
   clientOid?: string;
+  category?: string;
+  symbol?: string;
+  orderType?: string;
+  side?: string;
+  qty?: string;
+  cumExecQty?: string;
+  cumExecValue?: string;
+  avgPrice?: string;
+  orderStatus?: "live" | "new" | "partially_filled" | "filled" | "cancelled" | string;
+  posSide?: string;
+  tradeSide?: string;
+  reduceOnly?: string;
+  takeProfit?: string;
+  stopLoss?: string;
+  cancelReason?: string;
+  createdTime?: string;
+  updatedTime?: string;
 };
+
+type BitgetOrderResponse = BitgetDemoOrderDetails;
 
 type BitgetPublicTickerRow = {
   symbol?: string;
@@ -196,6 +242,73 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+export type BitgetServerClockStatus = {
+  serverTimeMs: number;
+  localMidpointMs: number;
+  offsetMs: number;
+  roundTripMs: number;
+  syncedAt: string;
+  safe: boolean;
+};
+
+export async function syncBitgetServerClock(force = false): Promise<BitgetServerClockStatus> {
+  const now = Date.now();
+  if (!force && serverClockSyncedAt > 0 && now - serverClockSyncedAt < CLOCK_SYNC_TTL_MS) {
+    return {
+      serverTimeMs: now + serverClockOffsetMs,
+      localMidpointMs: now,
+      offsetMs: serverClockOffsetMs,
+      roundTripMs: 0,
+      syncedAt: new Date(serverClockSyncedAt).toISOString(),
+      safe: Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
+    };
+  }
+  const started = Date.now();
+  const response = await fetchWithTimeout(`${BASE_URL}/api/v2/public/time`, {
+    method: "GET",
+    headers: { Accept: "application/json", "User-Agent": "MoonX-Bitget-Clock/1.0" },
+  }, 8_000);
+  const finished = Date.now();
+  const raw = await response.text();
+  let payload: BitgetEnvelope<{ serverTime?: string }>;
+  try {
+    payload = JSON.parse(raw) as BitgetEnvelope<{ serverTime?: string }>;
+  } catch {
+    throw new Error(`Bitget服务器时间返回非JSON内容（HTTP ${response.status}）`);
+  }
+  const serverTimeMs = Number(payload.data?.serverTime ?? payload.requestTime);
+  if (!response.ok || payload.code !== "00000" || !Number.isFinite(serverTimeMs) || serverTimeMs <= 0) {
+    throw new Error(payload.msg || `Bitget服务器时间HTTP ${response.status}`);
+  }
+  const localMidpointMs = Math.floor((started + finished) / 2);
+  serverClockOffsetMs = Math.round(serverTimeMs - localMidpointMs);
+  serverClockSyncedAt = finished;
+  return {
+    serverTimeMs,
+    localMidpointMs,
+    offsetMs: serverClockOffsetMs,
+    roundTripMs: Math.max(0, finished - started),
+    syncedAt: new Date(serverClockSyncedAt).toISOString(),
+    safe: Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
+  };
+}
+
+export function getCachedBitgetServerClock(): { offsetMs: number; syncedAt: string | null; safe: boolean } {
+  return {
+    offsetMs: serverClockOffsetMs,
+    syncedAt: serverClockSyncedAt > 0 ? new Date(serverClockSyncedAt).toISOString() : null,
+    safe: serverClockSyncedAt > 0 && Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
+  };
+}
+
+async function assertBitgetClockSafe(): Promise<BitgetServerClockStatus> {
+  const status = await syncBitgetServerClock(true);
+  if (!status.safe) {
+    throw new Error(`CLOCK_SKEW：本机与Bitget服务器时间偏差${status.offsetMs}ms，已禁止交易写操作`);
+  }
+  return status;
 }
 
 export async function getBitgetDemoMarketQuotes(
@@ -324,7 +437,12 @@ async function signedRequest<T>(input: {
     throw new Error("Bitget Demo环境变量尚未配置完整");
   }
 
-  const timestamp = String(Date.now());
+  try {
+    await syncBitgetServerClock(false);
+  } catch {
+    // Read-only requests may still proceed with the last known offset; write paths call assertBitgetClockSafe first.
+  }
+  const timestamp = String(Date.now() + serverClockOffsetMs);
   const query = queryString(input.query);
   const body = input.body ? JSON.stringify(input.body) : "";
   const sign = signature({
@@ -353,22 +471,42 @@ async function signedRequest<T>(input: {
   };
   if (input.method === "POST") requestInit.body = body;
 
-  const response = await fetchWithTimeout(url, requestInit);
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(url, requestInit);
+  } catch (error) {
+    throw new BitgetApiError({
+      message: `Bitget网络请求失败：${error instanceof Error ? error.message : "未知网络错误"}`,
+      code: "NETWORK_ERROR",
+      ambiguousWrite: input.method === "POST",
+    });
+  }
 
   const raw = await response.text();
   let envelope: BitgetEnvelope<T>;
   try {
     envelope = JSON.parse(raw) as BitgetEnvelope<T>;
   } catch {
-    throw new Error(`Bitget返回非JSON内容（HTTP ${response.status}）`);
+    throw new BitgetApiError({
+      message: `Bitget返回非JSON内容（HTTP ${response.status}）`,
+      code: `HTTP_${response.status}`,
+      httpStatus: response.status,
+      ambiguousWrite: input.method === "POST",
+    });
   }
 
   if (!response.ok || envelope.code !== "00000") {
-    throw new Error(
-      `Bitget ${envelope.code ?? response.status}: ${
-        envelope.msg ?? "请求失败"
-      }`
+    const code = String(envelope.code ?? response.status);
+    const ambiguousWrite = input.method === "POST" && (
+      response.status >= 500 ||
+      ["25000", "25001", "25003", "40725"].includes(code)
     );
+    throw new BitgetApiError({
+      message: `Bitget ${code}: ${envelope.msg ?? "请求失败"}`,
+      code,
+      httpStatus: response.status,
+      ambiguousWrite,
+    });
   }
 
   return envelope.data as T;
@@ -616,18 +754,37 @@ function clientOid(paperOrderId: string): string {
   return `mx${hash}`;
 }
 
+async function getBitgetDemoOrderDetailsStrict(input: {
+  orderId?: string;
+  clientOid?: string;
+}): Promise<BitgetDemoOrderDetails | null> {
+  if (!input.orderId && !input.clientOid) return null;
+  try {
+    return await signedRequest<BitgetDemoOrderDetails>({
+      method: "GET",
+      path: "/api/v3/trade/order-info",
+      query: {
+        ...(input.orderId ? { orderId: input.orderId } : {}),
+        ...(input.clientOid ? { clientOid: input.clientOid } : {}),
+      },
+    });
+  } catch (error) {
+    if (isOrderNotFoundError(error)) return null;
+    throw error;
+  }
+}
+
+export async function getBitgetDemoOrderDetails(input: {
+  orderId?: string;
+  clientOid?: string;
+}): Promise<BitgetDemoOrderDetails | null> {
+  return getBitgetDemoOrderDetailsStrict(input).catch(() => null);
+}
+
 export async function getBitgetDemoOrderByClientOid(
   oid: string
 ): Promise<BitgetOrderResponse | null> {
-  try {
-    return await signedRequest<BitgetOrderResponse>({
-      method: "GET",
-      path: "/api/v3/trade/order-info",
-      query: { clientOid: oid },
-    });
-  } catch {
-    return null;
-  }
+  return getBitgetDemoOrderDetailsStrict({ clientOid: oid });
 }
 
 function inferHedgePositionSide(input: {
@@ -636,6 +793,461 @@ function inferHedgePositionSide(input: {
 }): "long" | "short" {
   if (!input.reduceOnly) return input.side === "buy" ? "long" : "short";
   return input.side === "sell" ? "long" : "short";
+}
+
+type ExecutionAction = "OPEN_MARKET" | "CLOSE_MARKET" | "PLACE_PROTECTION" | "CANCEL_PROTECTION";
+type ExecutionStatus = "PENDING" | "PROCESSING" | "ACKNOWLEDGED" | "CONFIRMED" | "FAILED" | "RECONCILED";
+
+type ExecutionOutboxRow = {
+  id: string;
+  idempotency_key: string;
+  decision_id: string | null;
+  action_type: ExecutionAction;
+  symbol: string;
+  direction: string | null;
+  payload: unknown;
+  status: ExecutionStatus;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: Date | string | null;
+  locked_until: Date | string | null;
+  client_oid: string | null;
+  bitget_order_id: string | null;
+  last_error: string;
+  acknowledged_at: Date | string | null;
+  confirmed_at: Date | string | null;
+  reconciled_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+type MarketExecutionPayload = {
+  paperOrderId: string;
+  symbol: BitgetSupportedSymbol;
+  quantity: number;
+  side: "buy" | "sell";
+  reduceOnly: boolean;
+  stopLoss?: number;
+  takeProfit?: number;
+  size: string;
+  warnings: string[];
+};
+
+type ProtectionExecutionPayload = {
+  paperOrderId: string;
+  symbol: BitgetSupportedSymbol;
+  posSide: "long" | "short";
+  stopLoss: number;
+  takeProfit: number;
+};
+
+type CancelProtectionPayload = {
+  orderId?: string;
+  clientOid?: string;
+  symbol: string;
+};
+
+let outboxEnsured = false;
+export async function ensureBitgetExecutionOutboxTable(): Promise<boolean> {
+  if (!prisma) return false;
+  if (outboxEnsured) return true;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS trade_execution_outbox (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT NOT NULL UNIQUE,
+      decision_id TEXT,
+      action_type TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      direction TEXT,
+      payload JSONB NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 5,
+      next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      locked_until TIMESTAMPTZ,
+      client_oid TEXT,
+      bitget_order_id TEXT,
+      last_error TEXT NOT NULL DEFAULT '',
+      acknowledged_at TIMESTAMPTZ,
+      confirmed_at TIMESTAMPTZ,
+      reconciled_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT trade_execution_outbox_action_check CHECK (action_type IN ('OPEN_MARKET','CLOSE_MARKET','PLACE_PROTECTION','CANCEL_PROTECTION')),
+      CONSTRAINT trade_execution_outbox_status_check CHECK (status IN ('PENDING','PROCESSING','ACKNOWLEDGED','CONFIRMED','FAILED','RECONCILED'))
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS trade_execution_outbox_ready_idx
+    ON trade_execution_outbox(status, next_attempt_at, created_at)
+  `);
+  outboxEnsured = true;
+  return true;
+}
+
+function parsePayload<T>(value: unknown): T {
+  if (typeof value === "string") return JSON.parse(value) as T;
+  return value as T;
+}
+
+async function getOutboxById(id: string): Promise<ExecutionOutboxRow | null> {
+  if (!prisma) return null;
+  const rows = await prisma.$queryRawUnsafe<ExecutionOutboxRow[]>(
+    `SELECT * FROM trade_execution_outbox WHERE id = $1 LIMIT 1`,
+    id
+  );
+  return rows[0] ?? null;
+}
+
+async function createOutboxIntent(input: {
+  idempotencyKey: string;
+  decisionId: string | null;
+  actionType: ExecutionAction;
+  symbol: string;
+  direction?: string | null;
+  clientOid?: string | null;
+  payload: Record<string, unknown>;
+}): Promise<ExecutionOutboxRow> {
+  if (!prisma) throw new Error("数据库不可用，无法创建持久化交易任务");
+  await ensureBitgetExecutionOutboxTable();
+  const rows = await prisma.$queryRawUnsafe<ExecutionOutboxRow[]>(
+    `INSERT INTO trade_execution_outbox
+      (id,idempotency_key,decision_id,action_type,symbol,direction,payload,status,client_oid,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'PENDING',$8,NOW(),NOW())
+     ON CONFLICT (idempotency_key) DO UPDATE SET
+       payload=CASE WHEN trade_execution_outbox.status IN ('PENDING','FAILED') THEN EXCLUDED.payload ELSE trade_execution_outbox.payload END,
+       updated_at=NOW()
+     RETURNING *`,
+    `outbox_${randomUUID()}`,
+    input.idempotencyKey,
+    input.decisionId,
+    input.actionType,
+    input.symbol,
+    input.direction ?? null,
+    JSON.stringify(input.payload),
+    input.clientOid ?? null
+  );
+  if (!rows[0]) throw new Error("持久化交易任务创建失败");
+  return rows[0];
+}
+
+async function acquireOutboxTask(id: string): Promise<ExecutionOutboxRow | null> {
+  if (!prisma) return null;
+  const rows = await prisma.$queryRawUnsafe<ExecutionOutboxRow[]>(
+    `UPDATE trade_execution_outbox
+     SET status='PROCESSING',attempt_count=attempt_count+1,
+         locked_until=NOW()+INTERVAL '45 seconds',last_error='',updated_at=NOW()
+     WHERE id=$1 AND attempt_count<max_attempts
+       AND (status IN ('PENDING','FAILED') OR (status='PROCESSING' AND (locked_until IS NULL OR locked_until<NOW())))
+       AND next_attempt_at<=NOW()
+     RETURNING *`,
+    id
+  );
+  return rows[0] ?? null;
+}
+
+async function updateOutbox(input: {
+  id: string;
+  status: ExecutionStatus;
+  clientOid?: string | null;
+  bitgetOrderId?: string | null;
+  lastError?: string;
+  retrySeconds?: number;
+  terminal?: boolean;
+}): Promise<void> {
+  if (!prisma) return;
+  await prisma.$executeRawUnsafe(
+    `UPDATE trade_execution_outbox SET
+       status=$2,client_oid=COALESCE($3,client_oid),bitget_order_id=COALESCE($4,bitget_order_id),
+       last_error=$5,next_attempt_at=NOW()+($6::text||' seconds')::interval,locked_until=NULL,
+       acknowledged_at=CASE WHEN $2 IN ('ACKNOWLEDGED','CONFIRMED','RECONCILED') THEN COALESCE(acknowledged_at,NOW()) ELSE acknowledged_at END,
+       confirmed_at=CASE WHEN $2 IN ('CONFIRMED','RECONCILED') THEN COALESCE(confirmed_at,NOW()) ELSE confirmed_at END,
+       reconciled_at=CASE WHEN $2='RECONCILED' THEN COALESCE(reconciled_at,NOW()) ELSE reconciled_at END,
+       max_attempts = CASE WHEN $7 THEN attempt_count ELSE max_attempts END,updated_at=NOW()
+     WHERE id=$1`,
+    input.id,
+    input.status,
+    input.clientOid ?? null,
+    input.bitgetOrderId ?? null,
+    input.lastError ?? "",
+    Math.max(0, Math.floor(input.retrySeconds ?? 0)),
+    Boolean(input.terminal)
+  );
+}
+
+function orderTerminalStatus(order: BitgetDemoOrderDetails | null): "CONFIRMED" | "ACKNOWLEDGED" | "FAILED" | null {
+  if (!order) return null;
+  const status = String(order.orderStatus ?? "").toLowerCase();
+  if (status === "filled") return "CONFIRMED";
+  if (status === "cancelled") return "FAILED";
+  if (["live", "new", "partially_filled"].includes(status)) return "ACKNOWLEDGED";
+  return order.orderId ? "ACKNOWLEDGED" : null;
+}
+
+async function submitMarketOrderDirect(
+  payload: MarketExecutionPayload,
+  oid: string,
+  onDispatch?: () => void
+): Promise<BitgetOrderResponse> {
+  await assertBitgetClockSafe();
+  const settings = await getUtaSettings();
+  const body: Record<string, unknown> = {
+    category: PRODUCT_TYPE,
+    symbol: payload.symbol,
+    qty: payload.size,
+    side: payload.side,
+    orderType: "market",
+    clientOid: oid,
+    reduceOnly: payload.reduceOnly ? "yes" : "no",
+    marginMode: "isolated",
+  };
+  if (!payload.reduceOnly && payload.stopLoss && payload.stopLoss > 0) {
+    body.stopLoss = payload.stopLoss.toFixed(8).replace(/\.?0+$/, "");
+    body.slTriggerBy = "mark";
+    body.slOrderType = "market";
+  }
+  if (!payload.reduceOnly && payload.takeProfit && payload.takeProfit > 0) {
+    body.takeProfit = payload.takeProfit.toFixed(8).replace(/\.?0+$/, "");
+    body.tpTriggerBy = "mark";
+    body.tpOrderType = "market";
+  }
+  if (settings.holdMode === "hedge_mode") body.posSide = inferHedgePositionSide(payload);
+  onDispatch?.();
+  return signedRequest<BitgetOrderResponse>({ method: "POST", path: "/api/v3/trade/place-order", body });
+}
+
+type BitgetStrategyOrderRecord = {
+  orderId?: string;
+  clientOid?: string;
+  symbol?: string;
+  posSide?: string;
+  status?: string;
+  takeProfit?: string;
+  stopLoss?: string;
+};
+
+async function getStrategyOrderRecord(input: {
+  orderId?: string | null;
+  clientOid?: string | null;
+}): Promise<BitgetStrategyOrderRecord | null> {
+  const pending = await signedRequest<BitgetStrategyOrderRecord[]>({
+    method: "GET",
+    path: "/api/v3/trade/unfilled-strategy-orders",
+    query: { category: PRODUCT_TYPE, type: "tpsl" },
+  });
+  const current = pending.find((row) =>
+    Boolean((input.orderId && row.orderId === input.orderId) || (input.clientOid && row.clientOid === input.clientOid))
+  );
+  if (current) return current;
+  const history = await signedRequest<{ list?: BitgetStrategyOrderRecord[] }>({
+    method: "GET",
+    path: "/api/v3/trade/history-strategy-orders",
+    query: { category: PRODUCT_TYPE, type: "tpsl", limit: 100 },
+  });
+  return (history.list ?? []).find((row) =>
+    Boolean((input.orderId && row.orderId === input.orderId) || (input.clientOid && row.clientOid === input.clientOid))
+  ) ?? null;
+}
+
+async function submitProtectionOrderDirect(
+  payload: ProtectionExecutionPayload,
+  oid: string,
+  onDispatch?: () => void
+): Promise<BitgetOrderResponse> {
+  await assertBitgetClockSafe();
+  onDispatch?.();
+  return signedRequest<BitgetOrderResponse>({
+    method: "POST",
+    path: "/api/v3/trade/place-strategy-order",
+    body: {
+      category: PRODUCT_TYPE,
+      symbol: payload.symbol,
+      type: "tpsl",
+      tpslMode: "full",
+      posSide: payload.posSide,
+      stopLoss: payload.stopLoss.toFixed(8).replace(/\.?0+$/, ""),
+      takeProfit: payload.takeProfit.toFixed(8).replace(/\.?0+$/, ""),
+      slTriggerBy: "mark",
+      tpTriggerBy: "mark",
+      slOrderType: "market",
+      tpOrderType: "market",
+      clientOid: oid,
+    },
+  });
+}
+
+async function cancelProtectionDirect(payload: CancelProtectionPayload): Promise<void> {
+  await assertBitgetClockSafe();
+  await signedRequest<null>({
+    method: "POST",
+    path: "/api/v3/trade/cancel-strategy-order",
+    body: {
+      ...(payload.orderId ? { orderId: payload.orderId } : {}),
+      ...(payload.clientOid && !payload.orderId ? { clientOid: payload.clientOid } : {}),
+    },
+  });
+}
+
+async function confirmAcknowledgedOutbox(row: ExecutionOutboxRow): Promise<ExecutionOutboxRow> {
+  if (row.action_type === "OPEN_MARKET" || row.action_type === "CLOSE_MARKET") {
+    const order = await getBitgetDemoOrderDetails({
+      orderId: row.bitget_order_id ?? undefined,
+      clientOid: row.client_oid ?? undefined,
+    });
+    const status = orderTerminalStatus(order);
+    if (status === "CONFIRMED") {
+      await updateOutbox({ id: row.id, status: "CONFIRMED", clientOid: order?.clientOid, bitgetOrderId: order?.orderId });
+    } else if (status === "FAILED") {
+      await updateOutbox({ id: row.id, status: "FAILED", lastError: order?.cancelReason || "订单已取消", retrySeconds: 3600, terminal: true });
+    } else {
+      await updateOutbox({ id: row.id, status: "ACKNOWLEDGED", clientOid: order?.clientOid, bitgetOrderId: order?.orderId, retrySeconds: 20 });
+    }
+  } else if (row.action_type === "PLACE_PROTECTION") {
+    const record = await getStrategyOrderRecord({ orderId: row.bitget_order_id, clientOid: row.client_oid });
+    const status = String(record?.status ?? "").toLowerCase();
+    if (record && ["pending", "submitting", "success"].includes(status)) {
+      await updateOutbox({ id: row.id, status: "CONFIRMED", clientOid: record.clientOid, bitgetOrderId: record.orderId });
+    } else if (record && ["failed", "cancelled"].includes(status)) {
+      await updateOutbox({ id: row.id, status: "FAILED", lastError: `保护单状态${status}`, retrySeconds: 3600, terminal: true });
+    } else {
+      await updateOutbox({ id: row.id, status: "ACKNOWLEDGED", retrySeconds: 20 });
+    }
+  } else {
+    const payload = parsePayload<CancelProtectionPayload>(row.payload);
+    const record = await getStrategyOrderRecord({ orderId: payload.orderId, clientOid: payload.clientOid });
+    const status = String(record?.status ?? "").toLowerCase();
+    if (!record || ["cancelled", "success", "failed"].includes(status)) {
+      await updateOutbox({ id: row.id, status: "CONFIRMED" });
+    } else {
+      await updateOutbox({ id: row.id, status: "ACKNOWLEDGED", retrySeconds: 20 });
+    }
+  }
+  return (await getOutboxById(row.id)) ?? row;
+}
+
+async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> {
+  const existing = await getOutboxById(id);
+  if (!existing) throw new Error("交易执行任务不存在");
+  if (["CONFIRMED", "RECONCILED"].includes(existing.status)) return existing;
+  if (existing.status === "ACKNOWLEDGED") {
+    try {
+      return await confirmAcknowledgedOutbox(existing);
+    } catch (error) {
+      await updateOutbox({
+        id: existing.id,
+        status: "ACKNOWLEDGED",
+        lastError: `FINAL_STATUS_QUERY_FAILED：${error instanceof Error ? error.message : "最终状态回查失败"}`,
+        retrySeconds: 20,
+      });
+      return (await getOutboxById(existing.id)) ?? existing;
+    }
+  }
+  const acquired = await acquireOutboxTask(id);
+  if (!acquired) return (await getOutboxById(id)) ?? existing;
+  let remoteSubmissionAttempted = false;
+  try {
+    if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
+      const payload = parsePayload<MarketExecutionPayload>(acquired.payload);
+      const oid = acquired.client_oid || clientOid(payload.paperOrderId);
+      const previous = await getBitgetDemoOrderByClientOid(oid);
+      const response = previous?.orderId
+        ? previous
+        : await submitMarketOrderDirect(payload, oid, () => { remoteSubmissionAttempted = true; });
+      if (!response?.orderId) throw new Error("Bitget未返回orderId");
+      await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: response.clientOid ?? oid, bitgetOrderId: response.orderId, retrySeconds: 5 });
+    } else if (acquired.action_type === "PLACE_PROTECTION") {
+      const payload = parsePayload<ProtectionExecutionPayload>(acquired.payload);
+      const oid = acquired.client_oid || clientOid(`${payload.paperOrderId}:protection`);
+      const previous = await getStrategyOrderRecord({ clientOid: oid });
+      const response = previous?.orderId
+        ? previous
+        : await submitProtectionOrderDirect(payload, oid, () => { remoteSubmissionAttempted = true; });
+      if (!response?.orderId) throw new Error("Bitget未返回止盈止损orderId");
+      await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: response.clientOid ?? oid, bitgetOrderId: response.orderId, retrySeconds: 5 });
+    } else {
+      const payload = parsePayload<CancelProtectionPayload>(acquired.payload);
+      remoteSubmissionAttempted = true;
+      await cancelProtectionDirect(payload);
+      await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: payload.clientOid, bitgetOrderId: payload.orderId, retrySeconds: 2 });
+    }
+    const acknowledged = await getOutboxById(id);
+    return acknowledged ? confirmAcknowledgedOutbox(acknowledged) : acquired;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Bitget Demo执行失败";
+    if (remoteSubmissionAttempted && acquired.client_oid) {
+      try {
+        if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
+          const recoveredOrder = await getBitgetDemoOrderByClientOid(acquired.client_oid);
+          if (recoveredOrder?.orderId) {
+            await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: recoveredOrder.clientOid, bitgetOrderId: recoveredOrder.orderId, lastError: `响应异常后已按clientOid找回订单：${message}`, retrySeconds: 5 });
+            return confirmAcknowledgedOutbox((await getOutboxById(id)) ?? acquired);
+          }
+        } else if (acquired.action_type === "PLACE_PROTECTION") {
+          const recoveredProtection = await getStrategyOrderRecord({ clientOid: acquired.client_oid });
+          if (recoveredProtection?.orderId) {
+            await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: recoveredProtection.clientOid, bitgetOrderId: recoveredProtection.orderId, lastError: `响应异常后已按clientOid找回保护单：${message}`, retrySeconds: 5 });
+            return confirmAcknowledgedOutbox((await getOutboxById(id)) ?? acquired);
+          }
+        }
+      } catch (recoveryError) {
+        if (isAmbiguousBitgetWriteError(error)) {
+          await updateOutbox({
+            id,
+            status: "ACKNOWLEDGED",
+            lastError: `ORDER_STATUS_UNKNOWN：${message}；回查失败：${recoveryError instanceof Error ? recoveryError.message : "未知错误"}`,
+            retrySeconds: 20,
+          });
+          return (await getOutboxById(id)) ?? acquired;
+        }
+      }
+      if (isAmbiguousBitgetWriteError(error)) {
+        await updateOutbox({
+          id,
+          status: "ACKNOWLEDGED",
+          lastError: `ORDER_STATUS_UNKNOWN：${message}；为防止重复下单，系统只回查、不自动重提。`,
+          retrySeconds: 20,
+        });
+        return (await getOutboxById(id)) ?? acquired;
+      }
+    }
+    const terminal = acquired.attempt_count >= acquired.max_attempts;
+    await updateOutbox({
+      id,
+      status: "FAILED",
+      lastError: message,
+      retrySeconds: terminal ? 3600 : Math.min(300, 15 * 2 ** Math.max(0, acquired.attempt_count - 1)),
+      terminal,
+    });
+    return (await getOutboxById(id)) ?? acquired;
+  }
+}
+
+export async function processBitgetDemoExecutionOutbox(limit = 10): Promise<{
+  processed: number;
+  confirmed: number;
+  acknowledged: number;
+  failed: number;
+}> {
+  if (!prisma) return { processed: 0, confirmed: 0, acknowledged: 0, failed: 0 };
+  await ensureBitgetExecutionOutboxTable();
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM trade_execution_outbox
+     WHERE status IN ('PENDING','FAILED','ACKNOWLEDGED','PROCESSING')
+       AND next_attempt_at<=NOW() AND attempt_count<max_attempts
+       AND (status<>'PROCESSING' OR locked_until IS NULL OR locked_until<NOW())
+     ORDER BY created_at ASC LIMIT $1`,
+    Math.max(1, Math.min(25, Math.floor(limit)))
+  );
+  let confirmed = 0;
+  let acknowledged = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const result = await processSingleOutboxTask(row.id);
+    if (["CONFIRMED", "RECONCILED"].includes(result.status)) confirmed += 1;
+    else if (result.status === "ACKNOWLEDGED") acknowledged += 1;
+    else if (result.status === "FAILED") failed += 1;
+  }
+  return { processed: rows.length, confirmed, acknowledged, failed };
 }
 
 export async function placeBitgetDemoMarketOrder(input: {
@@ -654,89 +1266,38 @@ export async function placeBitgetDemoMarketOrder(input: {
   raw: BitgetOrderResponse;
 }> {
   const env = getBitgetDemoEnvironment();
-  if (!env.executionAllowed) {
-    throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
-  }
-
-  const [contract, settings] = await Promise.all([
-    getContractConfig(input.symbol),
-    getUtaSettings(),
-  ]);
+  if (!env.executionAllowed) throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+  await assertBitgetClockSafe();
+  const contract = await getContractConfig(input.symbol);
   const size = normalizeOrderSize(input.quantity, contract);
-  const warnings = input.reduceOnly
-    ? []
-    : await configureUtaSymbol(input.symbol);
+  const warnings = input.reduceOnly ? [] : await configureUtaSymbol(input.symbol);
   const oid = clientOid(input.paperOrderId);
-
-  const existing = await getBitgetDemoOrderByClientOid(oid);
-  if (existing?.orderId) {
-    return {
-      orderId: existing.orderId,
-      clientOid: existing.clientOid ?? oid,
-      size,
-      warnings: [...warnings, "检测到相同clientOid，未重复下单"],
-      raw: existing,
-    };
-  }
-
-  const hedgeMode = settings.holdMode === "hedge_mode";
-  const body: Record<string, unknown> = {
-    category: PRODUCT_TYPE,
+  const payload: MarketExecutionPayload = { ...input, size, warnings };
+  const task = await createOutboxIntent({
+    idempotencyKey: `${input.reduceOnly ? "close" : "open"}:${oid}`,
+    decisionId: input.paperOrderId.split(":")[0] || null,
+    actionType: input.reduceOnly ? "CLOSE_MARKET" : "OPEN_MARKET",
     symbol: input.symbol,
-    qty: size,
-    side: input.side,
-    orderType: "market",
+    direction: input.side,
     clientOid: oid,
-    reduceOnly: input.reduceOnly ? "yes" : "no",
-    marginMode: "isolated",
+    payload: payload as unknown as Record<string, unknown>,
+  });
+  const result = await processSingleOutboxTask(task.id);
+  if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
+    throw new Error(result.last_error || "Bitget Demo订单未进入可确认状态");
+  }
+  const raw = await getBitgetDemoOrderDetails({ orderId: result.bitget_order_id, clientOid: result.client_oid }) ?? {
+    orderId: result.bitget_order_id,
+    clientOid: result.client_oid,
   };
-
-  if (!input.reduceOnly && input.stopLoss && input.stopLoss > 0) {
-    body.stopLoss = input.stopLoss.toFixed(8).replace(/\.?0+$/, "");
-    body.slTriggerBy = "mark";
-    body.slOrderType = "market";
-  }
-  if (!input.reduceOnly && input.takeProfit && input.takeProfit > 0) {
-    body.takeProfit = input.takeProfit.toFixed(8).replace(/\.?0+$/, "");
-    body.tpTriggerBy = "mark";
-    body.tpOrderType = "market";
-  }
-
-  if (hedgeMode) {
-    body.posSide = inferHedgePositionSide(input);
-  }
-
-  try {
-    const response = await signedRequest<BitgetOrderResponse>({
-      method: "POST",
-      path: "/api/v3/trade/place-order",
-      body,
-    });
-
-    if (!response?.orderId) throw new Error("Bitget未返回orderId");
-
-    return {
-      orderId: response.orderId,
-      clientOid: response.clientOid ?? oid,
-      size,
-      warnings,
-      raw: response,
-    };
-  } catch (error) {
-    const afterError = await getBitgetDemoOrderByClientOid(oid);
-    if (afterError?.orderId) {
-      return {
-        orderId: afterError.orderId,
-        clientOid: afterError.clientOid ?? oid,
-        size,
-        warnings: [...warnings, "下单响应异常，但已按clientOid查询到订单"],
-        raw: afterError,
-      };
-    }
-    throw error;
-  }
+  return {
+    orderId: result.bitget_order_id,
+    clientOid: result.client_oid,
+    size,
+    warnings: [...warnings, `Phase 4执行发件箱：${result.status}`],
+    raw,
+  };
 }
-
 
 export async function placeBitgetDemoProtectionOrder(input: {
   paperOrderId: string;
@@ -746,53 +1307,47 @@ export async function placeBitgetDemoProtectionOrder(input: {
   takeProfit: number;
 }): Promise<{ orderId: string; clientOid: string }> {
   const env = getBitgetDemoEnvironment();
-  if (!env.executionAllowed) {
-    throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
-  }
+  if (!env.executionAllowed) throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+  await assertBitgetClockSafe();
   const oid = clientOid(`${input.paperOrderId}:protection`);
-  const existing = (await getBitgetDemoPendingStrategyOrders()).find(
-    (row) => row.clientOid === oid
-  );
-  if (existing?.orderId) {
-    return { orderId: existing.orderId, clientOid: oid };
-  }
-  const response = await signedRequest<BitgetOrderResponse>({
-    method: "POST",
-    path: "/api/v3/trade/place-strategy-order",
-    body: {
-      category: PRODUCT_TYPE,
-      symbol: input.symbol,
-      type: "tpsl",
-      tpslMode: "full",
-      posSide: input.posSide,
-      stopLoss: input.stopLoss.toFixed(2),
-      takeProfit: input.takeProfit.toFixed(2),
-      slTriggerBy: "mark",
-      tpTriggerBy: "mark",
-      slOrderType: "market",
-      tpOrderType: "market",
-      clientOid: oid,
-    },
+  const task = await createOutboxIntent({
+    idempotencyKey: `protection:${oid}`,
+    decisionId: input.paperOrderId.split(":")[0] || null,
+    actionType: "PLACE_PROTECTION",
+    symbol: input.symbol,
+    direction: input.posSide,
+    clientOid: oid,
+    payload: input as unknown as Record<string, unknown>,
   });
-  if (!response?.orderId) throw new Error("Bitget未返回止盈止损orderId");
-  return { orderId: response.orderId, clientOid: response.clientOid ?? oid };
+  const result = await processSingleOutboxTask(task.id);
+  if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
+    throw new Error(result.last_error || "Bitget Demo保护单未进入可确认状态");
+  }
+  return { orderId: result.bitget_order_id, clientOid: result.client_oid };
 }
 
 export async function cancelBitgetDemoStrategyOrder(input: {
   orderId?: string;
   clientOid?: string;
+  symbol?: string;
 }): Promise<void> {
-  if (!input.orderId && !input.clientOid) {
-    throw new Error("取消策略订单必须提供orderId或clientOid");
-  }
-  await signedRequest<null>({
-    method: "POST",
-    path: "/api/v3/trade/cancel-strategy-order",
-    body: {
-      ...(input.orderId ? { orderId: input.orderId } : {}),
-      ...(input.clientOid ? { clientOid: input.clientOid } : {}),
-    },
+  if (!input.orderId && !input.clientOid) throw new Error("取消策略订单必须提供orderId或clientOid");
+  const ref = input.orderId ?? input.clientOid ?? "unknown";
+  const payload: CancelProtectionPayload = {
+    orderId: input.orderId,
+    clientOid: input.clientOid,
+    symbol: input.symbol ?? "UNKNOWN",
+  };
+  const task = await createOutboxIntent({
+    idempotencyKey: `cancel-protection:${ref}`,
+    decisionId: null,
+    actionType: "CANCEL_PROTECTION",
+    symbol: payload.symbol,
+    clientOid: input.clientOid ?? null,
+    payload: payload as unknown as Record<string, unknown>,
   });
+  const result = await processSingleOutboxTask(task.id);
+  if (result.status === "FAILED") throw new Error(result.last_error || "取消保护单失败");
 }
 
 export type BitgetDemoPosition = {

@@ -41,6 +41,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/trading-watchdog",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/vibe-refresh",
       "schedule": "30 10 * * 1-5"
     }

@@ -4,19 +4,22 @@ import { PredictionAutoTraderClient } from "@/components/admin/PredictionAutoTra
 import { AiTradingDeskSettingsClient } from "@/components/admin/AiTradingDeskSettingsClient";
 import { ThreeHorizonStrategyClient } from "@/components/admin/ThreeHorizonStrategyClient";
 import { StrategyValidationClient } from "@/components/admin/StrategyValidationClient";
+import { TradingReliabilityClient } from "@/components/admin/TradingReliabilityClient";
 import { Heading, Section, Text } from "@/components/ui";
 import { getBitgetDemoAdminDashboard } from "@/lib/bitget/demo-runtime";
 import { getPredictionAutoTraderDashboard } from "@/lib/trading-signals/prediction-auto-trader";
 import { getMemberAiTradingDeskSettings } from "@/lib/trading-signals/member-ai-trading-desk";
+import { getTradingReliabilityDashboard } from "@/lib/trading-signals/trading-reliability";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminBitgetDemoPage() {
-  const [dashboard, autoTrader, publicDeskSettings] = await Promise.all([
+  const [dashboard, autoTrader, publicDeskSettings, reliability] = await Promise.all([
     getBitgetDemoAdminDashboard(),
     getPredictionAutoTraderDashboard(),
     getMemberAiTradingDeskSettings(),
+    getTradingReliabilityDashboard(),
   ]);
   return (
     <main>
@@ -30,6 +33,7 @@ export default async function AdminBitgetDemoPage() {
           <BitgetDemoClient initial={dashboard} />
           <ThreeHorizonStrategyClient initial={dashboard.threeHorizon} />
           <StrategyValidationClient initial={dashboard.validation} />
+          <TradingReliabilityClient initial={reliability} />
           <PredictionAutoTraderClient initial={autoTrader} />
           <AiTradingDeskSettingsClient initial={publicDeskSettings} />
         </div>
