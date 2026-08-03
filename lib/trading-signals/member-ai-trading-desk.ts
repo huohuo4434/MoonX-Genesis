@@ -8,6 +8,7 @@ import {
   type BitgetDemoPosition,
   type BitgetDemoStrategyOrder,
 } from "@/lib/bitget/demo-client";
+import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
 import { prisma } from "@/lib/prisma";
 import {
   ensurePredictionAutoTraderTables,
@@ -43,17 +44,6 @@ type DbDeskSnapshot = {
   last_error: string | null;
 };
 
-type DbClosedMoonxPosition = {
-  id: string;
-  symbol: string;
-  direction: string;
-  original_quantity: number;
-  average_entry_price: number;
-  current_price: number;
-  realized_pnl: number;
-  opened_at: Date | string;
-  closed_at: Date | string | null;
-};
 
 const DEFAULT_SETTINGS: AiTradingDeskSettings = {
   enabled: true,
@@ -70,11 +60,6 @@ function iso(value: Date | string | null): string | null {
   if (value == null) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function finite(value: unknown): number {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
 }
 
 function round(value: number, digits = 2): number {
@@ -221,10 +206,10 @@ function marketFromRun(run: PredictionAutoRunLog | undefined): {
 function planStatus(
   plan: PredictionStrategyPlan,
   run: PredictionAutoRunLog | undefined,
+  market: { currentPrice: number | null; capturedAt: string | null },
   hasPosition: boolean
 ): { status: AiTradingDeskPlanStatus; label: string } {
   if (hasPosition) return { status: "POSITION_OPEN", label: "持仓中" };
-  const market = marketFromRun(run);
   if (market.currentPrice == null || market.capturedAt == null) {
     return { status: "PLAN_ONLY", label: "仅有计划" };
   }
@@ -245,14 +230,27 @@ function directionText(direction: string): string {
 function buildPlanRows(
   plans: PredictionStrategyPlan[],
   runs: PredictionAutoRunLog[],
-  positions: BitgetDemoPosition[]
+  positions: BitgetDemoPosition[],
+  runtimeQuotes: Map<string, { price: number; capturedAt: string }>
 ): AiTradingDeskPlan[] {
   const latest = latestRunsBySymbol(runs);
   const openSymbols = new Set(positions.map((row) => row.symbol.replace(/USDT$/i, "")));
   return plans.map((plan) => {
     const run = latest.get(plan.symbol.toUpperCase());
-    const market = marketFromRun(run);
-    const state = planStatus(plan, run, openSymbols.has(plan.symbol.toUpperCase()));
+    const runMarket = marketFromRun(run);
+    const quote = runtimeQuotes.get(`${plan.symbol}USDT`.toUpperCase());
+    const market = runMarket.currentPrice != null && runMarket.capturedAt
+      ? runMarket
+      : {
+          currentPrice: quote?.price ?? null,
+          capturedAt: quote?.capturedAt ?? null,
+        };
+    const state = planStatus(
+      plan,
+      run,
+      market,
+      openSymbols.has(plan.symbol.toUpperCase())
+    );
     const point = plan.pointGuidance;
     const triggerText = [
       plan.reason,
@@ -338,39 +336,6 @@ function tradeReturn(row: BitgetDemoClosedPosition): number {
   return (row.netProfit / notional) * 100;
 }
 
-async function loadClosedMoonxMirroredPositions(limit = 100): Promise<BitgetDemoClosedPosition[]> {
-  if (!prisma) return [];
-  const rows = await prisma.$queryRawUnsafe<DbClosedMoonxPosition[]>(
-    `SELECT p.id, p.symbol, p.direction, p.original_quantity,
-            p.average_entry_price, p.current_price, p.realized_pnl,
-            p.opened_at, p.closed_at
-     FROM trade_paper_positions p
-     JOIN trade_signals s ON s.id = p.signal_id
-     WHERE p.status = 'CLOSED'
-       AND s.draft_source = 'PREDICTION_AUTO_TRADER'
-       AND EXISTS (
-         SELECT 1 FROM trade_bitget_demo_mirrors m
-         WHERE m.signal_id = p.signal_id AND m.status = 'SUCCESS'
-       )
-     ORDER BY p.closed_at DESC NULLS LAST
-     LIMIT $1`,
-    Math.max(1, Math.min(100, limit))
-  );
-  return rows.map((row) => ({
-    positionId: row.id,
-    symbol: String(row.symbol).toUpperCase().endsWith('USDT')
-      ? String(row.symbol).toUpperCase()
-      : `${String(row.symbol).toUpperCase()}USDT`,
-    posSide: String(row.direction).toUpperCase() === 'SHORT' ? 'short' : 'long',
-    openPriceAvg: finite(row.average_entry_price),
-    closePriceAvg: finite(row.current_price),
-    openTotalPos: finite(row.original_quantity),
-    netProfit: finite(row.realized_pnl),
-    createdAt: iso(row.opened_at),
-    updatedAt: iso(row.closed_at),
-  }));
-}
-
 function buildTrades(
   rows: BitgetDemoClosedPosition[],
   settings: AiTradingDeskSettings
@@ -431,6 +396,8 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     generatedAt: new Date().toISOString(),
     lastSyncedAt: null,
     mode: "BITGET_DEMO",
+    ledgerSource: "BITGET_DEMO",
+    ledgerNotice: "会员端只展示Bitget Demo真实模拟订单；MOOX站内模拟盘是独立账本。",
     strategyEnabled: false,
     mirrorEnabled: false,
     executionAllowed: false,
@@ -441,6 +408,26 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     operationalStateLabel: settings.enabled ? "服务异常" : "已暂停",
     quoteReady: false,
     latestQuoteAt: null,
+    runtime: {
+      paused: false,
+      pauseReason: "",
+      lastHeartbeatAt: null,
+      lastStrategyAt: null,
+      lastReconcileAt: null,
+      heartbeatAgeSeconds: null,
+      quoteAgeSeconds: null,
+      decisionStatsToday: {
+        scanRuns: 0,
+        symbolsEvaluated: 0,
+        confidenceBlocked: 0,
+        alignmentBlocked: 0,
+        triggerWaiting: 0,
+        riskBlocked: 0,
+        marketErrors: 0,
+        orderAttempts: 0,
+        executed: 0,
+      },
+    },
     settings,
     plans: [],
     positions: [],
@@ -466,20 +453,27 @@ export async function buildMemberAiTradingDeskSnapshot(
   const settings = await getMemberAiTradingDeskSettings();
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
-  const dashboard = await getPredictionAutoTraderDashboard(now);
+  const [dashboard, runtime] = await Promise.all([
+    getPredictionAutoTraderDashboard(now),
+    getBitgetRuntimeState(now),
+  ]);
   const liveResults = await Promise.allSettled([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoClosedPositions(100),
     getBitgetDemoPendingStrategyOrders(),
-    loadClosedMoonxMirroredPositions(100),
   ]);
   const allPositions = liveResults[0].status === "fulfilled" ? liveResults[0].value : [];
   const bitgetClosed = liveResults[1].status === "fulfilled" ? liveResults[1].value : [];
   const strategyOrders = liveResults[2].status === "fulfilled" ? liveResults[2].value : [];
-  const moonxClosed = liveResults[3].status === "fulfilled" ? liveResults[3].value : [];
   const planSymbols = new Set(dashboard.plans.map((plan) => `${plan.symbol}USDT`.toUpperCase()));
   const positions = allPositions.filter((row) => planSymbols.has(row.symbol.toUpperCase()));
-  const closed = moonxClosed.length ? moonxClosed : bitgetClosed.filter((row) => planSymbols.has(row.symbol.toUpperCase()));
+  const closed = bitgetClosed.filter((row) => planSymbols.has(row.symbol.toUpperCase()));
+  const runtimeQuotes = new Map(
+    runtime.latestQuotes.map((row) => [
+      row.symbol.toUpperCase(),
+      { price: row.price, capturedAt: row.capturedAt },
+    ] as const)
+  );
   const errors = liveResults
     .filter((result): result is PromiseRejectedResult => result.status === "rejected")
     .map((result) => result.reason instanceof Error ? result.reason.message : "Bitget读取失败");
@@ -488,18 +482,45 @@ export async function buildMemberAiTradingDeskSnapshot(
     generatedAt: now.toISOString(),
     lastSyncedAt: now.toISOString(),
     mode: "BITGET_DEMO",
+    ledgerSource: "BITGET_DEMO",
+    ledgerNotice: "会员端只展示Bitget Demo实际模拟持仓和成交；管理员站内模拟盘不会混入本页统计。",
     strategyEnabled: dashboard.settings.enabled,
     mirrorEnabled: dashboard.mirrorEnabled,
     executionAllowed: dashboard.executionAllowed,
-    serverHealthy: dashboard.server.serverHealthy,
-    syncStatus: errors.length ? (errors.length < liveResults.length ? "PARTIAL" : "ERROR") : "OK",
-    syncMessage: errors.length ? `部分数据同步失败：${errors.join("；")}` : "Bitget Demo与AI策略同步正常。",
+    serverHealthy: runtime.serverHealthy,
+    syncStatus: errors.length
+      ? (errors.length < liveResults.length ? "PARTIAL" : "ERROR")
+      : runtime.serverHealthy
+        ? "OK"
+        : "PARTIAL",
+    syncMessage: errors.length
+      ? `部分数据同步失败：${errors.join("；")}`
+      : runtime.paused
+        ? `服务器交易执行已暂停：${runtime.pauseReason || "等待管理员恢复"}`
+        : runtime.serverHealthy
+          ? "Bitget Demo行情、服务器心跳、策略检查与账户对账正常。"
+          : "服务器心跳或行情时间尚未达到正常状态。",
     operationalState: "CONNECTING",
     operationalStateLabel: "正在连接",
-    quoteReady: false,
-    latestQuoteAt: null,
+    quoteReady: runtime.quoteAgeSeconds != null && runtime.quoteAgeSeconds <= 180,
+    latestQuoteAt: runtime.lastMarketAt,
+    runtime: {
+      paused: runtime.paused,
+      pauseReason: runtime.pauseReason,
+      lastHeartbeatAt: runtime.lastHeartbeatAt,
+      lastStrategyAt: runtime.lastStrategyAt,
+      lastReconcileAt: runtime.lastReconcileAt,
+      heartbeatAgeSeconds: runtime.heartbeatAgeSeconds,
+      quoteAgeSeconds: runtime.quoteAgeSeconds,
+      decisionStatsToday: runtime.decisionStatsToday,
+    },
     settings,
-    plans: buildPlanRows(dashboard.plans, dashboard.recentRuns, positions),
+    plans: buildPlanRows(
+      dashboard.plans,
+      dashboard.recentRuns,
+      positions,
+      runtimeQuotes
+    ),
     positions: buildPositions(positions, strategyOrders, settings, {
       stopLossPct: dashboard.settings.stopLossPct,
       target1Pct: dashboard.settings.target1Pct,
@@ -584,5 +605,29 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
     quoteReady: payload.quoteReady ?? false,
     latestQuoteAt: payload.latestQuoteAt ?? null,
+    ledgerSource: payload.ledgerSource ?? "BITGET_DEMO",
+    ledgerNotice:
+      payload.ledgerNotice ??
+      "会员端只展示Bitget Demo实际模拟订单；MOOX站内模拟盘是独立账本。",
+    runtime: payload.runtime ?? {
+      paused: false,
+      pauseReason: "",
+      lastHeartbeatAt: null,
+      lastStrategyAt: null,
+      lastReconcileAt: null,
+      heartbeatAgeSeconds: null,
+      quoteAgeSeconds: null,
+      decisionStatsToday: {
+        scanRuns: 0,
+        symbolsEvaluated: 0,
+        confidenceBlocked: 0,
+        alignmentBlocked: 0,
+        triggerWaiting: 0,
+        riskBlocked: 0,
+        marketErrors: 0,
+        orderAttempts: 0,
+        executed: 0,
+      },
+    },
   });
 }

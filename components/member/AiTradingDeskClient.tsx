@@ -90,7 +90,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               <Badge variant="warning">Bitget 模拟交易</Badge>
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-              展示AI正在等待的交易机会、Bitget模拟交易持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
+              展示服务器正在检查的交易机会、Bitget Demo实际模拟持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
             </Text>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -132,6 +132,36 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         <Text variant="caption" color="tertiary" className={snapshot.syncStatus === "ERROR" ? "text-red-300" : undefined}>
           {cleanMemberCopy(error || snapshot.syncMessage)}
         </Text>
+
+        <div className="rounded-lg border border-white/10 bg-black/10 p-4">
+          <Text variant="caption" color="tertiary">账本说明</Text>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">
+            {snapshot.ledgerNotice}
+          </Text>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">服务器心跳</Text>
+            <Text variant="body-sm" className="mt-1 block">{time(snapshot.runtime.lastHeartbeatAt)}</Text>
+          </div>
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">最近策略检查</Text>
+            <Text variant="body-sm" className="mt-1 block">{time(snapshot.runtime.lastStrategyAt)}</Text>
+          </div>
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">今日判断次数</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.runtime.decisionStatsToday.symbolsEvaluated}</Text>
+          </div>
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">置信度 / 周期拦截</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.runtime.decisionStatsToday.confidenceBlocked} / {snapshot.runtime.decisionStatsToday.alignmentBlocked}</Text>
+          </div>
+          <div className="rounded-lg border border-white/10 p-3">
+            <Text variant="caption" color="tertiary">等待技术触发 / 已开仓</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.runtime.decisionStatsToday.triggerWaiting} / {snapshot.runtime.decisionStatsToday.executed}</Text>
+          </div>
+        </div>
       </Card>
 
       <section className="space-y-4">

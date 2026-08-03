@@ -1297,6 +1297,7 @@ export async function runPredictionAutoTrader(
   options: {
     source?: "CRON" | "ADMIN" | "BROWSER" | "UNKNOWN";
     forceFullScan?: boolean;
+    skipBitgetSync?: boolean;
   } = {}
 ): Promise<PredictionAutoRunReport> {
   const source = options.source ?? "UNKNOWN";
@@ -1563,21 +1564,23 @@ export async function runPredictionAutoTrader(
     }
 
     let bitgetSync: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
-    try {
-      bitgetSync = await syncBitgetDemoOrders();
-    } catch (error) {
-      const firstPlan = plans[0];
-      if (firstPlan) {
-        decisions.push({
-          symbol: firstPlan.symbol,
-          status: "ERROR",
-          action: "BITGET_SYNC_ERROR",
-          price: marketMap.get(firstPlan.symbol)?.currentPrice ?? null,
-          plan: firstPlan,
-          market: marketMap.get(firstPlan.symbol) ?? null,
-          signalId: null,
-          message: error instanceof Error ? error.message : "Bitget同步失败",
-        });
+    if (!options.skipBitgetSync) {
+      try {
+        bitgetSync = await syncBitgetDemoOrders();
+      } catch (error) {
+        const firstPlan = plans[0];
+        if (firstPlan) {
+          decisions.push({
+            symbol: firstPlan.symbol,
+            status: "ERROR",
+            action: "BITGET_SYNC_ERROR",
+            price: marketMap.get(firstPlan.symbol)?.currentPrice ?? null,
+            plan: firstPlan,
+            market: marketMap.get(firstPlan.symbol) ?? null,
+            signalId: null,
+            message: error instanceof Error ? error.message : "Bitget同步失败",
+          });
+        }
       }
     }
 

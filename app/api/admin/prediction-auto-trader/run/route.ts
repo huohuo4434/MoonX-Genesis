@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
+import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
 import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
 
@@ -12,6 +13,13 @@ export async function POST() {
   }
   const now = new Date();
   try {
+    const runtime = await getBitgetRuntimeState(now);
+    if (runtime.paused) {
+      return NextResponse.json(
+        { error: `服务器执行已暂停：${runtime.pauseReason || "等待管理员恢复"}` },
+        { status: 409 }
+      );
+    }
     const report = await runPredictionAutoTrader(now, {
       source: "ADMIN",
       forceFullScan: true,

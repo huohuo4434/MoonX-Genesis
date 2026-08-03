@@ -75,7 +75,7 @@ export function PredictionAutoTraderClient({
       const json = await readJson<{ error?: string }>(response, "自动交易开关");
       if (!response.ok || json.error) throw new Error(json.error || "设置失败");
       await refresh();
-      setMessage(enabled ? "预测自动交易已开启。" : "预测自动交易已停止。");
+      setMessage(enabled ? "预测自动交易已开启，等待Vercel服务器Cron执行。" : "预测自动交易已停止。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "设置失败");
     } finally {
@@ -161,16 +161,10 @@ export function PredictionAutoTraderClient({
       if (busyRef.current) return;
       void refresh().catch(() => undefined);
     }, 30_000);
-    const fallbackTimer = dashboard.server.serverHealthy
-      ? null
-      : window.setInterval(() => void runNow(true), 60_000);
-    return () => {
-      window.clearInterval(refreshTimer);
-      if (fallbackTimer != null) window.clearInterval(fallbackTimer);
-    };
-    // 服务器心跳正常时网页只刷新；否则保留笔记本浏览器兜底执行。
+    return () => window.clearInterval(refreshTimer);
+    // 浏览器只刷新状态，不再兜底执行交易；真正执行完全由服务器Cron负责。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboard.settings.enabled, dashboard.server.serverHealthy]);
+  }, [dashboard.settings.enabled]);
 
   const settings = dashboard.settings;
 

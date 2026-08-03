@@ -18,6 +18,7 @@ export type BitgetContractConfig = {
   symbol: BitgetSupportedSymbol;
   available: boolean;
   minTradeNum: number;
+  minOrderAmount: number;
   sizeMultiplier: number;
   volumePlace: number;
   symbolStatus: string;
@@ -26,6 +27,7 @@ export type BitgetContractConfig = {
 export type BitgetDemoEnvironment = {
   configured: boolean;
   executionAllowed: boolean;
+  testOrderAllowed: boolean;
   apiKeyMasked: string;
   leverage: number;
 };
@@ -92,6 +94,26 @@ type BitgetOrderResponse = {
   clientOid?: string;
 };
 
+type BitgetPublicTickerRow = {
+  symbol?: string;
+  lastPrice?: string;
+  lastPr?: string;
+  markPrice?: string;
+  ts?: string;
+};
+
+type BitgetPublicTickerEnvelope = {
+  code?: string;
+  msg?: string;
+  data?: BitgetPublicTickerRow[];
+};
+
+export type BitgetDemoMarketQuote = {
+  symbol: BitgetSupportedSymbol;
+  price: number;
+  capturedAt: string;
+};
+
 function credentials() {
   return {
     apiKey: process.env.BITGET_DEMO_API_KEY?.trim() ?? "",
@@ -111,6 +133,8 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     configured,
     executionAllowed:
       process.env.BITGET_DEMO_EXECUTION_ALLOWED?.toLowerCase() === "true",
+    testOrderAllowed:
+      process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
     apiKeyMasked: env.apiKey
       ? `${env.apiKey.slice(0, 4)}••••${env.apiKey.slice(-4)}`
       : "未配置",
@@ -159,6 +183,54 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function getBitgetDemoMarketQuotes(
+  symbols: BitgetSupportedSymbol[]
+): Promise<BitgetDemoMarketQuote[]> {
+  const requested = new Set(symbols.map((symbol) => symbol.toUpperCase()));
+  if (!requested.size) return [];
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/api/v3/market/tickers?category=${encodeURIComponent(PRODUCT_TYPE)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "MoonX-Bitget-Demo-Runtime/1.0",
+      },
+    },
+    10_000
+  );
+  const raw = await response.text();
+  let payload: BitgetPublicTickerEnvelope;
+  try {
+    payload = JSON.parse(raw) as BitgetPublicTickerEnvelope;
+  } catch {
+    throw new Error(`Bitget公开行情返回非JSON内容（HTTP ${response.status}）`);
+  }
+  if (!response.ok || payload.code !== "00000" || !Array.isArray(payload.data)) {
+    throw new Error(payload.msg || `Bitget公开行情HTTP ${response.status}`);
+  }
+  return payload.data
+    .map((row) => {
+      const symbol = String(row.symbol ?? "").toUpperCase();
+      const price = Number(row.lastPrice ?? row.lastPr ?? row.markPrice);
+      const timestamp = Number(row.ts);
+      return {
+        symbol,
+        price,
+        capturedAt:
+          Number.isFinite(timestamp) && timestamp > 0
+            ? new Date(timestamp).toISOString()
+            : new Date().toISOString(),
+      };
+    })
+    .filter(
+      (row): row is BitgetDemoMarketQuote =>
+        requested.has(row.symbol) &&
+        Number.isFinite(row.price) &&
+        row.price > 0
+    );
 }
 
 async function signedRequest<T>(input: {
@@ -366,6 +438,7 @@ export async function getContractConfig(
         symbol,
         available: false,
         minTradeNum: 0,
+        minOrderAmount: 0,
         sizeMultiplier: 0,
         volumePlace: 8,
         symbolStatus: "UTA V3模拟盘未返回该合约",
@@ -377,6 +450,7 @@ export async function getContractConfig(
       symbol,
       available: status === "online",
       minTradeNum: Number(row.minOrderQty ?? 0),
+      minOrderAmount: Number(row.minOrderAmount ?? 0),
       sizeMultiplier: Number(row.quantityMultiplier ?? 0),
       volumePlace: Number(row.quantityPrecision ?? 8),
       symbolStatus: status,
@@ -386,6 +460,7 @@ export async function getContractConfig(
       symbol,
       available: false,
       minTradeNum: 0,
+      minOrderAmount: 0,
       sizeMultiplier: 0,
       volumePlace: 8,
       symbolStatus: error instanceof Error ? error.message : "unavailable",
@@ -461,7 +536,7 @@ function clientOid(paperOrderId: string): string {
   return `mx${hash}`;
 }
 
-async function findOrderByClientOid(
+export async function getBitgetDemoOrderByClientOid(
   oid: string
 ): Promise<BitgetOrderResponse | null> {
   try {
@@ -511,7 +586,7 @@ export async function placeBitgetDemoMarketOrder(input: {
     : await configureUtaSymbol(input.symbol);
   const oid = clientOid(input.paperOrderId);
 
-  const existing = await findOrderByClientOid(oid);
+  const existing = await getBitgetDemoOrderByClientOid(oid);
   if (existing?.orderId) {
     return {
       orderId: existing.orderId,
@@ -555,7 +630,7 @@ export async function placeBitgetDemoMarketOrder(input: {
       raw: response,
     };
   } catch (error) {
-    const afterError = await findOrderByClientOid(oid);
+    const afterError = await getBitgetDemoOrderByClientOid(oid);
     if (afterError?.orderId) {
       return {
         orderId: afterError.orderId,
@@ -567,6 +642,64 @@ export async function placeBitgetDemoMarketOrder(input: {
     }
     throw error;
   }
+}
+
+
+export async function placeBitgetDemoProtectionOrder(input: {
+  paperOrderId: string;
+  symbol: BitgetSupportedSymbol;
+  posSide: "long" | "short";
+  stopLoss: number;
+  takeProfit: number;
+}): Promise<{ orderId: string; clientOid: string }> {
+  const env = getBitgetDemoEnvironment();
+  if (!env.executionAllowed) {
+    throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+  }
+  const oid = clientOid(`${input.paperOrderId}:protection`);
+  const existing = (await getBitgetDemoPendingStrategyOrders()).find(
+    (row) => row.clientOid === oid
+  );
+  if (existing?.orderId) {
+    return { orderId: existing.orderId, clientOid: oid };
+  }
+  const response = await signedRequest<BitgetOrderResponse>({
+    method: "POST",
+    path: "/api/v3/trade/place-strategy-order",
+    body: {
+      category: PRODUCT_TYPE,
+      symbol: input.symbol,
+      type: "tpsl",
+      tpslMode: "full",
+      posSide: input.posSide,
+      stopLoss: input.stopLoss.toFixed(2),
+      takeProfit: input.takeProfit.toFixed(2),
+      slTriggerBy: "mark",
+      tpTriggerBy: "mark",
+      slOrderType: "market",
+      tpOrderType: "market",
+      clientOid: oid,
+    },
+  });
+  if (!response?.orderId) throw new Error("Bitget未返回止盈止损orderId");
+  return { orderId: response.orderId, clientOid: response.clientOid ?? oid };
+}
+
+export async function cancelBitgetDemoStrategyOrder(input: {
+  orderId?: string;
+  clientOid?: string;
+}): Promise<void> {
+  if (!input.orderId && !input.clientOid) {
+    throw new Error("取消策略订单必须提供orderId或clientOid");
+  }
+  await signedRequest<null>({
+    method: "POST",
+    path: "/api/v3/trade/cancel-strategy-order",
+    body: {
+      ...(input.orderId ? { orderId: input.orderId } : {}),
+      ...(input.clientOid ? { clientOid: input.clientOid } : {}),
+    },
+  });
 }
 
 export type BitgetDemoPosition = {
@@ -596,6 +729,7 @@ export type BitgetDemoClosedPosition = {
 
 export type BitgetDemoStrategyOrder = {
   orderId: string;
+  clientOid: string;
   symbol: string;
   posSide: "long" | "short";
   takeProfit: number | null;
@@ -634,6 +768,7 @@ type BitgetClosedPositionEnvelope = {
 
 type BitgetStrategyOrderRow = {
   orderId?: string;
+  clientOid?: string;
   symbol?: string;
   posSide?: string;
   takeProfit?: string;
@@ -710,6 +845,7 @@ export async function getBitgetDemoPendingStrategyOrders(): Promise<
   return (rows ?? [])
     .map((row) => ({
       orderId: String(row.orderId ?? ""),
+      clientOid: String(row.clientOid ?? ""),
       symbol: String(row.symbol ?? "").toUpperCase(),
       posSide: sideValue(row.posSide),
       takeProfit: row.takeProfit ? finiteNumber(row.takeProfit) : null,

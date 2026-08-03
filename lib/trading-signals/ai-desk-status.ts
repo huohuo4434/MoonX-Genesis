@@ -44,14 +44,16 @@ export function applyAiDeskOperationalState(
     .map((plan) => timeMs(plan.lastCheckedAt))
     .filter((value): value is number => value != null)
     .sort((a, b) => b - a)[0] ?? null;
-  const latestQuoteAt = latestPlanCheck == null ? null : new Date(latestPlanCheck).toISOString();
+  const runtimeQuoteCheck = timeMs(snapshot.latestQuoteAt);
+  const latestQuoteCheck = Math.max(latestPlanCheck ?? 0, runtimeQuoteCheck ?? 0) || null;
+  const latestQuoteAt = latestQuoteCheck == null ? null : new Date(latestQuoteCheck).toISOString();
   const hasQuote = snapshot.plans.some(
     (plan) => plan.currentPrice != null && Number.isFinite(plan.currentPrice)
-  );
-  const stale = latestPlanCheck == null || now.getTime() - latestPlanCheck > AI_DESK_QUOTE_STALE_MS;
+  ) || Boolean(snapshot.quoteReady && runtimeQuoteCheck != null);
+  const stale = latestQuoteCheck == null || now.getTime() - latestQuoteCheck > AI_DESK_QUOTE_STALE_MS;
 
   let state: AiTradingDeskOperationalState;
-  if (!snapshot.settings.enabled) state = "PAUSED";
+  if (!snapshot.settings.enabled || snapshot.runtime.paused) state = "PAUSED";
   else if (snapshot.syncStatus === "ERROR" || !snapshot.serverHealthy) state = "SERVICE_ERROR";
   else if (!snapshot.strategyEnabled) state = "PAUSED";
   else if (!snapshot.plans.length) state = "DATA_DISCONNECTED";
@@ -79,7 +81,9 @@ export function applyAiDeskOperationalState(
           : state === "SIMULATION_POSITION"
             ? "行情与策略检查正常，当前存在模拟持仓。"
             : state === "PAUSED"
-              ? "AI交易公开台已暂停。"
+              ? snapshot.runtime.pauseReason
+                ? `AI交易执行已暂停：${snapshot.runtime.pauseReason}`
+                : "AI交易公开台已暂停。"
               : state === "DATA_DISCONNECTED"
                 ? "尚未连接到可用行情数据。"
                 : snapshot.syncMessage || "服务检查异常。";

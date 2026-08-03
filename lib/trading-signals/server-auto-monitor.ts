@@ -35,7 +35,9 @@ export type TradingSignalAutoMonitorReport = {
   note: string;
 };
 
-export async function runTradingSignalServerMonitor(): Promise<TradingSignalAutoMonitorReport> {
+export async function runTradingSignalServerMonitor(
+  options: { syncBitget?: boolean } = {}
+): Promise<TradingSignalAutoMonitorReport> {
   const snapshot = await getTradingV2Snapshot();
   const signals = snapshot.actionableSignals.filter(
     (signal) =>
@@ -94,12 +96,14 @@ export async function runTradingSignalServerMonitor(): Promise<TradingSignalAuto
   }
 
   let bitgetDemo: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
-  try {
-    bitgetDemo = await syncBitgetDemoOrders();
-  } catch (error) {
-    market.warnings.push(
-      `Bitget Demo同步异常：${error instanceof Error ? error.message : "未知错误"}`
-    );
+  if (options.syncBitget !== false) {
+    try {
+      bitgetDemo = await syncBitgetDemoOrders();
+    } catch (error) {
+      market.warnings.push(
+        `Bitget Demo同步异常：${error instanceof Error ? error.message : "未知错误"}`
+      );
+    }
   }
 
   return {

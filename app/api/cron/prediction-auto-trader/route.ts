@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
+import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
-import { runTradingSignalServerMonitor } from "@/lib/trading-signals/server-auto-monitor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,19 +21,12 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const [strategyResult, signalResult] = await Promise.allSettled([
-    runPredictionAutoTrader(now, { source: "CRON" }),
-    runTradingSignalServerMonitor(),
-  ]);
-
-  const strategy =
-    strategyResult.status === "fulfilled"
-      ? strategyResult.value
-      : { error: errorMessage(strategyResult.reason, "预测自动交易检查失败") };
-  const generalSignalMonitor =
-    signalResult.status === "fulfilled"
-      ? signalResult.value
-      : { error: errorMessage(signalResult.reason, "AI交易信号自动行情同步失败") };
+  let runtime: Awaited<ReturnType<typeof runBitgetDemoServerRuntime>> | { error: string };
+  try {
+    runtime = await runBitgetDemoServerRuntime(now, "CRON");
+  } catch (error) {
+    runtime = { error: errorMessage(error, "Bitget Demo服务器执行链路失败") };
+  }
 
   let memberDeskSync: { ok: true } | { ok: false; error: string };
   try {
@@ -47,13 +39,12 @@ export async function GET(request: NextRequest) {
     };
   }
 
-  // A single subsystem failure must not prevent the other server tasks from running.
-  // Cron remains HTTP 200 so the next minute continues normally; details stay in logs.
+  // Cron must remain retryable. Subsystem failures are returned in the JSON audit payload,
+  // while the next minute still gets a chance to recover automatically.
   return NextResponse.json({
-    ok: true,
+    ok: !("error" in runtime),
     checkedAt: now.toISOString(),
-    strategy,
-    generalSignalMonitor,
+    runtime,
     memberDeskSync,
   });
 }

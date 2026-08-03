@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
-import {
-  getBitgetDemoDashboard,
-  syncBitgetDemoOrders,
-} from "@/lib/bitget/demo-connector";
+import { getBitgetDemoAdminDashboard } from "@/lib/bitget/demo-runtime";
+import { syncBitgetDemoOrders } from "@/lib/bitget/demo-connector";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -16,7 +14,7 @@ export async function POST() {
     return NextResponse.json({
       ok: true,
       result: await syncBitgetDemoOrders(),
-      dashboard: await getBitgetDemoDashboard(),
+      dashboard: await getBitgetDemoAdminDashboard(),
     });
   } catch (error) {
     return NextResponse.json(

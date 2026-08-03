@@ -1,3 +1,5 @@
+import type { BitgetRuntimeDecisionStats } from "@/types/bitget-demo-runtime";
+
 export type AiTradingDeskPlanStatus =
   | "PLAN_ONLY"
   | "OBSERVE"
@@ -88,6 +90,8 @@ export interface AiTradingDeskSnapshot {
   generatedAt: string;
   lastSyncedAt: string | null;
   mode: "BITGET_DEMO";
+  ledgerSource: "BITGET_DEMO";
+  ledgerNotice: string;
   strategyEnabled: boolean;
   mirrorEnabled: boolean;
   executionAllowed: boolean;
@@ -98,6 +102,16 @@ export interface AiTradingDeskSnapshot {
   operationalStateLabel: string;
   quoteReady: boolean;
   latestQuoteAt: string | null;
+  runtime: {
+    paused: boolean;
+    pauseReason: string;
+    lastHeartbeatAt: string | null;
+    lastStrategyAt: string | null;
+    lastReconcileAt: string | null;
+    heartbeatAgeSeconds: number | null;
+    quoteAgeSeconds: number | null;
+    decisionStatsToday: BitgetRuntimeDecisionStats;
+  };
   settings: AiTradingDeskSettings;
   plans: AiTradingDeskPlan[];
   positions: AiTradingDeskPosition[];
