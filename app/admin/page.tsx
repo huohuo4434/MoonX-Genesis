@@ -13,6 +13,7 @@ import { isSandboxUser } from "@/lib/admin/sandbox-data";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
+import { getConvictionWeeklyFreshnessOverview } from "@/lib/data/conviction/access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,6 +32,7 @@ export default async function AdminHomePage() {
     loadTomorrowForecastRows(now),
   ]);
   const stats = publicAccuracy.stats;
+  const convictionFreshness = getConvictionWeeklyFreshnessOverview(now);
   const productionUsers = users.filter((u) => !isSandboxUser(u));
   const memberCount = productionUsers.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
   const emailConfigured = isPaymentEmailConfigured();
@@ -42,6 +44,7 @@ export default async function AdminHomePage() {
     { label: "今日观点数", value: String(todayRows.length) },
     { label: "下一交易日观点数", value: String(tomorrowRows.length) },
     { label: "已发布个股", value: String(stocks.length) },
+    { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
     { label: "公开验证样本", value: String(stats.verifiedCount) },
     { label: "公开加权命中率", value: stats.weightedHitRate == null ? "暂无样本" : `${(stats.weightedHitRate * 100).toFixed(1)}%` },
     { label: "老师课程", value: `${tlcStats.lessonCount}节` },
@@ -70,6 +73,15 @@ export default async function AdminHomePage() {
         {emailConfigured && !emailProductionReady ? (
           <Card padding="md" className="mt-4 border border-amber-500/40 bg-amber-500/10">
             <Text variant="body-sm">网站统一联系邮箱为 jackzwin999@gmail.com，作为联系地址不需要在Vercel验证。系统自动发信仍由Resend负责；向会员发送正式邮件时，需要在Resend验证发件域名，Vercel只负责保存API密钥和环境变量。</Text>
+          </Card>
+        ) : null}
+
+        {convictionFreshness.expired || convictionFreshness.missing ? (
+          <Card padding="md" className="mt-4 border border-red-500/40 bg-red-500/10">
+            <Text variant="body-sm" weight="semibold">重点资产周度内容需要更新</Text>
+            <Text variant="caption" color="secondary" className="mt-1 block">
+              {convictionFreshness.affectedAssets.join("、")}：已结束或尚未发布。过期内容只显示为历史，不再冒充当前报告。
+            </Text>
           </Card>
         ) : null}
 

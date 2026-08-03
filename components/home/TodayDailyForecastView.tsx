@@ -208,7 +208,7 @@ export function TodayDailyForecastView({
                       <Badge variant="outline">{displayDirection(f)}</Badge>
                     </div>
                     <div className="grid gap-2 text-caption text-foreground-tertiary sm:grid-cols-2">
-                      <p>{f.tradingSessionLabel}</p>
+                      <p>{f.targetSessionLabel ?? f.tradingSessionLabel}</p><p>版本 V{f.version} · 已锁定</p>
                       <p>更新：{formatDateTimeChina(f.publishedAt)}</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />
@@ -232,7 +232,7 @@ export function TodayDailyForecastView({
                         </button>
                         {open ? (
                           <div className="space-y-2 break-words border-t border-border/[0.06] pt-3 text-caption text-foreground-tertiary">
-                            <p>目标时段：{f.tradingSessionLabel}</p>
+                            <p>目标时段：{f.targetSessionLabel ?? f.tradingSessionLabel}</p>
                             <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
                               <PriceLevelsBlock
                                 support={f.supportLevels}

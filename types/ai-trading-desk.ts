@@ -1,4 +1,5 @@
 export type AiTradingDeskPlanStatus =
+  | "PLAN_ONLY"
   | "OBSERVE"
   | "WAIT_LONG"
   | "WAIT_SHORT"
@@ -6,6 +7,17 @@ export type AiTradingDeskPlanStatus =
   | "POSITION_OPEN"
   | "BLOCKED"
   | "ERROR";
+
+
+export type AiTradingDeskOperationalState =
+  | "DATA_DISCONNECTED"
+  | "CONNECTING"
+  | "DATA_DELAYED"
+  | "PLAN_ONLY"
+  | "WAITING_ENTRY"
+  | "SIMULATION_POSITION"
+  | "PAUSED"
+  | "SERVICE_ERROR";
 
 export interface AiTradingDeskSettings {
   enabled: boolean;
@@ -82,6 +94,10 @@ export interface AiTradingDeskSnapshot {
   serverHealthy: boolean;
   syncStatus: "OK" | "PARTIAL" | "ERROR" | "DISABLED";
   syncMessage: string;
+  operationalState: AiTradingDeskOperationalState;
+  operationalStateLabel: string;
+  quoteReady: boolean;
+  latestQuoteAt: string | null;
   settings: AiTradingDeskSettings;
   plans: AiTradingDeskPlan[];
   positions: AiTradingDeskPosition[];

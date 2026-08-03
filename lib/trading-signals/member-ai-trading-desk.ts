@@ -13,6 +13,7 @@ import {
   ensurePredictionAutoTraderTables,
   getPredictionAutoTraderDashboard,
 } from "@/lib/trading-signals/prediction-auto-trader";
+import { applyAiDeskOperationalState, sanitizePlanHorizonText } from "@/lib/trading-signals/ai-desk-status";
 import type {
   AiTradingDeskPlan,
   AiTradingDeskPlanStatus,
@@ -223,6 +224,10 @@ function planStatus(
   hasPosition: boolean
 ): { status: AiTradingDeskPlanStatus; label: string } {
   if (hasPosition) return { status: "POSITION_OPEN", label: "持仓中" };
+  const market = marketFromRun(run);
+  if (market.currentPrice == null || market.capturedAt == null) {
+    return { status: "PLAN_ONLY", label: "仅有计划" };
+  }
   if (run?.status === "ERROR") return { status: "ERROR", label: "检查异常" };
   if (run?.status === "BLOCKED") return { status: "BLOCKED", label: "风控拦截" };
   if (run?.status === "EXECUTED") return { status: "READY", label: "已触发开仓" };
@@ -264,10 +269,10 @@ function buildPlanRows(
       direction: plan.setup === "BUY_DIP" ? "LONG" : plan.setup === "SELL_RALLY" ? "SHORT" : "NEUTRAL",
       confidence: plan.confidence,
       weeklyText: plan.weeklyForecast
-        ? `${directionText(plan.weeklyDirection)} · ${plan.weeklyForecast.path}`
+        ? sanitizePlanHorizonText(`${directionText(plan.weeklyDirection)} · ${plan.weeklyForecast.path}`, "WEEKLY")
         : "缺少周预测",
       dailyText: plan.dailyForecast
-        ? `${directionText(plan.dailyDirection)} · ${plan.dailyForecast.path}`
+        ? sanitizePlanHorizonText(`${directionText(plan.dailyDirection)} · ${plan.dailyForecast.path}`, "DAILY")
         : "缺少日预测",
       actionText: run?.reason || plan.reason,
       triggerText,
@@ -422,7 +427,7 @@ function buildStats(
 }
 
 function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTradingDeskSnapshot {
-  return {
+  const snapshot: AiTradingDeskSnapshot = {
     generatedAt: new Date().toISOString(),
     lastSyncedAt: null,
     mode: "BITGET_DEMO",
@@ -432,6 +437,10 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     serverHealthy: false,
     syncStatus: settings.enabled ? "ERROR" : "DISABLED",
     syncMessage: message,
+    operationalState: settings.enabled ? "SERVICE_ERROR" : "PAUSED",
+    operationalStateLabel: settings.enabled ? "服务异常" : "已暂停",
+    quoteReady: false,
+    latestQuoteAt: null,
     settings,
     plans: [],
     positions: [],
@@ -448,6 +457,7 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
       netProfitUsdt: null,
     },
   };
+  return applyAiDeskOperationalState(snapshot);
 }
 
 export async function buildMemberAiTradingDeskSnapshot(
@@ -484,6 +494,10 @@ export async function buildMemberAiTradingDeskSnapshot(
     serverHealthy: dashboard.server.serverHealthy,
     syncStatus: errors.length ? (errors.length < liveResults.length ? "PARTIAL" : "ERROR") : "OK",
     syncMessage: errors.length ? `部分数据同步失败：${errors.join("；")}` : "Bitget Demo与AI策略同步正常。",
+    operationalState: "CONNECTING",
+    operationalStateLabel: "正在连接",
+    quoteReady: false,
+    latestQuoteAt: null,
     settings,
     plans: buildPlanRows(dashboard.plans, dashboard.recentRuns, positions),
     positions: buildPositions(positions, strategyOrders, settings, {
@@ -493,7 +507,7 @@ export async function buildMemberAiTradingDeskSnapshot(
     recentTrades: buildTrades(closed, settings),
     stats: buildStats(closed, settings),
   };
-  return snapshot;
+  return applyAiDeskOperationalState(snapshot, now);
 }
 
 export async function syncMemberAiTradingDeskSnapshot(
@@ -560,11 +574,15 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
       // 读取最近一次快照，避免会员页因交易所短暂故障完全不可用。
     }
   }
-  return {
+  return applyAiDeskOperationalState({
     ...payload,
     settings,
     lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
     syncStatus: row.last_error ? "PARTIAL" : payload.syncStatus,
     syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : payload.syncMessage,
-  };
+    operationalState: payload.operationalState ?? "CONNECTING",
+    operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
+    quoteReady: payload.quoteReady ?? false,
+    latestQuoteAt: payload.latestQuoteAt ?? null,
+  });
 }

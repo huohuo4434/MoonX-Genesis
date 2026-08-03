@@ -9,6 +9,8 @@ import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import type { DailyForecast, DailyForecastMarket } from "@/types/daily-forecast";
 import { normalizeDailyLanguage, normalizeDailyPath, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
+import { canonicalAssetCode, canonicalAssetId, assetDisplayName } from "@/lib/presentation/asset-catalog";
+import { normalizeForecastContract } from "@/lib/forecasts/forecast-contract";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
 
 function marketToLegacy(m: DailyForecastRecord["market"]): DailyForecastMarket {
@@ -20,24 +22,11 @@ function marketToLegacy(m: DailyForecastRecord["market"]): DailyForecastMarket {
 }
 
 function assetIdFromSymbol(symbol: string): string {
-  const map: Record<string, string> = {
-    BTC: "bitcoin",
-    ETH: "eth",
-    SPX: "sp500",
-    NDX: "nasdaq-100",
-    SSEC: "shanghai-composite",
-    "000001.SS": "shanghai-composite",
-    HSTECH: "hang-seng",
-    GLD: "gold",
-    SILVER: "silver",
-    SI: "silver",
-    "SI=F": "silver",
-    GOLD: "gold",
-    "GC=F": "gold",
-    WTI: "wti-crude",
-    "CL=F": "wti-crude",
-  };
-  return map[symbol] ?? symbol.toLowerCase();
+  return canonicalAssetId(symbol);
+}
+
+function canonicalStoreSymbol(symbol: string): string {
+  return canonicalAssetCode(symbol);
 }
 
 function isFormalStoreStatus(status: DailyForecastRecord["status"]): boolean {
@@ -76,11 +65,12 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
       : r.symbol === "SPX"
         ? "美股常规交易时段"
         : sessionLabelForMarket(market);
-  return {
+  const canonicalSymbol = canonicalStoreSymbol(r.symbol);
+  return normalizeForecastContract({
     id: r.id,
-    assetId: assetIdFromSymbol(r.symbol),
-    assetName: r.symbol === "WTI" ? "WTI原油" : r.symbol === "GOLD" || r.symbol === "GC=F" || r.symbol === "GLD" ? "国际金价" : r.symbol === "SILVER" || r.symbol === "SI" || r.symbol === "SI=F" ? "国际银价" : r.assetName,
-    symbol: r.symbol === "SSEC" ? "000001.SS" : r.symbol,
+    assetId: assetIdFromSymbol(canonicalSymbol),
+    assetName: assetDisplayName(canonicalSymbol, r.assetName),
+    symbol: canonicalSymbol,
     market,
     forecastForDate: r.forecastDate,
     tradingSessionLabel,
@@ -101,7 +91,7 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
     consensusNote: consensus.note,
     summary: normalizeDailyLanguage(r.summary),
     expectedPath: normalizeDailyPath(r.expectedPath),
-    pathBias: normalizeDailyLanguage(r.predictedPatternLabel ?? r.expectedPath?.join(" → ") ?? r.summary),
+    pathBias: normalizeDailyLanguage(r.predictedPatternLabel ?? r.expectedPath?.join(" → ")),
     intradayRhythm: normalizeDailyPath(r.expectedPath),
     signalStrength: signalStrengthFromConfidence(r.probability ?? 50),
     waitForConfirmation: !Boolean(r.supportLevels?.length && r.resistanceLevels?.length && r.confirmation),
@@ -135,12 +125,47 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
     priceSnapshot: r.priceSnapshot ?? undefined,
     priceDataSourceLabel: r.priceDataSourceLabel,
     priceSnapshotAtLabel: r.priceSnapshotAtLabel,
-  };
+  });
+}
+
+function storeStatusRank(status: DailyForecastRecord["status"]): number {
+  if (status === "verified") return 6;
+  if (status === "verifying") return 5;
+  if (status === "published") return 4;
+  if (status === "invalid") return 3;
+  return 1;
+}
+
+function recordTime(record: DailyForecastRecord): number {
+  const value = record.updatedAt || record.publishedAt || record.createdAt;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Keep history in storage while exposing only one current version per asset/session. */
+export function selectCurrentStoreRecords(records: DailyForecastRecord[]): DailyForecastRecord[] {
+  const selected = new Map<string, DailyForecastRecord>();
+  for (const record of records) {
+    const key = `${canonicalStoreSymbol(record.symbol)}:${record.forecastDate}`;
+    const current = selected.get(key);
+    if (!current) {
+      selected.set(key, record);
+      continue;
+    }
+    const better =
+      record.originalVersion > current.originalVersion ||
+      (record.originalVersion === current.originalVersion &&
+        (storeStatusRank(record.status) > storeStatusRank(current.status) ||
+          (storeStatusRank(record.status) === storeStatusRank(current.status) &&
+            recordTime(record) > recordTime(current))));
+    if (better) selected.set(key, record);
+  }
+  return [...selected.values()];
 }
 
 export async function getStoreForecastsForToday(now = new Date()): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
-  const records = await listDailyForecastRecords();
+  const records = selectCurrentStoreRecords(await listDailyForecastRecords());
   return records
     .filter((r) => r.forecastDate === today && isFormalStoreStatus(r.status))
     .map((r) => toUi(r, "public"));
@@ -149,7 +174,7 @@ export async function getStoreForecastsForToday(now = new Date()): Promise<Daily
 /** Next formal store batch after Beijing today (not hard-coded calendar tomorrow). */
 export async function getStoreForecastsForTomorrow(now = new Date()): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
-  const records = await listDailyForecastRecords();
+  const records = selectCurrentStoreRecords(await listDailyForecastRecords());
   const nextDates = [
     ...new Set(
       records

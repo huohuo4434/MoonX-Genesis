@@ -24,7 +24,7 @@ export function MemberMonthlyPage() {
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
           <span>当前周期：2026年8月</span>
           <span>完整覆盖：9项</span>
-          <span>白银：已补齐8月全月</span>
+          <span>数据覆盖：9/9</span>
         </div>
       </Card>
       <div className="grid gap-4 xl:grid-cols-2">
@@ -35,7 +35,7 @@ export function MemberMonthlyPage() {
                 <Heading as="h2" size="h3">{item.assetName} <span className="text-base font-normal text-foreground-tertiary">{item.symbol}</span></Heading>
                 <Text variant="caption" color="tertiary" className="mt-1 block">{item.venue} · {item.periodStart} 至 {item.periodEnd}</Text>
               </div>
-              <Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{item.direction}</Badge>
+              <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{item.direction}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">高波动</Badge> : null}</div>
             </div>
             <div className="space-y-2">
               {bars(item.probabilities).map(([label, value, color]) => (

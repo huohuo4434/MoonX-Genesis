@@ -166,7 +166,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
   );
   const pathBias = normalizeDailyLanguage(forecast.pathBias)
     || normalizedPath.join(" → ")
-    || "待确认";
+    || "运行路径待技术确认";
   const summary = normalizeDailyLanguage(forecast.summary);
 
   return (
@@ -188,7 +188,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
       <Text variant="caption" color="secondary" className="mt-3 block">
         {t("home.tomorrowNextSession")}
         {formatDate(forecast.forecastForDate, isChinese)}
-        <span className="text-foreground-tertiary"> · {forecast.tradingSessionLabel}</span>
+        <span className="text-foreground-tertiary"> · {forecast.targetSessionLabel ?? forecast.tradingSessionLabel} · V{forecast.version} 已锁定</span>
       </Text>
 
       {pending ? (

@@ -92,7 +92,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
     symbol: f.symbol,
   });
   const consensus = deriveForecastConsensus(f);
-  const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ") || iching.path.join(" → "));
+  const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ")) || "运行路径待技术确认";
   const signalStrength = f.signalStrength ?? iching.signalStrength ?? signalStrengthFromConfidence(f.confidence);
   const waitForConfirmation = f.waitForConfirmation ?? signalStrength !== "高";
 
@@ -131,7 +131,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             </Text>
           ) : null}
           <Text variant="caption" color="tertiary" className="block">
-            最近更新：{formatDateTimeChina(f.publishedAt)}
+            最近更新：{formatDateTimeChina(f.publishedAt)} · 版本 V{f.version} · 已锁定
           </Text>
         </div>
         <Badge variant="default">{iching.directionLabel}</Badge>
@@ -184,7 +184,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
           </div>
           <div className="sm:col-span-2">
             <dt className="text-caption text-foreground-tertiary">运行路径倾向</dt>
-            <dd className="text-foreground-secondary">{pathBias || iching.path.join(" → ")}</dd>
+            <dd className="text-foreground-secondary">{pathBias}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-caption text-foreground-tertiary">是否建议等待确认</dt>

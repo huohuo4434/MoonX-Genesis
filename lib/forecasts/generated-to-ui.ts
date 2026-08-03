@@ -7,24 +7,15 @@ import { marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { DailyForecast } from "@/types/daily-forecast";
 import { normalizeDailyLanguage, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
+import { canonicalAssetCode, canonicalAssetId, assetDisplayName } from "@/lib/presentation/asset-catalog";
+import { normalizeForecastContract } from "@/lib/forecasts/forecast-contract";
 
 export function generatedDailyToUi(
   r: GeneratedDailyForecastRecord,
   accessLevel: "public" | "member" = "member"
 ): DailyForecast {
   const meta = marketMeta(r.marketCode);
-  const assetIdMap: Record<string, string> = {
-    BTC: "bitcoin",
-    ETH: "eth",
-    SPX: "sp500",
-    NDX: "nasdaq-100",
-    SHCOMP: "shanghai-composite",
-    HSTECH: "hang-seng",
-    GLD: "gold",
-    GOLD: "gold",
-    SILVER: "silver",
-    WTI: "wti-crude",
-  };
+  const canonicalCode = canonicalAssetCode(r.marketCode);
   const formal = r.direction;
   const consensus = consensusStarsFromInputs({
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
@@ -42,11 +33,11 @@ export function generatedDailyToUi(
         ? "看涨"
         : "中性";
 
-  return {
+  return normalizeForecastContract({
     id: r.id,
-    assetId: assetIdMap[r.marketCode] ?? r.marketCode.toLowerCase(),
-    assetName: meta.assetName,
-    symbol: r.marketCode === "SHCOMP" ? "000001.SS" : r.marketCode,
+    assetId: canonicalAssetId(canonicalCode),
+    assetName: assetDisplayName(canonicalCode, meta.assetName),
+    symbol: canonicalCode,
     market: meta.legacyMarket,
     forecastForDate: r.forecastDate,
     tradingSessionLabel: sessionLabelForMarket(meta.legacyMarket),
@@ -86,5 +77,5 @@ export function generatedDailyToUi(
     reviewedAt: r.publishedAt ?? r.generatedAt,
     publishedBy: "weekly-to-daily",
     accuracyEligible: r.status === "LOCKED" || r.status === "PUBLISHED",
-  };
+  });
 }

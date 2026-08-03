@@ -23,9 +23,14 @@ import {
   isHumanPublishedForecast,
   toTodayPublicTeaserMeta,
 } from "@/lib/data/daily-forecasts";
-import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import type { DailyForecast } from "@/types/daily-forecast";
+import { canonicalAssetCode } from "@/lib/presentation/asset-catalog";
+import {
+  mergeCanonicalForecastCandidates,
+  normalizeForecastContract,
+  type ForecastCandidate,
+} from "@/lib/forecasts/forecast-contract";
 
 export type FreshPredictionUser = {
   userId: string | null;
@@ -109,77 +114,54 @@ export async function resolveWeeklyPredictionAccess(now = new Date()) {
 }
 
 function sanitizeForecastForClient(f: DailyForecast): DailyForecast {
-  const directionLabel = normalizeFormalDirection(f.directionLabel ?? f.direction);
-  return {
-    ...f,
-    directionLabel,
-  };
+  return normalizeForecastContract(f);
 }
 
 export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
   const { getStoreForecastsForToday } = await import("@/lib/data/store-to-ui-forecasts");
-  const fromStore = await getStoreForecastsForToday(now);
-  const fromLegacy = getPublicTodayForecasts(now);
-  const byAsset = new Map<string, DailyForecast>();
-  for (const f of fromStore) {
-    if (f.forecastForDate === today) byAsset.set(f.assetId, f);
-  }
-  for (const f of fromLegacy) {
-    if (f.forecastForDate === today) byAsset.set(f.assetId, f);
-  }
+  const candidates: ForecastCandidate[] = [];
+  const accept = (forecast: DailyForecast, source: ForecastCandidate["source"]) => {
+    if (forecast.forecastForDate !== today || !isHumanPublishedForecast(forecast)) return;
+    candidates.push({ forecast, source });
+  };
+
+  for (const forecast of await getStoreForecastsForToday(now)) accept(forecast, "STORE");
+  for (const forecast of getPublicTodayForecasts(now)) accept(forecast, "CURATED");
 
   // Autonomous fallback: derive today's formal rows from the locked weekly source
-  // whenever the database batch is missing. This prevents a blank homepage.
+  // whenever the database batch is missing. The final merge still keeps only one
+  // answer per asset + target session and gives the formal store highest priority.
   try {
     const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
     const { generateCoreMarketsFromWeeklyPure } = await import("@/lib/forecasts/daily-pipeline");
     const { generatedDailyToUi } = await import("@/lib/forecasts/generated-to-ui");
     const persisted = await listGeneratedDailiesForDate(today);
     const generated = persisted.length ? persisted : generateCoreMarketsFromWeeklyPure(today, "LOCKED");
-    for (const g of generated) {
-      const ui = generatedDailyToUi(g, "public");
-      if (ui.forecastForDate === today && !byAsset.has(ui.assetId)) byAsset.set(ui.assetId, ui);
-    }
+    for (const row of generated) accept(generatedDailyToUi(row, "public"), "GENERATED");
   } catch (err) {
     console.warn("[today] autonomous weekly fallback skipped", err);
   }
 
-  // Lightweight fallback: independent of Prisma, Supabase, technical market data,
-  // and the automation pipeline. A persistence/provider failure must not leave
-  // the homepage blank when a valid weekly forecast exists.
   try {
-    const { buildWeeklyDerivedFallbacks } = await import(
-      "@/lib/forecasts/public-daily-fallback"
-    );
-    for (const ui of buildWeeklyDerivedFallbacks(today, "public")) {
-      if (ui.forecastForDate === today && !byAsset.has(ui.assetId)) {
-        byAsset.set(ui.assetId, ui);
-      }
+    const { buildWeeklyDerivedFallbacks } = await import("@/lib/forecasts/public-daily-fallback");
+    for (const forecast of buildWeeklyDerivedFallbacks(today, "public")) {
+      accept(forecast, "FALLBACK");
     }
   } catch (err) {
     console.warn("[today] lightweight weekly fallback skipped", err);
   }
 
-  return sortByDailyAssetOrder(
-    [...byAsset.values()]
-      .filter(isHumanPublishedForecast)
-      .filter((f) => f.forecastForDate === today)
-      .map((f) => applyTodayFacingCopy(sanitizeForecastForClient(f), now))
-  );
+  const rows = mergeCanonicalForecastCandidates(candidates)
+    .filter((forecast) => forecast.forecastForDate === today)
+    .map((forecast) => applyTodayFacingCopy(sanitizeForecastForClient(forecast), now));
+  return sortByDailyAssetOrder(rows);
 }
 
 /** Next formal batch after Beijing today — used by member + public teaser metadata. */
 function sameMarketCode(left: string, right: string): boolean {
-  const normalize = (value: string) => {
-    if (value === "SSEC" || value === "000001.SS") return "SHCOMP";
-    if (value === "Gold") return "GLD";
-    if (value === "CL" || value === "CL=F") return "WTI";
-    return value;
-  };
-  return normalize(left) === normalize(right);
+  return canonicalAssetCode(left) === canonicalAssetCode(right);
 }
-
 
 /** Next formal batch after Beijing today — each market keeps its own next session date. */
 export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast[]> {
@@ -187,26 +169,27 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
   const { getNextForecastDate } = await import("@/lib/calendar/next-trading-day");
   const { marketMeta } = await import("@/lib/forecasts/weekly-to-daily");
   const { getStoreForecastsForTomorrow } = await import("@/lib/data/store-to-ui-forecasts");
-  const storeTomorrow = await getStoreForecastsForTomorrow(now);
-  const legacy = getMemberTomorrowForecasts(now);
-  const byAsset = new Map<string, DailyForecast>();
+  const candidates: ForecastCandidate[] = [];
+  const acceptedAssetSessions = new Set<string>();
 
-  const acceptIfCorrectSession = (forecast: DailyForecast) => {
-    const expectedDate = getNextForecastDate(forecast.market, today);
-    if (
-      forecast.forecastForDate === expectedDate &&
-      isHumanPublishedForecast(forecast)
-    ) {
-      byAsset.set(forecast.assetId, forecast);
-    }
+  const acceptIfCorrectSession = (
+    forecast: DailyForecast,
+    source: ForecastCandidate["source"]
+  ) => {
+    const normalized = normalizeForecastContract(forecast);
+    const expectedDate = getNextForecastDate(normalized.market, today);
+    if (normalized.forecastForDate !== expectedDate || !isHumanPublishedForecast(normalized)) return;
+    candidates.push({ forecast: normalized, source });
+    acceptedAssetSessions.add(`${normalized.symbol}:${normalized.forecastForDate}`);
   };
 
-  for (const forecast of storeTomorrow) acceptIfCorrectSession(forecast);
-  for (const forecast of legacy) acceptIfCorrectSession(forecast);
+  for (const forecast of await getStoreForecastsForTomorrow(now)) {
+    acceptIfCorrectSession(forecast, "STORE");
+  }
+  for (const forecast of getMemberTomorrowForecasts(now)) {
+    acceptIfCorrectSession(forecast, "CURATED");
+  }
 
-  // Merge DB and deterministic weekly-derived rows one market at a time.
-  // This prevents a weekend crypto date from being incorrectly reused by
-  // equity, commodity, or Hong Kong forecasts.
   try {
     const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
     const { generateCoreMarketsFromWeeklyPure, CORE_DAILY_MARKETS } = await import(
@@ -219,28 +202,15 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
       const persisted = await listGeneratedDailiesForDate(targetDate);
       const persistedHit = persisted.find((row) => sameMarketCode(row.marketCode, marketCode));
       if (persistedHit) {
-        const ui = generatedDailyToUi(persistedHit, "member");
-        acceptIfCorrectSession(ui);
+        acceptIfCorrectSession(generatedDailyToUi(persistedHit, "member"), "GENERATED");
       }
-
-      const assetIdByMarket: Record<string, string> = {
-        BTC: "bitcoin",
-        ETH: "eth",
-        SPX: "sp500",
-        NDX: "nasdaq-100",
-        SHCOMP: "shanghai-composite",
-        HSTECH: "hang-seng",
-        GLD: "gold",
-        SILVER: "silver",
-        WTI: "wti-crude",
-      };
-      if (!byAsset.has(assetIdByMarket[marketCode] ?? marketCode.toLowerCase())) {
+      const identity = `${canonicalAssetCode(marketCode)}:${targetDate}`;
+      if (!acceptedAssetSessions.has(identity)) {
         const generatedHit = generateCoreMarketsFromWeeklyPure(targetDate, "LOCKED").find(
           (row) => sameMarketCode(row.marketCode, marketCode)
         );
         if (generatedHit) {
-          const ui = generatedDailyToUi(generatedHit, "member");
-          acceptIfCorrectSession(ui);
+          acceptIfCorrectSession(generatedDailyToUi(generatedHit, "member"), "GENERATED");
         }
       }
     }
@@ -248,29 +218,26 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     console.warn("[tomorrow] weekly-to-daily merge skipped", err);
   }
 
-  // Independent fallback, also generated one market at a time.
   try {
     const {
       buildWeeklyDerivedFallbackForMarket,
       PUBLIC_FALLBACK_MARKETS,
     } = await import("@/lib/forecasts/public-daily-fallback");
-
     for (const marketCode of PUBLIC_FALLBACK_MARKETS) {
       const targetDate = getNextForecastDate(marketMeta(marketCode).legacyMarket, today);
-      const ui = buildWeeklyDerivedFallbackForMarket(marketCode, targetDate, "member");
-      if (ui && !byAsset.has(ui.assetId)) {
-        acceptIfCorrectSession(ui);
-      }
+      const identity = `${canonicalAssetCode(marketCode)}:${targetDate}`;
+      if (acceptedAssetSessions.has(identity)) continue;
+      const forecast = buildWeeklyDerivedFallbackForMarket(marketCode, targetDate, "member");
+      if (forecast) acceptIfCorrectSession(forecast, "FALLBACK");
     }
   } catch (err) {
     console.warn("[tomorrow] lightweight weekly fallback skipped", err);
   }
 
-  const rows = [...byAsset.values()].filter((forecast) => {
+  const rows = mergeCanonicalForecastCandidates(candidates).filter((forecast) => {
     const expectedDate = getNextForecastDate(forecast.market, today);
     return isHumanPublishedForecast(forecast) && forecast.forecastForDate === expectedDate;
   });
-
   return sortByDailyAssetOrder(rows.map(sanitizeForecastForClient));
 }
 

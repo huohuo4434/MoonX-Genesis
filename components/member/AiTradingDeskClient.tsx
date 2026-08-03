@@ -26,12 +26,14 @@ function time(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("zh-CN", { hour12: false });
+  const beijing = new Date(date.getTime() + 8 * 60 * 60_000);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${beijing.getUTCFullYear()}-${pad(beijing.getUTCMonth() + 1)}-${pad(beijing.getUTCDate())} ${pad(beijing.getUTCHours())}:${pad(beijing.getUTCMinutes())} 北京时间`;
 }
 
 function planBadge(plan: AiTradingDeskPlan) {
   if (plan.status === "POSITION_OPEN" || plan.status === "READY") return "success" as const;
-  if (plan.status === "WAIT_LONG" || plan.status === "WAIT_SHORT") return "warning" as const;
+  if (plan.status === "PLAN_ONLY" || plan.status === "WAIT_LONG" || plan.status === "WAIT_SHORT") return "warning" as const;
   if (plan.status === "BLOCKED" || plan.status === "ERROR") return "danger" as const;
   return "outline" as const;
 }
@@ -70,11 +72,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
     return () => window.clearInterval(timer);
   }, []);
 
-  const statusVariant = snapshot.syncStatus === "OK"
+  const statusVariant = snapshot.operationalState === "WAITING_ENTRY" || snapshot.operationalState === "SIMULATION_POSITION"
     ? "success"
-    : snapshot.syncStatus === "PARTIAL"
+    : snapshot.operationalState === "PLAN_ONLY" || snapshot.operationalState === "DATA_DELAYED" || snapshot.operationalState === "CONNECTING"
       ? "warning"
-      : snapshot.syncStatus === "DISABLED"
+      : snapshot.operationalState === "PAUSED"
         ? "outline"
         : "danger";
 
@@ -92,7 +94,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             </Text>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Badge variant={statusVariant}>{snapshot.syncStatus === "OK" ? "同步正常" : snapshot.syncStatus === "PARTIAL" ? "部分同步" : snapshot.syncStatus === "DISABLED" ? "栏目关闭" : "同步异常"}</Badge>
+            <Badge variant={statusVariant}>{snapshot.operationalStateLabel}</Badge>
             <a
               href="https://t.me/jackuwin"
               target="_blank"
@@ -107,7 +109,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">策略状态</Text>
-            <Text variant="body-sm" className="mt-1 block">{snapshot.strategyEnabled ? "运行中" : "已停止"}</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.operationalStateLabel}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
             <Text variant="caption" color="tertiary">交易同步</Text>
@@ -118,12 +120,12 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <Text variant="body-sm" className="mt-1 block">{snapshot.executionAllowed ? "已开启" : "已关闭"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">自动运行状态</Text>
-            <Text variant="body-sm" className="mt-1 block">{snapshot.serverHealthy ? "正常" : "等待确认"}</Text>
+            <Text variant="caption" color="tertiary">行情数据</Text>
+            <Text variant="body-sm" className="mt-1 block">{snapshot.quoteReady ? "已连接" : "未连接或延迟"}</Text>
           </div>
           <div className="rounded-lg border border-white/10 p-3">
-            <Text variant="caption" color="tertiary">最近同步</Text>
-            <Text variant="body-sm" className="mt-1 block">{time(snapshot.lastSyncedAt)}</Text>
+            <Text variant="caption" color="tertiary">最近检查</Text>
+            <Text variant="body-sm" className="mt-1 block">{time(snapshot.latestQuoteAt)}</Text>
           </div>
         </div>
 
@@ -146,7 +148,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                 <div>
                   <Text variant="body" weight="semibold">{assetDisplayName(plan.symbol, plan.assetName)} · {assetDisplaySymbol(plan.symbol)}</Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">
-                    {assetVenue(plan.symbol)} · 参考价 {plan.currentPrice == null ? "等待行情" : number(plan.currentPrice, 4)} · 置信度 {plan.confidence}%
+                    {assetVenue(plan.symbol)} · 参考价 {plan.currentPrice == null ? "行情未连接" : number(plan.currentPrice, 4)} · 置信度 {plan.confidence}%
                   </Text>
                 </div>
                 <Badge variant={planBadge(plan)}>{plan.statusLabel}</Badge>

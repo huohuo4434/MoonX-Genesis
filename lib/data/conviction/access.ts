@@ -60,6 +60,7 @@ import {
 } from "@/lib/data/member-stocks/store";
 import { isIpoHighVolatilityDate } from "@/lib/data/member-stocks/ipo-rules";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
+import { forecastFreshnessStatus, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
 import type {
   MemberStockDailyMemberView,
   MemberStockVerificationResult,
@@ -110,6 +111,7 @@ export type ConvictionPeriodSlot = {
   emptyZh: string;
   /** null = not published for this period */
   forecast: ConvictionPeriodForecast | null;
+  freshnessStatus: ForecastFreshnessStatus;
 };
 
 export type ConvictionDetailPayload = {
@@ -121,6 +123,8 @@ export type ConvictionDetailPayload = {
   periodSlots: Array<{ type: ConvictionForecastType; labelZh: string; emptyZh: string; hasResearch: boolean }>;
   vibeEvidence: VibeEvidencePublicView | null;
   deviceAccessRequired: boolean;
+  asOfDate: string;
+  freshness: ForecastFreshnessSummary;
   /** Only present when fullAccess — never sent to unauthorized clients via API. */
   forecast: null | {
     today: MemberStockDailyMemberView | null;
@@ -205,7 +209,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
 
 function buildStaticPeriodSlots(
   assetId: StaticPeriodAssetId,
-  includeBody: boolean
+  includeBody: boolean,
+  asOfDate: string
 ): ConvictionPeriodSlot[] {
   const published = staticPublished(assetId);
   return fullOrder(assetId).map((type) => {
@@ -215,6 +220,9 @@ function buildStaticPeriodSlots(
       labelZh: ASTEROID_PERIOD_LABELS[type].zh,
       emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
       forecast: includeBody ? hit : null,
+      freshnessStatus: hit
+        ? forecastFreshnessStatus(hit.periodStart, hit.periodEnd, asOfDate)
+        : "MISSING",
     };
   });
 }
@@ -316,6 +324,7 @@ export async function getConvictionDetailPayload(
   noStore();
   const asset = await getConvictionAssetBySlug(slug);
   if (!asset) return null;
+  const asOfDate = getChinaDateKey(new Date());
   const access = await getAccessUser();
   const membershipAllows = hasConvictionFullAccess(access);
   const deviceGate = membershipAllows && !access.isAdmin ? await getMemberDevicePageAccess() : null;
@@ -344,6 +353,13 @@ export async function getConvictionDetailPayload(
           ],
       vibeEvidence: null,
       deviceAccessRequired,
+      asOfDate,
+      freshness: summarizeForecastFreshness(
+        staticPeriodAsset
+          ? buildStaticPeriodSlots(staticPeriodAsset, false, asOfDate).map((slot) => slot.freshnessStatus)
+          : [],
+        asOfDate
+      ),
       forecast: null,
     };
   }
@@ -351,7 +367,7 @@ export async function getConvictionDetailPayload(
   if (staticPeriodAsset) {
     const periods = await attachAdminKeyDates(
       staticPeriodAsset,
-      buildStaticPeriodSlots(staticPeriodAsset, true)
+      buildStaticPeriodSlots(staticPeriodAsset, true, asOfDate)
     );
     return {
       mode: "fullAccess",
@@ -362,6 +378,8 @@ export async function getConvictionDetailPayload(
       periodSlots: visiblePeriodMeta,
       vibeEvidence,
       deviceAccessRequired,
+      asOfDate,
+      freshness: summarizeForecastFreshness(periods.map((slot) => slot.freshnessStatus), asOfDate),
       forecast: {
         today: null,
         tomorrow: null,
@@ -386,6 +404,8 @@ export async function getConvictionDetailPayload(
       periodSlots: visiblePeriodMeta,
       vibeEvidence,
       deviceAccessRequired,
+      asOfDate,
+      freshness: summarizeForecastFreshness([], asOfDate),
       forecast: {
         today: null,
         tomorrow: null,
@@ -436,6 +456,15 @@ export async function getConvictionDetailPayload(
     ],
     vibeEvidence,
     deviceAccessRequired,
+    asOfDate,
+    freshness: summarizeForecastFreshness(
+      [
+        today ? forecastFreshnessStatus(today.forecastDate, today.forecastDate, asOfDate) : "MISSING",
+        tomorrow ? forecastFreshnessStatus(tomorrow.forecastDate, tomorrow.forecastDate, asOfDate) : "MISSING",
+        weekly ? forecastFreshnessStatus(weekly.weekStart, weekly.weekEnd, asOfDate) : "MISSING",
+      ],
+      asOfDate
+    ),
     forecast: {
       today: today ? toDailyMemberView(today) : null,
       tomorrow: tomorrow ? toDailyMemberView(tomorrow) : null,
@@ -446,5 +475,59 @@ export async function getConvictionDetailPayload(
       ipoHighVolWarning,
       history: filterPastVerifiedHistory(verifications),
     },
+  };
+}
+
+export type ConvictionWeeklyFreshnessOverview = {
+  asOfDate: string;
+  total: number;
+  current: number;
+  expired: number;
+  missing: number;
+  affectedAssets: string[];
+};
+
+const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
+  cxmt: "长鑫科技",
+  asteroid: "太空狗",
+  mu: "美光",
+  hype: "HYPE",
+  eth: "ETH",
+  googl: "Alphabet",
+  msft: "微软",
+  tencent: "腾讯",
+  "kingsoft-office": "金山办公",
+};
+
+/** Admin freshness guard: a finished weekly study cannot remain silently current. */
+export function getConvictionWeeklyFreshnessOverview(
+  now = new Date()
+): ConvictionWeeklyFreshnessOverview {
+  const asOfDate = getChinaDateKey(now);
+  let current = 0;
+  let expired = 0;
+  let missing = 0;
+  const affectedAssets: string[] = [];
+  for (const assetId of STATIC_PERIOD_ASSET_IDS) {
+    const weekly = staticPublished(assetId).find((item) => item.forecastType === "WEEK");
+    const status = weekly
+      ? forecastFreshnessStatus(weekly.periodStart, weekly.periodEnd, asOfDate)
+      : "MISSING";
+    if (status === "CURRENT" || status === "UPCOMING") current += 1;
+    else if (status === "EXPIRED") {
+      expired += 1;
+      affectedAssets.push(STATIC_ASSET_LABELS[assetId]);
+    } else {
+      missing += 1;
+      affectedAssets.push(STATIC_ASSET_LABELS[assetId]);
+    }
+  }
+  return {
+    asOfDate,
+    total: STATIC_PERIOD_ASSET_IDS.size,
+    current,
+    expired,
+    missing,
+    affectedAssets,
   };
 }

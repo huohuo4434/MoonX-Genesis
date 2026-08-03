@@ -42,6 +42,8 @@ const BANNED_TO_ALLOWED: Record<string, FormalDirection> = {
   震荡偏跌: "震荡下跌",
   高波动上涨: "震荡上涨",
   先涨后震荡: "先涨后跌",
+  宽幅震荡: "震荡",
+  冲高回落后修复: "震荡",
 };
 
 export function normalizeFormalDirection(raw: string | null | undefined): FormalDirection {

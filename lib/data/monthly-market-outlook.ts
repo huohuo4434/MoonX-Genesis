@@ -1,4 +1,5 @@
 import { SILVER_AUGUST_MONTHLY_OUTLOOK } from "@/lib/data/silver-research-20260802";
+import type { FormalDirection } from "@/lib/forecasts/formal-direction";
 
 export type MonthlyMarketOutlook = {
   assetId: string;
@@ -7,7 +8,8 @@ export type MonthlyMarketOutlook = {
   venue: string;
   periodStart: string;
   periodEnd: string;
-  direction: string;
+  direction: FormalDirection;
+  volatility?: "LOW" | "MEDIUM" | "HIGH";
   probabilities: { up: number; flat: number; down: number };
   path: string;
   keyWindow: string;
@@ -42,7 +44,7 @@ export const MONTHLY_MARKET_OUTLOOKS_202608: MonthlyMarketOutlook[] = [
   },
   {
     assetId: "sp500", assetName: "标普500指数", symbol: "SPX", venue: "美国指数市场",
-    periodStart: "2026-08-01", periodEnd: "2026-08-31", direction: "宽幅震荡",
+    periodStart: "2026-08-01", periodEnd: "2026-08-31", direction: "震荡", volatility: "HIGH",
     probabilities: { up: 34, flat: 36, down: 30 },
     path: "3日至9日冲高回落或偏弱，10日至16日为较强修复窗口，17日至23日回撤，月末高波动兑现。",
     keyWindow: "8月10日至16日相对最强。",
@@ -60,7 +62,7 @@ export const MONTHLY_MARKET_OUTLOOKS_202608: MonthlyMarketOutlook[] = [
   },
   {
     assetId: "shanghai-composite", assetName: "上证指数", symbol: "SHCOMP", venue: "上海证券交易所",
-    periodStart: "2026-08-01", periodEnd: "2026-08-31", direction: "冲高回落后修复",
+    periodStart: "2026-08-01", periodEnd: "2026-08-31", direction: "震荡", volatility: "HIGH",
     probabilities: { up: 30, flat: 38, down: 32 },
     path: "上旬反弹后回落，10日至16日偏弱，17日后风险释放并逐步修复，月末修复延续。",
     keyWindow: "8月10日至16日是偏弱窗口。",

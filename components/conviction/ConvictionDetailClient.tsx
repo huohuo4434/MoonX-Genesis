@@ -105,8 +105,8 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
     );
   }
   const f = slot.forecast;
-  const currentDate = new Date().toISOString().slice(0, 10);
-  const ended = f.periodEnd < currentDate;
+  const ended = slot.freshnessStatus === "EXPIRED";
+  const upcoming = slot.freshnessStatus === "UPCOMING";
   return (
     <Card padding="md" className="min-w-0 space-y-5 overflow-hidden border-white/[0.08] bg-[#0c0e12]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -117,7 +117,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
             </Text>
             <Badge variant="outline">{f.direction}</Badge>
             <Badge variant="outline">风险 {f.riskLevel}</Badge>
-            {ended ? <Badge variant="outline">周期已结束 · 等待更新</Badge> : null}
+            {ended ? <Badge variant="outline">历史周期 · 已结束</Badge> : null}{upcoming ? <Badge variant="outline">即将开始</Badge> : null}
           </div>
           <Text variant="caption" className="block text-white/45">
             周期：{f.periodStart} 至 {f.periodEnd}
@@ -397,6 +397,13 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}
 
+        {payload.freshness.needsUpdate ? (
+          <Card padding="md" className="border-red-400/20 bg-red-400/[0.04]">
+            <Text variant="body-sm" weight="semibold" className="text-red-100">当前周期研究待更新</Text>
+            <Text variant="caption" className="mt-1 block text-red-100/65">{payload.freshness.label}。页面不再把过期内容标记为当前报告。</Text>
+          </Card>
+        ) : null}
+
         <section className="space-y-3">
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">会员预测周期</h2>
           <div className="flex flex-wrap gap-2">
@@ -462,6 +469,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                       labelZh: tabs.find((t) => t.type === tab)?.labelZh ?? tab,
                       emptyZh: tabs.find((t) => t.type === tab)?.emptyZh ?? "该周期预测尚未发布",
                       forecast: null,
+                      freshnessStatus: "MISSING",
                     }
                   }
                 />
@@ -523,7 +531,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                 <div className="space-y-3">
                   <Card padding="md" className="border-white/[0.08] bg-[#0c0e12]">
                     <Text variant="body-sm" weight="semibold" className="text-white">
-                      已发布周期研究 {payload.forecast.periods.filter((item) => item.forecast).length} 条
+                      周期研究：当前 {payload.forecast.periods.filter((item) => item.forecast && item.freshnessStatus === "CURRENT").length} 条 · 历史 {payload.forecast.periods.filter((item) => item.forecast && item.freshnessStatus === "EXPIRED").length} 条
                     </Text>
                     <Text variant="caption" className="mt-1 block text-white/45">
                       周期结束并取得真实行情后才进入命中率；不会为了页面好看提前填写“命中”。

@@ -51,8 +51,12 @@ export interface DailyForecast {
   symbol: string;
   market: DailyForecastMarket;
 
-  /** ISO date YYYY-MM-DD — the day this forecast is FOR (not publish day). */
+  /** ISO date YYYY-MM-DD — the target market session date, not merely the publish day. */
   forecastForDate: string;
+  /** Stable market-session key, e.g. US-2026-08-04. */
+  targetSessionKey?: string;
+  /** Exact human-facing target session including the date. */
+  targetSessionLabel?: string;
   tradingSessionLabel: string;
 
   publishedAt: string;
