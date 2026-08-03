@@ -815,7 +815,13 @@ export type BitgetDemoClosedPosition = {
   openPriceAvg: number;
   closePriceAvg: number;
   openTotalPos: number;
+  closeTotalPos: number;
+  cumRealisedPnl: number;
   netProfit: number;
+  totalFunding: number;
+  openFeeTotal: number;
+  closeFeeTotal: number;
+  cashDividend: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -853,7 +859,13 @@ type BitgetClosedPositionEnvelope = {
     openPriceAvg?: string;
     closePriceAvg?: string;
     openTotalPos?: string;
+    closeTotalPos?: string;
+    cumRealisedPnl?: string;
     netProfit?: string;
+    totalFunding?: string;
+    openFeeTotal?: string;
+    closeFeeTotal?: string;
+    cashDividend?: string;
     createdTime?: string;
     updatedTime?: string;
   }>;
@@ -920,7 +932,13 @@ export async function getBitgetDemoClosedPositions(
       openPriceAvg: finiteNumber(row.openPriceAvg),
       closePriceAvg: finiteNumber(row.closePriceAvg),
       openTotalPos: finiteNumber(row.openTotalPos),
+      closeTotalPos: finiteNumber(row.closeTotalPos),
+      cumRealisedPnl: finiteNumber(row.cumRealisedPnl),
       netProfit: finiteNumber(row.netProfit),
+      totalFunding: finiteNumber(row.totalFunding),
+      openFeeTotal: finiteNumber(row.openFeeTotal),
+      closeFeeTotal: finiteNumber(row.closeFeeTotal),
+      cashDividend: finiteNumber(row.cashDividend),
       createdAt: timestampIso(row.createdTime),
       updatedAt: timestampIso(row.updatedTime),
     }))

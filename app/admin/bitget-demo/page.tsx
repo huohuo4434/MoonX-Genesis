@@ -3,6 +3,7 @@ import { BitgetDemoClient } from "@/components/admin/BitgetDemoClient";
 import { PredictionAutoTraderClient } from "@/components/admin/PredictionAutoTraderClient";
 import { AiTradingDeskSettingsClient } from "@/components/admin/AiTradingDeskSettingsClient";
 import { ThreeHorizonStrategyClient } from "@/components/admin/ThreeHorizonStrategyClient";
+import { StrategyValidationClient } from "@/components/admin/StrategyValidationClient";
 import { Heading, Section, Text } from "@/components/ui";
 import { getBitgetDemoAdminDashboard } from "@/lib/bitget/demo-runtime";
 import { getPredictionAutoTraderDashboard } from "@/lib/trading-signals/prediction-auto-trader";
@@ -28,6 +29,7 @@ export default async function AdminBitgetDemoPage() {
         <div className="space-y-10">
           <BitgetDemoClient initial={dashboard} />
           <ThreeHorizonStrategyClient initial={dashboard.threeHorizon} />
+          <StrategyValidationClient initial={dashboard.validation} />
           <PredictionAutoTraderClient initial={autoTrader} />
           <AiTradingDeskSettingsClient initial={publicDeskSettings} />
         </div>

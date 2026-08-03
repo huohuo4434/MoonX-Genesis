@@ -26,6 +26,10 @@ import {
   getThreeHorizonStrategyDashboard,
   runThreeHorizonStrategyEngine,
 } from "@/lib/trading-signals/three-horizon-strategy";
+import {
+  getStrategyValidationDashboard,
+  runStrategyValidationCycle,
+} from "@/lib/trading-signals/strategy-validation";
 import { runTradingSignalServerMonitor } from "@/lib/trading-signals/server-auto-monitor";
 import type { PredictionAutoDecision } from "@/types/prediction-auto-trader";
 import type {
@@ -590,6 +594,7 @@ export async function runBitgetDemoServerRuntime(
       market: { ok: false, quotes: [], message: "上一轮服务器任务仍在运行，本轮跳过。" },
       strategy: null,
       threeHorizon: null,
+      validation: null,
       generalSignalMonitor: null,
       mirror: null,
       reconcile: emptyAccount("上一轮任务仍在运行。"),
@@ -603,6 +608,7 @@ export async function runBitgetDemoServerRuntime(
   let quotes: BitgetDemoMarketQuote[] = [];
   let strategy: Awaited<ReturnType<typeof runPredictionAutoTrader>> | null = null;
   let threeHorizon: Awaited<ReturnType<typeof runThreeHorizonStrategyEngine>> | null = null;
+  let validation: Awaited<ReturnType<typeof runStrategyValidationCycle>> | null = null;
   let signalMonitor: Awaited<ReturnType<typeof runTradingSignalServerMonitor>> | null = null;
   let mirrorResult: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
   let account = emptyAccount();
@@ -855,6 +861,38 @@ export async function runBitgetDemoServerRuntime(
       },
     });
 
+    try {
+      validation = await runStrategyValidationCycle({
+        now,
+        source: source === "ADMIN" ? "ADMIN" : "CRON",
+        quotes,
+      });
+      await recordEvent({
+        runId,
+        stage: "RECONCILE",
+        level: validation.ok ? "SUCCESS" : "WARNING",
+        action: "PHASE3_VALIDATION",
+        message: validation.message,
+        payload: {
+          criticalIssues: validation.criticalIssues,
+          warningIssues: validation.warningIssues,
+          closedMetricsUpserted: validation.closedMetricsUpserted,
+          experimentTrialsOpened: validation.experimentTrialsOpened,
+          experimentTrialsClosed: validation.experimentTrialsClosed,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Phase 3模拟验收周期失败";
+      apiError = apiError || message;
+      await recordEvent({
+        runId,
+        stage: "RECONCILE",
+        level: "ERROR",
+        action: "PHASE3_VALIDATION_ERROR",
+        message,
+      });
+    }
+
     const finishedAt = new Date();
     finalMessage = before.paused
       ? "服务器心跳和对账已运行；因风控暂停，本轮没有新策略下单。"
@@ -874,6 +912,7 @@ export async function runBitgetDemoServerRuntime(
       },
       strategy: strategy as unknown as Record<string, unknown> | null,
       threeHorizon: threeHorizon as unknown as Record<string, unknown> | null,
+      validation: validation as unknown as Record<string, unknown> | null,
       generalSignalMonitor: signalMonitor as unknown as Record<string, unknown> | null,
       mirror: mirrorResult,
       reconcile: account,
@@ -946,12 +985,13 @@ export async function runBitgetDemoServerRuntime(
 
 
 export async function getBitgetDemoAdminDashboard() {
-  const [dashboard, runtime, threeHorizon] = await Promise.all([
+  const [dashboard, runtime, threeHorizon, validation] = await Promise.all([
     getBitgetDemoDashboard(),
     getBitgetRuntimeState(),
     getThreeHorizonStrategyDashboard(),
+    getStrategyValidationDashboard(),
   ]);
-  return { ...dashboard, runtime, threeHorizon };
+  return { ...dashboard, runtime, threeHorizon, validation };
 }
 
 function sleep(ms: number): Promise<void> {

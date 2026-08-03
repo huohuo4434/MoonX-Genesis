@@ -101,6 +101,7 @@ export interface BitgetRuntimeRunReport {
   };
   strategy: Record<string, unknown> | null;
   threeHorizon: Record<string, unknown> | null;
+  validation: Record<string, unknown> | null;
   generalSignalMonitor: Record<string, unknown> | null;
   mirror: {
     enabled: boolean;
