@@ -10,6 +10,8 @@ export type AppRole = "user" | "admin";
 export type MembershipStatus = "inactive" | "active" | "expired";
 export type MembershipPlan = "MONTHLY" | "QUARTERLY" | "YEARLY";
 export type PaymentNetwork = "TRC20" | "BEP20";
+export type FounderDiscountPercent = 10 | 20;
+export type FounderDiscountStatus = "active" | "forfeited";
 
 export interface PendingPayment {
   paymentId: string;
@@ -19,6 +21,9 @@ export interface PendingPayment {
   network: PaymentNetwork;
   tx_hash: string;
   amount: number;
+  list_price?: number;
+  discount_percent?: 10 | 20 | 0;
+  founder_rank?: number | null;
   submitted_at: string;
   status: "pending";
   notificationStatus?: "sent" | "email_failed" | "email_not_configured";
@@ -31,6 +36,9 @@ export interface PaymentHistoryItem {
   network: PaymentNetwork;
   tx_hash: string;
   amount: number;
+  list_price?: number;
+  discount_percent?: 10 | 20 | 0;
+  founder_rank?: number | null;
   submitted_at: string;
   reviewed_at?: string;
   status: "approved" | "rejected" | "pending";
@@ -50,6 +58,11 @@ export interface AppMetadata {
   referral_code?: string | null;
   referred_by_code?: string | null;
   referred_by_user_id?: string | null;
+  founder_member_rank?: number | null;
+  founder_discount_percent?: FounderDiscountPercent | null;
+  founder_discount_status?: FounderDiscountStatus | null;
+  founder_discount_granted_at?: string | null;
+  founder_discount_forfeited_at?: string | null;
 }
 
 export interface AuthUserView {
@@ -73,6 +86,11 @@ export function readAppMetadata(user: { app_metadata?: Record<string, unknown> }
     referral_code: raw.referral_code ?? null,
     referred_by_code: raw.referred_by_code ?? null,
     referred_by_user_id: raw.referred_by_user_id ?? null,
+    founder_member_rank: typeof raw.founder_member_rank === "number" ? raw.founder_member_rank : null,
+    founder_discount_percent: raw.founder_discount_percent === 20 || raw.founder_discount_percent === 10 ? raw.founder_discount_percent : null,
+    founder_discount_status: raw.founder_discount_status === "active" || raw.founder_discount_status === "forfeited" ? raw.founder_discount_status : null,
+    founder_discount_granted_at: raw.founder_discount_granted_at ?? null,
+    founder_discount_forfeited_at: raw.founder_discount_forfeited_at ?? null,
   };
 }
 
@@ -150,9 +168,9 @@ export const PLAN_DAYS: Record<MembershipPlan, number> = {
 };
 
 export const PLAN_PRICES: Record<MembershipPlan, number> = {
-  MONTHLY: 50,
-  QUARTERLY: 120,
-  YEARLY: 400,
+  MONTHLY: 80,
+  QUARTERLY: 200,
+  YEARLY: 700,
 };
 
 export const PLAN_LABELS: Record<MembershipPlan, string> = {

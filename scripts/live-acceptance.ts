@@ -233,7 +233,7 @@ async function main() {
     report.pricingOk = pricing.ok;
     const pricingHtml = await pricing.text();
     report.pricingHasPlans =
-      pricingHtml.includes("50") && pricingHtml.includes("120") && pricingHtml.includes("400");
+      pricingHtml.includes("80") && pricingHtml.includes("200") && pricingHtml.includes("700");
 
     // Cleanup test user
     await admin.auth.admin.deleteUser(userId);

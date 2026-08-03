@@ -9,9 +9,9 @@ export const PLAN_DAYS: Record<MembershipPlan, number> = {
 };
 
 export const PLAN_PRICES: Record<MembershipPlan, number> = {
-  MONTHLY: 50,
-  QUARTERLY: 120,
-  YEARLY: 400,
+  MONTHLY: 80,
+  QUARTERLY: 200,
+  YEARLY: 700,
 };
 
 export const PLAN_LABELS: Record<MembershipPlan, string> = {

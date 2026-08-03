@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
+import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 export function PublicFeaturePreview({
   eyebrow,
@@ -20,6 +23,8 @@ export function PublicFeaturePreview({
   exampleLines: string[];
   nextPath: string;
 }) {
+  const { locale } = useLocale();
+  const en = locale === "en";
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="max-w-3xl">
@@ -30,13 +35,13 @@ export function PublicFeaturePreview({
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card padding="lg">
-          <Heading as="h2" size="h3">它解决什么问题</Heading>
+          <Heading as="h2" size="h3">{en ? "What it solves" : "它解决什么问题"}</Heading>
           <ul className="mt-4 space-y-2 text-body-sm text-foreground-secondary">
             {solves.map((item) => <li key={item}>• {item}</li>)}
           </ul>
         </Card>
         <Card padding="lg">
-          <Heading as="h2" size="h3">付费会员可获得</Heading>
+          <Heading as="h2" size="h3">{en ? "What paid members receive" : "付费会员可获得"}</Heading>
           <ul className="mt-4 space-y-2 text-body-sm text-foreground-secondary">
             {memberBenefits.map((item) => <li key={item}>✓ {item}</li>)}
           </ul>
@@ -45,7 +50,7 @@ export function PublicFeaturePreview({
 
       <Card padding="lg" className="border-primary/20 bg-primary/[0.04]">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="default">示例</Badge>
+          <Badge variant="default">{en ? "Example" : "示例"}</Badge>
           <Heading as="h2" size="h3">{exampleTitle}</Heading>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -56,14 +61,14 @@ export function PublicFeaturePreview({
           ))}
         </div>
         <Text variant="caption" color="tertiary" className="mt-4 block">
-          示例仅说明页面结构，不代表当前实时观点、仓位或交易信号。
+          {en ? "This example explains the page structure only. It is not a current market view, position or trading signal." : "示例仅说明页面结构，不代表当前实时观点、仓位或交易信号。"}
         </Text>
       </Card>
 
       <div className="flex flex-wrap gap-3">
-        <Button asChild><Link href={`/login?tab=register&next=${encodeURIComponent(nextPath)}`}>免费注册</Link></Button>
-        <Button asChild variant="outline"><Link href="/pricing">查看会员权益与价格</Link></Button>
-        <Button asChild variant="ghost"><Link href="/verification">查看公开验证</Link></Button>
+        <Button asChild><Link href={`/login?tab=register&next=${encodeURIComponent(nextPath)}`}>{en ? "Register free" : "免费注册"}</Link></Button>
+        <Button asChild variant="outline"><Link href="/pricing">{en ? "View membership and pricing" : "查看会员权益与价格"}</Link></Button>
+        <Button asChild variant="ghost"><Link href="/verification">{en ? "View public verification" : "查看公开验证"}</Link></Button>
       </div>
     </div>
   );

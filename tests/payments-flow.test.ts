@@ -38,9 +38,9 @@ describe("membership renewal", () => {
 
 describe("official plan prices", () => {
   test("matches production pricing", () => {
-    assert.equal(OFFICIAL_PLAN_PRICES.MONTHLY, 50);
-    assert.equal(OFFICIAL_PLAN_PRICES.QUARTERLY, 120);
-    assert.equal(OFFICIAL_PLAN_PRICES.YEARLY, 400);
+    assert.equal(OFFICIAL_PLAN_PRICES.MONTHLY, 80);
+    assert.equal(OFFICIAL_PLAN_PRICES.QUARTERLY, 200);
+    assert.equal(OFFICIAL_PLAN_PRICES.YEARLY, 700);
   });
 });
 

@@ -88,10 +88,10 @@ export function AccountReferralPanel() {
       {membershipRequired ? (
         <div className="space-y-3">
           <Text variant="body-sm" color="secondary">
-            开通会员后获得邀请链接
+            {locale === "en" ? "Activate membership to receive your referral link." : "开通会员后获得邀请链接"}
           </Text>
           <Button asChild size="sm">
-            <Link href="/pricing">开通会员</Link>
+            <Link href="/pricing">{locale === "en" ? "Activate membership" : "开通会员"}</Link>
           </Button>
         </div>
       ) : null}
@@ -132,7 +132,7 @@ export function AccountReferralPanel() {
               className="mt-2"
               onClick={() => void copy("link", data.inviteLink)}
             >
-              {copied === "link" ? "邀请链接已复制" : t("referral.copyLink")}
+              {copied === "link" ? (locale === "en" ? "Referral link copied" : "邀请链接已复制") : t("referral.copyLink")}
             </Button>
           </div>
 

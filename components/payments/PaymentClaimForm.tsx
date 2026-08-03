@@ -43,9 +43,9 @@ export function PaymentClaimForm() {
         onChange={(e) => setPlanCode(e.target.value as typeof planCode)}
         className="h-10 rounded-md border border-border bg-surface px-3 text-body-sm"
       >
-        <option value="MONTHLY">月会员 50 USDT</option>
-        <option value="QUARTERLY">季会员 120 USDT</option>
-        <option value="YEARLY">年会员 400 USDT</option>
+        <option value="MONTHLY">月会员 80 USDT</option>
+        <option value="QUARTERLY">季会员 200 USDT</option>
+        <option value="YEARLY">年会员 700 USDT</option>
       </select>
       <select
         value={chain}

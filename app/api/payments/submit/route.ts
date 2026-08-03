@@ -32,6 +32,8 @@ import {
 } from "@/lib/payments/payment-orders-store";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { getFounderDiscountQuote } from "@/lib/payments/founder-discount-server";
+import { discountedPrice } from "@/lib/payments/founder-discount-shared";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -110,8 +112,24 @@ export async function POST(request: NextRequest) {
   }
 
   const plan = body.plan as MembershipPlan;
-  const amount = PLAN_PRICES[plan];
+  const founderQuote = await getFounderDiscountQuote(user);
+  const listPrice = PLAN_PRICES[plan];
+  const amount = discountedPrice(plan, founderQuote.discountPercent);
   const durationDays = PLAN_DAYS[plan];
+
+  if (
+    user.app_metadata.founder_discount_status === "active" &&
+    founderQuote.status === "forfeited"
+  ) {
+    try {
+      await updateUserAppMetadata(user.id, {
+        founder_discount_status: "forfeited",
+        founder_discount_forfeited_at: new Date().toISOString(),
+      });
+    } catch {
+      // The order can still be submitted at standard price if metadata sync fails.
+    }
+  }
   const isSystemTest = Boolean(body.isSystemTest) || /^SYSTEM[_-]?TEST|^HUOHUO_TEST|^SMOKE_/i.test(txHash);
 
   let order;
@@ -124,6 +142,10 @@ export async function POST(request: NextRequest) {
       txHash,
       notificationStatus: isPaymentEmailConfigured() ? "email_failed" : "email_not_configured",
       isTest: isSystemTest,
+      listPrice,
+      amount,
+      discountPercent: founderQuote.discountPercent,
+      founderRank: founderQuote.founderRank,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "付款信息保存失败，请稍后重试。";
@@ -151,6 +173,9 @@ export async function POST(request: NextRequest) {
     network: body.network as PaymentNetwork,
     tx_hash: txHash,
     amount,
+    list_price: listPrice,
+    discount_percent: founderQuote.discountPercent,
+    founder_rank: founderQuote.founderRank,
     submitted_at: order.submittedAt,
     status: "pending",
     notificationStatus: notificationStatus === "email_sent" ? "sent" : notificationStatus,
@@ -164,6 +189,9 @@ export async function POST(request: NextRequest) {
     network: body.network as PaymentNetwork,
     tx_hash: txHash,
     amount,
+    list_price: listPrice,
+    discount_percent: founderQuote.discountPercent,
+    founder_rank: founderQuote.founderRank,
     submitted_at: order.submittedAt,
     status: "pending",
     notificationStatus: pending.notificationStatus,
@@ -186,6 +214,10 @@ export async function POST(request: NextRequest) {
     plan,
     planName: PLAN_LABELS[plan],
     amount,
+    listPrice,
+    discountPercent: founderQuote.discountPercent,
+    founderRank: founderQuote.founderRank,
+    founderStatus: founderQuote.status,
     durationDays,
     network: body.network,
     status: "pending",
@@ -255,6 +287,8 @@ export async function PATCH(request: NextRequest) {
     payment_history?: PaymentHistoryItem[];
     membership_expires_at?: string;
     membership_started_at?: string;
+    founder_member_rank?: number | null;
+    founder_discount_granted_at?: string | null;
   };
   const history = [...(meta.payment_history ?? [])];
   const reviewedAt = new Date().toISOString();
@@ -289,6 +323,9 @@ export async function PATCH(request: NextRequest) {
       network: order.network,
       tx_hash: order.txHash,
       amount: order.amount,
+      list_price: order.listPrice,
+      discount_percent: order.discountPercent,
+      founder_rank: order.founderRank ?? null,
       submitted_at: order.submittedAt,
       reviewed_at: reviewedAt,
       status: "rejected",
@@ -318,6 +355,21 @@ export async function PATCH(request: NextRequest) {
     reviewedBy: reviewer?.id,
   });
 
+  const submittedAtDate = new Date(order.submittedAt);
+  const previousExpiryDate = meta.membership_expires_at
+    ? new Date(meta.membership_expires_at)
+    : null;
+  const renewalWasSubmittedBeforeExpiry = Boolean(
+    previousExpiryDate &&
+      !Number.isNaN(previousExpiryDate.getTime()) &&
+      !Number.isNaN(submittedAtDate.getTime()) &&
+      submittedAtDate.getTime() < previousExpiryDate.getTime()
+  );
+  // Manual-review delay must not consume renewal days or cancel continuity.
+  const grantReferenceTime = renewalWasSubmittedBeforeExpiry
+    ? submittedAtDate
+    : new Date(reviewedAt);
+
   const grant = await grantMembershipFromPlan({
     userId,
     plan: order.plan,
@@ -325,7 +377,8 @@ export async function PATCH(request: NextRequest) {
     source: "payment_order",
     sourceId: order.orderId,
     operatorId: reviewer?.id ?? null,
-    note: `plan=${order.plan}; tx=${order.txHash}`,
+    note: `plan=${order.plan}; tx=${order.txHash}; founder=${order.discountPercent ?? 0}%`,
+    now: grantReferenceTime,
   });
 
   const expiresAt = grant.newExpiresAt ?? meta.membership_expires_at ?? null;
@@ -336,6 +389,9 @@ export async function PATCH(request: NextRequest) {
     network: order.network,
     tx_hash: order.txHash,
     amount: order.amount,
+    list_price: order.listPrice,
+    discount_percent: order.discountPercent,
+    founder_rank: order.founderRank ?? null,
     submitted_at: order.submittedAt,
     reviewed_at: reviewedAt,
     status: "approved",
@@ -349,6 +405,15 @@ export async function PATCH(request: NextRequest) {
     payment_history: history.slice(0, 50),
     membership_plan: order.plan,
     membership_started_at: startedAt,
+    ...(order.discountPercent === 20 || order.discountPercent === 10
+      ? {
+          founder_member_rank: order.founderRank ?? meta.founder_member_rank ?? null,
+          founder_discount_percent: order.discountPercent,
+          founder_discount_status: "active" as const,
+          founder_discount_granted_at: meta.founder_discount_granted_at ?? reviewedAt,
+          founder_discount_forfeited_at: null,
+        }
+      : {}),
     ...(expiresAt
       ? { membership_status: "active" as const, membership_expires_at: expiresAt }
       : {}),

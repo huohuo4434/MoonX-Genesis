@@ -170,7 +170,7 @@ async function main() {
   try {
     const pricing = await fetch(`${SITE}/pricing`);
     const html = await pricing.text();
-    report.pricingOk = pricing.ok && html.includes("50") && html.includes("120") && html.includes("400");
+    report.pricingOk = pricing.ok && html.includes("80") && html.includes("200") && html.includes("700");
     report.pricingNoProfilesError = !html.includes("profiles") && !html.includes("关系");
 
     const member = await fetch(`${SITE}/member/tomorrow`);

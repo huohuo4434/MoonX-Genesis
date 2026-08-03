@@ -5,6 +5,7 @@
 import "server-only";
 
 import { siteConfig } from "@/lib/site-config";
+import type { FounderDiscountPercent } from "@/lib/payments/founder-discount-shared";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
@@ -30,6 +31,11 @@ export type PaymentOrderRecord = {
   plan: MembershipPlan;
   planName: string;
   amount: number;
+  listPrice: number;
+  discountPercent: FounderDiscountPercent;
+  discountAmount: number;
+  founderRank?: number | null;
+  founderTier?: "FOUNDING_20" | "FOUNDING_10" | null;
   durationDays: number;
   network: PaymentNetwork;
   txHash: string;
@@ -83,7 +89,22 @@ function normalizeRecord(raw: Record<string, unknown>): PaymentOrderRecord | nul
   const network = (String(raw.network ?? "TRC20") as PaymentNetwork) || "TRC20";
   const status = (String(raw.status ?? "pending") as PaymentOrderStatus) || "pending";
   const submittedAt = String(raw.submittedAt ?? raw.created_at ?? new Date().toISOString());
-  const amount = Number(raw.amount ?? PLAN_PRICES[plan] ?? 0);
+  const rawAmount = Number(raw.amount ?? Number.NaN);
+  const listPrice = Number(
+    raw.listPrice ??
+      raw.list_price ??
+      (Number.isFinite(rawAmount) ? rawAmount : PLAN_PRICES[plan] ?? 0)
+  );
+  const discountPercentRaw = Number(raw.discountPercent ?? raw.discount_percent ?? 0);
+  const discountPercent: FounderDiscountPercent = discountPercentRaw === 20 ? 20 : discountPercentRaw === 10 ? 10 : 0;
+  const amount = Number.isFinite(rawAmount)
+    ? rawAmount
+    : Math.round(listPrice * (100 - discountPercent)) / 100;
+  const discountAmount = Number(raw.discountAmount ?? raw.discount_amount ?? Math.max(0, listPrice - amount));
+  const founderRankRaw = Number(raw.founderRank ?? raw.founder_rank ?? 0);
+  const founderRank = Number.isFinite(founderRankRaw) && founderRankRaw > 0 ? founderRankRaw : null;
+  const founderTierRaw = String(raw.founderTier ?? raw.founder_tier ?? "");
+  const founderTier = founderTierRaw === "FOUNDING_20" || founderTierRaw === "FOUNDING_10" ? founderTierRaw : null;
   const durationDays = Number(raw.durationDays ?? PLAN_DAYS[plan] ?? 30);
   const notificationStatus = String(
     raw.notificationStatus ?? raw.notification_status ?? "email_not_configured"
@@ -100,6 +121,11 @@ function normalizeRecord(raw: Record<string, unknown>): PaymentOrderRecord | nul
     plan,
     planName: String(raw.planName ?? PLAN_LABELS[plan] ?? plan),
     amount,
+    listPrice,
+    discountPercent,
+    discountAmount,
+    founderRank,
+    founderTier,
     durationDays,
     network,
     txHash,
@@ -217,6 +243,10 @@ export async function createPaymentOrder(input: {
   txHash: string;
   notificationStatus?: PaymentOrderNotificationStatus;
   isTest?: boolean;
+  listPrice?: number;
+  amount?: number;
+  discountPercent?: FounderDiscountPercent;
+  founderRank?: number | null;
 }): Promise<PaymentOrderRecord> {
   const existing = await findPaymentOrderByTxHash(input.txHash);
   if (existing && existing.status !== "rejected") {
@@ -226,6 +256,10 @@ export async function createPaymentOrder(input: {
   const orderId = newOrderId();
   const orderNumber = newOrderNumber();
   const submittedAt = new Date().toISOString();
+  const listPrice = input.listPrice ?? PLAN_PRICES[input.plan];
+  const discountPercent = input.discountPercent ?? 0;
+  const amount = input.amount ?? Math.round(listPrice * (100 - discountPercent)) / 100;
+  const founderTier = discountPercent === 20 ? "FOUNDING_20" : discountPercent === 10 ? "FOUNDING_10" : null;
   const row: PaymentOrderRecord = {
     orderId,
     orderNumber,
@@ -233,7 +267,12 @@ export async function createPaymentOrder(input: {
     userEmail: input.email.trim().toLowerCase(),
     plan: input.plan,
     planName: PLAN_LABELS[input.plan],
-    amount: PLAN_PRICES[input.plan],
+    amount,
+    listPrice,
+    discountPercent,
+    discountAmount: Math.max(0, listPrice - amount),
+    founderRank: input.founderRank ?? null,
+    founderTier,
     durationDays: PLAN_DAYS[input.plan],
     network: input.network,
     txHash: input.txHash.trim(),

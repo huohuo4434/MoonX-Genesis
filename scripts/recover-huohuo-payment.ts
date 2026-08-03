@@ -128,7 +128,7 @@ async function main() {
   }
 
   const plan = (source.plan ?? "MONTHLY") as "MONTHLY" | "QUARTERLY" | "YEARLY";
-  const prices = { MONTHLY: 50, QUARTERLY: 120, YEARLY: 400 } as const;
+  const prices = { MONTHLY: 80, QUARTERLY: 200, YEARLY: 700 } as const;
   const days = { MONTHLY: 30, QUARTERLY: 90, YEARLY: 365 } as const;
   const labels = { MONTHLY: "月度会员", QUARTERLY: "季度会员", YEARLY: "年度会员" } as const;
   const orderId = `ord_recover_${Date.now().toString(36)}`;

@@ -10,9 +10,9 @@ export type Locale = "zh-CN" | "zh-TW" | "en";
 
 export const LOCALES: Locale[] = ["zh-CN", "zh-TW", "en"];
 
-/** English remains hidden until every public surface has complete translated content. */
-export const ENGLISH_PUBLIC_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ENGLISH === "true";
-export const PUBLIC_LOCALES: Locale[] = ENGLISH_PUBLIC_ENABLED ? LOCALES : ["zh-CN", "zh-TW"];
+/** English is a permanent public language. Do not hide it behind an environment flag. */
+export const ENGLISH_PUBLIC_ENABLED = true;
+export const PUBLIC_LOCALES: Locale[] = LOCALES;
 
 export const DEFAULT_LOCALE: Locale = "zh-CN";
 
