@@ -14,6 +14,7 @@ import {
   ensurePredictionAutoTraderTables,
   getPredictionAutoTraderDashboard,
 } from "@/lib/trading-signals/prediction-auto-trader";
+import { getThreeHorizonPublicStrategies } from "@/lib/trading-signals/three-horizon-strategy";
 import { applyAiDeskOperationalState, sanitizePlanHorizonText } from "@/lib/trading-signals/ai-desk-status";
 import type {
   AiTradingDeskPlan,
@@ -429,6 +430,7 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
       },
     },
     settings,
+    strategies: [],
     plans: [],
     positions: [],
     recentTrades: [],
@@ -453,9 +455,10 @@ export async function buildMemberAiTradingDeskSnapshot(
   const settings = await getMemberAiTradingDeskSettings();
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
-  const [dashboard, runtime] = await Promise.all([
+  const [dashboard, runtime, strategies] = await Promise.all([
     getPredictionAutoTraderDashboard(now),
     getBitgetRuntimeState(now),
+    getThreeHorizonPublicStrategies(now),
   ]);
   const liveResults = await Promise.allSettled([
     getBitgetDemoCurrentPositions(),
@@ -515,6 +518,7 @@ export async function buildMemberAiTradingDeskSnapshot(
       decisionStatsToday: runtime.decisionStatsToday,
     },
     settings,
+    strategies,
     plans: buildPlanRows(
       dashboard.plans,
       dashboard.recentRuns,
@@ -598,6 +602,7 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
   return applyAiDeskOperationalState({
     ...payload,
     settings,
+    strategies: payload.strategies ?? [],
     lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
     syncStatus: row.last_error ? "PARTIAL" : payload.syncStatus,
     syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : payload.syncMessage,

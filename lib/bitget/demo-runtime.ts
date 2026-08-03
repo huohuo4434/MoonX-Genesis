@@ -22,6 +22,10 @@ import {
   syncBitgetDemoOrders,
 } from "@/lib/bitget/demo-connector";
 import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
+import {
+  getThreeHorizonStrategyDashboard,
+  runThreeHorizonStrategyEngine,
+} from "@/lib/trading-signals/three-horizon-strategy";
 import { runTradingSignalServerMonitor } from "@/lib/trading-signals/server-auto-monitor";
 import type { PredictionAutoDecision } from "@/types/prediction-auto-trader";
 import type {
@@ -585,6 +589,7 @@ export async function runBitgetDemoServerRuntime(
       finishedAt: new Date().toISOString(),
       market: { ok: false, quotes: [], message: "上一轮服务器任务仍在运行，本轮跳过。" },
       strategy: null,
+      threeHorizon: null,
       generalSignalMonitor: null,
       mirror: null,
       reconcile: emptyAccount("上一轮任务仍在运行。"),
@@ -597,6 +602,7 @@ export async function runBitgetDemoServerRuntime(
   let marketMessage = "";
   let quotes: BitgetDemoMarketQuote[] = [];
   let strategy: Awaited<ReturnType<typeof runPredictionAutoTrader>> | null = null;
+  let threeHorizon: Awaited<ReturnType<typeof runThreeHorizonStrategyEngine>> | null = null;
   let signalMonitor: Awaited<ReturnType<typeof runTradingSignalServerMonitor>> | null = null;
   let mirrorResult: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
   let account = emptyAccount();
@@ -685,6 +691,52 @@ export async function runBitgetDemoServerRuntime(
       }
 
       try {
+        threeHorizon = await runThreeHorizonStrategyEngine(
+          now,
+          source === "ADMIN" ? "ADMIN" : "CRON"
+        );
+        strategyRan = true;
+        await recordEvent({
+          runId,
+          stage: "STRATEGY",
+          level: threeHorizon.ok ? "SUCCESS" : "WARNING",
+          action: "THREE_HORIZON",
+          message: threeHorizon.message,
+          payload: {
+            scannedStrategies: threeHorizon.scannedStrategies,
+            decisions: threeHorizon.decisions.length,
+            orderAttempts: threeHorizon.orderAttempts,
+            orderSuccess: threeHorizon.orderSuccess,
+            orderErrors: threeHorizon.orderErrors,
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "三周期策略执行失败";
+        apiError = apiError || message;
+        threeHorizon = {
+          ok: false,
+          runId: `thr_error_${runId}`,
+          source: source === "ADMIN" ? "ADMIN" : "CRON",
+          startedAt: now.toISOString(),
+          finishedAt: new Date().toISOString(),
+          scannedStrategies: [],
+          decisions: [],
+          managedOpenDecisions: 0,
+          orderAttempts: 0,
+          orderSuccess: 0,
+          orderErrors: 1,
+          message,
+        };
+        await recordEvent({
+          runId,
+          stage: "STRATEGY",
+          level: "ERROR",
+          action: "THREE_HORIZON_ERROR",
+          message,
+        });
+      }
+
+      try {
         mirrorResult = await syncBitgetDemoOrders();
         if (mirrorResult.processed > 0) {
           await recordEvent({
@@ -754,6 +806,37 @@ export async function runBitgetDemoServerRuntime(
         action: "PAUSED_SKIP",
         message: `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
+      try {
+        threeHorizon = await runThreeHorizonStrategyEngine(
+          now,
+          source === "ADMIN" ? "ADMIN" : "CRON",
+          { manageOnly: true }
+        );
+        strategyRan = true;
+        await recordEvent({
+          runId,
+          stage: "STRATEGY",
+          level: threeHorizon.ok ? "INFO" : "WARNING",
+          action: "THREE_HORIZON_MANAGE_ONLY",
+          message: threeHorizon.message,
+          payload: {
+            managedOpenDecisions: threeHorizon.managedOpenDecisions,
+            orderAttempts: threeHorizon.orderAttempts,
+            orderSuccess: threeHorizon.orderSuccess,
+            orderErrors: threeHorizon.orderErrors,
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "暂停状态下的持仓管理失败";
+        apiError = apiError || message;
+        await recordEvent({
+          runId,
+          stage: "STRATEGY",
+          level: "ERROR",
+          action: "THREE_HORIZON_MANAGE_ONLY_ERROR",
+          message,
+        });
+      }
     }
 
     account = await reconcileAccount(now);
@@ -775,9 +858,9 @@ export async function runBitgetDemoServerRuntime(
     const finishedAt = new Date();
     finalMessage = before.paused
       ? "服务器心跳和对账已运行；因风控暂停，本轮没有新策略下单。"
-      : `服务器链路完成：行情${marketOk ? "正常" : "异常"}，策略${strategyRan ? "已检查" : "未完成"}，镜像成功${mirrorResult?.success ?? 0}笔、失败${mirrorResult?.errors ?? 0}笔。`;
+      : `服务器链路完成：行情${marketOk ? "正常" : "异常"}，旧策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，Demo成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0)}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0)}笔。`;
     const report: BitgetRuntimeRunReport = {
-      ok: !apiError && (mirrorResult?.errors ?? 0) === 0,
+      ok: !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0,
       locked: false,
       paused: before.paused,
       runId,
@@ -790,6 +873,7 @@ export async function runBitgetDemoServerRuntime(
         message: marketMessage,
       },
       strategy: strategy as unknown as Record<string, unknown> | null,
+      threeHorizon: threeHorizon as unknown as Record<string, unknown> | null,
       generalSignalMonitor: signalMonitor as unknown as Record<string, unknown> | null,
       mirror: mirrorResult,
       reconcile: account,
@@ -802,10 +886,16 @@ export async function runBitgetDemoServerRuntime(
       marketOk,
       strategyRan,
       account,
-      orderAttempted: Boolean(mirrorResult && mirrorResult.processed > 0),
-      orderSuccess: Boolean(mirrorResult && mirrorResult.success > 0),
+      orderAttempted: Boolean(
+        (mirrorResult && mirrorResult.processed > 0) ||
+        (threeHorizon && threeHorizon.orderAttempts > 0)
+      ),
+      orderSuccess: Boolean(
+        (mirrorResult && mirrorResult.success > 0) ||
+        (threeHorizon && threeHorizon.orderSuccess > 0)
+      ),
       apiError,
-      orderErrors: mirrorResult?.errors ?? 0,
+      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0),
       report: report as unknown as Record<string, unknown>,
     });
     await recordEvent({
@@ -836,10 +926,16 @@ export async function runBitgetDemoServerRuntime(
       marketOk,
       strategyRan,
       account,
-      orderAttempted: Boolean(mirrorResult && mirrorResult.processed > 0),
-      orderSuccess: Boolean(mirrorResult && mirrorResult.success > 0),
+      orderAttempted: Boolean(
+        (mirrorResult && mirrorResult.processed > 0) ||
+        (threeHorizon && threeHorizon.orderAttempts > 0)
+      ),
+      orderSuccess: Boolean(
+        (mirrorResult && mirrorResult.success > 0) ||
+        (threeHorizon && threeHorizon.orderSuccess > 0)
+      ),
       apiError: message,
-      orderErrors: mirrorResult?.errors ?? 0,
+      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0),
       report: { error: message, runId },
     }).catch(() => undefined);
     throw error;
@@ -850,11 +946,12 @@ export async function runBitgetDemoServerRuntime(
 
 
 export async function getBitgetDemoAdminDashboard() {
-  const [dashboard, runtime] = await Promise.all([
+  const [dashboard, runtime, threeHorizon] = await Promise.all([
     getBitgetDemoDashboard(),
     getBitgetRuntimeState(),
+    getThreeHorizonStrategyDashboard(),
   ]);
-  return { ...dashboard, runtime };
+  return { ...dashboard, runtime, threeHorizon };
 }
 
 function sleep(ms: number): Promise<void> {

@@ -1,4 +1,5 @@
 import type { BitgetRuntimeDecisionStats } from "@/types/bitget-demo-runtime";
+import type { ThreeHorizonPublicStrategy } from "@/types/three-horizon-strategy";
 
 export type AiTradingDeskPlanStatus =
   | "PLAN_ONLY"
@@ -113,6 +114,7 @@ export interface AiTradingDeskSnapshot {
     decisionStatsToday: BitgetRuntimeDecisionStats;
   };
   settings: AiTradingDeskSettings;
+  strategies: ThreeHorizonPublicStrategy[];
   plans: AiTradingDeskPlan[];
   positions: AiTradingDeskPosition[];
   recentTrades: AiTradingDeskTrade[];

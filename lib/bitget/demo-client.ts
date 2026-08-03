@@ -114,6 +114,19 @@ export type BitgetDemoMarketQuote = {
   capturedAt: string;
 };
 
+export type BitgetCandleInterval = "1m" | "3m" | "5m" | "15m" | "30m" | "1H" | "4H" | "6H" | "12H" | "1D";
+
+export type BitgetDemoCandle = {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  turnover: number;
+  capturedAt: string;
+};
+
 function credentials() {
   return {
     apiKey: process.env.BITGET_DEMO_API_KEY?.trim() ?? "",
@@ -231,6 +244,73 @@ export async function getBitgetDemoMarketQuotes(
         Number.isFinite(row.price) &&
         row.price > 0
     );
+}
+
+
+export async function getBitgetDemoCandles(input: {
+  symbol: BitgetSupportedSymbol;
+  interval: BitgetCandleInterval;
+  limit?: number;
+}): Promise<BitgetDemoCandle[]> {
+  const limit = Math.max(20, Math.min(1000, Math.floor(input.limit ?? 100)));
+  const params = new URLSearchParams({
+    category: PRODUCT_TYPE,
+    symbol: input.symbol,
+    interval: input.interval,
+    type: "market",
+    limit: String(limit),
+  });
+  const response = await fetchWithTimeout(
+    `${BASE_URL}/api/v3/market/candles?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "MoonX-Three-Horizon/1.0",
+      },
+    },
+    10_000
+  );
+  const raw = await response.text();
+  let payload: BitgetEnvelope<string[][]>;
+  try {
+    payload = JSON.parse(raw) as BitgetEnvelope<string[][]>;
+  } catch {
+    throw new Error(`Bitget ${input.symbol} ${input.interval} K线返回非JSON内容（HTTP ${response.status}）`);
+  }
+  if (!response.ok || payload.code !== "00000" || !Array.isArray(payload.data)) {
+    throw new Error(payload.msg || `Bitget K线HTTP ${response.status}`);
+  }
+  return payload.data
+    .map((row) => {
+      const timestamp = Number(row[0]);
+      const open = Number(row[1]);
+      const high = Number(row[2]);
+      const low = Number(row[3]);
+      const close = Number(row[4]);
+      const volume = Number(row[5]);
+      const turnover = Number(row[6]);
+      return {
+        timestamp,
+        open,
+        high,
+        low,
+        close,
+        volume: Number.isFinite(volume) ? volume : 0,
+        turnover: Number.isFinite(turnover) ? turnover : 0,
+        capturedAt: Number.isFinite(timestamp) && timestamp > 0
+          ? new Date(timestamp).toISOString()
+          : new Date().toISOString(),
+      };
+    })
+    .filter((row) =>
+      Number.isFinite(row.timestamp) &&
+      Number.isFinite(row.open) && row.open > 0 &&
+      Number.isFinite(row.high) && row.high > 0 &&
+      Number.isFinite(row.low) && row.low > 0 &&
+      Number.isFinite(row.close) && row.close > 0
+    )
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
 async function signedRequest<T>(input: {
@@ -564,6 +644,8 @@ export async function placeBitgetDemoMarketOrder(input: {
   quantity: number;
   side: "buy" | "sell";
   reduceOnly: boolean;
+  stopLoss?: number;
+  takeProfit?: number;
 }): Promise<{
   orderId: string;
   clientOid: string;
@@ -608,6 +690,17 @@ export async function placeBitgetDemoMarketOrder(input: {
     reduceOnly: input.reduceOnly ? "yes" : "no",
     marginMode: "isolated",
   };
+
+  if (!input.reduceOnly && input.stopLoss && input.stopLoss > 0) {
+    body.stopLoss = input.stopLoss.toFixed(8).replace(/\.?0+$/, "");
+    body.slTriggerBy = "mark";
+    body.slOrderType = "market";
+  }
+  if (!input.reduceOnly && input.takeProfit && input.takeProfit > 0) {
+    body.takeProfit = input.takeProfit.toFixed(8).replace(/\.?0+$/, "");
+    body.tpTriggerBy = "mark";
+    body.tpOrderType = "market";
+  }
 
   if (hedgeMode) {
     body.posSide = inferHedgePositionSide(input);

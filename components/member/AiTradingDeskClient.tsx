@@ -166,6 +166,68 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
       <section className="space-y-4">
         <div>
+          <Heading size="h3">三周期策略</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">
+            短线、波段和中长期独立扫描。影子观察只记录机会，不会向Bitget提交订单。
+          </Text>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          {snapshot.strategies.map((strategy) => {
+            const latest = strategy.decisions[0];
+            return (
+              <Card key={strategy.strategyType} padding="lg" className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Text variant="body" weight="semibold">{strategy.label}</Text>
+                    <Text variant="caption" color="tertiary" className="mt-1 block">
+                      {strategy.holdingLabel} · {strategy.timeframeLabel}
+                    </Text>
+                  </div>
+                  <Badge variant={!strategy.enabled ? "outline" : strategy.mode === "DEMO" ? "warning" : "success"}>
+                    {!strategy.enabled ? "已暂停" : strategy.modeLabel}
+                  </Badge>
+                </div>
+                <Text variant="body-sm" color="secondary">{strategy.description}</Text>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg border border-white/10 p-3">
+                    <Text variant="caption" color="tertiary">今日扫描</Text>
+                    <Text variant="body-sm" className="mt-1 block">{strategy.stats.scansToday}次</Text>
+                  </div>
+                  <div className="rounded-lg border border-white/10 p-3">
+                    <Text variant="caption" color="tertiary">影子机会</Text>
+                    <Text variant="body-sm" className="mt-1 block">{strategy.stats.shadowReadyToday}次</Text>
+                  </div>
+                  <div className="rounded-lg border border-white/10 p-3">
+                    <Text variant="caption" color="tertiary">下单尝试</Text>
+                    <Text variant="body-sm" className="mt-1 block">{strategy.stats.orderAttemptsToday}次</Text>
+                  </div>
+                  <div className="rounded-lg border border-white/10 p-3">
+                    <Text variant="caption" color="tertiary">单笔风险</Text>
+                    <Text variant="body-sm" className="mt-1 block">{strategy.riskPerTradePct}%</Text>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+                  <Text variant="caption" color="tertiary">最近判断</Text>
+                  <Text variant="body-sm" className="mt-1 block">
+                    {latest
+                      ? `${latest.symbol} · ${latest.status} · ${latest.conditionsMet}/${latest.conditionsTotal}项满足`
+                      : "尚未完成首次扫描"}
+                  </Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    {latest?.rejectionReason ?? `最近扫描：${time(strategy.lastScanAt)}`}
+                  </Text>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        {!snapshot.strategies.length ? (
+          <Card padding="lg"><Text variant="body-sm" color="secondary">三周期策略正在初始化。</Text></Card>
+        ) : null}
+      </section>
+
+      <section className="space-y-4">
+        <div>
           <Heading size="h3">AI当前计划</Heading>
           <Text variant="body-sm" color="secondary" className="mt-1 block">
             周预测决定主方向，日预测决定进场节奏，15分钟结构确认后才允许开仓。
