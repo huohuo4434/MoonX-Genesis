@@ -4,7 +4,7 @@ import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "MOOX Terms of Service",
-  description: "MOOX terms covering membership, founding-member discounts, USDT payment and manual review.",
+  description: "MOOX terms covering membership, founding-member discounts, USDT payment and automatic on-chain verification.",
 };
 
 export default function TermsPage() {

@@ -33,6 +33,7 @@ export default async function CheckoutPage({
             trc20Address={cfg.trc20Address}
             bep20Address={cfg.bep20Address}
             founderQuote={founderQuote}
+            bep20Enabled={cfg.bep20Enabled}
           />
         </Suspense>
       </Section>

@@ -191,13 +191,13 @@ export function PricingPlansClient({
                 "1. Choose a membership plan",
                 "2. Transfer the exact USDT amount on the selected network",
                 "3. Submit the transaction hash",
-                "4. Wait for manual review and activation",
+                "4. Membership activates automatically after on-chain confirmation",
               ]
             : [
                 "1. 选择会员套餐",
                 "2. 使用对应网络转账准确金额的USDT",
                 "3. 提交交易哈希",
-                "4. 等待人工审核开通（暂不自动链上核验）",
+                "4. 链上确认后自动开通会员（正常付款无需人工审核）",
               ]
           ).map((line) => (
             <p key={line} className="text-body-sm text-foreground-secondary">

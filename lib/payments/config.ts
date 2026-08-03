@@ -19,6 +19,7 @@ export function getPaymentConfig() {
       process.env.BEP20_PAYMENTS_ENABLED === "true" &&
       process.env.MOONX_BEP20_ENABLED === "true",
     bscConfirmations: Number(process.env.BSC_CONFIRMATIONS ?? "12"),
+    bscTokenDecimals: Number(process.env.BSC_PAYMENT_TOKEN_DECIMALS ?? "18"),
     orderTtlMinutes: 30,
     tronGridApiKey: process.env.TRONGRID_API_KEY,
     bscRpcUrl: process.env.BSC_RPC_URL ?? "https://bsc-dataseed.binance.org",

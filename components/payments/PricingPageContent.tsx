@@ -153,8 +153,8 @@ export function PricingPageContent({
           <Text variant="body" weight="semibold">{en ? "Order status" : "订单状态说明"}</Text>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-body-sm text-foreground-secondary">
             {(en
-              ? ["Submitted", "Verification", "Manual review", "Activated", "Notification sent"]
-              : ["已提交", "待核验", "人工审核", "已开通", "通知已送达"]
+              ? ["Order created", "Transfer submitted", "On-chain verification", "Activated", "Notification sent"]
+              : ["生成订单", "提交转账", "链上自动核验", "自动开通", "通知已送达"]
             ).map((item, index, array) => (
               <span key={item} className="contents">
                 <span>{item}</span>{index < array.length - 1 ? <span aria-hidden>→</span> : null}
@@ -163,8 +163,8 @@ export function PricingPageContent({
           </div>
           <Text variant="caption" color="tertiary" className="mt-3 block">
             {en
-              ? "Submitting a transaction hash only places the order in the review queue. It does not mean payment has been confirmed or membership activated."
-              : "提交交易哈希只表示订单已进入核验队列，不等于付款已确认或会员已开通。通知状态以系统真实记录为准。"}
+              ? "Submitting a transaction hash starts automatic verification. Membership activates only after the configured token, network, recipient, amount and confirmations all match."
+              : "提交交易哈希后系统自动核验；只有代币合约、网络、收款地址、精确金额及链上确认数全部匹配，会员才会自动开通。"}
           </Text>
         </Card>
 

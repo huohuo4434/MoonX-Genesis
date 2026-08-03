@@ -14,12 +14,13 @@ export const revalidate = 0;
 export default async function AccountPage() {
   noStore();
   const access = await getAccessUser();
-  if (!access.authenticated || !access.userId) redirect("/login");
+  const userId = access.userId;
+  if (!access.authenticated || !userId) redirect("/login");
 
   const cfg = getPaymentConfig();
   const [latestEvent, referralStats, authUser] = await Promise.all([
-    latestMembershipEventForUser(access.userId),
-    getReferralStats(access.userId).catch(() => ({ successCount: 0, rewardDaysTotal: 0, pendingCount: 0 })),
+    latestMembershipEventForUser(userId),
+    getReferralStats(userId).catch(() => ({ successCount: 0, rewardDaysTotal: 0, pendingCount: 0 })),
     getCurrentUser(),
   ]);
   const founderQuote = await getFounderDiscountQuote(authUser);
@@ -32,7 +33,7 @@ export default async function AccountPage() {
   return (
     <AccountPageClient
       email={access.email ?? ""}
-      userId={access.userId}
+      userId={userId}
       isAdmin={access.isAdmin}
       isActiveMember={access.isActiveMember}
       membershipPlan={access.membershipPlan}

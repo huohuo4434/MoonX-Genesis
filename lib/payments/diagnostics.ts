@@ -99,8 +99,9 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostic[]> {
   });
   items.push({
     id: "verify_payment",
-    label: "链上核验 API",
-    status: readiness.trc20Open && flags.paymentsEnabled ? "ok" : "missing",
+    label: "链上自动核验",
+    status: readiness.autoVerificationReady && flags.paymentsEnabled ? "ok" : "missing",
+    detail: readiness.autoVerificationReady ? "Vercel 每分钟自动对账" : readiness.reasons.join("；") || undefined,
   });
   items.push({
     id: "trc20_open",

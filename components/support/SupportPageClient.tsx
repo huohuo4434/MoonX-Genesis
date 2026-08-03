@@ -6,14 +6,14 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 const FAQ_ZH = [
   ["预测什么时候更新？", "日度、下一交易日、周度和月度页面会分别标明目标时段、发布时间及数据状态。休市市场不生成虚假的当日验证。"],
   ["为什么显示观望或等待确认？", "方向研究不等于立即交易。只有价格、结构和失效条件完整时，系统才生成模拟交易计划。"],
-  ["USDT付款后多久开通？", "提交交易哈希后进入链上确认与人工复核。页面会保留订单状态；遇到通知失败可联系账务客服。"],
+  ["USDT付款后多久开通？", "生成订单并提交交易哈希后，系统立即核验，并由 Vercel 每分钟自动重试。链上确认后自动开通；通常无需人工审核。"],
   ["历史准确率如何计算？", "只统计已到验证截止时间、取得真实行情且结论已锁定的记录；同时展示样本量、完整命中、部分命中、未命中和不可验证。"],
 ] as const;
 
 const FAQ_EN = [
   ["When are forecasts updated?", "Daily, next-session, weekly and monthly pages show their target window, publication time and data status. Closed markets are not given fake same-day verification records."],
   ["Why does a forecast say wait or confirmation required?", "A directional view is not an immediate trade. A simulated plan appears only when price, structure and invalidation conditions are complete."],
-  ["How long does USDT activation take?", "After the transaction hash is submitted, the payment enters blockchain confirmation and manual review. The order page keeps the latest status."],
+  ["How long does USDT activation take?", "After the transaction hash is submitted, verification starts immediately and Vercel retries every minute. Confirmed payments activate automatically; manual review is only for exceptions."],
   ["How is historical accuracy calculated?", "Only locked records whose verification window has ended and whose real market data is available are counted. Sample size, full hits, partial hits, misses and unverifiable records remain visible."],
 ] as const;
 

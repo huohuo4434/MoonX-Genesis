@@ -70,11 +70,12 @@ test("production plan-price migration is additive and matches the new list price
 });
 
 
-test("a renewal submitted before expiry stays eligible while manual review is pending", () => {
+test("a renewal submitted before expiry stays eligible during automatic verification or exception review", () => {
   const server = read("lib/payments/founder-discount-server.ts");
   assert.match(server, /hasPendingRenewalSubmittedBeforeExpiry/);
   assert.match(server, /pendingRenewalPreservesContinuity/);
-  assert.match(server, /manual review is pending/i);
+  assert.match(server, /\["pending", "verifying", "manual_review"\]/);
+  assert.match(server, /submittedAt\.getTime\(\) < expiry\.getTime\(\)/);
 });
 
 test("core public conversion and account entry pages contain English copy", () => {
