@@ -2,6 +2,7 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { AccountReferralPanel } from "@/components/account/AccountReferralPanel";
+import { AccountSecurityPanel } from "@/components/account/AccountSecurityPanel";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getAccessUser } from "@/lib/auth/get-access-user";
@@ -46,7 +47,7 @@ export default async function AccountPage() {
       ? PLAN_LABELS[access.membershipPlan]
       : access.isActiveMember
         ? "会员"
-        : "普通用户";
+        : "免费注册用户";
 
   const memberStatus = access.isAdmin
     ? "会员有效（永久）"
@@ -161,6 +162,7 @@ export default async function AccountPage() {
           </Text>
         </Card>
 
+        <AccountSecurityPanel memberEligible={access.isActiveMember || access.isAdmin} />
         <AccountReferralPanel />
       </Section>
     </main>

@@ -121,6 +121,7 @@ export default async function AdminHomePage() {
               ["/admin/support-resistance", "支撑压力录入"],
               ["/admin/stocks", "个股分析"],
               ["/admin/users", "用户与会员"],
+              ["/admin/security", "会员设备安全"],
               ["/admin/payments", "支付审核"],
               ["/admin/automation", "自动化状态"],
               ["/admin/settings", "设置"],

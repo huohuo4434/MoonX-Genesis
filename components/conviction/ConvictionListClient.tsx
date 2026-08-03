@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Badge, Button, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { formatDateChina } from "@/lib/utils/datetime";
@@ -124,7 +125,7 @@ function PublicAssetCard({
         <section>
           <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">关注逻辑</h3>
           <ul className="mt-3 space-y-2">
-            {card.thesisZh.map((line) => (
+            {card.thesisZh.slice(0, 2).map((line) => (
               <li key={line} className="flex gap-2 text-body-sm text-white/75">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/35" aria-hidden />
                 <span>{line}</span>
@@ -136,7 +137,7 @@ function PublicAssetCard({
         <section>
           <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">催化剂</h3>
           <div className="mt-2 flex flex-wrap gap-2">
-            {card.catalystsZh.map((c) => (
+            {card.catalystsZh.slice(0, 4).map((c) => (
               <Badge key={c} variant="outline" className="border-white/12 text-white/70">
                 {c}
               </Badge>
@@ -147,7 +148,7 @@ function PublicAssetCard({
         <section>
           <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">风险</h3>
           <ul className="mt-2 space-y-1.5">
-            {card.risksZh.map((r) => (
+            {card.risksZh.slice(0, 3).map((r) => (
               <li key={r} className="text-body-sm text-white/65">
                 · {r}
               </li>
@@ -159,7 +160,7 @@ function PublicAssetCard({
           <section className="rounded-lg border border-cyan-400/12 bg-cyan-400/[0.025] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-body-sm font-medium text-white/85">Vibe客观证据</p>
+                <p className="text-body-sm font-medium text-white/85">外部数据与基本面证据</p>
                 <p className="mt-1 text-caption text-white/45">
                   数据完整度 {evidence.completeness}% · 月度权重 {evidence.monthlyWeight}%
                 </p>
@@ -211,6 +212,12 @@ function PublicAssetCard({
 }
 
 export function ConvictionListClient({ payload }: { payload: ConvictionListPagePayload }) {
+  const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO">("ALL");
+  const visibleCards = useMemo(
+    () => payload.cards.filter((card) => filter === "ALL" || card.assetType === filter),
+    [filter, payload.cards]
+  );
+
   return (
     <div className="min-h-screen bg-[#07080a] text-white">
       <div className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pb-20 lg:pt-10">
@@ -236,8 +243,35 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           </div>
         </header>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {payload.cards.map((card) => (
+        {payload.deviceAccessRequired ? (
+          <div className="mt-6 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] p-4 text-body-sm text-amber-100">
+            当前付费账号需要确认本设备后才能显示完整研究。<Link className="ml-1 underline" href="/account#account-security">管理登录设备</Link>
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-2" aria-label="重点资产筛选">
+          {([
+            ["ALL", "全部"],
+            ["STOCK", "股票"],
+            ["CRYPTO", "加密资产"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              className={`min-h-11 rounded-md border px-4 text-body-sm transition-colors ${
+                filter === value
+                  ? "border-primary/50 bg-primary/10 text-white"
+                  : "border-white/10 text-white/60 hover:border-white/20 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {visibleCards.map((card) => (
             <PublicAssetCard
               key={card.id}
               card={card}
@@ -247,7 +281,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           ))}
         </div>
 
-        {payload.cards.length === 0 ? (
+        {visibleCards.length === 0 ? (
           <Text variant="body-sm" className="mt-8 text-white/55">
             暂无已发布的重点关注资产。
           </Text>

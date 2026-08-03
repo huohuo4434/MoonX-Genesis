@@ -16,7 +16,7 @@ export default async function AdminForecastControlPage() {
         管理员走势总控
       </Heading>
       <Text variant="body-sm" color="secondary" className="mb-6 max-w-4xl">
-        七大市场可查看一周逐日、一个月逐周和一年逐月；重点关注资产查看本周与月内逐周。缺失预测会明确标出，不再隐藏。
+        核心市场可查看一周逐日、一个月逐周和一年逐月；重点关注资产查看本周与月内逐周。缺失预测会明确标出，不再隐藏。
       </Text>
       <AdminForecastMatrixClient initial={snapshot} />
     </main>

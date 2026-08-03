@@ -44,7 +44,7 @@ export default function PrivacyPage() {
           <section className="space-y-2">
             <h2 className="text-body font-semibold text-foreground">3. 账户和登录数据</h2>
             <p>
-              账户认证由 Supabase Auth 处理，MOOX 应用程序无法读取用户明文密码。
+              账户认证由受托认证服务处理，MOOX 应用程序不会保存或读取用户明文密码。
             </p>
           </section>
 
@@ -59,9 +59,9 @@ export default function PrivacyPage() {
             <h2 className="text-body font-semibold text-foreground">5. 第三方服务</h2>
             <p>为提供服务，我们可能使用：</p>
             <ul className="list-disc space-y-1 pl-5">
-              <li>Supabase（账户与数据存储）</li>
-              <li>Vercel（网站托管与部署）</li>
-              <li>Resend（事务性邮件）</li>
+              <li>账户认证与数据存储服务商</li>
+              <li>云托管与内容分发服务商</li>
+              <li>事务性邮件服务商</li>
               <li>市场行情服务（公开市场数据）</li>
             </ul>
           </section>

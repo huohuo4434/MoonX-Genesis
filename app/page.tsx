@@ -3,6 +3,8 @@ import { HomeRecentVerification } from "@/components/home/HomeRecentVerification
 import { HomeTomorrowSection } from "@/components/home/HomeTomorrowSection";
 import { HomeFeaturedAssets } from "@/components/home/HomeFeaturedAssets";
 import { HomePricingEntry } from "@/components/home/HomePricingEntry";
+import { HomeValueOverview } from "@/components/home/HomeValueOverview";
+import { HomeMembershipComparison } from "@/components/home/HomeMembershipComparison";
 import { HeroSection } from "@/components/sections";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,8 @@ export default async function HomePage() {
   return (
     <main className="mx-auto w-full max-w-[1200px]">
       <HeroSection />
+      <HomeValueOverview />
+      <HomeMembershipComparison />
       <HomeTodaySection />
       <HomeTomorrowSection />
       <HomeRecentVerification />

@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import { getMemberUserContext } from "@/lib/access/member-preview";
+import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
+import { checkMemberApiRateLimit } from "@/lib/auth/member-api-rate-limit";
 import { getMemberStockDetailPayload } from "@/lib/data/member-stocks/access";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init);
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Vary", "Cookie");
+  return response;
+}
 
 /**
  * Member stock detail API — strips analysis fields for non-members.
@@ -10,15 +22,18 @@ export async function GET(
   context: { params: Promise<{ symbol: string }> }
 ) {
   const { symbol } = await context.params;
-  const user = await getMemberUserContext();
+  const [user, gate] = await Promise.all([
+    getMemberUserContext(),
+    getMemberDevicePageAccess(),
+  ]);
   const payload = await getMemberStockDetailPayload(symbol);
 
   if (!payload) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
+    return jsonNoStore({ error: "not found" }, { status: 404 });
   }
 
-  if (payload.mode === "locked" || !user.isMember) {
-    return NextResponse.json({
+  if (payload.mode === "locked" || !user.isMember || gate.status !== "ALLOWED") {
+    return jsonNoStore({
       mode: "locked",
       stockId: payload.mode === "locked" ? payload.card.stockId : payload.stock.stockId,
       name: payload.mode === "locked" ? payload.card.name : payload.stock.name,
@@ -33,7 +48,10 @@ export async function GET(
     });
   }
 
-  return NextResponse.json({
+  const rate = await checkMemberApiRateLimit({ scope: "member-stock" });
+  if (!rate.ok) return jsonNoStore({ error: "请求过于频繁" }, { status: 429 });
+
+  return jsonNoStore({
     mode: "member",
     stock: {
       stockId: payload.stock.stockId,

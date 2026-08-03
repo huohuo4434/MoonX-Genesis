@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SectionHeader } from "@/components/home/SectionHeader";
+import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/daily-language";
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
@@ -159,6 +161,13 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
   const [open, setOpen] = useState(false);
   const pending = forecast.confidence <= 0 || forecast.summary === "研究尚未完成" || forecast.status === "draft";
+  const normalizedPath = normalizeDailyPath(
+    forecast.intradayRhythm?.length ? forecast.intradayRhythm : forecast.expectedPath
+  );
+  const pathBias = normalizeDailyLanguage(forecast.pathBias)
+    || normalizedPath.join(" → ")
+    || "待确认";
+  const summary = normalizeDailyLanguage(forecast.summary);
 
   return (
     <article className="flex flex-col rounded-lg border border-primary/25 bg-card p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
@@ -189,11 +198,14 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
       ) : (
         <>
           <Text variant="body-sm" className="mt-3">
-            {forecast.summary}
+            {summary}
           </Text>
-          <Text variant="caption" color="tertiary" className="mt-2 block">
-            {t("home.tomorrowConfidence")}: {forecast.confidence}%
-          </Text>
+          <div className="mt-3 grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-2">
+            <p><span className="text-foreground-tertiary">收盘方向概率：</span><span className="text-foreground-secondary">上涨 {forecast.probabilities?.up ?? "—"}%／震荡 {forecast.probabilities?.flat ?? "—"}%／下跌 {forecast.probabilities?.down ?? "—"}%</span></p>
+            <p><span className="text-foreground-tertiary">运行路径：</span><span className="text-foreground-secondary">{pathBias}</span></p>
+            <p><span className="text-foreground-tertiary">信号强度：</span><span className="text-foreground-secondary">{forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")}</span></p>
+            <p><span className="text-foreground-tertiary">建议等待确认：</span><span className="text-foreground-secondary">{forecast.waitForConfirmation === false ? "否" : "是"}</span></p>
+          </div>
         </>
       )}
 
@@ -207,24 +219,15 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
 
       {open && !pending && (
         <div className="mt-4 space-y-3 border-t border-border/[0.08] pt-4 text-body-sm text-foreground-secondary">
-          {forecast.expectedPath?.length ? (
+          {normalizedPath.length ? (
             <p>
               <span className="text-foreground-tertiary">{t("home.tomorrowPath")}: </span>
-              {forecast.expectedPath.join(isChinese ? " → " : " → ")}
+              {normalizedPath.join(" → ")}
             </p>
           ) : null}
-          {forecast.supportLevels?.length ? (
-            <p>
-              <span className="text-foreground-tertiary">{t("home.tomorrowSupport")}: </span>
-              {forecast.supportLevels.join(", ")}
-            </p>
-          ) : null}
-          {forecast.resistanceLevels?.length ? (
-            <p>
-              <span className="text-foreground-tertiary">{t("home.tomorrowResistance")}: </span>
-              {forecast.resistanceLevels.join(", ")}
-            </p>
-          ) : null}
+          <div className="rounded-md border border-border/[0.08] bg-muted/20 p-3">
+            <PriceLevelsBlock support={forecast.supportLevels} resistance={forecast.resistanceLevels} invalidation={forecast.invalidation} confirmation={forecast.confirmation} />
+          </div>
           {forecast.targetLevels?.length ? (
             <p>
               <span className="text-foreground-tertiary">{t("home.tomorrowTargets")}: </span>
@@ -236,7 +239,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
               <li className="text-foreground-tertiary">{t("home.tomorrowWindows")}</li>
               {forecast.keyTimeWindows.map((w) => (
                 <li key={w.label}>
-                  {w.label}: {w.description}
+                  {normalizeDailyLanguage(w.label)}: {normalizeDailyLanguage(w.description)}
                 </li>
               ))}
             </ul>
@@ -251,12 +254,6 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
             <p>
               <span className="text-foreground-tertiary">{t("home.tomorrowRisks")}: </span>
               {forecast.risks.join(isChinese ? "；" : "; ")}
-            </p>
-          ) : null}
-          {forecast.invalidation ? (
-            <p>
-              <span className="text-foreground-tertiary">{t("home.tomorrowInvalidation")}: </span>
-              {forecast.invalidation}
             </p>
           ) : null}
           {forecast.revisionHistory?.length ? (

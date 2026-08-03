@@ -385,6 +385,14 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           </ul>
         </section>
 
+        {payload.deviceAccessRequired ? (
+          <Card padding="md" className="border-amber-400/20 bg-amber-400/[0.05]">
+            <Text variant="body-sm" className="text-amber-100">
+              当前付费账号需要确认本设备后才能显示完整研究。<Link className="ml-1 underline" href="/account#account-security">管理登录设备</Link>
+            </Text>
+          </Card>
+        ) : null}
+
         {payload.mode === "fullAccess" && payload.vibeEvidence ? (
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}

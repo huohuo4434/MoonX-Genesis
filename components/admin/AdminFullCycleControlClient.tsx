@@ -127,7 +127,7 @@ export function AdminFullCycleControlClient({ initial }: { initial: AdminFullCyc
             <select value={assetId} onChange={(event) => setAssetId(event.target.value)} className={fieldClass()}>
               {snapshot.assets.map((item) => (
                 <option key={item.id} value={item.id} className="bg-[#111318]">
-                  {item.name} · {item.symbol} · {item.assetClass === "CORE" ? "七大市场" : "重点关注"}
+                  {item.name} · {item.symbol} · {item.assetClass === "CORE" ? "核心市场" : "重点关注"}
                 </option>
               ))}
             </select>

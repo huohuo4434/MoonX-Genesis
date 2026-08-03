@@ -27,7 +27,7 @@ export function VibeEvidencePanel({ evidence }: { evidence: VibeEvidencePublicVi
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Text variant="body" weight="semibold" className="text-white">
-              Vibe客观证据
+              外部数据与基本面证据
             </Text>
             <Badge variant="outline">{sourceLabel(evidence.sourceMode)}</Badge>
             <Badge variant="outline">月度权重 {evidence.monthlyWeight}%</Badge>

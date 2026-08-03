@@ -16,7 +16,7 @@ export default async function AdminSupportResistancePage() {
         支撑压力录入与突破复核
       </Heading>
       <Text variant="body-sm" color="secondary" className="mb-6 max-w-4xl">
-        为七大市场和全部重点关注资产录入4小时、日线或周线支撑压力区，并在确认突破后检查六爻、奇门等研究方向是否一致。
+        为核心市场和全部重点关注资产录入4小时、日线或周线支撑压力区，并在确认突破后检查六爻、奇门等研究方向是否一致。
       </Text>
       <AdminSupportResistanceClient initial={snapshot} />
     </main>

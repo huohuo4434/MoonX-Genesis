@@ -21,7 +21,7 @@ export type WeeklySectionPayload =
       summary: WeeklyAnalysisPublicSummary;
       memberHref: string;
       pricingHref: string;
-      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
+      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED" | "DEVICE_REQUIRED";
     }
   | {
       mode: "member";
@@ -60,7 +60,7 @@ export type MemberWeeklyPagePayload =
   | {
       mode: "locked";
       summary: WeeklyAnalysisPublicSummary;
-      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
+      accessReason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED" | "DEVICE_REQUIRED";
     }
   | {
       mode: "member";

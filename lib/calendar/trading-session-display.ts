@@ -104,6 +104,9 @@ function marketName(input: {
   if (input.symbol === "WTI" || input.symbol === "CL=F") {
     return { title: "下一WTI交易日", short: "WTI" };
   }
+  if (input.symbol === "SILVER" || input.symbol === "SI" || input.symbol === "SI=F") {
+    return { title: "下一国际银价交易日", short: "白银" };
+  }
   return { title: "下一国际金价交易日", short: "黄金" };
 }
 

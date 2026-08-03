@@ -251,7 +251,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     id: "googl",
     slug: "googl",
     assetType: "STOCK",
-    nameZh: "Alphabet",
+    nameZh: "Alphabet · 谷歌母公司",
     nameEn: "Alphabet Inc.",
     aliases: ["GOOGL", "GOOG", "Google", "谷歌", "Alphabet"],
     symbol: "GOOGL",
@@ -318,7 +318,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "AI商业化与资本开支需要同时验证。",
       "软件板块在风险环境中可能相对抗跌。",
       "未来一个月中段偏强，月底需要防止冲高回落。",
-      "Vibe证据偏多，但不允许直接触发自动交易。",
+      "外部数据与基本面证据偏多，但不允许直接触发自动交易。",
     ],
     thesisEn: [
       "Azure and enterprise software provide recurring high-quality revenue.",
@@ -364,7 +364,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "回购对估值和筹码形成一定支撑。",
       "港股风险偏好会影响基本面向价格的传导。",
       "未来一个月更接近先跌后稳，反弹空间暂不宜高估。",
-      "Vibe基本面偏多与六爻价格节奏存在部分分歧。",
+      "外部数据与基本面证据偏多，与六爻价格节奏存在部分分歧。",
     ],
     thesisEn: [
       "Diversified operations and free cash flow provide a durable base.",
@@ -409,8 +409,8 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "国产软件和AI办公具有长期产业逻辑。",
       "订阅化业务决定收入质量与可持续性。",
       "利润增长需要区分主营与投资收益贡献。",
-      "未来一个月六爻明显偏弱，暂不进入自动做多名单。",
-      "只有价格、资金与Vibe证据同步改善后才重新评估。",
+      "未来一个月六爻明显偏弱，暂不进入重点观察候选方向。",
+      "只有价格、资金与外部数据证据同步改善后才重新评估。",
     ],
     thesisEn: [
       "Domestic software and AI office remain long-term structural themes.",

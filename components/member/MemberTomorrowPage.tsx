@@ -9,6 +9,7 @@ import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { getTradingSessionDisplay } from "@/lib/calendar/trading-session-display";
 import { deriveForecastConsensus, starsText } from "@/lib/forecasts/consensus-confidence";
+import { normalizeDailyLanguage, normalizeDailyPath, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isPending(f: DailyForecast) {
@@ -77,8 +78,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
   const iching = buildIChingDirectionView({
     directionLabel: f.directionLabel,
     direction: f.direction,
-    expectedPath: f.expectedPath,
-    summary: f.summary,
+    expectedPath: normalizeDailyPath(f.intradayRhythm?.length ? f.intradayRhythm : f.expectedPath),
+    summary: normalizeDailyLanguage(f.summary),
     confidence: f.confidence,
   });
   const showTech = hasConcreteLevels(f);
@@ -91,6 +92,9 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
     symbol: f.symbol,
   });
   const consensus = deriveForecastConsensus(f);
+  const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ") || iching.path.join(" → "));
+  const signalStrength = f.signalStrength ?? iching.signalStrength ?? signalStrengthFromConfidence(f.confidence);
+  const waitForConfirmation = f.waitForConfirmation ?? signalStrength !== "高";
 
   return (
     <Card padding="lg" className="flex flex-col gap-4">
@@ -163,8 +167,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             <dd className="font-medium text-foreground">{iching.directionLabel}</dd>
           </div>
           <div>
-            <dt className="text-caption text-foreground-tertiary">风险强弱</dt>
-            <dd>{iching.riskStrength}</dd>
+            <dt className="text-caption text-foreground-tertiary">信号强度</dt>
+            <dd>{signalStrength}</dd>
           </div>
           <div>
             <dt className="text-caption text-foreground-tertiary">上涨概率</dt>
@@ -179,8 +183,12 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             <dd className="font-mono tabular-nums">{p.down}%</dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-caption text-foreground-tertiary">运行路径</dt>
-            <dd className="text-foreground-secondary">{iching.path.join(" → ")}</dd>
+            <dt className="text-caption text-foreground-tertiary">运行路径倾向</dt>
+            <dd className="text-foreground-secondary">{pathBias || iching.path.join(" → ")}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-caption text-foreground-tertiary">是否建议等待确认</dt>
+            <dd className="text-foreground-secondary">{waitForConfirmation ? "是，达到确认条件后再考虑入场" : "否，但仍需遵守失效条件"}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-caption text-foreground-tertiary">六爻方向依据</dt>

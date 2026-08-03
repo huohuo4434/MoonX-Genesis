@@ -31,7 +31,7 @@ export default async function ResearchIndexPage() {
           Research
         </Heading>
         <Text variant="body" color="secondary" className="mt-3 max-w-3xl">
-          内部研究入口。不对公众与普通会员开放。
+          内部研究入口。不对公众与免费注册用户开放。
         </Text>
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((card) => (

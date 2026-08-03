@@ -14,11 +14,15 @@ export function Navbar({
   moreNav,
   adminEnabled = true,
   publicSignupEnabled = true,
+  sessionEmail = null,
+  sessionIsAdmin = false,
 }: {
   primaryNav: NavItem[];
   moreNav: NavItem[];
   adminEnabled?: boolean;
   publicSignupEnabled?: boolean;
+  sessionEmail?: string | null;
+  sessionIsAdmin?: boolean;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = useTranslations();
@@ -69,7 +73,7 @@ export function Navbar({
 
           <div className="ml-auto hidden shrink-0 items-center gap-1.5 xl:flex">
             <LanguageSwitcher />
-            <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
+            <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} initialEmail={sessionEmail} initialIsAdmin={sessionIsAdmin} />
           </div>
 
           <button
@@ -103,7 +107,7 @@ export function Navbar({
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">
-                <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
+                <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} initialEmail={sessionEmail} initialIsAdmin={sessionIsAdmin} />
               </div>
             </div>
           </Container>

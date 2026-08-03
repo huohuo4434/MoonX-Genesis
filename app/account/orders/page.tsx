@@ -9,12 +9,16 @@ import { formatDateTimeChina } from "@/lib/utils/datetime";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function statusLabel(status: string, isTest: boolean): string {
+function statusLabel(status: string, isTest: boolean, notificationStatus?: string): string {
   if (isTest && status === "pending") return "系统测试";
-  if (status === "approved") return "会员已开通";
-  if (status === "rejected") return "付款被拒绝";
+  if (status === "approved") {
+    return notificationStatus === "email_sent" || notificationStatus === "sent"
+      ? "已开通 · 通知已送达"
+      : "会员已开通";
+  }
+  if (status === "rejected") return "核验未通过";
   if (isTest) return "系统测试";
-  return "等待审核";
+  return "已提交 · 待核验／人工审核";
 }
 
 export default async function AccountOrdersPage() {
@@ -38,7 +42,7 @@ export default async function AccountOrdersPage() {
             orders.map((item) => (
               <Card key={item.orderId} padding="md" className="overflow-hidden">
                 <Text variant="body" weight="semibold">
-                  {item.planName || PLAN_LABELS[item.plan]} · {statusLabel(item.status, item.isTest)}
+                  {item.planName || PLAN_LABELS[item.plan]} · {statusLabel(item.status, item.isTest, item.notificationStatus)}
                 </Text>
                 <Text variant="caption" color="tertiary" className="mt-1 block">
                   订单号：{item.orderNumber}

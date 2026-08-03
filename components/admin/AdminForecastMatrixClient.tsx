@@ -52,7 +52,7 @@ export function AdminForecastMatrixClient({
             variant={group === "CORE" ? "primary" : "outline"}
             onClick={() => changeGroup("CORE")}
           >
-            七大市场走势
+            核心市场走势
           </Button>
           <Button
             variant={group === "FOCUS" ? "primary" : "outline"}
@@ -76,7 +76,7 @@ export function AdminForecastMatrixClient({
 
         <Text variant="body-sm" color="secondary">
           {group === "CORE"
-            ? "七大市场展示：一周内每天、一个月内每周、一年内每月。"
+            ? "核心市场展示：一周内每天、一个月内每周、一年内每月。"
             : "重点关注展示：本周与一个月内逐周；长期材料只作总趋势背景。"}
         </Text>
       </Card>

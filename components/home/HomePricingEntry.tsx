@@ -4,15 +4,9 @@ import { SectionHeader } from "@/components/home/SectionHeader";
 import { Button, Text } from "@/components/ui";
 import { loadFreshPredictionUser } from "@/lib/prediction-access-server";
 import { isAdminUser } from "@/lib/auth/is-admin";
+import { PAID_MEMBER_BENEFITS } from "@/lib/presentation/membership-benefits";
 
-const BENEFITS = [
-  "今日完整预测",
-  "下一交易日预测",
-  "本周行情路径",
-  "关键价格与失效条件",
-  "重点关注资产研究",
-  "完整证据摘要",
-] as const;
+const BENEFITS = PAID_MEMBER_BENEFITS.slice(0, 6);
 
 /** Homepage module 5: single membership CTA — no wallet / payment UI. Hidden for admins. */
 export async function HomePricingEntry() {

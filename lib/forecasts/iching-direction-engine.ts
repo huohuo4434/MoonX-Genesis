@@ -7,7 +7,9 @@ import { normalizeFormalDirection, ALLOWED_FORMAL_DIRECTIONS } from "@/lib/forec
 export type IChingDirectionResult = {
   directionLabel: (typeof ALLOWED_FORMAL_DIRECTIONS)[number] | string;
   path: string[];
+  /** @deprecated Use signalStrength in customer-facing UI. */
   riskStrength: "偏低" | "中等" | "偏高";
+  signalStrength: "低" | "中" | "高";
   timeWindowNote: string;
   evidence: string;
 };
@@ -33,16 +35,18 @@ export function buildIChingDirectionView(input: {
     .filter((p) => p && !BANNED_PRICE.test(p))
     .slice(0, 4);
   const conf = input.confidence ?? 50;
-  const riskStrength = conf >= 62 ? "偏高" : conf >= 48 ? "中等" : "偏低";
+  const signalStrength = conf >= 66 ? "高" : conf >= 52 ? "中" : "低";
+  const riskStrength = signalStrength === "高" ? "偏高" : signalStrength === "中" ? "中等" : "偏低";
   const evidenceParts = [
     `方向判断：${directionLabel}`,
     path.length ? `运行节奏：${path.join(" → ")}` : null,
-    `风险强弱：${riskStrength}`,
+    `信号强度：${signalStrength}`,
   ].filter(Boolean);
   return {
     directionLabel,
     path: path.length ? path : [`以${directionLabel}为主`],
     riskStrength,
+    signalStrength,
     timeWindowNote: "下一实际交易日主路径",
     evidence: evidenceParts.join("；"),
   };

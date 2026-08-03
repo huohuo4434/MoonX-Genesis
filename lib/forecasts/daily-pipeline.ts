@@ -455,7 +455,10 @@ export function generateCoreMarketsFromWeeklyPure(
   const out: GeneratedDailyForecastRecord[] = [];
   for (const market of CORE_DAILY_MARKETS) {
     const weekly =
-      findCanonicalWeeklySource(market, forecastDate) ?? analysisAsWeeklySource(market, forecastDate);
+      (market === "BTC" ? btcResearchAsWeeklySource(forecastDate) : null) ??
+      (market === "ETH" ? ethResearchAsWeeklySource(forecastDate) : null) ??
+      findCanonicalWeeklySource(market, forecastDate) ??
+      analysisAsWeeklySource(market, forecastDate);
     if (!weekly) continue;
     out.push(
       generateDailyFromWeekly({

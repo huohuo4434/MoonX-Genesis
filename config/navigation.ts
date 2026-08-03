@@ -114,6 +114,6 @@ export const AUDIT_ROUTES = [
   "/methodology", "/member/tomorrow", "/member/weekly", "/member/monthly",
   "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
   "/privacy", "/terms", "/admin", "/admin/payments", "/admin/settings",
-  "/admin/site-health", "/admin/iching/library", "/admin/iching/rules",
+  "/admin/site-health", "/admin/security", "/admin/iching/library", "/admin/iching/rules",
   "/admin/iching/cases", "/admin/iching/validation", ...INTERNAL_LEGACY_ROUTES,
 ] as const;

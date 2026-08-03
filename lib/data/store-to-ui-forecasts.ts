@@ -8,6 +8,7 @@ import { sessionLabelForMarket } from "@/lib/calendar/next-trading-day";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import type { DailyForecast, DailyForecastMarket } from "@/types/daily-forecast";
+import { normalizeDailyLanguage, normalizeDailyPath, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
 
 function marketToLegacy(m: DailyForecastRecord["market"]): DailyForecastMarket {
@@ -21,12 +22,16 @@ function marketToLegacy(m: DailyForecastRecord["market"]): DailyForecastMarket {
 function assetIdFromSymbol(symbol: string): string {
   const map: Record<string, string> = {
     BTC: "bitcoin",
+    ETH: "eth",
     SPX: "sp500",
     NDX: "nasdaq-100",
     SSEC: "shanghai-composite",
     "000001.SS": "shanghai-composite",
     HSTECH: "hang-seng",
     GLD: "gold",
+    SILVER: "silver",
+    SI: "silver",
+    "SI=F": "silver",
     GOLD: "gold",
     "GC=F": "gold",
     WTI: "wti-crude",
@@ -66,13 +71,15 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
       ? "NYMEX WTI近月连续合约交易日"
       : r.symbol === "GOLD" || r.symbol === "GC=F"
         ? "COMEX国际金价交易日"
+        : r.symbol === "SILVER" || r.symbol === "SI" || r.symbol === "SI=F"
+          ? "COMEX国际银价交易日"
       : r.symbol === "SPX"
         ? "美股常规交易时段"
         : sessionLabelForMarket(market);
   return {
     id: r.id,
     assetId: assetIdFromSymbol(r.symbol),
-    assetName: r.symbol === "WTI" ? "WTI原油" : r.symbol === "GOLD" || r.symbol === "GC=F" || r.symbol === "GLD" ? "国际金价" : r.assetName,
+    assetName: r.symbol === "WTI" ? "WTI原油" : r.symbol === "GOLD" || r.symbol === "GC=F" || r.symbol === "GLD" ? "国际金价" : r.symbol === "SILVER" || r.symbol === "SI" || r.symbol === "SI=F" ? "国际银价" : r.assetName,
     symbol: r.symbol === "SSEC" ? "000001.SS" : r.symbol,
     market,
     forecastForDate: r.forecastDate,
@@ -92,8 +99,12 @@ function toUi(r: DailyForecastRecord, visibility: "public" | "member"): DailyFor
     consensusLabel: consensus.label,
     consensusModuleCount: consensus.activeModules,
     consensusNote: consensus.note,
-    summary: r.summary ?? "",
-    expectedPath: r.expectedPath,
+    summary: normalizeDailyLanguage(r.summary),
+    expectedPath: normalizeDailyPath(r.expectedPath),
+    pathBias: normalizeDailyLanguage(r.predictedPatternLabel ?? r.expectedPath?.join(" → ") ?? r.summary),
+    intradayRhythm: normalizeDailyPath(r.expectedPath),
+    signalStrength: signalStrengthFromConfidence(r.probability ?? 50),
+    waitForConfirmation: !Boolean(r.supportLevels?.length && r.resistanceLevels?.length && r.confirmation),
     headline: isAbstain ? `${r.assetName}当前暂无明确结论` : undefined,
     probabilities:
       r.direction === "UP"

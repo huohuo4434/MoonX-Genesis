@@ -9,6 +9,7 @@ import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import { assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
+import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/daily-language";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isDraft(f: DailyForecast) {
@@ -179,7 +180,7 @@ export function TodayDailyForecastView({
             <p className="mb-4 max-w-3xl text-body-sm text-foreground-secondary">
               {autoSummary || compositeSummary}
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className={`grid gap-4 ${readyForecasts.length === 1 ? "grid-cols-1" : "md:grid-cols-2"}`}>
               {readyForecasts.map((f) => {
                 const open = openId === f.id;
                 const p = f.probabilities ?? {
@@ -188,6 +189,10 @@ export function TodayDailyForecastView({
                   down: 0,
                 };
                 const showFull = detailLevel === "full";
+                const normalizedPath = normalizeDailyPath(f.expectedPath);
+                const pathBias = normalizeDailyLanguage(f.pathBias)
+                  || normalizedPath.join(" → ")
+                  || "待确认";
                 return (
                   <article
                     key={f.id}
@@ -207,8 +212,13 @@ export function TodayDailyForecastView({
                       <p>更新：{formatDateTimeChina(f.publishedAt)}</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} />
+                    <div className="grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-3">
+                      <p><span className="text-foreground-tertiary">运行路径：</span><span className="text-foreground-secondary">{pathBias}</span></p>
+                      <p><span className="text-foreground-tertiary">信号强度：</span><span className="text-foreground-secondary">{f.signalStrength ?? (f.confidence >= 66 ? "高" : f.confidence >= 52 ? "中" : "低")}</span></p>
+                      <p><span className="text-foreground-tertiary">等待确认：</span><span className="text-foreground-secondary">{f.waitForConfirmation === false ? "否" : "是"}</span></p>
+                    </div>
                     <p className="break-words text-body-sm text-foreground-secondary">
-                      {f.headline ?? f.summary}
+                      {normalizeDailyLanguage(f.headline ?? f.summary)}
                     </p>
                     {showFull ? (
                       <>
@@ -233,8 +243,8 @@ export function TodayDailyForecastView({
                                 snapshotAt={undefined}
                               />
                             </div>
-                            {f.expectedPath?.length ? (
-                              <p>盘中路径：{f.expectedPath.join(" → ")}</p>
+                            {normalizedPath.length ? (
+                              <p>盘中路径：{normalizedPath.join(" → ")}</p>
                             ) : null}
                           </div>
                         ) : null}

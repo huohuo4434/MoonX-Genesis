@@ -2,6 +2,8 @@ import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
 import { getAccessUser } from "@/lib/auth/get-access-user";
+import { cookies, headers } from "next/headers";
+import { evaluateMemberDeviceAccess, MEMBER_DEVICE_COOKIE } from "@/lib/auth/device-security";
 import {
   checkTodayPredictionAccess,
   checkTomorrowPredictionAccess,
@@ -44,25 +46,66 @@ export async function loadFreshPredictionUser(): Promise<FreshPredictionUser> {
 /** @deprecated use loadFreshPredictionUser */
 export const loadFreshTodayPredictionUser = loadFreshPredictionUser;
 
+async function checkPaidDevice(userId: string | null, isAdmin: boolean) {
+  if (!userId) return null;
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+  return evaluateMemberDeviceAccess({
+    userId,
+    deviceToken: cookieStore.get(MEMBER_DEVICE_COOKIE)?.value,
+    userAgent: headerStore.get("user-agent"),
+    ip:
+      headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      headerStore.get("x-real-ip"),
+    region: headerStore.get("x-vercel-ip-country"),
+    isAdmin,
+  });
+}
+
 export async function resolveTodayPredictionAccess(now = new Date()) {
   noStore();
-  const fresh = await loadFreshPredictionUser();
-  const access = checkTodayPredictionAccess({ user: fresh.accessUser, now });
-  return { ...fresh, access };
+  const snap = await getAccessUser(now);
+  const fresh = { userId: snap.userId, email: snap.email, accessUser: snap.accessUser };
+  let accessUser = fresh.accessUser;
+  let device = null;
+  if (snap.userId && snap.isActiveMember && !snap.isAdmin) {
+    device = await checkPaidDevice(snap.userId, false);
+    if (!device?.allowed && accessUser) {
+      // A member without the active device lease receives exactly the free registered-user view.
+      accessUser = { ...accessUser, membershipStatus: "inactive", membershipExpiresAt: null };
+    }
+  }
+  const access = checkTodayPredictionAccess({ user: accessUser, now });
+  return { ...fresh, access, device };
 }
 
 export async function resolveTomorrowPredictionAccess(now = new Date()) {
   noStore();
-  const fresh = await loadFreshPredictionUser();
+  const snap = await getAccessUser(now);
+  const fresh = { userId: snap.userId, email: snap.email, accessUser: snap.accessUser };
   const access = checkTomorrowPredictionAccess({ user: fresh.accessUser, now });
-  return { ...fresh, access };
+  if (access.allowed && access.reason === "ACTIVE_MEMBER" && snap.userId) {
+    const device = await checkPaidDevice(snap.userId, false);
+    if (!device?.allowed) {
+      return { ...fresh, access: { allowed: false as const, reason: "DEVICE_REQUIRED" as const }, device };
+    }
+    return { ...fresh, access, device };
+  }
+  return { ...fresh, access, device: null };
 }
 
 export async function resolveWeeklyPredictionAccess(now = new Date()) {
   noStore();
-  const fresh = await loadFreshPredictionUser();
+  const snap = await getAccessUser(now);
+  const fresh = { userId: snap.userId, email: snap.email, accessUser: snap.accessUser };
   const access = checkWeeklyPredictionAccess({ user: fresh.accessUser, now });
-  return { ...fresh, access };
+  if (access.allowed && access.reason === "ACTIVE_MEMBER" && snap.userId) {
+    const device = await checkPaidDevice(snap.userId, false);
+    if (!device?.allowed) {
+      return { ...fresh, access: { allowed: false as const, reason: "DEVICE_REQUIRED" as const }, device };
+    }
+    return { ...fresh, access, device };
+  }
+  return { ...fresh, access, device: null };
 }
 
 function sanitizeForecastForClient(f: DailyForecast): DailyForecast {
@@ -326,7 +369,9 @@ export async function getTomorrowForecastAccessPayload(
       message:
         access.reason === "LOGIN_REQUIRED"
           ? TOMORROW_PREDICTION_MESSAGES.LOGIN_REQUIRED
-          : TOMORROW_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
+          : access.reason === "DEVICE_REQUIRED"
+            ? TOMORROW_PREDICTION_MESSAGES.DEVICE_REQUIRED
+            : TOMORROW_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
     };
   }
 
@@ -348,7 +393,9 @@ export async function getWeeklyForecastAccessDecision(now = new Date()) {
       message:
         access.reason === "LOGIN_REQUIRED"
           ? WEEKLY_PREDICTION_MESSAGES.LOGIN_REQUIRED
-          : WEEKLY_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
+          : access.reason === "DEVICE_REQUIRED"
+            ? WEEKLY_PREDICTION_MESSAGES.DEVICE_REQUIRED
+            : WEEKLY_PREDICTION_MESSAGES.MEMBERSHIP_REQUIRED,
     };
   }
   return { allowed: true as const, access };

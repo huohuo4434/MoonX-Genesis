@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Tab = "login" | "register";
 
@@ -100,21 +99,22 @@ export function LoginForm({
   }
 
   async function afterAuth(role: string | null) {
-    // Refresh RSC tree so server components re-read auth cookies before navigation.
-    router.refresh();
     const target = role === "admin" ? "/admin" : safeRedirectPath(redirectNext, "/account");
-    router.push(target);
+    router.replace(target);
+    router.refresh();
+    window.location.assign(target);
   }
 
   async function signInOnce() {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) return { error: "登录服务暂不可用，请稍后重试。" as string };
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify({ email: email.trim(), password }),
     });
-    if (authError) return { error: authError.message };
-    return { error: null };
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    return { error: response.ok ? null : payload.error ?? "登录失败" };
   }
 
   async function onLogin(e: React.FormEvent) {
@@ -233,6 +233,9 @@ export function LoginForm({
           className={`min-h-11 px-3 py-2 text-body-sm ${tab === "login" ? "border-b-2 border-primary font-semibold text-foreground" : "text-foreground-secondary"}`}
           onClick={() => {
             setTab("login");
+            setPassword("");
+            setConfirmPassword("");
+            setShowPassword(false);
             setError(null);
             setInfo(null);
           }}
@@ -245,6 +248,9 @@ export function LoginForm({
             className={`min-h-11 px-3 py-2 text-body-sm ${tab === "register" ? "border-b-2 border-primary font-semibold text-foreground" : "text-foreground-secondary"}`}
             onClick={() => {
               setTab("register");
+              setPassword("");
+              setConfirmPassword("");
+              setShowPassword(false);
               setError(null);
               setInfo(null);
             }}

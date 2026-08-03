@@ -33,7 +33,7 @@ export type MemberPredictionAccess =
     }
   | {
       allowed: false;
-      reason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED";
+      reason: "LOGIN_REQUIRED" | "MEMBERSHIP_REQUIRED" | "DEVICE_REQUIRED";
     };
 
 /** @deprecated alias — prefer PredictionAccessUser */
@@ -128,15 +128,17 @@ export function checkWeeklyPredictionAccess({
 
 export const TODAY_PREDICTION_MESSAGES = {
   LOGIN_REQUIRED: "登录后可查看今日预测",
-  WAIT_UNTIL_08: "普通用户每日北京时间08:00开放今日预测",
+  WAIT_UNTIL_08: "免费注册用户每日北京时间08:00开放今日预测",
 } as const;
 
 export const TOMORROW_PREDICTION_MESSAGES = {
   LOGIN_REQUIRED: "登录后可查看明日观点",
   MEMBERSHIP_REQUIRED: "明日观点为会员专享，开通会员后即可查看",
+  DEVICE_REQUIRED: "请确认本设备，或先在账户安全中移除旧设备",
 } as const;
 
 export const WEEKLY_PREDICTION_MESSAGES = {
   LOGIN_REQUIRED: "登录后可查看本周行情",
   MEMBERSHIP_REQUIRED: "本周行情为会员专享，开通会员后即可查看",
+  DEVICE_REQUIRED: "请确认本设备，或先在账户安全中移除旧设备",
 } as const;

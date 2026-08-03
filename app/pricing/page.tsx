@@ -5,6 +5,11 @@ import { PricingPlansClient } from "@/components/payments/PricingPlansClient";
 import { getCurrentUser, isAdmin, isActiveMember } from "@/lib/auth/permissions";
 import { getPaymentConfig } from "@/lib/payments/config";
 import { OFFICIAL_PLAN_PRICES } from "@/lib/payments/plan-display";
+import {
+  FREE_USER_LABEL,
+  MEMBERSHIP_BENEFIT_ROWS,
+  PAID_MEMBER_LABEL,
+} from "@/lib/presentation/membership-benefits";
 import type { MembershipPlan } from "@/types/membership";
 
 export const dynamic = "force-dynamic";
@@ -18,36 +23,9 @@ export const metadata = {
 
 function buildPlans(): MembershipPlan[] {
   return [
-    {
-      id: "1",
-      code: "MONTHLY",
-      name: "月度会员",
-      duration_days: 30,
-      price_usdt: OFFICIAL_PLAN_PRICES.MONTHLY,
-      access_level: "member",
-      active: true,
-      sort_order: 1,
-    },
-    {
-      id: "2",
-      code: "QUARTERLY",
-      name: "季度会员",
-      duration_days: 90,
-      price_usdt: OFFICIAL_PLAN_PRICES.QUARTERLY,
-      access_level: "member",
-      active: true,
-      sort_order: 2,
-    },
-    {
-      id: "3",
-      code: "YEARLY",
-      name: "年度会员",
-      duration_days: 365,
-      price_usdt: OFFICIAL_PLAN_PRICES.YEARLY,
-      access_level: "member",
-      active: true,
-      sort_order: 3,
-    },
+    { id: "1", code: "MONTHLY", name: "月度会员", duration_days: 30, price_usdt: OFFICIAL_PLAN_PRICES.MONTHLY, access_level: "member", active: true, sort_order: 1 },
+    { id: "2", code: "QUARTERLY", name: "季度会员", duration_days: 90, price_usdt: OFFICIAL_PLAN_PRICES.QUARTERLY, access_level: "member", active: true, sort_order: 2 },
+    { id: "3", code: "YEARLY", name: "年度会员", duration_days: 365, price_usdt: OFFICIAL_PLAN_PRICES.YEARLY, access_level: "member", active: true, sort_order: 3 },
   ];
 }
 
@@ -58,139 +36,74 @@ export default async function PricingPage() {
   const admin = isAdmin(user);
   const activeMember = isActiveMember(user);
   const plans = buildPlans();
-
-  const inviteHref = user
-    ? "/account/invite"
-    : `/login?next=${encodeURIComponent("/account/invite")}`;
+  const inviteHref = user ? "/account/invite" : `/login?next=${encodeURIComponent("/account/invite")}`;
 
   return (
     <main>
       <Section spacing="lg" className="flex flex-col items-center gap-6">
         <div className="max-w-3xl text-center">
-          <Heading as="h1" size="display">
+          <Heading as="h1" size="h2" className="break-keep text-[clamp(2rem,8vw,3.75rem)] leading-tight">
             MOOX会员方案
           </Heading>
-          <Text variant="body" color="secondary" className="mt-3">
-            解锁完整市场研究、交易计划与历史验证
+          <Text variant="body" color="secondary" className="mt-3 block">
+            先免费注册查看今日观点，再按需要解锁下一交易日、周度、月度和完整研究。
           </Text>
         </div>
 
-        <div className="grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-          <Card padding="lg">
-            <Text variant="body" weight="semibold" className="block">
-              注册用户
-            </Text>
-            <ul className="mt-3 space-y-2 text-body-sm text-foreground-secondary">
-              {[
-                "北京时间08:00后可查看今日观点",
-                "历史验证统计",
-                "资产公开研究摘要",
-              ].map((x) => (
-                <li key={x} className="flex items-start gap-2">
-                  <span aria-hidden className="text-emerald-400">
-                    ✓
-                  </span>
-                  <span>{x}</span>
-                </li>
-              ))}
-            </ul>
-            <Text variant="body-sm" color="secondary" className="mt-4">
-              注册用户可在北京时间08:00后查看今日观点；有效会员可全天提前查看完整预测。未登录不展示任何预测内容。
-            </Text>
+        <div className="grid w-full max-w-4xl gap-3 md:grid-cols-2">
+          <Card padding="md">
+            <Text variant="body" weight="semibold">{FREE_USER_LABEL}</Text>
+            <Text variant="body-sm" color="secondary" className="mt-2 block">北京时间08:00后查看今日基础观点、重点资产公开摘要与公开验证。</Text>
           </Card>
-
-          <Card padding="lg">
-            <Text variant="body" weight="semibold" className="block">
-              会员
-            </Text>
-            <ul className="mt-3 space-y-2 text-body-sm text-foreground-secondary">
-              {[
-                "今日完整预测",
-                "下一交易日预测",
-                "本周行情路径",
-                "重点资产研究",
-                "长鑫科技会员分析",
-                "Asteroid会员分析",
-                "Master I Ching分析",
-                "Wave Intelligence",
-                "AI综合判断",
-                "风险和失效条件",
-              ].map((x) => (
-                <li key={x} className="flex items-start gap-2">
-                  <span aria-hidden className="text-emerald-400">
-                    ✓
-                  </span>
-                  <span>{x}</span>
-                </li>
-              ))}
-            </ul>
-            <Text variant="body-sm" color="secondary" className="mt-4">
-              {activeMember ? "你已开通会员。" : "开通会员后可解锁完整研究。"}
-            </Text>
+          <Card padding="md" className="border-primary/25 bg-primary/[0.03]">
+            <Text variant="body" weight="semibold">{PAID_MEMBER_LABEL}</Text>
+            <Text variant="body-sm" color="secondary" className="mt-2 block">全天提前查看今日完整预测，并解锁下一交易日、周度、月度、关键价位和会员信号。</Text>
           </Card>
         </div>
+
+        {admin ? (
+          <Card padding="lg" className="w-full max-w-4xl">
+            <Text variant="body-sm" color="secondary">管理员不需要购买会员。</Text>
+            <div className="mt-4"><Button asChild size="sm"><Link href="/admin">进入后台</Link></Button></div>
+          </Card>
+        ) : (
+          <PricingPlansClient
+            plans={plans}
+            supportEmail={cfg.supportEmail}
+            trc20Address={cfg.trc20Address}
+            bep20Address={cfg.bep20Address}
+            isLoggedIn={Boolean(user)}
+          />
+        )}
+
+        <Card padding="none" className="w-full max-w-4xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] border-collapse text-left text-body-sm">
+              <thead className="bg-muted/40"><tr><th className="px-4 py-3">功能</th><th className="px-4 py-3">{FREE_USER_LABEL}</th><th className="px-4 py-3">{PAID_MEMBER_LABEL}</th></tr></thead>
+              <tbody>{MEMBERSHIP_BENEFIT_ROWS.map((row) => <tr key={row.feature} className="border-t border-border/[0.07]"><td className="px-4 py-3 text-foreground">{row.feature}</td><td className="px-4 py-3 text-foreground-secondary">{row.free}</td><td className="px-4 py-3 text-foreground-secondary">{row.paid}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </Card>
 
         <Card padding="lg" className="w-full max-w-4xl">
-          <Text variant="body" weight="semibold" className="block">
-            付款方式
-          </Text>
-          <Text variant="body-sm" color="secondary" className="mt-2">
-            当前统一为 USDT 转账后提交交易哈希，由管理员人工审核开通；暂不自动进行链上核验。提交哈希不等于审核通过。
-          </Text>
+          <Text variant="body" weight="semibold">订单状态说明</Text>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-body-sm text-foreground-secondary">
+            <span>已提交</span><span aria-hidden>→</span><span>待核验</span><span aria-hidden>→</span><span>人工审核</span><span aria-hidden>→</span><span>已开通</span><span aria-hidden>→</span><span>通知已送达</span>
+          </div>
+          <Text variant="caption" color="tertiary" className="mt-3 block">提交交易哈希只表示订单已进入核验队列，不等于付款已确认或会员已开通。通知状态以系统真实记录为准。</Text>
         </Card>
 
         <Card padding="lg" className="w-full max-w-4xl">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <Text variant="body" weight="semibold" className="block">
-                Founder Member
-              </Text>
-              <Text variant="body-sm" color="secondary" className="mt-2">
-                首批会员：赠送额外15天。
-              </Text>
-              <Text variant="body-sm" color="secondary" className="mt-2">
-                邀请好友：双方各获得额外天数。
-              </Text>
-            </div>
-            <div className="flex flex-col gap-2 md:items-end">
-              <Button asChild size="sm">
-                <Link href={inviteHref}>邀请码：进入邀请页面</Link>
-              </Button>
-            </div>
+            <div><Text variant="body" weight="semibold">Founder Member</Text><Text variant="body-sm" color="secondary" className="mt-2 block">首批会员赠送额外15天；邀请成功后按现有规则获得奖励天数。</Text></div>
+            <Button asChild size="sm"><Link href={inviteHref}>进入邀请页面</Link></Button>
           </div>
         </Card>
 
-        {admin ? (
-          <Card padding="lg" className="w-full max-w-4xl">
-            <Text variant="body-sm" color="secondary">
-              管理员不需要购买会员。请进入后台管理查看研究与配置。
-            </Text>
-            <div className="mt-4">
-              <Button asChild size="sm">
-                <Link href="/admin">进入后台</Link>
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <>
-            <PricingPlansClient
-              plans={plans}
-              supportEmail={cfg.supportEmail}
-              trc20Address={cfg.trc20Address}
-              bep20Address={cfg.bep20Address}
-              isLoggedIn={Boolean(user)}
-            />
-            {!user ? (
-              <Link href="/login?next=/pricing" className="text-body-sm text-primary hover:underline">
-                已有账户？登录
-              </Link>
-            ) : (
-              <Link href="/account" className="text-body-sm text-primary hover:underline">
-                我的账户
-              </Link>
-            )}
-          </>
-        )}
+        <div className="flex flex-wrap justify-center gap-4">
+          {activeMember ? <Link href="/account" className="text-body-sm text-primary hover:underline">我的账户</Link> : null}
+          {!user ? <Link href="/login?next=/pricing" className="text-body-sm text-primary hover:underline">已有账户？登录</Link> : null}
+        </div>
       </Section>
     </main>
   );

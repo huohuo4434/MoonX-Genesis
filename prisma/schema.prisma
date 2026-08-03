@@ -854,3 +854,53 @@ model ForecastOverride {
   @@unique([scope, assetId, targetDate])
   @@index([targetDate, enabled])
 }
+
+
+/// Paid-member device binding. Supabase auth user ids are stored as opaque strings.
+model TrustedDevice {
+  id              String   @id @default(cuid())
+  userId          String
+  deviceIdHash    String
+  displayName     String
+  userAgentFamily String?
+  platformFamily  String?
+  createdAt       DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  verifiedAt      DateTime?
+  revokedAt       DateTime?
+  lastIpHash      String?
+  lastRegion      String?
+
+  @@unique([userId, deviceIdHash])
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
+}
+
+/// One active paid-content lease per user. Expired leases may be acquired by another trusted device.
+model MemberAccessLease {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  deviceIdHash String
+  acquiredAt   DateTime @default(now())
+  heartbeatAt  DateTime @default(now())
+  expiresAt    DateTime
+  switchCount  Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@index([deviceIdHash])
+  @@index([expiresAt])
+}
+
+/// Security audit without raw IP addresses, device tokens, passwords, or auth cookies.
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  deviceId    String?
+  eventType   String
+  actorUserId String?
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+}

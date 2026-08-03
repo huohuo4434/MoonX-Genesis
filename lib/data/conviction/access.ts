@@ -8,6 +8,7 @@ import { getChinaDateKey } from "@/lib/date/china-date";
 import { getSexagenaryDay } from "@/lib/calendar/sexagenary-calendar";
 import { hasPrisma, prisma } from "@/lib/prisma";
 import { getAccessUser } from "@/lib/auth/get-access-user";
+import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { hasConvictionFullAccess } from "@/lib/data/conviction/access-mode";
 import {
   ASTEROID_PERIOD_LABELS,
@@ -74,13 +75,16 @@ export type ConvictionListPagePayload = {
   latestResearchUpdatedAt: string | null;
   locks: typeof CONVICTION_MEMBER_LOCKS;
   vibeEvidence: Partial<Record<string, VibeEvidencePublicView>>;
+  deviceAccessRequired: boolean;
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
   noStore();
   const access = await getAccessUser();
   const cards = await listPublicConvictionCards();
-  const fullAccess = hasConvictionFullAccess(access);
+  const membershipAllows = hasConvictionFullAccess(access);
+  const deviceGate = membershipAllows && !access.isAdmin ? await getMemberDevicePageAccess() : null;
+  const fullAccess = access.isAdmin || (membershipAllows && deviceGate?.status === "ALLOWED");
   const vibeEvidence = fullAccess ? await getVibeEvidenceMap() : {};
   const latestResearchUpdatedAt =
     cards
@@ -96,6 +100,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     latestResearchUpdatedAt,
     locks: CONVICTION_MEMBER_LOCKS,
     vibeEvidence,
+    deviceAccessRequired: Boolean(membershipAllows && !access.isAdmin && !fullAccess),
   };
 }
 
@@ -115,6 +120,7 @@ export type ConvictionDetailPayload = {
   locks: typeof CONVICTION_MEMBER_LOCKS;
   periodSlots: Array<{ type: ConvictionForecastType; labelZh: string; emptyZh: string; hasResearch: boolean }>;
   vibeEvidence: VibeEvidencePublicView | null;
+  deviceAccessRequired: boolean;
   /** Only present when fullAccess — never sent to unauthorized clients via API. */
   forecast: null | {
     today: MemberStockDailyMemberView | null;
@@ -311,7 +317,10 @@ export async function getConvictionDetailPayload(
   const asset = await getConvictionAssetBySlug(slug);
   if (!asset) return null;
   const access = await getAccessUser();
-  const full = hasConvictionFullAccess(access);
+  const membershipAllows = hasConvictionFullAccess(access);
+  const deviceGate = membershipAllows && !access.isAdmin ? await getMemberDevicePageAccess() : null;
+  const full = access.isAdmin || (membershipAllows && deviceGate?.status === "ALLOWED");
+  const deviceAccessRequired = Boolean(membershipAllows && !access.isAdmin && !full);
   const pub = toPublicCard(asset);
   const staticPeriodAsset = isStaticPeriodAsset(asset.slug) ? asset.slug : null;
   const vibeSnapshot = full ? await getVibeEvidence(asset.id) : null;
@@ -334,6 +343,7 @@ export async function getConvictionDetailPayload(
             { type: "WEEK", labelZh: "本周", emptyZh: "该周期预测尚未发布", hasResearch: true },
           ],
       vibeEvidence: null,
+      deviceAccessRequired,
       forecast: null,
     };
   }
@@ -351,6 +361,7 @@ export async function getConvictionDetailPayload(
       locks: CONVICTION_MEMBER_LOCKS,
       periodSlots: visiblePeriodMeta,
       vibeEvidence,
+      deviceAccessRequired,
       forecast: {
         today: null,
         tomorrow: null,
@@ -374,6 +385,7 @@ export async function getConvictionDetailPayload(
       locks: CONVICTION_MEMBER_LOCKS,
       periodSlots: visiblePeriodMeta,
       vibeEvidence,
+      deviceAccessRequired,
       forecast: {
         today: null,
         tomorrow: null,
@@ -423,6 +435,7 @@ export async function getConvictionDetailPayload(
       { type: "WEEK", labelZh: "本周", emptyZh: "该周期预测尚未发布", hasResearch: Boolean(weekly) },
     ],
     vibeEvidence,
+    deviceAccessRequired,
     forecast: {
       today: today ? toDailyMemberView(today) : null,
       tomorrow: tomorrow ? toDailyMemberView(tomorrow) : null,

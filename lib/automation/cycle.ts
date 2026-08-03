@@ -170,7 +170,7 @@ export async function getAutomationDashboard() {
     nextVerifyWindow: "今日公开转换：北京08:00；各市场收盘后自动验证",
     publishSchedule: {
       formal: "北京时间20:00统一生成并锁定",
-      publicFlip: "普通用户今日观点08:00开放",
+      publicFlip: "免费注册用户今日观点08:00开放",
     },
     assetStatus,
   };

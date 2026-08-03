@@ -6,6 +6,7 @@ import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { DailyForecast } from "@/types/daily-forecast";
+import { normalizeDailyLanguage, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
 
 export function generatedDailyToUi(
   r: GeneratedDailyForecastRecord,
@@ -64,8 +65,12 @@ export function generatedDailyToUi(
     consensusModuleCount: consensus.activeModules,
     consensusNote: consensus.note,
     headline: `${meta.assetName}${formal}`,
-    summary: [r.expectedPath, r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
-    expectedPath: r.expectedPath ? [r.expectedPath] : [],
+    summary: [normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
+    expectedPath: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
+    pathBias: normalizeDailyLanguage(r.expectedPath),
+    intradayRhythm: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
+    signalStrength: signalStrengthFromConfidence(Math.max(r.upProbability, r.sidewaysProbability, r.downProbability)),
+    waitForConfirmation: !Boolean(r.supportLevels?.length && r.resistanceLevels?.length && r.confirmationLevel),
     supportLevels: r.supportLevels,
     resistanceLevels: r.resistanceLevels,
     invalidation: r.invalidationLevel ?? undefined,

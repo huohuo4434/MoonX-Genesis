@@ -104,7 +104,7 @@ export function AdminSupportResistanceClient({
               {snapshot.assets.map((asset) => (
                 <option key={asset.id} value={asset.id} className="bg-[#111318]">
                   {asset.name} · {asset.symbol} ·{" "}
-                  {asset.assetClass === "CORE" ? "七大市场" : "重点关注"}
+                  {asset.assetClass === "CORE" ? "核心市场" : "重点关注"}
                 </option>
               ))}
             </select>

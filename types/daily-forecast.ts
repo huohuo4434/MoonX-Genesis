@@ -80,6 +80,12 @@ export interface DailyForecast {
   headline?: string;
   summary: string;
   expectedPath?: string[];
+  /** Intraday path semantics only; weekly language is normalized at display time. */
+  pathBias?: string;
+  intradayRhythm?: string[];
+  signalStrength?: "低" | "中" | "高";
+  waitForConfirmation?: boolean;
+  marketRiskLevel?: "低" | "中" | "高";
 
   probabilities?: { up: number; flat: number; down: number };
   /** When false, shown on today page but excluded from daily accuracy. */

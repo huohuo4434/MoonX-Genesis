@@ -54,6 +54,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "会员与运营",
     links: [
+      { href: "/admin/security", label: "会员设备安全" },
       { href: "/admin/membership-events", label: "会员流水" },
       { href: "/admin/payments", label: "付款审核", badgeKey: "payments" },
       { href: "/admin/referrals", label: "邀请管理" },
