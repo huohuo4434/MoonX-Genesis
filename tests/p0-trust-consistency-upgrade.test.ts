@@ -52,8 +52,11 @@ function snapshot(overrides: Partial<AiTradingDeskSnapshot> = {}): AiTradingDesk
     generatedAt: "2026-08-03T10:00:00.000Z",
     lastSyncedAt: "2026-08-03T10:00:00.000Z",
     mode: "BITGET_DEMO",
+    ledgerSource: "BITGET_DEMO",
+    ledgerNotice: "测试账本",
     strategyEnabled: true,
     mirrorEnabled: true,
+    executionConfigured: true,
     executionAllowed: true,
     serverHealthy: true,
     syncStatus: "OK",
@@ -62,6 +65,26 @@ function snapshot(overrides: Partial<AiTradingDeskSnapshot> = {}): AiTradingDesk
     operationalStateLabel: "正在连接",
     quoteReady: false,
     latestQuoteAt: null,
+    runtime: {
+      paused: false,
+      pauseReason: "",
+      lastHeartbeatAt: "2026-08-03T10:00:30.000Z",
+      lastStrategyAt: "2026-08-03T10:00:30.000Z",
+      lastReconcileAt: null,
+      heartbeatAgeSeconds: 30,
+      quoteAgeSeconds: null,
+      decisionStatsToday: {
+        scanRuns: 0,
+        symbolsEvaluated: 0,
+        confidenceBlocked: 0,
+        alignmentBlocked: 0,
+        triggerWaiting: 0,
+        riskBlocked: 0,
+        marketErrors: 0,
+        orderAttempts: 0,
+        executed: 0,
+      },
+    },
     settings: {
       enabled: true,
       showCurrentPositions: true,
@@ -70,6 +93,9 @@ function snapshot(overrides: Partial<AiTradingDeskSnapshot> = {}): AiTradingDesk
       historyLimit: 20,
       updatedAt: "2026-08-03T10:00:00.000Z",
     },
+    strategies: [],
+    planSummary: { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
+    publishedPlans: [],
     plans: [],
     positions: [],
     recentTrades: [],
@@ -124,13 +150,13 @@ test("monthly final directions stay inside the formal enum", () => {
   assert.equal(listCurrentMonthlyMarketOutlooks().some((item) => item.direction === "宽幅震荡" as never), false);
 });
 
-test("AI desk cannot show green normal without quote and check time", () => {
-  const planOnly = applyAiDeskOperationalState(snapshot({ plans: [{
+test("AI desk uses runtime quote freshness and pauses execution when data is stale", () => {
+  const monitoredPlan = {
     symbol: "BTCUSDT",
     assetName: "比特币",
-    status: "PLAN_ONLY",
-    statusLabel: "仅有计划",
-    direction: "NEUTRAL",
+    status: "WAIT_LONG" as const,
+    statusLabel: "等待低吸",
+    direction: "LONG" as const,
     confidence: 50,
     weeklyText: "震荡",
     dailyText: "待确认",
@@ -138,23 +164,30 @@ test("AI desk cannot show green normal without quote and check time", () => {
     triggerText: "等待",
     invalidationText: "失效",
     keyLevel: null,
-    currentPrice: null,
-    lastCheckedAt: null,
-  }] }), new Date("2026-08-03T10:01:00.000Z"));
-  assert.equal(planOnly.operationalState, "PLAN_ONLY");
-  assert.equal(planOnly.syncStatus, "PARTIAL");
-  assert.equal(planOnly.quoteReady, false);
-
-  const ready = applyAiDeskOperationalState(snapshot({ plans: [{
-    ...planOnly.plans[0]!,
-    status: "WAIT_LONG",
-    statusLabel: "等待低吸",
     currentPrice: 62000,
-    lastCheckedAt: "2026-08-03T10:00:00.000Z",
-  }] }), new Date("2026-08-03T10:01:00.000Z"));
+    lastCheckedAt: "2026-08-03T10:00:30.000Z",
+  };
+  const disconnected = applyAiDeskOperationalState(snapshot({ plans: [monitoredPlan] }), new Date("2026-08-03T10:01:00.000Z"));
+  assert.equal(disconnected.operationalState, "DATA_DISCONNECTED");
+  assert.equal(disconnected.executionAllowed, false);
+
+  const ready = applyAiDeskOperationalState(snapshot({
+    latestQuoteAt: "2026-08-03T10:00:30.000Z",
+    runtime: { ...snapshot().runtime, quoteAgeSeconds: 30 },
+    plans: [monitoredPlan],
+  }), new Date("2026-08-03T10:01:00.000Z"));
   assert.equal(ready.operationalState, "WAITING_ENTRY");
   assert.equal(ready.syncStatus, "OK");
   assert.equal(ready.quoteReady, true);
+  assert.equal(ready.executionAllowed, true);
+
+  const delayed = applyAiDeskOperationalState(snapshot({
+    latestQuoteAt: "2026-08-03T09:50:00.000Z",
+    runtime: { ...snapshot().runtime, quoteAgeSeconds: 660 },
+    plans: [monitoredPlan],
+  }), new Date("2026-08-03T10:01:00.000Z"));
+  assert.equal(delayed.operationalState, "DATA_DELAYED");
+  assert.equal(delayed.executionAllowed, false);
 });
 
 test("AI plan horizon rejects weekly/monthly text in daily or weekly slots", () => {

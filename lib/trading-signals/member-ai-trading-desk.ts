@@ -402,6 +402,7 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     ledgerNotice: "会员端只展示Bitget Demo真实模拟订单；MOOX站内模拟盘是独立账本。",
     strategyEnabled: false,
     mirrorEnabled: false,
+    executionConfigured: false,
     executionAllowed: false,
     serverHealthy: false,
     syncStatus: settings.enabled ? "ERROR" : "DISABLED",
@@ -493,6 +494,7 @@ export async function buildMemberAiTradingDeskSnapshot(
     ledgerNotice: "会员端只展示Bitget Demo实际模拟持仓和成交；管理员站内模拟盘不会混入本页统计。",
     strategyEnabled: dashboard.settings.enabled,
     mirrorEnabled: dashboard.mirrorEnabled,
+    executionConfigured: dashboard.executionAllowed,
     executionAllowed: dashboard.executionAllowed,
     serverHealthy: runtime.serverHealthy,
     syncStatus: errors.length
@@ -608,6 +610,7 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
   return applyAiDeskOperationalState({
     ...payload,
     settings,
+    executionConfigured: payload.executionConfigured ?? payload.executionAllowed ?? false,
     strategies: payload.strategies ?? [],
     planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
     publishedPlans: payload.publishedPlans ?? [],

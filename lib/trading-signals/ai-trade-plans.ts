@@ -29,9 +29,10 @@ const ENTRY_ZONE_BUFFER_PCT: Record<ThreeHorizonStrategyType, number> = {
 };
 
 const LEVEL_CHANGE_TOLERANCE_PCT: Record<ThreeHorizonStrategyType, number> = {
-  INTRADAY: 0.5,
-  SWING: 1,
-  POSITION: 2,
+  // Short-lived market noise should update the existing timeline, not publish V2/V3/V4.
+  INTRADAY: 1.25,
+  SWING: 1.75,
+  POSITION: 3,
 };
 
 const STRATEGY_LABEL: Record<ThreeHorizonStrategyType, string> = {
@@ -271,7 +272,7 @@ function mapPlan(row: PlanRow, events: AiTradePlanEvent[] = []): AiTradePlan {
     version: Number(row.version),
     contentHash: row.content_hash,
     strategyType: row.strategy_type,
-    strategyLabel: STRATEGY_LABEL[row.strategy_type],
+    strategyLabel: STRATEGY_LABEL[row.strategy_type as ThreeHorizonStrategyType],
     symbol: row.symbol,
     direction: row.direction,
     tier: row.plan_tier,
@@ -449,13 +450,17 @@ async function findActivePlan(strategyType: ThreeHorizonStrategyType, symbol: st
 }
 
 function contentMateriallyChanged(current: PlanRow, next: PlanContent): boolean {
-  if (current.direction !== next.direction || current.plan_tier !== next.tier) return true;
+  if (current.direction !== next.direction) return true;
+  // Crossing upward into the execution tier is a material publication event. A temporary
+  // confidence dip is handled by the live gate and timeline instead of creating another
+  // replacement version every few minutes.
+  if (current.plan_tier === "CANDIDATE" && next.tier === "FORMAL") return true;
   const tolerance = LEVEL_CHANGE_TOLERANCE_PCT[next.strategyType];
   const currentEntry = midpoint(Number(current.entry_zone_low), Number(current.entry_zone_high));
   const nextEntry = midpoint(next.entryZoneLow, next.entryZoneHigh);
   return relativeDifferencePct(currentEntry, nextEntry) > tolerance ||
-    relativeDifferencePct(Number(current.protective_stop), next.protectiveStop) > tolerance * 1.5 ||
-    relativeDifferencePct(Number(current.target_2), next.target2) > tolerance * 1.5;
+    relativeDifferencePct(Number(current.protective_stop), next.protectiveStop) > tolerance * 1.75 ||
+    relativeDifferencePct(Number(current.target_2), next.target2) > tolerance * 2;
 }
 
 function initialStatus(decision: ThreeHorizonStrategyDecision): AiTradePlanStatus {
@@ -608,6 +613,7 @@ async function updateDynamicPlan(current: PlanRow, decision: ThreeHorizonStrateg
 
 function statusFromDecision(decision: ThreeHorizonStrategyDecision, current: AiTradePlanStatus): AiTradePlanStatus {
   if (current === "SUPERSEDED" || current === "CLOSED" || current === "EXPIRED" || current === "INVALIDATED") return current;
+  if (decision.rejectionCode === "CONFIDENCE_LOW") return "WATCHING";
   switch (decision.status) {
     case "ORDER_SUBMITTED": return "ORDER_SUBMITTED";
     case "OPEN": return "OPEN";
@@ -669,6 +675,14 @@ export async function prepareAiTradePlanBeforeExecution(input: {
   }
 
   const plan = mapPlan(current);
+  if (input.decision.confidence < input.profile.minConfidence) {
+    return {
+      plan,
+      allowed: false,
+      code: "CURRENT_CONFIDENCE_LOW",
+      reason: `当前置信度${input.decision.confidence}%低于模拟执行门槛${input.profile.minConfidence}%，计划降为研究观察，本轮禁止下单。`,
+    };
+  }
   if (plan.tier !== "FORMAL") {
     return { plan, allowed: false, code: "CANDIDATE_PLAN_ONLY", reason: "候选观察计划已向会员发布，但尚未达到模拟执行置信度。" };
   }
@@ -758,7 +772,7 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
       runId: "reconcile",
       planId: row.plan_id,
       strategyType: row.strategy_type,
-      strategyLabel: STRATEGY_LABEL[row.strategy_type],
+      strategyLabel: STRATEGY_LABEL[row.strategy_type as ThreeHorizonStrategyType],
       mode: row.mode,
       symbol: row.symbol,
       status: row.status,
@@ -824,8 +838,8 @@ export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[
      ORDER BY published_at DESC, version DESC
      LIMIT ${safeLimit}`
   );
-  const events = await loadEvents(rows.map((row) => row.id));
-  return rows.map((row) => mapPlan(row, events.get(row.id) ?? []));
+  const events = await loadEvents(rows.map((row: PlanRow) => row.id));
+  return rows.map((row: PlanRow) => mapPlan(row, events.get(row.id) ?? []));
 }
 
 export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTradePlanDashboard> {
@@ -834,17 +848,30 @@ export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTrade
   const beijingNow = new Date(now.getTime() + 8 * 60 * 60_000);
   const dayKey = beijingNow.toISOString().slice(0, 10);
   const today = (value: string | null) => value ? new Date(new Date(value).getTime() + 8 * 60 * 60_000).toISOString().slice(0, 10) === dayKey : false;
+  const grouped = new Map<string, AiTradePlan[]>();
+  for (const plan of plans) {
+    const key = `${plan.strategyType}:${plan.symbol.toUpperCase()}`;
+    const list = grouped.get(key) ?? [];
+    list.push(plan);
+    grouped.set(key, list);
+  }
+  const groups = Array.from(grouped.values()).map((list) =>
+    [...list].sort((a, b) => b.version - a.version)
+  );
+  const latestPlans = groups.map((list) => list[0]).filter((plan): plan is AiTradePlan => Boolean(plan));
+  const firstPublications = groups.map((list) => list[list.length - 1]).filter((plan): plan is AiTradePlan => Boolean(plan));
   return {
     databaseReady,
     generatedAt: now.toISOString(),
     summary: {
-      publishedToday: plans.filter((plan) => today(plan.publishedAt)).length,
-      watching: plans.filter((plan) => plan.status === "WATCHING" || plan.status === "PUBLISHED").length,
-      armed: plans.filter((plan) => plan.status === "ARMED").length,
-      submittedOrOpen: plans.filter((plan) => ["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(plan.status)).length,
-      closedToday: plans.filter((plan) => plan.status === "CLOSED" && today(plan.closedAt)).length,
+      // Count unique plan groups, not every replacement version.
+      publishedToday: firstPublications.filter((plan) => today(plan.publishedAt)).length,
+      watching: latestPlans.filter((plan) => plan.status === "WATCHING" || plan.status === "PUBLISHED").length,
+      armed: latestPlans.filter((plan) => plan.status === "ARMED").length,
+      submittedOrOpen: latestPlans.filter((plan) => ["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(plan.status)).length,
+      closedToday: latestPlans.filter((plan) => plan.status === "CLOSED" && today(plan.closedAt)).length,
     },
     plans,
-    notice: "AI计划由MOOX事前发布并锁定；Bitget Demo只负责模拟委托与成交证明。计划未达到触发条件时不会下单。",
+    notice: "AI计划由MOOX事前发布并锁定；Bitget Demo只负责模拟委托与成交证明。页面默认展示当前版本，历史版本折叠保留。",
   };
 }

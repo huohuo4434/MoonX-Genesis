@@ -627,11 +627,15 @@ export async function runBitgetDemoServerRuntime(
     });
 
     try {
-      quotes = await getBitgetDemoMarketQuotes(DEFAULT_SYMBOLS);
+      const fetchedQuotes = await getBitgetDemoMarketQuotes(DEFAULT_SYMBOLS);
+      quotes = fetchedQuotes.filter((quote) => {
+        const captured = new Date(quote.capturedAt).getTime();
+        return Number.isFinite(captured) && Math.max(0, now.getTime() - captured) <= QUOTE_HEALTH_SECONDS * 1000;
+      });
       marketOk = quotes.length >= 2;
       marketMessage = marketOk
-        ? `取得${quotes.length}个Bitget Demo同源公开报价。`
-        : `Bitget仅返回${quotes.length}个有效报价。`;
+        ? `取得${quotes.length}个时间戳有效的Bitget Demo同源公开报价。`
+        : `Bitget返回${fetchedQuotes.length}个报价，但仅${quotes.length}个通过3分钟新鲜度检查。`;
       await recordEvent({
         runId,
         stage: "MARKET",
@@ -652,7 +656,9 @@ export async function runBitgetDemoServerRuntime(
       });
     }
 
-    if (!before.paused) {
+    const executionPaused = before.paused || !marketOk;
+
+    if (!before.paused && marketOk) {
       const [strategyResult, monitorResult] = await Promise.allSettled([
         runPredictionAutoTrader(now, {
           source: source === "ADMIN" ? "ADMIN" : "CRON",
@@ -804,7 +810,7 @@ export async function runBitgetDemoServerRuntime(
           message,
         });
       }
-    } else {
+    } else if (before.paused) {
       await recordEvent({
         runId,
         stage: "SYSTEM",
@@ -843,6 +849,16 @@ export async function runBitgetDemoServerRuntime(
           message,
         });
       }
+    } else {
+      // A heartbeat without a fresh market quote is not an executable cycle. Do not
+      // create new decisions, publish replacement plans or send pending mirror orders.
+      await recordEvent({
+        runId,
+        stage: "SYSTEM",
+        level: "WARNING",
+        action: "MARKET_DATA_EXECUTION_PAUSED",
+        message: `行情未通过新鲜度检查，本轮自动暂停策略生成与新订单：${marketMessage || "未取得有效报价"}`,
+      });
     }
 
     account = await reconcileAccount(now);
@@ -895,12 +911,14 @@ export async function runBitgetDemoServerRuntime(
 
     const finishedAt = new Date();
     finalMessage = before.paused
-      ? "服务器心跳和对账已运行；因风控暂停，本轮没有新策略下单。"
-      : `服务器链路完成：行情${marketOk ? "正常" : "异常"}，旧策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，Demo成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0)}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0)}笔。`;
+      ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
+      : !marketOk
+        ? `服务器心跳和对账已运行；行情异常导致模拟执行自动暂停，本轮未生成新策略或提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
+        : `服务器链路完成：行情正常，旧策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，Demo成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0)}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0)}笔。`;
     const report: BitgetRuntimeRunReport = {
-      ok: !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0,
+      ok: marketOk && !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0,
       locked: false,
-      paused: before.paused,
+      paused: executionPaused,
       runId,
       source,
       startedAt,
@@ -945,7 +963,7 @@ export async function runBitgetDemoServerRuntime(
       message: finalMessage,
       payload: {
         durationMs: finishedAt.getTime() - now.getTime(),
-        paused: before.paused,
+        paused: executionPaused,
       },
     });
     await cleanupEvents();

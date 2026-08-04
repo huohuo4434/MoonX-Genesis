@@ -96,6 +96,9 @@ export interface AiTradingDeskSnapshot {
   ledgerNotice: string;
   strategyEnabled: boolean;
   mirrorEnabled: boolean;
+  /** Environment switch, preserved even when freshness gates pause execution. */
+  executionConfigured?: boolean;
+  /** Effective execution state after heartbeat and quote freshness gates. */
   executionAllowed: boolean;
   serverHealthy: boolean;
   syncStatus: "OK" | "PARTIAL" | "ERROR" | "DISABLED";

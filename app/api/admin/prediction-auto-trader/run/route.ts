@@ -20,6 +20,13 @@ export async function POST() {
         { status: 409 }
       );
     }
+    if (!runtime.serverHealthy || runtime.quoteAgeSeconds == null || runtime.quoteAgeSeconds > 180) {
+      const age = runtime.quoteAgeSeconds == null ? "未知" : `${Math.floor(runtime.quoteAgeSeconds / 60)}分钟`;
+      return NextResponse.json(
+        { error: `行情或服务器心跳未通过新鲜度检查，自动执行已暂停（行情延迟：${age}）。请等待服务器运行时恢复后再重试。` },
+        { status: 409 }
+      );
+    }
     const report = await runPredictionAutoTrader(now, {
       source: "ADMIN",
       forceFullScan: true,
