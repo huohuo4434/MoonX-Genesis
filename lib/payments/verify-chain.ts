@@ -39,9 +39,22 @@ function tronHexToBase58(value: string): string {
 
 function normalizeTronAddress(value: string): string {
   const trimmed = value.trim();
-  return /^41[0-9a-fA-F]{40}$/.test(trimmed.replace(/^0x/, ""))
-    ? tronHexToBase58(trimmed)
-    : trimmed;
+  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(trimmed)) return trimmed;
+
+  let clean = trimmed.toLowerCase().replace(/^0x/, "");
+
+  // TronGrid event parameters may be returned as:
+  // 1) TRON hex (41 + 20 bytes), 2) EVM-style 20-byte hex, or
+  // 3) a 32-byte ABI word containing either representation.
+  if (/^0{22}41[0-9a-f]{40}$/.test(clean)) {
+    clean = clean.slice(-42);
+  } else if (/^0{24}[0-9a-f]{40}$/.test(clean)) {
+    clean = `41${clean.slice(-40)}`;
+  } else if (/^[0-9a-f]{40}$/.test(clean)) {
+    clean = `41${clean}`;
+  }
+
+  return /^41[0-9a-f]{40}$/.test(clean) ? tronHexToBase58(clean) : trimmed;
 }
 
 function validateTimestamp(blockTimestamp: Date, expected: { notBefore: Date; notAfter: Date }): void {
@@ -78,8 +91,10 @@ export async function verifyTronTransfer(
   const contractRet = (tx.ret as Array<{ contractRet?: string }> | undefined)?.[0]?.contractRet;
   if (contractRet && contractRet !== "SUCCESS") throw new Error("TRON transaction failed");
 
+  // The transaction-event endpoint supports confirmation filters only.
+  // Filter contract, recipient and amount locally after the response arrives.
   const trc20Res = await fetch(
-    `https://api.trongrid.io/v1/transactions/${txHash}/events?only_confirmed=true&contract_address=${encodeURIComponent(expected.tokenContract)}`,
+    `https://api.trongrid.io/v1/transactions/${txHash}/events?only_confirmed=true`,
     { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) }
   );
   if (!trc20Res.ok) throw new Error(`TRON TRC20 events unavailable (${trc20Res.status})`);
@@ -94,20 +109,44 @@ export async function verifyTronTransfer(
   };
 
   const expectedContract = normalizeTronAddress(expected.tokenContract);
-  const transfer = eventsJson.data?.find((event) => {
-    if (event.event_name !== "Transfer") return false;
+  const expectedRecipient = normalizeTronAddress(expected.recipientAddress);
+  const contractTransfers = (eventsJson.data ?? []).filter((event) => {
+    if (event.event_name !== "Transfer" || !event.result) return false;
     return normalizeTronAddress(event.contract_address ?? "") === expectedContract;
   });
-  if (!transfer?.result) throw new Error("TRC20 transfer is not confirmed yet");
 
-  const toRaw = transfer.result.to ?? transfer.result["1"];
-  const fromRaw = transfer.result.from ?? transfer.result["0"];
-  const value = transfer.result.value ?? transfer.result["2"];
+  if (contractTransfers.length === 0) {
+    throw new Error("TRC20 transfer is not confirmed yet");
+  }
+
+  let recipientMatch: (typeof contractTransfers)[number] | undefined;
+  let amountMatch: (typeof contractTransfers)[number] | undefined;
+  for (const event of contractTransfers) {
+    const result = event.result!;
+    const toRaw = result.to ?? result["1"];
+    const valueRaw = result.value ?? result["2"];
+    if (!toRaw || !valueRaw) continue;
+    if (normalizeTronAddress(toRaw) !== expectedRecipient) continue;
+    recipientMatch = event;
+    const amount = parseTokenAmount(valueRaw, 6);
+    if (Math.abs(amount - expected.expectedAmount) <= 0.0000001) {
+      amountMatch = event;
+      break;
+    }
+  }
+
+  if (!recipientMatch?.result) {
+    throw new Error("Transfer recipient does not match order receive address");
+  }
+  const transfer = amountMatch ?? recipientMatch;
+  const toRaw = transfer.result!.to ?? transfer.result!["1"];
+  const fromRaw = transfer.result!.from ?? transfer.result!["0"];
+  const value = transfer.result!.value ?? transfer.result!["2"];
   if (!toRaw || !value) throw new Error("Invalid TRC20 transfer payload");
 
   const to = normalizeTronAddress(toRaw);
   const from = fromRaw ? normalizeTronAddress(fromRaw) : "";
-  if (to !== normalizeTronAddress(expected.recipientAddress)) {
+  if (to !== expectedRecipient) {
     throw new Error("Transfer recipient does not match order receive address");
   }
 
@@ -244,7 +283,7 @@ export function validateTxHash(chain: PaymentChain, txHash: string): boolean {
 }
 
 export function isTemporaryVerificationError(message: string): boolean {
-  return /not found yet|not confirmed yet|events unavailable|lookup unavailable|waiting for confirmations|not mined yet|rpc unavailable|timeout|fetch failed|rate limit|429|503/i.test(message);
+  return /not found yet|not confirmed yet|waiting for confirmations|not mined yet|timeout|fetch failed|rate limit|network error|ECONN|429|500|502|503|504|lookup unavailable \((?:429|5\d\d)\)|events unavailable \((?:429|5\d\d)\)|rpc unavailable \((?:429|5\d\d)\)/i.test(message);
 }
 
 export function isUnderpaymentError(message: string): boolean {

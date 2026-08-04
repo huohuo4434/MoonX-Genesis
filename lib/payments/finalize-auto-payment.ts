@@ -7,6 +7,7 @@ import {
   type PendingPayment,
 } from "@/lib/auth/permissions";
 import { grantMembershipFromPlan } from "@/lib/auth/grant-membership";
+import { listMembershipEvents } from "@/lib/auth/membership-events";
 import { notifyBuyerMembershipActivated } from "@/lib/email/notifications";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
@@ -59,16 +60,50 @@ export async function finalizeAutoPaymentMembership(input: {
   );
   const grantReferenceTime = continuityPreserved ? createdAt : verifiedAt;
 
-  const grant = await grantMembershipFromPlan({
-    userId: order.userId,
-    plan: order.plan,
-    eventType: "PAYMENT_APPROVED",
-    source: "auto_chain_payment",
-    sourceId: order.id,
-    note: `auto=true; chain=${order.chain}; tx=${order.txHash ?? ""}; founder=${order.discountPercent}%`,
-    now: grantReferenceTime,
+  const expectedManualNote: Record<AutoPaymentOrder["plan"], string> = {
+    MONTHLY: "activate_monthly",
+    QUARTERLY: "activate_quarterly",
+    YEARLY: "activate_yearly",
+  };
+  const orderCreatedAt = createdAt.getTime();
+  const orderManualMatchDeadline = new Date(order.expiresAt).getTime() + 24 * 60 * 60_000;
+  const recentEvents = await listMembershipEvents({ userId: order.userId, limit: 100 });
+  const matchingManualActivation = recentEvents.find((event) => {
+    const eventTime = new Date(event.createdAt).getTime();
+    return (
+      event.eventType === "ADMIN_ADJUSTMENT" &&
+      event.note === expectedManualNote[order.plan] &&
+      Boolean(event.newExpiresAt) &&
+      Number.isFinite(eventTime) &&
+      eventTime >= orderCreatedAt - 5 * 60_000 &&
+      eventTime <= orderManualMatchDeadline
+    );
   });
-  const membershipExpiresAt = grant.newExpiresAt ?? meta.membership_expires_at ?? null;
+
+  let membershipExpiresAt: string | null;
+  let grantApplied = false;
+  let grantSkipped: string | null = null;
+
+  if (matchingManualActivation) {
+    // The administrator already granted this exact plan after the order was created.
+    // Reconcile the chain payment and order ledger without granting the same days twice.
+    membershipExpiresAt = meta.membership_expires_at ?? matchingManualActivation.newExpiresAt ?? null;
+    grantSkipped = "manual_activation_already_applied";
+  } else {
+    const grant = await grantMembershipFromPlan({
+      userId: order.userId,
+      plan: order.plan,
+      eventType: "PAYMENT_APPROVED",
+      source: "auto_chain_payment",
+      sourceId: order.id,
+      note: `auto=true; chain=${order.chain}; tx=${order.txHash ?? ""}; founder=${order.discountPercent}%`,
+      now: grantReferenceTime,
+    });
+    membershipExpiresAt = grant.newExpiresAt ?? meta.membership_expires_at ?? null;
+    grantApplied = grant.applied;
+    grantSkipped = grant.skipped ?? null;
+  }
+
   const membershipStartedAt = meta.membership_started_at ?? verifiedAtIso;
 
   const entry: PaymentHistoryItem = {
@@ -130,8 +165,8 @@ export async function finalizeAutoPaymentMembership(input: {
 
   return {
     membershipExpiresAt,
-    grantApplied: grant.applied,
-    grantSkipped: grant.skipped ?? null,
+    grantApplied,
+    grantSkipped,
     referralReward,
   };
 }
