@@ -70,5 +70,17 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
-process.exit(0);
+main()
+  .catch((error) => {
+    console.warn(
+      JSON.stringify({
+        ok: false,
+        continued: true,
+        stage: "apply-prisma-migrate-safe",
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+  })
+  .finally(() => {
+    process.exitCode = 0;
+  });
