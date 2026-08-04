@@ -57,6 +57,8 @@ const ORDER_FAILURE_PAUSE_THRESHOLD = 2;
 const AUTO_RECOVERY_HEALTHY_RUNS = 2;
 const LOCK_SECONDS = 90;
 const EVENT_RETENTION_DAYS = 14;
+const LIVE_STRATEGY_SYMBOLS_PER_RUN = 2;
+const LIVE_STRATEGY_BUDGET_MS = 38_000;
 
 interface RuntimeStateRow {
   paused: boolean;
@@ -519,6 +521,34 @@ async function reconcileAccount(now: Date): Promise<BitgetRuntimeAccountSnapshot
   };
 }
 
+async function persistRuntimeHealthSnapshot(input: {
+  now: Date;
+  quotes: BitgetRuntimeQuote[];
+  marketEndpointOk: boolean;
+  account: BitgetRuntimeAccountSnapshot;
+  marketError: string;
+  accountError: string;
+  message: string;
+}): Promise<void> {
+  if (!prisma) return;
+  await prisma.$executeRaw`
+    UPDATE trade_bitget_runtime_state SET
+      last_heartbeat_at = ${input.now},
+      last_market_at = CASE WHEN ${input.marketEndpointOk} THEN ${input.now} ELSE last_market_at END,
+      last_reconcile_at = ${input.now},
+      latest_quotes = CASE
+        WHEN ${input.quotes.length > 0} THEN ${JSON.stringify(input.quotes)}::jsonb
+        ELSE latest_quotes
+      END,
+      account_snapshot = ${JSON.stringify(input.account)}::jsonb,
+      last_market_error = ${input.marketError},
+      last_account_error = ${input.accountError},
+      last_report = ${JSON.stringify({ stage: "HEALTH_READY", message: input.message })}::jsonb,
+      updated_at = NOW()
+    WHERE id = 'default'
+  `;
+}
+
 async function updateRuntimeState(input: {
   now: Date;
   quotes: BitgetRuntimeQuote[];
@@ -792,8 +822,13 @@ export async function runBitgetDemoServerRuntime(
       liveExit = await closeLiveExperimentExposure(runId, liveExperiment);
     }
 
-    try {
-      const fetchedQuotes = await getBitgetDemoMarketQuotes(runtimeSymbols);
+    const [marketResult, accountResult] = await Promise.allSettled([
+      getBitgetDemoMarketQuotes(runtimeSymbols),
+      reconcileAccount(now),
+    ] as const);
+
+    if (marketResult.status === "fulfilled") {
+      const fetchedQuotes = marketResult.value;
       marketEndpointOk = true;
       quotes = fetchedQuotes.filter((quote) => {
         const captured = new Date(quote.capturedAt).getTime();
@@ -814,8 +849,8 @@ export async function runBitgetDemoServerRuntime(
         message: marketMessage,
         payload: { quotes, staleSymbols },
       });
-    } catch (error) {
-      marketError = error instanceof Error ? error.message : "Bitget行情读取失败";
+    } else {
+      marketError = marketResult.reason instanceof Error ? marketResult.reason.message : "Bitget行情读取失败";
       marketMessage = marketError;
       diagnosticErrors.push(marketError);
       await recordEvent({
@@ -827,9 +862,54 @@ export async function runBitgetDemoServerRuntime(
       });
     }
 
+    if (accountResult.status === "fulfilled") {
+      account = accountResult.value;
+    } else {
+      account = emptyAccount(accountResult.reason instanceof Error ? accountResult.reason.message : "Bitget账户对账失败");
+    }
+    if (!account.connected) {
+      accountError = account.message;
+      diagnosticErrors.push(accountError);
+    }
+    await recordEvent({
+      runId,
+      stage: "RECONCILE",
+      level: account.connected ? "SUCCESS" : "WARNING",
+      action: "ACCOUNT",
+      message: account.message,
+      payload: {
+        availableUsdt: account.availableUsdt,
+        equityUsdt: account.equityUsdt,
+        positionsCount: account.positionsCount,
+        pendingStrategyOrdersCount: account.pendingStrategyOrdersCount,
+      },
+    });
+
+    const healthMessage = marketOk && account.connected
+      ? `行情${quotes.length}/${runtimeSymbols.length}与账户对账已同步，开始本轮策略扫描。`
+      : !marketOk
+        ? `行情未通过新鲜度检查，本轮只做安全对账，不开新仓。${marketMessage}`
+        : `账户对账未通过，本轮禁止新开仓。${account.message}`;
+    await persistRuntimeHealthSnapshot({
+      now,
+      quotes: quotes.map((row) => ({ ...row })),
+      marketEndpointOk,
+      account,
+      marketError,
+      accountError,
+      message: healthMessage,
+    });
+    await recordEvent({
+      runId,
+      stage: "HEARTBEAT",
+      level: marketOk && account.connected ? "SUCCESS" : "WARNING",
+      action: "HEALTH_SNAPSHOT",
+      message: healthMessage,
+    });
+
     const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
-    const executionPaused = before.paused || !marketOk || !liveAllowsNewEntries;
-    if (!before.paused && marketOk && liveAllowsNewEntries) {
+    const executionPaused = before.paused || !marketOk || !account.connected || !liveAllowsNewEntries;
+    if (!before.paused && marketOk && account.connected && liveAllowsNewEntries) {
       if (environment.mode !== "LIVE_EXPERIMENT") {
         const [strategyResult, monitorResult] = await Promise.allSettled([
           runPredictionAutoTrader(now, {
@@ -874,7 +954,13 @@ export async function runBitgetDemoServerRuntime(
         threeHorizon = await runThreeHorizonStrategyEngine(
           now,
           source === "ADMIN" ? "ADMIN" : "CRON",
-          { eligibleSymbols: freshSymbols }
+          {
+            eligibleSymbols: freshSymbols,
+            maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined,
+            deadlineAt: environment.mode === "LIVE_EXPERIMENT"
+              ? new Date(Date.now() + LIVE_STRATEGY_BUDGET_MS)
+              : undefined,
+          }
         );
         strategyRan = true;
         await recordEvent({
@@ -989,9 +1075,11 @@ export async function runBitgetDemoServerRuntime(
         action: "PAUSED_SKIP",
         message: !marketOk
           ? `行情读取失败或数据不足，本轮禁止新开仓。${marketMessage}`
-          : !liveAllowsNewEntries
-            ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
-            : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
+          : !account.connected
+            ? `账户对账未通过，本轮禁止新开仓。${account.message}`
+            : !liveAllowsNewEntries
+              ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
+              : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
       if (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active) {
         try {
@@ -1028,55 +1116,38 @@ export async function runBitgetDemoServerRuntime(
       }
     }
 
-    account = await reconcileAccount(now);
-    if (!account.connected) {
-      accountError = account.message;
-      diagnosticErrors.push(accountError);
-    }
-    await recordEvent({
-      runId,
-      stage: "RECONCILE",
-      level: account.connected ? "SUCCESS" : "WARNING",
-      action: "ACCOUNT",
-      message: account.message,
-      payload: {
-        availableUsdt: account.availableUsdt,
-        equityUsdt: account.equityUsdt,
-        positionsCount: account.positionsCount,
-        pendingStrategyOrdersCount: account.pendingStrategyOrdersCount,
-      },
-    });
-
-    try {
-      validation = await runStrategyValidationCycle({
-        now,
-        source: source === "ADMIN" ? "ADMIN" : "CRON",
-        quotes,
-      });
-      await recordEvent({
-        runId,
-        stage: "RECONCILE",
-        level: validation.ok ? "SUCCESS" : "WARNING",
-        action: "PHASE3_VALIDATION",
-        message: validation.message,
-        payload: {
-          criticalIssues: validation.criticalIssues,
-          warningIssues: validation.warningIssues,
-          closedMetricsUpserted: validation.closedMetricsUpserted,
-          experimentTrialsOpened: validation.experimentTrialsOpened,
-          experimentTrialsClosed: validation.experimentTrialsClosed,
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Phase 3模拟验收周期失败";
-      diagnosticErrors.push(message);
-      await recordEvent({
-        runId,
-        stage: "RECONCILE",
-        level: "ERROR",
-        action: "PHASE3_VALIDATION_ERROR",
-        message,
-      });
+    if (environment.mode !== "LIVE_EXPERIMENT") {
+      try {
+        validation = await runStrategyValidationCycle({
+          now,
+          source: source === "ADMIN" ? "ADMIN" : "CRON",
+          quotes,
+        });
+        await recordEvent({
+          runId,
+          stage: "RECONCILE",
+          level: validation.ok ? "SUCCESS" : "WARNING",
+          action: "PHASE3_VALIDATION",
+          message: validation.message,
+          payload: {
+            criticalIssues: validation.criticalIssues,
+            warningIssues: validation.warningIssues,
+            closedMetricsUpserted: validation.closedMetricsUpserted,
+            experimentTrialsOpened: validation.experimentTrialsOpened,
+            experimentTrialsClosed: validation.experimentTrialsClosed,
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Phase 3模拟验收周期失败";
+        diagnosticErrors.push(message);
+        await recordEvent({
+          runId,
+          stage: "RECONCILE",
+          level: "ERROR",
+          action: "PHASE3_VALIDATION_ERROR",
+          message,
+        });
+      }
     }
 
     const finishedAt = new Date();
@@ -1084,9 +1155,13 @@ export async function runBitgetDemoServerRuntime(
       ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
         ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
-        : !liveAllowsNewEntries
-          ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
-          : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`;
+        : !account.connected
+          ? `服务器行情正常，但账户对账未通过，本轮禁止新开仓。原因：${account.message}`
+          : !liveAllowsNewEntries
+            ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
+            : threeHorizon?.message
+              ? `${threeHorizon.message} ${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}订单成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`
+              : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，本轮没有形成可执行订单。`;
     const report: BitgetRuntimeRunReport = {
       ok: marketEndpointOk && account.connected && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
       locked: false,

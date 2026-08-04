@@ -249,8 +249,10 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     ? Math.max(1, Math.min(live ? 2 : 3, Math.floor(leverageRaw)))
     : 1;
   const liveConfirmationAccepted = process.env.BITGET_LIVE_CONFIRMATION?.trim() === "I_ACCEPT_REAL_LOSS";
-  const requireIpWhitelist = process.env.BITGET_LIVE_REQUIRE_IP_WHITELIST?.toLowerCase() !== "false";
-  const allowNoIpWhitelist = process.env.BITGET_LIVE_ALLOW_NO_IP_WHITELIST?.trim() === "I_UNDERSTAND";
+  // Vercel serverless egress IPs are not stable on the current plan.
+  // Keep these compatibility fields, but IP binding is no longer a hard execution gate.
+  const requireIpWhitelist = false;
+  const allowNoIpWhitelist = true;
   return {
     mode: env.mode,
     configured,
@@ -806,7 +808,6 @@ type BitgetAccountInfo = {
 };
 
 export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
-  const environment = getBitgetDemoEnvironment();
   const info = await signedRequest<BitgetAccountInfo>({ method: "GET", path: "/api/v3/account/info" });
   const permissions = Array.isArray(info?.permissions) ? info.permissions.map(String) : [];
   const ipWhitelist = String(info?.ips ?? "").split(",").map((value) => value.trim()).filter(Boolean);
@@ -816,13 +817,14 @@ export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
     return normalized === "uta_trade" || normalized.includes("trade") || normalized.includes("order");
   });
   const managementPermission = permissions.some((value) => value.toLowerCase() === "uta_mgt");
-  const ipSafe = !environment.requireIpWhitelist || ipWhitelist.length > 0 || environment.allowNoIpWhitelist;
-  const safeForLiveExperiment = !withdrawalPermission && tradingPermission && managementPermission && ipSafe;
+  const safeForLiveExperiment = !withdrawalPermission && tradingPermission && managementPermission;
   const messages = [
     withdrawalPermission ? "API密钥包含提币权限，禁止实盘实验。" : "未检测到提币权限。",
     tradingPermission ? "已检测到统一账户交易权限。" : "未检测到UTA交易权限。",
     managementPermission ? "已检测到统一账户管理权限。" : "未检测到UTA管理权限。",
-    ipWhitelist.length > 0 ? `已绑定${ipWhitelist.length}个IP。` : environment.allowNoIpWhitelist ? "已显式允许无IP白名单运行。" : "未绑定IP白名单。",
+    ipWhitelist.length > 0
+      ? `已绑定${ipWhitelist.length}个IP。`
+      : "未绑定IP白名单；按当前实盘实验配置，此项仅提示风险，不再阻止启动和下单。",
   ];
   return { permissions, ipWhitelist, withdrawalPermission, tradingPermission, managementPermission, safeForLiveExperiment, message: messages.join(" ") };
 }

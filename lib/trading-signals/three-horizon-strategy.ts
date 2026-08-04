@@ -1736,7 +1736,12 @@ async function buildStrategyStats(
 export async function runThreeHorizonStrategyEngine(
   now = new Date(),
   source: "CRON" | "ADMIN" | "SYSTEM" = "CRON",
-  options: { manageOnly?: boolean; eligibleSymbols?: BitgetSupportedSymbol[] } = {}
+  options: {
+    manageOnly?: boolean;
+    eligibleSymbols?: BitgetSupportedSymbol[];
+    maxNewSymbols?: number;
+    deadlineAt?: Date;
+  } = {}
 ): Promise<ThreeHorizonRunReport> {
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) {
     throw new Error("三周期策略数据库未连接");
@@ -1787,7 +1792,9 @@ export async function runThreeHorizonStrategyEngine(
     };
   }
   const profiles = await getThreeHorizonProfiles();
-  const dueProfiles = profiles.filter((profile) => profile.enabled && profileDue(profile, now));
+  const environment = getBitgetDemoEnvironment();
+  const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
+  const dueProfiles = profiles.filter((profile) => profile.enabled && (liveExperimentMode || profileDue(profile, now)));
   if (!dueProfiles.length) {
     return {
       ok: management.orderErrors === 0,
@@ -1846,36 +1853,29 @@ export async function runThreeHorizonStrategyEngine(
   let orderErrors = management.orderErrors;
   let scanErrors = 0;
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
+  const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
+    ? Math.max(1, Math.floor(options.maxNewSymbols))
+    : Number.POSITIVE_INFINITY;
+  const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
+  let timeBudgetReached = false;
+  let eligibleUniverseSize = 0;
   for (const profile of dueProfiles) {
     let tradesToday = await todayTradeCount(profile, now);
-    for (const symbolText of profile.symbols) {
-      const symbol = symbolText as BitgetSupportedSymbol;
-      if (eligibleSymbols && !eligibleSymbols.has(symbol)) {
-        const fallback: EvaluationResult = {
-          direction: "NEUTRAL",
-          confidence: 0,
-          technicalScore: 0,
-          forecastScore: 0,
-          conditions: [],
-          currentPrice: null,
-          entryPrice: null,
-          stopLoss: null,
-          target1: null,
-          target2: null,
-          ready: false,
-          rejectionCode: "MARKET_STALE_OR_CLOSED",
-          rejectionReason: "该品种当前报价超过3分钟未更新或市场暂不可交易，本轮不扫描、不下单。",
-          raw: {},
-        };
-        decisions.push(await insertDecision({
-          runId,
-          profile,
-          symbol,
-          status: "OBSERVING",
-          evaluation: fallback,
-          now,
-        }));
-        continue;
+    const freshProfileSymbols = profile.symbols
+      .map((value) => value as BitgetSupportedSymbol)
+      .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
+    eligibleUniverseSize += freshProfileSymbols.length;
+    const batchSize = Math.min(maxNewSymbols, freshProfileSymbols.length || 1);
+    const batchCount = Math.max(1, Math.ceil(freshProfileSymbols.length / batchSize));
+    const rotationSlot = Math.floor(now.getTime() / 60_000) % batchCount;
+    const startIndex = rotationSlot * batchSize;
+    const selectedSymbols = Number.isFinite(maxNewSymbols)
+      ? freshProfileSymbols.slice(startIndex, startIndex + batchSize)
+      : freshProfileSymbols;
+    for (const symbol of selectedSymbols) {
+      if (Date.now() >= deadlineMs) {
+        timeBudgetReached = true;
+        break;
       }
       try {
         let candleSet = candleCache.get(symbol);
@@ -1977,7 +1977,14 @@ export async function runThreeHorizonStrategyEngine(
       }
     }
     await markProfileScanned(profile, now);
+    if (timeBudgetReached) break;
   }
+  const scannedSymbols = Array.from(new Set(decisions.map((row) => row.symbol)));
+  const readyCount = decisions.filter((row) => ["READY", "SHADOW_READY", "ORDER_SUBMITTED", "OPEN", "PARTIAL"].includes(row.status)).length;
+  const noOrderReasons = decisions
+    .filter((row) => !["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSED"].includes(row.status))
+    .map((row) => `${row.symbol}:${row.rejectionReason || row.status}`)
+    .slice(0, 4);
   return {
     ok: orderErrors === 0 && scanErrors === 0,
     runId,
@@ -1990,7 +1997,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `三周期扫描${dueProfiles.length}套策略、${decisions.length}个标的决策；影子准备${decisions.filter((row) => row.status === "SHADOW_READY").length}，数据异常${scanErrors}，${getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}真实下单成功${orderSuccess}，订单错误${orderErrors}。`,
+    message: `三周期轮转扫描${scannedSymbols.length}/${eligibleUniverseSize || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的留到下一轮" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
   };
 }
 

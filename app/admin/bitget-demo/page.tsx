@@ -35,7 +35,7 @@ export default async function AdminBitgetDemoPage() {
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
-                每天最多新开3笔，最多同时持有3个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到20 USDT后停止当天新开仓，总权益较峰值回撤达到100 USDT后停止实验并尝试平掉全部仓位。API必须无提币权限；默认要求IP白名单。
+                每天最多新开3笔，最多同时持有3个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到20 USDT后停止当天新开仓，总权益较峰值回撤达到100 USDT后停止实验并尝试平掉全部仓位。API必须无提币权限，并仅保留统一账户交易与管理所需权限；IP白名单仅作安全提示，不再作为启动条件。
               </Text>
             </Card>
             <BitgetLiveConsoleLoader />

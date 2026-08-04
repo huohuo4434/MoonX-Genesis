@@ -376,6 +376,12 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
               {dashboard.runtime.lastAccountError ? <Text variant="caption" className="block text-amber-100/80">账户接口：{dashboard.runtime.lastAccountError}</Text> : null}
             </div>
           ) : null}
+          {typeof dashboard.runtime.lastReport?.message === "string" ? (
+            <div className="rounded-lg border border-primary/20 bg-primary/[0.035] p-4">
+              <Text variant="caption" color="tertiary" className="block">最近一轮自动判断</Text>
+              <Text variant="body-sm" className="mt-1 block">{String(dashboard.runtime.lastReport.message)}</Text>
+            </div>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">服务器心跳</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
@@ -403,9 +409,9 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">实盘总开关</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.executionAllowed ? "已开启" : "未开启"}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">真实亏损确认</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.liveConfirmationAccepted ? "已确认" : "未确认"}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">提币权限</Text><Text variant="body-sm" className={`mt-1 block ${securityResult?.withdrawalPermission ? "text-red-300" : ""}`}>{securityResult ? (securityResult.withdrawalPermission ? "危险：已开启" : "未开启") : "点击安全检查读取"}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">IP白名单</Text><Text variant="body-sm" className="mt-1 block">{securityResult ? (securityResult.ipWhitelist.length ? `已绑定${securityResult.ipWhitelist.length}个IP` : dashboard.environment.allowNoIpWhitelist ? "已显式豁免" : "未绑定") : "点击安全检查读取"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">IP白名单（可选）</Text><Text variant="body-sm" className="mt-1 block">{securityResult ? (securityResult.ipWhitelist.length ? `已绑定${securityResult.ipWhitelist.length}个IP` : "未绑定 · 不拦截") : "点击安全检查读取"}</Text></div>
           </div>
-          <Text variant="body-sm" className={securityResult && !securitySafe ? "text-red-300" : "text-white/60"}>{securityResult?.message || experiment?.securityMessage || "配置完成后点击上方安全检查。只有无提币权限、具备UTA交易与管理权限并满足IP规则时才允许启动。"}</Text>
+          <Text variant="body-sm" className={securityResult && !securitySafe ? "text-red-300" : "text-white/60"}>{securityResult?.message || experiment?.securityMessage || "配置完成后点击上方安全检查。只有无提币权限并具备UTA交易与管理权限时才允许启动；IP白名单不再作为硬门槛。"}</Text>
         </Card>
 
         {testResult ? (
