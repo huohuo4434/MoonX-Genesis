@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
+import { getBitgetLiveAdminSnapshot } from "@/lib/bitget/live-admin-snapshot";
 import {
   getBitgetDemoAdminDashboard,
-  getBitgetLiveAdminDashboard,
 } from "@/lib/bitget/demo-runtime";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function GET() {
   try {
     const environment = getBitgetDemoEnvironment();
     const dashboard = environment.mode === "LIVE_EXPERIMENT"
-      ? await withTimeout(getBitgetLiveAdminDashboard(), 8_000)
+      ? await getBitgetLiveAdminSnapshot()
       : await withTimeout(getBitgetDemoAdminDashboard(), 12_000);
 
     return NextResponse.json(dashboard, {
