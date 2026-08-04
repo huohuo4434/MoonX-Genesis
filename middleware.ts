@@ -6,9 +6,14 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE_KEY, englishPath, isLocale, type Locale }
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store, max-age=0", Vary: "Cookie" };
 const LOCALE_NEUTRAL_PREFIXES = ["/api", "/_next", "/admin"];
+const PRIVATE_PREFIXES = ["/account", "/member", "/checkout"];
 
 function isLocaleNeutral(pathname: string): boolean {
   return LOCALE_NEUTRAL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isPrivatePath(pathname: string): boolean {
+  return PRIVATE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function stripEnglishPrefix(pathname: string): string {
@@ -37,11 +42,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(target, 307);
   }
 
+  // API handlers authenticate themselves. Avoid a duplicate Supabase network call
+  // in middleware for every fetch, cron, payment and trading request.
+  if (originalPath === "/api" || originalPath.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const cookieValue = request.cookies.get(LOCALE_COOKIE_KEY)?.value;
   const cookieLocale: Locale = cookieValue && isLocale(cookieValue) ? cookieValue : DEFAULT_LOCALE;
 
   // Once English is selected, old unprefixed internal links are normalized to /en.
-  // This preserves locale after login, payment and legacy client-side redirects.
   if (
     !englishUrl &&
     cookieLocale === "en" &&
@@ -69,45 +79,70 @@ export async function middleware(request: NextRequest) {
   };
 
   let response = makeResponse();
-  response.cookies.set(LOCALE_COOKIE_KEY, locale, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL),
-  });
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+
+  // Do not emit Set-Cookie on every Chinese public request. A needless Set-Cookie
+  // disables useful browser/CDN reuse and made ordinary page loads slower.
+  if (englishUrl && cookieValue !== "en") {
+    response.cookies.set(LOCALE_COOKIE_KEY, "en", {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      secure: isProd,
+    });
+  }
+
+  const adminOnly = isAdminOnlyPublicPath(internalPath);
+  const privatePath = isPrivatePath(internalPath);
+
+  // Public pages no longer wait for Supabase Auth. The navbar resolves its small
+  // session snapshot after hydration, while protected pages keep full checks.
+  if (!adminOnly && !privatePath) return response;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
 
-  if (isAdminOnlyPublicPath(internalPath)) {
-    if (!url || !anonKey) {
+  if (!url || !anonKey) {
+    if (adminOnly) {
       return NextResponse.rewrite(new URL("/not-found", request.url), {
         headers: { ...NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow" },
       });
     }
-    const supabase = createServerClient(url, anonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = makeResponse();
-          const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, {
-              ...options,
-              path: options?.path ?? "/",
-              sameSite: options?.sameSite ?? "lax",
-              secure: isProd ? true : Boolean(options?.secure),
-              httpOnly: options?.httpOnly ?? true,
-            });
-          });
-          response.cookies.set(LOCALE_COOKIE_KEY, locale, { path: "/", maxAge: 31536000, sameSite: "lax", secure: isProd });
-        },
+    return copySecurityHeaders(response, privatePath);
+  }
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    });
-    const { data } = await supabase.auth.getUser();
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = makeResponse();
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, {
+            ...options,
+            path: options?.path ?? "/",
+            sameSite: options?.sameSite ?? "lax",
+            secure: isProd ? true : Boolean(options?.secure),
+            httpOnly: options?.httpOnly ?? true,
+          });
+        });
+        if (englishUrl) {
+          response.cookies.set(LOCALE_COOKIE_KEY, "en", {
+            path: "/",
+            maxAge: 31536000,
+            sameSite: "lax",
+            secure: isProd,
+          });
+        }
+      },
+    },
+  });
+
+  const { data } = await supabase.auth.getUser();
+
+  if (adminOnly) {
     const isAdmin = isAdminUser({
       email: data.user?.email,
       role: typeof data.user?.app_metadata?.role === "string" ? data.user.app_metadata.role : null,
@@ -119,39 +154,9 @@ export async function middleware(request: NextRequest) {
         headers: { ...NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow" },
       });
     }
-    return copySecurityHeaders(response, true);
   }
 
-  if (!url || !anonKey) return response;
-
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = makeResponse();
-        const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, {
-            ...options,
-            path: options?.path ?? "/",
-            sameSite: options?.sameSite ?? "lax",
-            secure: isProd ? true : Boolean(options?.secure),
-            httpOnly: options?.httpOnly ?? true,
-          });
-        });
-        response.cookies.set(LOCALE_COOKIE_KEY, locale, { path: "/", maxAge: 31536000, sameSite: "lax", secure: isProd });
-      },
-    },
-  });
-
-  await supabase.auth.getUser();
-  const privatePath = ["/account", "/member", "/checkout"].some(
-    (prefix) => internalPath === prefix || internalPath.startsWith(`${prefix}/`)
-  );
-  return copySecurityHeaders(response, privatePath);
+  return copySecurityHeaders(response, true);
 }
 
 export const config = {

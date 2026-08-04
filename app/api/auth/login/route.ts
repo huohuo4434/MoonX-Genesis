@@ -69,9 +69,12 @@ export async function POST(request: NextRequest) {
     isAdmin: isAdmin(authUser),
   }).catch(() => ({ ok: false as const, reason: "SETUP_REQUIRED" as const }));
 
+  const adminUser = isAdmin(authUser);
   const response = NextResponse.json({
     ok: true,
     email: data.user.email ?? email,
+    role: adminUser ? "admin" : "user",
+    isAdmin: adminUser,
     deviceStatus: deviceRegistration.reason,
   });
   for (const item of pending) response.cookies.set(item.name, item.value, secureOptions(item.options));

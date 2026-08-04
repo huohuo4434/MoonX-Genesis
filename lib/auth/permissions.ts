@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { User } from "@supabase/supabase-js";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isAdminUser } from "@/lib/auth/is-admin";
@@ -103,7 +104,7 @@ export function toAuthUserView(user: User): AuthUserView {
   };
 }
 
-export async function getCurrentUser(): Promise<AuthUserView | null> {
+async function loadCurrentUser(): Promise<AuthUserView | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getUser();
@@ -117,6 +118,9 @@ export async function getCurrentUser(): Promise<AuthUserView | null> {
   }
   return toAuthUserView(data.user);
 }
+
+/** Deduplicate repeated user reads during the same server render/request. */
+export const getCurrentUser = cache(loadCurrentUser);
 
 export function isAdmin(user: AuthUserView | null | undefined): boolean {
   if (!user) return false;

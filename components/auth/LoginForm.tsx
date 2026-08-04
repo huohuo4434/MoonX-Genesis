@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 
@@ -37,20 +37,26 @@ function getOrCreateDeviceId(): string {
   }
 }
 
-async function resolveRole(): Promise<string | null> {
-  await fetch("/api/auth/sync-profile", {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-  });
-  const res = await fetch("/api/auth/profile", {
-    cache: "no-store",
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as { role?: string };
-  return json.role ?? null;
+const NAV_SESSION_CACHE_KEY = "moox_nav_session_v1";
+
+type SignInResult = {
+  error: string | null;
+  email: string | null;
+  isAdmin: boolean;
+};
+
+function cacheNavSession(result: SignInResult): void {
+  if (result.error || !result.email) return;
+  try {
+    window.sessionStorage.setItem(
+      NAV_SESSION_CACHE_KEY,
+      JSON.stringify({ email: result.email, isAdmin: result.isAdmin, cachedAt: Date.now() })
+    );
+  } catch {
+    // Ignore storage failures.
+  }
 }
+
 
 export function LoginForm({
   next = "/account",
@@ -66,9 +72,8 @@ export function LoginForm({
   initialTab?: Tab;
   initialInviteCode?: string;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const en = locale === "en";
   const redirectNext = searchParams.get("next") ?? next;
   const refFromQuery = searchParams.get("ref") ?? initialInviteCode;
@@ -101,11 +106,10 @@ export function LoginForm({
     return true;
   }
 
-  async function afterAuth(role: string | null) {
-    const target = role === "admin" ? "/admin" : safeRedirectPath(redirectNext, "/account");
-    router.replace(target);
-    router.refresh();
-    window.location.assign(target);
+  function afterAuth(result: SignInResult) {
+    cacheNavSession(result);
+    const target = result.isAdmin ? "/admin" : safeRedirectPath(redirectNext, "/account");
+    window.location.replace(result.isAdmin ? target : href(target));
   }
 
   async function signInOnce() {
@@ -116,8 +120,16 @@ export function LoginForm({
       cache: "no-store",
       body: JSON.stringify({ email: email.trim(), password }),
     });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    return { error: response.ok ? null : payload.error ?? (en ? "Sign-in failed" : "登录失败") };
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      email?: string | null;
+      isAdmin?: boolean;
+    };
+    return {
+      error: response.ok ? null : payload.error ?? (en ? "Sign-in failed" : "登录失败"),
+      email: response.ok ? payload.email ?? email.trim().toLowerCase() : null,
+      isAdmin: response.ok && payload.isAdmin === true,
+    } satisfies SignInResult;
   }
 
   async function onLogin(e: React.FormEvent) {
@@ -145,10 +157,8 @@ export function LoginForm({
       setError(translateAuthError(result.error, en));
       return;
     }
-    const role = await resolveRole();
-    setLoading(false);
     setInfo(en ? "Signed in." : "登录成功。");
-    await afterAuth(role);
+    afterAuth(result);
   }
 
   async function onRegister(e: React.FormEvent) {
@@ -202,9 +212,7 @@ export function LoginForm({
       setError(translateAuthError(result.error, en));
       return;
     }
-    const role = await resolveRole();
-    setLoading(false);
-    await afterAuth(role);
+    afterAuth(result);
   }
 
   if (!authConfigured) {

@@ -1,16 +1,26 @@
-import { unstable_noStore as noStore } from "next/cache";
 import { getPublicMoreNav, getPublicPrimaryNav } from "@/lib/navigation-server";
 import { getFeatureFlags } from "@/lib/feature-flags";
-import { getAccessUser } from "@/lib/auth/get-access-user";
 import { Navbar } from "./Navbar";
 
+/**
+ * Public navigation shell.
+ *
+ * Authentication is intentionally resolved after hydration by NavbarSession,
+ * so public page rendering never waits for Supabase Auth or membership APIs.
+ */
 export async function NavbarShell() {
-  noStore();
   const flags = getFeatureFlags();
-  const [primaryNav, moreNav, access] = await Promise.all([
+  const [primaryNav, moreNav] = await Promise.all([
     getPublicPrimaryNav(),
     Promise.resolve(getPublicMoreNav()),
-    getAccessUser(),
   ]);
-  return <Navbar primaryNav={primaryNav} moreNav={moreNav} adminEnabled={flags.adminEnabled} publicSignupEnabled={flags.publicSignupEnabled} sessionEmail={access.email} sessionIsAdmin={access.isAdmin} />;
+
+  return (
+    <Navbar
+      primaryNav={primaryNav}
+      moreNav={moreNav}
+      adminEnabled={flags.adminEnabled}
+      publicSignupEnabled={flags.publicSignupEnabled}
+    />
+  );
 }

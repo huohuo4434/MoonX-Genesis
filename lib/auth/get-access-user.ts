@@ -1,6 +1,6 @@
 /**
  * Single SSR access snapshot for prediction / membership pages.
- * Always re-reads Auth admin metadata by user id — never trust session-only plan cache.
+ * Uses the fresh auth snapshot from getCurrentUser and avoids duplicate admin lookups.
  */
 import "server-only";
 
@@ -8,7 +8,6 @@ import { unstable_noStore as noStore } from "next/cache";
 import { isAdminUser } from "@/lib/auth/is-admin";
 import {
   getCurrentUser,
-  readAppMetadata,
   updateUserAppMetadata,
   type MembershipPlan,
   type MembershipStatus,
@@ -20,7 +19,6 @@ import {
   isActiveMembershipForPredictionAccess,
   type PredictionAccessUser,
 } from "@/lib/prediction-access";
-import { getAdminClient } from "@/lib/supabase/admin";
 
 export type AccessUserSnapshot = {
   authenticated: boolean;
@@ -71,31 +69,20 @@ export async function getAccessUser(now = new Date()): Promise<AccessUserSnapsho
   const session = await getCurrentUser();
   if (!session) return empty;
 
-  let email = session.email;
+  const email = session.email;
   let role: string = session.app_metadata.role ?? "user";
-  let membershipExpiresAtRaw = session.app_metadata.membership_expires_at ?? null;
-  let membershipStatus = (session.app_metadata.membership_status ?? "inactive") as MembershipStatus;
-  let membershipPlan = session.app_metadata.membership_plan ?? null;
+  const membershipExpiresAtRaw = session.app_metadata.membership_expires_at ?? null;
+  const membershipStatus = (session.app_metadata.membership_status ?? "inactive") as MembershipStatus;
+  const membershipPlan = session.app_metadata.membership_plan ?? null;
 
-  const admin = getAdminClient();
-  if (admin) {
-    const { data } = await admin.auth.admin.getUserById(session.id);
-    if (data.user) {
-      const meta = readAppMetadata(data.user);
-      email = (data.user.email ?? session.email).toLowerCase();
-      role = meta.role ?? "user";
-      membershipExpiresAtRaw = meta.membership_expires_at ?? null;
-      membershipStatus = (meta.membership_status ?? "inactive") as MembershipStatus;
-      membershipPlan = meta.membership_plan ?? null;
-
-      if (isAdminUser({ email, role }) && role !== "admin") {
-        try {
-          await updateUserAppMetadata(session.id, { role: "admin" });
-          role = "admin";
-        } catch {
-          /* email-admin fallback still works via isAdminUser */
-        }
-      }
+  // getCurrentUser already refreshes app_metadata through the admin API when it is
+  // available. Do not query the same user a second time in the same request.
+  if (isAdminUser({ email, role }) && role !== "admin") {
+    try {
+      await updateUserAppMetadata(session.id, { role: "admin" });
+      role = "admin";
+    } catch {
+      // Email-based admin fallback still grants access.
     }
   }
 

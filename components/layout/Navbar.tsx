@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Container, Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui";
 import { CloseIcon, MenuIcon } from "@/components/icons";
 import { LanguageSwitcher, MobileLanguageSwitcher } from "./LanguageSwitcher";
@@ -14,17 +15,14 @@ export function Navbar({
   moreNav,
   adminEnabled = true,
   publicSignupEnabled = true,
-  sessionEmail = null,
-  sessionIsAdmin = false,
 }: {
   primaryNav: NavItem[];
   moreNav: NavItem[];
   adminEnabled?: boolean;
   publicSignupEnabled?: boolean;
-  sessionEmail?: string | null;
-  sessionIsAdmin?: boolean;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
   const t = useTranslations();
   const { locale, href } = useLocale();
 
@@ -47,13 +45,14 @@ export function Navbar({
 
           <nav aria-label="Primary" className="ml-3 hidden min-w-0 flex-1 items-center justify-start gap-0 xl:flex 2xl:ml-5">
             {primaryNav.map((link) => (
-              <a
+              <Link
                 key={link.key}
                 href={href(link.href)}
+                prefetch={false}
                 className="whitespace-nowrap rounded-md px-2 py-2 text-[12px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring xl:px-2.5 xl:text-[13px] 2xl:px-3 2xl:text-body-sm"
               >
                 {label(link)}
-              </a>
+              </Link>
             ))}
             {moreNav.length > 0 && (
               <Dropdown>
@@ -62,7 +61,7 @@ export function Navbar({
                 </DropdownTrigger>
                 <DropdownContent align="end">
                   {moreNav.map((link) => (
-                    <DropdownItem key={link.key} onSelect={() => { window.location.href = href(link.href); }}>
+                    <DropdownItem key={link.key} onSelect={() => router.push(href(link.href))}>
                       {label(link)}
                     </DropdownItem>
                   ))}
@@ -73,7 +72,7 @@ export function Navbar({
 
           <div className="ml-auto hidden shrink-0 items-center gap-1.5 xl:flex">
             <LanguageSwitcher />
-            <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} initialEmail={sessionEmail} initialIsAdmin={sessionIsAdmin} />
+            <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
           </div>
 
           <button
@@ -94,20 +93,21 @@ export function Navbar({
           <Container size="full" className="px-4 sm:px-5">
             <nav aria-label="Mobile" className="grid grid-cols-2 gap-1 py-4 sm:grid-cols-3">
               {[...primaryNav, ...moreNav].map((link) => (
-                <a
+                <Link
                   key={link.key}
                   href={href(link.href)}
+                  prefetch={false}
                   onClick={() => setIsMenuOpen(false)}
                   className="rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
                 >
                   {label(link)}
-                </a>
+                </Link>
               ))}
             </nav>
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">
-                <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} initialEmail={sessionEmail} initialIsAdmin={sessionIsAdmin} />
+                <NavbarSession adminEnabled={adminEnabled} publicSignupEnabled={publicSignupEnabled} />
               </div>
             </div>
           </Container>

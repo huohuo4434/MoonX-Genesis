@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Container } from "@/components/ui";
 import { siteConfig } from "@/lib/site-config";
 import type { NavItem } from "@/lib/navigation";
@@ -27,7 +28,7 @@ export function Footer({ footerColumns }: { footerColumns: Array<{ titleKey: str
             return <nav key={column.titleKey} aria-label={title} className="flex flex-col gap-3">
               <span className="text-label uppercase tracking-wide text-foreground-tertiary">{title}</span>
               <ul className="flex flex-col gap-1">
-                {column.links.map((link) => <li key={link.key}><a href={href(link.href)} className="flex min-h-11 items-center rounded-md py-2 text-body-sm text-foreground-secondary transition-colors hover:text-foreground focus-ring">{label(link)}</a></li>)}
+                {column.links.map((link) => <li key={link.key}><Link href={href(link.href)} prefetch={false} className="flex min-h-11 items-center rounded-md py-2 text-body-sm text-foreground-secondary transition-colors hover:text-foreground focus-ring">{label(link)}</Link></li>)}
               </ul>
             </nav>;
           })}
