@@ -8,13 +8,14 @@ import {
   getBitgetDemoEnvironment,
   getBitgetDemoMarketQuotes,
   getBitgetDemoPendingStrategyOrders,
+  getBitgetRuntimeAccountBalance,
   getContractConfig,
   normalizeBitgetUsdtSymbol,
   normalizeOrderSize,
   placeBitgetDemoMarketOrder,
   placeBitgetDemoProtectionOrder,
   syncBitgetLiveExperimentStatus,
-  testBitgetDemoConnection,
+  readBitgetLiveExperimentStatus,
   type BitgetDemoMarketQuote,
   type BitgetLiveExperimentStatus,
   type BitgetSupportedSymbol,
@@ -51,6 +52,9 @@ import type {
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
 const QUOTE_HEALTH_SECONDS = 180;
+const API_FAILURE_PAUSE_THRESHOLD = 5;
+const ORDER_FAILURE_PAUSE_THRESHOLD = 2;
+const AUTO_RECOVERY_HEALTHY_RUNS = 2;
 const LOCK_SECONDS = 90;
 const EVENT_RETENTION_DAYS = 14;
 
@@ -70,6 +74,10 @@ interface RuntimeStateRow {
   last_report: unknown;
   consecutive_api_errors: number;
   consecutive_order_errors: number;
+  consecutive_healthy_runs: number;
+  pause_source: string;
+  last_market_error: string;
+  last_account_error: string;
   last_error: string;
   updated_at: Date | string;
 }
@@ -179,6 +187,10 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
         last_report JSONB,
         consecutive_api_errors INTEGER NOT NULL DEFAULT 0,
         consecutive_order_errors INTEGER NOT NULL DEFAULT 0,
+        consecutive_healthy_runs INTEGER NOT NULL DEFAULT 0,
+        pause_source TEXT NOT NULL DEFAULT '',
+        last_market_error TEXT NOT NULL DEFAULT '',
+        last_account_error TEXT NOT NULL DEFAULT '',
         last_error TEXT NOT NULL DEFAULT '',
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
@@ -187,6 +199,10 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
       INSERT INTO trade_bitget_runtime_state (id)
       VALUES ('default') ON CONFLICT (id) DO NOTHING
     `);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS consecutive_healthy_runs INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS pause_source TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_market_error TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_account_error TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_bitget_runtime_events (
         id TEXT PRIMARY KEY,
@@ -467,83 +483,113 @@ async function closeLiveExperimentExposure(
 async function reconcileAccount(now: Date): Promise<BitgetRuntimeAccountSnapshot> {
   const environment = getBitgetDemoEnvironment();
   if (!environment.configured) return emptyAccount(environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘密钥尚未配置完整。" : "Bitget Demo密钥尚未配置完整。");
-  const [connectionResult, positionsResult, pendingResult] = await Promise.allSettled([
-    testBitgetDemoConnection(),
+  const [balanceResult, positionsResult, pendingResult] = await Promise.allSettled([
+    getBitgetRuntimeAccountBalance(),
     getBitgetDemoCurrentPositions(),
     getBitgetDemoPendingStrategyOrders(),
   ] as const);
-  const results: PromiseSettledResult<unknown>[] = [
-    connectionResult,
-    positionsResult,
-    pendingResult,
-  ];
-  const errors = results
-    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-    .map((result) => result.reason instanceof Error ? result.reason.message : "Bitget读取失败");
-  const connection = connectionResult.status === "fulfilled" ? connectionResult.value : null;
-  const positionsReady = positionsResult.status === "fulfilled";
-  const positions = positionsReady ? positionsResult.value : [];
+  const criticalErrors: string[] = [];
+  const warnings: string[] = [];
+  if (balanceResult.status === "rejected") {
+    criticalErrors.push(`账户资产：${balanceResult.reason instanceof Error ? balanceResult.reason.message : "读取失败"}`);
+  }
+  if (positionsResult.status === "rejected") {
+    criticalErrors.push(`当前持仓：${positionsResult.reason instanceof Error ? positionsResult.reason.message : "读取失败"}`);
+  }
+  if (pendingResult.status === "rejected") {
+    warnings.push(`保护单：${pendingResult.reason instanceof Error ? pendingResult.reason.message : "读取失败"}`);
+  }
+  const balance = balanceResult.status === "fulfilled" ? balanceResult.value : null;
+  const positions = positionsResult.status === "fulfilled" ? positionsResult.value : [];
   const pending = pendingResult.status === "fulfilled" ? pendingResult.value : [];
+  const connected = criticalErrors.length === 0;
   return {
-    connected: Boolean(connection) && positionsReady,
-    availableUsdt: connection?.availableUsdt ?? null,
-    equityUsdt: connection?.equityUsdt ?? null,
-    detectedUsdt: connection?.detectedUsdt ?? null,
+    connected,
+    availableUsdt: balance?.availableUsdt ?? null,
+    equityUsdt: balance?.equityUsdt ?? null,
+    detectedUsdt: balance?.detectedUsdt ?? null,
     positionsCount: positions.length,
     pendingStrategyOrdersCount: pending.length,
     checkedAt: now.toISOString(),
-    message: errors.length
-      ? `部分对账失败：${errors.join("；")}`
-      : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}对账完成：持仓${positions.length}，交易所止盈止损单${pending.length}。`,
+    message: criticalErrors.length
+      ? `账户关键对账失败：${criticalErrors.join("；")}`
+      : warnings.length
+        ? `账户和持仓正常；非关键保护单读取告警：${warnings.join("；")}`
+        : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}对账完成：持仓${positions.length}，交易所止盈止损单${pending.length}。`,
   };
 }
 
 async function updateRuntimeState(input: {
   now: Date;
   quotes: BitgetRuntimeQuote[];
-  marketOk: boolean;
+  marketEndpointOk: boolean;
   strategyRan: boolean;
   account: BitgetRuntimeAccountSnapshot;
   orderAttempted: boolean;
   orderSuccess: boolean;
-  apiError: string;
+  criticalApiError: string;
+  marketError: string;
+  accountError: string;
+  diagnosticError: string;
   orderErrors: number;
   report: Record<string, unknown>;
 }): Promise<void> {
   if (!prisma) return;
   const previous = await readStateRow();
-  const nextApiErrors = input.apiError
-    ? Number(previous?.consecutive_api_errors ?? 0) + 1
-    : 0;
-  const nextOrderErrors = input.orderErrors > 0
-    ? Number(previous?.consecutive_order_errors ?? 0) + 1
-    : 0;
-  const shouldPause = nextApiErrors >= 2 || nextOrderErrors >= 2;
-  const pauseReason = shouldPause
-    ? nextOrderErrors >= 2
-      ? "连续2次Bitget下单/镜像异常，服务器已自动暂停新订单。"
-      : "连续2次Bitget行情或账户接口异常，服务器已自动暂停新订单。"
-    : String(previous?.pause_reason ?? "");
+  const previousApiErrors = Number(previous?.consecutive_api_errors ?? 0);
+  const previousOrderErrors = Number(previous?.consecutive_order_errors ?? 0);
+  const previousHealthyRuns = Number(previous?.consecutive_healthy_runs ?? 0);
+  const nextApiErrors = input.criticalApiError ? previousApiErrors + 1 : 0;
+  const nextOrderErrors = input.orderErrors > 0 ? previousOrderErrors + 1 : 0;
+  const healthyCycle = input.marketEndpointOk && input.account.connected && input.orderErrors === 0;
+  const nextHealthyRuns = healthyCycle ? previousHealthyRuns + 1 : 0;
+  const previousReason = String(previous?.pause_reason ?? "");
+  const previousSource = String(previous?.pause_source ?? "");
+  const legacyAutoPause = !previousSource && /连续2次Bitget/.test(previousReason);
+  const wasAutoApiPaused = ["AUTO", "AUTO_API"].includes(previousSource) || legacyAutoPause;
+  const wasAutoOrderPaused = previousSource === "AUTO_ORDER";
+  const wasManualPaused = Boolean(previous?.paused) && !wasAutoApiPaused && !wasAutoOrderPaused;
+  const shouldAutoPause = nextApiErrors >= API_FAILURE_PAUSE_THRESHOLD || nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD;
+  const shouldAutoRecover = Boolean(previous?.paused) && wasAutoApiPaused && nextHealthyRuns >= AUTO_RECOVERY_HEALTHY_RUNS;
+
+  let nextPaused = Boolean(previous?.paused);
+  let nextPauseSource = previousSource || (legacyAutoPause ? "AUTO" : previous?.paused ? "MANUAL" : "");
+  let nextPauseReason = previousReason;
+  if (shouldAutoPause && !wasManualPaused) {
+    nextPaused = true;
+    nextPauseSource = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD ? "AUTO_ORDER" : "AUTO_API";
+    nextPauseReason = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD
+      ? `连续${nextOrderErrors}轮发生真实订单写入错误，系统已暂停新开仓；健康检查恢复后仍需管理员确认订单状态。`
+      : `连续${nextApiErrors}轮Bitget关键行情/账户接口重试失败，系统已自动暂停新开仓；连续${AUTO_RECOVERY_HEALTHY_RUNS}轮恢复正常后自动解除。`;
+  } else if (shouldAutoRecover) {
+    nextPaused = false;
+    nextPauseSource = "";
+    nextPauseReason = "";
+  }
 
   await prisma.$executeRaw`
     UPDATE trade_bitget_runtime_state SET
-      paused = CASE WHEN ${shouldPause} THEN TRUE ELSE paused END,
-      pause_reason = CASE WHEN ${shouldPause} THEN ${pauseReason} ELSE pause_reason END,
+      paused = ${nextPaused},
+      pause_source = ${nextPauseSource},
+      pause_reason = ${nextPauseReason},
       last_heartbeat_at = ${input.now},
-      last_market_at = CASE WHEN ${input.marketOk} THEN ${input.now} ELSE last_market_at END,
+      last_market_at = CASE WHEN ${input.marketEndpointOk} THEN ${input.now} ELSE last_market_at END,
       last_strategy_at = CASE WHEN ${input.strategyRan} THEN ${input.now} ELSE last_strategy_at END,
       last_reconcile_at = ${input.now},
       last_order_attempt_at = CASE WHEN ${input.orderAttempted} THEN ${input.now} ELSE last_order_attempt_at END,
       last_order_success_at = CASE WHEN ${input.orderSuccess} THEN ${input.now} ELSE last_order_success_at END,
       latest_quotes = CASE
-        WHEN ${input.marketOk} THEN ${JSON.stringify(input.quotes)}::jsonb
+        WHEN ${input.quotes.length > 0} THEN ${JSON.stringify(input.quotes)}::jsonb
         ELSE latest_quotes
       END,
       account_snapshot = ${JSON.stringify(input.account)}::jsonb,
       last_report = ${JSON.stringify(input.report)}::jsonb,
       consecutive_api_errors = ${nextApiErrors},
       consecutive_order_errors = ${nextOrderErrors},
-      last_error = ${input.apiError || (input.orderErrors > 0 ? `${input.orderErrors}笔订单同步失败` : "")},
+      consecutive_healthy_runs = ${nextHealthyRuns},
+      last_market_error = ${input.marketError},
+      last_account_error = ${input.accountError},
+      last_error = ${input.diagnosticError || input.criticalApiError || (input.orderErrors > 0 ? `${input.orderErrors}笔真实订单写入失败` : "")},
       updated_at = NOW()
     WHERE id = 'default'
   `;
@@ -567,9 +613,11 @@ export async function setBitgetRuntimePaused(
   await prisma.$executeRaw`
     UPDATE trade_bitget_runtime_state SET
       paused = ${paused},
+      pause_source = ${paused ? "MANUAL" : ""},
       pause_reason = ${paused ? reason : ""},
       consecutive_api_errors = CASE WHEN ${paused} THEN consecutive_api_errors ELSE 0 END,
       consecutive_order_errors = CASE WHEN ${paused} THEN consecutive_order_errors ELSE 0 END,
+      consecutive_healthy_runs = CASE WHEN ${paused} THEN 0 ELSE consecutive_healthy_runs END,
       updated_at = NOW()
     WHERE id = 'default'
   `;
@@ -603,17 +651,17 @@ export async function getBitgetRuntimeState(
   const quoteAge = ageSeconds(lastMarketAt, now);
   const paused = Boolean(row?.paused);
   const cronSecretConfigured = Boolean(process.env.CRON_SECRET?.trim());
+  const freshQuotesCount = latestQuotes.filter((quote) => {
+    const captured = Date.parse(quote.capturedAt);
+    return Number.isFinite(captured) && now.getTime() - captured <= QUOTE_HEALTH_SECONDS * 1000;
+  }).length;
   const serverHealthy = Boolean(
-    databaseReady &&
-      cronSecretConfigured &&
-      !paused &&
-      heartbeatAge != null &&
-      heartbeatAge <= HEARTBEAT_HEALTH_SECONDS &&
-      quoteAge != null &&
-      quoteAge <= QUOTE_HEALTH_SECONDS
+    databaseReady && cronSecretConfigured && !paused && account.connected && freshQuotesCount > 0 &&
+      heartbeatAge != null && heartbeatAge <= HEARTBEAT_HEALTH_SECONDS &&
+      quoteAge != null && quoteAge <= QUOTE_HEALTH_SECONDS
   );
   const liveExperiment = environment.mode === "LIVE_EXPERIMENT"
-    ? await syncBitgetLiveExperimentStatus(now).catch((error) => ({
+    ? await readBitgetLiveExperimentStatus(now).catch((error) => ({
         enabled: true, active: false, completed: false, stopped: true, status: "STOPPED" as const,
         startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null,
         pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
@@ -627,6 +675,8 @@ export async function getBitgetRuntimeState(
     running: row?.run_lock_until ? new Date(row.run_lock_until).getTime() > now.getTime() : false,
     paused,
     pauseReason: String(row?.pause_reason ?? ""),
+    pauseSource: String(row?.pause_source ?? ""),
+    autoRecoveryHealthyRuns: Number(row?.consecutive_healthy_runs ?? 0),
     serverHealthy,
     cronSecretConfigured,
     configured: environment.configured,
@@ -642,10 +692,14 @@ export async function getBitgetRuntimeState(
     heartbeatAgeSeconds: heartbeatAge,
     quoteAgeSeconds: quoteAge,
     latestQuotes,
+    freshQuotesCount,
+    totalSymbols: environment.mode === "LIVE_EXPERIMENT" ? environment.liveAllowedSymbols.length : DEFAULT_SYMBOLS.length,
     account,
     decisionStatsToday: stats,
     consecutiveApiErrors: Number(row?.consecutive_api_errors ?? 0),
     consecutiveOrderErrors: Number(row?.consecutive_order_errors ?? 0),
+    lastMarketError: String(row?.last_market_error ?? ""),
+    lastAccountError: String(row?.last_account_error ?? ""),
     lastError: String(row?.last_error ?? ""),
     lastReport: safeJson<Record<string, unknown> | null>(row?.last_report, null),
     recentEvents: databaseReady ? await listEvents() : [],
@@ -695,15 +749,19 @@ export async function runBitgetDemoServerRuntime(
   const environment = getBitgetDemoEnvironment();
   const runtimeSymbols = environment.mode === "LIVE_EXPERIMENT" ? environment.liveAllowedSymbols : DEFAULT_SYMBOLS;
   let marketOk = false;
+  let marketEndpointOk = false;
   let marketMessage = "";
+  let marketError = "";
   let quotes: BitgetDemoMarketQuote[] = [];
+  let freshSymbols: BitgetSupportedSymbol[] = [];
   let strategy: Awaited<ReturnType<typeof runPredictionAutoTrader>> | null = null;
   let threeHorizon: Awaited<ReturnType<typeof runThreeHorizonStrategyEngine>> | null = null;
   let validation: Awaited<ReturnType<typeof runStrategyValidationCycle>> | null = null;
   let signalMonitor: Awaited<ReturnType<typeof runTradingSignalServerMonitor>> | null = null;
   let mirrorResult: Awaited<ReturnType<typeof syncBitgetDemoOrders>> | null = null;
   let account = emptyAccount();
-  let apiError = "";
+  let accountError = "";
+  const diagnosticErrors: string[] = [];
   let strategyRan = false;
   let finalMessage = "";
   let liveExperiment: BitgetLiveExperimentStatus | null = null;
@@ -736,31 +794,36 @@ export async function runBitgetDemoServerRuntime(
 
     try {
       const fetchedQuotes = await getBitgetDemoMarketQuotes(runtimeSymbols);
+      marketEndpointOk = true;
       quotes = fetchedQuotes.filter((quote) => {
         const captured = new Date(quote.capturedAt).getTime();
         return Number.isFinite(captured) && Math.max(0, now.getTime() - captured) <= QUOTE_HEALTH_SECONDS * 1000;
       });
-      marketOk = quotes.length >= runtimeSymbols.length;
-      marketMessage = marketOk
-        ? `取得${quotes.length}个时间戳有效的Bitget公开报价。`
-        : `Bitget返回${fetchedQuotes.length}个报价，但仅${quotes.length}个通过3分钟新鲜度检查。`;
+      freshSymbols = quotes.map((quote) => quote.symbol);
+      marketOk = quotes.length > 0;
+      const freshSet = new Set(freshSymbols);
+      const staleSymbols = runtimeSymbols.filter((symbol) => !freshSet.has(symbol));
+      marketMessage = staleSymbols.length
+        ? `Bitget行情接口正常；${quotes.length}/${runtimeSymbols.length}个品种报价在3分钟内更新。暂不扫描：${staleSymbols.join("、")}。`
+        : `取得${quotes.length}个时间戳有效的Bitget公开报价。`;
       await recordEvent({
         runId,
         stage: "MARKET",
-        level: marketOk ? "SUCCESS" : "WARNING",
+        level: marketOk ? (staleSymbols.length ? "WARNING" : "SUCCESS") : "WARNING",
         action: "QUOTE",
         message: marketMessage,
-        payload: { quotes },
+        payload: { quotes, staleSymbols },
       });
     } catch (error) {
-      apiError = error instanceof Error ? error.message : "Bitget行情读取失败";
-      marketMessage = apiError;
+      marketError = error instanceof Error ? error.message : "Bitget行情读取失败";
+      marketMessage = marketError;
+      diagnosticErrors.push(marketError);
       await recordEvent({
         runId,
         stage: "MARKET",
         level: "ERROR",
         action: "QUOTE_ERROR",
-        message: apiError,
+        message: marketError,
       });
     }
 
@@ -788,7 +851,7 @@ export async function runBitgetDemoServerRuntime(
           const message = strategyResult.reason instanceof Error
             ? strategyResult.reason.message
             : "预测策略检查失败";
-          apiError = apiError || message;
+          diagnosticErrors.push(message);
           await recordEvent({ runId, stage: "STRATEGY", level: "ERROR", action: "RUN_ERROR", message });
         }
         if (monitorResult.status === "fulfilled") {
@@ -810,7 +873,8 @@ export async function runBitgetDemoServerRuntime(
       try {
         threeHorizon = await runThreeHorizonStrategyEngine(
           now,
-          source === "ADMIN" ? "ADMIN" : "CRON"
+          source === "ADMIN" ? "ADMIN" : "CRON",
+          { eligibleSymbols: freshSymbols }
         );
         strategyRan = true;
         await recordEvent({
@@ -829,7 +893,7 @@ export async function runBitgetDemoServerRuntime(
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "三周期策略执行失败";
-        apiError = apiError || message;
+        diagnosticErrors.push(message);
         threeHorizon = {
           ok: false,
           runId: `thr_error_${runId}`,
@@ -841,7 +905,7 @@ export async function runBitgetDemoServerRuntime(
           managedOpenDecisions: 0,
           orderAttempts: 0,
           orderSuccess: 0,
-          orderErrors: 1,
+          orderErrors: 0,
           message,
         };
         await recordEvent({
@@ -952,7 +1016,7 @@ export async function runBitgetDemoServerRuntime(
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "暂停状态下的持仓管理失败";
-          apiError = apiError || message;
+          diagnosticErrors.push(message);
           await recordEvent({
             runId,
             stage: "STRATEGY",
@@ -965,7 +1029,10 @@ export async function runBitgetDemoServerRuntime(
     }
 
     account = await reconcileAccount(now);
-    if (!account.connected) apiError = apiError || account.message;
+    if (!account.connected) {
+      accountError = account.message;
+      diagnosticErrors.push(accountError);
+    }
     await recordEvent({
       runId,
       stage: "RECONCILE",
@@ -1002,7 +1069,7 @@ export async function runBitgetDemoServerRuntime(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Phase 3模拟验收周期失败";
-      apiError = apiError || message;
+      diagnosticErrors.push(message);
       await recordEvent({
         runId,
         stage: "RECONCILE",
@@ -1021,7 +1088,7 @@ export async function runBitgetDemoServerRuntime(
           ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
           : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`;
     const report: BitgetRuntimeRunReport = {
-      ok: marketOk && !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
+      ok: marketEndpointOk && account.connected && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
       locked: false,
       paused: executionPaused,
       runId,
@@ -1046,7 +1113,7 @@ export async function runBitgetDemoServerRuntime(
     await updateRuntimeState({
       now,
       quotes: quotes.map((row) => ({ ...row })),
-      marketOk,
+      marketEndpointOk,
       strategyRan,
       account,
       orderAttempted: Boolean(
@@ -1059,7 +1126,10 @@ export async function runBitgetDemoServerRuntime(
         (threeHorizon && threeHorizon.orderSuccess > 0) ||
         liveExit.success > 0
       ),
-      apiError,
+      criticalApiError: [marketEndpointOk ? "" : marketError, account.connected ? "" : accountError].filter(Boolean).join("；"),
+      marketError,
+      accountError,
+      diagnosticError: diagnosticErrors.join("；"),
       orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
       report: report as unknown as Record<string, unknown>,
     });
@@ -1088,7 +1158,7 @@ export async function runBitgetDemoServerRuntime(
     await updateRuntimeState({
       now,
       quotes: quotes.map((row) => ({ ...row })),
-      marketOk,
+      marketEndpointOk,
       strategyRan,
       account,
       orderAttempted: Boolean(
@@ -1101,7 +1171,10 @@ export async function runBitgetDemoServerRuntime(
         (threeHorizon && threeHorizon.orderSuccess > 0) ||
         liveExit.success > 0
       ),
-      apiError: message,
+      criticalApiError: message,
+      marketError: marketError || message,
+      accountError,
+      diagnosticError: [...diagnosticErrors, message].join("；"),
       orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
       report: { error: message, runId },
     }).catch(() => undefined);

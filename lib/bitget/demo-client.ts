@@ -9,6 +9,7 @@ const CLOCK_SYNC_TTL_MS = 5 * 60_000;
 const MAX_SAFE_CLOCK_SKEW_MS = 5_000;
 let serverClockOffsetMs = 0;
 let serverClockSyncedAt = 0;
+let serverClockSyncPromise: Promise<BitgetServerClockStatus> | null = null;
 
 export type BitgetSupportedSymbol = `${string}USDT`;
 
@@ -340,34 +341,42 @@ export async function syncBitgetServerClock(force = false): Promise<BitgetServer
       safe: Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
     };
   }
-  const started = Date.now();
-  const response = await fetchWithTimeout(`${BASE_URL}/api/v2/public/time`, {
-    method: "GET",
-    headers: { Accept: "application/json", "User-Agent": "MoonX-Bitget-Clock/1.0" },
-  }, 8_000);
-  const finished = Date.now();
-  const raw = await response.text();
-  let payload: BitgetEnvelope<{ serverTime?: string }>;
+  if (serverClockSyncPromise) return serverClockSyncPromise;
+  serverClockSyncPromise = (async () => {
+    const started = Date.now();
+    const response = await fetchWithTimeout(`${BASE_URL}/api/v2/public/time`, {
+      method: "GET",
+      headers: { Accept: "application/json", "User-Agent": "MoonX-Bitget-Clock/1.1" },
+    }, 8_000);
+    const finished = Date.now();
+    const raw = await response.text();
+    let payload: BitgetEnvelope<{ serverTime?: string }>;
+    try {
+      payload = JSON.parse(raw) as BitgetEnvelope<{ serverTime?: string }>;
+    } catch {
+      throw new Error(`Bitget服务器时间返回非JSON内容（HTTP ${response.status}）`);
+    }
+    const serverTimeMs = Number(payload.data?.serverTime ?? payload.requestTime);
+    if (!response.ok || payload.code !== "00000" || !Number.isFinite(serverTimeMs) || serverTimeMs <= 0) {
+      throw new Error(payload.msg || `Bitget服务器时间HTTP ${response.status}`);
+    }
+    const localMidpointMs = Math.floor((started + finished) / 2);
+    serverClockOffsetMs = Math.round(serverTimeMs - localMidpointMs);
+    serverClockSyncedAt = finished;
+    return {
+      serverTimeMs,
+      localMidpointMs,
+      offsetMs: serverClockOffsetMs,
+      roundTripMs: Math.max(0, finished - started),
+      syncedAt: new Date(serverClockSyncedAt).toISOString(),
+      safe: Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
+    };
+  })();
   try {
-    payload = JSON.parse(raw) as BitgetEnvelope<{ serverTime?: string }>;
-  } catch {
-    throw new Error(`Bitget服务器时间返回非JSON内容（HTTP ${response.status}）`);
+    return await serverClockSyncPromise;
+  } finally {
+    serverClockSyncPromise = null;
   }
-  const serverTimeMs = Number(payload.data?.serverTime ?? payload.requestTime);
-  if (!response.ok || payload.code !== "00000" || !Number.isFinite(serverTimeMs) || serverTimeMs <= 0) {
-    throw new Error(payload.msg || `Bitget服务器时间HTTP ${response.status}`);
-  }
-  const localMidpointMs = Math.floor((started + finished) / 2);
-  serverClockOffsetMs = Math.round(serverTimeMs - localMidpointMs);
-  serverClockSyncedAt = finished;
-  return {
-    serverTimeMs,
-    localMidpointMs,
-    offsetMs: serverClockOffsetMs,
-    roundTripMs: Math.max(0, finished - started),
-    syncedAt: new Date(serverClockSyncedAt).toISOString(),
-    safe: Math.abs(serverClockOffsetMs) <= MAX_SAFE_CLOCK_SKEW_MS,
-  };
 }
 
 export function getCachedBitgetServerClock(): { offsetMs: number; syncedAt: string | null; safe: boolean } {
@@ -386,31 +395,74 @@ async function assertBitgetClockSafe(): Promise<BitgetServerClockStatus> {
   return status;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryableReadError(error: unknown): boolean {
+  if (error instanceof BitgetApiError) {
+    if (error.code === "NETWORK_ERROR" || error.httpStatus === 429) return true;
+    if (error.httpStatus != null && error.httpStatus >= 500) return true;
+    return ["25000", "25001", "25003", "40725", "429"].includes(error.code);
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /abort|timeout|network|fetch|ECONN|ENOTFOUND|EAI_AGAIN|HTTP 429|HTTP 5\d\d/i.test(message);
+}
+
+async function withReadRetry<T>(label: string, operation: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !retryableReadError(error)) break;
+      await sleep(250 * 2 ** (attempt - 1) + Math.floor(Math.random() * 120));
+    }
+  }
+  const message = lastError instanceof Error ? lastError.message : String(lastError ?? "未知错误");
+  throw new Error(`${label}连续重试失败：${message}`);
+}
+
+async function fetchPublicJson<T>(url: string, label: string, timeoutMs = 10_000): Promise<T> {
+  return withReadRetry(label, async () => {
+    const response = await fetchWithTimeout(url, {
+      method: "GET",
+      headers: { Accept: "application/json", "User-Agent": "MoonX-Bitget-Reliability/1.0" },
+    }, timeoutMs);
+    const raw = await response.text();
+    let payload: T;
+    try {
+      payload = JSON.parse(raw) as T;
+    } catch {
+      throw new BitgetApiError({
+        message: `${label}返回非JSON内容（HTTP ${response.status}）`,
+        code: `HTTP_${response.status}`,
+        httpStatus: response.status,
+      });
+    }
+    if (!response.ok) {
+      throw new BitgetApiError({
+        message: `${label}HTTP ${response.status}`,
+        code: `HTTP_${response.status}`,
+        httpStatus: response.status,
+      });
+    }
+    return payload;
+  });
+}
+
 export async function getBitgetDemoMarketQuotes(
   symbols: BitgetSupportedSymbol[]
 ): Promise<BitgetDemoMarketQuote[]> {
   const requested = new Set(symbols.map((symbol) => symbol.toUpperCase()));
   if (!requested.size) return [];
-  const response = await fetchWithTimeout(
+  const payload = await fetchPublicJson<BitgetPublicTickerEnvelope>(
     `${BASE_URL}/api/v3/market/tickers?category=${encodeURIComponent(PRODUCT_TYPE)}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "MoonX-Bitget-Demo-Runtime/1.0",
-      },
-    },
-    10_000
+    "Bitget公开行情"
   );
-  const raw = await response.text();
-  let payload: BitgetPublicTickerEnvelope;
-  try {
-    payload = JSON.parse(raw) as BitgetPublicTickerEnvelope;
-  } catch {
-    throw new Error(`Bitget公开行情返回非JSON内容（HTTP ${response.status}）`);
-  }
-  if (!response.ok || payload.code !== "00000" || !Array.isArray(payload.data)) {
-    throw new Error(payload.msg || `Bitget公开行情HTTP ${response.status}`);
+  if (payload.code !== "00000" || !Array.isArray(payload.data)) {
+    throw new Error(payload.msg || "Bitget公开行情返回异常");
   }
   return payload.data
     .map((row) => {
@@ -448,26 +500,12 @@ export async function getBitgetDemoCandles(input: {
     type: "market",
     limit: String(limit),
   });
-  const response = await fetchWithTimeout(
+  const payload = await fetchPublicJson<BitgetEnvelope<string[][]>>(
     `${BASE_URL}/api/v3/market/candles?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "MoonX-Three-Horizon/1.0",
-      },
-    },
-    10_000
+    `Bitget ${input.symbol} ${input.interval} K线`
   );
-  const raw = await response.text();
-  let payload: BitgetEnvelope<string[][]>;
-  try {
-    payload = JSON.parse(raw) as BitgetEnvelope<string[][]>;
-  } catch {
-    throw new Error(`Bitget ${input.symbol} ${input.interval} K线返回非JSON内容（HTTP ${response.status}）`);
-  }
-  if (!response.ok || payload.code !== "00000" || !Array.isArray(payload.data)) {
-    throw new Error(payload.msg || `Bitget K线HTTP ${response.status}`);
+  if (payload.code !== "00000" || !Array.isArray(payload.data)) {
+    throw new Error(payload.msg || `Bitget ${input.symbol} ${input.interval} K线返回异常`);
   }
   return payload.data
     .map((row) => {
@@ -501,7 +539,7 @@ export async function getBitgetDemoCandles(input: {
     .sort((a, b) => a.timestamp - b.timestamp);
 }
 
-async function signedRequest<T>(input: {
+async function signedRequestOnce<T>(input: {
   method: "GET" | "POST";
   path: string;
   query?: Record<string, string | number | undefined>;
@@ -539,8 +577,8 @@ async function signedRequest<T>(input: {
     Accept: "application/json",
     locale: "zh-CN",
     "User-Agent": env.mode === "LIVE_EXPERIMENT"
-      ? "MoonX-Bitget-Live-Experiment/1.0"
-      : "MoonX-Bitget-UTA-Demo/1.1",
+      ? "MoonX-Bitget-Live-Experiment/1.1"
+      : "MoonX-Bitget-UTA-Demo/1.2",
   };
   if (env.mode === "DEMO") headers.paptrading = "1";
   const requestInit: RequestInit = {
@@ -590,6 +628,16 @@ async function signedRequest<T>(input: {
   return envelope.data as T;
 }
 
+async function signedRequest<T>(input: {
+  method: "GET" | "POST";
+  path: string;
+  query?: Record<string, string | number | undefined>;
+  body?: Record<string, unknown>;
+}): Promise<T> {
+  if (input.method === "POST") return signedRequestOnce<T>(input);
+  return withReadRetry(`Bitget只读接口${input.path}`, () => signedRequestOnce<T>(input));
+}
+
 async function getUtaSettings(): Promise<BitgetUtaSettings> {
   return signedRequest<BitgetUtaSettings>({
     method: "GET",
@@ -612,6 +660,31 @@ function finiteNumber(...values: unknown[]): number {
 function normalizeUtaAssets(payload: BitgetUtaAssets | BitgetUtaAssets[]): BitgetUtaAssets {
   if (!Array.isArray(payload)) return payload ?? {};
   return payload.find((row) => row && typeof row === "object") ?? {};
+}
+
+export async function getBitgetRuntimeAccountBalance(): Promise<{
+  availableUsdt: number;
+  equityUsdt: number;
+  detectedUsdt: number;
+}> {
+  const accountPayload = await signedRequest<BitgetUtaAssets | BitgetUtaAssets[]>({
+    method: "GET",
+    path: "/api/v3/account/assets",
+  });
+  const account = normalizeUtaAssets(accountPayload);
+  const usdt = account.assets?.find(
+    (row) => String(row.coin ?? "").toUpperCase() === "USDT"
+  );
+  const availableUsdt = finiteNumber(usdt?.available, usdt?.balance);
+  const equityUsdt = finiteNumber(
+    account.usdtEquity,
+    usdt?.equity,
+    usdt?.balance,
+    account.accountEquity
+  );
+  const bonusUsdt = finiteNumber(usdt?.bonus, account.bonus);
+  const detectedUsdt = Math.max(availableUsdt + bonusUsdt, equityUsdt, 0);
+  return { availableUsdt, equityUsdt, detectedUsdt };
 }
 
 export async function testBitgetDemoConnection(): Promise<{
@@ -907,119 +980,119 @@ async function liveOpenAttemptsToday(now: Date): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
+function disabledLiveExperimentStatus(): BitgetLiveExperimentStatus {
+  return { enabled: false, active: false, completed: false, stopped: false, status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null, pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [], stopReason: "", securityMessage: "Demo模式" };
+}
+
+async function readLiveDailyHistory(): Promise<LiveDailySnapshot[]> {
+  if (!prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    trade_date: Date | string; opening_equity_usdt: number; closing_equity_usdt: number; pnl_usdt: number; pnl_pct: number; trades: number;
+  }>>(`SELECT trade_date, opening_equity_usdt, closing_equity_usdt, pnl_usdt, pnl_pct, trades FROM trade_bitget_live_daily_snapshots ORDER BY trade_date DESC LIMIT 40`);
+  return rows.map((row) => ({
+    date: new Date(row.trade_date).toISOString().slice(0, 10),
+    openingEquityUsdt: Number(row.opening_equity_usdt),
+    closingEquityUsdt: Number(row.closing_equity_usdt),
+    pnlUsdt: Number(row.pnl_usdt),
+    pnlPct: Number(row.pnl_pct),
+    trades: Number(row.trades),
+  }));
+}
+
+export async function readBitgetLiveExperimentStatus(now = new Date()): Promise<BitgetLiveExperimentStatus> {
+  const environment = getBitgetDemoEnvironment();
+  if (environment.mode !== "LIVE_EXPERIMENT") return disabledLiveExperimentStatus();
+  if (!(await ensureBitgetLiveExperimentTable()) || !prisma) throw new Error("实盘实验状态数据库不可用");
+  const rows = await prisma.$queryRawUnsafe<LiveExperimentRow[]>(`SELECT * FROM trade_bitget_live_experiment WHERE id='default' LIMIT 1`);
+  const row = rows[0];
+  if (!row) throw new Error("实盘实验状态读取失败");
+  const status = String(row.status || "NOT_STARTED").toUpperCase() as BitgetLiveExperimentStatus["status"];
+  const initial = Number(row.initial_equity_usdt ?? environment.liveInitialCapitalUsdt);
+  const current = Number(row.current_equity_usdt ?? initial);
+  const peak = Number(row.peak_equity_usdt ?? current);
+  const history = await readLiveDailyHistory().catch(() => [] as LiveDailySnapshot[]);
+  const today = history.find((item) => item.date === beijingDateKey(now));
+  const pnl = initial > 0 ? current - initial : 0;
+  return {
+    enabled: true, active: status === "ACTIVE", completed: status === "COMPLETED", stopped: status === "STOPPED", status,
+    startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: current || 0, peakEquityUsdt: peak || 0,
+    pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0,
+    maxDrawdownUsdt: Number(row.max_drawdown_usdt ?? 0), maxDrawdownPct: Number(row.max_drawdown_pct ?? 0),
+    dailyPnlUsdt: today?.pnlUsdt ?? 0, dailyPnlPct: today?.pnlPct ?? 0, dailyHistory: history,
+    stopReason: String(row.stop_reason ?? ""), securityMessage: "安全权限在实验启动及管理员检查时验证；运行中由服务器账户对账持续监控。",
+  };
+}
+
 export async function syncBitgetLiveExperimentStatus(
   now = new Date(),
   options: { allowStart?: boolean } = {}
 ): Promise<BitgetLiveExperimentStatus> {
   const environment = getBitgetDemoEnvironment();
-  if (environment.mode !== "LIVE_EXPERIMENT") {
-    return { enabled: false, active: false, completed: false, stopped: false, status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null, pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [], stopReason: "", securityMessage: "Demo模式" };
-  }
+  if (environment.mode !== "LIVE_EXPERIMENT") return disabledLiveExperimentStatus();
   if (!(await ensureBitgetLiveExperimentTable()) || !prisma) throw new Error("实盘实验状态数据库不可用");
-  const [account, security, positions, pending] = await Promise.all([
-    testBitgetDemoConnection(),
-    getBitgetApiSecurity(),
-    getBitgetDemoCurrentPositions(),
-    getBitgetDemoPendingStrategyOrders(),
-  ]);
-  const equity = environment.mode === "LIVE_EXPERIMENT"
-    ? account.equityUsdt || account.availableUsdt || 0
-    : account.detectedUsdt || account.equityUsdt || account.availableUsdt || 0;
+
   const rows = await prisma.$queryRawUnsafe<LiveExperimentRow[]>(`SELECT * FROM trade_bitget_live_experiment WHERE id='default' LIMIT 1`);
   let row = rows[0];
   if (!row) throw new Error("实盘实验状态读取失败");
   let status = String(row.status || "NOT_STARTED").toUpperCase();
+
+  // 未开启或仅展示状态时，不重复调用Bitget。页面刷新只读数据库，避免把后台API打满。
+  if (status === "NOT_STARTED" && (!environment.executionAllowed || !options.allowStart)) {
+    return readBitgetLiveExperimentStatus(now);
+  }
+
+  let equity = Number(row.current_equity_usdt ?? environment.liveInitialCapitalUsdt);
+  let securityMessage = "运行中账户权限由轻量安全检查持续验证。";
+  let securitySafe = true;
+
   if (status === "NOT_STARTED" && environment.executionAllowed && options.allowStart) {
+    const [account, security, positions, pending] = await Promise.all([
+      testBitgetDemoConnection(),
+      getBitgetApiSecurity(),
+      getBitgetDemoCurrentPositions(),
+      getBitgetDemoPendingStrategyOrders(),
+    ]);
+    equity = account.equityUsdt || account.availableUsdt || 0;
+    securityMessage = security.message;
+    securitySafe = security.safeForLiveExperiment;
     if (!environment.liveConfirmationAccepted) throw new Error("未确认真实亏损风险");
-    if (!security.safeForLiveExperiment) throw new Error(security.message);
+    if (!securitySafe) throw new Error(securityMessage);
     const accountMode = String(account.accountMode ?? "").toLowerCase();
-    if (!["unified", "hybrid"].includes(accountMode)) {
-      throw new Error(`当前账户模式为${account.accountMode || "unknown"}，实盘实验只支持Bitget UTA的unified或hybrid模式。`);
-    }
-    const unavailableSymbols = environment.liveAllowedSymbols.filter((symbol) =>
-      !account.symbols.some((row) => row.symbol === symbol && row.available)
-    );
-    if (unavailableSymbols.length) {
-      throw new Error(`当前Bitget账户不支持实验合约：${unavailableSymbols.join(", ")}。本升级仅支持统一账户UTA V3。`);
-    }
-    if (account.availableUsdt < Math.min(environment.liveMaxPositionNotionalUsdt, environment.liveInitialCapitalUsdt * 0.5)) {
-      throw new Error(`UTA可用USDT仅${account.availableUsdt.toFixed(2)}，请将实验资金放入统一交易账户，而不是资金账户。`);
-    }
+    if (!["unified", "hybrid"].includes(accountMode)) throw new Error(`当前账户模式为${account.accountMode || "unknown"}，实盘实验只支持Bitget UTA的unified或hybrid模式。`);
+    const unavailableSymbols = environment.liveAllowedSymbols.filter((symbol) => !account.symbols.some((item) => item.symbol === symbol && item.available));
+    if (unavailableSymbols.length) throw new Error(`当前Bitget账户不支持实验合约：${unavailableSymbols.join(", ")}。`);
+    if (account.availableUsdt < Math.min(environment.liveMaxPositionNotionalUsdt, environment.liveInitialCapitalUsdt * 0.5)) throw new Error(`UTA可用USDT仅${account.availableUsdt.toFixed(2)}，请将实验资金放入统一交易账户。`);
     const tolerance = Math.max(50, environment.liveInitialCapitalUsdt * 0.15);
-    if (Math.abs(equity - environment.liveInitialCapitalUsdt) > tolerance) {
-      throw new Error(`实盘账户权益${equity.toFixed(2)} USDT与实验本金${environment.liveInitialCapitalUsdt.toFixed(2)} USDT偏差过大，请使用独立账户并只存入实验资金。`);
-    }
-    if (positions.length || pending.length) throw new Error("实验启动前账户必须无持仓、无止盈止损策略单。 ");
+    if (Math.abs(equity - environment.liveInitialCapitalUsdt) > tolerance) throw new Error(`实盘账户权益${equity.toFixed(2)} USDT与实验本金${environment.liveInitialCapitalUsdt.toFixed(2)} USDT偏差过大。`);
+    if (positions.length || pending.length) throw new Error("实验启动前账户必须无持仓、无止盈止损策略单。");
     const endsAt = new Date(now.getTime() + environment.liveDurationDays * 24 * 60 * 60_000);
-    await prisma.$executeRaw`
-      UPDATE trade_bitget_live_experiment SET
-        status='ACTIVE', started_at=${now}, ends_at=${endsAt},
-        initial_equity_usdt=${equity}, current_equity_usdt=${equity}, peak_equity_usdt=${equity},
-        max_drawdown_usdt=0, max_drawdown_pct=0, stop_reason='', updated_at=NOW()
-      WHERE id='default'
-    `;
+    await prisma.$executeRaw`UPDATE trade_bitget_live_experiment SET status='ACTIVE', started_at=${now}, ends_at=${endsAt}, initial_equity_usdt=${equity}, current_equity_usdt=${equity}, peak_equity_usdt=${equity}, max_drawdown_usdt=0, max_drawdown_pct=0, stop_reason='', updated_at=NOW() WHERE id='default'`;
     row = { ...row, status: "ACTIVE", started_at: now, ends_at: endsAt, initial_equity_usdt: equity, current_equity_usdt: equity, peak_equity_usdt: equity, max_drawdown_usdt: 0, max_drawdown_pct: 0, stop_reason: "" };
     status = "ACTIVE";
+  } else {
+    // 运行中只读取账户余额和API权限，不再每分钟重复拉取10个合约配置、资金账户、持仓及策略单。
+    const [balance, security] = await Promise.all([getBitgetRuntimeAccountBalance(), getBitgetApiSecurity()]);
+    equity = balance.equityUsdt || balance.availableUsdt || Number(row.current_equity_usdt ?? 0);
+    securityMessage = security.message;
+    securitySafe = security.safeForLiveExperiment;
   }
+
   const initial = Number(row.initial_equity_usdt ?? equity);
   const date = beijingDateKey(now);
-  const dailySnapshot = row.started_at
-    ? await syncLiveDailySnapshot(now, equity)
-    : {
-        current: { date, openingEquityUsdt: equity, closingEquityUsdt: equity, pnlUsdt: 0, pnlPct: 0, trades: 0 },
-        history: [] as LiveDailySnapshot[],
-      };
+  const dailySnapshot = row.started_at ? await syncLiveDailySnapshot(now, equity) : { current: { date, openingEquityUsdt: equity, closingEquityUsdt: equity, pnlUsdt: 0, pnlPct: 0, trades: 0 }, history: [] as LiveDailySnapshot[] };
   const peak = Math.max(Number(row.peak_equity_usdt ?? equity), equity);
   const drawdown = Math.max(0, peak - equity);
   const drawdownPct = peak > 0 ? drawdown / peak * 100 : 0;
   const endsAtMs = row.ends_at ? new Date(row.ends_at).getTime() : NaN;
   let stopReason = String(row.stop_reason ?? "");
-  if (status === "ACTIVE" && stopReason.startsWith("今日账户亏损") && dailySnapshot.current.pnlUsdt > -environment.liveDailyLossUsdt) {
-    stopReason = "";
-  }
-  if (status === "ACTIVE" && !security.safeForLiveExperiment) {
-    status = "STOPPED";
-    stopReason = `API安全检查未通过：${security.message}`;
-  } else if (status === "ACTIVE" && dailySnapshot.current.pnlUsdt <= -environment.liveDailyLossUsdt) {
-    stopReason = `今日账户亏损${Math.abs(dailySnapshot.current.pnlUsdt).toFixed(2)} USDT，已达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损；今天停止新开仓，现有持仓继续由交易所止损管理。`;
-  } else if (status === "ACTIVE" && drawdown >= environment.liveMaxDrawdownUsdt) {
-    status = "STOPPED";
-    stopReason = `账户回撤达到${drawdown.toFixed(2)} USDT，超过${environment.liveMaxDrawdownUsdt.toFixed(2)} USDT总止损。`;
-  } else if (status === "ACTIVE" && Number.isFinite(endsAtMs) && now.getTime() >= endsAtMs) {
-    status = "COMPLETED";
-    stopReason = "30天实盘实验到期，已停止新开仓。";
-  }
-  await prisma.$executeRaw`
-    UPDATE trade_bitget_live_experiment SET
-      status=${status}, current_equity_usdt=${equity}, peak_equity_usdt=${peak},
-      max_drawdown_usdt=GREATEST(max_drawdown_usdt, ${drawdown}),
-      max_drawdown_pct=GREATEST(max_drawdown_pct, ${drawdownPct}),
-      stop_reason=${stopReason}, updated_at=NOW()
-    WHERE id='default'
-  `;
-  const dailyPnl = dailySnapshot.current.pnlUsdt;
+  if (status === "ACTIVE" && stopReason.startsWith("今日账户亏损") && dailySnapshot.current.pnlUsdt > -environment.liveDailyLossUsdt) stopReason = "";
+  if (status === "ACTIVE" && !securitySafe) { status = "STOPPED"; stopReason = `API安全检查未通过：${securityMessage}`; }
+  else if (status === "ACTIVE" && dailySnapshot.current.pnlUsdt <= -environment.liveDailyLossUsdt) stopReason = `今日账户亏损${Math.abs(dailySnapshot.current.pnlUsdt).toFixed(2)} USDT，已达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损；今天停止新开仓。`;
+  else if (status === "ACTIVE" && drawdown >= environment.liveMaxDrawdownUsdt) { status = "STOPPED"; stopReason = `账户回撤达到${drawdown.toFixed(2)} USDT，超过${environment.liveMaxDrawdownUsdt.toFixed(2)} USDT总止损。`; }
+  else if (status === "ACTIVE" && Number.isFinite(endsAtMs) && now.getTime() >= endsAtMs) { status = "COMPLETED"; stopReason = "30天实盘实验到期，已停止新开仓。"; }
+  await prisma.$executeRaw`UPDATE trade_bitget_live_experiment SET status=${status}, current_equity_usdt=${equity}, peak_equity_usdt=${peak}, max_drawdown_usdt=GREATEST(max_drawdown_usdt, ${drawdown}), max_drawdown_pct=GREATEST(max_drawdown_pct, ${drawdownPct}), stop_reason=${stopReason}, updated_at=NOW() WHERE id='default'`;
   const pnl = initial > 0 ? equity - initial : 0;
-  return {
-    enabled: true,
-    active: status === "ACTIVE",
-    completed: status === "COMPLETED",
-    stopped: status === "STOPPED",
-    status: status as BitgetLiveExperimentStatus["status"],
-    startedAt: dateIso(row.started_at),
-    endsAt: dateIso(row.ends_at),
-    initialEquityUsdt: initial || null,
-    currentEquityUsdt: equity || 0,
-    peakEquityUsdt: peak || 0,
-    pnlUsdt: pnl,
-    pnlPct: initial > 0 ? pnl / initial * 100 : 0,
-    maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown),
-    maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct),
-    dailyPnlUsdt: dailyPnl,
-    dailyPnlPct: dailySnapshot.current.pnlPct,
-    dailyHistory: dailySnapshot.history,
-    stopReason,
-    securityMessage: security.message,
-  };
+  return { enabled: true, active: status === "ACTIVE", completed: status === "COMPLETED", stopped: status === "STOPPED", status: status as BitgetLiveExperimentStatus["status"], startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: equity || 0, peakEquityUsdt: peak || 0, pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0, maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown), maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct), dailyPnlUsdt: dailySnapshot.current.pnlUsdt, dailyPnlPct: dailySnapshot.current.pnlPct, dailyHistory: dailySnapshot.history, stopReason, securityMessage };
 }
 
 async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedSymbol; size: string }): Promise<void> {
@@ -1027,7 +1100,7 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
   if (environment.mode !== "LIVE_EXPERIMENT") return;
   if (!environment.executionAllowed) throw new Error("BITGET_LIVE_EXECUTION_ALLOWED尚未开启或真实风险确认无效");
   if (!environment.liveAllowedSymbols.includes(input.symbol)) throw new Error(`${input.symbol}不在实盘实验允许品种中`);
-  const experiment = await syncBitgetLiveExperimentStatus(new Date(), { allowStart: false });
+  const experiment = await readBitgetLiveExperimentStatus(new Date());
   if (!experiment.active) throw new Error(experiment.stopReason || `实盘实验状态为${experiment.status}，禁止新开仓`);
   if ((experiment.dailyPnlUsdt ?? 0) <= -environment.liveDailyLossUsdt) {
     throw new Error(`今日净亏损${Math.abs(experiment.dailyPnlUsdt ?? 0).toFixed(2)} USDT，达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损，明日再评估。`);

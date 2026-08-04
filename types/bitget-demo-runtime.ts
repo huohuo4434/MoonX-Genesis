@@ -61,6 +61,8 @@ export interface BitgetRuntimeState {
   running: boolean;
   paused: boolean;
   pauseReason: string;
+  pauseSource?: string;
+  autoRecoveryHealthyRuns?: number;
   serverHealthy: boolean;
   cronSecretConfigured: boolean;
   configured: boolean;
@@ -76,6 +78,10 @@ export interface BitgetRuntimeState {
   heartbeatAgeSeconds: number | null;
   quoteAgeSeconds: number | null;
   latestQuotes: BitgetRuntimeQuote[];
+  freshQuotesCount?: number;
+  totalSymbols?: number;
+  lastMarketError?: string;
+  lastAccountError?: string;
   account: BitgetRuntimeAccountSnapshot;
   decisionStatsToday: BitgetRuntimeDecisionStats;
   consecutiveApiErrors: number;

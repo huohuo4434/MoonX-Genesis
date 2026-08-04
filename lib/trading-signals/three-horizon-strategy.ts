@@ -1736,20 +1736,40 @@ async function buildStrategyStats(
 export async function runThreeHorizonStrategyEngine(
   now = new Date(),
   source: "CRON" | "ADMIN" | "SYSTEM" = "CRON",
-  options: { manageOnly?: boolean } = {}
+  options: { manageOnly?: boolean; eligibleSymbols?: BitgetSupportedSymbol[] } = {}
 ): Promise<ThreeHorizonRunReport> {
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) {
     throw new Error("三周期策略数据库未连接");
   }
   const runId = `thr_${randomUUID()}`;
   const startedAt = now.toISOString();
-  const management = await manageActiveDecisions(now).catch(() => ({
-    managed: 0,
-    orderAttempts: 0,
-    orderSuccess: 0,
-    orderErrors: 1,
-  }));
+  let managementReadError = "";
+  const management = await manageActiveDecisions(now).catch((error) => {
+    managementReadError = error instanceof Error ? error.message : "持仓管理读取失败";
+    return {
+      managed: 0,
+      orderAttempts: 0,
+      orderSuccess: 0,
+      orderErrors: 0,
+    };
+  });
   await syncAiTradePlansFromRecentDecisions(now).catch(() => 0);
+  if (managementReadError) {
+    return {
+      ok: false,
+      runId,
+      source,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      scannedStrategies: [],
+      decisions: [],
+      managedOpenDecisions: 0,
+      orderAttempts: 0,
+      orderSuccess: 0,
+      orderErrors: 0,
+      message: `持仓管理关键读取失败，本轮禁止扫描和开新仓：${managementReadError}`,
+    };
+  }
   if (options.manageOnly) {
     return {
       ok: management.orderErrors === 0,
@@ -1792,10 +1812,29 @@ export async function runThreeHorizonStrategyEngine(
     forecastBySymbol.set(symbol.endsWith("USDT") ? symbol : `${symbol}USDT`, plan);
   }
   const risk = await buildRiskSnapshot(now);
-  const [positions, protections] = await Promise.all([
-    getBitgetDemoCurrentPositions().catch(() => []),
-    getBitgetDemoPendingStrategyOrders().catch(() => []),
-  ]);
+  let positions: BitgetDemoPosition[];
+  let protections: BitgetDemoStrategyOrder[];
+  try {
+    [positions, protections] = await Promise.all([
+      getBitgetDemoCurrentPositions(),
+      getBitgetDemoPendingStrategyOrders(),
+    ]);
+  } catch (error) {
+    return {
+      ok: false,
+      runId,
+      source,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      scannedStrategies: [],
+      decisions: [],
+      managedOpenDecisions: management.managed,
+      orderAttempts: management.orderAttempts,
+      orderSuccess: management.orderSuccess,
+      orderErrors: management.orderErrors,
+      message: `Bitget持仓或保护单读取失败，为防止重复开仓，本轮禁止新入场：${error instanceof Error ? error.message : "未知错误"}`,
+    };
+  }
   const candleCache = new Map<string, CandleSet>();
   const reservedSymbols = new Set(
     positions.filter((row) => row.total > 0).map((row) => row.symbol)
@@ -1805,10 +1844,39 @@ export async function runThreeHorizonStrategyEngine(
   let orderAttempts = management.orderAttempts;
   let orderSuccess = management.orderSuccess;
   let orderErrors = management.orderErrors;
+  let scanErrors = 0;
+  const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
   for (const profile of dueProfiles) {
     let tradesToday = await todayTradeCount(profile, now);
     for (const symbolText of profile.symbols) {
       const symbol = symbolText as BitgetSupportedSymbol;
+      if (eligibleSymbols && !eligibleSymbols.has(symbol)) {
+        const fallback: EvaluationResult = {
+          direction: "NEUTRAL",
+          confidence: 0,
+          technicalScore: 0,
+          forecastScore: 0,
+          conditions: [],
+          currentPrice: null,
+          entryPrice: null,
+          stopLoss: null,
+          target1: null,
+          target2: null,
+          ready: false,
+          rejectionCode: "MARKET_STALE_OR_CLOSED",
+          rejectionReason: "该品种当前报价超过3分钟未更新或市场暂不可交易，本轮不扫描、不下单。",
+          raw: {},
+        };
+        decisions.push(await insertDecision({
+          runId,
+          profile,
+          symbol,
+          status: "OBSERVING",
+          evaluation: fallback,
+          now,
+        }));
+        continue;
+      }
       try {
         let candleSet = candleCache.get(symbol);
         if (!candleSet) {
@@ -1905,13 +1973,13 @@ export async function runThreeHorizonStrategyEngine(
           evaluation: fallback,
           now,
         }));
-        orderErrors += 1;
+        scanErrors += 1;
       }
     }
     await markProfileScanned(profile, now);
   }
   return {
-    ok: orderErrors === 0,
+    ok: orderErrors === 0 && scanErrors === 0,
     runId,
     source,
     startedAt,
@@ -1922,7 +1990,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `三周期扫描${dueProfiles.length}套策略、${decisions.length}个标的决策；影子准备${decisions.filter((row) => row.status === "SHADOW_READY").length}，${getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}下单成功${orderSuccess}，错误${orderErrors}。`,
+    message: `三周期扫描${dueProfiles.length}套策略、${decisions.length}个标的决策；影子准备${decisions.filter((row) => row.status === "SHADOW_READY").length}，数据异常${scanErrors}，${getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}真实下单成功${orderSuccess}，订单错误${orderErrors}。`,
   };
 }
 

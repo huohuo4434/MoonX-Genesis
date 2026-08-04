@@ -533,10 +533,12 @@ export async function buildMemberAiTradingDeskSnapshot(
         ? `服务器交易执行已暂停：${runtime.pauseReason || "等待管理员恢复"}`
         : runtime.serverHealthy
           ? live ? "Bitget实盘行情、服务器心跳、策略检查与账户对账正常。" : "Bitget Demo行情、服务器心跳、策略检查与账户对账正常。"
-          : "服务器心跳或行情时间尚未达到正常状态。",
+          : (runtime.freshQuotesCount ?? 0) > 0
+            ? `服务器正常运行；${runtime.freshQuotesCount}/${runtime.totalSymbols ?? 0}个品种报价新鲜，其余休市或延迟品种已单独跳过。`
+            : "服务器正在等待可用行情或账户对账恢复；不会提交新订单。",
     operationalState: "CONNECTING",
     operationalStateLabel: "正在连接",
-    quoteReady: runtime.quoteAgeSeconds != null && runtime.quoteAgeSeconds <= 180,
+    quoteReady: (runtime.freshQuotesCount ?? 0) > 0,
     latestQuoteAt: runtime.lastMarketAt,
     experiment: runtime.liveExperiment ?? {
       status: live ? "NOT_STARTED" : "DISABLED", startedAt: null, endsAt: null,
@@ -622,22 +624,13 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
   const syncedAt = iso(row.last_synced_at);
   const stale = !syncedAt || Date.now() - new Date(syncedAt).getTime() > 3 * 60_000;
   if (!hasPayload) {
-    try {
-      return await syncMemberAiTradingDeskSnapshot();
-    } catch (error) {
-      return emptySnapshot(
-        settings,
-        error instanceof Error ? error.message : "首次同步失败。"
-      );
-    }
+    return emptySnapshot(settings, "等待Vercel服务器完成首轮交易台同步；会员页面不会直接请求Bitget。");
   }
-  if (stale) {
-    try {
-      return await syncMemberAiTradingDeskSnapshot();
-    } catch {
-      // 读取最近一次快照，避免会员页因交易所短暂故障完全不可用。
-    }
-  }
+  // 会员访问只读取数据库快照。即使快照暂时过期，也不在用户请求中直连Bitget，
+  // 避免多人刷新触发并发账户/持仓请求，所有外部同步只由带运行锁的服务器任务完成。
+  const staleMessage = stale
+    ? `交易台快照等待服务器更新；最近同步时间${syncedAt ?? "未知"}，旧数据继续只读展示。`
+    : "";
   return applyAiDeskOperationalState({
     ...payload,
     settings,
@@ -645,8 +638,8 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
     publishedPlans: payload.publishedPlans ?? [],
     lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
-    syncStatus: row.last_error ? "PARTIAL" : payload.syncStatus,
-    syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : payload.syncMessage,
+    syncStatus: row.last_error || stale ? "PARTIAL" : payload.syncStatus,
+    syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : staleMessage || payload.syncMessage,
     operationalState: payload.operationalState ?? "CONNECTING",
     operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
     quoteReady: payload.quoteReady ?? false,

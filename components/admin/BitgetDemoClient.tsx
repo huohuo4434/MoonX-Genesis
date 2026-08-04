@@ -359,12 +359,27 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">结束时间</Text><Text variant="body-sm" className="mt-1 block">{time(experiment?.endsAt ?? null)}</Text></div>
           </div>
 
-          {dashboard.runtime.paused ? <div className="rounded-lg border border-red-400/25 bg-red-400/[0.05] p-4"><Text variant="body-sm" className="text-red-200">已暂停：{dashboard.runtime.pauseReason || "等待管理员检查"}</Text></div> : null}
+          {dashboard.runtime.paused ? (
+            <div className="rounded-lg border border-red-400/25 bg-red-400/[0.05] p-4 space-y-2">
+              <Text variant="body-sm" className="text-red-200">已暂停：{dashboard.runtime.pauseReason || "等待服务器健康检查"}</Text>
+              {dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO" ? (
+                <Text variant="caption" className="block text-amber-100/80">临时接口异常会继续重试；连续2轮行情和账户恢复正常后自动解除，无需手动点击恢复。</Text>
+              ) : dashboard.runtime.pauseSource === "AUTO_ORDER" ? (
+                <Text variant="caption" className="block text-red-100/80">这是订单写入错误保护，必须核对Bitget订单与持仓后再手动恢复。</Text>
+              ) : null}
+            </div>
+          ) : null}
           {experiment?.stopReason ? <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-4"><Text variant="body-sm" className="text-amber-200">{experiment.stopReason}</Text></div> : null}
+          {dashboard.runtime.lastMarketError || dashboard.runtime.lastAccountError ? (
+            <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.03] p-4 space-y-1">
+              {dashboard.runtime.lastMarketError ? <Text variant="caption" className="block text-amber-100/80">行情接口：{dashboard.runtime.lastMarketError}</Text> : null}
+              {dashboard.runtime.lastAccountError ? <Text variant="caption" className="block text-amber-100/80">账户接口：{dashboard.runtime.lastAccountError}</Text> : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">服务器心跳</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastMarketAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">延迟 {seconds(dashboard.runtime.quoteAgeSeconds)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastMarketAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">接口延迟 {seconds(dashboard.runtime.quoteAgeSeconds)} · 新鲜报价 {dashboard.runtime.freshQuotesCount ?? 0}/{dashboard.runtime.totalSymbols ?? 0}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户连接</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.connected ? "正常" : "未正常连接"}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">当前持仓</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.positionsCount} 个</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">API密钥</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.configured ? dashboard.environment.apiKeyMasked : "未配置"}</Text></div>
@@ -374,7 +389,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
             <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
             <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button>
             {dashboard.runtime.paused ? (
-              <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
+              dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO" ? null : <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
             ) : (
               <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>紧急暂停新开仓</Button>
             )}
