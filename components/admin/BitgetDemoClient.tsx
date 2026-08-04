@@ -28,7 +28,7 @@ function signed(value: number | null | undefined, suffix = ""): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}${suffix}`;
 }
 
-type Dashboard = {
+export type BitgetAdminDashboard = {
   environment: {
     mode: "DEMO" | "LIVE_EXPERIMENT";
     configured: boolean;
@@ -136,7 +136,7 @@ function runtimeBadge(runtime: BitgetRuntimeState): {
   return { label: "等待正常心跳", variant: "warning" };
 }
 
-export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
+export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard }) {
   const [dashboard, setDashboard] = useState(initial);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [securityResult, setSecurityResult] = useState<SecurityResult | null>(null);
@@ -149,7 +149,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
   async function refresh(silent = false) {
     try {
       const res = await fetch("/api/admin/bitget-demo/status", { cache: "no-store" });
-      const json = await parseJson<Dashboard & { error?: string }>(res, "Bitget状态");
+      const json = await parseJson<BitgetAdminDashboard & { error?: string }>(res, "Bitget状态");
       if (!res.ok || json.error) throw new Error(json.error || "读取失败");
       setDashboard(json);
     } catch (error) {
@@ -229,7 +229,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
           skipped: number;
           errors: number;
         };
-        dashboard?: Dashboard;
+        dashboard?: BitgetAdminDashboard;
       }>(res, "订单同步");
       if (!res.ok || json.error || !json.result) {
         throw new Error(json.error || "同步失败");

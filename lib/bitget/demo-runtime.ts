@@ -1185,6 +1185,14 @@ export async function runBitgetDemoServerRuntime(
 }
 
 
+export async function getBitgetLiveAdminDashboard() {
+  const [dashboard, runtime] = await Promise.all([
+    getBitgetDemoDashboard(),
+    getBitgetRuntimeState(),
+  ]);
+  return { ...dashboard, runtime };
+}
+
 export async function getBitgetDemoAdminDashboard() {
   const [dashboard, runtime, threeHorizon, validation] = await Promise.all([
     getBitgetDemoDashboard(),

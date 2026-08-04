@@ -19,6 +19,14 @@ function requestIp(headerStore: Pick<Headers, "get">): string | null {
   return headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() || headerStore.get("x-real-ip");
 }
 
+function degradedAllowedDecision(label: string): DeviceAccessDecision {
+  return {
+    allowed: true,
+    reason: "ALLOWED",
+    displayName: label,
+  };
+}
+
 export async function getMemberDevicePageAccess(input?: {
   forceAcquire?: boolean;
 }): Promise<MemberDevicePageAccess> {
@@ -41,22 +49,44 @@ export async function getMemberDevicePageAccess(input?: {
     return {
       access,
       status: "ALLOWED",
-      device: { allowed: true, reason: "ALLOWED", displayName: "管理员会话" },
+      device: degradedAllowedDecision("管理员会话"),
     };
   }
-  const device = await evaluateMemberDeviceAccess({
-    userId: access.userId,
-    deviceToken,
-    userAgent: headerStore.get("user-agent"),
-    ip: requestIp(headerStore),
-    region: headerStore.get("x-vercel-ip-country") ?? null,
-    isAdmin: access.isAdmin,
-    forceAcquire: input?.forceAcquire,
-  });
 
-  return {
-    access,
-    status: device.allowed ? "ALLOWED" : "DEVICE_REQUIRED",
-    device,
-  };
+  try {
+    const device = await evaluateMemberDeviceAccess({
+      userId: access.userId,
+      deviceToken,
+      userAgent: headerStore.get("user-agent"),
+      ip: requestIp(headerStore),
+      region: headerStore.get("x-vercel-ip-country") ?? null,
+      isAdmin: access.isAdmin,
+      forceAcquire: input?.forceAcquire,
+    });
+
+    // Device security is a secondary anti-sharing layer. A missing migration must
+    // never take down paid content after authentication and membership already pass.
+    if (device.reason === "SETUP_REQUIRED") {
+      return {
+        access,
+        status: "ALLOWED",
+        device: degradedAllowedDecision("设备守卫暂时降级"),
+      };
+    }
+
+    return {
+      access,
+      status: device.allowed ? "ALLOWED" : "DEVICE_REQUIRED",
+      device,
+    };
+  } catch {
+    // Fail open only for this secondary device layer. Login, role and membership
+    // checks above remain authoritative; transient database failures no longer make
+    // the entire member site unusable.
+    return {
+      access,
+      status: "ALLOWED",
+      device: degradedAllowedDecision("设备守卫临时降级"),
+    };
+  }
 }

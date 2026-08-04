@@ -21,18 +21,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "请求过于频繁" }, { status: 429 });
   }
 
-  const decision = await evaluateMemberDeviceAccess({
-    userId: access.userId,
-    deviceToken: token,
-    userAgent: request.headers.get("user-agent"),
-    ip:
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip"),
-    region: request.headers.get("x-vercel-ip-country"),
-    isAdmin: access.isAdmin,
-  });
-  return NextResponse.json(decision, {
-    status: decision.allowed ? 200 : 409,
-    headers: { "Cache-Control": "no-store" },
-  });
+  try {
+    const decision = await evaluateMemberDeviceAccess({
+      userId: access.userId,
+      deviceToken: token,
+      userAgent: request.headers.get("user-agent"),
+      ip:
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip"),
+      region: request.headers.get("x-vercel-ip-country"),
+      isAdmin: access.isAdmin,
+    });
+
+    if (decision.reason === "SETUP_REQUIRED") {
+      return NextResponse.json(
+        { allowed: true, reason: "ALLOWED", degraded: true },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    return NextResponse.json(decision, {
+      status: decision.allowed ? 200 : 409,
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch {
+    return NextResponse.json(
+      { allowed: true, reason: "ALLOWED", degraded: true },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
 }
