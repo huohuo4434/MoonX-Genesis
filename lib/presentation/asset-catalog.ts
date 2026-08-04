@@ -13,8 +13,8 @@ export type AssetPresentation = {
 export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "bitcoin", nameZh: "比特币", symbol: "BTC", displaySymbol: "BTC", venue: "全球加密市场", marketLabel: "加密资产", aliases: ["BTCUSDT", "BTC-USD"] },
   { assetId: "eth", nameZh: "以太坊", symbol: "ETH", displaySymbol: "ETH", venue: "全球加密市场", marketLabel: "加密资产", aliases: ["ETHUSDT", "ETH-USD"] },
-  { assetId: "sp500", nameZh: "标普500指数", symbol: "SPX", displaySymbol: "SPX", venue: "美国指数市场", marketLabel: "美国指数", aliases: ["^GSPC", "GSPC"] },
-  { assetId: "nasdaq-100", nameZh: "纳斯达克100指数", symbol: "NDX", displaySymbol: "NDX", venue: "美国指数市场", marketLabel: "美国指数", aliases: ["^NDX"] },
+  { assetId: "sp500", nameZh: "标普500指数", symbol: "SPX", displaySymbol: "SPX", venue: "美国指数市场", marketLabel: "美国指数", aliases: ["^GSPC", "GSPC", "SPY", "SPYUSDT"] },
+  { assetId: "nasdaq-100", nameZh: "纳斯达克100指数", symbol: "NDX", displaySymbol: "NDX", venue: "美国指数市场", marketLabel: "美国指数", aliases: ["^NDX", "QQQ", "QQQUSDT"] },
   { assetId: "shanghai-composite", nameZh: "上证指数", symbol: "SHCOMP", displaySymbol: "SHCOMP", venue: "上海证券交易所", marketLabel: "A股指数", aliases: ["000001.SS", "SSEC", "SSE"] },
   { assetId: "hang-seng", nameZh: "恒生科技指数", symbol: "HSTECH", displaySymbol: "HSTECH", venue: "香港交易所", marketLabel: "港股指数", aliases: ["HSTECH.HK"] },
   {
@@ -24,7 +24,7 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
     displaySymbol: "GOLD",
     venue: "COMEX黄金期货",
     marketLabel: "贵金属",
-    aliases: ["GLD", "GC", "GC=F", "XAU", "XAUUSD", "Gold"],
+    aliases: ["GLD", "GC", "GC=F", "XAU", "XAUUSD", "XAUT", "XAUTUSDT", "Gold"],
   },
   {
     assetId: "silver",
@@ -33,7 +33,7 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
     displaySymbol: "SILVER",
     venue: "COMEX白银期货",
     marketLabel: "贵金属",
-    aliases: ["SI", "SI=F", "SLV", "XAG", "XAGUSD"],
+    aliases: ["SI", "SI=F", "SLV", "XAG", "XAGUSD", "XAGUSDT"],
   },
   {
     assetId: "wti-crude",
@@ -42,11 +42,11 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
     displaySymbol: "WTI",
     venue: "NYMEX原油期货",
     marketLabel: "能源商品",
-    aliases: ["CL", "CL=F", "WTIUSD", "USOIL"],
+    aliases: ["CL", "CL=F", "CLUSDT", "WTIUSD", "USOIL"],
   },
   { assetId: "changxin-memory", nameZh: "长鑫科技", symbol: "688825", displaySymbol: "688825", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688825.SS"] },
-  { assetId: "micron", nameZh: "美光科技", symbol: "MU", displaySymbol: "MU", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: [] },
-  { assetId: "alphabet", nameZh: "Alphabet · 谷歌母公司", symbol: "GOOGL", displaySymbol: "GOOGL", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["GOOG", "Google", "谷歌", "Alphabet Inc."] },
+  { assetId: "micron", nameZh: "美光科技", symbol: "MU", displaySymbol: "MU", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["MUUSDT"] },
+  { assetId: "alphabet", nameZh: "Alphabet · 谷歌母公司", symbol: "GOOGL", displaySymbol: "GOOGL", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["GOOG", "GOOGLUSDT", "Google", "谷歌", "Alphabet Inc."] },
   { assetId: "microsoft", nameZh: "微软", symbol: "MSFT", displaySymbol: "MSFT", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["Microsoft"] },
   { assetId: "tencent", nameZh: "腾讯控股", symbol: "00700", displaySymbol: "00700", venue: "香港交易所", marketLabel: "股票", aliases: ["0700.HK", "700.HK", "Tencent", "腾讯"] },
   { assetId: "kingsoft-office", nameZh: "金山办公", symbol: "688111", displaySymbol: "688111", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688111.SS", "WPS"] },

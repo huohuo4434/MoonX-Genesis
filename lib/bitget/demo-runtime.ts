@@ -9,11 +9,14 @@ import {
   getBitgetDemoMarketQuotes,
   getBitgetDemoPendingStrategyOrders,
   getContractConfig,
+  normalizeBitgetUsdtSymbol,
   normalizeOrderSize,
   placeBitgetDemoMarketOrder,
   placeBitgetDemoProtectionOrder,
+  syncBitgetLiveExperimentStatus,
   testBitgetDemoConnection,
   type BitgetDemoMarketQuote,
+  type BitgetLiveExperimentStatus,
   type BitgetSupportedSymbol,
 } from "@/lib/bitget/demo-client";
 import {
@@ -139,7 +142,7 @@ function emptyDecisionStats(): BitgetRuntimeDecisionStats {
   };
 }
 
-function emptyAccount(message = "尚未完成Bitget Demo账户对账。"):
+function emptyAccount(message = "尚未完成Bitget账户对账。"):
   BitgetRuntimeAccountSnapshot {
   return {
     connected: false,
@@ -391,9 +394,79 @@ async function auditStrategyDecisions(
   }
 }
 
+type LiveExperimentExitResult = {
+  attempted: number;
+  success: number;
+  errors: number;
+  messages: string[];
+};
+
+async function closeLiveExperimentExposure(
+  runId: string,
+  experiment: BitgetLiveExperimentStatus
+): Promise<LiveExperimentExitResult> {
+  const result: LiveExperimentExitResult = { attempted: 0, success: 0, errors: 0, messages: [] };
+  if (!experiment.completed && !experiment.stopped) return result;
+
+  const [positions, pending] = await Promise.all([
+    getBitgetDemoCurrentPositions(),
+    getBitgetDemoPendingStrategyOrders(),
+  ]);
+
+  // 先平仓，确认下一轮已无持仓后再撤保护单。不能先撤止损，否则平仓请求失败时会留下无保护敞口。
+  for (const position of positions) {
+    const symbol = normalizeBitgetUsdtSymbol(position.symbol);
+    if (!symbol || position.total <= 0) continue;
+    result.attempted += 1;
+    try {
+      await placeBitgetDemoMarketOrder({
+        paperOrderId: `live-experiment-exit:${experiment.status}:${experiment.startedAt ?? experiment.endsAt ?? "unknown"}:${symbol}:${position.posSide}`,
+        symbol,
+        quantity: position.total,
+        side: position.posSide === "long" ? "sell" : "buy",
+        reduceOnly: true,
+      });
+      result.success += 1;
+      result.messages.push(`已提交${symbol}全量平仓，原因：${experiment.stopReason || experiment.status}。保护单暂不撤销，待确认持仓归零后再清理。`);
+    } catch (error) {
+      result.errors += 1;
+      result.messages.push(`提交${symbol}平仓失败：${error instanceof Error ? error.message : "未知错误"}。现有保护单保持不动。`);
+    }
+  }
+
+  if (positions.every((position) => position.total <= 0)) {
+    for (const order of pending) {
+      result.attempted += 1;
+      try {
+        await cancelBitgetDemoStrategyOrder({
+          orderId: order.orderId,
+          clientOid: order.clientOid,
+          symbol: order.symbol,
+        });
+        result.success += 1;
+        result.messages.push(`持仓已归零，已清理${order.symbol}保护单${order.orderId}。`);
+      } catch (error) {
+        result.errors += 1;
+        result.messages.push(`清理${order.symbol}保护单失败：${error instanceof Error ? error.message : "未知错误"}`);
+      }
+    }
+  }
+
+  for (const message of result.messages) {
+    await recordEvent({
+      runId,
+      stage: "ORDER",
+      level: message.includes("失败") ? "ERROR" : "WARNING",
+      action: "LIVE_EXPERIMENT_EXIT",
+      message,
+    });
+  }
+  return result;
+}
+
 async function reconcileAccount(now: Date): Promise<BitgetRuntimeAccountSnapshot> {
   const environment = getBitgetDemoEnvironment();
-  if (!environment.configured) return emptyAccount("Bitget Demo密钥尚未配置完整。");
+  if (!environment.configured) return emptyAccount(environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘密钥尚未配置完整。" : "Bitget Demo密钥尚未配置完整。");
   const [connectionResult, positionsResult, pendingResult] = await Promise.allSettled([
     testBitgetDemoConnection(),
     getBitgetDemoCurrentPositions(),
@@ -421,7 +494,7 @@ async function reconcileAccount(now: Date): Promise<BitgetRuntimeAccountSnapshot
     checkedAt: now.toISOString(),
     message: errors.length
       ? `部分对账失败：${errors.join("；")}`
-      : `Bitget Demo对账完成：持仓${positions.length}，交易所止盈止损单${pending.length}。`,
+      : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}对账完成：持仓${positions.length}，交易所止盈止损单${pending.length}。`,
   };
 }
 
@@ -505,7 +578,7 @@ export async function setBitgetRuntimePaused(
     stage: "SYSTEM",
     level: paused ? "WARNING" : "SUCCESS",
     action: paused ? "PAUSED" : "RESUMED",
-    message: paused ? reason : "管理员已恢复Bitget Demo服务器执行链路。",
+    message: paused ? reason : "管理员已恢复Bitget服务器执行链路。",
   });
   return getBitgetRuntimeState();
 }
@@ -539,9 +612,17 @@ export async function getBitgetRuntimeState(
       quoteAge != null &&
       quoteAge <= QUOTE_HEALTH_SECONDS
   );
+  const liveExperiment = environment.mode === "LIVE_EXPERIMENT"
+    ? await syncBitgetLiveExperimentStatus(now).catch((error) => ({
+        enabled: true, active: false, completed: false, stopped: true, status: "STOPPED" as const,
+        startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null,
+        pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
+        stopReason: error instanceof Error ? error.message : "实盘实验状态读取失败", securityMessage: "",
+      }))
+    : undefined;
   return {
     databaseReady,
-    mode: "BITGET_DEMO_REST_CRON",
+    mode: environment.mode === "LIVE_EXPERIMENT" ? "BITGET_LIVE_EXPERIMENT_REST_CRON" : "BITGET_DEMO_REST_CRON",
     source: "SYSTEM",
     running: row?.run_lock_until ? new Date(row.run_lock_until).getTime() > now.getTime() : false,
     paused,
@@ -569,6 +650,14 @@ export async function getBitgetRuntimeState(
     lastReport: safeJson<Record<string, unknown> | null>(row?.last_report, null),
     recentEvents: databaseReady ? await listEvents() : [],
     updatedAt: iso(row?.updated_at) ?? now.toISOString(),
+    liveExperiment: liveExperiment ? {
+      status: liveExperiment.status, startedAt: liveExperiment.startedAt, endsAt: liveExperiment.endsAt,
+      initialEquityUsdt: liveExperiment.initialEquityUsdt, currentEquityUsdt: liveExperiment.currentEquityUsdt,
+      pnlUsdt: liveExperiment.pnlUsdt, pnlPct: liveExperiment.pnlPct,
+      maxDrawdownUsdt: liveExperiment.maxDrawdownUsdt, maxDrawdownPct: liveExperiment.maxDrawdownPct,
+      dailyPnlUsdt: liveExperiment.dailyPnlUsdt, dailyPnlPct: liveExperiment.dailyPnlPct,
+      dailyHistory: liveExperiment.dailyHistory, stopReason: liveExperiment.stopReason, securityMessage: liveExperiment.securityMessage,
+    } : undefined,
   };
 }
 
@@ -603,6 +692,8 @@ export async function runBitgetDemoServerRuntime(
     };
   }
 
+  const environment = getBitgetDemoEnvironment();
+  const runtimeSymbols = environment.mode === "LIVE_EXPERIMENT" ? environment.liveAllowedSymbols : DEFAULT_SYMBOLS;
   let marketOk = false;
   let marketMessage = "";
   let quotes: BitgetDemoMarketQuote[] = [];
@@ -615,6 +706,8 @@ export async function runBitgetDemoServerRuntime(
   let apiError = "";
   let strategyRan = false;
   let finalMessage = "";
+  let liveExperiment: BitgetLiveExperimentStatus | null = null;
+  let liveExit: LiveExperimentExitResult = { attempted: 0, success: 0, errors: 0, messages: [] };
 
   try {
     const before = await getBitgetRuntimeState(now);
@@ -623,18 +716,33 @@ export async function runBitgetDemoServerRuntime(
       stage: "HEARTBEAT",
       level: "INFO",
       action: "START",
-      message: `Bitget Demo服务器心跳开始，来源${source}。`,
+      message: `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘实验" : "Bitget Demo"}服务器心跳开始，来源${source}。`,
     });
 
+    if (environment.mode === "LIVE_EXPERIMENT") {
+      liveExperiment = await syncBitgetLiveExperimentStatus(now, { allowStart: true });
+      await recordEvent({
+        runId,
+        stage: "SYSTEM",
+        level: liveExperiment.active ? "SUCCESS" : liveExperiment.status === "NOT_STARTED" ? "WARNING" : "ERROR",
+        action: "LIVE_EXPERIMENT_STATUS",
+        message: liveExperiment.active
+          ? `实盘实验运行中，当前权益${(liveExperiment.currentEquityUsdt ?? 0).toFixed(2)} USDT。`
+          : liveExperiment.stopReason || `实盘实验状态：${liveExperiment.status}。`,
+        payload: liveExperiment as unknown as Record<string, unknown>,
+      });
+      liveExit = await closeLiveExperimentExposure(runId, liveExperiment);
+    }
+
     try {
-      const fetchedQuotes = await getBitgetDemoMarketQuotes(DEFAULT_SYMBOLS);
+      const fetchedQuotes = await getBitgetDemoMarketQuotes(runtimeSymbols);
       quotes = fetchedQuotes.filter((quote) => {
         const captured = new Date(quote.capturedAt).getTime();
         return Number.isFinite(captured) && Math.max(0, now.getTime() - captured) <= QUOTE_HEALTH_SECONDS * 1000;
       });
-      marketOk = quotes.length >= 2;
+      marketOk = quotes.length >= runtimeSymbols.length;
       marketMessage = marketOk
-        ? `取得${quotes.length}个时间戳有效的Bitget Demo同源公开报价。`
+        ? `取得${quotes.length}个时间戳有效的Bitget公开报价。`
         : `Bitget返回${fetchedQuotes.length}个报价，但仅${quotes.length}个通过3分钟新鲜度检查。`;
       await recordEvent({
         runId,
@@ -656,51 +764,48 @@ export async function runBitgetDemoServerRuntime(
       });
     }
 
-    const executionPaused = before.paused || !marketOk;
+    const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
+    const executionPaused = before.paused || !marketOk || !liveAllowsNewEntries;
+    if (!before.paused && marketOk && liveAllowsNewEntries) {
+      if (environment.mode !== "LIVE_EXPERIMENT") {
+        const [strategyResult, monitorResult] = await Promise.allSettled([
+          runPredictionAutoTrader(now, {
+            source: source === "ADMIN" ? "ADMIN" : "CRON",
+            skipBitgetSync: true,
+          }),
+          runTradingSignalServerMonitor({ syncBitget: false }),
+        ]);
+        if (strategyResult.status === "fulfilled") {
+          strategy = strategyResult.value;
+          strategyRan = true;
+          await auditStrategyDecisions(
+            runId,
+            strategy.decisions,
+            strategy.mode,
+            strategy.message
+          );
+        } else {
+          const message = strategyResult.reason instanceof Error
+            ? strategyResult.reason.message
+            : "预测策略检查失败";
+          apiError = apiError || message;
+          await recordEvent({ runId, stage: "STRATEGY", level: "ERROR", action: "RUN_ERROR", message });
+        }
+        if (monitorResult.status === "fulfilled") {
+          signalMonitor = monitorResult.value;
+        } else {
+          await recordEvent({
+            runId,
+            stage: "STRATEGY",
+            level: "ERROR",
+            action: "GENERAL_MONITOR_ERROR",
+            message: monitorResult.reason instanceof Error
+              ? monitorResult.reason.message
+              : "站内信号监控失败",
+          });
+        }
+      }
 
-    if (!before.paused && marketOk) {
-      const [strategyResult, monitorResult] = await Promise.allSettled([
-        runPredictionAutoTrader(now, {
-          source: source === "ADMIN" ? "ADMIN" : "CRON",
-          skipBitgetSync: true,
-        }),
-        runTradingSignalServerMonitor({ syncBitget: false }),
-      ]);
-      if (strategyResult.status === "fulfilled") {
-        strategy = strategyResult.value;
-        strategyRan = true;
-        await auditStrategyDecisions(
-          runId,
-          strategy.decisions,
-          strategy.mode,
-          strategy.message
-        );
-      } else {
-        const message = strategyResult.reason instanceof Error
-          ? strategyResult.reason.message
-          : "预测策略检查失败";
-        apiError = apiError || message;
-        await recordEvent({
-          runId,
-          stage: "STRATEGY",
-          level: "ERROR",
-          action: "RUN_ERROR",
-          message,
-        });
-      }
-      if (monitorResult.status === "fulfilled") {
-        signalMonitor = monitorResult.value;
-      } else {
-        await recordEvent({
-          runId,
-          stage: "STRATEGY",
-          level: "ERROR",
-          action: "GENERAL_MONITOR_ERROR",
-          message: monitorResult.reason instanceof Error
-            ? monitorResult.reason.message
-            : "站内信号监控失败",
-        });
-      }
 
       try {
         threeHorizon = await runThreeHorizonStrategyEngine(
@@ -749,14 +854,16 @@ export async function runBitgetDemoServerRuntime(
       }
 
       try {
-        mirrorResult = await syncBitgetDemoOrders();
+        mirrorResult = environment.mode === "LIVE_EXPERIMENT"
+          ? { enabled: false, processed: 0, success: 0, skipped: 0, errors: 0, messages: ["实盘实验已禁用旧版镜像链路。"] }
+          : await syncBitgetDemoOrders();
         if (mirrorResult.processed > 0) {
           await recordEvent({
             runId,
             stage: "ORDER",
             level: "INFO",
             action: "ATTEMPT",
-            message: `本轮尝试镜像${mirrorResult.processed}笔Demo订单。`,
+            message: `本轮尝试镜像${mirrorResult.processed}笔订单。`,
             payload: {
               processed: mirrorResult.processed,
               success: mirrorResult.success,
@@ -771,7 +878,7 @@ export async function runBitgetDemoServerRuntime(
             stage: "ORDER",
             level: "SUCCESS",
             action: "SUCCESS",
-            message: `本轮${mirrorResult.success}笔订单已发送至Bitget Demo。`,
+            message: `本轮${mirrorResult.success}笔订单已发送至Bitget。`,
           });
         }
         if (mirrorResult.errors > 0) {
@@ -780,7 +887,7 @@ export async function runBitgetDemoServerRuntime(
             stage: "ORDER",
             level: "ERROR",
             action: "ERROR",
-            message: `本轮${mirrorResult.errors}笔Bitget Demo订单失败。`,
+            message: `本轮${mirrorResult.errors}笔Bitget订单失败。`,
           });
         }
         for (const message of mirrorResult.messages) {
@@ -793,7 +900,7 @@ export async function runBitgetDemoServerRuntime(
           });
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Bitget Demo镜像失败";
+        const message = error instanceof Error ? error.message : "Bitget镜像失败";
         mirrorResult = {
           enabled: true,
           processed: 0,
@@ -810,55 +917,51 @@ export async function runBitgetDemoServerRuntime(
           message,
         });
       }
-    } else if (before.paused) {
+    } else {
       await recordEvent({
         runId,
         stage: "SYSTEM",
         level: "WARNING",
         action: "PAUSED_SKIP",
-        message: `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
+        message: !marketOk
+          ? `行情读取失败或数据不足，本轮禁止新开仓。${marketMessage}`
+          : !liveAllowsNewEntries
+            ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
+            : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
-      try {
-        threeHorizon = await runThreeHorizonStrategyEngine(
-          now,
-          source === "ADMIN" ? "ADMIN" : "CRON",
-          { manageOnly: true }
-        );
-        strategyRan = true;
-        await recordEvent({
-          runId,
-          stage: "STRATEGY",
-          level: threeHorizon.ok ? "INFO" : "WARNING",
-          action: "THREE_HORIZON_MANAGE_ONLY",
-          message: threeHorizon.message,
-          payload: {
-            managedOpenDecisions: threeHorizon.managedOpenDecisions,
-            orderAttempts: threeHorizon.orderAttempts,
-            orderSuccess: threeHorizon.orderSuccess,
-            orderErrors: threeHorizon.orderErrors,
-          },
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "暂停状态下的持仓管理失败";
-        apiError = apiError || message;
-        await recordEvent({
-          runId,
-          stage: "STRATEGY",
-          level: "ERROR",
-          action: "THREE_HORIZON_MANAGE_ONLY_ERROR",
-          message,
-        });
+      if (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active) {
+        try {
+          threeHorizon = await runThreeHorizonStrategyEngine(
+            now,
+            source === "ADMIN" ? "ADMIN" : "CRON",
+            { manageOnly: true }
+          );
+          strategyRan = true;
+          await recordEvent({
+            runId,
+            stage: "STRATEGY",
+            level: threeHorizon.ok ? "INFO" : "WARNING",
+            action: "THREE_HORIZON_MANAGE_ONLY",
+            message: threeHorizon.message,
+            payload: {
+              managedOpenDecisions: threeHorizon.managedOpenDecisions,
+              orderAttempts: threeHorizon.orderAttempts,
+              orderSuccess: threeHorizon.orderSuccess,
+              orderErrors: threeHorizon.orderErrors,
+            },
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "暂停状态下的持仓管理失败";
+          apiError = apiError || message;
+          await recordEvent({
+            runId,
+            stage: "STRATEGY",
+            level: "ERROR",
+            action: "THREE_HORIZON_MANAGE_ONLY_ERROR",
+            message,
+          });
+        }
       }
-    } else {
-      // A heartbeat without a fresh market quote is not an executable cycle. Do not
-      // create new decisions, publish replacement plans or send pending mirror orders.
-      await recordEvent({
-        runId,
-        stage: "SYSTEM",
-        level: "WARNING",
-        action: "MARKET_DATA_EXECUTION_PAUSED",
-        message: `行情未通过新鲜度检查，本轮自动暂停策略生成与新订单：${marketMessage || "未取得有效报价"}`,
-      });
     }
 
     account = await reconcileAccount(now);
@@ -913,10 +1016,12 @@ export async function runBitgetDemoServerRuntime(
     finalMessage = before.paused
       ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
-        ? `服务器心跳和对账已运行；行情异常导致模拟执行自动暂停，本轮未生成新策略或提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
-        : `服务器链路完成：行情正常，旧策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，Demo成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0)}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0)}笔。`;
+        ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
+        : !liveAllowsNewEntries
+          ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
+          : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，三周期${threeHorizon ? "已运行" : "未运行"}，${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`;
     const report: BitgetRuntimeRunReport = {
-      ok: marketOk && !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0,
+      ok: marketOk && !apiError && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
       locked: false,
       paused: executionPaused,
       runId,
@@ -935,6 +1040,7 @@ export async function runBitgetDemoServerRuntime(
       mirror: mirrorResult,
       reconcile: account,
       memberDeskSync: { ok: true },
+      liveExperimentExit: liveExit,
       message: finalMessage,
     };
     await updateRuntimeState({
@@ -945,14 +1051,16 @@ export async function runBitgetDemoServerRuntime(
       account,
       orderAttempted: Boolean(
         (mirrorResult && mirrorResult.processed > 0) ||
-        (threeHorizon && threeHorizon.orderAttempts > 0)
+        (threeHorizon && threeHorizon.orderAttempts > 0) ||
+        liveExit.attempted > 0
       ),
       orderSuccess: Boolean(
         (mirrorResult && mirrorResult.success > 0) ||
-        (threeHorizon && threeHorizon.orderSuccess > 0)
+        (threeHorizon && threeHorizon.orderSuccess > 0) ||
+        liveExit.success > 0
       ),
       apiError,
-      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0),
+      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
       report: report as unknown as Record<string, unknown>,
     });
     await recordEvent({
@@ -985,14 +1093,16 @@ export async function runBitgetDemoServerRuntime(
       account,
       orderAttempted: Boolean(
         (mirrorResult && mirrorResult.processed > 0) ||
-        (threeHorizon && threeHorizon.orderAttempts > 0)
+        (threeHorizon && threeHorizon.orderAttempts > 0) ||
+        liveExit.attempted > 0
       ),
       orderSuccess: Boolean(
         (mirrorResult && mirrorResult.success > 0) ||
-        (threeHorizon && threeHorizon.orderSuccess > 0)
+        (threeHorizon && threeHorizon.orderSuccess > 0) ||
+        liveExit.success > 0
       ),
       apiError: message,
-      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0),
+      orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
       report: { error: message, runId },
     }).catch(() => undefined);
     throw error;
@@ -1037,6 +1147,7 @@ export async function runBitgetDemoSmokeTest(input: {
   symbol?: BitgetSupportedSymbol;
 }): Promise<BitgetSmokeTestReport> {
   const environment = getBitgetDemoEnvironment();
+  if (environment.mode === "LIVE_EXPERIMENT") throw new Error("实盘实验模式禁止运行自动冒烟开平仓测试");
   if (!environment.configured) throw new Error("Bitget Demo密钥尚未配置完整");
   if (!environment.executionAllowed) throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
   if (!environment.testOrderAllowed) {

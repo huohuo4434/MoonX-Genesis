@@ -10,13 +10,44 @@ import type {
 const inputClass =
   "min-h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-primary/60";
 
+const LIVE_ASSET_LABELS: Record<string, string> = {
+  BTCUSDT: "比特币",
+  ETHUSDT: "以太坊",
+  HYPEUSDT: "HYPE",
+  MUUSDT: "美光",
+  QQQUSDT: "纳指QQQ",
+  XAUTUSDT: "黄金",
+  XAGUSDT: "白银",
+  GOOGLUSDT: "谷歌",
+  CLUSDT: "WTI原油",
+  SPYUSDT: "标普",
+};
+
+function signed(value: number | null | undefined, suffix = ""): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}${suffix}`;
+}
+
 type Dashboard = {
   environment: {
+    mode: "DEMO" | "LIVE_EXPERIMENT";
     configured: boolean;
     executionAllowed: boolean;
     testOrderAllowed: boolean;
     apiKeyMasked: string;
     leverage: number;
+    liveConfirmationAccepted: boolean;
+    liveInitialCapitalUsdt: number;
+    liveDurationDays: number;
+    liveMaxDrawdownUsdt: number;
+    liveDailyLossUsdt: number;
+    liveMaxPositionNotionalUsdt: number;
+    liveMaxGrossNotionalPct: number;
+    liveMaxConcurrentPositions: number;
+    liveMaxTradesPerDay: number;
+    liveAllowedSymbols: string[];
+    requireIpWhitelist: boolean;
+    allowNoIpWhitelist: boolean;
   };
   settings: {
     enabled: boolean;
@@ -38,6 +69,17 @@ type Dashboard = {
     attempts: number;
     updatedAt: string;
   }>;
+};
+
+
+type SecurityResult = {
+  permissions: string[];
+  ipWhitelist: string[];
+  withdrawalPermission: boolean;
+  tradingPermission: boolean;
+  managementPermission: boolean;
+  safeForLiveExperiment: boolean;
+  message: string;
 };
 
 type TestResult = {
@@ -97,6 +139,7 @@ function runtimeBadge(runtime: BitgetRuntimeState): {
 export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
   const [dashboard, setDashboard] = useState(initial);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [securityResult, setSecurityResult] = useState<SecurityResult | null>(null);
   const [smokeResult, setSmokeResult] = useState<BitgetSmokeTestReport | null>(null);
   const [smokeConfirmation, setSmokeConfirmation] = useState("");
   const [message, setMessage] = useState("");
@@ -119,7 +162,7 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
     setMessage("");
     try {
       const res = await fetch("/api/admin/bitget-demo/test", { method: "POST" });
-      const json = await parseJson<{ error?: string; connection?: TestResult }>(
+      const json = await parseJson<{ error?: string; connection?: TestResult; security?: SecurityResult | null }>(
         res,
         "连接测试"
       );
@@ -127,15 +170,17 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
         throw new Error(json.error || "连接测试失败");
       }
       setTestResult(json.connection);
+      setSecurityResult(json.security ?? null);
       const detected =
         json.connection.detectedUsdt ??
         json.connection.demoFundsUsdt ??
         json.connection.availableUsdt ??
         0;
+      const liveMode = dashboard.environment.mode === "LIVE_EXPERIMENT";
       setMessage(
         detected > 0
-          ? `Bitget Demo连接成功，检测到${detected.toLocaleString("en-US")} USDT模拟资金；本次没有下单。`
-          : "Bitget Demo连接成功，但没有检测到模拟资金；本次没有下单。"
+          ? `Bitget ${liveMode ? "实盘" : "Demo"}连接成功，检测到${detected.toLocaleString("en-US")} USDT${liveMode ? "账户权益" : "模拟资金"}；本次没有下单。`
+          : `Bitget ${liveMode ? "实盘" : "Demo"}连接成功，但没有检测到${liveMode ? "可用权益" : "模拟资金"}；本次没有下单。`
       );
       await refresh(true);
     } catch (error) {
@@ -274,6 +319,115 @@ export function BitgetDemoClient({ initial }: { initial: Dashboard }) {
 
   const runtimeStatus = runtimeBadge(dashboard.runtime);
   const stats = dashboard.runtime.decisionStatsToday;
+  const live = dashboard.environment.mode === "LIVE_EXPERIMENT";
+
+  if (live) {
+    const experiment = dashboard.runtime.liveExperiment;
+    const statusLabel = experiment?.status === "ACTIVE"
+      ? "运行中"
+      : experiment?.status === "COMPLETED"
+        ? "已结束"
+        : experiment?.status === "STOPPED"
+          ? "已停止"
+          : "待启动";
+    const securitySafe = securityResult?.safeForLiveExperiment ?? Boolean(experiment?.securityMessage && !experiment.stopReason);
+    return (
+      <div className="space-y-6">
+        {message ? (
+          <Card padding="md" className="border-primary/25 bg-primary/[0.04]">
+            <Text variant="body-sm">{message}</Text>
+          </Card>
+        ) : null}
+
+        <Card padding="lg" className="space-y-5 border-red-400/25 bg-red-400/[0.025]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <Heading size="h3">实盘实验运行状态</Heading>
+              <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
+                30天实验由Vercel服务器定时运行；关闭电脑不会停止。只做10个USDT合约品种，逐仓杠杆不超过2倍，每天最多新开3笔、最多同时持有3个仓位。
+              </Text>
+            </div>
+            <Badge variant={experiment?.status === "ACTIVE" ? "success" : experiment?.status === "STOPPED" ? "danger" : "warning"}>{statusLabel}</Badge>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">今日盈亏</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(experiment?.dailyPnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(experiment?.dailyPnlUsdt, " USDT")} · {signed(experiment?.dailyPnlPct, "%")}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">累计盈亏</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(experiment?.pnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(experiment?.pnlUsdt, " USDT")} · {signed(experiment?.pnlPct, "%")}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">当前权益</Text><Text variant="body" weight="semibold" className="mt-1 block">{experiment?.currentEquityUsdt?.toFixed(2) ?? "—"} USDT</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">初始本金</Text><Text variant="body" weight="semibold" className="mt-1 block">{experiment?.initialEquityUsdt?.toFixed(2) ?? dashboard.environment.liveInitialCapitalUsdt.toFixed(2)} USDT</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">最大回撤</Text><Text variant="body" weight="semibold" className="mt-1 block text-red-300">{signed(experiment?.maxDrawdownUsdt, " USDT")} · {signed(experiment?.maxDrawdownPct, "%")}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">结束时间</Text><Text variant="body-sm" className="mt-1 block">{time(experiment?.endsAt ?? null)}</Text></div>
+          </div>
+
+          {dashboard.runtime.paused ? <div className="rounded-lg border border-red-400/25 bg-red-400/[0.05] p-4"><Text variant="body-sm" className="text-red-200">已暂停：{dashboard.runtime.pauseReason || "等待管理员检查"}</Text></div> : null}
+          {experiment?.stopReason ? <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-4"><Text variant="body-sm" className="text-amber-200">{experiment.stopReason}</Text></div> : null}
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">服务器心跳</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastMarketAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">延迟 {seconds(dashboard.runtime.quoteAgeSeconds)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户连接</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.connected ? "正常" : "未正常连接"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">当前持仓</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.positionsCount} 个</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">API密钥</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.configured ? dashboard.environment.apiKeyMasked : "未配置"}</Text></div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
+            <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button>
+            {dashboard.runtime.paused ? (
+              <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
+            ) : (
+              <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>紧急暂停新开仓</Button>
+            )}
+            <Button type="button" variant="outline" onClick={() => void refresh(false)} isLoading={loading}>刷新状态</Button>
+          </div>
+        </Card>
+
+        <Card padding="lg" className="space-y-4">
+          <Heading size="h3">启动前安全检查</Heading>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">实盘总开关</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.executionAllowed ? "已开启" : "未开启"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">真实亏损确认</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.liveConfirmationAccepted ? "已确认" : "未确认"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">提币权限</Text><Text variant="body-sm" className={`mt-1 block ${securityResult?.withdrawalPermission ? "text-red-300" : ""}`}>{securityResult ? (securityResult.withdrawalPermission ? "危险：已开启" : "未开启") : "点击安全检查读取"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">IP白名单</Text><Text variant="body-sm" className="mt-1 block">{securityResult ? (securityResult.ipWhitelist.length ? `已绑定${securityResult.ipWhitelist.length}个IP` : dashboard.environment.allowNoIpWhitelist ? "已显式豁免" : "未绑定") : "点击安全检查读取"}</Text></div>
+          </div>
+          <Text variant="body-sm" className={securityResult && !securitySafe ? "text-red-300" : "text-white/60"}>{securityResult?.message || experiment?.securityMessage || "配置完成后点击上方安全检查。只有无提币权限、具备UTA交易与管理权限并满足IP规则时才允许启动。"}</Text>
+        </Card>
+
+        {testResult ? (
+          <Card padding="lg" className="space-y-3">
+            <Heading size="h3">账户检查结果</Heading>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">可用USDT</Text><Text variant="body" weight="semibold" className="mt-1 block">{testResult.availableUsdt.toFixed(2)}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户权益</Text><Text variant="body" weight="semibold" className="mt-1 block">{testResult.equityUsdt.toFixed(2)}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户模式</Text><Text variant="body-sm" className="mt-1 block">{testResult.accountMode} · {testResult.accountLevel}</Text></div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {dashboard.environment.liveAllowedSymbols.map((symbol) => {
+                const instrument = testResult.symbols.find((row) => row.symbol === symbol);
+                return (
+                  <div key={symbol} className={`rounded-lg border p-3 ${instrument?.available ? "border-emerald-400/20" : "border-red-400/25"}`}>
+                    <Text variant="caption" color="tertiary">{LIVE_ASSET_LABELS[symbol] ?? symbol}</Text>
+                    <Text variant="body-sm" className={`mt-1 block ${instrument?.available ? "text-emerald-300" : "text-red-300"}`}>{symbol} · {instrument?.available ? "可交易" : "不可交易"}</Text>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ) : null}
+
+        <Card padding="lg" className="space-y-4">
+          <Heading size="h3">最近安全与订单事件</Heading>
+          {dashboard.runtime.recentEvents.length ? dashboard.runtime.recentEvents.slice(0, 15).map((event) => (
+            <div key={event.id} className="rounded-lg border border-white/10 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><Text variant="body-sm" weight="semibold">{event.action}{event.symbol ? ` · ${event.symbol}` : ""}</Text><Badge variant={event.level === "ERROR" ? "danger" : event.level === "WARNING" ? "warning" : event.level === "SUCCESS" ? "success" : "outline"}>{event.level}</Badge></div>
+              <Text variant="caption" color="secondary" className="mt-2 block">{event.message}</Text>
+              <Text variant="caption" color="tertiary" className="mt-1 block">{time(event.createdAt)}</Text>
+            </div>
+          )) : <Text variant="body-sm" color="secondary">启动服务器运行后，这里会显示安全检查、拦截、订单与平仓记录。</Text>}
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

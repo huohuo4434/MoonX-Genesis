@@ -1,5 +1,5 @@
 export type ThreeHorizonStrategyType = "INTRADAY" | "SWING" | "POSITION";
-export type ThreeHorizonStrategyMode = "SHADOW" | "DEMO";
+export type ThreeHorizonStrategyMode = "SHADOW" | "DEMO" | "LIVE";
 export type ThreeHorizonDirection = "LONG" | "SHORT" | "NEUTRAL";
 export type ThreeHorizonDecisionStatus =
   | "OBSERVING"

@@ -4,6 +4,7 @@ import {
   getBitgetDemoClosedPositions,
   getBitgetDemoCurrentPositions,
   getBitgetDemoPendingStrategyOrders,
+  getBitgetDemoEnvironment,
   type BitgetDemoClosedPosition,
   type BitgetDemoPosition,
   type BitgetDemoStrategyOrder,
@@ -394,12 +395,16 @@ function buildStats(
 }
 
 function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTradingDeskSnapshot {
+  const environment = getBitgetDemoEnvironment();
+  const live = environment.mode === "LIVE_EXPERIMENT";
   const snapshot: AiTradingDeskSnapshot = {
     generatedAt: new Date().toISOString(),
     lastSyncedAt: null,
-    mode: "BITGET_DEMO",
-    ledgerSource: "BITGET_DEMO",
-    ledgerNotice: "会员端只展示Bitget Demo真实模拟订单；MOOX站内模拟盘是独立账本。",
+    mode: live ? "BITGET_LIVE_EXPERIMENT" : "BITGET_DEMO",
+    ledgerSource: live ? "BITGET_LIVE" : "BITGET_DEMO",
+    ledgerNotice: live
+      ? "本页直接读取独立Bitget实盘实验账户；实验本金、盈亏与回撤均来自交易所账户，不与站内模拟账本混合。"
+      : "会员端只展示Bitget Demo真实模拟订单；MOOX站内模拟盘是独立账本。",
     strategyEnabled: false,
     mirrorEnabled: false,
     executionConfigured: false,
@@ -411,6 +416,12 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     operationalStateLabel: settings.enabled ? "服务异常" : "已暂停",
     quoteReady: false,
     latestQuoteAt: null,
+    experiment: {
+      status: live ? "NOT_STARTED" : "DISABLED", startedAt: null, endsAt: null,
+      initialEquityUsdt: live ? environment.liveInitialCapitalUsdt : null, currentEquityUsdt: null,
+      pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
+      stopReason: "", securityMessage: "",
+    },
     runtime: {
       paused: false,
       pauseReason: "",
@@ -456,7 +467,10 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
 export async function buildMemberAiTradingDeskSnapshot(
   now = new Date()
 ): Promise<AiTradingDeskSnapshot> {
-  const settings = await getMemberAiTradingDeskSettings();
+  const storedSettings = await getMemberAiTradingDeskSettings();
+  const environment = getBitgetDemoEnvironment();
+  const live = environment.mode === "LIVE_EXPERIMENT";
+  const settings = live ? { ...storedSettings, showAbsolutePnl: true } : storedSettings;
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
   const [dashboard, runtime, strategies, planDashboard] = await Promise.all([
@@ -474,8 +488,17 @@ export async function buildMemberAiTradingDeskSnapshot(
   const bitgetClosed = liveResults[1].status === "fulfilled" ? liveResults[1].value : [];
   const strategyOrders = liveResults[2].status === "fulfilled" ? liveResults[2].value : [];
   const planSymbols = new Set(dashboard.plans.map((plan) => `${plan.symbol}USDT`.toUpperCase()));
-  const positions = allPositions.filter((row) => planSymbols.has(row.symbol.toUpperCase()));
-  const closed = bitgetClosed.filter((row) => planSymbols.has(row.symbol.toUpperCase()));
+  const allowedSymbols: Set<string> = live ? new Set<string>(environment.liveAllowedSymbols) : planSymbols;
+  const experimentStartMs = runtime.liveExperiment?.startedAt
+    ? Date.parse(runtime.liveExperiment.startedAt)
+    : Number.NaN;
+  const positions = allPositions.filter((row) => allowedSymbols.has(row.symbol.toUpperCase()));
+  const closed = bitgetClosed.filter((row) => {
+    if (!allowedSymbols.has(row.symbol.toUpperCase())) return false;
+    if (!live || !Number.isFinite(experimentStartMs)) return true;
+    const closedAt = Date.parse(row.updatedAt ?? row.createdAt ?? "");
+    return Number.isFinite(closedAt) && closedAt >= experimentStartMs;
+  });
   const runtimeQuotes = new Map(
     runtime.latestQuotes.map((row) => [
       row.symbol.toUpperCase(),
@@ -489,13 +512,15 @@ export async function buildMemberAiTradingDeskSnapshot(
   const snapshot: AiTradingDeskSnapshot = {
     generatedAt: now.toISOString(),
     lastSyncedAt: now.toISOString(),
-    mode: "BITGET_DEMO",
-    ledgerSource: "BITGET_DEMO",
-    ledgerNotice: "会员端只展示Bitget Demo实际模拟持仓和成交；管理员站内模拟盘不会混入本页统计。",
-    strategyEnabled: dashboard.settings.enabled,
-    mirrorEnabled: dashboard.mirrorEnabled,
-    executionConfigured: dashboard.executionAllowed,
-    executionAllowed: dashboard.executionAllowed,
+    mode: live ? "BITGET_LIVE_EXPERIMENT" : "BITGET_DEMO",
+    ledgerSource: live ? "BITGET_LIVE" : "BITGET_DEMO",
+    ledgerNotice: live
+      ? "本页只统计独立Bitget实盘实验账户。API不含提币权限；系统最多同时持有3个仓位，单仓风险、风险组敞口、日止损与总回撤均受约束。"
+      : "会员端只展示Bitget Demo实际模拟持仓和成交；管理员站内模拟盘不会混入本页统计。",
+    strategyEnabled: live ? strategies.some((row) => row.enabled) : dashboard.settings.enabled,
+    mirrorEnabled: live ? false : dashboard.mirrorEnabled,
+    executionConfigured: runtime.executionAllowed,
+    executionAllowed: runtime.executionAllowed,
     serverHealthy: runtime.serverHealthy,
     syncStatus: errors.length
       ? (errors.length < liveResults.length ? "PARTIAL" : "ERROR")
@@ -507,12 +532,18 @@ export async function buildMemberAiTradingDeskSnapshot(
       : runtime.paused
         ? `服务器交易执行已暂停：${runtime.pauseReason || "等待管理员恢复"}`
         : runtime.serverHealthy
-          ? "Bitget Demo行情、服务器心跳、策略检查与账户对账正常。"
+          ? live ? "Bitget实盘行情、服务器心跳、策略检查与账户对账正常。" : "Bitget Demo行情、服务器心跳、策略检查与账户对账正常。"
           : "服务器心跳或行情时间尚未达到正常状态。",
     operationalState: "CONNECTING",
     operationalStateLabel: "正在连接",
     quoteReady: runtime.quoteAgeSeconds != null && runtime.quoteAgeSeconds <= 180,
     latestQuoteAt: runtime.lastMarketAt,
+    experiment: runtime.liveExperiment ?? {
+      status: live ? "NOT_STARTED" : "DISABLED", startedAt: null, endsAt: null,
+      initialEquityUsdt: live ? environment.liveInitialCapitalUsdt : null, currentEquityUsdt: null,
+      pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
+      stopReason: "", securityMessage: "",
+    },
     runtime: {
       paused: runtime.paused,
       pauseReason: runtime.pauseReason,
@@ -610,7 +641,6 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
   return applyAiDeskOperationalState({
     ...payload,
     settings,
-    executionConfigured: payload.executionConfigured ?? payload.executionAllowed ?? false,
     strategies: payload.strategies ?? [],
     planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
     publishedPlans: payload.publishedPlans ?? [],
@@ -621,10 +651,17 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
     quoteReady: payload.quoteReady ?? false,
     latestQuoteAt: payload.latestQuoteAt ?? null,
-    ledgerSource: payload.ledgerSource ?? "BITGET_DEMO",
+    ledgerSource: payload.ledgerSource ?? (payload.mode === "BITGET_LIVE_EXPERIMENT" ? "BITGET_LIVE" : "BITGET_DEMO"),
     ledgerNotice:
       payload.ledgerNotice ??
-      "会员端只展示Bitget Demo实际模拟订单；MOOX站内模拟盘是独立账本。",
+      (payload.mode === "BITGET_LIVE_EXPERIMENT"
+        ? "本页只统计独立Bitget实盘实验账户。"
+        : "会员端只展示Bitget Demo实际模拟订单；MOOX站内模拟盘是独立账本。"),
+    experiment: payload.experiment ?? {
+      status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null,
+      pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
+      stopReason: "", securityMessage: "",
+    },
     runtime: payload.runtime ?? {
       paused: false,
       pauseReason: "",

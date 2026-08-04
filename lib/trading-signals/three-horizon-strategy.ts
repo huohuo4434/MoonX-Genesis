@@ -48,6 +48,8 @@ import type {
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
 
+const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^(BTC|ETH|HYPE|MU|QQQ|XAUT|XAG|GOOGL|CL|SPY)USDT$/;
+
 const PROFILE_DEFINITIONS: Record<
   ThreeHorizonStrategyType,
   Omit<ThreeHorizonStrategyProfile, "enabled" | "mode" | "lastScanAt" | "updatedAt">
@@ -100,10 +102,10 @@ const PROFILE_DEFINITIONS: Record<
 };
 
 const STRATEGY_ORDER: ThreeHorizonStrategyType[] = ["INTRADAY", "SWING", "POSITION"];
-const DAILY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_DAILY_LOSS_LIMIT_PCT", 1, 0.25, 5);
-const WEEKLY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_WEEKLY_LOSS_LIMIT_PCT", 2.5, 0.5, 10);
-const OPEN_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_OPEN_RISK_LIMIT_PCT", 2, 0.5, 5);
-const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT", 1.25, 0.25, 3);
+const DAILY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_DAILY_LOSS_LIMIT_PCT", 2, 0.25, 5);
+const WEEKLY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_WEEKLY_LOSS_LIMIT_PCT", 4, 0.5, 10);
+const OPEN_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_OPEN_RISK_LIMIT_PCT", 1.5, 0.5, 5);
+const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT", 1, 0.25, 3);
 const MAX_POSITION_NOTIONAL_PCT = envNumber("THREE_HORIZON_MAX_POSITION_NOTIONAL_PCT", 10, 1, 25);
 
 interface ProfileRow {
@@ -437,7 +439,7 @@ function pricePlan(input: {
   const config = input.strategyType === "INTRADAY"
     ? { atrMultiple: 1.2, minPct: 0.4, maxPct: 3, target1R: 1, target2R: 1.8 }
     : input.strategyType === "SWING"
-      ? { atrMultiple: 1.6, minPct: 1, maxPct: 6, target1R: 1.5, target2R: 2.5 }
+      ? { atrMultiple: 1.6, minPct: 1, maxPct: 6, target1R: 1, target2R: 2.2 }
       : { atrMultiple: 2, minPct: 2, maxPct: 10, target1R: 1.5, target2R: 3 };
   let distance = input.atrValue * config.atrMultiple;
   if (input.direction === "LONG" && input.swingLow > 0 && input.swingLow < input.entry) {
@@ -788,6 +790,20 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         ) ON CONFLICT (strategy_type) DO NOTHING
       `;
     }
+    const environment = getBitgetDemoEnvironment();
+    if (environment.mode === "LIVE_EXPERIMENT") {
+      await prisma.$executeRawUnsafe(`
+        UPDATE trade_three_horizon_profiles SET
+          enabled = CASE WHEN strategy_type='SWING' THEN TRUE ELSE FALSE END,
+          mode = CASE WHEN strategy_type='SWING' THEN 'LIVE' ELSE 'SHADOW' END,
+          symbols = CASE WHEN strategy_type='SWING' THEN '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb ELSE symbols END,
+          risk_per_trade_pct = CASE WHEN strategy_type='SWING' THEN 0.5 ELSE risk_per_trade_pct END,
+          planning_min_confidence = CASE WHEN strategy_type='SWING' THEN 58 ELSE planning_min_confidence END,
+          min_confidence = CASE WHEN strategy_type='SWING' THEN 68 ELSE min_confidence END,
+          max_trades_per_day = CASE WHEN strategy_type='SWING' THEN 3 ELSE 0 END,
+          updated_at = NOW()
+      `);
+    }
     ensured = true;
     return true;
   } catch (error) {
@@ -800,11 +816,11 @@ function mapProfile(row: ProfileRow): ThreeHorizonStrategyProfile {
   const definition = PROFILE_DEFINITIONS[row.strategy_type];
   const symbols = parseJson<string[]>(row.symbols, definition.symbols)
     .map((value) => String(value).toUpperCase())
-    .filter((value) => /^(BTC|ETH|HYPE)USDT$/.test(value));
+    .filter((value) => LIVE_EXPERIMENT_SYMBOL_PATTERN.test(value));
   return {
     ...definition,
     enabled: Boolean(row.enabled),
-    mode: row.mode === "DEMO" ? "DEMO" : "SHADOW",
+    mode: row.mode === "LIVE" ? "LIVE" : row.mode === "DEMO" ? "DEMO" : "SHADOW",
     symbols: symbols.length ? symbols : definition.symbols,
     scanIntervalMinutes: Math.max(1, Number(row.scan_interval_minutes || definition.scanIntervalMinutes)),
     riskPerTradePct: clamp(Number(row.risk_per_trade_pct || definition.riskPerTradePct), 0.1, 0.5),
@@ -825,7 +841,7 @@ function mapDecision(row: DecisionRow): ThreeHorizonStrategyDecision {
     planId: row.plan_id,
     strategyType: row.strategy_type,
     strategyLabel: PROFILE_DEFINITIONS[row.strategy_type].label,
-    mode: row.mode === "DEMO" ? "DEMO" : "SHADOW",
+    mode: row.mode === "LIVE" ? "LIVE" : row.mode === "DEMO" ? "DEMO" : "SHADOW",
     symbol: row.symbol,
     status: row.status,
     direction: row.direction,
@@ -992,7 +1008,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
       openRiskLimitPct: OPEN_RISK_LIMIT_PCT,
       cryptoGroupRiskLimitPct: CRYPTO_GROUP_RISK_LIMIT_PCT,
       blocked: true,
-      blockReason: "Bitget Demo密钥尚未配置完整。",
+      blockReason: environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘密钥尚未配置完整。" : "Bitget Demo密钥尚未配置完整。",
     };
   }
   try {
@@ -1008,13 +1024,17 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
     const dailyLossPct = equity > 0 && dailyNet < 0 ? Math.abs(dailyNet) / equity * 100 : 0;
     const weeklyLossPct = equity > 0 && weeklyNet < 0 ? Math.abs(weeklyNet) / equity * 100 : 0;
     const openRiskAmount = active.reduce((sum, row) => sum + Number(row.risk_amount_usdt ?? 0), 0);
+    const cryptoRiskAmount = active
+      .filter((row) => ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(row.symbol))
+      .reduce((sum, row) => sum + Number(row.risk_amount_usdt ?? 0), 0);
     const openRiskPct = equity > 0 ? openRiskAmount / equity * 100 : 0;
+    const cryptoGroupRiskPct = equity > 0 ? cryptoRiskAmount / equity * 100 : 0;
     let blockReason = "";
-    if (equity <= 0) blockReason = "未检测到可用于Demo交易的模拟资金。";
+    if (equity <= 0) blockReason = environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金。" : "未检测到可用于Demo交易的模拟资金。";
     else if (dailyLossPct >= DAILY_LOSS_LIMIT_PCT) blockReason = `当日亏损达到${round(dailyLossPct, 2)}%，触发${DAILY_LOSS_LIMIT_PCT}%暂停线。`;
     else if (weeklyLossPct >= WEEKLY_LOSS_LIMIT_PCT) blockReason = `本周亏损达到${round(weeklyLossPct, 2)}%，触发${WEEKLY_LOSS_LIMIT_PCT}%暂停线。`;
     else if (openRiskPct >= OPEN_RISK_LIMIT_PCT) blockReason = `开放风险达到${round(openRiskPct, 2)}%，超过${OPEN_RISK_LIMIT_PCT}%上限。`;
-    else if (openRiskPct >= CRYPTO_GROUP_RISK_LIMIT_PCT) blockReason = `加密货币风险组达到${round(openRiskPct, 2)}%，超过${CRYPTO_GROUP_RISK_LIMIT_PCT}%上限。`;
+    else if (cryptoGroupRiskPct >= CRYPTO_GROUP_RISK_LIMIT_PCT) blockReason = `加密货币风险组达到${round(cryptoGroupRiskPct, 2)}%，超过${CRYPTO_GROUP_RISK_LIMIT_PCT}%上限。`;
     else if (consecutiveLosses >= 3) blockReason = "三周期策略连续亏损3单，已禁止新开仓。";
     return {
       equityUsdt: equity || null,
@@ -1023,7 +1043,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
       dailyLossPct: round(dailyLossPct, 3),
       weeklyLossPct: round(weeklyLossPct, 3),
       openRiskPct: round(openRiskPct, 3),
-      cryptoGroupRiskPct: round(openRiskPct, 3),
+      cryptoGroupRiskPct: round(cryptoGroupRiskPct, 3),
       consecutiveLosses,
       dailyLossLimitPct: DAILY_LOSS_LIMIT_PCT,
       weeklyLossLimitPct: WEEKLY_LOSS_LIMIT_PCT,
@@ -1047,7 +1067,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
       openRiskLimitPct: OPEN_RISK_LIMIT_PCT,
       cryptoGroupRiskLimitPct: CRYPTO_GROUP_RISK_LIMIT_PCT,
       blocked: true,
-      blockReason: error instanceof Error ? error.message : "Bitget Demo风险数据读取失败。",
+      blockReason: error instanceof Error ? error.message : "Bitget风险数据读取失败。",
     };
   }
 }
@@ -1492,7 +1512,10 @@ async function calculatePositionSize(input: {
   if (stopDistance <= 0) throw new Error("止损距离无效");
   const riskAmount = input.equityUsdt * input.profile.riskPerTradePct / 100;
   const riskQuantity = riskAmount / stopDistance;
-  const maxNotional = input.equityUsdt * MAX_POSITION_NOTIONAL_PCT / 100;
+  const environment = getBitgetDemoEnvironment();
+  const maxNotional = environment.mode === "LIVE_EXPERIMENT"
+    ? Math.min(input.equityUsdt * 0.3, environment.liveMaxPositionNotionalUsdt)
+    : input.equityUsdt * MAX_POSITION_NOTIONAL_PCT / 100;
   const cappedQuantity = Math.min(riskQuantity, maxNotional / input.evaluation.entryPrice);
   const contract = await getContractConfig(input.symbol);
   const normalized = Number(normalizeOrderSize(cappedQuantity, contract));
@@ -1542,7 +1565,9 @@ async function executeReadyDecision(input: {
     };
   }
   const environment = getBitgetDemoEnvironment();
-  const horizonExecutionAllowed = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
+  const horizonExecutionAllowed = environment.mode === "LIVE_EXPERIMENT"
+    ? environment.executionAllowed
+    : process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
   const mirror = await getBitgetMirrorSettings();
   const reliabilityGate = await getTradingReliabilityOpeningGate();
   let blockReason = "";
@@ -1550,15 +1575,21 @@ async function executeReadyDecision(input: {
   if (!reliabilityGate.allowed) {
     blockCode = reliabilityGate.code;
     blockReason = reliabilityGate.reason;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && input.profile.mode !== "LIVE") {
+    blockCode = "LIVE_PROFILE_REQUIRED";
+    blockReason = "实盘实验只允许LIVE模式策略提交订单。";
+  } else if (environment.mode === "DEMO" && input.profile.mode !== "DEMO") {
+    blockCode = "DEMO_PROFILE_REQUIRED";
+    blockReason = "Demo环境只允许DEMO模式策略提交订单。";
   } else if (!horizonExecutionAllowed) {
     blockCode = "THREE_HORIZON_EXECUTION_OFF";
     blockReason = "BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED尚未设为true。";
   } else if (!environment.executionAllowed) {
-    blockCode = "DEMO_EXECUTION_OFF";
-    blockReason = "BITGET_DEMO_EXECUTION_ALLOWED尚未设为true。";
-  } else if (mirror.enabled) {
+    blockCode = "EXECUTION_OFF";
+    blockReason = environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘实验执行尚未开启。" : "Bitget Demo执行尚未开启。";
+  } else if (environment.mode === "DEMO" && mirror.enabled) {
     blockCode = "LEGACY_MIRROR_ACTIVE";
-    blockReason = "旧版Bitget镜像仍开启；为避免两套机器人争抢同一仓位，三周期Demo下单已拦截。";
+    blockReason = "旧版Bitget镜像仍开启；为避免两套机器人争抢同一仓位，三周期下单已拦截。";
   } else if (input.risk.blocked) {
     blockCode = "RISK_LIMIT";
     blockReason = input.risk.blockReason;
@@ -1569,6 +1600,7 @@ async function executeReadyDecision(input: {
     blockCode = "PROJECTED_OPEN_RISK_LIMIT";
     blockReason = `本单按最大预算计入后，开放风险将达到${round(input.risk.openRiskPct + input.reservedRiskPct + input.profile.riskPerTradePct, 3)}%，超过${input.risk.openRiskLimitPct}%上限。`;
   } else if (
+    ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(input.decision.symbol) &&
     input.risk.cryptoGroupRiskPct + input.reservedRiskPct + input.profile.riskPerTradePct >
     input.risk.cryptoGroupRiskLimitPct + 1e-9
   ) {
@@ -1579,13 +1611,13 @@ async function executeReadyDecision(input: {
     blockReason = `${input.decision.symbol}已在本次服务器扫描中提交过订单，禁止并发重复开仓。`;
   } else if (input.positions.some((row) => row.symbol === input.decision.symbol && row.total > 0)) {
     blockCode = "SYMBOL_POSITION_EXISTS";
-    blockReason = `${input.decision.symbol}已有Bitget Demo持仓，同一标的不重复开仓。`;
+    blockReason = `${input.decision.symbol}已有Bitget持仓，同一标的不重复开仓。`;
   } else if (input.protections.some((row) => row.symbol === input.decision.symbol)) {
     blockCode = "SYMBOL_PROTECTION_EXISTS";
     blockReason = `${input.decision.symbol}仍有交易所策略单，需先完成对账。`;
   } else if (!input.risk.equityUsdt || input.risk.equityUsdt <= 0) {
     blockCode = "NO_EQUITY";
-    blockReason = "未检测到可用模拟资金。";
+    blockReason = environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金。" : "未检测到可用模拟资金。";
   }
   if (blockReason) {
     return {
@@ -1603,7 +1635,7 @@ async function executeReadyDecision(input: {
   try {
     const equityUsdt = input.risk.equityUsdt;
     if (equityUsdt == null || equityUsdt <= 0) {
-      throw new Error("未检测到可用模拟资金");
+      throw new Error(environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金" : "未检测到可用模拟资金");
     }
     const sizing = await calculatePositionSize({
       profile: input.profile,
@@ -1617,7 +1649,7 @@ async function executeReadyDecision(input: {
       riskAmountUsdt: sizing.riskAmountUsdt,
       riskPct: sizing.riskPct,
       rejectionCode: "",
-      rejectionReason: "通过组合风控，准备提交Bitget Demo订单。",
+      rejectionReason: environment.mode === "LIVE_EXPERIMENT" ? "通过全部风控，准备提交Bitget实盘订单。" : "通过组合风控，准备提交Bitget Demo订单。",
     });
     const order = await placeBitgetDemoMarketOrder({
       paperOrderId: current.id,
@@ -1635,7 +1667,7 @@ async function executeReadyDecision(input: {
       quantity: Number(order.size),
       riskAmountUsdt: sizing.riskAmountUsdt,
       riskPct: sizing.riskPct,
-      rejectionReason: `Bitget Demo订单已提交，并在开仓请求中预设止损和第二目标。${order.warnings.join("；")}`,
+      rejectionReason: `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单已提交，并在开仓请求中预设止损和第二目标。${order.warnings.join("；")}`,
     });
     return {
       decision: current,
@@ -1649,7 +1681,7 @@ async function executeReadyDecision(input: {
       decision: await updateDecision(input.decision.id, {
         status: "ERROR",
         rejectionCode: "ORDER_ERROR",
-        rejectionReason: error instanceof Error ? error.message : "Bitget Demo下单失败",
+        rejectionReason: error instanceof Error ? error.message : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}下单失败`,
       }),
       attempted: true,
       success: false,
@@ -1789,7 +1821,7 @@ export async function runThreeHorizonStrategyEngine(
         let rejectionReason = evaluation.rejectionReason;
         if (
           evaluation.ready &&
-          profile.mode === "DEMO" &&
+          profile.mode !== "SHADOW" &&
           tradesToday >= profile.maxTradesPerDay
         ) {
           status = "BLOCKED";
@@ -1890,7 +1922,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `三周期扫描${dueProfiles.length}套策略、${decisions.length}个标的决策；影子准备${decisions.filter((row) => row.status === "SHADOW_READY").length}，Demo下单成功${orderSuccess}，错误${orderErrors}。`,
+    message: `三周期扫描${dueProfiles.length}套策略、${decisions.length}个标的决策；影子准备${decisions.filter((row) => row.status === "SHADOW_READY").length}，${getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}下单成功${orderSuccess}，错误${orderErrors}。`,
   };
 }
 
@@ -1903,15 +1935,21 @@ export async function getThreeHorizonStrategyDashboard(
   const latestDecisions = rows.map(mapDecision);
   const risk = await buildRiskSnapshot(now);
   const stats = databaseReady ? await buildStrategyStats(profiles, now) : [];
-  const executionEnvironmentAllowed =
-    process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
+  const environment = getBitgetDemoEnvironment();
+  const executionEnvironmentAllowed = environment.mode === "LIVE_EXPERIMENT"
+    ? environment.executionAllowed
+    : process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
   return {
     databaseReady,
     generatedAt: now.toISOString(),
     executionEnvironmentAllowed,
-    executionSafetyNotice: executionEnvironmentAllowed
-      ? "三周期Demo总开关已开启；仍需策略处于DEMO模式、旧镜像关闭并通过组合风控才会下单。"
-      : "默认只运行影子模式。未设置BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED=true时，任何三周期策略都不会向Bitget下单。",
+    executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
+      ? executionEnvironmentAllowed
+        ? "1000 USDT实盘实验已开启；10个USDT合约波段策略、最高2倍逐仓及组合风控限制生效。"
+        : "实盘实验默认关闭；必须完成API安全检查并明确确认真实亏损风险后才会下单。"
+      : executionEnvironmentAllowed
+        ? "三周期Demo总开关已开启；仍需策略处于DEMO模式、旧镜像关闭并通过组合风控才会下单。"
+        : "默认只运行影子模式。未设置BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED=true时，任何三周期策略都不会向Bitget下单。",
     profiles,
     risk,
     latestDecisions,
@@ -1926,7 +1964,7 @@ export async function getThreeHorizonPublicStrategies(
   return dashboard.profiles.map((profile) => {
     const decisions = dashboard.latestDecisions
       .filter((row) => row.strategyType === profile.strategyType)
-      .slice(0, 6);
+      .slice(0, 20);
     const stats = dashboard.stats.find((row) => row.strategyType === profile.strategyType) ?? {
       strategyType: profile.strategyType,
       scansToday: 0,
@@ -1949,7 +1987,7 @@ export async function getThreeHorizonPublicStrategies(
       description: profile.description,
       enabled: profile.enabled,
       mode: profile.mode,
-      modeLabel: profile.mode === "DEMO" ? "Bitget Demo模拟执行" : "影子观察",
+      modeLabel: profile.mode === "LIVE" ? "Bitget实盘实验" : profile.mode === "DEMO" ? "Bitget Demo模拟执行" : "影子观察",
       holdingLabel: profile.strategyType === "INTRADAY" ? "30分钟～8小时" : profile.strategyType === "SWING" ? "1～7天" : "1～4周",
       timeframeLabel: `${profile.environmentTimeframe}环境 / ${profile.directionTimeframe}方向 / ${profile.entryTimeframe}入场`,
       riskPerTradePct: profile.riskPerTradePct,

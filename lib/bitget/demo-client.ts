@@ -29,12 +29,27 @@ export type BitgetContractConfig = {
   symbolStatus: string;
 };
 
+export type BitgetTradingMode = "DEMO" | "LIVE_EXPERIMENT";
+
 export type BitgetDemoEnvironment = {
+  mode: BitgetTradingMode;
   configured: boolean;
   executionAllowed: boolean;
   testOrderAllowed: boolean;
   apiKeyMasked: string;
   leverage: number;
+  liveConfirmationAccepted: boolean;
+  liveInitialCapitalUsdt: number;
+  liveDurationDays: number;
+  liveMaxDrawdownUsdt: number;
+  liveDailyLossUsdt: number;
+  liveMaxPositionNotionalUsdt: number;
+  liveMaxGrossNotionalPct: number;
+  liveMaxConcurrentPositions: number;
+  liveMaxTradesPerDay: number;
+  liveAllowedSymbols: BitgetSupportedSymbol[];
+  requireIpWhitelist: boolean;
+  allowNoIpWhitelist: boolean;
 };
 
 type BitgetEnvelope<T> = {
@@ -173,31 +188,91 @@ export type BitgetDemoCandle = {
   capturedAt: string;
 };
 
+function numericEnv(name: string, fallback: number, min: number, max: number): number {
+  const raw = Number(process.env[name] ?? fallback);
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(min, Math.min(max, raw));
+}
+
+function tradingMode(): BitgetTradingMode {
+  return process.env.BITGET_TRADING_MODE?.trim().toUpperCase() === "LIVE_EXPERIMENT"
+    ? "LIVE_EXPERIMENT"
+    : "DEMO";
+}
+
 function credentials() {
+  const mode = tradingMode();
+  if (mode === "LIVE_EXPERIMENT") {
+    return {
+      mode,
+      apiKey: process.env.BITGET_LIVE_API_KEY?.trim() ?? "",
+      secretKey: process.env.BITGET_LIVE_SECRET_KEY?.trim() ?? "",
+      passphrase: process.env.BITGET_LIVE_PASSPHRASE?.trim() ?? "",
+    };
+  }
   return {
+    mode,
     apiKey: process.env.BITGET_DEMO_API_KEY?.trim() ?? "",
     secretKey: process.env.BITGET_DEMO_SECRET_KEY?.trim() ?? "",
     passphrase: process.env.BITGET_DEMO_PASSPHRASE?.trim() ?? "",
   };
 }
 
+export const DEFAULT_LIVE_EXPERIMENT_SYMBOLS: BitgetSupportedSymbol[] = [
+  "BTCUSDT",
+  "ETHUSDT",
+  "HYPEUSDT",
+  "MUUSDT",
+  "QQQUSDT",
+  "XAUTUSDT",
+  "XAGUSDT",
+  "GOOGLUSDT",
+  "CLUSDT",
+  "SPYUSDT",
+];
+
+function liveAllowedSymbols(): BitgetSupportedSymbol[] {
+  const raw = process.env.BITGET_LIVE_ALLOWED_SYMBOLS?.trim() || DEFAULT_LIVE_EXPERIMENT_SYMBOLS.join(",");
+  const values = raw.split(",")
+    .map((value) => normalizeBitgetUsdtSymbol(value))
+    .filter((value): value is BitgetSupportedSymbol => Boolean(value));
+  return values.length ? Array.from(new Set(values)) : [...DEFAULT_LIVE_EXPERIMENT_SYMBOLS];
+}
+
 export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
   const env = credentials();
   const configured = Boolean(env.apiKey && env.secretKey && env.passphrase);
-  const leverageRaw = Number(process.env.BITGET_DEMO_LEVERAGE ?? 1);
+  const live = env.mode === "LIVE_EXPERIMENT";
+  const leverageRaw = Number(live ? process.env.BITGET_LIVE_LEVERAGE ?? 2 : process.env.BITGET_DEMO_LEVERAGE ?? 1);
   const leverage = Number.isFinite(leverageRaw)
-    ? Math.max(1, Math.min(3, Math.floor(leverageRaw)))
+    ? Math.max(1, Math.min(live ? 2 : 3, Math.floor(leverageRaw)))
     : 1;
+  const liveConfirmationAccepted = process.env.BITGET_LIVE_CONFIRMATION?.trim() === "I_ACCEPT_REAL_LOSS";
+  const requireIpWhitelist = process.env.BITGET_LIVE_REQUIRE_IP_WHITELIST?.toLowerCase() !== "false";
+  const allowNoIpWhitelist = process.env.BITGET_LIVE_ALLOW_NO_IP_WHITELIST?.trim() === "I_UNDERSTAND";
   return {
+    mode: env.mode,
     configured,
-    executionAllowed:
-      process.env.BITGET_DEMO_EXECUTION_ALLOWED?.toLowerCase() === "true",
-    testOrderAllowed:
-      process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
+    executionAllowed: live
+      ? process.env.BITGET_LIVE_EXECUTION_ALLOWED?.toLowerCase() === "true" && liveConfirmationAccepted
+      : process.env.BITGET_DEMO_EXECUTION_ALLOWED?.toLowerCase() === "true",
+    testOrderAllowed: !live && process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
     apiKeyMasked: env.apiKey
       ? `${env.apiKey.slice(0, 4)}••••${env.apiKey.slice(-4)}`
       : "未配置",
     leverage,
+    liveConfirmationAccepted,
+    liveInitialCapitalUsdt: numericEnv("BITGET_LIVE_INITIAL_CAPITAL_USDT", 1000, 100, 100000),
+    liveDurationDays: Math.floor(numericEnv("BITGET_LIVE_DURATION_DAYS", 30, 1, 365)),
+    liveMaxDrawdownUsdt: numericEnv("BITGET_LIVE_MAX_DRAWDOWN_USDT", 100, 5, 10000),
+    liveDailyLossUsdt: numericEnv("BITGET_LIVE_DAILY_LOSS_USDT", 20, 1, 5000),
+    liveMaxPositionNotionalUsdt: numericEnv("BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT", 300, 10, 100000),
+    liveMaxGrossNotionalPct: numericEnv("BITGET_LIVE_MAX_GROSS_NOTIONAL_PCT", 100, 20, 200),
+    liveMaxConcurrentPositions: Math.floor(numericEnv("BITGET_LIVE_MAX_CONCURRENT_POSITIONS", 3, 1, 5)),
+    liveMaxTradesPerDay: Math.floor(numericEnv("BITGET_LIVE_MAX_TRADES_PER_DAY", 3, 1, 10)),
+    liveAllowedSymbols: liveAllowedSymbols(),
+    requireIpWhitelist,
+    allowNoIpWhitelist,
   };
 }
 
@@ -434,7 +509,7 @@ async function signedRequest<T>(input: {
 }): Promise<T> {
   const env = credentials();
   if (!env.apiKey || !env.secretKey || !env.passphrase) {
-    throw new Error("Bitget Demo环境变量尚未配置完整");
+    throw new Error(env.mode === "LIVE_EXPERIMENT" ? "Bitget实盘环境变量尚未配置完整" : "Bitget Demo环境变量尚未配置完整");
   }
 
   try {
@@ -455,19 +530,22 @@ async function signedRequest<T>(input: {
   });
   const url = `${BASE_URL}${input.path}${query ? `?${query}` : ""}`;
 
+  const headers: Record<string, string> = {
+    "ACCESS-KEY": env.apiKey,
+    "ACCESS-SIGN": sign,
+    "ACCESS-TIMESTAMP": timestamp,
+    "ACCESS-PASSPHRASE": env.passphrase,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    locale: "zh-CN",
+    "User-Agent": env.mode === "LIVE_EXPERIMENT"
+      ? "MoonX-Bitget-Live-Experiment/1.0"
+      : "MoonX-Bitget-UTA-Demo/1.1",
+  };
+  if (env.mode === "DEMO") headers.paptrading = "1";
   const requestInit: RequestInit = {
     method: input.method,
-    headers: {
-      "ACCESS-KEY": env.apiKey,
-      "ACCESS-SIGN": sign,
-      "ACCESS-TIMESTAMP": timestamp,
-      "ACCESS-PASSPHRASE": env.passphrase,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      locale: "zh-CN",
-      paptrading: "1",
-      "User-Agent": "MoonX-Bitget-UTA-Demo/1.1",
-    },
+    headers,
   };
   if (input.method === "POST") requestInit.body = body;
 
@@ -613,11 +691,11 @@ export async function testBitgetDemoConnection(): Promise<{
     balanceNote = "USDT位于资金账户；若下单提示余额不足，需要在Bitget Demo中转入UTA。";
   }
 
-  const symbols = await Promise.all(
-    (["BTCUSDT", "ETHUSDT", "HYPEUSDT"] as BitgetSupportedSymbol[]).map(
-      getContractConfig
-    )
-  );
+  const environment = getBitgetDemoEnvironment();
+  const connectionSymbols = environment.mode === "LIVE_EXPERIMENT"
+    ? environment.liveAllowedSymbols
+    : (["BTCUSDT", "ETHUSDT", "HYPEUSDT"] as BitgetSupportedSymbol[]);
+  const symbols = await Promise.all(connectionSymbols.map(getContractConfig));
 
   return {
     availableUsdt,
@@ -635,6 +713,366 @@ export async function testBitgetDemoConnection(): Promise<{
     holdMode: String(settings.holdMode ?? "unknown"),
     symbols,
   };
+
+}
+
+export type BitgetApiSecurity = {
+  permissions: string[];
+  ipWhitelist: string[];
+  withdrawalPermission: boolean;
+  tradingPermission: boolean;
+  managementPermission: boolean;
+  safeForLiveExperiment: boolean;
+  message: string;
+};
+
+type BitgetAccountInfo = {
+  ips?: string;
+  permType?: string;
+  permissions?: string[];
+};
+
+export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
+  const environment = getBitgetDemoEnvironment();
+  const info = await signedRequest<BitgetAccountInfo>({ method: "GET", path: "/api/v3/account/info" });
+  const permissions = Array.isArray(info?.permissions) ? info.permissions.map(String) : [];
+  const ipWhitelist = String(info?.ips ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const withdrawalPermission = permissions.some((value) => value.toLowerCase().includes("withdraw"));
+  const tradingPermission = permissions.some((value) => {
+    const normalized = value.toLowerCase();
+    return normalized === "uta_trade" || normalized.includes("trade") || normalized.includes("order");
+  });
+  const managementPermission = permissions.some((value) => value.toLowerCase() === "uta_mgt");
+  const ipSafe = !environment.requireIpWhitelist || ipWhitelist.length > 0 || environment.allowNoIpWhitelist;
+  const safeForLiveExperiment = !withdrawalPermission && tradingPermission && managementPermission && ipSafe;
+  const messages = [
+    withdrawalPermission ? "API密钥包含提币权限，禁止实盘实验。" : "未检测到提币权限。",
+    tradingPermission ? "已检测到统一账户交易权限。" : "未检测到UTA交易权限。",
+    managementPermission ? "已检测到统一账户管理权限。" : "未检测到UTA管理权限。",
+    ipWhitelist.length > 0 ? `已绑定${ipWhitelist.length}个IP。` : environment.allowNoIpWhitelist ? "已显式允许无IP白名单运行。" : "未绑定IP白名单。",
+  ];
+  return { permissions, ipWhitelist, withdrawalPermission, tradingPermission, managementPermission, safeForLiveExperiment, message: messages.join(" ") };
+}
+
+export type BitgetLiveExperimentStatus = {
+  enabled: boolean;
+  active: boolean;
+  completed: boolean;
+  stopped: boolean;
+  status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
+  startedAt: string | null;
+  endsAt: string | null;
+  initialEquityUsdt: number | null;
+  currentEquityUsdt: number | null;
+  peakEquityUsdt: number | null;
+  pnlUsdt: number | null;
+  pnlPct: number | null;
+  maxDrawdownUsdt: number | null;
+  maxDrawdownPct: number | null;
+  dailyPnlUsdt: number | null;
+  dailyPnlPct: number | null;
+  dailyHistory: Array<{
+    date: string;
+    openingEquityUsdt: number;
+    closingEquityUsdt: number;
+    pnlUsdt: number;
+    pnlPct: number;
+    trades: number;
+  }>;
+  stopReason: string;
+  securityMessage: string;
+};
+
+type LiveExperimentRow = {
+  status: string;
+  started_at: Date | string | null;
+  ends_at: Date | string | null;
+  initial_equity_usdt: number | null;
+  current_equity_usdt: number | null;
+  peak_equity_usdt: number | null;
+  max_drawdown_usdt: number | null;
+  max_drawdown_pct: number | null;
+  stop_reason: string;
+};
+
+let liveExperimentEnsured = false;
+async function ensureBitgetLiveExperimentTable(): Promise<boolean> {
+  if (!prisma) return false;
+  if (liveExperimentEnsured) return true;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS trade_bitget_live_experiment (
+      id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+      started_at TIMESTAMPTZ,
+      ends_at TIMESTAMPTZ,
+      initial_equity_usdt DOUBLE PRECISION,
+      current_equity_usdt DOUBLE PRECISION,
+      peak_equity_usdt DOUBLE PRECISION,
+      max_drawdown_usdt DOUBLE PRECISION NOT NULL DEFAULT 0,
+      max_drawdown_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+      stop_reason TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO trade_bitget_live_experiment (id) VALUES ('default')
+    ON CONFLICT (id) DO NOTHING
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS trade_bitget_live_daily_snapshots (
+      trade_date DATE PRIMARY KEY,
+      opening_equity_usdt DOUBLE PRECISION NOT NULL,
+      closing_equity_usdt DOUBLE PRECISION NOT NULL,
+      pnl_usdt DOUBLE PRECISION NOT NULL DEFAULT 0,
+      pnl_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+      trades INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  liveExperimentEnsured = true;
+  return true;
+}
+
+type LiveDailySnapshot = {
+  date: string;
+  openingEquityUsdt: number;
+  closingEquityUsdt: number;
+  pnlUsdt: number;
+  pnlPct: number;
+  trades: number;
+};
+
+function beijingDateKey(now: Date): string {
+  return new Date(now.getTime() + 8 * 60 * 60_000).toISOString().slice(0, 10);
+}
+
+async function syncLiveDailySnapshot(now: Date, equity: number): Promise<{ current: LiveDailySnapshot; history: LiveDailySnapshot[] }> {
+  if (!prisma) throw new Error("实盘每日净值数据库不可用");
+  const date = beijingDateKey(now);
+  const previous = await prisma.$queryRawUnsafe<Array<{ closing_equity_usdt: number }>>(
+    `SELECT closing_equity_usdt FROM trade_bitget_live_daily_snapshots WHERE trade_date < $1::date ORDER BY trade_date DESC LIMIT 1`,
+    date
+  );
+  const existing = await prisma.$queryRawUnsafe<Array<{ opening_equity_usdt: number }>>(
+    `SELECT opening_equity_usdt FROM trade_bitget_live_daily_snapshots WHERE trade_date = $1::date LIMIT 1`,
+    date
+  );
+  const opening = Number(existing[0]?.opening_equity_usdt ?? previous[0]?.closing_equity_usdt ?? equity);
+  const pnl = equity - opening;
+  const pnlPct = opening > 0 ? pnl / opening * 100 : 0;
+  const trades = await liveOpenAttemptsToday(now);
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO trade_bitget_live_daily_snapshots (trade_date, opening_equity_usdt, closing_equity_usdt, pnl_usdt, pnl_pct, trades, updated_at)
+     VALUES ($1::date, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (trade_date) DO UPDATE SET closing_equity_usdt=EXCLUDED.closing_equity_usdt, pnl_usdt=EXCLUDED.pnl_usdt, pnl_pct=EXCLUDED.pnl_pct, trades=EXCLUDED.trades, updated_at=NOW()`,
+    date, opening, equity, pnl, pnlPct, trades
+  );
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    trade_date: Date | string; opening_equity_usdt: number; closing_equity_usdt: number; pnl_usdt: number; pnl_pct: number; trades: number;
+  }>>(`SELECT trade_date, opening_equity_usdt, closing_equity_usdt, pnl_usdt, pnl_pct, trades FROM trade_bitget_live_daily_snapshots ORDER BY trade_date DESC LIMIT 40`);
+  const history = rows.map((row) => ({
+    date: new Date(row.trade_date).toISOString().slice(0, 10),
+    openingEquityUsdt: Number(row.opening_equity_usdt),
+    closingEquityUsdt: Number(row.closing_equity_usdt),
+    pnlUsdt: Number(row.pnl_usdt),
+    pnlPct: Number(row.pnl_pct),
+    trades: Number(row.trades),
+  }));
+  return { current: history.find((row) => row.date === date) ?? { date, openingEquityUsdt: opening, closingEquityUsdt: equity, pnlUsdt: pnl, pnlPct, trades }, history };
+}
+
+function dateIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function beijingStartOfDayDate(now: Date): Date {
+  const shifted = new Date(now.getTime() + 8 * 60 * 60_000);
+  const utc = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  return new Date(utc - 8 * 60 * 60_000);
+}
+
+async function liveOpenAttemptsToday(now: Date): Promise<number> {
+  if (!prisma) return 0;
+  await ensureBitgetExecutionOutboxTable();
+  const start = beijingStartOfDayDate(now);
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
+    `SELECT COUNT(*) AS count FROM trade_execution_outbox
+     WHERE environment_mode='LIVE_EXPERIMENT' AND action_type='OPEN_MARKET'
+       AND status IN ('ACKNOWLEDGED','CONFIRMED','RECONCILED') AND created_at >= $1`,
+    start
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+export async function syncBitgetLiveExperimentStatus(
+  now = new Date(),
+  options: { allowStart?: boolean } = {}
+): Promise<BitgetLiveExperimentStatus> {
+  const environment = getBitgetDemoEnvironment();
+  if (environment.mode !== "LIVE_EXPERIMENT") {
+    return { enabled: false, active: false, completed: false, stopped: false, status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null, pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [], stopReason: "", securityMessage: "Demo模式" };
+  }
+  if (!(await ensureBitgetLiveExperimentTable()) || !prisma) throw new Error("实盘实验状态数据库不可用");
+  const [account, security, positions, pending] = await Promise.all([
+    testBitgetDemoConnection(),
+    getBitgetApiSecurity(),
+    getBitgetDemoCurrentPositions(),
+    getBitgetDemoPendingStrategyOrders(),
+  ]);
+  const equity = environment.mode === "LIVE_EXPERIMENT"
+    ? account.equityUsdt || account.availableUsdt || 0
+    : account.detectedUsdt || account.equityUsdt || account.availableUsdt || 0;
+  const rows = await prisma.$queryRawUnsafe<LiveExperimentRow[]>(`SELECT * FROM trade_bitget_live_experiment WHERE id='default' LIMIT 1`);
+  let row = rows[0];
+  if (!row) throw new Error("实盘实验状态读取失败");
+  let status = String(row.status || "NOT_STARTED").toUpperCase();
+  if (status === "NOT_STARTED" && environment.executionAllowed && options.allowStart) {
+    if (!environment.liveConfirmationAccepted) throw new Error("未确认真实亏损风险");
+    if (!security.safeForLiveExperiment) throw new Error(security.message);
+    const accountMode = String(account.accountMode ?? "").toLowerCase();
+    if (!["unified", "hybrid"].includes(accountMode)) {
+      throw new Error(`当前账户模式为${account.accountMode || "unknown"}，实盘实验只支持Bitget UTA的unified或hybrid模式。`);
+    }
+    const unavailableSymbols = environment.liveAllowedSymbols.filter((symbol) =>
+      !account.symbols.some((row) => row.symbol === symbol && row.available)
+    );
+    if (unavailableSymbols.length) {
+      throw new Error(`当前Bitget账户不支持实验合约：${unavailableSymbols.join(", ")}。本升级仅支持统一账户UTA V3。`);
+    }
+    if (account.availableUsdt < Math.min(environment.liveMaxPositionNotionalUsdt, environment.liveInitialCapitalUsdt * 0.5)) {
+      throw new Error(`UTA可用USDT仅${account.availableUsdt.toFixed(2)}，请将实验资金放入统一交易账户，而不是资金账户。`);
+    }
+    const tolerance = Math.max(50, environment.liveInitialCapitalUsdt * 0.15);
+    if (Math.abs(equity - environment.liveInitialCapitalUsdt) > tolerance) {
+      throw new Error(`实盘账户权益${equity.toFixed(2)} USDT与实验本金${environment.liveInitialCapitalUsdt.toFixed(2)} USDT偏差过大，请使用独立账户并只存入实验资金。`);
+    }
+    if (positions.length || pending.length) throw new Error("实验启动前账户必须无持仓、无止盈止损策略单。 ");
+    const endsAt = new Date(now.getTime() + environment.liveDurationDays * 24 * 60 * 60_000);
+    await prisma.$executeRaw`
+      UPDATE trade_bitget_live_experiment SET
+        status='ACTIVE', started_at=${now}, ends_at=${endsAt},
+        initial_equity_usdt=${equity}, current_equity_usdt=${equity}, peak_equity_usdt=${equity},
+        max_drawdown_usdt=0, max_drawdown_pct=0, stop_reason='', updated_at=NOW()
+      WHERE id='default'
+    `;
+    row = { ...row, status: "ACTIVE", started_at: now, ends_at: endsAt, initial_equity_usdt: equity, current_equity_usdt: equity, peak_equity_usdt: equity, max_drawdown_usdt: 0, max_drawdown_pct: 0, stop_reason: "" };
+    status = "ACTIVE";
+  }
+  const initial = Number(row.initial_equity_usdt ?? equity);
+  const date = beijingDateKey(now);
+  const dailySnapshot = row.started_at
+    ? await syncLiveDailySnapshot(now, equity)
+    : {
+        current: { date, openingEquityUsdt: equity, closingEquityUsdt: equity, pnlUsdt: 0, pnlPct: 0, trades: 0 },
+        history: [] as LiveDailySnapshot[],
+      };
+  const peak = Math.max(Number(row.peak_equity_usdt ?? equity), equity);
+  const drawdown = Math.max(0, peak - equity);
+  const drawdownPct = peak > 0 ? drawdown / peak * 100 : 0;
+  const endsAtMs = row.ends_at ? new Date(row.ends_at).getTime() : NaN;
+  let stopReason = String(row.stop_reason ?? "");
+  if (status === "ACTIVE" && stopReason.startsWith("今日账户亏损") && dailySnapshot.current.pnlUsdt > -environment.liveDailyLossUsdt) {
+    stopReason = "";
+  }
+  if (status === "ACTIVE" && !security.safeForLiveExperiment) {
+    status = "STOPPED";
+    stopReason = `API安全检查未通过：${security.message}`;
+  } else if (status === "ACTIVE" && dailySnapshot.current.pnlUsdt <= -environment.liveDailyLossUsdt) {
+    stopReason = `今日账户亏损${Math.abs(dailySnapshot.current.pnlUsdt).toFixed(2)} USDT，已达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损；今天停止新开仓，现有持仓继续由交易所止损管理。`;
+  } else if (status === "ACTIVE" && drawdown >= environment.liveMaxDrawdownUsdt) {
+    status = "STOPPED";
+    stopReason = `账户回撤达到${drawdown.toFixed(2)} USDT，超过${environment.liveMaxDrawdownUsdt.toFixed(2)} USDT总止损。`;
+  } else if (status === "ACTIVE" && Number.isFinite(endsAtMs) && now.getTime() >= endsAtMs) {
+    status = "COMPLETED";
+    stopReason = "30天实盘实验到期，已停止新开仓。";
+  }
+  await prisma.$executeRaw`
+    UPDATE trade_bitget_live_experiment SET
+      status=${status}, current_equity_usdt=${equity}, peak_equity_usdt=${peak},
+      max_drawdown_usdt=GREATEST(max_drawdown_usdt, ${drawdown}),
+      max_drawdown_pct=GREATEST(max_drawdown_pct, ${drawdownPct}),
+      stop_reason=${stopReason}, updated_at=NOW()
+    WHERE id='default'
+  `;
+  const dailyPnl = dailySnapshot.current.pnlUsdt;
+  const pnl = initial > 0 ? equity - initial : 0;
+  return {
+    enabled: true,
+    active: status === "ACTIVE",
+    completed: status === "COMPLETED",
+    stopped: status === "STOPPED",
+    status: status as BitgetLiveExperimentStatus["status"],
+    startedAt: dateIso(row.started_at),
+    endsAt: dateIso(row.ends_at),
+    initialEquityUsdt: initial || null,
+    currentEquityUsdt: equity || 0,
+    peakEquityUsdt: peak || 0,
+    pnlUsdt: pnl,
+    pnlPct: initial > 0 ? pnl / initial * 100 : 0,
+    maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown),
+    maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct),
+    dailyPnlUsdt: dailyPnl,
+    dailyPnlPct: dailySnapshot.current.pnlPct,
+    dailyHistory: dailySnapshot.history,
+    stopReason,
+    securityMessage: security.message,
+  };
+}
+
+async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedSymbol; size: string }): Promise<void> {
+  const environment = getBitgetDemoEnvironment();
+  if (environment.mode !== "LIVE_EXPERIMENT") return;
+  if (!environment.executionAllowed) throw new Error("BITGET_LIVE_EXECUTION_ALLOWED尚未开启或真实风险确认无效");
+  if (!environment.liveAllowedSymbols.includes(input.symbol)) throw new Error(`${input.symbol}不在实盘实验允许品种中`);
+  const experiment = await syncBitgetLiveExperimentStatus(new Date(), { allowStart: false });
+  if (!experiment.active) throw new Error(experiment.stopReason || `实盘实验状态为${experiment.status}，禁止新开仓`);
+  if ((experiment.dailyPnlUsdt ?? 0) <= -environment.liveDailyLossUsdt) {
+    throw new Error(`今日净亏损${Math.abs(experiment.dailyPnlUsdt ?? 0).toFixed(2)} USDT，达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损，明日再评估。`);
+  }
+  const [positions, quotes, attempts] = await Promise.all([
+    getBitgetDemoCurrentPositions(),
+    getBitgetDemoMarketQuotes([input.symbol]),
+    liveOpenAttemptsToday(new Date()),
+  ]);
+  if (positions.some((row) => row.symbol === input.symbol && row.total > 0)) {
+    throw new Error(`${input.symbol}已有持仓，禁止同品种重复开仓`);
+  }
+  if (positions.length >= environment.liveMaxConcurrentPositions) {
+    throw new Error(`实盘实验最多同时持有${environment.liveMaxConcurrentPositions}个仓位`);
+  }
+  if (attempts >= environment.liveMaxTradesPerDay) throw new Error(`今日已达到${environment.liveMaxTradesPerDay}笔开仓上限`);
+  const price = quotes.find((row) => row.symbol === input.symbol)?.price ?? 0;
+  const notional = Number(input.size) * price;
+  if (!Number.isFinite(notional) || notional <= 0) throw new Error("无法计算实盘订单名义价值");
+  const equity = experiment.currentEquityUsdt ?? environment.liveInitialCapitalUsdt;
+  const perPositionLimit = Math.min(environment.liveMaxPositionNotionalUsdt, equity * 0.3);
+  if (notional > perPositionLimit + 0.01) {
+    throw new Error(`订单名义价值${notional.toFixed(2)} USDT超过单仓上限${perPositionLimit.toFixed(2)} USDT`);
+  }
+  const currentGross = positions.reduce((sum, row) => sum + Math.abs(row.total * row.markPrice), 0);
+  const grossLimit = equity * environment.liveMaxGrossNotionalPct / 100;
+  if (currentGross + notional > grossLimit + 0.01) {
+    throw new Error(`组合总名义仓位将达到${(currentGross + notional).toFixed(2)} USDT，超过${grossLimit.toFixed(2)} USDT上限`);
+  }
+  const groupFor = (symbol: string): "CRYPTO" | "EQUITY" | "COMMODITY" =>
+    ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(symbol)
+      ? "CRYPTO"
+      : ["XAUTUSDT", "XAGUSDT", "CLUSDT"].includes(symbol)
+        ? "COMMODITY"
+        : "EQUITY";
+  const group = groupFor(input.symbol);
+  const groupRows = positions.filter((row) => groupFor(row.symbol) === group);
+  const groupCountLimit = group === "CRYPTO" ? 2 : 2;
+  const groupPctLimit = group === "CRYPTO" ? 45 : group === "EQUITY" ? 50 : 40;
+  if (groupRows.length >= groupCountLimit) throw new Error(`${group}风险组最多同时持有${groupCountLimit}个仓位`);
+  const groupNotional = groupRows.reduce((sum, row) => sum + Math.abs(row.total * row.markPrice), 0);
+  const groupLimit = equity * groupPctLimit / 100;
+  if (groupNotional + notional > groupLimit + 0.01) {
+    throw new Error(`${group}风险组名义仓位将达到${(groupNotional + notional).toFixed(2)} USDT，超过${groupLimit.toFixed(2)} USDT上限`);
+  }
 }
 
 export async function getContractConfig(
@@ -659,7 +1097,7 @@ export async function getContractConfig(
         minOrderAmount: 0,
         sizeMultiplier: 0,
         volumePlace: 8,
-        symbolStatus: "UTA V3模拟盘未返回该合约",
+        symbolStatus: "UTA V3当前环境未返回该合约",
       };
     }
 
@@ -698,7 +1136,7 @@ export function normalizeOrderSize(
   quantity: number,
   contract: BitgetContractConfig
 ): string {
-  if (!contract.available) throw new Error(`${contract.symbol}模拟盘暂不支持`);
+  if (!contract.available) throw new Error(`${contract.symbol}当前交易环境暂不支持`);
 
   const step =
     contract.sizeMultiplier > 0
@@ -819,6 +1257,7 @@ type ExecutionOutboxRow = {
   reconciled_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+  environment_mode: BitgetTradingMode;
 };
 
 type MarketExecutionPayload = {
@@ -873,10 +1312,12 @@ export async function ensureBitgetExecutionOutboxTable(): Promise<boolean> {
       reconciled_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      environment_mode TEXT NOT NULL DEFAULT 'DEMO',
       CONSTRAINT trade_execution_outbox_action_check CHECK (action_type IN ('OPEN_MARKET','CLOSE_MARKET','PLACE_PROTECTION','CANCEL_PROTECTION')),
       CONSTRAINT trade_execution_outbox_status_check CHECK (status IN ('PENDING','PROCESSING','ACKNOWLEDGED','CONFIRMED','FAILED','RECONCILED'))
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE trade_execution_outbox ADD COLUMN IF NOT EXISTS environment_mode TEXT NOT NULL DEFAULT 'DEMO'`);
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS trade_execution_outbox_ready_idx
     ON trade_execution_outbox(status, next_attempt_at, created_at)
@@ -912,20 +1353,21 @@ async function createOutboxIntent(input: {
   await ensureBitgetExecutionOutboxTable();
   const rows = await prisma.$queryRawUnsafe<ExecutionOutboxRow[]>(
     `INSERT INTO trade_execution_outbox
-      (id,idempotency_key,decision_id,action_type,symbol,direction,payload,status,client_oid,created_at,updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'PENDING',$8,NOW(),NOW())
+      (id,idempotency_key,decision_id,action_type,symbol,direction,payload,status,client_oid,created_at,updated_at,environment_mode)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'PENDING',$8,NOW(),NOW(),$9)
      ON CONFLICT (idempotency_key) DO UPDATE SET
-       payload=CASE WHEN trade_execution_outbox.status IN ('PENDING','FAILED') THEN EXCLUDED.payload ELSE trade_execution_outbox.payload END,
+       payload=CASE WHEN trade_execution_outbox.status IN ('PENDING','FAILED') AND trade_execution_outbox.environment_mode=EXCLUDED.environment_mode THEN EXCLUDED.payload ELSE trade_execution_outbox.payload END,
        updated_at=NOW()
      RETURNING *`,
     `outbox_${randomUUID()}`,
-    input.idempotencyKey,
+    `${getBitgetDemoEnvironment().mode}:${input.idempotencyKey}`,
     input.decisionId,
     input.actionType,
     input.symbol,
     input.direction ?? null,
     JSON.stringify(input.payload),
-    input.clientOid ?? null
+    input.clientOid ?? null,
+    getBitgetDemoEnvironment().mode
   );
   if (!rows[0]) throw new Error("持久化交易任务创建失败");
   return rows[0];
@@ -1173,7 +1615,7 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
     const acknowledged = await getOutboxById(id);
     return acknowledged ? confirmAcknowledgedOutbox(acknowledged) : acquired;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Bitget Demo执行失败";
+    const message = error instanceof Error ? error.message : "Bitget执行失败";
     if (remoteSubmissionAttempted && acquired.client_oid) {
       try {
         if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
@@ -1230,13 +1672,16 @@ export async function processBitgetDemoExecutionOutbox(limit = 10): Promise<{
 }> {
   if (!prisma) return { processed: 0, confirmed: 0, acknowledged: 0, failed: 0 };
   await ensureBitgetExecutionOutboxTable();
+  const mode = getBitgetDemoEnvironment().mode;
   const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT id FROM trade_execution_outbox
      WHERE status IN ('PENDING','FAILED','ACKNOWLEDGED','PROCESSING')
+       AND environment_mode=$2
        AND next_attempt_at<=NOW() AND attempt_count<max_attempts
        AND (status<>'PROCESSING' OR locked_until IS NULL OR locked_until<NOW())
      ORDER BY created_at ASC LIMIT $1`,
-    Math.max(1, Math.min(25, Math.floor(limit)))
+    Math.max(1, Math.min(25, Math.floor(limit))),
+    mode
   );
   let confirmed = 0;
   let acknowledged = 0;
@@ -1266,10 +1711,11 @@ export async function placeBitgetDemoMarketOrder(input: {
   raw: BitgetOrderResponse;
 }> {
   const env = getBitgetDemoEnvironment();
-  if (!env.executionAllowed) throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+  if (!env.executionAllowed) throw new Error(env.mode === "LIVE_EXPERIMENT" ? "Bitget实盘执行尚未开启" : "BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
   await assertBitgetClockSafe();
   const contract = await getContractConfig(input.symbol);
   const size = normalizeOrderSize(input.quantity, contract);
+  if (!input.reduceOnly) await assertLiveExperimentOpenAllowed({ symbol: input.symbol, size });
   const warnings = input.reduceOnly ? [] : await configureUtaSymbol(input.symbol);
   const oid = clientOid(input.paperOrderId);
   const payload: MarketExecutionPayload = { ...input, size, warnings };
@@ -1284,7 +1730,7 @@ export async function placeBitgetDemoMarketOrder(input: {
   });
   const result = await processSingleOutboxTask(task.id);
   if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
-    throw new Error(result.last_error || "Bitget Demo订单未进入可确认状态");
+    throw new Error(result.last_error || "Bitget订单未进入可确认状态");
   }
   const raw = await getBitgetDemoOrderDetails({ orderId: result.bitget_order_id, clientOid: result.client_oid }) ?? {
     orderId: result.bitget_order_id,
@@ -1307,7 +1753,7 @@ export async function placeBitgetDemoProtectionOrder(input: {
   takeProfit: number;
 }): Promise<{ orderId: string; clientOid: string }> {
   const env = getBitgetDemoEnvironment();
-  if (!env.executionAllowed) throw new Error("BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
+  if (!env.executionAllowed) throw new Error(env.mode === "LIVE_EXPERIMENT" ? "Bitget实盘执行尚未开启" : "BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
   await assertBitgetClockSafe();
   const oid = clientOid(`${input.paperOrderId}:protection`);
   const task = await createOutboxIntent({
@@ -1321,7 +1767,7 @@ export async function placeBitgetDemoProtectionOrder(input: {
   });
   const result = await processSingleOutboxTask(task.id);
   if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
-    throw new Error(result.last_error || "Bitget Demo保护单未进入可确认状态");
+    throw new Error(result.last_error || "Bitget保护单未进入可确认状态");
   }
   return { orderId: result.bitget_order_id, clientOid: result.client_oid };
 }

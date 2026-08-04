@@ -20,6 +20,7 @@ export type AiTradingDeskOperationalState =
   | "PLAN_ONLY"
   | "WAITING_ENTRY"
   | "SIMULATION_POSITION"
+  | "LIVE_POSITION"
   | "PAUSED"
   | "SERVICE_ERROR";
 
@@ -91,14 +92,12 @@ export interface AiTradingDeskStats {
 export interface AiTradingDeskSnapshot {
   generatedAt: string;
   lastSyncedAt: string | null;
-  mode: "BITGET_DEMO";
-  ledgerSource: "BITGET_DEMO";
+  mode: "BITGET_DEMO" | "BITGET_LIVE_EXPERIMENT";
+  ledgerSource: "BITGET_DEMO" | "BITGET_LIVE";
   ledgerNotice: string;
   strategyEnabled: boolean;
   mirrorEnabled: boolean;
-  /** Environment switch, preserved even when freshness gates pause execution. */
   executionConfigured?: boolean;
-  /** Effective execution state after heartbeat and quote freshness gates. */
   executionAllowed: boolean;
   serverHealthy: boolean;
   syncStatus: "OK" | "PARTIAL" | "ERROR" | "DISABLED";
@@ -107,6 +106,22 @@ export interface AiTradingDeskSnapshot {
   operationalStateLabel: string;
   quoteReady: boolean;
   latestQuoteAt: string | null;
+  experiment: {
+    status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
+    startedAt: string | null;
+    endsAt: string | null;
+    initialEquityUsdt: number | null;
+    currentEquityUsdt: number | null;
+    pnlUsdt: number | null;
+    pnlPct: number | null;
+    maxDrawdownUsdt: number | null;
+    maxDrawdownPct: number | null;
+    dailyPnlUsdt: number | null;
+    dailyPnlPct: number | null;
+    dailyHistory: Array<{ date: string; openingEquityUsdt: number; closingEquityUsdt: number; pnlUsdt: number; pnlPct: number; trades: number }>;
+    stopReason: string;
+    securityMessage: string;
+  };
   runtime: {
     paused: boolean;
     pauseReason: string;

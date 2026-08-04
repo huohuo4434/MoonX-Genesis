@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
 import {
+  getBitgetApiSecurity,
   getBitgetDemoEnvironment,
   testBitgetDemoConnection,
 } from "@/lib/bitget/demo-client";
@@ -17,6 +18,7 @@ export async function POST() {
       ok: true,
       environment: getBitgetDemoEnvironment(),
       connection: await testBitgetDemoConnection(),
+      security: getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? await getBitgetApiSecurity() : null,
     });
   } catch (error) {
     return NextResponse.json(

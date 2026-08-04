@@ -56,7 +56,7 @@ export interface BitgetRuntimeEvent {
 
 export interface BitgetRuntimeState {
   databaseReady: boolean;
-  mode: "BITGET_DEMO_REST_CRON";
+  mode: "BITGET_DEMO_REST_CRON" | "BITGET_LIVE_EXPERIMENT_REST_CRON";
   source: BitgetRuntimeSource;
   running: boolean;
   paused: boolean;
@@ -84,6 +84,22 @@ export interface BitgetRuntimeState {
   lastReport: Record<string, unknown> | null;
   recentEvents: BitgetRuntimeEvent[];
   updatedAt: string;
+  liveExperiment?: {
+    status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
+    startedAt: string | null;
+    endsAt: string | null;
+    initialEquityUsdt: number | null;
+    currentEquityUsdt: number | null;
+    pnlUsdt: number | null;
+    pnlPct: number | null;
+    maxDrawdownUsdt: number | null;
+    maxDrawdownPct: number | null;
+    dailyPnlUsdt: number | null;
+    dailyPnlPct: number | null;
+    dailyHistory: Array<{ date: string; openingEquityUsdt: number; closingEquityUsdt: number; pnlUsdt: number; pnlPct: number; trades: number }>;
+    stopReason: string;
+    securityMessage: string;
+  };
 }
 
 export interface BitgetRuntimeRunReport {
@@ -113,6 +129,7 @@ export interface BitgetRuntimeRunReport {
   } | null;
   reconcile: BitgetRuntimeAccountSnapshot;
   memberDeskSync: { ok: boolean; error?: string };
+  liveExperimentExit?: { attempted: number; success: number; errors: number; messages: string[] };
   message: string;
 }
 
