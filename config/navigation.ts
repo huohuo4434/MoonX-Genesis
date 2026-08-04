@@ -61,11 +61,11 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
-  { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
 ];
 
 /** Secondary destinations live under “更多”, preventing header crowding. */
 export const PUBLIC_MORE_NAV: NavItem[] = [
+  { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
   { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.support", href: NAV_ROUTES.support, labelZh: "客服与帮助" },

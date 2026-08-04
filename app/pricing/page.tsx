@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { unstable_noStore as noStore } from "next/cache";
 import { PricingPageContent } from "@/components/payments/PricingPageContent";
 import { getCurrentUser, isAdmin, isActiveMember } from "@/lib/auth/permissions";
@@ -6,14 +8,22 @@ import { OFFICIAL_PLAN_PRICES } from "@/lib/payments/plan-display";
 import { getFounderDiscountQuote } from "@/lib/payments/founder-discount-server";
 import type { MembershipPlan } from "@/types/membership";
 
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return buildLocalizedPageMetadata({
+    locale,
+    basePath: "/pricing",
+    titleZh: "MOOX会员价格",
+    titleEn: "MOOX Membership Pricing",
+    descriptionZh: "MOOX会员方案、创始会员连续续订优惠与USDT自动付款说明。",
+    descriptionEn: "Compare free and member access, founding-member discounts and automatic USDT payment instructions.",
+  });
+}
+
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export const metadata = {
-  title: "MOOX Membership Pricing",
-  description: "MOOX membership plans, founding-member discounts and USDT payment instructions.",
-  alternates: { canonical: "/pricing" },
-};
 
 function buildPlans(): MembershipPlan[] {
   return [

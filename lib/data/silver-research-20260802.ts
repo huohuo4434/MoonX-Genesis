@@ -23,19 +23,28 @@ export const SILVER_OVERLAP_AUDIT_20260802 = {
 export const SILVER_AUGUST_MONTHLY_OUTLOOK = {
   assetId: "silver",
   assetName: "国际银价",
+  assetNameEn: "Silver",
   symbol: "SILVER",
   venue: "COMEX白银期货",
+  venueEn: "COMEX silver futures",
   periodStart: "2026-08-01",
   periodEnd: "2026-08-31",
   direction: "先跌后涨",
   probabilities: { up: 35, flat: 40, down: 25 },
   path:
     "上旬先弱并反复测试支撑；10日至16日进入企稳修复，17日至23日是月内较明显反弹窗口；24日至30日前段延续修复，后段波动重新放大，防止冲高回落。",
+  pathEn:
+    "The first part of the month is weaker and may repeatedly test support. Stabilization develops from Aug 10–16, with the clearest rebound window from Aug 17–23. Recovery can extend early in Aug 24–30 before volatility rises again and creates rally-then-fade risk.",
   keyWindow: "8月17日至23日反弹最明确；24日至30日后段防波动扩大。",
+  keyWindowEn: "The clearest rebound window is Aug 17–23; watch for expanding volatility late in Aug 24–30.",
   risk:
     "旧三个月卦仍提示申月兄弟金压制财爻；新周卦虽给出中下旬反弹，但主变卦多见六冲，反弹速度快、回撤也快，不定义为稳定主升。",
+  riskEn:
+    "The older three-month study still shows Shen-month metal constraining the Wealth line. Newer weekly studies support a mid-to-late-month rebound, but repeated six-clash structures imply fast rallies and fast pullbacks rather than a stable primary uptrend.",
   sourceNote:
     "2026-08-02白银8月月卦、四段周卦与此前重合卦交叉；外部观点只用于风险修订，不计入六爻共识。",
+  sourceNoteEn:
+    "The Aug 2 monthly study and four weekly segments were cross-checked against overlapping earlier studies. External views are used only for risk revision and do not count toward Liu Yao consensus.",
   sourceComplete: true,
 } as const;
 

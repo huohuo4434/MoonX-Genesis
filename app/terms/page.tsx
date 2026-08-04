@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
+import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { TermsPageClient } from "@/components/legal/TermsPageClient";
 import { siteConfig } from "@/lib/site-config";
 
-export const metadata: Metadata = {
-  title: "MOOX Terms of Service",
-  description: "MOOX terms covering membership, founding-member discounts, USDT payment and automatic on-chain verification.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return buildLocalizedPageMetadata({
+    locale,
+    basePath: "/terms",
+    titleZh: "MOOX服务条款",
+    titleEn: "MOOX Terms of Service",
+    descriptionZh: "MOOX会员、USDT付款、账户与研究服务条款。",
+    descriptionEn: "MOOX terms covering membership, USDT payment, accounts, research access and public verification.",
+  });
+}
+
+
 
 export default function TermsPage() {
   return <TermsPageClient supportEmail={siteConfig.supportEmail} />;

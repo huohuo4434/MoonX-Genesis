@@ -8,6 +8,7 @@ import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/dail
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
+import { assetNameEn, directionEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
 import { formatForecastDateEn, formatForecastDateZh } from "@/lib/calendar/next-trading-day";
 import { displayDirection } from "@/lib/data/daily-forecasts";
 import { displayMarketCode } from "@/lib/forecasts/formal-direction";
@@ -44,7 +45,7 @@ export function TomorrowForecastLocked({
   pricingHref: string;
   memberHref: string;
 }) {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
 
@@ -104,7 +105,7 @@ export function TomorrowForecastLocked({
 
         <Text variant="body-sm" color="secondary" className="mb-4">
           {t("home.tomorrowCoveredAssets")}
-          {summary.assetNames.join(isChinese ? "、" : ", ")}
+          {(isChinese ? summary.assetNames : summary.assetNames.map(assetNameEn)).join(isChinese ? "、" : ", ")}
         </Text>
 
         <div className="mb-8 rounded-lg border border-border/[0.1] bg-muted/20 p-5">
@@ -131,10 +132,10 @@ export function TomorrowForecastLocked({
 
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild variant="primary">
-            <Link href={pricingHref}>{t("home.tomorrowUnlockCta")}</Link>
+            <Link href={href(pricingHref)}>{t("home.tomorrowUnlockCta")}</Link>
           </Button>
           <Link
-            href={memberHref}
+            href={href(memberHref)}
             className="text-body-sm text-foreground-secondary underline-offset-4 hover:text-foreground hover:underline"
           >
             {t("home.tomorrowBenefitsLink")}
@@ -145,7 +146,7 @@ export function TomorrowForecastLocked({
           {t("home.tomorrowLifecycleNote")}
         </Text>
         <Link
-          href="/verification"
+          href={href("/verification")}
           className="mt-2 inline-block text-body-sm text-primary underline-offset-4 hover:underline"
         >
           {t("home.tomorrowHistoryLink")}
@@ -159,36 +160,36 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
   const { locale } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
+  const en = locale === "en";
   const [open, setOpen] = useState(false);
   const pending = forecast.confidence <= 0 || forecast.summary === "研究尚未完成" || forecast.status === "draft";
-  const normalizedPath = normalizeDailyPath(
-    forecast.intradayRhythm?.length ? forecast.intradayRhythm : forecast.expectedPath
-  );
-  const pathBias = normalizeDailyLanguage(forecast.pathBias)
-    || normalizedPath.join(" → ")
-    || "运行路径待技术确认";
-  const summary = normalizeDailyLanguage(forecast.summary);
+  const sourcePath = normalizeDailyPath(forecast.intradayRhythm?.length ? forecast.intradayRhythm : forecast.expectedPath);
+  const normalizedPath = en ? safeEnglishList(sourcePath) : sourcePath;
+  const pathBias = en
+    ? safeEnglish(forecast.pathBias || normalizedPath.join(" → "), "Expected path is awaiting technical confirmation.")
+    : normalizeDailyLanguage(forecast.pathBias) || normalizedPath.join(" → ") || "运行路径待技术确认";
+  const summary = en ? safeEnglish(forecast.summary) : normalizeDailyLanguage(forecast.summary);
 
   return (
     <article className="flex flex-col rounded-lg border border-primary/25 bg-card p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <Text variant="body" weight="semibold">
-            {forecast.assetName}
+            {en ? assetNameEn(forecast.assetName) : forecast.assetName}
           </Text>
           <Text variant="caption" color="tertiary" className="font-mono">
             {displayMarketCode(forecast.symbol)}
           </Text>
         </div>
         <Badge variant={pending ? "neutral" : "default"}>
-          {pending ? t("home.tomorrowResearchPending") : displayDirection(forecast)}
+          {pending ? t("home.tomorrowResearchPending") : en ? directionEn(displayDirection(forecast)) : displayDirection(forecast)}
         </Badge>
       </div>
 
       <Text variant="caption" color="secondary" className="mt-3 block">
         {t("home.tomorrowNextSession")}
         {formatDate(forecast.forecastForDate, isChinese)}
-        <span className="text-foreground-tertiary"> · {forecast.targetSessionLabel ?? forecast.tradingSessionLabel} · V{forecast.version} 已锁定</span>
+        <span className="text-foreground-tertiary"> · {en ? safeEnglish(forecast.targetSessionLabel ?? forecast.tradingSessionLabel, "Next market session") : forecast.targetSessionLabel ?? forecast.tradingSessionLabel} · V{forecast.version} {en ? "locked" : "已锁定"}</span>
       </Text>
 
       {pending ? (
@@ -201,10 +202,10 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
             {summary}
           </Text>
           <div className="mt-3 grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-2">
-            <p><span className="text-foreground-tertiary">收盘方向概率：</span><span className="text-foreground-secondary">上涨 {forecast.probabilities?.up ?? "—"}%／震荡 {forecast.probabilities?.flat ?? "—"}%／下跌 {forecast.probabilities?.down ?? "—"}%</span></p>
-            <p><span className="text-foreground-tertiary">运行路径：</span><span className="text-foreground-secondary">{pathBias}</span></p>
-            <p><span className="text-foreground-tertiary">信号强度：</span><span className="text-foreground-secondary">{forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")}</span></p>
-            <p><span className="text-foreground-tertiary">建议等待确认：</span><span className="text-foreground-secondary">{forecast.waitForConfirmation === false ? "否" : "是"}</span></p>
+            <p><span className="text-foreground-tertiary">{en ? "Closing-direction probabilities: " : "收盘方向概率："}</span><span className="text-foreground-secondary">{en ? "Bullish" : "上涨"} {forecast.probabilities?.up ?? "—"}% / {en ? "Range-bound" : "震荡"} {forecast.probabilities?.flat ?? "—"}% / {en ? "Bearish" : "下跌"} {forecast.probabilities?.down ?? "—"}%</span></p>
+            <p><span className="text-foreground-tertiary">{en ? "Expected path: " : "运行路径："}</span><span className="text-foreground-secondary">{pathBias}</span></p>
+            <p><span className="text-foreground-tertiary">{en ? "Signal strength: " : "信号强度："}</span><span className="text-foreground-secondary">{en ? signalStrengthEn(forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")) : forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")}</span></p>
+            <p><span className="text-foreground-tertiary">{en ? "Wait for confirmation: " : "建议等待确认："}</span><span className="text-foreground-secondary">{forecast.waitForConfirmation === false ? (en ? "No" : "否") : (en ? "Yes" : "是")}</span></p>
           </div>
         </>
       )}
@@ -239,7 +240,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
               <li className="text-foreground-tertiary">{t("home.tomorrowWindows")}</li>
               {forecast.keyTimeWindows.map((w) => (
                 <li key={w.label}>
-                  {normalizeDailyLanguage(w.label)}: {normalizeDailyLanguage(w.description)}
+                  {en ? safeEnglish(w.label, "Timing window") : normalizeDailyLanguage(w.label)}: {en ? safeEnglish(w.description) : normalizeDailyLanguage(w.description)}
                 </li>
               ))}
             </ul>
@@ -247,13 +248,13 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
           {forecast.catalysts?.length ? (
             <p>
               <span className="text-foreground-tertiary">{t("home.tomorrowCatalysts")}: </span>
-              {forecast.catalysts.join(isChinese ? "；" : "; ")}
+              {(en ? safeEnglishList(forecast.catalysts) : forecast.catalysts).join(isChinese ? "；" : "; ")}
             </p>
           ) : null}
           {forecast.risks?.length ? (
             <p>
               <span className="text-foreground-tertiary">{t("home.tomorrowRisks")}: </span>
-              {forecast.risks.join(isChinese ? "；" : "; ")}
+              {(en ? safeEnglishList(forecast.risks) : forecast.risks).join(isChinese ? "；" : "; ")}
             </p>
           ) : null}
           {forecast.revisionHistory?.length ? (
@@ -264,7 +265,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
               <ul className="mt-1 space-y-1">
                 {forecast.revisionHistory.map((r) => (
                   <li key={`${r.version}-${r.updatedAt}`}>
-                    v{r.version} · {formatTime(r.updatedAt, isChinese)} · {r.reason}
+                    v{r.version} · {formatTime(r.updatedAt, isChinese)} · {en ? safeEnglish(r.reason) : r.reason}
                   </li>
                 ))}
               </ul>
@@ -297,7 +298,7 @@ export function TomorrowForecastMember({
   detailHref: string;
   isPreviewGate?: boolean;
 }) {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
 
@@ -321,7 +322,7 @@ export function TomorrowForecastMember({
           </span>
           <span>
             {t("home.tomorrowLastUpdated")}
-            <strong className="ml-1 text-foreground">{summary.lastUpdatedLabel}</strong>
+            <strong className="ml-1 text-foreground">{isChinese ? summary.lastUpdatedLabel : safeEnglish(summary.lastUpdatedLabel, "Published and locked")}</strong>
           </span>
         </div>
 
@@ -335,11 +336,11 @@ export function TomorrowForecastMember({
           {t("home.tomorrowLifecycleNote")}
         </Text>
         <div className="mt-3 flex flex-wrap gap-4">
-          <Link href={detailHref} className="text-body-sm text-primary underline-offset-4 hover:underline">
+          <Link href={href(detailHref)} className="text-body-sm text-primary underline-offset-4 hover:underline">
             {t("home.tomorrowFullPage")}
           </Link>
           <Link
-            href="/verification"
+            href={href("/verification")}
             className="text-body-sm text-foreground-secondary underline-offset-4 hover:underline"
           >
             {t("home.tomorrowHistoryLink")}

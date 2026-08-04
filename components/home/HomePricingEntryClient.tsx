@@ -6,16 +6,16 @@ import { Button, Card, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 export function HomePricingEntryClient() {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const en = locale === "en";
   const benefits = en
     ? [
         "Full daily and next-session forecasts",
         "Weekly and monthly market paths",
         "Technical levels and invalidation",
-        "Liu Yao, Qi Men and technical basis",
+        "Liu Yao, Qimen Dunjia and technical structure",
         "Focused-asset research",
-        "AI trading desk and member signals",
+        "AI Strategy Desk and member signals",
       ]
     : [
         "今日与下一交易日完整预测",
@@ -62,7 +62,7 @@ export function HomePricingEntryClient() {
           </Text>
         </Card>
         <div className="mt-5">
-          <Button asChild><Link href="/pricing">{en ? "View membership plans" : "查看会员方案"}</Link></Button>
+          <Button asChild><Link href={href("/pricing")}>{en ? "View membership plans" : "查看会员方案"}</Link></Button>
         </div>
         <Text variant="caption" color="tertiary" className="mt-3 block">
           {en ? "Research only. Not investment advice." : "研究观点仅供参考，不构成投资建议。"}

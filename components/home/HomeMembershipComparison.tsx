@@ -10,13 +10,13 @@ const ROWS = [
   ["方向概率与运行路径", "基础版", "完整版", "Probabilities and expected path", "Basic", "Full"],
   ["关键价位、确认与失效", "—", "✓", "Levels, confirmation and invalidation", "—", "✓"],
   ["周度与月度趋势", "—", "✓", "Weekly and monthly outlooks", "—", "✓"],
-  ["六爻、奇门和技术依据", "—", "✓", "Liu Yao, Qi Men and technical basis", "—", "✓"],
+  ["六爻、奇门和技术依据", "—", "✓", "Liu Yao, Qimen Dunjia and technical structure", "—", "✓"],
   ["重点资产完整研究", "摘要", "✓", "Focused-asset research", "Summary", "✓"],
-  ["AI交易台与会员信号", "公开摘要", "完整内容", "AI trading desk and member signals", "Public summary", "Full access"],
+  ["AI交易台与会员信号", "公开摘要", "完整内容", "AI Strategy Desk and member signals", "Public summary", "Full access"],
 ] as const;
 
 export function HomeMembershipComparison() {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const en = locale === "en";
   return (
     <section id="member-benefits" className="scroll-mt-24 border-t border-border/[0.06] py-8 lg:py-10">
@@ -35,32 +35,27 @@ export function HomeMembershipComparison() {
           </Text>
         </div>
 
-        <Card padding="none" className="mt-5 overflow-hidden border-border/[0.1]">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] border-collapse text-left text-body-sm">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-foreground">{en ? "Feature" : "功能"}</th>
-                  <th className="px-4 py-3 font-semibold text-foreground">{en ? "Free user" : "免费注册用户"}</th>
-                  <th className="px-4 py-3 font-semibold text-foreground">{en ? "Paid member" : "付费会员"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ROWS.map((row) => (
-                  <tr key={row[0]} className="border-t border-border/[0.07]">
-                    <td className="px-4 py-3 text-foreground">{en ? row[3] : row[0]}</td>
-                    <td className="px-4 py-3 text-foreground-secondary">{en ? row[4] : row[1]}</td>
-                    <td className="px-4 py-3 text-foreground-secondary">{en ? row[5] : row[2]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="mt-5 grid gap-4 md:hidden">
+          {(["free", "member"] as const).map((tier) => (
+            <Card key={tier} padding="lg" className={tier === "member" ? "border-primary/25 bg-primary/[0.03]" : "border-border/[0.1]"}>
+              <Text variant="body" weight="semibold">{tier === "free" ? (en ? "Free Account" : "免费账户") : (en ? "Member" : "付费会员")}</Text>
+              <ul className="mt-4 space-y-3">
+                {ROWS.map((row) => <li key={`${tier}-${row[0]}`} className="border-t border-border/[0.07] pt-3 first:border-t-0 first:pt-0"><Text variant="body-sm" weight="medium">{en ? row[3] : row[0]}</Text><Text variant="caption" color="secondary" className="mt-1 block">{tier === "free" ? (en ? row[4] : row[1]) : (en ? row[5] : row[2])}</Text></li>)}
+              </ul>
+            </Card>
+          ))}
+        </div>
+
+        <Card padding="none" className="mt-5 hidden overflow-hidden border-border/[0.1] md:block">
+          <table className="w-full border-collapse text-left text-body-sm">
+            <thead className="bg-muted/40"><tr><th className="px-4 py-3 font-semibold text-foreground">{en ? "Feature" : "功能"}</th><th className="px-4 py-3 font-semibold text-foreground">{en ? "Free user" : "免费注册用户"}</th><th className="px-4 py-3 font-semibold text-foreground">{en ? "Paid member" : "付费会员"}</th></tr></thead>
+            <tbody>{ROWS.map((row) => <tr key={row[0]} className="border-t border-border/[0.07]"><td className="px-4 py-3 text-foreground">{en ? row[3] : row[0]}</td><td className="px-4 py-3 text-foreground-secondary">{en ? row[4] : row[1]}</td><td className="px-4 py-3 text-foreground-secondary">{en ? row[5] : row[2]}</td></tr>)}</tbody>
+          </table>
         </Card>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          <Button asChild><Link href="/login?tab=register&next=%2F%23moonx-view">{en ? "Create a free account" : "免费注册查看今日观点"}</Link></Button>
-          <Button asChild variant="outline"><Link href="/pricing">{en ? "View membership pricing" : "查看会员价格"}</Link></Button>
+          <Button asChild><Link href={href("/login?tab=register&next=%2F%23moonx-view")}>{en ? "Create a free account" : "免费注册查看今日观点"}</Link></Button>
+          <Button asChild variant="outline"><Link href={href("/pricing")}>{en ? "View membership pricing" : "查看会员价格"}</Link></Button>
         </div>
       </div>
     </section>

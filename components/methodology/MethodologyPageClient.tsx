@@ -4,42 +4,43 @@ import Link from "next/link";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { ALLOWED_FORMAL_DIRECTIONS } from "@/lib/forecasts/formal-direction";
+import { directionEn } from "@/lib/i18n/english-content";
 import type { MethodologyModule } from "@/lib/methodology/types";
 
 const CORE_FOUR = [
   {
     id: "liuyao",
     titleZh: "六爻（核心）",
-    titleEn: "Liu Yao (Core)",
+    titleEn: "Liu Yao — Directional Thesis",
     bodyZh: "主方向与路径的核心判断",
-    bodyEn: "Primary direction & path",
+    bodyEn: "Primary direction and expected path",
     accent: "border-amber-500/40 bg-amber-500/10",
     ring: "ring-amber-400/30",
   },
   {
     id: "qimen",
     titleZh: "奇门遁甲（择时）",
-    titleEn: "Qi Men (Timing)",
+    titleEn: "Qimen Dunjia — Timing Windows",
     bodyZh: "时间节奏与窗口选择",
-    bodyEn: "Timing windows & rhythm",
+    bodyEn: "Timing windows and market rhythm",
     accent: "border-sky-500/35 bg-sky-500/10",
     ring: "ring-sky-400/25",
   },
   {
     id: "market_structure",
     titleZh: "技术分析（结构）",
-    titleEn: "Technical (Structure)",
+    titleEn: "Technical Structure — Levels & Invalidation",
     bodyZh: "支撑、压力、路径与失效位",
-    bodyEn: "Levels, path & invalidation",
+    bodyEn: "Entry structure, key levels and invalidation",
     accent: "border-emerald-500/35 bg-emerald-500/10",
     ring: "ring-emerald-400/25",
   },
   {
     id: "macro_flows",
     titleZh: "消息面（催化）",
-    titleEn: "News (Catalysts)",
+    titleEn: "Catalyst Monitoring — Events & Risk",
     bodyZh: "事件验证、催化与风险扰动",
-    bodyEn: "Events, catalysts & risks",
+    bodyEn: "Events, catalysts and risk monitoring",
     accent: "border-violet-500/35 bg-violet-500/10",
     ring: "ring-violet-400/25",
   },
@@ -58,19 +59,19 @@ const FLOW_ZH = [
 ];
 
 const FLOW_EN = [
-  "Weekly Liu Yao",
-  "Moving lines & rhythm",
-  "Qi Men / calendar",
-  "Structure & levels",
-  "News check",
-  "Live progress revise",
-  "Direction, odds & path",
-  "Publish & lock",
-  "Verify results",
+  "Liu Yao directional thesis",
+  "Qimen timing windows",
+  "Technical structure and key levels",
+  "Catalyst and risk monitoring",
+  "Cross-method assessment",
+  "Live scenario tracking",
+  "Direction, probability and path",
+  "Publish and lock",
+  "Public verification",
 ];
 
 const OUTPUTS_ZH = ["方向", "概率", "路径", "支撑", "压力", "失效位", "风险"];
-const OUTPUTS_EN = ["Direction", "Odds", "Path", "Support", "Resistance", "Invalidation", "Risk"];
+const OUTPUTS_EN = ["Direction", "Probability", "Expected path", "Support", "Resistance", "Confirmation", "Invalidation", "Risk"];
 
 function Arrow() {
   return (
@@ -109,7 +110,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         <Text variant="body" color="secondary" className="block max-w-2xl">
           {zh
             ? "六爻负责一周核心方向与变化节奏；奇门与万年历研究时间窗口；技术分析确认价位；消息面校验催化与风险；实际行情判断是否提前、滞后或失效。"
-            : "Liu Yao sets the weekly core; Qi Men/calendar time the window; technicals lock levels; news checks catalysts; live tape revises ahead/delay/invalidation."}
+            : "MOOX combines Liu Yao directional analysis, Qimen timing, technical market structure and catalyst monitoring. Each published view defines a directional thesis, expected path, key levels, confirmation triggers and invalidation conditions. Live market data determines whether the scenario is unfolding on schedule, delayed or invalidated."}
         </Text>
       </header>
 
@@ -191,12 +192,12 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
                   ["AI／量化", "辅助参考"],
                 ]
               : [
-                  ["Liu Yao", "Core judgment"],
-                  ["Qi Men", "Timing"],
-                  ["Technical", "Structure"],
-                  ["News", "Catalysts & risks"],
-                  ["Wave", "Supporting"],
-                  ["AI / Quant", "Supporting"],
+                  ["Liu Yao", "Directional thesis"],
+                  ["Qimen Dunjia", "Timing windows"],
+                  ["Technical structure", "Entry and invalidation"],
+                  ["Catalyst monitoring", "Events and risk"],
+                  ["Cross-method assessment", "Final scenario"],
+                  ["AI / Quant", "Supporting evidence"],
                 ]
           ).map(([name, role]) => (
             <div
@@ -220,7 +221,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         <div className="flex flex-wrap gap-2">
           {ALLOWED_FORMAL_DIRECTIONS.map((d) => (
             <Badge key={d} variant="outline">
-              {d}
+              {zh ? d : directionEn(d)}
             </Badge>
           ))}
         </div>
@@ -230,13 +231,13 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         {zh ? (
           <>
             预测卡片底部可展开「预测依据」。也可直接从会员页返回{" "}
-            <Link href="/#moonx-view" className="text-primary underline-offset-2 hover:underline">
+            <Link href={locale === "en" ? "/en/#moonx-view" : "/#moonx-view"} className="text-primary underline-offset-2 hover:underline">
               今日研判
             </Link>
             。
           </>
         ) : (
-          "Forecast cards include expandable “Forecast basis” linking back here."
+          "Forecast cards include an expandable research basis and retain the confirmation and invalidation rules published with each scenario."
         )}
       </p>
     </div>

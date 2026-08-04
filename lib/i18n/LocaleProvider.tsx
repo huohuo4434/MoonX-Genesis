@@ -4,7 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import zhCN from "@/messages/zh-CN.json";
 import zhTW from "@/messages/zh-TW.json";
 import en from "@/messages/en.json";
-import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, PUBLIC_LOCALES, type Locale } from "./config";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE_KEY,
+  LOCALE_STORAGE_KEY,
+  PUBLIC_LOCALES,
+  localizeHref,
+  type Locale,
+} from "./config";
 
 type Dictionary = typeof zhCN;
 
@@ -28,54 +35,49 @@ function getByPath(source: unknown, path: string): unknown {
 interface LocaleContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  href: (href: string) => string;
   t: (key: string, vars?: TranslateVars) => string;
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-/**
- * Client-only locale provider. There is no URL-prefix routing (`/en/...`)
- * by design — the whole app renders at its existing paths and the active
- * language is purely a client-side presentation concern, persisted to
- * localStorage. The server always renders the default locale (`zh-CN`) so
- * hydration never mismatches; the saved preference is applied in an effect
- * right after mount, before paint is visible to the user in practice.
- */
-export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-      if (saved && (PUBLIC_LOCALES as string[]).includes(saved)) {
-        setLocaleState(saved as Locale);
-      }
-    } catch {
-      // localStorage unavailable — keep default locale.
-    }
-    // Intentionally run once on mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+export function LocaleProvider({
+  children,
+  initialLocale = DEFAULT_LOCALE,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   useEffect(() => {
     document.documentElement.lang = locale;
     try {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     } catch {
-      // Ignore write failures (private browsing, quota, etc).
+      // Storage may be unavailable in private mode. The cookie and URL remain authoritative.
     }
   }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {
-    if ((PUBLIC_LOCALES as string[]).includes(next)) setLocaleState(next);
+    if (!(PUBLIC_LOCALES as string[]).includes(next)) return;
+    setLocaleState(next);
+    document.cookie = `${LOCALE_COOKIE_KEY}=${encodeURIComponent(next)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
+    } catch {
+      // Ignore localStorage failures.
+    }
+    const nextUrl = localizeHref(`${window.location.pathname}${window.location.search}${window.location.hash}`, next);
+    window.location.assign(nextUrl);
   }, []);
+
+  const href = useCallback((value: string) => localizeHref(value, locale), [locale]);
 
   const t = useCallback(
     (key: string, vars?: TranslateVars) => {
       const raw = getByPath(DICTIONARIES[locale], key);
       const englishFallback = getByPath(DICTIONARIES.en, key);
-      // Never expose implementation keys to end users. Locale dictionaries
-      // are kept in sync, but English is a useful last-resort fallback.
       let str =
         typeof raw === "string"
           ? raw
@@ -96,25 +98,22 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     [locale]
   );
 
-  const value = useMemo<LocaleContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const value = useMemo<LocaleContextValue>(() => ({ locale, setLocale, href, t }), [locale, setLocale, href, t]);
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
 function useLocaleContext(): LocaleContextValue {
   const ctx = useContext(LocaleContext);
-  if (!ctx) {
-    throw new Error("useLocale/useTranslations must be used within a <LocaleProvider>");
-  }
+  if (!ctx) throw new Error("useLocale/useTranslations must be used within a <LocaleProvider>");
   return ctx;
 }
 
-export function useLocale(): { locale: Locale; setLocale: (locale: Locale) => void } {
-  const { locale, setLocale } = useLocaleContext();
-  return { locale, setLocale };
+export function useLocale(): { locale: Locale; setLocale: (locale: Locale) => void; href: (href: string) => string } {
+  const { locale, setLocale, href } = useLocaleContext();
+  return { locale, setLocale, href };
 }
 
-/** Returns a `t(key, vars?)` translation function bound to the active locale. */
 export function useTranslations() {
   return useLocaleContext().t;
 }

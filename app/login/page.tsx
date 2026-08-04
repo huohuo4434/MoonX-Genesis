@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Suspense } from "react";
 import { Section } from "@/components/ui";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -7,7 +9,19 @@ import {
   isSupabaseAuthConfigured,
 } from "@/lib/feature-flags";
 
-export const metadata = { title: "账户登录／注册" };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return buildLocalizedPageMetadata({
+    locale,
+    basePath: "/login",
+    titleZh: "账户登录／注册",
+    titleEn: "Sign in to MOOX",
+    descriptionZh: "登录或注册MOOX账户。",
+    descriptionEn: "Sign in or create a MOOX account.",
+  });
+}
+
+
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

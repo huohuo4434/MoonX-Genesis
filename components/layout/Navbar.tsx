@@ -26,7 +26,7 @@ export function Navbar({
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = useTranslations();
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
 
   const label = (link: NavItem) =>
     locale === "zh-CN" ? link.labelZh : t(link.key);
@@ -36,7 +36,7 @@ export function Navbar({
       <Container size="full" className="px-3 sm:px-4 lg:px-5 xl:px-6">
         <div className="flex h-header items-center gap-2">
           <Link
-            href="/"
+            href={href("/")}
             className="flex shrink-0 items-center gap-2 rounded-sm text-[15px] font-semibold text-foreground focus-ring xl:text-body"
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-caption font-bold text-primary-foreground" aria-hidden="true">
@@ -49,7 +49,7 @@ export function Navbar({
             {primaryNav.map((link) => (
               <a
                 key={link.key}
-                href={link.href}
+                href={href(link.href)}
                 className="whitespace-nowrap rounded-md px-2 py-2 text-[12px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring xl:px-2.5 xl:text-[13px] 2xl:px-3 2xl:text-body-sm"
               >
                 {label(link)}
@@ -62,7 +62,7 @@ export function Navbar({
                 </DropdownTrigger>
                 <DropdownContent align="end">
                   {moreNav.map((link) => (
-                    <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
+                    <DropdownItem key={link.key} onSelect={() => { window.location.href = href(link.href); }}>
                       {label(link)}
                     </DropdownItem>
                   ))}
@@ -96,7 +96,7 @@ export function Navbar({
               {[...primaryNav, ...moreNav].map((link) => (
                 <a
                   key={link.key}
-                  href={link.href}
+                  href={href(link.href)}
                   onClick={() => setIsMenuOpen(false)}
                   className="rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
                 >

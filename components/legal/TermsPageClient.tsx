@@ -12,8 +12,8 @@ const BENEFITS_ZH = [
 const BENEFITS_EN = [
   "Early access to full daily and next-session forecasts",
   "Full probabilities, expected path, key levels, confirmation and invalidation",
-  "Weekly and monthly outlooks with Liu Yao, Qi Men and technical evidence",
-  "Full focused-asset research, AI trading desk and member signals",
+  "Weekly and monthly outlooks with Liu Yao, Qimen Dunjia and technical structure",
+  "Full Research Watchlist coverage, AI Strategy Desk and member signals",
 ];
 
 export function TermsPageClient({ supportEmail }: { supportEmail: string }) {
@@ -36,7 +36,7 @@ export function TermsPageClient({ supportEmail }: { supportEmail: string }) {
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Account and devices" : "账户与设备"}</h2><p>{en ? "You are responsible for your email and password. Paid content is for the account holder only. The system may limit linked devices and concurrent use, with device management available in the account area." : "您有责任保管登录邮箱与密码。付费内容仅供本人使用；为防止账号共享，系统可限制绑定设备数量及同一时间使用付费内容的设备数量。账户页会提供设备查看与移除入口。"}</p></section>
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "No sharing or redistribution" : "禁止共享与转载"}</h2><p>{en ? "You may not share, resell, publicly redistribute, bulk-copy or scrape paid content, or bypass access controls by modifying client or API data." : "禁止共享、转售、公开转发、批量复制或爬取付费内容，也不得通过修改客户端或接口数据获取未授权权限。"}</p></section>
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Availability and risk" : "服务中断与风险"}</h2><p>{en ? "We aim to keep the service available but are not responsible for brief interruptions caused by maintenance, third parties or force majeure. Financial markets involve risk; users remain responsible for their decisions." : "我们尽力保持服务可用，但不对因维护、第三方故障或不可抗力导致的短暂中断承担责任。金融市场存在风险，用户应独立判断并承担决策后果。"}</p></section>
-          <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Contact" : "联系方式"}</h2><p>{en ? "Support" : "客服邮箱"}：{supportEmail}</p><p>{en ? "Last updated: Aug 3, 2026" : "最后更新：2026年8月3日"}</p></section>
+          <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Contact" : "联系方式"}</h2><p>{en ? `Support: ${supportEmail}` : `客服邮箱：${supportEmail}`}</p><p>{en ? "Last updated: Aug 3, 2026" : "最后更新：2026年8月3日"}</p></section>
         </div>
       </Section>
     </main>

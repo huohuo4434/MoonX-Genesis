@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Section } from "@/components/ui";
 import { MemberMonthlyPage } from "@/components/member/MemberMonthlyPage";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
@@ -5,30 +7,37 @@ import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return buildLocalizedPageMetadata({
+    locale,
+    basePath: "/member/monthly",
+    titleZh: "月度走势分析 | MOOX Intelligence",
+    titleEn: "Monthly Outlook | MOOX Intelligence",
+    descriptionZh: "月度方向、运行路径与关键风险的公开预览及会员完整研究。",
+    descriptionEn: "Monthly direction, probabilities, expected paths, timing windows and key risks across core markets.",
+  });
+}
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const metadata = { title: "月度走势分析 | MOOX Intelligence", description: "月度方向、运行路径与关键风险的公开预览及会员完整研究。" };
-
 const path = "/member/monthly";
 
 export default async function MonthlyPage() {
-  const gate = await getMemberDevicePageAccess();
+  const [gate, locale] = await Promise.all([getMemberDevicePageAccess(), getRequestLocale()]);
+  const en = locale === "en";
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
-    return (
-      <main><Section spacing="lg"><PublicFeaturePreview
-        eyebrow="月度趋势 · 公开预览"
-        title="先看整月结构，再安排周内节奏"
-        description="月度页把方向、运行路径、关键时间窗和失效条件放在同一套结构中，帮助用户区分中期判断与短线入场。"
-        solves={["避免把单日波动误当成整月趋势", "提前识别可能的先涨后跌、先跌后涨结构", "把月度判断与周度、日度确认分开"]}
-        memberBenefits={["核心市场完整月度方向与概率", "月内运行路径和关键时间窗", "六爻、奇门与技术结构依据", "风险提示、确认条件与失效条件"]}
-        exampleTitle="黄金 · 月度结构示例"
-        exampleLines={["收盘方向概率：上涨 42% / 震荡 33% / 下跌 25%", "运行路径倾向：月初整理 → 月中反弹 → 月末等待确认", "信号强度：中", "关键价位：仅在取得真实技术数据后展示"]}
-        nextPath={path}
-      /></Section></main>
-    );
+    return <main><Section spacing="lg"><PublicFeaturePreview
+      eyebrow={en ? "Monthly outlook · Public preview" : "月度趋势 · 公开预览"}
+      title={en ? "See the monthly structure before planning weekly execution" : "先看整月结构，再安排周内节奏"}
+      description={en ? "The monthly page separates medium-term direction from short-term entry timing by presenting probabilities, an expected path, timing windows and invalidation in one structure." : "月度页把方向、运行路径、关键时间窗和失效条件放在同一套结构中，帮助用户区分中期判断与短线入场。"}
+      solves={en ? ["Avoid treating one-day volatility as a monthly trend", "Identify rally-then-fade or dip-then-rebound structures early", "Separate monthly research from weekly and daily confirmation"] : ["避免把单日波动误当成整月趋势", "提前识别可能的先涨后跌、先跌后涨结构", "把月度判断与周度、日度确认分开"]}
+      memberBenefits={en ? ["Complete monthly direction and probabilities", "Expected path and timing windows", "Liu Yao, Qimen and technical-structure evidence", "Risk notes, confirmation and invalidation"] : ["核心市场完整月度方向与概率", "月内运行路径和关键时间窗", "六爻、奇门与技术结构依据", "风险提示、确认条件与失效条件"]}
+      exampleTitle={en ? "Gold · Monthly structure example" : "黄金 · 月度结构示例"}
+      exampleLines={en ? ["Monthly probabilities: higher 42% / range-bound 33% / lower 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Signal strength: medium", "Key levels appear only when verified technical data is available"] : ["收盘方向概率：上涨 42% / 震荡 33% / 下跌 25%", "运行路径倾向：月初整理 → 月中反弹 → 月末等待确认", "信号强度：中", "关键价位：仅在取得真实技术数据后展示"]}
+      nextPath={path}
+    /></Section></main>;
   }
-  if (gate.status === "DEVICE_REQUIRED") {
-    return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
-  }
+  if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberMonthlyPage /></Section></main>;
 }

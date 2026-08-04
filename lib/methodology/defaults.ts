@@ -21,7 +21,7 @@ export const DEFAULT_METHODOLOGY_MODULES: MethodologyModule[] = [
     enabled: true,
     publicDisplay: true,
     nameZh: "奇门遁甲",
-    nameEn: "Qi Men Dun Jia",
+    nameEn: "Qimen Dunjia",
     summaryZh: "重要择时：辅助判断时间窗口、先跌后涨或先涨后跌等节奏。",
     summaryEn: "Timing assistant for windows and rhythm (e.g. dip-then-rise vs rise-then-fade).",
     weightRangeZh: "高",

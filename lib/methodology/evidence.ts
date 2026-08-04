@@ -112,7 +112,7 @@ export function buildForecastModuleEvidence(
       influenceZh: "高",
       influenceEn: "High",
       conclusionZh: `奇门遁甲：${rhythm}`,
-      conclusionEn: `Qi Men: ${rhythm}`,
+      conclusionEn: `Qimen Dunjia: ${rhythm}`,
     });
   }
 

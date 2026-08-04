@@ -12,7 +12,7 @@ export async function GET() {
   return NextResponse.json(
     {
       titleZh: "MOOX 重点关注",
-      titleEn: "MOOX Conviction List",
+      titleEn: "MOOX Research Watchlist",
       trackedCount: cards.length,
       assets: cards,
     },

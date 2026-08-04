@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Badge, Button, Text } from "@/components/ui";
 import { SectionHeader } from "@/components/home/SectionHeader";
 
-/** Homepage entry into Conviction List — no forecast body. */
+/** Homepage entry into Research Watchlist — no forecast body. */
 export async function HomeMemberStocksSection() {
   return (
     <section id="member-stocks" className="border-t border-border/[0.06] py-8 lg:py-12">
@@ -17,7 +17,7 @@ export async function HomeMemberStocksSection() {
             <Text variant="body" weight="semibold">
               长鑫科技 · 太空狗
             </Text>
-            <Badge variant="outline">Conviction List</Badge>
+            <Badge variant="outline">Research Watchlist</Badge>
           </div>
           <Text variant="caption" color="tertiary" className="mt-2 block">
             当前跟踪 2 项资产 · 股票与加密资产统一栏目

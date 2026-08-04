@@ -11,6 +11,7 @@ import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-for
 import { assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/daily-language";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import { assetNameEn, directionEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 const EN_ASSET_NAMES: Record<string, string> = {
@@ -36,21 +37,6 @@ const EN_VENUES: Record<string, string> = {
   SILVER: "International silver market",
   WTI: "International energy market",
 };
-
-function englishDirection(value: string): string {
-  const map: Record<string, string> = {
-    "上涨": "Up",
-    "下跌": "Down",
-    "震荡": "Sideways",
-    "震荡上涨": "Sideways up",
-    "震荡下跌": "Sideways down",
-    "先涨后跌": "Up then down",
-    "先跌后涨": "Down then up",
-    "冲高回落": "Spike then fade",
-    "探底回升": "Dip then recover",
-  };
-  return map[value] ?? value;
-}
 
 function formatDateForLocale(value: string, en: boolean): string {
   if (!en) return formatDateChina(value);
@@ -78,7 +64,7 @@ function ProbabilityBars({ up, flat, down, en }: { up: number; flat: number; dow
       {(
         [
           [en ? "Up" : "上涨", up, "bg-emerald-600/80"],
-          [en ? "Flat" : "震荡", flat, "bg-slate-500/70"],
+          [en ? "Range" : "震荡", flat, "bg-slate-500/70"],
           [en ? "Down" : "下跌", down, "bg-rose-600/75"],
         ] as const
       ).map(([label, value, color]) => (
@@ -152,7 +138,7 @@ export function TodayDailyForecastView({
   /** Registered users after 08:00 see summary; members/admin see full. */
   detailLevel?: "summary" | "full";
 }) {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const en = locale === "en";
   const readyForecasts = forecasts
     .filter((f) => isHumanPublishedForecast(f) && !isDraft(f))
@@ -179,7 +165,7 @@ export function TodayDailyForecastView({
     readyForecasts.length === 0
       ? ""
       : `${en ? "Today’s combined view: " : "今日综合判断："}${readyForecasts
-          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? f.assetName : f.assetName} ${en ? englishDirection(displayDirection(f)) : displayDirection(f)}`)
+          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} ${en ? directionEn(displayDirection(f)) : displayDirection(f)}`)
           .join(en ? ", " : "、")}${en ? "." : "。"}`;
 
   return (
@@ -211,10 +197,10 @@ export function TodayDailyForecastView({
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
-                <Link href="/login?next=/#moonx-view">{en ? "Sign in" : "登录查看"}</Link>
+                <Link href={href("/login?next=/#moonx-view")}>{en ? "Sign in" : "登录查看"}</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
-                <Link href="/pricing">{en ? "Membership plans" : "会员方案"}</Link>
+                <Link href={href("/pricing")}>{en ? "Membership plans" : "会员方案"}</Link>
               </Button>
             </div>
           </div>
@@ -230,20 +216,20 @@ export function TodayDailyForecastView({
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">
-                <Link href="/pricing">{en ? "Upgrade membership" : "升级会员"}</Link>
+                <Link href={href("/pricing")}>{en ? "Upgrade membership" : "升级会员"}</Link>
               </Button>
             </div>
           </div>
         ) : null}
 
         {!accessDenied && publishHint ? (
-          <p className="mb-3 text-caption text-foreground-tertiary">{publishHint}</p>
+          <p className="mb-3 text-caption text-foreground-tertiary">{en ? safeEnglish(publishHint, "Publication timing follows the current access schedule.") : publishHint}</p>
         ) : null}
 
         {!accessDenied && readyForecasts.length > 0 ? (
           <>
             <p className="mb-4 max-w-3xl text-body-sm text-foreground-secondary">
-              {autoSummary || compositeSummary}
+              {autoSummary || (en ? safeEnglish(compositeSummary) : compositeSummary)}
             </p>
             <div className={`grid gap-4 ${readyForecasts.length === 1 ? "grid-cols-1" : "md:grid-cols-2"}`}>
               {readyForecasts.map((f) => {
@@ -254,10 +240,10 @@ export function TodayDailyForecastView({
                   down: 0,
                 };
                 const showFull = detailLevel === "full";
-                const normalizedPath = normalizeDailyPath(f.expectedPath);
-                const pathBias = normalizeDailyLanguage(f.pathBias)
-                  || normalizedPath.join(" → ")
-                  || "待确认";
+                const normalizedPath = en ? safeEnglishList(normalizeDailyPath(f.expectedPath)) : normalizeDailyPath(f.expectedPath);
+                const pathBias = en
+                  ? safeEnglish(f.pathBias || normalizedPath.join(" → "), "Expected path is awaiting technical confirmation.")
+                  : normalizeDailyLanguage(f.pathBias) || normalizedPath.join(" → ") || "待确认";
                 return (
                   <article
                     key={f.id}
@@ -266,24 +252,24 @@ export function TodayDailyForecastView({
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <div className="min-w-0">
                         <Text variant="body" weight="semibold" className="min-w-0 break-words">
-                          {en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? f.assetName : f.assetName} <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{assetDisplaySymbol(f.symbol)}</span>
+                          {en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{assetDisplaySymbol(f.symbol)}</span>
                         </Text>
                         <Text variant="caption" color="tertiary" className="mt-1 block">{en ? EN_VENUES[assetDisplaySymbol(f.symbol)] ?? assetVenue(f.symbol) : assetVenue(f.symbol)}</Text>
                       </div>
-                      <Badge variant="outline">{en ? englishDirection(displayDirection(f)) : displayDirection(f)}</Badge>
+                      <Badge variant="outline">{en ? directionEn(displayDirection(f)) : displayDirection(f)}</Badge>
                     </div>
                     <div className="grid gap-2 text-caption text-foreground-tertiary sm:grid-cols-2">
-                      <p>{f.targetSessionLabel ?? f.tradingSessionLabel}</p><p>{en ? "Version" : "版本"} V{f.version} · {en ? "Locked" : "已锁定"}</p>
+                      <p>{en ? safeEnglish(f.targetSessionLabel ?? f.tradingSessionLabel, "Next market session") : f.targetSessionLabel ?? f.tradingSessionLabel}</p><p>{en ? "Version" : "版本"} V{f.version} · {en ? "Locked" : "已锁定"}</p>
                       <p>{en ? "Updated" : "更新"}：{formatDateTimeForLocale(f.publishedAt, en)}</p>
                     </div>
                     <ProbabilityBars up={p.up} flat={p.flat} down={p.down} en={en} />
                     <div className="grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-3">
                       <p><span className="text-foreground-tertiary">{en ? "Expected path: " : "运行路径："}</span><span className="text-foreground-secondary">{pathBias}</span></p>
-                      <p><span className="text-foreground-tertiary">{en ? "Signal strength: " : "信号强度："}</span><span className="text-foreground-secondary">{f.signalStrength ?? (f.confidence >= 66 ? (en ? "High" : "高") : f.confidence >= 52 ? (en ? "Medium" : "中") : (en ? "Low" : "低"))}</span></p>
+                      <p><span className="text-foreground-tertiary">{en ? "Signal strength: " : "信号强度："}</span><span className="text-foreground-secondary">{en ? signalStrengthEn(f.signalStrength ?? (f.confidence >= 66 ? "高" : f.confidence >= 52 ? "中" : "低")) : f.signalStrength ?? (f.confidence >= 66 ? "高" : f.confidence >= 52 ? "中" : "低")}</span></p>
                       <p><span className="text-foreground-tertiary">{en ? "Wait for confirmation: " : "等待确认："}</span><span className="text-foreground-secondary">{f.waitForConfirmation === false ? (en ? "No" : "否") : (en ? "Yes" : "是")}</span></p>
                     </div>
                     <p className="break-words text-body-sm text-foreground-secondary">
-                      {normalizeDailyLanguage(f.headline ?? f.summary)}
+                      {en ? safeEnglish(f.headline ?? f.summary) : normalizeDailyLanguage(f.headline ?? f.summary)}
                     </p>
                     {showFull ? (
                       <>
@@ -297,7 +283,7 @@ export function TodayDailyForecastView({
                         </button>
                         {open ? (
                           <div className="space-y-2 break-words border-t border-border/[0.06] pt-3 text-caption text-foreground-tertiary">
-                            <p>{en ? "Target session" : "目标时段"}：{f.targetSessionLabel ?? f.tradingSessionLabel}</p>
+                            <p>{en ? "Target session: " : "目标时段："}{en ? safeEnglish(f.targetSessionLabel ?? f.tradingSessionLabel, "Next market session") : f.targetSessionLabel ?? f.tradingSessionLabel}</p>
                             <div className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
                               <PriceLevelsBlock
                                 support={f.supportLevels}
@@ -309,7 +295,7 @@ export function TodayDailyForecastView({
                               />
                             </div>
                             {normalizedPath.length ? (
-                              <p>{en ? "Intraday path" : "盘中路径"}：{normalizedPath.join(" → ")}</p>
+                              <p>{en ? "Intraday path: " : "盘中路径："}{normalizedPath.join(" → ")}</p>
                             ) : null}
                           </div>
                         ) : null}

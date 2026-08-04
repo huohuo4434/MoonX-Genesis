@@ -10,14 +10,14 @@ import { PricingPlansClient } from "@/components/payments/PricingPlansClient";
 const BENEFITS = [
   ["当日核心市场预测", "北京时间08:00后查看", "全天提前查看", "Daily core-market forecasts", "Available after 08:00 Beijing time", "Early access all day"],
   ["下一交易日方向", "—", "完整展示", "Next-session direction", "—", "Full access"],
-  ["上涨／震荡／下跌概率", "基础版", "完整展示", "Up / sideways / down probabilities", "Basic", "Full access"],
+  ["上涨／震荡／下跌概率", "基础版", "完整展示", "Bullish / range-bound / bearish probabilities", "Basic", "Full access"],
   ["运行路径", "基础版", "完整展示", "Expected path", "Basic", "Full access"],
   ["支撑、压力与确认位", "—", "完整展示", "Support, resistance and confirmation", "—", "Full access"],
   ["失效条件与风险提示", "—", "完整展示", "Invalidation and risk notes", "—", "Full access"],
   ["周度与月度趋势", "—", "完整展示", "Weekly and monthly outlooks", "—", "Full access"],
-  ["六爻、奇门与技术依据", "—", "完整展示", "Liu Yao, Qi Men and technical basis", "—", "Full access"],
+  ["六爻、奇门与技术依据", "—", "完整展示", "Liu Yao, Qimen Dunjia and technical structure", "—", "Full access"],
   ["重点资产完整研究", "摘要", "完整展示", "Focused-asset research", "Summary", "Full access"],
-  ["AI交易台与会员信号", "公开摘要", "完整内容", "AI trading desk and member signals", "Public summary", "Full access"],
+  ["AI交易台与会员信号", "公开摘要", "完整内容", "AI Strategy Desk and member signals", "Public summary", "Full access"],
 ] as const;
 
 export function PricingPageContent({
@@ -41,7 +41,7 @@ export function PricingPageContent({
   inviteHref: string;
   founderQuote: FounderDiscountQuote;
 }) {
-  const { locale } = useLocale();
+  const { locale, href } = useLocale();
   const en = locale === "en";
 
   return (
@@ -112,7 +112,7 @@ export function PricingPageContent({
               {en ? "Administrators do not need to purchase membership." : "管理员不需要购买会员。"}
             </Text>
             <div className="mt-4">
-              <Button asChild size="sm"><Link href="/admin">{en ? "Open admin" : "进入后台"}</Link></Button>
+              <Button asChild size="sm"><Link href={href("/admin")}>{en ? "Open admin" : "进入后台"}</Link></Button>
             </div>
           </Card>
         ) : (
@@ -126,27 +126,45 @@ export function PricingPageContent({
           />
         )}
 
-        <Card padding="none" className="w-full max-w-4xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left text-body-sm">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3">{en ? "Feature" : "功能"}</th>
-                  <th className="px-4 py-3">{en ? "Free user" : "免费注册用户"}</th>
-                  <th className="px-4 py-3">{en ? "Paid member" : "付费会员"}</th>
-                </tr>
-              </thead>
-              <tbody>
+        <div className="grid w-full max-w-4xl gap-4 md:hidden">
+          {(["free", "member"] as const).map((tier) => (
+            <Card key={tier} padding="lg" className={tier === "member" ? "border-primary/25 bg-primary/[0.03]" : undefined}>
+              <Text variant="body" weight="semibold">
+                {tier === "free" ? (en ? "Free Account" : "免费账户") : (en ? "Member" : "付费会员")}
+              </Text>
+              <ul className="mt-4 space-y-3">
                 {BENEFITS.map((row) => (
-                  <tr key={row[0]} className="border-t border-border/[0.07]">
-                    <td className="px-4 py-3 text-foreground">{en ? row[3] : row[0]}</td>
-                    <td className="px-4 py-3 text-foreground-secondary">{en ? row[4] : row[1]}</td>
-                    <td className="px-4 py-3 text-foreground-secondary">{en ? row[5] : row[2]}</td>
-                  </tr>
+                  <li key={`${tier}-${row[0]}`} className="border-t border-border/[0.07] pt-3 first:border-t-0 first:pt-0">
+                    <Text variant="body-sm" weight="medium">{en ? row[3] : row[0]}</Text>
+                    <Text variant="caption" color="secondary" className="mt-1 block">
+                      {tier === "free" ? (en ? row[4] : row[1]) : (en ? row[5] : row[2])}
+                    </Text>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            </Card>
+          ))}
+        </div>
+
+        <Card padding="none" className="hidden w-full max-w-4xl overflow-hidden md:block">
+          <table className="w-full border-collapse text-left text-body-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="px-4 py-3">{en ? "Feature" : "功能"}</th>
+                <th className="px-4 py-3">{en ? "Free user" : "免费注册用户"}</th>
+                <th className="px-4 py-3">{en ? "Paid member" : "付费会员"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BENEFITS.map((row) => (
+                <tr key={row[0]} className="border-t border-border/[0.07]">
+                  <td className="px-4 py-3 text-foreground">{en ? row[3] : row[0]}</td>
+                  <td className="px-4 py-3 text-foreground-secondary">{en ? row[4] : row[1]}</td>
+                  <td className="px-4 py-3 text-foreground-secondary">{en ? row[5] : row[2]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
 
         <Card padding="lg" className="w-full max-w-4xl">
@@ -183,8 +201,8 @@ export function PricingPageContent({
         </Card>
 
         <div className="flex flex-wrap justify-center gap-4">
-          {isActiveMember ? <Link href="/account" className="text-body-sm text-primary hover:underline">{en ? "My account" : "我的账户"}</Link> : null}
-          {!isLoggedIn ? <Link href="/login?next=/pricing" className="text-body-sm text-primary hover:underline">{en ? "Already have an account? Sign in" : "已有账户？登录"}</Link> : null}
+          {isActiveMember ? <Link href={href("/account")} className="text-body-sm text-primary hover:underline">{en ? "My account" : "我的账户"}</Link> : null}
+          {!isLoggedIn ? <Link href={href("/login?next=/pricing")} className="text-body-sm text-primary hover:underline">{en ? "Already have an account? Sign in" : "已有账户？登录"}</Link> : null}
         </div>
       </Section>
     </main>
