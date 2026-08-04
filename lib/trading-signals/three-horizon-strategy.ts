@@ -24,6 +24,11 @@ import {
 import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
 import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
 import {
+  prepareAiTradePlanBeforeExecution,
+  syncAiTradePlanFromDecision,
+  syncAiTradePlansFromRecentDecisions,
+} from "@/lib/trading-signals/ai-trade-plans";
+import {
   getPredictionAutoTraderSettings,
   resolvePredictionStrategyPlans,
 } from "@/lib/trading-signals/prediction-auto-trader";
@@ -58,6 +63,7 @@ const PROFILE_DEFINITIONS: Record<
     scanIntervalMinutes: 5,
     riskPerTradePct: 0.35,
     maxHoldingMinutes: 8 * 60,
+    planningMinConfidence: 45,
     minConfidence: 58,
     maxTradesPerDay: 4,
   },
@@ -72,6 +78,7 @@ const PROFILE_DEFINITIONS: Record<
     scanIntervalMinutes: 30,
     riskPerTradePct: 0.5,
     maxHoldingMinutes: 7 * 24 * 60,
+    planningMinConfidence: 45,
     minConfidence: 60,
     maxTradesPerDay: 2,
   },
@@ -86,6 +93,7 @@ const PROFILE_DEFINITIONS: Record<
     scanIntervalMinutes: 240,
     riskPerTradePct: 0.35,
     maxHoldingMinutes: 28 * 24 * 60,
+    planningMinConfidence: 45,
     minConfidence: 62,
     maxTradesPerDay: 1,
   },
@@ -106,6 +114,7 @@ interface ProfileRow {
   scan_interval_minutes: number;
   risk_per_trade_pct: number;
   max_holding_minutes: number;
+  planning_min_confidence: number;
   min_confidence: number;
   max_trades_per_day: number;
   last_scan_at: Date | string | null;
@@ -116,6 +125,7 @@ interface DecisionRow {
   id: string;
   run_id: string;
   decision_key: string;
+  plan_id: string | null;
   strategy_type: ThreeHorizonStrategyType;
   mode: ThreeHorizonStrategyMode;
   symbol: string;
@@ -701,6 +711,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         scan_interval_minutes INTEGER NOT NULL,
         risk_per_trade_pct DOUBLE PRECISION NOT NULL,
         max_holding_minutes INTEGER NOT NULL,
+        planning_min_confidence INTEGER NOT NULL DEFAULT 45,
         min_confidence INTEGER NOT NULL,
         max_trades_per_day INTEGER NOT NULL,
         last_scan_at TIMESTAMPTZ,
@@ -712,6 +723,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         id TEXT PRIMARY KEY,
         run_id TEXT NOT NULL,
         decision_key TEXT NOT NULL UNIQUE,
+        plan_id TEXT,
         strategy_type TEXT NOT NULL,
         mode TEXT NOT NULL,
         symbol TEXT NOT NULL,
@@ -746,6 +758,14 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
       )
     `);
     await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_three_horizon_profiles
+      ADD COLUMN IF NOT EXISTS planning_min_confidence INTEGER NOT NULL DEFAULT 45
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_three_horizon_decisions
+      ADD COLUMN IF NOT EXISTS plan_id TEXT
+    `);
+    await prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS trade_three_horizon_decisions_strategy_time_idx
       ON trade_three_horizon_decisions(strategy_type, created_at DESC)
     `);
@@ -758,13 +778,13 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
       await prisma.$executeRaw`
         INSERT INTO trade_three_horizon_profiles (
           strategy_type, enabled, mode, symbols, scan_interval_minutes,
-          risk_per_trade_pct, max_holding_minutes, min_confidence,
-          max_trades_per_day, updated_at
+          risk_per_trade_pct, max_holding_minutes, planning_min_confidence,
+          min_confidence, max_trades_per_day, updated_at
         ) VALUES (
           ${strategyType}, TRUE, 'SHADOW', ${JSON.stringify(definition.symbols)}::jsonb,
           ${definition.scanIntervalMinutes}, ${definition.riskPerTradePct},
-          ${definition.maxHoldingMinutes}, ${definition.minConfidence},
-          ${definition.maxTradesPerDay}, NOW()
+          ${definition.maxHoldingMinutes}, ${definition.planningMinConfidence},
+          ${definition.minConfidence}, ${definition.maxTradesPerDay}, NOW()
         ) ON CONFLICT (strategy_type) DO NOTHING
       `;
     }
@@ -789,6 +809,7 @@ function mapProfile(row: ProfileRow): ThreeHorizonStrategyProfile {
     scanIntervalMinutes: Math.max(1, Number(row.scan_interval_minutes || definition.scanIntervalMinutes)),
     riskPerTradePct: clamp(Number(row.risk_per_trade_pct || definition.riskPerTradePct), 0.1, 0.5),
     maxHoldingMinutes: Math.max(30, Number(row.max_holding_minutes || definition.maxHoldingMinutes)),
+    planningMinConfidence: Math.round(clamp(Number(row.planning_min_confidence || definition.planningMinConfidence), 40, 80)),
     minConfidence: Math.round(clamp(Number(row.min_confidence || definition.minConfidence), 50, 90)),
     maxTradesPerDay: Math.max(0, Math.min(4, Number(row.max_trades_per_day || definition.maxTradesPerDay))),
     lastScanAt: iso(row.last_scan_at),
@@ -801,6 +822,7 @@ function mapDecision(row: DecisionRow): ThreeHorizonStrategyDecision {
   return {
     id: row.id,
     runId: row.run_id,
+    planId: row.plan_id,
     strategyType: row.strategy_type,
     strategyLabel: PROFILE_DEFINITIONS[row.strategy_type].label,
     mode: row.mode === "DEMO" ? "DEMO" : "SHADOW",
@@ -850,6 +872,7 @@ export async function updateThreeHorizonProfile(input: {
   enabled?: boolean;
   mode?: ThreeHorizonStrategyMode;
   riskPerTradePct?: number;
+  planningMinConfidence?: number;
   minConfidence?: number;
   maxTradesPerDay?: number;
 }): Promise<ThreeHorizonStrategyProfile> {
@@ -865,9 +888,15 @@ export async function updateThreeHorizonProfile(input: {
   const risk = input.riskPerTradePct == null
     ? current.riskPerTradePct
     : clamp(input.riskPerTradePct, 0.1, 0.5);
+  const planningMinConfidence = input.planningMinConfidence == null
+    ? current.planningMinConfidence
+    : Math.round(clamp(input.planningMinConfidence, 40, 80));
   const minConfidence = input.minConfidence == null
     ? current.minConfidence
     : Math.round(clamp(input.minConfidence, 50, 90));
+  if (planningMinConfidence >= minConfidence) {
+    throw new Error("计划发布门槛必须低于模拟执行门槛");
+  }
   const maxTrades = input.maxTradesPerDay == null
     ? current.maxTradesPerDay
     : Math.max(0, Math.min(4, Math.floor(input.maxTradesPerDay)));
@@ -876,6 +905,7 @@ export async function updateThreeHorizonProfile(input: {
       enabled = ${enabled},
       mode = ${mode},
       risk_per_trade_pct = ${risk},
+      planning_min_confidence = ${planningMinConfidence},
       min_confidence = ${minConfidence},
       max_trades_per_day = ${maxTrades},
       updated_at = NOW()
@@ -1687,6 +1717,7 @@ export async function runThreeHorizonStrategyEngine(
     orderSuccess: 0,
     orderErrors: 1,
   }));
+  await syncAiTradePlansFromRecentDecisions(now).catch(() => 0);
   if (options.manageOnly) {
     return {
       ok: management.orderErrors === 0,
@@ -1775,28 +1806,47 @@ export async function runThreeHorizonStrategyEngine(
           rejectionCode,
           rejectionReason,
         });
+        const planGate = await prepareAiTradePlanBeforeExecution({
+          decision,
+          profile,
+          now,
+        }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
+          plan: null,
+          allowed: false,
+          code: "PLAN_PUBLISH_ERROR",
+          reason: error instanceof Error ? error.message : "AI事前计划发布失败",
+        }));
         if (evaluation.ready && status === "READY") {
-          const executed = await executeReadyDecision({
-            decision,
-            profile,
-            evaluation,
-            risk,
-            positions,
-            protections,
-            now,
-            reservedSymbols,
-            reservedRiskPct,
-          });
-          decision = executed.decision;
-          if (executed.attempted) orderAttempts += 1;
-          if (executed.success) {
-            orderSuccess += 1;
-            tradesToday += 1;
-            reservedSymbols.add(symbol);
-            reservedRiskPct += executed.riskReservedPct;
+          if (!planGate.allowed) {
+            decision = await updateDecision(decision.id, {
+              status: "BLOCKED",
+              rejectionCode: planGate.code,
+              rejectionReason: planGate.reason,
+            });
+          } else {
+            const executed = await executeReadyDecision({
+              decision,
+              profile,
+              evaluation,
+              risk,
+              positions,
+              protections,
+              now,
+              reservedSymbols,
+              reservedRiskPct,
+            });
+            decision = executed.decision;
+            if (executed.attempted) orderAttempts += 1;
+            if (executed.success) {
+              orderSuccess += 1;
+              tradesToday += 1;
+              reservedSymbols.add(symbol);
+              reservedRiskPct += executed.riskReservedPct;
+            }
+            if (executed.error) orderErrors += 1;
           }
-          if (executed.error) orderErrors += 1;
         }
+        await syncAiTradePlanFromDecision(decision, now).catch(() => undefined);
         decisions.push(decision);
       } catch (error) {
         const fallback: EvaluationResult = {

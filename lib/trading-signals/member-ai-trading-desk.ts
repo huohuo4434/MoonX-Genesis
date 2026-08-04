@@ -15,6 +15,7 @@ import {
   getPredictionAutoTraderDashboard,
 } from "@/lib/trading-signals/prediction-auto-trader";
 import { getThreeHorizonPublicStrategies } from "@/lib/trading-signals/three-horizon-strategy";
+import { getAiTradePlanDashboard } from "@/lib/trading-signals/ai-trade-plans";
 import { applyAiDeskOperationalState, sanitizePlanHorizonText } from "@/lib/trading-signals/ai-desk-status";
 import type {
   AiTradingDeskPlan,
@@ -431,6 +432,8 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     },
     settings,
     strategies: [],
+    planSummary: { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
+    publishedPlans: [],
     plans: [],
     positions: [],
     recentTrades: [],
@@ -455,10 +458,11 @@ export async function buildMemberAiTradingDeskSnapshot(
   const settings = await getMemberAiTradingDeskSettings();
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
-  const [dashboard, runtime, strategies] = await Promise.all([
+  const [dashboard, runtime, strategies, planDashboard] = await Promise.all([
     getPredictionAutoTraderDashboard(now),
     getBitgetRuntimeState(now),
     getThreeHorizonPublicStrategies(now),
+    getAiTradePlanDashboard(now),
   ]);
   const liveResults = await Promise.allSettled([
     getBitgetDemoCurrentPositions(),
@@ -519,6 +523,8 @@ export async function buildMemberAiTradingDeskSnapshot(
     },
     settings,
     strategies,
+    planSummary: planDashboard.summary,
+    publishedPlans: planDashboard.plans,
     plans: buildPlanRows(
       dashboard.plans,
       dashboard.recentRuns,
@@ -603,6 +609,8 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     ...payload,
     settings,
     strategies: payload.strategies ?? [],
+    planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
+    publishedPlans: payload.publishedPlans ?? [],
     lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
     syncStatus: row.last_error ? "PARTIAL" : payload.syncStatus,
     syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : payload.syncMessage,

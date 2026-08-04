@@ -13,6 +13,7 @@ const updateSchema = z.object({
   enabled: z.boolean().optional(),
   mode: z.enum(["SHADOW", "DEMO"]).optional(),
   riskPerTradePct: z.number().min(0.1).max(0.5).optional(),
+  planningMinConfidence: z.number().int().min(40).max(80).optional(),
   minConfidence: z.number().int().min(50).max(90).optional(),
   maxTradesPerDay: z.number().int().min(0).max(4).optional(),
 });

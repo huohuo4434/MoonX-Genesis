@@ -1,0 +1,105 @@
+import type { ThreeHorizonDirection, ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
+
+export type AiTradePlanTier = "CANDIDATE" | "FORMAL";
+export type AiTradePlanStatus =
+  | "PUBLISHED"
+  | "WATCHING"
+  | "ARMED"
+  | "ORDER_SUBMITTED"
+  | "PARTIALLY_FILLED"
+  | "OPEN"
+  | "REDUCED"
+  | "CLOSED"
+  | "CANCELLED"
+  | "EXPIRED"
+  | "INVALIDATED"
+  | "SUPERSEDED"
+  | "EXECUTION_ERROR";
+
+export type AiTradePlanExecutionMode = "SHADOW" | "BITGET_DEMO";
+
+export type AiTradePlanEvent = {
+  id: string;
+  planId: string;
+  eventType: string;
+  title: string;
+  detail: string;
+  status: AiTradePlanStatus | null;
+  bitgetOrderId: string | null;
+  clientOid: string | null;
+  price: number | null;
+  quantity: number | null;
+  eventAt: string;
+};
+
+export type AiTradePlan = {
+  id: string;
+  planGroupId: string;
+  version: number;
+  contentHash: string;
+  strategyType: ThreeHorizonStrategyType;
+  strategyLabel: string;
+  symbol: string;
+  direction: ThreeHorizonDirection;
+  tier: AiTradePlanTier;
+  status: AiTradePlanStatus;
+  executionMode: AiTradePlanExecutionMode;
+  thesisSummary: string;
+  planningConfidence: number;
+  executionThreshold: number;
+  entryZoneLow: number;
+  entryZoneHigh: number;
+  triggerRule: string;
+  confirmationTimeframe: string;
+  orderTypeIfTriggered: string;
+  protectiveStop: number;
+  target1: number;
+  target2: number;
+  target3: number;
+  riskPercent: number;
+  maxLeverage: number;
+  validFrom: string;
+  expiresAt: string;
+  invalidationRule: string;
+  cancelIf: string;
+  conditionsMet: number;
+  conditionsTotal: number;
+  currentPrice: number | null;
+  distanceToEntryPct: number | null;
+  publishedAt: string;
+  lastCheckedAt: string | null;
+  submittedAt: string | null;
+  firstFillAt: string | null;
+  averageFillPrice: number | null;
+  closedAt: string | null;
+  closeReason: string | null;
+  clientOid: string | null;
+  bitgetOrderId: string | null;
+  sourceDecisionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  events: AiTradePlanEvent[];
+};
+
+export type AiTradePlanSummary = {
+  publishedToday: number;
+  watching: number;
+  armed: number;
+  submittedOrOpen: number;
+  closedToday: number;
+};
+
+export type AiTradePlanDashboard = {
+  databaseReady: boolean;
+  generatedAt: string;
+  summary: AiTradePlanSummary;
+  plans: AiTradePlan[];
+  notice: string;
+};
+
+export type AiTradePlanExecutionGate = {
+  plan: AiTradePlan | null;
+  allowed: boolean;
+  code: string;
+  reason: string;
+};

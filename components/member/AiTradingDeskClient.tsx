@@ -6,6 +6,7 @@ import type {
   AiTradingDeskPlan,
   AiTradingDeskSnapshot,
 } from "@/types/ai-trading-desk";
+import type { AiTradePlan } from "@/types/ai-trade-plan";
 import { assetDisplayName, assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import { cleanMemberCopy } from "@/lib/presentation/public-copy";
 
@@ -29,6 +30,19 @@ function time(value: string | null): string {
   const beijing = new Date(date.getTime() + 8 * 60 * 60_000);
   const pad = (part: number) => String(part).padStart(2, "0");
   return `${beijing.getUTCFullYear()}-${pad(beijing.getUTCMonth() + 1)}-${pad(beijing.getUTCDate())} ${pad(beijing.getUTCHours())}:${pad(beijing.getUTCMinutes())} 北京时间`;
+}
+
+function publishedPlanBadge(plan: AiTradePlan) {
+  if (["OPEN", "REDUCED", "CLOSED"].includes(plan.status)) return "success" as const;
+  if (["ARMED", "ORDER_SUBMITTED", "PARTIALLY_FILLED"].includes(plan.status)) return "warning" as const;
+  if (["EXECUTION_ERROR", "INVALIDATED", "CANCELLED"].includes(plan.status)) return "danger" as const;
+  return "outline" as const;
+}
+
+function directionLabel(direction: AiTradePlan["direction"]): string {
+  if (direction === "LONG") return "准备做多";
+  if (direction === "SHORT") return "准备做空";
+  return "中性观察";
 }
 
 function planBadge(plan: AiTradingDeskPlan) {
@@ -90,7 +104,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               <Badge variant="warning">Bitget 模拟交易</Badge>
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-              展示服务器正在检查的交易机会、Bitget Demo实际模拟持仓和已结束交易。计划发布后保留原始依据，不因结果倒改。
+              展示AI事前计划、条件进度、Bitget Demo模拟委托、持仓和结束结果。已发布版本保留时间戳与内容哈希，不因结果倒改。
             </Text>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -163,6 +177,90 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           </div>
         </div>
       </Card>
+
+
+      <section className="space-y-4">
+        <div>
+          <Heading size="h3">AI事前交易计划</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">
+            MOOX先发布并锁定计划，再等待技术触发；Bitget Demo只负责模拟委托与成交证明。计划未达到条件时不会下单。
+          </Text>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Card padding="md"><Text variant="caption" color="tertiary">今日新计划</Text><Text variant="body" weight="semibold" className="mt-1 block text-xl">{snapshot.planSummary.publishedToday}</Text></Card>
+          <Card padding="md"><Text variant="caption" color="tertiary">等待触发</Text><Text variant="body" weight="semibold" className="mt-1 block text-xl">{snapshot.planSummary.watching}</Text></Card>
+          <Card padding="md"><Text variant="caption" color="tertiary">即将触发</Text><Text variant="body" weight="semibold" className="mt-1 block text-xl">{snapshot.planSummary.armed}</Text></Card>
+          <Card padding="md"><Text variant="caption" color="tertiary">委托或持仓</Text><Text variant="body" weight="semibold" className="mt-1 block text-xl">{snapshot.planSummary.submittedOrOpen}</Text></Card>
+          <Card padding="md"><Text variant="caption" color="tertiary">今日结束</Text><Text variant="body" weight="semibold" className="mt-1 block text-xl">{snapshot.planSummary.closedToday}</Text></Card>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {snapshot.publishedPlans.slice(0, 12).map((plan) => (
+            <Card key={plan.id} padding="lg" className="space-y-4 border-primary/15">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <Text variant="body" weight="semibold">{assetDisplaySymbol(plan.symbol)} · {plan.strategyLabel} · {directionLabel(plan.direction)}</Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    计划V{plan.version} · {plan.tier === "FORMAL" ? "正式计划" : "候选观察"} · 发布 {time(plan.publishedAt)}
+                  </Text>
+                </div>
+                <Badge variant={publishedPlanBadge(plan)}>{plan.status}</Badge>
+              </div>
+
+              <div className="rounded-lg border border-primary/20 bg-primary/[0.035] p-4">
+                <Text variant="caption" color="tertiary">事前逻辑</Text>
+                <Text variant="body-sm" className="mt-1 block">{cleanMemberCopy(plan.thesisSummary)}</Text>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-white/10 p-3">
+                  <Text variant="caption" color="tertiary">入场候选区</Text>
+                  <Text variant="body-sm" className="mt-1 block">{number(plan.entryZoneLow, 4)} — {number(plan.entryZoneHigh, 4)}</Text>
+                </div>
+                <div className="rounded-lg border border-white/10 p-3">
+                  <Text variant="caption" color="tertiary">保护止损</Text>
+                  <Text variant="body-sm" className="mt-1 block">{number(plan.protectiveStop, 4)}</Text>
+                </div>
+                <div className="rounded-lg border border-white/10 p-3 sm:col-span-2">
+                  <Text variant="caption" color="tertiary">目标</Text>
+                  <Text variant="body-sm" className="mt-1 block">{number(plan.target1, 4)} / {number(plan.target2, 4)} / {number(plan.target3, 4)}</Text>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm text-white/70">
+                <div><span className="text-white/45">最终触发：</span>{cleanMemberCopy(plan.triggerRule)}</div>
+                <div><span className="text-white/45">计划风险：</span>{plan.riskPercent}% · 最大模拟杠杆 {plan.maxLeverage}倍</div>
+                <div><span className="text-white/45">当前条件：</span>{plan.conditionsMet}/{plan.conditionsTotal}项满足 · 距离候选区 {plan.distanceToEntryPct == null ? "—" : `${number(plan.distanceToEntryPct, 2)}%`}</div>
+                <div><span className="text-white/45">有效期：</span>{time(plan.validFrom)} 至 {time(plan.expiresAt)}</div>
+                <div><span className="text-white/45">Bitget Demo：</span>{plan.bitgetOrderId ? `已绑定订单 ${plan.bitgetOrderId}` : "尚未提交订单"}</div>
+              </div>
+
+              {plan.events.length ? (
+                <div className="rounded-lg border border-white/10 bg-black/10 p-4">
+                  <Text variant="caption" color="tertiary">完整时间线</Text>
+                  <div className="mt-3 space-y-2">
+                    {plan.events.slice(-6).map((event) => (
+                      <div key={event.id} className="grid grid-cols-[150px_1fr] gap-3 text-xs">
+                        <span className="text-white/40">{time(event.eventAt)}</span>
+                        <span className="text-white/70"><strong className="font-medium text-white/90">{event.title}</strong> · {cleanMemberCopy(event.detail)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <Text variant="caption" color="tertiary">
+                这是AI事前计划，不代表已经成交。未达到触发条件、事前发布时间或风险闸门要求时不会下单。内容哈希：{plan.contentHash.slice(0, 12)}…
+              </Text>
+            </Card>
+          ))}
+        </div>
+        {!snapshot.publishedPlans.length ? (
+          <Card padding="lg">
+            <Text variant="body" weight="semibold">暂无达到发布门槛的结构化计划</Text>
+            <Text variant="body-sm" color="secondary" className="mt-2 block">系统仍会持续扫描；低于计划发布门槛的判断只保留在后台审计，不会为了页面活跃而强行生成计划。</Text>
+          </Card>
+        ) : null}
+      </section>
 
       <section className="space-y-4">
         <div>

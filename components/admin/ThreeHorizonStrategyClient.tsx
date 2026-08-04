@@ -53,6 +53,7 @@ export function ThreeHorizonStrategyClient({
           enabled: profile.enabled,
           mode: profile.mode,
           riskPerTradePct: profile.riskPerTradePct,
+          planningMinConfidence: profile.planningMinConfidence,
           minConfidence: profile.minConfidence,
           maxTradesPerDay: profile.maxTradesPerDay,
         }),
@@ -91,7 +92,7 @@ export function ThreeHorizonStrategyClient({
         <div>
           <Heading size="h3">三周期策略控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-            短线、波段和中长期分别使用独立周期、风险预算和持仓期限。默认影子观察，只记录“本来会下的订单”。
+            短线、波段和中长期分别使用独立周期、风险预算和持仓期限。计划发布门槛低于执行门槛：会员可提前看到计划，未满足最终条件不会下单。
           </Text>
         </div>
         <Badge variant={dashboard.executionEnvironmentAllowed ? "warning" : "success"}>
@@ -154,7 +155,7 @@ export function ThreeHorizonStrategyClient({
                 </select>
               </label>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 <label className="space-y-1 text-xs text-white/60">
                   <span>单笔风险%</span>
                   <input
@@ -170,7 +171,21 @@ export function ThreeHorizonStrategyClient({
                   />
                 </label>
                 <label className="space-y-1 text-xs text-white/60">
-                  <span>最低置信度</span>
+                  <span>计划发布门槛</span>
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="40"
+                    max="80"
+                    step="1"
+                    value={profile.planningMinConfidence}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => patch(profile.strategyType, {
+                      planningMinConfidence: Number(event.target.value),
+                    })}
+                  />
+                </label>
+                <label className="space-y-1 text-xs text-white/60">
+                  <span>模拟执行门槛</span>
                   <input
                     className={inputClass}
                     type="number"

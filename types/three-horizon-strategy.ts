@@ -35,6 +35,7 @@ export type ThreeHorizonStrategyProfile = {
   scanIntervalMinutes: number;
   riskPerTradePct: number;
   maxHoldingMinutes: number;
+  planningMinConfidence: number;
   minConfidence: number;
   maxTradesPerDay: number;
   lastScanAt: string | null;
@@ -61,6 +62,7 @@ export type ThreeHorizonRiskSnapshot = {
 export type ThreeHorizonStrategyDecision = {
   id: string;
   runId: string;
+  planId: string | null;
   strategyType: ThreeHorizonStrategyType;
   strategyLabel: string;
   mode: ThreeHorizonStrategyMode;
