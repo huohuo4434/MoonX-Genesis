@@ -3,7 +3,7 @@ import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;

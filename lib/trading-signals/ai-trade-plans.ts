@@ -868,12 +868,12 @@ async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEve
 async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
   if (!prisma) return [];
   const rows = await prisma.$queryRawUnsafe<IntentDecisionRow[]>(`
-    SELECT DISTINCT ON (symbol)
+    SELECT DISTINCT ON (strategy_type, symbol)
       symbol, strategy_type, direction, status, confidence, technical_score,
       forecast_score, conditions, current_price, entry_price, stop_loss,
       target_1, target_2, risk_pct, max_holding_until, rejection_reason, updated_at
     FROM trade_three_horizon_decisions
-    ORDER BY symbol,
+    ORDER BY strategy_type, symbol,
       CASE WHEN status IN ('OPEN','PARTIAL','ORDER_SUBMITTED','CLOSING') THEN 0 ELSE 1 END,
       updated_at DESC, created_at DESC
   `);

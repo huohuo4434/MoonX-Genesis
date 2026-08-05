@@ -58,6 +58,23 @@ const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
 const LIVE_COMMISSIONING_RISK_PCT = 0.05;
+// MOOX_LIVE_DAILY_MINIMUM_V1
+// The old BTC/ETH-only commissioning loop is disabled by default because it consumed
+// most of the Vercel time budget before the ten-market scan could start. It can still
+// be re-enabled explicitly for diagnostics.
+const LIVE_COMMISSIONING_ENABLED =
+  process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
+const LIVE_DAILY_MINIMUM_ENABLED =
+  process.env.BITGET_LIVE_DAILY_MINIMUM_TRADE_ENABLED?.toLowerCase() !== "false";
+const LIVE_DAILY_MINIMUM_START_HOUR_BJ = envNumber(
+  "BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 9, 0, 23
+);
+const LIVE_DAILY_MINIMUM_MIN_CONFIDENCE = envNumber(
+  "BITGET_LIVE_DAILY_MINIMUM_MIN_CONFIDENCE", 42, 40, 70
+);
+const LIVE_DAILY_MINIMUM_RISK_PCT = envNumber(
+  "BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.1, 0.05, 0.15
+);
 
 const PROFILE_DEFINITIONS: Record<
   ThreeHorizonStrategyType,
@@ -911,7 +928,20 @@ export async function getThreeHorizonProfiles(): Promise<ThreeHorizonStrategyPro
     SELECT * FROM trade_three_horizon_profiles
     ORDER BY CASE strategy_type WHEN 'INTRADAY' THEN 1 WHEN 'SWING' THEN 2 ELSE 3 END
   `);
-  return rows.map(mapProfile);
+  const environment = getBitgetDemoEnvironment();
+  return rows.map((row) => {
+    const mapped = mapProfile(row);
+    if (environment.mode !== "LIVE_EXPERIMENT") return mapped;
+    // Always expose the complete ten-market universe in live mode, even when an old
+    // warm server instance still has legacy BTC/ETH profile rows cached.
+    return {
+      ...mapped,
+      enabled: true,
+      mode: "LIVE" as const,
+      symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+      maxTradesPerDay: 10,
+    };
+  });
 }
 
 export async function updateThreeHorizonProfile(input: {
@@ -986,6 +1016,42 @@ function beijingStartOfDay(now: Date): Date {
   const shifted = new Date(now.getTime() + 8 * 60 * 60_000);
   const utc = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
   return new Date(utc - 8 * 60 * 60_000);
+}
+
+function beijingHour(now: Date): number {
+  return new Date(now.getTime() + 8 * 60 * 60_000).getUTCHours();
+}
+
+async function liveExecutedOrderCountToday(now: Date): Promise<number> {
+  if (!prisma) return 0;
+  const start = beijingStartOfDay(now);
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
+    `SELECT COUNT(*)::bigint AS count
+     FROM trade_three_horizon_decisions
+     WHERE created_at >= $1
+       AND (bitget_order_id IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
+    start
+  );
+  const value = Number(rows[0]?.count ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function decisionRewardRisk(decision: ThreeHorizonStrategyDecision): number {
+  if (!decision.entryPrice || !decision.stopLoss || !decision.target2) return 0;
+  const riskDistance = Math.abs(decision.entryPrice - decision.stopLoss);
+  if (!Number.isFinite(riskDistance) || riskDistance <= 0) return 0;
+  return Math.abs(decision.target2 - decision.entryPrice) / riskDistance;
+}
+
+function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision): number {
+  const completion = decision.conditionsTotal > 0
+    ? decision.conditionsMet / decision.conditionsTotal
+    : 0;
+  return decision.confidence * 2
+    + decision.technicalScore
+    + decision.forecastScore * 0.5
+    + completion * 50
+    + decisionRewardRisk(decision) * 10;
 }
 
 function beijingStartOfWeek(now: Date): Date {
@@ -2081,7 +2147,12 @@ export async function runThreeHorizonStrategyEngine(
   const profiles = await getThreeHorizonProfiles();
   const environment = getBitgetDemoEnvironment();
   const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
-  const dueProfiles = profiles.filter((profile) => profile.enabled && profileDue(profile, now));
+  // Live mode evaluates all three horizons on every server pass. Candle data is shared
+  // across the profiles, so this produces 30 transparent decisions without tripling the
+  // market-data universe. Demo/shadow mode keeps the original cadence.
+  const dueProfiles = profiles.filter((profile) =>
+    profile.enabled && (liveExperimentMode || profileDue(profile, now))
+  );
   const settings = await getPredictionAutoTraderSettings();
   const forecastPlans = await resolvePredictionStrategyPlans(settings, now).catch(() => []);
   const forecastBySymbol = new Map<string, PredictionStrategyPlan>();
@@ -2124,7 +2195,7 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
-  if (liveExperimentMode) {
+  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED) {
     const commissioning = await runLiveCommissioning({
       runId,
       now,
@@ -2294,6 +2365,127 @@ export async function runThreeHorizonStrategyEngine(
     await markProfileScanned(profile, now);
     if (timeBudgetReached) break;
   }
+  let dailyMinimumMessage = "";
+  if (
+    liveExperimentMode &&
+    LIVE_DAILY_MINIMUM_ENABLED &&
+    orderSuccess === 0 &&
+    beijingHour(now) >= LIVE_DAILY_MINIMUM_START_HOUR_BJ &&
+    !risk.blocked &&
+    (await liveExecutedOrderCountToday(now)) === 0
+  ) {
+    const candidate = decisions
+      .filter((decision) =>
+        decision.strategyType === "INTRADAY" &&
+        decision.mode === "LIVE" &&
+        (decision.direction === "LONG" || decision.direction === "SHORT") &&
+        decision.confidence >= LIVE_DAILY_MINIMUM_MIN_CONFIDENCE &&
+        decision.conditionsTotal > 0 &&
+        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.4)) &&
+        Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
+        decisionRewardRisk(decision) >= 1.2 &&
+        !reservedSymbols.has(decision.symbol) &&
+        !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
+        !protections.some((row) => row.symbol === decision.symbol) &&
+        !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING"].includes(decision.rejectionCode)
+      )
+      .sort((a, b) => dailyMinimumCandidateScore(b) - dailyMinimumCandidateScore(a))[0];
+
+    if (candidate) {
+      const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
+      if (baseProfile) {
+        const fallbackProfile: ThreeHorizonStrategyProfile = {
+          ...baseProfile,
+          enabled: true,
+          mode: "LIVE",
+          symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+          riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_DAILY_MINIMUM_RISK_PCT),
+          planningMinConfidence: 40,
+          minConfidence: Math.min(baseProfile.minConfidence, LIVE_DAILY_MINIMUM_MIN_CONFIDENCE),
+          maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 90),
+          maxTradesPerDay: 10,
+        };
+        const evaluation: EvaluationResult = {
+          direction: candidate.direction,
+          confidence: candidate.confidence,
+          technicalScore: candidate.technicalScore,
+          forecastScore: candidate.forecastScore,
+          conditions: candidate.conditions,
+          currentPrice: candidate.currentPrice,
+          entryPrice: candidate.entryPrice,
+          stopLoss: candidate.stopLoss,
+          target1: candidate.target1,
+          target2: candidate.target2,
+          ready: true,
+          rejectionCode: "DAILY_MINIMUM_EXECUTION",
+          rejectionReason: `今日尚无成交，系统选择十品种短线候选中综合得分最高的${candidate.symbol}，以${LIVE_DAILY_MINIMUM_RISK_PCT}%小风险执行最低交易目标。`,
+          raw: {
+            dailyMinimumExecution: true,
+            candidateScore: dailyMinimumCandidateScore(candidate),
+            originalRejectionCode: candidate.rejectionCode,
+            originalRejectionReason: candidate.rejectionReason,
+          },
+        };
+        let promoted = await updateDecision(candidate.id, {
+          status: "READY",
+          rejectionCode: "DAILY_MINIMUM_EXECUTION",
+          rejectionReason: evaluation.rejectionReason,
+        });
+        const planGate = await prepareAiTradePlanBeforeExecution({
+          decision: promoted,
+          profile: fallbackProfile,
+          now,
+        }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
+          plan: null,
+          allowed: false,
+          code: "PLAN_PUBLISH_ERROR",
+          reason: error instanceof Error ? error.message : "每日最低执行计划发布失败",
+        }));
+        if (!planGate.allowed) {
+          promoted = await updateDecision(promoted.id, {
+            status: "BLOCKED",
+            rejectionCode: planGate.code,
+            rejectionReason: planGate.reason,
+          });
+          dailyMinimumMessage = `每日最低执行候选${candidate.symbol}被计划闸门拦截：${planGate.reason}`;
+        } else {
+          const executed = await executeReadyDecision({
+            decision: promoted,
+            profile: fallbackProfile,
+            evaluation,
+            risk,
+            positions,
+            protections,
+            now,
+            reservedSymbols,
+            reservedRiskPct,
+          });
+          promoted = executed.decision;
+          if (executed.attempted) orderAttempts += 1;
+          if (executed.success) {
+            orderSuccess += 1;
+            reservedSymbols.add(candidate.symbol);
+            reservedRiskPct += executed.riskReservedPct;
+            dailyMinimumMessage = `每日最低执行已提交：${candidate.symbol}${candidate.direction === "LONG" ? "做多" : "做空"}，风险预算${fallbackProfile.riskPerTradePct}%，最长持有${fallbackProfile.maxHoldingMinutes}分钟`;
+          } else if (executed.error) {
+            orderErrors += 1;
+            dailyMinimumMessage = `每日最低执行候选${candidate.symbol}下单失败：${promoted.rejectionReason}`;
+          } else {
+            dailyMinimumMessage = `每日最低执行候选${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`;
+          }
+        }
+        await syncAiTradePlanFromDecision(promoted, now).catch(() => undefined);
+        const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
+        if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
+      }
+    } else {
+      dailyMinimumMessage = "今日尚无成交，但十品种短线候选均未达到最低方向、结构、盈亏比或安全条件；系统保留0笔，不伪造交易";
+    }
+  }
+  if (dailyMinimumMessage) {
+    commissioningMessage = [commissioningMessage, dailyMinimumMessage].filter(Boolean).join("；");
+  }
+
   const scannedSymbols = Array.from(new Set(decisions.map((row) => row.symbol)));
   const readyCount = decisions.filter((row) => ["READY", "SHADOW_READY", "ORDER_SUBMITTED", "OPEN", "PARTIAL"].includes(row.status)).length;
   const noOrderReasons = decisions
