@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type {
+  ThreeHorizonCondition,
   ThreeHorizonStrategyDecision,
   ThreeHorizonStrategyProfile,
   ThreeHorizonStrategyType,
@@ -127,15 +128,20 @@ type RuntimeQuoteStateRow = {
 
 type IntentDecisionRow = {
   symbol: string;
+  strategy_type: ThreeHorizonStrategyType;
   direction: "LONG" | "SHORT" | "NEUTRAL";
   status: ThreeHorizonStrategyDecision["status"];
   confidence: number;
+  technical_score: number;
+  forecast_score: number;
   conditions: unknown;
   current_price: number | null;
   entry_price: number | null;
   stop_loss: number | null;
   target_1: number | null;
   target_2: number | null;
+  risk_pct: number | null;
+  max_holding_until: Date | null;
   rejection_reason: string;
   updated_at: Date;
 };
@@ -863,26 +869,36 @@ async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
   if (!prisma) return [];
   const rows = await prisma.$queryRawUnsafe<IntentDecisionRow[]>(`
     SELECT DISTINCT ON (symbol)
-      symbol, direction, status, confidence, conditions, current_price, entry_price,
-      stop_loss, target_1, target_2, rejection_reason, updated_at
+      symbol, strategy_type, direction, status, confidence, technical_score,
+      forecast_score, conditions, current_price, entry_price, stop_loss,
+      target_1, target_2, risk_pct, max_holding_until, rejection_reason, updated_at
     FROM trade_three_horizon_decisions
     ORDER BY symbol,
       CASE WHEN status IN ('OPEN','PARTIAL','ORDER_SUBMITTED','CLOSING') THEN 0 ELSE 1 END,
       updated_at DESC, created_at DESC
   `);
   return rows.map((row) => {
-    const conditions = Array.isArray(row.conditions) ? row.conditions : [];
-    const met = conditions.filter((condition) =>
+    const rawConditions = Array.isArray(row.conditions) ? row.conditions : [];
+    const conditions = rawConditions.filter((condition): condition is ThreeHorizonCondition =>
       Boolean(condition) &&
       typeof condition === "object" &&
+      "key" in condition &&
+      "label" in condition &&
       "met" in condition &&
-      Boolean((condition as { met?: unknown }).met)
-    ).length;
+      "value" in condition &&
+      "weight" in condition
+    );
+    const met = conditions.filter((condition) => condition.met).length;
     return {
       symbol: row.symbol,
+      strategyType: row.strategy_type,
+      strategyLabel: STRATEGY_LABEL[row.strategy_type],
       direction: row.direction,
       status: row.status,
       confidence: Number(row.confidence || 0),
+      technicalScore: Number(row.technical_score || 0),
+      forecastScore: Number(row.forecast_score || 0),
+      conditions,
       currentPrice: row.current_price == null ? null : Number(row.current_price),
       entryPrice: row.entry_price == null ? null : Number(row.entry_price),
       stopLoss: row.stop_loss == null ? null : Number(row.stop_loss),
@@ -890,6 +906,8 @@ async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
       target2: row.target_2 == null ? null : Number(row.target_2),
       conditionsMet: met,
       conditionsTotal: conditions.length,
+      riskPct: row.risk_pct == null ? null : Number(row.risk_pct),
+      maxHoldingUntil: row.max_holding_until ? row.max_holding_until.toISOString() : null,
       rejectionReason: row.rejection_reason || "",
       updatedAt: row.updated_at.toISOString(),
     };

@@ -858,7 +858,7 @@ function mapProfile(row: ProfileRow): ThreeHorizonStrategyProfile {
     maxHoldingMinutes: Math.max(30, Number(row.max_holding_minutes || definition.maxHoldingMinutes)),
     planningMinConfidence: Math.round(clamp(Number(row.planning_min_confidence || definition.planningMinConfidence), 40, 80)),
     minConfidence: Math.round(clamp(Number(row.min_confidence || definition.minConfidence), 50, 90)),
-    maxTradesPerDay: Math.max(0, Math.min(4, Number(row.max_trades_per_day || definition.maxTradesPerDay))),
+    maxTradesPerDay: Math.max(0, Math.min(10, Number(row.max_trades_per_day || definition.maxTradesPerDay))),
     lastScanAt: iso(row.last_scan_at),
     updatedAt: iso(row.updated_at) ?? new Date().toISOString(),
   };
@@ -946,7 +946,7 @@ export async function updateThreeHorizonProfile(input: {
   }
   const maxTrades = input.maxTradesPerDay == null
     ? current.maxTradesPerDay
-    : Math.max(0, Math.min(4, Math.floor(input.maxTradesPerDay)));
+    : Math.max(0, Math.min(10, Math.floor(input.maxTradesPerDay)));
   await prisma.$executeRaw`
     UPDATE trade_three_horizon_profiles SET
       enabled = ${enabled},
@@ -2166,9 +2166,11 @@ export async function runThreeHorizonStrategyEngine(
   let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
   let scanErrors = 0;
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
-  const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
-    ? Math.max(1, Math.floor(options.maxNewSymbols))
-    : Number.POSITIVE_INFINITY;
+  const maxNewSymbols = liveExperimentMode
+    ? Number.POSITIVE_INFINITY
+    : options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
+      ? Math.max(1, Math.floor(options.maxNewSymbols))
+      : Number.POSITIVE_INFINITY;
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let timeBudgetReached = false;
   const eligibleUniverseSymbols = new Set<string>();
