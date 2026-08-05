@@ -1,0 +1,13 @@
+{
+  "upgradeId": "MOOX-AI-FULL-UNIVERSE-V3-20260805",
+  "appliedAt": "2026-08-05T14:13:10.136886+00:00",
+  "policy": {
+    "symbols": 10,
+    "maxNewTradesPerDay": 10,
+    "maxConcurrentPositions": 10,
+    "maxLeverage": 2,
+    "dailyLossStopUsdt": 100,
+    "maxDrawdownStopUsdt": 500,
+    "forcedTrading": false
+  }
+}

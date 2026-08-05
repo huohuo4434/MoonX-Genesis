@@ -29,14 +29,14 @@ export default async function AdminBitgetDemoPage() {
           <AdminNav current="/admin/bitget-demo" />
           <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。BTC/ETH小额真实闭环验收与10品种短线、波段和中长期扫描并行运行；只有达到技术触发和风控条件的计划才会下单。
+            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。部署后先用BTC或ETH完成一次小额真实开仓、保护与平仓闭环，再由短线、波段和中长期策略自动接管。
           </Text>
           <div className="space-y-8">
             <AiTradePlanAdminClient lazy />
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
-                BTC/ETH首笔闭环验收风险预算0.05%，最长持有30分钟，同时不再阻断其余8个品种；短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每天最多新开10笔，最多同时持有10个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到100 USDT后停止当天新开仓，总权益较峰值回撤达到500 USDT后停止实验并尝试平掉全部仓位。系统只在条件满足时下单，不会为了凑满10笔或10个仓位强行交易。
+                首笔闭环验收风险预算0.05%，仅在BTC或ETH中按实时多周期动量择向，最长持有30分钟；完成后短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每天最多新开3笔，最多同时持有3个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到20 USDT后停止当天新开仓，总权益较峰值回撤达到100 USDT后停止实验并尝试平掉全部仓位。
               </Text>
             </Card>
             <BitgetLiveConsoleLoader />

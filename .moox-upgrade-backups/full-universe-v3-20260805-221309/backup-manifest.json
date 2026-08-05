@@ -1,0 +1,38 @@
+﻿[
+    {
+        "relative":  "lib\\bitget\\demo-client.ts",
+        "existed":  true
+    },
+    {
+        "relative":  "lib\\bitget\\demo-runtime.ts",
+        "existed":  true
+    },
+    {
+        "relative":  "lib\\trading-signals\\three-horizon-strategy.ts",
+        "existed":  true
+    },
+    {
+        "relative":  "lib\\trading-signals\\ai-trade-plans.ts",
+        "existed":  true
+    },
+    {
+        "relative":  "app\\admin\\bitget-demo\\page.tsx",
+        "existed":  true
+    },
+    {
+        "relative":  "components\\member\\AiTradingDeskClient.tsx",
+        "existed":  true
+    },
+    {
+        "relative":  "components\\admin\\BitgetDemoClient.tsx",
+        "existed":  true
+    },
+    {
+        "relative":  "scripts\\verify-moox-full-universe-v3.mjs",
+        "existed":  false
+    },
+    {
+        "relative":  ".moox-full-universe-v3.json",
+        "existed":  false
+    }
+]

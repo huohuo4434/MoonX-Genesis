@@ -173,12 +173,12 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           {LIVE_ASSETS.map(([symbol, zh, english]) => <Badge key={symbol} variant="outline">{en ? english : zh} · {symbol}</Badge>)}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 text-sm text-white/70">
-          <div className="rounded-lg border border-white/10 p-3">{en ? "Up to 10 new trades per day" : "每天最多新开10笔"}</div>
-          <div className="rounded-lg border border-white/10 p-3">{en ? "Up to 10 concurrent positions" : "最多同时持有10个仓位"}</div>
+          <div className="rounded-lg border border-white/10 p-3">{en ? "Up to 3 new trades per day" : "每天最多新开3笔"}</div>
+          <div className="rounded-lg border border-white/10 p-3">{en ? "Up to 3 concurrent positions" : "最多同时持有3个仓位"}</div>
           <div className="rounded-lg border border-white/10 p-3">{en ? "Risk: 0.25% / 0.35% / 0.25%" : "短线/波段/中长期风险0.25%/0.35%/0.25%"}</div>
-          <div className="rounded-lg border border-white/10 p-3">{en ? "Daily stop: 100 USDT" : "当日亏损100 USDT停止新开仓"}</div>
-          <div className="rounded-lg border border-white/10 p-3">{en ? "Experiment stop: 500 USDT drawdown" : "总回撤500 USDT停止实验"}</div>
-          <div className="rounded-lg border border-white/10 p-3">{en ? "BTC/ETH commissioning runs in parallel" : "BTC/ETH小额闭环与全品种扫描并行"}</div>
+          <div className="rounded-lg border border-white/10 p-3">{en ? "Daily stop: 20 USDT" : "当日亏损20 USDT停止新开仓"}</div>
+          <div className="rounded-lg border border-white/10 p-3">{en ? "Experiment stop: 100 USDT drawdown" : "总回撤100 USDT停止实验"}</div>
+          <div className="rounded-lg border border-white/10 p-3">{en ? "One small BTC/ETH commissioning cycle first" : "先完成一次BTC/ETH小额实盘闭环"}</div>
           <div className="rounded-lg border border-white/10 p-3">{en ? "Move stop to breakeven" : "首批止盈后止损移至保本"}</div>
           <div className="rounded-lg border border-white/10 p-3">{en ? "Exit remainder near 2.2R" : "剩余仓位目标约2.2R"}</div>
           <div className="rounded-lg border border-white/10 p-3">{en ? "Single position ≤30% equity" : "单仓名义价值≤权益30%"}</div>

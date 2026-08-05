@@ -867,7 +867,10 @@ async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
       stop_loss, target_1, target_2, rejection_reason, updated_at
     FROM trade_three_horizon_decisions
     ORDER BY symbol,
-      CASE WHEN status IN ('OPEN','PARTIAL','ORDER_SUBMITTED','CLOSING') THEN 0 ELSE 1 END,
+      CASE status
+        WHEN 'OPEN' THEN 1 WHEN 'PARTIAL' THEN 2 WHEN 'ORDER_SUBMITTED' THEN 3
+        WHEN 'READY' THEN 4 WHEN 'SHADOW_READY' THEN 5 WHEN 'OBSERVING' THEN 6
+        ELSE 9 END,
       updated_at DESC, created_at DESC
   `);
   return rows.map((row) => {

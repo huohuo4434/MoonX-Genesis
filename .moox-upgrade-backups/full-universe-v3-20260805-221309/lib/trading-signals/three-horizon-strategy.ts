@@ -50,10 +50,6 @@ import type {
 } from "@/types/three-horizon-strategy";
 
 const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^(BTC|ETH|HYPE|MU|QQQ|XAUT|XAG|GOOGL|CL|SPY)USDT$/;
-const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
-  "BTCUSDT", "ETHUSDT", "HYPEUSDT", "MUUSDT", "QQQUSDT",
-  "XAUTUSDT", "XAGUSDT", "GOOGLUSDT", "CLUSDT", "SPYUSDT",
-];
 const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
@@ -67,7 +63,7 @@ const PROFILE_DEFINITIONS: Record<
     strategyType: "INTRADAY",
     label: "短线",
     description: "30分钟至8小时，1小时环境、15分钟方向、5分钟收盘确认，原则上当日结束。",
-    symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+    symbols: ["BTCUSDT", "ETHUSDT"],
     environmentTimeframe: "1H",
     directionTimeframe: "15m",
     entryTimeframe: "5m",
@@ -82,7 +78,7 @@ const PROFILE_DEFINITIONS: Record<
     strategyType: "SWING",
     label: "波段",
     description: "1至7天，周/日方向、4小时结构、1小时入场，不把短线亏损被动变成波段。",
-    symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+    symbols: ["BTCUSDT", "ETHUSDT"],
     environmentTimeframe: "1D/1W",
     directionTimeframe: "4H",
     entryTimeframe: "1H",
@@ -97,7 +93,7 @@ const PROFILE_DEFINITIONS: Record<
     strategyType: "POSITION",
     label: "中长期",
     description: "1至4周，月/周主方向、日线与4小时入场，低杠杆、小风险、固定期限复核。",
-    symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+    symbols: ["BTCUSDT", "ETHUSDT"],
     environmentTimeframe: "1M/1W",
     directionTimeframe: "1D",
     entryTimeframe: "4H",
@@ -113,8 +109,8 @@ const PROFILE_DEFINITIONS: Record<
 const STRATEGY_ORDER: ThreeHorizonStrategyType[] = ["INTRADAY", "SWING", "POSITION"];
 const DAILY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_DAILY_LOSS_LIMIT_PCT", 2, 0.25, 5);
 const WEEKLY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_WEEKLY_LOSS_LIMIT_PCT", 4, 0.5, 10);
-const OPEN_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_OPEN_RISK_LIMIT_PCT_V3", 3, 0.5, 5);
-const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT_V3", 1.25, 0.25, 3);
+const OPEN_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_OPEN_RISK_LIMIT_PCT", 1.5, 0.5, 5);
+const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT", 1, 0.25, 3);
 const MAX_POSITION_NOTIONAL_PCT = envNumber("THREE_HORIZON_MAX_POSITION_NOTIONAL_PCT", 10, 1, 25);
 
 interface ProfileRow {
@@ -831,7 +827,10 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
             WHEN strategy_type='INTRADAY' THEN 58
             WHEN strategy_type='SWING' THEN 60
             ELSE 62 END,
-          max_trades_per_day = 10,
+          max_trades_per_day = CASE
+            WHEN strategy_type='INTRADAY' THEN 2
+            WHEN strategy_type='SWING' THEN 1
+            ELSE 1 END,
           updated_at = NOW()
       `);
     }
@@ -1062,10 +1061,8 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
     const cryptoGroupRiskPct = equity > 0 ? cryptoRiskAmount / equity * 100 : 0;
     let blockReason = "";
     if (equity <= 0) blockReason = environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金。" : "未检测到可用于Demo交易的模拟资金。";
-    // Live V3 uses the explicit 100 USDT daily stop and 500 USDT peak drawdown
-    // enforced by the Bitget live-experiment ledger. Percentage limits remain for Demo.
-    else if (environment.mode !== "LIVE_EXPERIMENT" && dailyLossPct >= DAILY_LOSS_LIMIT_PCT) blockReason = `当日亏损达到${round(dailyLossPct, 2)}%，触发${DAILY_LOSS_LIMIT_PCT}%暂停线。`;
-    else if (environment.mode !== "LIVE_EXPERIMENT" && weeklyLossPct >= WEEKLY_LOSS_LIMIT_PCT) blockReason = `本周亏损达到${round(weeklyLossPct, 2)}%，触发${WEEKLY_LOSS_LIMIT_PCT}%暂停线。`;
+    else if (dailyLossPct >= DAILY_LOSS_LIMIT_PCT) blockReason = `当日亏损达到${round(dailyLossPct, 2)}%，触发${DAILY_LOSS_LIMIT_PCT}%暂停线。`;
+    else if (weeklyLossPct >= WEEKLY_LOSS_LIMIT_PCT) blockReason = `本周亏损达到${round(weeklyLossPct, 2)}%，触发${WEEKLY_LOSS_LIMIT_PCT}%暂停线。`;
     else if (openRiskPct >= OPEN_RISK_LIMIT_PCT) blockReason = `开放风险达到${round(openRiskPct, 2)}%，超过${OPEN_RISK_LIMIT_PCT}%上限。`;
     else if (cryptoGroupRiskPct >= CRYPTO_GROUP_RISK_LIMIT_PCT) blockReason = `加密货币风险组达到${round(cryptoGroupRiskPct, 2)}%，超过${CRYPTO_GROUP_RISK_LIMIT_PCT}%上限。`;
     else if (consecutiveLosses >= 3) blockReason = "三周期策略连续亏损3单，已禁止新开仓。";
@@ -2120,10 +2117,6 @@ export async function runThreeHorizonStrategyEngine(
   );
   let reservedRiskPct = 0;
   const decisions: ThreeHorizonStrategyDecision[] = [];
-  let commissioningMessage = "";
-  let commissioningAttempted = false;
-  let commissioningSuccess = false;
-  let commissioningError = false;
   if (liveExperimentMode) {
     const commissioning = await runLiveCommissioning({
       runId,
@@ -2134,36 +2127,44 @@ export async function runThreeHorizonStrategyEngine(
       protections,
       reservedSymbols,
     });
-    commissioningMessage = commissioning.message;
-    commissioningAttempted = commissioning.attempted;
-    commissioningSuccess = commissioning.success;
-    commissioningError = commissioning.error;
-    if (commissioning.decision) {
-      decisions.push(commissioning.decision);
-      // Commissioning and normal full-universe scans run in parallel, but the same symbol
-      // cannot submit a second order during this server pass.
-      if (commissioning.state !== "COMPLETE") reservedSymbols.add(commissioning.decision.symbol);
+    if (commissioning.decision) decisions.push(commissioning.decision);
+    const commissioningPending = commissioning.state !== "COMPLETE" || commissioning.message.includes("刚刚完成");
+    if (commissioningPending) {
+      return {
+        ok: !commissioning.error && management.orderErrors === 0,
+        runId,
+        source,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        scannedStrategies: ["INTRADAY"],
+        decisions,
+        managedOpenDecisions: management.managed,
+        orderAttempts: management.orderAttempts + (commissioning.attempted ? 1 : 0),
+        orderSuccess: management.orderSuccess + (commissioning.success ? 1 : 0),
+        orderErrors: management.orderErrors + (commissioning.error ? 1 : 0),
+        message: commissioning.message,
+      };
     }
   }
   if (!dueProfiles.length) {
     return {
-      ok: !commissioningError && management.orderErrors === 0,
+      ok: management.orderErrors === 0,
       runId,
       source,
       startedAt,
       finishedAt: new Date().toISOString(),
-      scannedStrategies: commissioningMessage ? (["INTRADAY"] as ThreeHorizonStrategyType[]) : [],
+      scannedStrategies: [],
       decisions,
       managedOpenDecisions: management.managed,
-      orderAttempts: management.orderAttempts + (commissioningAttempted ? 1 : 0),
-      orderSuccess: management.orderSuccess + (commissioningSuccess ? 1 : 0),
-      orderErrors: management.orderErrors + (commissioningError ? 1 : 0),
-      message: `${commissioningMessage ? `${commissioningMessage} ` : ""}三周期持仓管理已执行，本分钟没有到期的正常策略扫描。`,
+      orderAttempts: management.orderAttempts,
+      orderSuccess: management.orderSuccess,
+      orderErrors: management.orderErrors,
+      message: "首笔实盘闭环已完成；三周期持仓管理已执行，本分钟没有到期的正常策略扫描。",
     };
   }
-  let orderAttempts = management.orderAttempts + (commissioningAttempted ? 1 : 0);
-  let orderSuccess = management.orderSuccess + (commissioningSuccess ? 1 : 0);
-  let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
+  let orderAttempts = management.orderAttempts;
+  let orderSuccess = management.orderSuccess;
+  let orderErrors = management.orderErrors;
   let scanErrors = 0;
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
   const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
@@ -2171,13 +2172,13 @@ export async function runThreeHorizonStrategyEngine(
     : Number.POSITIVE_INFINITY;
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let timeBudgetReached = false;
-  const eligibleUniverseSymbols = new Set<string>();
+  let eligibleUniverseSize = 0;
   for (const profile of dueProfiles) {
     let tradesToday = await todayTradeCount(profile, now);
     const freshProfileSymbols = profile.symbols
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
-    for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
+    eligibleUniverseSize += freshProfileSymbols.length;
     const batchSize = Math.min(maxNewSymbols, freshProfileSymbols.length || 1);
     const batchCount = Math.max(1, Math.ceil(freshProfileSymbols.length / batchSize));
     const rotationSlot = Math.floor(now.getTime() / 60_000) % batchCount;
@@ -2310,7 +2311,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
+    message: `三周期轮转扫描${scannedSymbols.length}/${eligibleUniverseSize || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的留到下一轮" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
   };
 }
 
@@ -2333,7 +2334,7 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? "1000 USDT实盘实验已开启；BTC/ETH小额闭环验收与10品种短线、波段、中长期策略并行运行，最高2倍逐仓及组合风控限制生效。"
+        ? "1000 USDT实盘实验已开启；首笔小额闭环验收与短线、波段、中长期三周期策略、最高2倍逐仓及组合风控限制生效。"
         : "实盘实验默认关闭；必须完成API安全检查并明确确认真实亏损风险后才会下单。"
       : executionEnvironmentAllowed
         ? "三周期Demo总开关已开启；仍需策略处于DEMO模式、旧镜像关闭并通过组合风控才会下单。"

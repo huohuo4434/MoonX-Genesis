@@ -344,7 +344,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div>
               <Heading size="h3">实盘实验运行状态</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-                30天实验由Vercel服务器定时运行；关闭电脑不会停止。10个USDT合约品种全部自动分析，逐仓杠杆不超过2倍；每天最多新开10笔、最多同时持有10个仓位，但不会强行凑单。
+                30天实验由Vercel服务器定时运行；关闭电脑不会停止。只做10个USDT合约品种，逐仓杠杆不超过2倍，每天最多新开3笔、最多同时持有3个仓位。
               </Text>
             </div>
             <Badge variant={experiment?.status === "ACTIVE" ? "success" : experiment?.status === "STOPPED" ? "danger" : "warning"}>{statusLabel}</Badge>

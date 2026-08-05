@@ -267,13 +267,12 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     liveConfirmationAccepted,
     liveInitialCapitalUsdt: numericEnv("BITGET_LIVE_INITIAL_CAPITAL_USDT", 1000, 100, 100000),
     liveDurationDays: Math.floor(numericEnv("BITGET_LIVE_DURATION_DAYS", 30, 1, 365)),
-    // V3 policy uses versioned environment names so legacy 3/20/100 values cannot silently override it.
-    liveMaxDrawdownUsdt: numericEnv("MOOX_LIVE_MAX_DRAWDOWN_USDT_V3", 500, 5, 10000),
-    liveDailyLossUsdt: numericEnv("MOOX_LIVE_DAILY_LOSS_USDT_V3", 100, 1, 5000),
+    liveMaxDrawdownUsdt: numericEnv("BITGET_LIVE_MAX_DRAWDOWN_USDT", 100, 5, 10000),
+    liveDailyLossUsdt: numericEnv("BITGET_LIVE_DAILY_LOSS_USDT", 20, 1, 5000),
     liveMaxPositionNotionalUsdt: numericEnv("BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT", 300, 10, 100000),
     liveMaxGrossNotionalPct: numericEnv("BITGET_LIVE_MAX_GROSS_NOTIONAL_PCT", 100, 20, 200),
-    liveMaxConcurrentPositions: Math.floor(numericEnv("MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3", 10, 1, 10)),
-    liveMaxTradesPerDay: Math.floor(numericEnv("MOOX_LIVE_MAX_TRADES_PER_DAY_V3", 10, 1, 10)),
+    liveMaxConcurrentPositions: Math.floor(numericEnv("BITGET_LIVE_MAX_CONCURRENT_POSITIONS", 3, 1, 5)),
+    liveMaxTradesPerDay: Math.floor(numericEnv("BITGET_LIVE_MAX_TRADES_PER_DAY", 3, 1, 10)),
     liveAllowedSymbols: liveAllowedSymbols(),
     requireIpWhitelist,
     allowNoIpWhitelist,
@@ -1141,8 +1140,7 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
         : "EQUITY";
   const group = groupFor(input.symbol);
   const groupRows = positions.filter((row) => groupFor(row.symbol) === group);
-  // The global ten-position gate is authoritative. Group notional caps still diversify risk.
-  const groupCountLimit = environment.liveMaxConcurrentPositions;
+  const groupCountLimit = group === "CRYPTO" ? 2 : 2;
   const groupPctLimit = group === "CRYPTO" ? 45 : group === "EQUITY" ? 50 : 40;
   if (groupRows.length >= groupCountLimit) throw new Error(`${group}风险组最多同时持有${groupCountLimit}个仓位`);
   const groupNotional = groupRows.reduce((sum, row) => sum + Math.abs(row.total * row.markPrice), 0);
