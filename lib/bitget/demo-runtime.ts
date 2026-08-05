@@ -956,6 +956,7 @@ export async function runBitgetDemoServerRuntime(
           source === "ADMIN" ? "ADMIN" : "CRON",
           {
             eligibleSymbols: freshSymbols,
+            quotes,
             maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined,
             deadlineAt: environment.mode === "LIVE_EXPERIMENT"
               ? new Date(Date.now() + LIVE_STRATEGY_BUDGET_MS)

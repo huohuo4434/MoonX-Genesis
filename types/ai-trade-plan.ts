@@ -19,6 +19,14 @@ export type AiTradePlanStatus =
 export type AiTradePlanExecutionMode = "SHADOW" | "BITGET_DEMO";
 
 
+export type AiTradeMarketQuote = {
+  symbol: string;
+  price: number;
+  capturedAt: string;
+  ageSeconds: number | null;
+  fresh: boolean;
+};
+
 export type AiTradeIntentDecision = {
   symbol: string;
   direction: ThreeHorizonDirection;
@@ -111,6 +119,7 @@ export type AiTradePlanDashboard = {
   generatedAt: string;
   summary: AiTradePlanSummary;
   decisions: AiTradeIntentDecision[];
+  quotes: AiTradeMarketQuote[];
   plans: AiTradePlan[];
   notice: string;
 };

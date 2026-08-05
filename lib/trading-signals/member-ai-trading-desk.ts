@@ -446,6 +446,7 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
     strategies: [],
     planSummary: { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
     intentDecisions: [],
+    marketQuotes: [],
     publishedPlans: [],
     plans: [],
     positions: [],
@@ -561,6 +562,7 @@ export async function buildMemberAiTradingDeskSnapshot(
     strategies,
     planSummary: planDashboard.summary,
     intentDecisions: planDashboard.decisions,
+    marketQuotes: planDashboard.quotes,
     publishedPlans: planDashboard.plans,
     plans: buildPlanRows(
       dashboard.plans,
@@ -639,6 +641,7 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     strategies: payload.strategies ?? [],
     planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
     intentDecisions: payload.intentDecisions ?? [],
+    marketQuotes: payload.marketQuotes ?? [],
     publishedPlans: payload.publishedPlans ?? [],
     lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
     syncStatus: row.last_error || stale ? "PARTIAL" : payload.syncStatus,

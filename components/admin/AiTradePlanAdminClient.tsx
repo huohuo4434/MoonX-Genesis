@@ -10,6 +10,7 @@ const EMPTY: AiTradePlanDashboard = {
   generatedAt: new Date(0).toISOString(),
   summary: { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
   decisions: [],
+  quotes: [],
   plans: [],
   notice: "正在读取AI交易计划。",
 };
@@ -25,6 +26,7 @@ async function readDashboard(): Promise<AiTradePlanDashboard> {
   return {
     ...json,
     decisions: json.decisions ?? [],
+    quotes: json.quotes ?? [],
     plans: json.plans ?? [],
   };
 }

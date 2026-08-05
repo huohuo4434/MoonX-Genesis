@@ -59,6 +59,12 @@ function time(value: string | null, en: boolean): string {
   }).format(date);
 }
 
+function quoteAgeLabel(ageSeconds: number | null, en: boolean): string {
+  if (ageSeconds == null) return en ? "time unknown" : "时间未知";
+  if (ageSeconds < 60) return en ? `${ageSeconds}s ago` : `${ageSeconds}秒前`;
+  return en ? `${Math.floor(ageSeconds / 60)}m ago` : `${Math.floor(ageSeconds / 60)}分钟前`;
+}
+
 function assetName(symbol: string, en: boolean): string {
   const asset = ASSETS.find(([code]) => code === symbol.toUpperCase());
   return asset ? asset[en ? 2 : 1] : symbol;
@@ -147,8 +153,13 @@ export function AiTradeIntentBoard({
   const en = locale === "en";
   const plansBySymbol = latestPlanBySymbol(dashboard.plans);
   const decisionsBySymbol = latestDecisionBySymbol(dashboard.decisions ?? []);
+  const quotesBySymbol = new Map((dashboard.quotes ?? []).map((quote) => [quote.symbol.toUpperCase(), quote] as const));
+  const generatedAt = Date.parse(dashboard.generatedAt);
   const activePlans = Array.from(plansBySymbol.values())
-    .filter((plan) => !TERMINAL.has(plan.status))
+    .filter((plan) => !TERMINAL.has(plan.status) && (
+      ["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(plan.status) ||
+      !Number.isFinite(generatedAt) || Date.parse(plan.expiresAt) > generatedAt
+    ))
     .sort((a, b) => {
       const priority = (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99);
       return priority || b.planningConfidence - a.planningConfidence;
@@ -162,7 +173,7 @@ export function AiTradeIntentBoard({
           <Text variant="body-sm" color="secondary" className="mt-1 block">
             {en
               ? "Plans are published and locked before an order can be submitted."
-              : "计划先发布并锁定，达到技术触发与风控条件后才允许提交订单。"}
+              : "显示Bitget最新行情、当前方向和锁定计划；达到技术触发与风控条件后才允许提交订单。"}
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -178,7 +189,10 @@ export function AiTradeIntentBoard({
 
       {activePlans.length ? (
         <div className="grid gap-3 lg:grid-cols-2">
-          {activePlans.slice(0, 6).map((plan) => (
+          {activePlans.slice(0, 6).map((plan) => {
+            const quote = quotesBySymbol.get(plan.symbol.toUpperCase());
+            const livePrice = quote?.price ?? plan.currentPrice;
+            return (
             <div key={plan.id} className="rounded-xl border border-white/10 bg-black/10 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -196,7 +210,13 @@ export function AiTradeIntentBoard({
 
               <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
                 <div><Text variant="caption" color="tertiary">{en ? "Confidence" : "置信度"}</Text><Text variant="body-sm" className="mt-1 block">{plan.planningConfidence}%</Text></div>
-                <div><Text variant="caption" color="tertiary">{en ? "Current" : "现价"}</Text><Text variant="body-sm" className="mt-1 block">{n(plan.currentPrice)}</Text></div>
+                <div>
+                  <Text variant="caption" color="tertiary">{en ? "Live price" : "实时价"}</Text>
+                  <Text variant="body-sm" className="mt-1 block">{n(livePrice)}</Text>
+                  <Text variant="caption" className={`mt-0.5 block ${quote?.fresh ? "text-emerald-300" : "text-amber-300"}`}>
+                    {quote ? quoteAgeLabel(quote.ageSeconds, en) : (en ? "plan snapshot" : "计划快照")}
+                  </Text>
+                </div>
                 <div className="col-span-2"><Text variant="caption" color="tertiary">{en ? "Entry zone" : "计划入场区"}</Text><Text variant="body-sm" className="mt-1 block">{n(plan.entryZoneLow)} — {n(plan.entryZoneHigh)}</Text></div>
                 <div><Text variant="caption" color="tertiary">{en ? "Stop" : "止损"}</Text><Text variant="body-sm" className="mt-1 block text-red-300">{n(plan.protectiveStop)}</Text></div>
                 <div><Text variant="caption" color="tertiary">TP1</Text><Text variant="body-sm" className="mt-1 block text-emerald-300">{n(plan.target1)}</Text></div>
@@ -217,7 +237,8 @@ export function AiTradeIntentBoard({
                 </Text>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-xl border border-white/10 bg-black/10 px-4 py-5">
@@ -234,8 +255,12 @@ export function AiTradeIntentBoard({
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           {ASSETS.map(([symbol, zh, english]) => {
             const plan = plansBySymbol.get(symbol);
-            const activePlan = plan && !TERMINAL.has(plan.status) ? plan : undefined;
+            const activePlan = plan && !TERMINAL.has(plan.status) && (
+              ["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(plan.status) ||
+              !Number.isFinite(generatedAt) || Date.parse(plan.expiresAt) > generatedAt
+            ) ? plan : undefined;
             const decision = decisionsBySymbol.get(symbol);
+            const quote = quotesBySymbol.get(symbol);
             const direction = activePlan?.direction ?? decision?.direction ?? "NEUTRAL";
             const status = activePlan?.status ?? decision?.status ?? "OBSERVING";
             const confidence = activePlan?.planningConfidence ?? decision?.confidence ?? 0;
@@ -252,6 +277,12 @@ export function AiTradeIntentBoard({
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <Text variant="caption" color="secondary" className="truncate">{statusLabel(status, en)}</Text>
                   <Text variant="caption" color="tertiary">{confidence ? `${confidence}%` : "—"}</Text>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <Text variant="body-sm" weight="semibold">{n(quote?.price ?? activePlan?.currentPrice ?? decision?.currentPrice ?? null)}</Text>
+                  <Text variant="caption" className={quote?.fresh ? "text-emerald-300" : "text-white/35"}>
+                    {quote ? quoteAgeLabel(quote.ageSeconds, en) : (en ? "no live quote" : "暂无实时价")}
+                  </Text>
                 </div>
                 <Text variant="caption" color="tertiary" className="mt-1 block line-clamp-2">{reason}</Text>
               </div>

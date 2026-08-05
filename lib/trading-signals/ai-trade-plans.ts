@@ -9,6 +9,7 @@ import type {
 } from "@/types/three-horizon-strategy";
 import type {
   AiTradeIntentDecision,
+  AiTradeMarketQuote,
   AiTradePlan,
   AiTradePlanDashboard,
   AiTradePlanEvent,
@@ -46,9 +47,9 @@ const STATUS_LABEL: Record<AiTradePlanStatus, string> = {
   PUBLISHED: "计划已发布",
   WATCHING: "观察中",
   ARMED: "即将触发",
-  ORDER_SUBMITTED: "已提交模拟委托",
+  ORDER_SUBMITTED: "已提交委托",
   PARTIALLY_FILLED: "部分成交",
-  OPEN: "模拟持仓中",
+  OPEN: "持仓中",
   REDUCED: "已分批减仓",
   CLOSED: "已结束",
   CANCELLED: "已取消",
@@ -119,6 +120,10 @@ type EventRow = {
   event_at: Date;
 };
 
+
+type RuntimeQuoteStateRow = {
+  latest_quotes: unknown;
+};
 
 type IntentDecisionRow = {
   symbol: string;
@@ -237,7 +242,10 @@ function buildContent(
   const tier: AiTradePlanTier = decision.confidence >= profile.minConfidence ? "FORMAL" : "CANDIDATE";
   const directionText = decision.direction === "LONG" ? "准备做多" : "准备做空";
   const unmet = decision.conditions.filter((row) => !row.met).map((row) => row.label);
-  const thesis = `${STRATEGY_LABEL[profile.strategyType]}${directionText}。${decision.conditionsMet}/${decision.conditionsTotal}项条件已满足${unmet.length ? `，仍等待${unmet.slice(0, 2).join("、")}` : "，等待最终执行闸门"}。`;
+  const commissioning = decision.rejectionCode === "LIVE_COMMISSIONING";
+  const thesis = commissioning
+    ? `首笔实盘闭环验收：${decision.symbol}${directionText}。使用小额风险、交易所止盈止损与30分钟限时退出，完成后自动转入正常三周期策略。`
+    : `${STRATEGY_LABEL[profile.strategyType]}${directionText}。${decision.conditionsMet}/${decision.conditionsTotal}项条件已满足${unmet.length ? `，仍等待${unmet.slice(0, 2).join("、")}` : "，等待最终执行闸门"}。`;
   const validFrom = now.toISOString();
   const expiresAt = decision.expiresAt ?? new Date(now.getTime() + profile.maxHoldingMinutes * 60_000).toISOString();
   return {
@@ -250,9 +258,11 @@ function buildContent(
     executionThreshold: profile.minConfidence,
     entryZoneLow: low,
     entryZoneHigh: high,
-    triggerRule: stableTriggerRule(profile, decision.direction),
-    confirmationTimeframe: confirmationTimeframe(profile),
-    orderTypeIfTriggered: "MARKET_AFTER_CLOSE_CONFIRMATION",
+    triggerRule: commissioning
+      ? "计划先公开锁定至少1分钟；下一轮CRON确认BTC/ETH实时行情仍新鲜且风控通过后提交小额市价单。"
+      : stableTriggerRule(profile, decision.direction),
+    confirmationTimeframe: commissioning ? "REALTIME + NEXT_CRON" : confirmationTimeframe(profile),
+    orderTypeIfTriggered: commissioning ? "ONE_TIME_LIVE_COMMISSIONING_MARKET" : "MARKET_AFTER_CLOSE_CONFIRMATION",
     protectiveStop: round(stop),
     target1: round(first),
     target2: round(second),
@@ -459,6 +469,7 @@ async function findActivePlan(strategyType: ThreeHorizonStrategyType, symbol: st
     `SELECT * FROM trade_ai_plans
      WHERE strategy_type = $1 AND symbol = $2
        AND status IN ('PUBLISHED','WATCHING','ARMED','ORDER_SUBMITTED','PARTIALLY_FILLED','OPEN','REDUCED','EXECUTION_ERROR')
+       AND (expires_at > NOW() OR status IN ('ORDER_SUBMITTED','PARTIALLY_FILLED','OPEN','REDUCED'))
      ORDER BY version DESC, published_at DESC LIMIT 1`,
     strategyType,
     symbol
@@ -703,7 +714,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
   if (plan.tier !== "FORMAL") {
     return { plan, allowed: false, code: "CANDIDATE_PLAN_ONLY", reason: "候选观察计划已向会员发布，但尚未达到模拟执行置信度。" };
   }
-  const leadMinutes = MIN_LEAD_MINUTES[input.profile.strategyType];
+  const leadMinutes = input.decision.rejectionCode === "LIVE_COMMISSIONING" ? 1 : MIN_LEAD_MINUTES[input.profile.strategyType];
   const ageMinutes = Math.max(0, (input.now.getTime() - new Date(plan.publishedAt).getTime()) / 60_000);
   if (ageMinutes + 1e-9 < leadMinutes) {
     return {
@@ -855,8 +866,12 @@ async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
       symbol, direction, status, confidence, conditions, current_price, entry_price,
       stop_loss, target_1, target_2, rejection_reason, updated_at
     FROM trade_three_horizon_decisions
-    WHERE strategy_type = 'SWING'
-    ORDER BY symbol, updated_at DESC, created_at DESC
+    ORDER BY symbol,
+      CASE status
+        WHEN 'OPEN' THEN 1 WHEN 'PARTIAL' THEN 2 WHEN 'ORDER_SUBMITTED' THEN 3
+        WHEN 'READY' THEN 4 WHEN 'SHADOW_READY' THEN 5 WHEN 'OBSERVING' THEN 6
+        ELSE 9 END,
+      updated_at DESC, created_at DESC
   `);
   return rows.map((row) => {
     const conditions = Array.isArray(row.conditions) ? row.conditions : [];
@@ -884,6 +899,69 @@ async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
   });
 }
 
+async function expireStaleAiTradePlans(now: Date): Promise<number> {
+  if (!prisma) return 0;
+  const rows = await prisma.$queryRawUnsafe<Array<{ id: string; version: number }>>(
+    `UPDATE trade_ai_plans SET
+       status='EXPIRED', closed_at=COALESCE(closed_at,$1::timestamptz),
+       close_reason=COALESCE(close_reason,'计划超过有效期且未形成委托或持仓。'), updated_at=NOW()
+     WHERE expires_at <= $1::timestamptz
+       AND status IN ('PUBLISHED','WATCHING','ARMED','EXECUTION_ERROR')
+     RETURNING id,version`,
+    now.toISOString()
+  );
+  for (const row of rows) {
+    await appendEvent({
+      planId: row.id,
+      eventType: "PLAN_EXPIRED",
+      title: STATUS_LABEL.EXPIRED,
+      detail: "计划超过有效期且未形成委托或持仓，已自动退出有效计划列表。",
+      status: "EXPIRED",
+      eventAt: now,
+      dedupe: `v${row.version}:${now.toISOString().slice(0, 16)}`,
+    });
+  }
+  return rows.length;
+}
+
+function parseRuntimeQuotes(value: unknown): Array<{ symbol?: unknown; price?: unknown; capturedAt?: unknown }> {
+  if (Array.isArray(value)) return value as Array<{ symbol?: unknown; price?: unknown; capturedAt?: unknown }>;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed as Array<{ symbol?: unknown; price?: unknown; capturedAt?: unknown }> : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+async function getRuntimeMarketQuotes(now: Date): Promise<AiTradeMarketQuote[]> {
+  if (!prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<RuntimeQuoteStateRow[]>(
+    `SELECT latest_quotes FROM trade_bitget_runtime_state WHERE id='default' LIMIT 1`
+  ).catch(() => []);
+  return parseRuntimeQuotes(rows[0]?.latest_quotes)
+    .map((row) => {
+      const symbol = String(row.symbol ?? "").toUpperCase();
+      const price = Number(row.price);
+      const capturedAt = typeof row.capturedAt === "string" ? row.capturedAt : "";
+      const timestamp = Date.parse(capturedAt);
+      const ageSeconds = Number.isFinite(timestamp)
+        ? Math.max(0, Math.floor((now.getTime() - timestamp) / 1000))
+        : null;
+      return {
+        symbol,
+        price,
+        capturedAt,
+        ageSeconds,
+        fresh: ageSeconds != null && ageSeconds <= 180,
+      };
+    })
+    .filter((row) => row.symbol && Number.isFinite(row.price) && row.price > 0 && row.capturedAt);
+}
+
 export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[]> {
   if (!(await ensureAiTradePlanTables()) || !prisma) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
@@ -898,9 +976,20 @@ export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[
 
 export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTradePlanDashboard> {
   const databaseReady = await ensureAiTradePlanTables();
-  const [plans, decisions]: [AiTradePlan[], AiTradeIntentDecision[]] = databaseReady
-    ? await Promise.all([getPublishedAiTradePlans(60), getLatestIntentDecisions()])
-    : [[], []];
+  if (databaseReady) await expireStaleAiTradePlans(now).catch(() => 0);
+  const [storedPlans, decisions, quotes]: [AiTradePlan[], AiTradeIntentDecision[], AiTradeMarketQuote[]] = databaseReady
+    ? await Promise.all([getPublishedAiTradePlans(60), getLatestIntentDecisions(), getRuntimeMarketQuotes(now)])
+    : [[], [], []];
+  const quoteBySymbol = new Map(quotes.map((quote) => [quote.symbol.toUpperCase(), quote] as const));
+  const plans = storedPlans.map((plan) => {
+    const quote = quoteBySymbol.get(plan.symbol.toUpperCase());
+    if (!quote) return plan;
+    return {
+      ...plan,
+      currentPrice: quote.price,
+      distanceToEntryPct: distancePct(quote.price, plan.entryZoneLow, plan.entryZoneHigh),
+    };
+  });
   const beijingNow = new Date(now.getTime() + 8 * 60 * 60_000);
   const dayKey = beijingNow.toISOString().slice(0, 10);
   const today = (value: string | null) => value ? new Date(new Date(value).getTime() + 8 * 60 * 60_000).toISOString().slice(0, 10) === dayKey : false;
@@ -928,7 +1017,8 @@ export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTrade
       closedToday: latestPlans.filter((plan) => plan.status === "CLOSED" && today(plan.closedAt)).length,
     },
     decisions,
+    quotes,
     plans,
-    notice: "AI计划由MOOX事前发布并锁定；达到执行条件后才向Bitget提交订单。页面展示当前意图、入场区、止盈止损与版本记录。",
+    notice: "价格来自最近一次Bitget实盘行情快照；计划先发布并锁定，达到技术触发与风控条件后才提交订单。",
   };
 }

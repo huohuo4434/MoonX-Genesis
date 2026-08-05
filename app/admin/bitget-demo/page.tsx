@@ -29,14 +29,14 @@ export default async function AdminBitgetDemoPage() {
           <AdminNav current="/admin/bitget-demo" />
           <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。页面先立即打开，再单独读取状态快照；Vercel定时交易任务不依赖本页面保持打开。
+            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。部署后先用BTC或ETH完成一次小额真实开仓、保护与平仓闭环，再由短线、波段和中长期策略自动接管。
           </Text>
           <div className="space-y-8">
             <AiTradePlanAdminClient lazy />
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
-                每天最多新开3笔，最多同时持有3个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到20 USDT后停止当天新开仓，总权益较峰值回撤达到100 USDT后停止实验并尝试平掉全部仓位。API必须无提币权限，并仅保留统一账户交易与管理所需权限；IP白名单仅作安全提示，不再作为启动条件。
+                首笔闭环验收风险预算0.05%，仅在BTC或ETH中按实时多周期动量择向，最长持有30分钟；完成后短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每天最多新开3笔，最多同时持有3个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到20 USDT后停止当天新开仓，总权益较峰值回撤达到100 USDT后停止实验并尝试平掉全部仓位。
               </Text>
             </Card>
             <BitgetLiveConsoleLoader />

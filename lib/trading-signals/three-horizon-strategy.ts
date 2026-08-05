@@ -17,6 +17,7 @@ import {
   type BitgetCandleInterval,
   type BitgetDemoCandle,
   type BitgetDemoClosedPosition,
+  type BitgetDemoMarketQuote,
   type BitgetDemoPosition,
   type BitgetDemoStrategyOrder,
   type BitgetSupportedSymbol,
@@ -49,6 +50,10 @@ import type {
 } from "@/types/three-horizon-strategy";
 
 const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^(BTC|ETH|HYPE|MU|QQQ|XAUT|XAG|GOOGL|CL|SPY)USDT$/;
+const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
+const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
+const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
+const LIVE_COMMISSIONING_RISK_PCT = 0.05;
 
 const PROFILE_DEFINITIONS: Record<
   ThreeHorizonStrategyType,
@@ -471,7 +476,8 @@ function evaluateIntraday(
   profile: ThreeHorizonStrategyProfile,
   candles: CandleSet,
   plan: PredictionStrategyPlan | undefined,
-  now: Date
+  now: Date,
+  livePrice?: number
 ): EvaluationResult {
   const h1 = closedCandles(candles["1H"], "1H", now);
   const m15 = closedCandles(candles["15m"], "15m", now);
@@ -506,14 +512,15 @@ function evaluateIntraday(
     { key: "forecast", label: "预测方向加权", met: forecast.compatible, value: forecast.label, weight: 15 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "正常" : "偏弱"}`, weight: 15 },
   ];
-  return finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan);
+  return finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice);
 }
 
 function evaluateSwing(
   profile: ThreeHorizonStrategyProfile,
   candles: CandleSet,
   plan: PredictionStrategyPlan | undefined,
-  now: Date
+  now: Date,
+  livePrice?: number
 ): EvaluationResult {
   const d1 = closedCandles(candles["1D"], "1D", now);
   const h4 = closedCandles(candles["4H"], "4H", now);
@@ -551,14 +558,15 @@ function evaluateSwing(
     { key: "forecast", label: "周日预测加权", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "risk", label: "4小时波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
   ];
-  return finalizeEvaluation(profile, direction, conditions, forecast.score, h4, atr4h, plan);
+  return finalizeEvaluation(profile, direction, conditions, forecast.score, h4, atr4h, plan, livePrice);
 }
 
 function evaluatePosition(
   profile: ThreeHorizonStrategyProfile,
   candles: CandleSet,
   plan: PredictionStrategyPlan | undefined,
-  now: Date
+  now: Date,
+  livePrice?: number
 ): EvaluationResult {
   const d1 = closedCandles(candles["1D"], "1D", now);
   const h4 = closedCandles(candles["4H"], "4H", now);
@@ -603,7 +611,7 @@ function evaluatePosition(
     { key: "forecast", label: "长期预测加权", met: forecast.compatible, value: forecast.label, weight: 15 },
     { key: "risk", label: "日线波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
   ];
-  return finalizeEvaluation(profile, direction, conditions, forecast.score, d1, atrDaily, plan);
+  return finalizeEvaluation(profile, direction, conditions, forecast.score, d1, atrDaily, plan, livePrice);
 }
 
 function finalizeEvaluation(
@@ -613,9 +621,11 @@ function finalizeEvaluation(
   forecastScore: number,
   priceCandles: BitgetDemoCandle[],
   atrValue: number,
-  plan: PredictionStrategyPlan | undefined
+  plan: PredictionStrategyPlan | undefined,
+  livePrice?: number
 ): EvaluationResult {
-  const currentPrice = last(priceCandles)?.close ?? null;
+  const candlePrice = last(priceCandles)?.close ?? null;
+  const currentPrice = livePrice && Number.isFinite(livePrice) && livePrice > 0 ? livePrice : candlePrice;
   const totalWeight = conditions.reduce((sum, row) => sum + row.weight, 0) || 1;
   const technicalConditions = conditions.filter((row) => row.key !== "forecast");
   const technicalWeight = technicalConditions.reduce((sum, row) => sum + row.weight, 0) || 1;
@@ -794,13 +804,33 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
     if (environment.mode === "LIVE_EXPERIMENT") {
       await prisma.$executeRawUnsafe(`
         UPDATE trade_three_horizon_profiles SET
-          enabled = CASE WHEN strategy_type='SWING' THEN TRUE ELSE FALSE END,
-          mode = CASE WHEN strategy_type='SWING' THEN 'LIVE' ELSE 'SHADOW' END,
-          symbols = CASE WHEN strategy_type='SWING' THEN '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb ELSE symbols END,
-          risk_per_trade_pct = CASE WHEN strategy_type='SWING' THEN 0.5 ELSE risk_per_trade_pct END,
-          planning_min_confidence = CASE WHEN strategy_type='SWING' THEN 58 ELSE planning_min_confidence END,
-          min_confidence = CASE WHEN strategy_type='SWING' THEN 68 ELSE min_confidence END,
-          max_trades_per_day = CASE WHEN strategy_type='SWING' THEN 3 ELSE 0 END,
+          enabled = TRUE,
+          mode = 'LIVE',
+          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb,
+          scan_interval_minutes = CASE
+            WHEN strategy_type='INTRADAY' THEN 5
+            WHEN strategy_type='SWING' THEN 30
+            ELSE 240 END,
+          risk_per_trade_pct = CASE
+            WHEN strategy_type='INTRADAY' THEN 0.25
+            WHEN strategy_type='SWING' THEN 0.35
+            ELSE 0.25 END,
+          max_holding_minutes = CASE
+            WHEN strategy_type='INTRADAY' THEN 480
+            WHEN strategy_type='SWING' THEN 10080
+            ELSE 40320 END,
+          planning_min_confidence = CASE
+            WHEN strategy_type='INTRADAY' THEN 48
+            WHEN strategy_type='SWING' THEN 50
+            ELSE 52 END,
+          min_confidence = CASE
+            WHEN strategy_type='INTRADAY' THEN 58
+            WHEN strategy_type='SWING' THEN 60
+            ELSE 62 END,
+          max_trades_per_day = CASE
+            WHEN strategy_type='INTRADAY' THEN 2
+            WHEN strategy_type='SWING' THEN 1
+            ELSE 1 END,
           updated_at = NOW()
       `);
     }
@@ -1252,11 +1282,264 @@ function evaluate(
   profile: ThreeHorizonStrategyProfile,
   candles: CandleSet,
   plan: PredictionStrategyPlan | undefined,
-  now: Date
+  now: Date,
+  livePrice?: number
 ): EvaluationResult {
-  if (profile.strategyType === "INTRADAY") return evaluateIntraday(profile, candles, plan, now);
-  if (profile.strategyType === "SWING") return evaluateSwing(profile, candles, plan, now);
-  return evaluatePosition(profile, candles, plan, now);
+  if (profile.strategyType === "INTRADAY") return evaluateIntraday(profile, candles, plan, now, livePrice);
+  if (profile.strategyType === "SWING") return evaluateSwing(profile, candles, plan, now, livePrice);
+  return evaluatePosition(profile, candles, plan, now, livePrice);
+}
+
+
+type LiveCommissioningState = {
+  complete: boolean;
+  active: boolean;
+  recentlyCompleted: boolean;
+  latest: DecisionRow | null;
+};
+
+function liveCommissioningProfile(now: Date): ThreeHorizonStrategyProfile {
+  return {
+    ...PROFILE_DEFINITIONS.INTRADAY,
+    label: "短线实盘闭环验收",
+    description: "仅执行一次的小额真实开仓、保护和限时平仓验收；完成后自动转入正常三周期策略。",
+    enabled: true,
+    mode: "LIVE",
+    symbols: [...LIVE_COMMISSIONING_SYMBOLS],
+    scanIntervalMinutes: 1,
+    riskPerTradePct: LIVE_COMMISSIONING_RISK_PCT,
+    maxHoldingMinutes: LIVE_COMMISSIONING_MAX_HOLDING_MINUTES,
+    planningMinConfidence: 50,
+    minConfidence: 60,
+    maxTradesPerDay: 1,
+    lastScanAt: null,
+    updatedAt: now.toISOString(),
+  };
+}
+
+async function readLiveCommissioningState(now: Date): Promise<LiveCommissioningState> {
+  if (!prisma) return { complete: false, active: false, recentlyCompleted: false, latest: null };
+  const rows = await prisma.$queryRawUnsafe<DecisionRow[]>(`
+    SELECT * FROM trade_three_horizon_decisions
+    WHERE COALESCE(raw_payload->>'commissioning','false') = 'true'
+    ORDER BY created_at DESC
+    LIMIT 30
+  `);
+  const completed = rows.find((row) => row.status === "CLOSED") ?? null;
+  const active = rows.find((row) =>
+    ["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSING"].includes(row.status) ||
+    (row.status === "ERROR" && Boolean(row.client_oid || row.bitget_order_id))
+  ) ?? null;
+  const completedAt = completed ? new Date(completed.closed_at ?? completed.updated_at).getTime() : Number.NaN;
+  return {
+    complete: Boolean(completed),
+    active: Boolean(active),
+    recentlyCompleted: Boolean(completed && Number.isFinite(completedAt) && now.getTime() - completedAt < 2 * 60_000),
+    latest: active ?? rows[0] ?? null,
+  };
+}
+
+function quoteAgeSeconds(quote: BitgetDemoMarketQuote, now: Date): number {
+  const timestamp = Date.parse(quote.capturedAt);
+  return Number.isFinite(timestamp) ? Math.max(0, (now.getTime() - timestamp) / 1000) : Number.POSITIVE_INFINITY;
+}
+
+async function loadCommissioningCandleSet(symbol: BitgetSupportedSymbol): Promise<CandleSet> {
+  const [m5, m15, h1] = await Promise.all([
+    getBitgetDemoCandles({ symbol, interval: "5m", limit: 80 }),
+    getBitgetDemoCandles({ symbol, interval: "15m", limit: 80 }),
+    getBitgetDemoCandles({ symbol, interval: "1H", limit: 80 }),
+  ]);
+  return { "5m": m5, "15m": m15, "1H": h1, "4H": [], "1D": [] };
+}
+
+function candleMomentumScore(candles: CandleSet, livePrice: number, now: Date): number {
+  const m5 = closedCandles(candles["5m"], "5m", now);
+  const m15 = closedCandles(candles["15m"], "15m", now);
+  const h1 = closedCandles(candles["1H"], "1H", now);
+  const ema5 = last(ema(m5.map((row) => row.close), 9)) ?? livePrice;
+  const ema15 = last(ema(m15.map((row) => row.close), 12)) ?? livePrice;
+  const ema1h = last(ema(h1.map((row) => row.close), 20)) ?? livePrice;
+  const previous5 = m5[Math.max(0, m5.length - 4)]?.close ?? livePrice;
+  const previous15 = m15[Math.max(0, m15.length - 3)]?.close ?? livePrice;
+  const relative = (reference: number) => reference > 0 ? (livePrice / reference - 1) * 100 : 0;
+  return round(
+    relative(ema5) * 4 +
+    relative(ema15) * 2.5 +
+    relative(ema1h) * 1.25 +
+    relative(previous5) * 1.5 +
+    relative(previous15),
+    6
+  );
+}
+
+function buildLiveCommissioningEvaluation(input: {
+  symbol: BitgetSupportedSymbol;
+  direction: Exclude<ThreeHorizonDirection, "NEUTRAL">;
+  quote: BitgetDemoMarketQuote;
+  momentumScore: number;
+}): EvaluationResult {
+  const price = input.quote.price;
+  const stopPct = 0.6;
+  const target1Pct = 0.4;
+  const target2Pct = 0.7;
+  const long = input.direction === "LONG";
+  const stopLoss = round(price * (1 + (long ? -stopPct : stopPct) / 100), 8);
+  const target1 = round(price * (1 + (long ? target1Pct : -target1Pct) / 100), 8);
+  const target2 = round(price * (1 + (long ? target2Pct : -target2Pct) / 100), 8);
+  const conditions: ThreeHorizonCondition[] = [
+    { key: "environment", label: "实时行情", met: true, value: `Bitget报价${price}，时间${input.quote.capturedAt}`, weight: 20 },
+    { key: "direction", label: "多周期动量择向", met: true, value: `BTC/ETH动量比较后选择${input.direction === "LONG" ? "做多" : "做空"}，得分${input.momentumScore}`, weight: 25 },
+    { key: "entry", label: "闭环验收入场", met: true, value: "小额市价单，仅用于验证真实订单全链路", weight: 25 },
+    { key: "forecast", label: "事前公开计划", met: true, value: "计划先发布并锁定，至少等待下一轮CRON", weight: 15 },
+    { key: "risk", label: "小额风控", met: true, value: `风险预算${LIVE_COMMISSIONING_RISK_PCT}%，止损${stopPct}%，最长${LIVE_COMMISSIONING_MAX_HOLDING_MINUTES}分钟`, weight: 15 },
+  ];
+  return {
+    direction: input.direction,
+    confidence: 72,
+    technicalScore: 72,
+    forecastScore: 72,
+    conditions,
+    currentPrice: price,
+    entryPrice: price,
+    stopLoss,
+    target1,
+    target2,
+    ready: true,
+    rejectionCode: "LIVE_COMMISSIONING",
+    rejectionReason: `首笔实盘闭环验收：${input.symbol}${input.direction === "LONG" ? "做多" : "做空"}，使用实时行情、小额风险、交易所保护单和30分钟限时退出。`,
+    raw: {
+      commissioning: true,
+      quoteCapturedAt: input.quote.capturedAt,
+      quotePrice: price,
+      momentumScore: input.momentumScore,
+      maxHoldingMinutes: LIVE_COMMISSIONING_MAX_HOLDING_MINUTES,
+      riskPct: LIVE_COMMISSIONING_RISK_PCT,
+    },
+  };
+}
+
+async function runLiveCommissioning(input: {
+  runId: string;
+  now: Date;
+  quotes: BitgetDemoMarketQuote[];
+  risk: ThreeHorizonRiskSnapshot;
+  positions: BitgetDemoPosition[];
+  protections: BitgetDemoStrategyOrder[];
+  reservedSymbols: Set<string>;
+}): Promise<{
+  state: "COMPLETE" | "ACTIVE" | "WAITING" | "ATTEMPTED" | "ERROR";
+  decision: ThreeHorizonStrategyDecision | null;
+  attempted: boolean;
+  success: boolean;
+  error: boolean;
+  message: string;
+}> {
+  const environment = getBitgetDemoEnvironment();
+  if (environment.mode !== "LIVE_EXPERIMENT" || !environment.executionAllowed) {
+    return { state: "COMPLETE", decision: null, attempted: false, success: false, error: false, message: "非实盘执行环境，不运行首笔闭环验收。" };
+  }
+  const state = await readLiveCommissioningState(input.now);
+  if (state.active) {
+    return { state: "ACTIVE", decision: state.latest ? mapDecision(state.latest) : null, attempted: false, success: false, error: false, message: "首笔实盘闭环验收已有委托或持仓，等待保护、止盈止损或限时平仓完成。" };
+  }
+  if (state.complete) {
+    return { state: "COMPLETE", decision: state.latest ? mapDecision(state.latest) : null, attempted: false, success: false, error: false, message: state.recentlyCompleted ? "首笔实盘闭环刚刚完成，本轮不再开新仓。" : "首笔实盘闭环已经完成，正常三周期策略已接管。" };
+  }
+  if (input.positions.some((row) => row.total > 0)) {
+    return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "账户已有持仓，首笔闭环验收暂缓，避免与现有仓位冲突。" };
+  }
+  const quoteMap = new Map(input.quotes.map((quote) => [quote.symbol, quote] as const));
+  const candidates = LIVE_COMMISSIONING_SYMBOLS
+    .map((symbol) => quoteMap.get(symbol))
+    .filter((quote): quote is BitgetDemoMarketQuote => Boolean(quote))
+    .filter((quote) => quoteAgeSeconds(quote, input.now) <= LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS);
+  if (!candidates.length) {
+    return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: `BTC/ETH实时行情超过${LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS}秒或缺失，首笔闭环禁止下单。` };
+  }
+  try {
+    const priorSymbol = String(state.latest?.symbol ?? "").toUpperCase() as BitgetSupportedSymbol;
+    const priorDirection = state.latest?.direction;
+    const pinned = LIVE_COMMISSIONING_SYMBOLS.includes(priorSymbol) && (priorDirection === "LONG" || priorDirection === "SHORT")
+      ? { symbol: priorSymbol, direction: priorDirection as Exclude<ThreeHorizonDirection, "NEUTRAL"> }
+      : null;
+    const scored: Array<{ quote: BitgetDemoMarketQuote; candles: CandleSet; score: number }> = [];
+    for (const quote of candidates) {
+      const candles = await loadCommissioningCandleSet(quote.symbol);
+      scored.push({ quote, candles, score: candleMomentumScore(candles, quote.price, input.now) });
+    }
+    const selected = pinned
+      ? scored.find((row) => row.quote.symbol === pinned.symbol) ?? scored[0]
+      : [...scored].sort((a, b) => Math.abs(b.score) - Math.abs(a.score))[0];
+    if (!selected) throw new Error("未能生成BTC/ETH闭环验收方向");
+    const direction: Exclude<ThreeHorizonDirection, "NEUTRAL"> = pinned?.direction ?? (selected.score >= 0 ? "LONG" : "SHORT");
+    const evaluation = buildLiveCommissioningEvaluation({
+      symbol: selected.quote.symbol,
+      direction,
+      quote: selected.quote,
+      momentumScore: selected.score,
+    });
+    const profile = liveCommissioningProfile(input.now);
+    let decision = await insertDecision({
+      runId: input.runId,
+      profile,
+      symbol: selected.quote.symbol,
+      status: "READY",
+      evaluation,
+      now: input.now,
+      rejectionCode: "LIVE_COMMISSIONING",
+      rejectionReason: evaluation.rejectionReason,
+    });
+    const planGate = await prepareAiTradePlanBeforeExecution({ decision, profile, now: input.now });
+    if (!planGate.allowed) {
+      decision = await updateDecision(decision.id, {
+        status: "BLOCKED",
+        rejectionCode: planGate.code,
+        rejectionReason: planGate.reason,
+      });
+      await syncAiTradePlanFromDecision(decision, input.now).catch(() => undefined);
+      return {
+        state: "WAITING",
+        decision,
+        attempted: false,
+        success: false,
+        error: false,
+        message: `${evaluation.rejectionReason} ${planGate.reason}`,
+      };
+    }
+    const executed = await executeReadyDecision({
+      decision,
+      profile,
+      evaluation,
+      risk: input.risk,
+      positions: input.positions,
+      protections: input.protections,
+      now: input.now,
+      reservedSymbols: input.reservedSymbols,
+      reservedRiskPct: 0,
+    });
+    decision = executed.decision;
+    await syncAiTradePlanFromDecision(decision, input.now).catch(() => undefined);
+    return {
+      state: executed.error ? "ERROR" : executed.success ? "ATTEMPTED" : "WAITING",
+      decision,
+      attempted: executed.attempted,
+      success: executed.success,
+      error: executed.error,
+      message: executed.success
+        ? `首笔实盘闭环订单已提交：${decision.symbol}${decision.direction === "LONG" ? "做多" : "做空"}，随后由交易所止盈止损和${LIVE_COMMISSIONING_MAX_HOLDING_MINUTES}分钟限时退出管理。`
+        : decision.rejectionReason || "首笔实盘闭环尚未达到执行闸门。",
+    };
+  } catch (error) {
+    return {
+      state: "ERROR",
+      decision: null,
+      attempted: false,
+      success: false,
+      error: true,
+      message: error instanceof Error ? error.message : "首笔实盘闭环验收失败",
+    };
+  }
 }
 
 function orderSide(direction: ThreeHorizonDirection, reduceOnly = false): "buy" | "sell" {
@@ -1739,6 +2022,7 @@ export async function runThreeHorizonStrategyEngine(
   options: {
     manageOnly?: boolean;
     eligibleSymbols?: BitgetSupportedSymbol[];
+    quotes?: BitgetDemoMarketQuote[];
     maxNewSymbols?: number;
     deadlineAt?: Date;
   } = {}
@@ -1794,23 +2078,7 @@ export async function runThreeHorizonStrategyEngine(
   const profiles = await getThreeHorizonProfiles();
   const environment = getBitgetDemoEnvironment();
   const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
-  const dueProfiles = profiles.filter((profile) => profile.enabled && (liveExperimentMode || profileDue(profile, now)));
-  if (!dueProfiles.length) {
-    return {
-      ok: management.orderErrors === 0,
-      runId,
-      source,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      scannedStrategies: [],
-      decisions: [],
-      managedOpenDecisions: management.managed,
-      orderAttempts: management.orderAttempts,
-      orderSuccess: management.orderSuccess,
-      orderErrors: management.orderErrors,
-      message: "三周期持仓管理已执行；本分钟没有到期的策略扫描。",
-    };
-  }
+  const dueProfiles = profiles.filter((profile) => profile.enabled && profileDue(profile, now));
   const settings = await getPredictionAutoTraderSettings();
   const forecastPlans = await resolvePredictionStrategyPlans(settings, now).catch(() => []);
   const forecastBySymbol = new Map<string, PredictionStrategyPlan>();
@@ -1818,6 +2086,7 @@ export async function runThreeHorizonStrategyEngine(
     const symbol = String(plan.symbol).toUpperCase();
     forecastBySymbol.set(symbol.endsWith("USDT") ? symbol : `${symbol}USDT`, plan);
   }
+  const quoteBySymbol = new Map((options.quotes ?? []).map((quote) => [quote.symbol, quote] as const));
   const risk = await buildRiskSnapshot(now);
   let positions: BitgetDemoPosition[];
   let protections: BitgetDemoStrategyOrder[];
@@ -1848,6 +2117,51 @@ export async function runThreeHorizonStrategyEngine(
   );
   let reservedRiskPct = 0;
   const decisions: ThreeHorizonStrategyDecision[] = [];
+  if (liveExperimentMode) {
+    const commissioning = await runLiveCommissioning({
+      runId,
+      now,
+      quotes: options.quotes ?? [],
+      risk,
+      positions,
+      protections,
+      reservedSymbols,
+    });
+    if (commissioning.decision) decisions.push(commissioning.decision);
+    const commissioningPending = commissioning.state !== "COMPLETE" || commissioning.message.includes("刚刚完成");
+    if (commissioningPending) {
+      return {
+        ok: !commissioning.error && management.orderErrors === 0,
+        runId,
+        source,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        scannedStrategies: ["INTRADAY"],
+        decisions,
+        managedOpenDecisions: management.managed,
+        orderAttempts: management.orderAttempts + (commissioning.attempted ? 1 : 0),
+        orderSuccess: management.orderSuccess + (commissioning.success ? 1 : 0),
+        orderErrors: management.orderErrors + (commissioning.error ? 1 : 0),
+        message: commissioning.message,
+      };
+    }
+  }
+  if (!dueProfiles.length) {
+    return {
+      ok: management.orderErrors === 0,
+      runId,
+      source,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      scannedStrategies: [],
+      decisions,
+      managedOpenDecisions: management.managed,
+      orderAttempts: management.orderAttempts,
+      orderSuccess: management.orderSuccess,
+      orderErrors: management.orderErrors,
+      message: "首笔实盘闭环已完成；三周期持仓管理已执行，本分钟没有到期的正常策略扫描。",
+    };
+  }
   let orderAttempts = management.orderAttempts;
   let orderSuccess = management.orderSuccess;
   let orderErrors = management.orderErrors;
@@ -1883,7 +2197,7 @@ export async function runThreeHorizonStrategyEngine(
           candleSet = await loadCandleSet(symbol);
           candleCache.set(symbol, candleSet);
         }
-        const evaluation = evaluate(profile, candleSet, forecastBySymbol.get(symbol), now);
+        const evaluation = evaluate(profile, candleSet, forecastBySymbol.get(symbol), now, quoteBySymbol.get(symbol)?.price);
         let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;
         let rejectionReason = evaluation.rejectionReason;
@@ -2020,7 +2334,7 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? "1000 USDT实盘实验已开启；10个USDT合约波段策略、最高2倍逐仓及组合风控限制生效。"
+        ? "1000 USDT实盘实验已开启；首笔小额闭环验收与短线、波段、中长期三周期策略、最高2倍逐仓及组合风控限制生效。"
         : "实盘实验默认关闭；必须完成API安全检查并明确确认真实亏损风险后才会下单。"
       : executionEnvironmentAllowed
         ? "三周期Demo总开关已开启；仍需策略处于DEMO模式、旧镜像关闭并通过组合风控才会下单。"
