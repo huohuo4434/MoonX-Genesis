@@ -200,6 +200,25 @@ export function PricingPageContent({
           </div>
         </Card>
 
+        <Card padding="lg" className="w-full max-w-4xl border-primary/20 bg-primary/[0.025]">
+          <Text variant="body" weight="semibold">{en ? "Start here after activation" : "开通后先看这四个入口"}</Text>
+          <Text variant="body-sm" color="secondary" className="mt-2 block">
+            {en ? "Membership activation is automatic after all on-chain checks pass. Use these links instead of searching through every page." : "链上核验全部通过后会自动开通会员；不需要把全站从头看一遍，按下面顺序使用即可。"}
+          </Text>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: en ? "Today" : "今天先看这里", path: "/#moonx-view" },
+              { label: en ? "Weekly outlook" : "本周走势", path: "/member/weekly" },
+              { label: en ? "AI Strategy Desk" : "AI交易计划", path: "/member/ai-trading" },
+              { label: en ? "Public verification" : "历史验证", path: "/verification" },
+            ].map(({ label, path }) => (
+              <Link key={path} href={href(path)} className="rounded-lg border border-border/[0.1] p-3 text-body-sm font-medium transition-colors hover:border-primary/30 hover:bg-primary/[0.03]">
+                {label}
+              </Link>
+            ))}
+          </div>
+        </Card>
+
         <div className="flex flex-wrap justify-center gap-4">
           {isActiveMember ? <Link href={href("/account")} className="text-body-sm text-primary hover:underline">{en ? "My account" : "我的账户"}</Link> : null}
           {!isLoggedIn ? <Link href={href("/login?next=/pricing")} className="text-body-sm text-primary hover:underline">{en ? "Already have an account? Sign in" : "已有账户？登录"}</Link> : null}

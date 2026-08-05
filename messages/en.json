@@ -30,7 +30,8 @@
     "tradingSignals": "Signals",
     "aiTradingDesk": "Strategy Desk",
     "monthlyAnalysis": "Monthly",
-    "support": "Support"
+    "support": "Support",
+    "guide": "Beginner Guide"
   },
   "footer": {
     "tagline": "Daily market research with public verification",
@@ -72,7 +73,8 @@
     "monthly": "Monthly Outlook",
     "aiTrading": "AI Strategy Desk",
     "today": "Today's View",
-    "weekly": "Weekly Outlook"
+    "weekly": "Weekly Outlook",
+    "guide": "Beginner Guide"
   },
   "hero": {
     "eyebrow": "MOOX",

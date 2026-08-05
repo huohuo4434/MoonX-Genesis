@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, Card, Heading, Text } from "@/components/ui";
+import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { listCurrentMonthlyMarketOutlooks } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { directionEn } from "@/lib/i18n/english-content";
@@ -55,6 +56,13 @@ export function MemberMonthlyPage() {
               ))}
             </div>
             <div><Text variant="caption" color="tertiary">{en ? "Expected path" : "运行路径"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.pathEn : item.path}</Text></div>
+            <PlainLanguageSummary
+              direction={en ? directionEn(item.direction) : item.direction}
+              path={en ? item.pathEn : item.path}
+              confirmation={en ? item.keyWindowEn : item.keyWindow}
+              invalidation={en ? item.riskEn : item.risk}
+              en={en}
+            />
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Key window" : "重点窗口"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.keyWindowEn : item.keyWindow}</Text></div>
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Primary risk" : "主要风险"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.riskEn : item.risk}</Text></div>

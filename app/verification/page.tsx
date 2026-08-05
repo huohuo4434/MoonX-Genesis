@@ -8,6 +8,8 @@ import { VerificationMethodDisclosure } from "@/components/verification/Verifica
 import { VerificationEmptyState } from "@/components/verification/VerificationEmptyState";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 import { getWeeklyAccuracyHistory } from "@/lib/accuracy/get-weekly-history";
+import { getPendingVerificationRecords } from "@/lib/accuracy/get-pending-verification";
+import { PendingVerificationSummary } from "@/components/verification/PendingVerificationSummary";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -28,15 +30,19 @@ export const revalidate = 0;
 
 export default async function VerificationPage() {
   noStore();
-  const [{ items, stats }, weekly] = await Promise.all([
+  const [{ items, stats }, weekly, pending, locale] = await Promise.all([
     getPublicAccuracyHistory(),
     getWeeklyAccuracyHistory(),
+    getPendingVerificationRecords(),
+    getRequestLocale(),
   ]);
+  const en = locale === "en";
 
   return (
     <main>
       <Section spacing="lg">
         <VerificationMethodDisclosure />
+        <PendingVerificationSummary items={pending} en={en} />
         {items.length === 0 && weekly.items.length === 0 ? (
           <VerificationEmptyState />
         ) : (

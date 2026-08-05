@@ -32,7 +32,8 @@
     "tradingSignals": "AI交易訊號",
     "aiTradingDesk": "AI交易公開台",
     "monthlyAnalysis": "月度走勢",
-    "support": "客服與幫助"
+    "support": "客服與幫助",
+    "guide": "新手指南"
   },
   "footer": {
     "tagline": "每日市場研究與公開驗證",
@@ -77,7 +78,8 @@
     "monthly": "月度走勢",
     "aiTrading": "AI交易公開台",
     "today": "今日觀點",
-    "weekly": "週度行情"
+    "weekly": "週度行情",
+    "guide": "新手使用指南"
   },
   "hero": {
     "eyebrow": "MOOX",

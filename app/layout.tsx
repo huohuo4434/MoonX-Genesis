@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { FooterShell, NavbarShell } from "@/components/layout";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { MemberWelcomeGuide } from "@/components/onboarding/MemberWelcomeGuide";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { englishPath } from "@/lib/i18n/config";
 import {
@@ -66,6 +67,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="font-sans antialiased">
         <LocaleProvider initialLocale={locale}>
           <NavbarShell />
+          <MemberWelcomeGuide />
           <div className="pb-20 md:pb-0">{children}</div>
           <FooterShell />
           <MobileBottomNav />

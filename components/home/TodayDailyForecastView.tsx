@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Button, Text } from "@/components/ui";
 import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
@@ -271,6 +272,13 @@ export function TodayDailyForecastView({
                     <p className="break-words text-body-sm text-foreground-secondary">
                       {en ? safeEnglish(f.headline ?? f.summary) : normalizeDailyLanguage(f.headline ?? f.summary)}
                     </p>
+                    <PlainLanguageSummary
+                      direction={en ? directionEn(displayDirection(f)) : displayDirection(f)}
+                      path={pathBias}
+                      confirmation={en ? (f.confirmation ? safeEnglish(f.confirmation) : undefined) : f.confirmation}
+                      invalidation={en ? (f.invalidation ? safeEnglish(f.invalidation) : undefined) : f.invalidation}
+                      en={en}
+                    />
                     {showFull ? (
                       <>
                         <button

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminUser } from "@/lib/auth/is-admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isActiveMember, toAuthUserView } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,11 +27,14 @@ export async function GET() {
     isAdmin: user.app_metadata?.isAdmin === true || role === "admin",
   });
 
+  const activeMember = isActiveMember(toAuthUserView(user));
+
   return NextResponse.json(
     {
       authenticated: true,
       email: user.email.toLowerCase(),
       isAdmin,
+      isActiveMember: activeMember,
     },
     { headers: NO_STORE }
   );

@@ -6,6 +6,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteConfig.url.replace(/\/$/, "");
   const paths = [
     "/",
+    "/guide",
     "/featured-stocks",
     "/verification",
     "/methodology",

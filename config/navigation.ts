@@ -11,6 +11,7 @@ export interface NavItem {
 
 export const NAV_ROUTES = {
   home: "/",
+  guide: "/guide",
   dailyForecasts: "/forecasts/daily",
   todayView: "/#moonx-view",
   tomorrowForecast: "/member/tomorrow",
@@ -65,6 +66,7 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 
 /** Secondary destinations live under “更多”, preventing header crowding. */
 export const PUBLIC_MORE_NAV: NavItem[] = [
+  { key: "nav.guide", href: NAV_ROUTES.guide, labelZh: "新手指南" },
   { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
   { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
@@ -94,6 +96,7 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
+    { key: "footer.guide", href: NAV_ROUTES.guide, labelZh: "新手使用指南" },
     { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
   ];
   const accountLegal: NavItem[] = [
@@ -110,7 +113,7 @@ export function buildPublicFooterColumns(_options?: {
 }
 
 export const AUDIT_ROUTES = [
-  "/", "/login", "/account", "/account/orders", "/pricing", "/support",
+  "/", "/guide", "/login", "/account", "/account/orders", "/pricing", "/support",
   "/methodology", "/member/tomorrow", "/member/weekly", "/member/monthly",
   "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
   "/privacy", "/terms", "/admin", "/admin/payments", "/admin/settings",

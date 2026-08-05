@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
+import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { LockIcon } from "@/components/icons";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
@@ -81,6 +82,13 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
         <Badge variant="default">{en ? directionEn(a.overallDirection) : a.overallDirection}</Badge>
       </div>
       <Text variant="body-sm" color="secondary" className="break-words">{en ? safeEnglish(a.headline) : a.headline}</Text>
+      <PlainLanguageSummary
+        direction={en ? directionEn(a.overallDirection) : a.overallDirection}
+        path={en ? safeEnglish(a.weeklyPath) : a.weeklyPath}
+        confirmation={en ? (a.confirmation ? safeEnglish(a.confirmation) : undefined) : a.confirmation}
+        invalidation={en ? safeEnglish(a.invalidation) : a.invalidation}
+        en={en}
+      />
       <dl className="grid gap-2 text-body-sm sm:grid-cols-2">
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Direction" : "方向"}</dt><dd className="font-medium">{en ? directionEn(a.overallDirection) : a.overallDirection}</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Higher" : "上涨概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.up}%</dd></div>

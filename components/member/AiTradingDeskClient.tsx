@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { AiTradeIntentBoard } from "@/components/trading/AiTradeIntentBoard";
+import { AiDeskQuickNav } from "@/components/member/AiDeskQuickNav";
 import type { AiTradingDeskSnapshot } from "@/types/ai-trading-desk";
 import { assetDisplayName, assetDisplaySymbol } from "@/lib/presentation/asset-catalog";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
@@ -96,7 +97,14 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
   return (
     <div className="space-y-6">
-      <Card padding="lg" className="space-y-5 border-primary/25 bg-primary/[0.025]">
+      <AiDeskQuickNav
+        en={en}
+        planCount={snapshot.publishedPlans?.length ?? 0}
+        positionCount={snapshot.positions.length}
+        tradeCount={snapshot.recentTrades.length}
+        experimentDay={experimentDay}
+      />
+      <Card id="performance" padding="lg" className="space-y-5 border-primary/25 bg-primary/[0.025]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -148,8 +156,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         {snapshot.experiment.stopReason ? <Text variant="body-sm" className="block text-amber-300">{snapshot.experiment.stopReason}</Text> : null}
       </Card>
 
-      <AiTradeIntentBoard
-        locale={en ? "en" : "zh"}
+      <section id="plans" className="scroll-mt-24">
+        <AiTradeIntentBoard
+          locale={en ? "en" : "zh"}
         dashboard={{
           databaseReady: true,
           generatedAt: snapshot.generatedAt,
@@ -159,7 +168,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           plans: snapshot.publishedPlans ?? [],
           notice: en ? "Plans are locked before execution." : "计划在执行前锁定。",
         }}
-      />
+        />
+      </section>
 
       <Card padding="lg" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -186,7 +196,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
       </Card>
 
-      <section className="space-y-3">
+      <section id="positions" className="scroll-mt-24 space-y-3">
         <Heading size="h3">{en ? "Current position" : "当前持仓"}</Heading>
         {snapshot.positions.length ? snapshot.positions.map((position) => (
           <Card key={`${position.symbol}-${position.direction}`} padding="lg" className="space-y-4">
@@ -205,7 +215,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         )) : <Card padding="lg"><Text variant="body-sm" color="secondary">{en ? "No open position." : "当前没有持仓。"}</Text></Card>}
       </section>
 
-      <section className="space-y-3">
+      <section id="trades" className="scroll-mt-24 space-y-3">
         <Heading size="h3">{en ? "Completed trades" : "已经结束的交易"}</Heading>
         <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="min-w-full text-left text-sm">
