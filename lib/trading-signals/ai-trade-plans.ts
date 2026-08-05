@@ -8,6 +8,7 @@ import type {
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
 import type {
+  AiTradeIntentDecision,
   AiTradePlan,
   AiTradePlanDashboard,
   AiTradePlanEvent,
@@ -116,6 +117,22 @@ type EventRow = {
   price: number | null;
   quantity: number | null;
   event_at: Date;
+};
+
+
+type IntentDecisionRow = {
+  symbol: string;
+  direction: "LONG" | "SHORT" | "NEUTRAL";
+  status: ThreeHorizonStrategyDecision["status"];
+  confidence: number;
+  conditions: unknown;
+  current_price: number | null;
+  entry_price: number | null;
+  stop_loss: number | null;
+  target_1: number | null;
+  target_2: number | null;
+  rejection_reason: string;
+  updated_at: Date;
 };
 
 type PlanContent = {
@@ -480,7 +497,7 @@ async function createPlan(
   const id = `plan_${randomUUID()}`;
   const status = initialStatus(decision);
   const contentHash = hashContent(content);
-  const executionMode = profile.mode === "DEMO" ? "BITGET_DEMO" : "SHADOW";
+  const executionMode = profile.mode === "SHADOW" ? "SHADOW" : "BITGET_DEMO";
   const currentPrice = decision.currentPrice;
   const distance = distancePct(currentPrice, content.entryZoneLow, content.entryZoneHigh);
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
@@ -631,12 +648,12 @@ function statusFromDecision(decision: ThreeHorizonStrategyDecision, current: AiT
 
 function stateDetail(status: AiTradePlanStatus, decision: ThreeHorizonStrategyDecision): string {
   if (status === "ARMED") return `主要条件已满足：${decision.conditionsMet}/${decision.conditionsTotal}。${decision.rejectionReason}`;
-  if (status === "ORDER_SUBMITTED") return `已向Bitget Demo提交模拟委托，orderId=${decision.bitgetOrderId ?? "待回查"}。`;
-  if (status === "OPEN") return `Bitget Demo模拟持仓已建立，参考价格${decision.currentPrice ?? decision.entryPrice ?? "—"}。`;
-  if (status === "REDUCED") return "模拟持仓已发生部分止盈、减仓或进入退出流程。";
+  if (status === "ORDER_SUBMITTED") return `已向Bitget提交委托，orderId=${decision.bitgetOrderId ?? "待回查"}。`;
+  if (status === "OPEN") return `Bitget持仓已建立，参考价格${decision.currentPrice ?? decision.entryPrice ?? "—"}。`;
+  if (status === "REDUCED") return "持仓已发生部分止盈、减仓或进入退出流程。";
   if (status === "CLOSED") return `计划结束。${decision.rejectionReason}`;
   if (status === "EXPIRED") return "计划超过有效期且未继续执行。";
-  if (status === "EXECUTION_ERROR") return `Bitget Demo执行异常：${decision.rejectionReason}`;
+  if (status === "EXECUTION_ERROR") return `Bitget执行异常：${decision.rejectionReason}`;
   return decision.rejectionReason || "等待价格和结构条件。";
 }
 
@@ -830,6 +847,43 @@ async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEve
   return map;
 }
 
+
+async function getLatestIntentDecisions(): Promise<AiTradeIntentDecision[]> {
+  if (!prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<IntentDecisionRow[]>(`
+    SELECT DISTINCT ON (symbol)
+      symbol, direction, status, confidence, conditions, current_price, entry_price,
+      stop_loss, target_1, target_2, rejection_reason, updated_at
+    FROM trade_three_horizon_decisions
+    WHERE strategy_type = 'SWING'
+    ORDER BY symbol, updated_at DESC, created_at DESC
+  `);
+  return rows.map((row) => {
+    const conditions = Array.isArray(row.conditions) ? row.conditions : [];
+    const met = conditions.filter((condition) =>
+      Boolean(condition) &&
+      typeof condition === "object" &&
+      "met" in condition &&
+      Boolean((condition as { met?: unknown }).met)
+    ).length;
+    return {
+      symbol: row.symbol,
+      direction: row.direction,
+      status: row.status,
+      confidence: Number(row.confidence || 0),
+      currentPrice: row.current_price == null ? null : Number(row.current_price),
+      entryPrice: row.entry_price == null ? null : Number(row.entry_price),
+      stopLoss: row.stop_loss == null ? null : Number(row.stop_loss),
+      target1: row.target_1 == null ? null : Number(row.target_1),
+      target2: row.target_2 == null ? null : Number(row.target_2),
+      conditionsMet: met,
+      conditionsTotal: conditions.length,
+      rejectionReason: row.rejection_reason || "",
+      updatedAt: row.updated_at.toISOString(),
+    };
+  });
+}
+
 export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[]> {
   if (!(await ensureAiTradePlanTables()) || !prisma) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
@@ -844,7 +898,9 @@ export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[
 
 export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTradePlanDashboard> {
   const databaseReady = await ensureAiTradePlanTables();
-  const plans = databaseReady ? await getPublishedAiTradePlans(60) : [];
+  const [plans, decisions]: [AiTradePlan[], AiTradeIntentDecision[]] = databaseReady
+    ? await Promise.all([getPublishedAiTradePlans(60), getLatestIntentDecisions()])
+    : [[], []];
   const beijingNow = new Date(now.getTime() + 8 * 60 * 60_000);
   const dayKey = beijingNow.toISOString().slice(0, 10);
   const today = (value: string | null) => value ? new Date(new Date(value).getTime() + 8 * 60 * 60_000).toISOString().slice(0, 10) === dayKey : false;
@@ -871,7 +927,8 @@ export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTrade
       submittedOrOpen: latestPlans.filter((plan) => ["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(plan.status)).length,
       closedToday: latestPlans.filter((plan) => plan.status === "CLOSED" && today(plan.closedAt)).length,
     },
+    decisions,
     plans,
-    notice: "AI计划由MOOX事前发布并锁定；Bitget Demo只负责模拟委托与成交证明。页面默认展示当前版本，历史版本折叠保留。",
+    notice: "AI计划由MOOX事前发布并锁定；达到执行条件后才向Bitget提交订单。页面展示当前意图、入场区、止盈止损与版本记录。",
   };
 }

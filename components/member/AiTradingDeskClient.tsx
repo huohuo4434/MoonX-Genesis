@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Card, Heading, Text } from "@/components/ui";
+import { AiTradeIntentBoard } from "@/components/trading/AiTradeIntentBoard";
 import type { AiTradingDeskSnapshot } from "@/types/ai-trading-desk";
 import { assetDisplayName, assetDisplaySymbol } from "@/lib/presentation/asset-catalog";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
@@ -57,24 +58,6 @@ async function readSnapshot(): Promise<AiTradingDeskSnapshot> {
 }
 
 
-function decisionStatusLabel(status: string, en: boolean): string {
-  const labels: Record<string, [string, string]> = {
-    OBSERVING: ["观察中", "Observing"],
-    READY: ["等待最终确认", "Ready for confirmation"],
-    SHADOW_READY: ["影子机会", "Shadow opportunity"],
-    BLOCKED: ["已被风控拦截", "Blocked by risk controls"],
-    ORDER_SUBMITTED: ["订单已提交", "Order submitted"],
-    OPEN: ["持仓中", "Open position"],
-    PARTIAL: ["部分止盈", "Partially closed"],
-    CLOSING: ["正在平仓", "Closing"],
-    CLOSED: ["已结束", "Closed"],
-    EXPIRED: ["已过期", "Expired"],
-    ERROR: ["执行异常", "Execution error"],
-  };
-  const pair = labels[status];
-  return pair ? pair[en ? 1 : 0] : status;
-}
-
 function statusVariant(snapshot: AiTradingDeskSnapshot) {
   if (["LIVE_POSITION", "SIMULATION_POSITION", "WAITING_ENTRY"].includes(snapshot.operationalState)) return "success" as const;
   if (["CONNECTING", "DATA_DELAYED", "PLAN_ONLY"].includes(snapshot.operationalState)) return "warning" as const;
@@ -99,17 +82,6 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
     return () => window.clearInterval(timer);
   }, []);
 
-  const currentDecisions = useMemo(() => {
-    const swing = snapshot.strategies.find((row) => row.strategyType === "SWING");
-    const decisions = swing?.decisions ?? [];
-    if (!live) return decisions.slice(0, 3);
-    const latestBySymbol = new Map<string, (typeof decisions)[number]>();
-    for (const decision of decisions) {
-      const symbol = decision.symbol.toUpperCase();
-      if (!latestBySymbol.has(symbol) && decision.mode === "LIVE") latestBySymbol.set(symbol, decision);
-    }
-    return LIVE_ASSETS.map(([symbol]) => latestBySymbol.get(symbol)).filter((row): row is (typeof decisions)[number] => Boolean(row));
-  }, [live, snapshot.strategies]);
 
   const experimentDay = useMemo(() => {
     if (!snapshot.experiment.startedAt) return 0;
@@ -176,6 +148,18 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         {snapshot.experiment.stopReason ? <Text variant="body-sm" className="block text-amber-300">{snapshot.experiment.stopReason}</Text> : null}
       </Card>
 
+      <AiTradeIntentBoard
+        locale={en ? "en" : "zh"}
+        dashboard={{
+          databaseReady: true,
+          generatedAt: snapshot.generatedAt,
+          summary: snapshot.planSummary,
+          decisions: snapshot.intentDecisions ?? [],
+          plans: snapshot.publishedPlans ?? [],
+          notice: en ? "Plans are locked before execution." : "计划在执行前锁定。",
+        }}
+      />
+
       <Card padding="lg" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -200,19 +184,6 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="rounded-lg border border-white/10 p-3">{en ? "Gross exposure ≤100% equity" : "组合总名义仓位≤账户权益"}</div>
         </div>
       </Card>
-
-      <section className="space-y-3">
-        <Heading size="h3">{en ? "Today’s AI scan" : "今日AI扫描"}</Heading>
-        <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-white/10 bg-white/[0.025] text-white/45"><tr><th className="px-4 py-3">{en ? "Asset" : "品种"}</th><th className="px-4 py-3">{en ? "Direction" : "方向"}</th><th className="px-4 py-3">{en ? "Confidence" : "置信度"}</th><th className="px-4 py-3">{en ? "Status" : "状态"}</th><th className="px-4 py-3">{en ? "Reason" : "当前原因"}</th></tr></thead>
-            <tbody>
-              {currentDecisions.map((decision) => <tr key={`${decision.symbol}-${decision.id}`} className="border-b border-white/[0.06] last:border-0"><td className="px-4 py-3"><span className="font-medium">{liveAssetName(decision.symbol, en)}</span><span className="ml-2 text-white/45">{decision.symbol}</span></td><td className="px-4 py-3">{decision.direction === "LONG" ? (en ? "Long" : "偏多") : decision.direction === "SHORT" ? (en ? "Short" : "偏空") : (en ? "Neutral" : "中性")}</td><td className="px-4 py-3">{decision.confidence}%</td><td className="px-4 py-3">{decisionStatusLabel(decision.status, en)}</td><td className="max-w-xl px-4 py-3 text-white/55">{decision.rejectionReason || (en ? "Waiting for entry confirmation." : "等待入场确认。")}</td></tr>)}
-              {!currentDecisions.length ? <tr><td colSpan={5} className="px-4 py-8 text-center text-white/45">{en ? "No current scan results." : "尚无今日扫描结果。"}</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <section className="space-y-3">
         <Heading size="h3">{en ? "Current position" : "当前持仓"}</Heading>

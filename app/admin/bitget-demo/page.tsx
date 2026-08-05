@@ -32,6 +32,7 @@ export default async function AdminBitgetDemoPage() {
             1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。页面先立即打开，再单独读取状态快照；Vercel定时交易任务不依赖本页面保持打开。
           </Text>
           <div className="space-y-8">
+            <AiTradePlanAdminClient lazy />
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">

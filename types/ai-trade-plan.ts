@@ -1,4 +1,4 @@
-import type { ThreeHorizonDirection, ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
+import type { ThreeHorizonDecisionStatus, ThreeHorizonDirection, ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
 
 export type AiTradePlanTier = "CANDIDATE" | "FORMAL";
 export type AiTradePlanStatus =
@@ -17,6 +17,23 @@ export type AiTradePlanStatus =
   | "EXECUTION_ERROR";
 
 export type AiTradePlanExecutionMode = "SHADOW" | "BITGET_DEMO";
+
+
+export type AiTradeIntentDecision = {
+  symbol: string;
+  direction: ThreeHorizonDirection;
+  status: ThreeHorizonDecisionStatus;
+  confidence: number;
+  currentPrice: number | null;
+  entryPrice: number | null;
+  stopLoss: number | null;
+  target1: number | null;
+  target2: number | null;
+  conditionsMet: number;
+  conditionsTotal: number;
+  rejectionReason: string;
+  updatedAt: string;
+};
 
 export type AiTradePlanEvent = {
   id: string;
@@ -93,6 +110,7 @@ export type AiTradePlanDashboard = {
   databaseReady: boolean;
   generatedAt: string;
   summary: AiTradePlanSummary;
+  decisions: AiTradeIntentDecision[];
   plans: AiTradePlan[];
   notice: string;
 };
