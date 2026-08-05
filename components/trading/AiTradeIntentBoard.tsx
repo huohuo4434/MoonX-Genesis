@@ -267,6 +267,11 @@ export function AiTradeIntentBoard({
               ? "Choose intraday, swing, position, or all. Each card shows direction, formula, conditions, entry, stop, targets, risk/reward, confidence and the reason no order was placed."
               : "用户可选择短线、波段、中长期或全部查看。每张卡展示方向、触发公式、条件明细、入场、止盈止损、盈亏比、信心度和未下单原因。"}
           </Text>
+          <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
+            {en
+              ? "MOOX weekly/monthly Liuyao direction is the primary decision. External analysts only provide secondary technical levels and can neither reverse the direction nor trigger an order by themselves."
+              : "MOOX以六爻周度/月度方向为一级决策；外部博主观点只作为二级技术点位参考，不得反向改写方向，也不能单独触发下单。"}
+          </Text>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant={analysed === totalExpected ? "success" : "warning"}>{en ? `${analysed}/${totalExpected} analysed` : `已分析 ${analysed}/${totalExpected}`}</Badge>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
+import { refreshExternalAnalystSignals } from "@/lib/trading-signals/external-analyst-signals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,6 +22,14 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
+  let externalAnalysts: Awaited<ReturnType<typeof refreshExternalAnalystSignals>> | { error: string };
+  try {
+    externalAnalysts = await refreshExternalAnalystSignals(now);
+  } catch (error) {
+    externalAnalysts = {
+      error: errorMessage(error, "外部分析师监测失败"),
+    };
+  }
   let runtime: Awaited<ReturnType<typeof runBitgetDemoServerRuntime>> | { error: string };
   try {
     runtime = await runBitgetDemoServerRuntime(now, "CRON");
@@ -46,6 +55,7 @@ export async function GET(request: NextRequest) {
     checkedAt: now.toISOString(),
     runtime,
     memberDeskSync,
+    externalAnalysts,
   });
 }
 

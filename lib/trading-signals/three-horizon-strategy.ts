@@ -33,6 +33,8 @@ import {
   getPredictionAutoTraderSettings,
   resolvePredictionStrategyPlans,
 } from "@/lib/trading-signals/prediction-auto-trader";
+import { applyExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-overlay";
+import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
 import type {
   ThreeHorizonCondition,
@@ -675,10 +677,10 @@ function finalizeEvaluation(
       })
     : null;
   const mandatoryKeys = profile.strategyType === "INTRADAY"
-    ? ["environment", "direction", "entry", "risk"]
+    ? ["environment", "direction", "entry", "forecast", "risk"]
     : profile.strategyType === "SWING"
-      ? ["weekly", "daily", "structure", "entry", "risk"]
-      : ["monthly", "weekly", "daily", "entry", "risk"];
+      ? ["weekly", "daily", "structure", "entry", "forecast", "risk"]
+      : ["monthly", "weekly", "daily", "entry", "forecast", "risk"];
   const missingMandatory = conditions.filter(
     (row) => mandatoryKeys.includes(row.key) && !row.met
   );
@@ -2269,7 +2271,19 @@ export async function runThreeHorizonStrategyEngine(
           candleSet = await loadCandleSet(symbol);
           candleCache.set(symbol, candleSet);
         }
-        const evaluation = evaluate(profile, candleSet, forecastBySymbol.get(symbol), now, quoteBySymbol.get(symbol)?.price);
+        const forecastPlan = forecastBySymbol.get(symbol);
+        let evaluation = evaluate(profile, candleSet, forecastPlan, now, quoteBySymbol.get(symbol)?.price);
+        // MOOX_EXTERNAL_ANALYST_OVERLAY_V1
+        // Liuyao weekly/monthly direction remains primary. External analysts may only
+        // refine technical levels when aligned; they cannot flip direction or create readiness.
+        const analystOverlay = await getExternalAnalystOverlay(symbol, profile.strategyType, now)
+          .catch(() => null);
+        evaluation = applyExternalAnalystOverlay({
+          evaluation,
+          overlay: analystOverlay,
+          strategyType: profile.strategyType,
+          primaryForecastDirection: forecastDirection(forecastPlan),
+        });
         let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;
         let rejectionReason = evaluation.rejectionReason;
