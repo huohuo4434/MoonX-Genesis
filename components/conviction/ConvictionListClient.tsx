@@ -11,6 +11,7 @@ import { safeEnglish } from "@/lib/i18n/english-content";
 import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
+import SpcxWatchlistFeature from "@/components/conviction/SpcxWatchlistFeature";
 
 const RISK_EN: Record<string, string> = {
   低: "Low",
@@ -80,6 +81,8 @@ function PublicAssetCard({
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0e12]">
+      {/* MOOX_SPCX_WATCHLIST_V1 */}
+      <SpcxWatchlistFeature />
       <div className="border-b border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent px-5 py-5 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">

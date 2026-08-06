@@ -1,0 +1,142 @@
+import "server-only";
+
+export const SPCX_MEMBER_RESEARCH = {
+  researchId: "spcx-20260806-v1",
+  version: 1,
+  status: "LOCKED_PENDING_VERIFICATION",
+  symbol: "SPCX",
+  underlying: "Space Exploration Technologies Corp. Class A",
+  exchange: "Nasdaq",
+  lockedAt: "2026-08-06T06:29:00+08:00",
+  referencePriceAtCast: 116,
+  direction: {
+    zh: "先震荡消化，后反弹抬升；核心偏强窗口在8月下旬至9月初。",
+    en: "Volatile absorption first, then a rebound phase; the strongest window is late August into early September.",
+  },
+  consensus: {
+    stars: 4,
+    meaningZh: "星级表示多周期与两套方法的方向共识，不代表上涨幅度，也不替代技术确认。",
+    meaningEn: "Stars measure cross-horizon and cross-framework agreement, not upside magnitude, and do not replace technical confirmation.",
+  },
+  teacherPrivate01: {
+    labelZh: "私人导师01｜六亲、世应与财爻力量",
+    labelEn: "Teacher 01 | Six Relations, Host/Guest and Wealth-line strength",
+    evidenceZh: [
+      "五年卦风雷益变风天小畜：长期底色偏成长，但上涨方式更像积累后释放，不是直线上行。",
+      "一年卦地水师归魂变水天需游魂：先处理组织、供给和秩序，再等待资金重新选择方向，说明解锁并不等于即时拉升。",
+      "三个月卦离为火六冲变风雷益：前段分歧与波动很大，后段由冲突转向修复增益。",
+      "一个月卦雷地豫六合变火地晋，妻财未土持世且上爻妻财戌土发动：月内有推进与抬升条件，但越接近后段越要防追高和兑现。",
+      "8月6日至9月6日水火既济静卦：局面已进入重新平衡，财爻午火伏于兄弟亥水世下，说明上涨力量尚未完全显露，短期仍受供给与分流压制。",
+      "周卦由姤变乾、乾变履，再到地天泰：先突发波动与力量扩张，再在强势中谨慎前行，随后结构转顺。",
+    ],
+    evidenceEn: [
+      "Five-year Yi changing to Xiao Chu: the long-term bias is constructive, but gains are more likely to be accumulated and released than linear.",
+      "One-year Shi changing to Xu: supply, order and positioning must be processed before capital commits again; an unlock is not an automatic immediate rally.",
+      "Three-month Li (Six Clash) changing to Yi: disagreement and volatility dominate first, followed by repair and improvement.",
+      "One-month Yu (Six Harmony) changing to Jin, with the wealth line active: the month supports progression, while the late-stage line warns against chasing an extended move.",
+      "The Aug 6–Sep 6 Ji Ji hexagram is static: the market is rebalancing. The hidden wealth line beneath a brother line indicates bullish force remains concealed under supply and capital diversion.",
+      "The weekly sequence Gou→Qian, Qian→Lu, then Tai points to sudden expansion, strong-but-careful continuation, and finally a smoother structure.",
+    ],
+  },
+  teacherRev322: {
+    labelZh: "Rev3.2.2老师｜本卦、动爻、变卦与时间轴",
+    labelEn: "Rev3.2.2 Teacher | Primary, moving-line, changed-hexagram and timeline structure",
+    evidenceZh: [
+      "大周期先定方向：益、小畜、需都强调积累、等待与节奏，不支持把一次事件解释成永久单边。",
+      "三个月离六冲变益，是“先乱后修复”的主结构；短周期只能修正节奏，不能推翻这个大方向。",
+      "8月10日至16日姤变乾且初爻发动：前段容易突发、急拉急跌，随后力量放大，但六冲属性决定过程不平滑。",
+      "8月17日至23日乾变履且三爻发动：强势中必须按规则行走，适合定义为加速窗口，而不是无条件追涨窗口。",
+      "8月24日至30日地天泰静卦：上下相通、结构稳定，是四个周段里延续性最好的部分。",
+      "按30%/40%/30%切分，月度前段用于消化，中段完成转强，后段延续并逐步进入获利兑现监控。",
+    ],
+    evidenceEn: [
+      "The larger horizon sets the direction: Yi, Xiao Chu and Xu all emphasize accumulation, waiting and rhythm rather than a permanent one-way interpretation of a single event.",
+      "The three-month Li (Six Clash)→Yi sequence is a disorder-first, repair-later structure; smaller periods adjust timing but do not overturn it.",
+      "Aug 10–16 Gou→Qian with the first line moving: abrupt moves and whipsaws can arrive early, followed by expanded force, but the Six Clash quality keeps the path uneven.",
+      "Aug 17–23 Qian→Lu with the third line moving: strength must be handled with discipline. This is an acceleration window, not an unconditional chase window.",
+      "Aug 24–30 static Tai: communication between upper and lower structures improves, making this the most persistent weekly segment.",
+      "Using the 30%/40%/30% segmentation, the first part absorbs supply, the middle turns stronger, and the final part extends while profit-taking risk begins to rise.",
+    ],
+  },
+  fusion: {
+    agreementZh: [
+      "两套方法都把8月前半段定义为波动与消化，而不是主升最顺的阶段。",
+      "两套方法都把8月下旬指向更好的延续性，尤其8月21日前后至9月初。",
+      "长期与中期方向偏修复，但过程必须经过供给压力测试。",
+    ],
+    agreementEn: [
+      "Both frameworks treat the first half of August as volatility and absorption rather than the cleanest trending phase.",
+      "Both point to better persistence in late August, especially around Aug 21 into early September.",
+      "The medium- and long-horizon bias is toward repair, but only after supply pressure is tested.",
+    ],
+    conflictZh:
+      "私人导师01更强调财爻伏藏、兄弟持世带来的现实抛压；Rev3.2.2体系更强调变卦由冲突走向益、晋、泰。综合后不能写成“解锁必涨”，应写成“先验证抛压是否被吸收，再确认反弹窗口”。",
+    conflictEn:
+      "Teacher 01 emphasizes hidden wealth and brother-line supply pressure, while the Rev3.2.2 framework emphasizes the transition from conflict toward Yi, Jin and Tai. The combined conclusion is not ‘unlock equals rally’; it is ‘confirm supply absorption before treating the rebound window as active.’",
+  },
+  phases: [
+    {
+      start: "2026-08-06",
+      end: "2026-08-09",
+      labelZh: "事件冲击后的稳定观察",
+      labelEn: "Post-event stabilization watch",
+      pathZh: "低位反复、急跌后有回抽，但主升尚未确认。",
+      pathEn: "Repeated low-level tests and reflex rebounds, without a confirmed trend yet.",
+      risk: "EXTREME",
+    },
+    {
+      start: "2026-08-10",
+      end: "2026-08-16",
+      labelZh: "高波动扩张",
+      labelEn: "High-volatility expansion",
+      pathZh: "更容易出现突然拉升，也容易快速回吐；以吸收供给为主。",
+      pathEn: "Sudden rallies become more likely, but fast givebacks remain common while supply is absorbed.",
+      risk: "VERY_HIGH",
+    },
+    {
+      start: "2026-08-17",
+      end: "2026-08-23",
+      labelZh: "第一加速窗口",
+      labelEn: "First acceleration window",
+      pathZh: "方向开始转强，8月21日前后值得重点观察；强势中仍需技术确认。",
+      pathEn: "Direction strengthens; the area around Aug 21 deserves close attention, with technical confirmation still required.",
+      risk: "HIGH",
+    },
+    {
+      start: "2026-08-24",
+      end: "2026-08-30",
+      labelZh: "最顺延续窗口",
+      labelEn: "Cleanest continuation window",
+      pathZh: "若前期抛压已被吸收，这一周更容易形成持续性反弹。",
+      pathEn: "If earlier supply has been absorbed, this week has the best chance of producing a persistent rebound.",
+      risk: "HIGH",
+    },
+    {
+      start: "2026-08-31",
+      end: "2026-09-06",
+      labelZh: "余势与兑现并存",
+      labelEn: "Residual momentum with profit-taking",
+      pathZh: "仍有上冲余势，但越接近周期交接越要防获利回吐。",
+      pathEn: "Upside momentum may persist, while profit-taking risk rises into the period handoff.",
+      risk: "HIGH",
+    },
+  ],
+  executionRules: {
+    zh: [
+      "方向卦只负责提出路径假设；未通过技术结构确认，不转化为追涨指令。",
+      "优先确认：解锁后首轮放量抛售不再创新低，随后日线或至少1小时级别收复关键结构区。",
+      "若新低伴随成交继续扩张，或反弹无法站回事件冲击区，则延后偏强窗口，不强行解释为命中。",
+      "第三方代币化 SPCX 必须额外核对与纳斯达克正股的跟踪误差、赎回与流动性，不直接套用正股技术位。",
+    ],
+    en: [
+      "The hexagram direction defines a path hypothesis only; it is not a chase signal before technical confirmation.",
+      "Preferred confirmation: the first heavy post-unlock selloff stops making new lows, followed by a daily or at least one-hour reclaim of the key structure zone.",
+      "If new lows arrive with expanding volume, or the rebound cannot reclaim the event-shock area, delay the bullish window rather than forcing a hit.",
+      "Any third-party tokenized SPCX product requires separate checks for tracking error, redemption and liquidity; Nasdaq share levels cannot be copied blindly.",
+    ],
+  },
+  verificationPlan: {
+    zh: "每个周段结束后锁定实际高低点、收盘方向、路径是否符合、技术确认是否出现，并公开记录命中、未命中、部分命中或不可验证。",
+    en: "After each weekly segment, lock the actual high/low, closing direction, path fit and technical-confirmation status, then publish hit, miss, partial hit or unverifiable.",
+  },
+} as const;
