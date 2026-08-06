@@ -163,7 +163,7 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Two teachers, kept separate" : "两位老师分别分析"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Mr. Yi K · Two-Framework Cross-Analysis" : "易K先生：双框架交叉分析"}</h2>
         <div className={styles.phaseGrid}>
           <article className={styles.card}>
             <h3>{english ? research.teacherPrivate01.labelEn : research.teacherPrivate01.labelZh}</h3>
@@ -177,14 +177,14 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Fusion and conflict" : "综合共识与冲突"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Cross-framework validation" : "双框架交叉验证"}</h2>
         <div className={styles.phaseGrid}>
           <article className={styles.card}>
-            <h3>{english ? "Agreement" : "一致部分"}</h3>
+            <h3>{english ? "Shared signal" : "共同指向"}</h3>
             <ul>{agreements.map((item) => <li key={item}>{item}</li>)}</ul>
           </article>
           <article className={styles.card}>
-            <h3>{english ? "Conflict resolution" : "冲突处理"}</h3>
+            <h3>{english ? "How differences are resolved" : "差异如何处理"}</h3>
             <p>{english ? research.fusion.conflictEn : research.fusion.conflictZh}</p>
           </article>
         </div>

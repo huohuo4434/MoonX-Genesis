@@ -15,12 +15,12 @@ export const SPCX_MEMBER_RESEARCH = {
   },
   consensus: {
     stars: 4,
-    meaningZh: "星级表示多周期与两套方法的方向共识，不代表上涨幅度，也不替代技术确认。",
-    meaningEn: "Stars measure cross-horizon and cross-framework agreement, not upside magnitude, and do not replace technical confirmation.",
+    meaningZh: "星级表示多周期与双框架的方向共识，不代表上涨幅度，也不替代技术确认。",
+    meaningEn: "Stars measure agreement across time horizons and the two analytical frameworks, not upside magnitude, and do not replace technical confirmation.",
   },
   teacherPrivate01: {
-    labelZh: "私人导师01｜六亲、世应与财爻力量",
-    labelEn: "Teacher 01 | Six Relations, Host/Guest and Wealth-line strength",
+    labelZh: "框架 A｜结构力量：六亲、世应与财爻",
+    labelEn: "Framework A | Structural forces: Six Relations, host/guest and wealth line",
     evidenceZh: [
       "五年卦风雷益变风天小畜：长期底色偏成长，但上涨方式更像积累后释放，不是直线上行。",
       "一年卦地水师归魂变水天需游魂：先处理组织、供给和秩序，再等待资金重新选择方向，说明解锁并不等于即时拉升。",
@@ -39,8 +39,8 @@ export const SPCX_MEMBER_RESEARCH = {
     ],
   },
   teacherRev322: {
-    labelZh: "Rev3.2.2老师｜本卦、动爻、变卦与时间轴",
-    labelEn: "Rev3.2.2 Teacher | Primary, moving-line, changed-hexagram and timeline structure",
+    labelZh: "框架 B｜时序演变：本卦、动爻、变卦与时间轴",
+    labelEn: "Framework B | Temporal evolution: primary hexagram, moving lines, changed hexagram and timeline",
     evidenceZh: [
       "大周期先定方向：益、小畜、需都强调积累、等待与节奏，不支持把一次事件解释成永久单边。",
       "三个月离六冲变益，是“先乱后修复”的主结构；短周期只能修正节奏，不能推翻这个大方向。",
@@ -60,19 +60,19 @@ export const SPCX_MEMBER_RESEARCH = {
   },
   fusion: {
     agreementZh: [
-      "两套方法都把8月前半段定义为波动与消化，而不是主升最顺的阶段。",
-      "两套方法都把8月下旬指向更好的延续性，尤其8月21日前后至9月初。",
+      "两个框架都把8月前半段定义为波动与消化，而不是主升最顺的阶段。",
+      "两个框架都把8月下旬指向更好的延续性，尤其8月21日前后至9月初。",
       "长期与中期方向偏修复，但过程必须经过供给压力测试。",
     ],
     agreementEn: [
-      "Both frameworks treat the first half of August as volatility and absorption rather than the cleanest trending phase.",
+      "Both analytical frameworks treat the first half of August as volatility and absorption rather than the cleanest trending phase.",
       "Both point to better persistence in late August, especially around Aug 21 into early September.",
       "The medium- and long-horizon bias is toward repair, but only after supply pressure is tested.",
     ],
     conflictZh:
-      "私人导师01更强调财爻伏藏、兄弟持世带来的现实抛压；Rev3.2.2体系更强调变卦由冲突走向益、晋、泰。综合后不能写成“解锁必涨”，应写成“先验证抛压是否被吸收，再确认反弹窗口”。",
+      "结构力量框架更强调财爻伏藏、兄弟持世对应的现实抛压；时序演变框架更强调卦序由六冲逐步走向益、晋、泰。两者并非相互矛盾：前者回答“当前上涨力量是否已经显露”，后者回答“力量可能在哪个阶段转强”。因此最终仍需先验证抛压是否被吸收，再确认8月下旬的反弹窗口。",
     conflictEn:
-      "Teacher 01 emphasizes hidden wealth and brother-line supply pressure, while the Rev3.2.2 framework emphasizes the transition from conflict toward Yi, Jin and Tai. The combined conclusion is not ‘unlock equals rally’; it is ‘confirm supply absorption before treating the rebound window as active.’",
+      "The structural-forces framework emphasizes hidden wealth and brother-line supply pressure, while the temporal-evolution framework emphasizes the sequence from Six Clash toward Yi, Jin and Tai. These are complementary rather than contradictory: the first asks whether bullish force is visible now; the second asks when that force may strengthen. Supply absorption must still be confirmed before activating the late-August rebound window.",
   },
   phases: [
     {
