@@ -1,0 +1,41 @@
+{
+  "id": "QIMEN-WUCHANGYE-WEEKLY-20260810",
+  "sourceType": "QIMEN_WEEKLY_VIDEO_TRANSCRIPT",
+  "sourceName": "吴昌烨·太一研究院",
+  "capturedAt": "2026-08-06T21:00:00+08:00",
+  "forecastWindow": {
+    "start": "2026-08-10",
+    "end": "2026-08-15"
+  },
+  "weightPolicy": {
+    "coveredAssetDirectionalPct": 15,
+    "goldDirectionalPct": 20,
+    "role": "timing_and_rotation_overlay",
+    "canTriggerTradeAlone": false,
+    "siteWeekExtension": "2026-08-16 crypto-only extension belongs to MOOX technical/cycle research, not the teacher source"
+  },
+  "retrospective": {
+    "gold": {
+      "originalClaim": "戌亥日可能出现超大反弹",
+      "verifiedDate": "2026-08-05",
+      "verifiedBranch": "亥",
+      "observedResult": "黄金出现显著反弹并一度突破4300",
+      "usage": "source_sample_only_no_retroactive_forecast_rewrite"
+    }
+  },
+  "forwardViews": {
+    "broadMarket": "震荡式或锯齿形上涨，板块与资金分化，科技不一定继续独占主线",
+    "sp500": "锯齿形上扬，回落后偏多观察",
+    "nasdaq100": "科技股超跌修复，但修复后资金可能分流",
+    "bitcoin": "可能反弹但不是反转，上涨后再承压风险更高",
+    "shanghaiComposite": "谨慎看多，资金分散、轮动较快、指数涨幅可能有限",
+    "hangSengTech": "谨慎看多兼震荡，个股机会可能好于指数",
+    "gold": "中枢逐步上抬，4000至4100为中枢观察区，反复挑战4300至4400"
+  },
+  "guardrails": [
+    "不得把单次黄金命中宣传为稳定命中率",
+    "不得虚构老师未明确给出的未来干支关键日",
+    "奇门不得单独触发交易",
+    "正式预测版本锁定后不得追溯修改"
+  ]
+}

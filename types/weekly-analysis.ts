@@ -19,6 +19,17 @@ export type WeeklyVisibility = "member" | "admin" | "internal";
 
 export type WeeklyRiskLevel = "低" | "中等" | "中高" | "高";
 
+export type WeeklyBasisWeights = {
+  technical: number;
+  liuyao: number;
+  cycle: number;
+  qimen: number;
+  macro: number;
+  bazi: number;
+  /** Human-readable explanation of how the source was used. */
+  note?: string;
+};
+
 export type WeeklyAnalysisRevision = {
   version: number;
   previousContent: string;
@@ -53,6 +64,8 @@ export type WeeklyAnalysisRecord = {
   weakWindow?: string;
   /** Key dates converted to exact Gregorian dates by CalendarService. */
   keyDates?: WeeklyKeyDate[];
+  /** Editorial research influence. These are not statistical probabilities. */
+  basisWeights?: WeeklyBasisWeights;
   keySupport?: string[];
   keyResistance?: string[];
   invalidation: string;
@@ -109,6 +122,12 @@ export type WeeklyAnalysisPublicSummary = {
   assetNames: string[];
   teasers: WeeklyAnalysisTeaser[];
   nextPublishHint: string;
+  /** Member-facing source blend note for the active weekly edition. */
+  researchBlendNoteZh?: string;
+  researchBlendNoteEn?: string;
+  /** Optional historical source verification note; never rewrites the locked forecast. */
+  sourceVerificationNoteZh?: string;
+  sourceVerificationNoteEn?: string;
 };
 
 /** Slot for member page — published analysis or empty placeholder. */

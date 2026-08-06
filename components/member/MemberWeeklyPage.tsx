@@ -26,6 +26,15 @@ function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO"
   return en ? english[source] : zh[source];
 }
 
+const BASIS_LABELS = {
+  technical: { zh: "技术结构", en: "Technical" },
+  liuyao: { zh: "六爻方向", en: "Liu Yao" },
+  cycle: { zh: "周期", en: "Cycle" },
+  qimen: { zh: "奇门择时", en: "Qimen" },
+  macro: { zh: "宏观资金", en: "Macro" },
+  bazi: { zh: "八字背景", en: "BaZi" },
+} as const;
+
 function dateRange(summary: WeeklyAnalysisPublicSummary, en: boolean): string {
   if (!en) return summary.weekLabel;
   const fmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Shanghai" });
@@ -95,6 +104,11 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Range-bound" : "震荡概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.flat}%</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Lower" : "下跌概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.down}%</dd></div>
         <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Expected weekly path" : "本周路径"}</dt><dd className="text-foreground-secondary">{en ? safeEnglish(a.weeklyPath) : a.weeklyPath}</dd></div>
+        {a.basisWeights ? <div className="sm:col-span-2">
+          <dt className="text-caption text-foreground-tertiary">{en ? "Research influence" : "研究权重"}</dt>
+          <dd className="mt-2 flex flex-wrap gap-2">{(Object.keys(BASIS_LABELS) as Array<keyof typeof BASIS_LABELS>).map((key) => <Badge key={`${a.id}-${key}`} variant={key === "qimen" ? "default" : "outline"}>{en ? BASIS_LABELS[key].en : BASIS_LABELS[key].zh} {a.basisWeights?.[key]}%</Badge>)}</dd>
+          {a.basisWeights.note ? <div className="mt-2 text-caption text-foreground-tertiary">{en ? safeEnglish(a.basisWeights.note) : a.basisWeights.note}</div> : null}
+        </div> : null}
         {a.keyDates?.length ? <div className="sm:col-span-2">
           <dt className="text-caption text-foreground-tertiary">{en ? "Key dates" : "本周关键日期"}</dt>
           <dd className="mt-2 grid gap-2 sm:grid-cols-2">{a.keyDates.map((item) => <div key={`${a.id}-${item.date}-${item.label}`} className="rounded-md border border-border/60 p-2">
@@ -137,6 +151,11 @@ export function MemberWeeklyFullPage({ slots, summary }: { slots: WeeklyMarketSl
     <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Outlook" : summary.headingZh ?? "本周行情分析"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-2xl">{en ? "A structured view of direction, weekly sequence, key dates and risk windows across nine core markets." : summary.subtitleZh ?? "提前了解九个核心市场的整体方向、周内运行顺序和关键风险窗口。"}</Text>
     <MetaHeader summary={summary} />
+    {(summary.researchBlendNoteZh || summary.researchBlendNoteEn) ? <Card padding="md" className="mb-4 border-cyan-400/20 bg-cyan-400/[0.035]">
+      <Text variant="body-sm" weight="semibold">{en ? "Research blend for this edition" : "本期研究融合"}</Text>
+      <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? summary.researchBlendNoteEn : summary.researchBlendNoteZh}</Text>
+      {(summary.sourceVerificationNoteZh || summary.sourceVerificationNoteEn) ? <Text variant="caption" color="tertiary" className="mt-2 block">{en ? summary.sourceVerificationNoteEn : summary.sourceVerificationNoteZh}</Text> : null}
+    </Card> : null}
     <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">{rows.map((slot) => slot.kind === "published" ? <PublishedCard key={slot.analysis.id} a={slot.analysis} weekLabel={dateRange(summary, en)} /> : <UnpublishedCard key={slot.assetId} assetName={slot.assetName} displaySymbol={slot.displaySymbol} nextWeek={summary.displayMode === "NEXT_WEEK"} />)}</div>
   </div></Section></main>;
 }
