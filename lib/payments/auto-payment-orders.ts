@@ -40,6 +40,14 @@ export interface AutoPaymentMetadata {
   lastAttemptAt?: string | null;
   attemptCount?: number;
   verificationState?: string | null;
+  buyerEmail?: string | null;
+  adminNotificationStatus?: "sent" | "email_failed" | "email_not_configured" | null;
+  adminNotificationError?: string | null;
+  adminNotifiedAt?: string | null;
+  lastAdminNotificationKind?: string | null;
+  recoveryVersion?: string | null;
+  manualActivatedAt?: string | null;
+  manualActivatedBy?: string | null;
 }
 
 export interface AutoPaymentOrder {
@@ -121,6 +129,19 @@ function parseMetadata(raw: unknown, fallback: {
     lastAttemptAt: typeof m.lastAttemptAt === "string" ? m.lastAttemptAt : null,
     attemptCount: asNumber(m.attemptCount),
     verificationState: typeof m.verificationState === "string" ? m.verificationState : null,
+    buyerEmail: typeof m.buyerEmail === "string" ? m.buyerEmail : null,
+    adminNotificationStatus:
+      m.adminNotificationStatus === "sent" ||
+      m.adminNotificationStatus === "email_failed" ||
+      m.adminNotificationStatus === "email_not_configured"
+        ? m.adminNotificationStatus
+        : null,
+    adminNotificationError: typeof m.adminNotificationError === "string" ? m.adminNotificationError : null,
+    adminNotifiedAt: typeof m.adminNotifiedAt === "string" ? m.adminNotifiedAt : null,
+    lastAdminNotificationKind: typeof m.lastAdminNotificationKind === "string" ? m.lastAdminNotificationKind : null,
+    recoveryVersion: typeof m.recoveryVersion === "string" ? m.recoveryVersion : null,
+    manualActivatedAt: typeof m.manualActivatedAt === "string" ? m.manualActivatedAt : null,
+    manualActivatedBy: typeof m.manualActivatedBy === "string" ? m.manualActivatedBy : null,
   };
 }
 
@@ -270,6 +291,7 @@ export async function createAutoPaymentOrder(input: {
     network: input.network,
     attemptCount: 0,
     verificationState: "awaiting_transfer",
+    buyerEmail: input.user.email.toLowerCase(),
   };
 
   const { data, error } = await admin
@@ -491,4 +513,184 @@ export async function expireUnpaidOrders(): Promise<number> {
     .select("id");
   if (error) return 0;
   return data?.length ?? 0;
+}
+
+export async function getAutoPaymentUserEmail(userId: string): Promise<string | null> {
+  const admin = getAdminClient();
+  if (!admin) return null;
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data.user?.email) return null;
+  return data.user.email.toLowerCase();
+}
+
+export async function patchAutoPaymentOrderMetadata(
+  orderId: string,
+  patch: Partial<AutoPaymentMetadata>
+): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) return;
+  const current = await getAutoPaymentOrderById(orderId);
+  if (!current) return;
+  await admin
+    .from("payment_orders")
+    .update({ metadata: { ...current.metadata, ...patch } })
+    .eq("id", orderId);
+}
+
+export async function writePaymentAudit(input: {
+  orderId: string;
+  action: string;
+  result: string;
+  message?: string | null;
+  serverMetadata?: Record<string, unknown>;
+}): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) return;
+  try {
+    await admin.from("payment_audit_logs").insert({
+      order_id: input.orderId,
+      action: input.action,
+      result: input.result,
+      message: input.message?.slice(0, 1000) ?? null,
+      server_metadata: input.serverMetadata ?? {},
+    });
+  } catch {
+    // Audit storage must never block payment activation.
+  }
+}
+
+export async function listAllAutoPaymentOrders(limit = 200): Promise<AutoPaymentOrder[]> {
+  const admin = getAdminClient();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from("payment_orders")
+    .select("*, membership_plans(code,name,duration_days)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((row) =>
+    mapRow(
+      row as Record<string, unknown> & {
+        membership_plans?: { code?: string; name?: string; duration_days?: number } | null;
+      }
+    )
+  );
+}
+
+export async function countAutoPaymentOrdersByStatus(
+  statuses: AutoPaymentOrderStatus[]
+): Promise<number> {
+  const admin = getAdminClient();
+  if (!admin || statuses.length === 0) return 0;
+  const { count, error } = await admin
+    .from("payment_orders")
+    .select("id", { count: "exact", head: true })
+    .in("status", statuses);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function requeueAutoPaymentOrder(orderId: string, reason: string): Promise<boolean> {
+  const admin = getAdminClient();
+  if (!admin) return false;
+  const order = await getAutoPaymentOrderById(orderId);
+  if (!order?.txHash) return false;
+  if (order.status === "paid" || order.status === "overpaid" || order.status === "refunded") return false;
+  const metadata: AutoPaymentMetadata = {
+    ...order.metadata,
+    processingStartedAt: null,
+    verificationState: "queued",
+    recoveryVersion: "payment-reliability-v6",
+  };
+  const { error } = await admin
+    .from("payment_orders")
+    .update({ status: "pending", verified_at: null, verification_error: reason.slice(0, 500), metadata })
+    .eq("id", order.id);
+  if (!error) {
+    await writePaymentAudit({
+      orderId: order.id,
+      action: "requeue",
+      result: "pending",
+      message: reason,
+    });
+  }
+  return !error;
+}
+
+export async function recoverLegacyAmountMismatchOrders(limit = 50): Promise<number> {
+  const admin = getAdminClient();
+  if (!admin) return 0;
+  const { data, error } = await admin
+    .from("payment_orders")
+    .select("*, membership_plans(code,name,duration_days)")
+    .in("status", ["underpaid", "manual_review", "rejected"])
+    .not("tx_hash", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error || !data) return 0;
+
+  let recovered = 0;
+  for (const row of data) {
+    const order = mapRow(
+      row as Record<string, unknown> & {
+        membership_plans?: { code?: string; name?: string; duration_days?: number } | null;
+      }
+    );
+    if (order.metadata.recoveryVersion === "payment-reliability-v6") continue;
+    if (!/less than order amount|exceeds order amount|exactly match|below minimum accepted amount|amount mismatch/i.test(order.verificationError ?? "")) continue;
+    if (await requeueAutoPaymentOrder(order.id, "自动恢复旧版金额尾差误判订单")) recovered += 1;
+  }
+  return recovered;
+}
+
+export async function markOrderManuallyActivated(input: {
+  order: AutoPaymentOrder;
+  membershipExpiresAt: string | null;
+  operatorId: string;
+}): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) throw new Error("自动支付服务未配置");
+  const now = new Date().toISOString();
+  const paidAmount = input.order.paidAmount ?? discountedPrice(input.order.plan, input.order.discountPercent);
+  const finalStatus: AutoPaymentOrderStatus = paidAmount > input.order.expectedAmount + 0.000001 ? "overpaid" : "paid";
+  const metadata: AutoPaymentMetadata = {
+    ...input.order.metadata,
+    processingStartedAt: null,
+    verificationState: "manual_admin_activated",
+    manualActivatedAt: now,
+    manualActivatedBy: input.operatorId,
+  };
+  const { error } = await admin
+    .from("payment_orders")
+    .update({
+      status: finalStatus,
+      paid_amount: paidAmount,
+      paid_at: input.order.paidAt ?? now,
+      verified_at: now,
+      membership_expires_at: input.membershipExpiresAt,
+      verification_error: null,
+      metadata,
+    })
+    .eq("id", input.order.id);
+  if (error) throw new Error(`手动开通状态保存失败：${error.message}`);
+  await writePaymentAudit({
+    orderId: input.order.id,
+    action: "manual_activate",
+    result: finalStatus,
+    message: `operator=${input.operatorId}`,
+  });
+}
+
+export async function getAutoPaymentUserEmailMap(userIds: string[]): Promise<Map<string, string>> {
+  const admin = getAdminClient();
+  const unique = Array.from(new Set(userIds.filter(Boolean)));
+  const result = new Map<string, string>();
+  if (!admin || unique.length === 0) return result;
+  const { data, error } = await admin.from("profiles").select("id,email").in("id", unique);
+  if (!error && data) {
+    for (const row of data) {
+      if (row.id && row.email) result.set(String(row.id), String(row.email).toLowerCase());
+    }
+  }
+  return result;
 }

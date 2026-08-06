@@ -72,11 +72,22 @@ function aliasMatches(text: string, alias: string): boolean {
   return pattern.test(text);
 }
 
-function detectSymbols(text: string): string[] {
+function detectSymbols(text: string, source: ExternalAnalystSource): string[] {
   const normalized = text.toLowerCase();
   const symbols = new Set<string>();
   for (const [symbol, aliases] of SYMBOL_ALIASES) {
     if (aliases.some((alias) => aliasMatches(normalized, alias))) symbols.add(symbol);
+  }
+  if (source === "BTCKIK") {
+    const blocked = new Set([
+      "USD", "USDT", "USDC", "BTC", "ETH", "SPX", "NDX", "QQQ", "SPY",
+      "MU", "AMD", "NVDA", "GOOG", "GOOGL", "MSFT", "XAU", "XAG", "WTI", "DXY",
+    ]);
+    for (const match of text.matchAll(/\$([A-Za-z][A-Za-z0-9]{1,9})\b/g)) {
+      const ticker = (match[1] ?? "").toUpperCase();
+      if (!ticker || blocked.has(ticker)) continue;
+      symbols.add(`${ticker}USDT`);
+    }
   }
   return Array.from(symbols);
 }
@@ -171,7 +182,9 @@ function classifyLevels(text: string): {
 }
 
 function sourceRole(source: ExternalAnalystSource): ExternalAnalystRole {
-  return source === "HALILUYA" ? "PANIC_REVERSAL" : "GANN_SWING";
+  if (source === "HALILUYA") return "PANIC_REVERSAL";
+  if (source === "BTCKIK") return "ALTCOIN_ROTATION";
+  return "GANN_SWING";
 }
 
 export function parseExternalAnalystPost(input: {
@@ -184,7 +197,7 @@ export function parseExternalAnalystPost(input: {
 }): ExternalAnalystParsedPost {
   const text = input.text.replace(/\s+/g, " ").trim();
   const levels = classifyLevels(text);
-  const symbols = detectSymbols(text);
+  const symbols = detectSymbols(text, input.source);
   const direction = inferDirection(text);
   const horizon = inferHorizon(input.source, text);
   const explicitLevelCount = levels.supportLevels.length + levels.resistanceLevels.length + levels.targetLevels.length;
@@ -213,5 +226,6 @@ export function analystSourceFromUsername(username: string): ExternalAnalystSour
   const normalized = username.replace(/^@/, "").toLowerCase();
   if (normalized === "haliluya8911") return "HALILUYA";
   if (normalized === "btctw0") return "BTCTW0";
+  if (normalized === "btckik") return "BTCKIK";
   return null;
 }

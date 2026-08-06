@@ -16,6 +16,7 @@ export const NAV_ROUTES = {
   todayView: "/#moonx-view",
   tomorrowForecast: "/member/tomorrow",
   tradingSignals: "/member/signals",
+  alphaFeed: "/member/alpha-feed",
   aiTradingDesk: "/member/ai-trading",
   weeklyAnalysis: "/member/weekly",
   monthlyAnalysis: "/member/monthly",
@@ -69,6 +70,7 @@ export const PUBLIC_MORE_NAV: NavItem[] = [
   { key: "nav.guide", href: NAV_ROUTES.guide, labelZh: "新手指南" },
   { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
   { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
+  { key: "nav.alphaFeed", href: NAV_ROUTES.alphaFeed, labelZh: "山寨币雷达" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.support", href: NAV_ROUTES.support, labelZh: "客服与帮助" },
 ];
@@ -115,7 +117,7 @@ export function buildPublicFooterColumns(_options?: {
 export const AUDIT_ROUTES = [
   "/", "/guide", "/login", "/account", "/account/orders", "/pricing", "/support",
   "/methodology", "/member/tomorrow", "/member/weekly", "/member/monthly",
-  "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
+  "/member/alpha-feed", "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
   "/privacy", "/terms", "/admin", "/admin/payments", "/admin/settings",
   "/admin/site-health", "/admin/security", "/admin/iching/library", "/admin/iching/rules",
   "/admin/iching/cases", "/admin/iching/validation", ...INTERNAL_LEGACY_ROUTES,

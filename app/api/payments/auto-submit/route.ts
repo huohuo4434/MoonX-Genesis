@@ -4,11 +4,12 @@ import { getCurrentUser } from "@/lib/auth/permissions";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { attachTransactionHash, getAutoPaymentOrderById } from "@/lib/payments/auto-payment-orders";
 import { processAutoPaymentOrder } from "@/lib/payments/process-auto-payment";
+import { notifyAdminAutoPayment } from "@/lib/payments/admin-payment-notifications";
 import { validateTxHash } from "@/lib/payments/verify-chain";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const schema = z.object({
   orderId: z.string().uuid(),
@@ -44,7 +45,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await attachTransactionHash({ orderId: order.id, userId: user.id, txHash });
+    const attached = await attachTransactionHash({ orderId: order.id, userId: user.id, txHash });
+    // Email failure must never block payment processing. The order remains visible
+    // in the admin dashboard even when Resend is temporarily unavailable.
+    await notifyAdminAutoPayment({
+      order: attached,
+      kind: "hash_submitted",
+      message: "用户已提交交易哈希，系统立即开始链上核验。",
+    }).catch(() => undefined);
     const result = await processAutoPaymentOrder(order.id);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {

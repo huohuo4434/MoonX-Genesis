@@ -4,8 +4,8 @@ import type {
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
 
-export type ExternalAnalystSource = "HALILUYA" | "BTCTW0";
-export type ExternalAnalystRole = "PANIC_REVERSAL" | "GANN_SWING";
+export type ExternalAnalystSource = "HALILUYA" | "BTCTW0" | "BTCKIK";
+export type ExternalAnalystRole = "PANIC_REVERSAL" | "GANN_SWING" | "ALTCOIN_ROTATION";
 
 export type ExternalAnalystParsedPost = {
   source: ExternalAnalystSource;

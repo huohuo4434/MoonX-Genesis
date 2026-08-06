@@ -9,6 +9,7 @@ import {
 import { grantMembershipFromPlan } from "@/lib/auth/grant-membership";
 import { listMembershipEvents } from "@/lib/auth/membership-events";
 import { notifyBuyerMembershipActivated } from "@/lib/email/notifications";
+import { wasOrderAlreadyFulfilledByManualMembership } from "@/lib/payments/manual-payment-dedupe";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import type { AutoPaymentOrder } from "@/lib/payments/auto-payment-orders";
@@ -39,6 +40,8 @@ export async function finalizeAutoPaymentMembership(input: {
     payment_history?: PaymentHistoryItem[] | null;
     membership_expires_at?: string | null;
     membership_started_at?: string | null;
+    membership_plan?: AutoPaymentOrder["plan"] | null;
+    membership_status?: string | null;
     founder_member_rank?: number | null;
     founder_discount_granted_at?: string | null;
   };
@@ -79,16 +82,26 @@ export async function finalizeAutoPaymentMembership(input: {
       eventTime <= orderManualMatchDeadline
     );
   });
+  const metadataShowsManualActivation = wasOrderAlreadyFulfilledByManualMembership({
+    orderPlan: order.plan,
+    orderCreatedAt: order.createdAt,
+    verifiedAt: verifiedAtIso,
+    membershipPlan: meta.membership_plan,
+    membershipStartedAt: meta.membership_started_at,
+    membershipExpiresAt: meta.membership_expires_at,
+  });
 
   let membershipExpiresAt: string | null;
   let grantApplied = false;
   let grantSkipped: string | null = null;
 
-  if (matchingManualActivation) {
+  if (matchingManualActivation || metadataShowsManualActivation) {
     // The administrator already granted this exact plan after the order was created.
     // Reconcile the chain payment and order ledger without granting the same days twice.
-    membershipExpiresAt = meta.membership_expires_at ?? matchingManualActivation.newExpiresAt ?? null;
-    grantSkipped = "manual_activation_already_applied";
+    membershipExpiresAt = meta.membership_expires_at ?? matchingManualActivation?.newExpiresAt ?? null;
+    grantSkipped = matchingManualActivation
+      ? "manual_activation_event_already_applied"
+      : "manual_activation_metadata_already_applied";
   } else {
     const grant = await grantMembershipFromPlan({
       userId: order.userId,
@@ -154,7 +167,7 @@ export async function finalizeAutoPaymentMembership(input: {
     referralReward = { applied: false, skipped: "reward_error" };
   }
 
-  if (membershipExpiresAt) {
+  if (membershipExpiresAt && grantApplied) {
     await notifyBuyerMembershipActivated({
       to: data.user.email,
       planLabel: PLAN_LABELS[order.plan],

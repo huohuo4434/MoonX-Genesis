@@ -20,11 +20,13 @@ import type {
 const ANALYSTS: Array<{ username: string; source: ExternalAnalystSource; label: string }> = [
   { username: "haliluya8911", source: "HALILUYA", label: "短线恐慌反弹观察" },
   { username: "BTCTW0", source: "BTCTW0", label: "彼得兔江恩波段点位" },
+  { username: "btckik", source: "BTCKIK", label: "山寨币轮动与早期叙事观察" },
 ];
 
 const SOURCE_LABELS: Record<ExternalAnalystSource, string> = {
   HALILUYA: "haliluya8911·短线反弹",
   BTCTW0: "彼得兔BTCTW0·江恩波段",
+  BTCKIK: "btckik·山寨币轮动",
 };
 
 interface StoredRow {
@@ -360,12 +362,16 @@ export async function refreshExternalAnalystSignals(
 }
 
 function sourceRelevant(source: ExternalAnalystSource, strategyType: ThreeHorizonStrategyType): boolean {
+  // BTCKIK is an observation-only KOL feed. It must never alter the automated
+  // trading overlay or place orders. The member radar presents it separately.
+  if (source === "BTCKIK") return false;
   if (strategyType === "INTRADAY") return source === "HALILUYA";
   return source === "BTCTW0";
 }
 
 function freshnessHours(source: ExternalAnalystSource, strategyType: ThreeHorizonStrategyType): number {
   if (source === "HALILUYA") return strategyType === "INTRADAY" ? 72 : 120;
+  if (source === "BTCKIK") return strategyType === "POSITION" ? 21 * 24 : 7 * 24;
   return strategyType === "POSITION" ? 45 * 24 : 14 * 24;
 }
 
@@ -420,6 +426,35 @@ export async function getExternalAnalystOverlay(
     summaries: uniqueStrings(relevant.map((post) => post.summary)).slice(0, 4),
     newestPostedAt,
   };
+}
+
+export async function getLatestExternalAnalystPosts(input: {
+  source?: ExternalAnalystSource;
+  limit?: number;
+} = {}): Promise<ExternalAnalystParsedPost[]> {
+  if (!prisma || !(await ensureExternalAnalystTables())) return [];
+  const limit = Math.max(1, Math.min(100, input.limit ?? 30));
+  const rows = input.source
+    ? await prisma.$queryRawUnsafe<StoredRow[]>(
+        `SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
+         FROM trade_external_analyst_posts
+         WHERE source = $1
+         ORDER BY posted_at DESC
+         LIMIT $2`,
+        input.source,
+        limit
+      )
+    : await prisma.$queryRawUnsafe<StoredRow[]>(
+        `SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
+         FROM trade_external_analyst_posts
+         ORDER BY posted_at DESC
+         LIMIT $1`,
+        limit
+      );
+  return rows.flatMap((row): ExternalAnalystParsedPost[] => {
+    const parsed = parseJson<ExternalAnalystParsedPost | null>(row.parsed, null);
+    return parsed ? [parsed] : [];
+  });
 }
 
 export function externalAnalystConfigurationSummary(): Array<{ username: string; source: ExternalAnalystSource; label: string }> {

@@ -69,6 +69,7 @@ export async function verifyTronTransfer(
     recipientAddress: string;
     tokenContract: string;
     expectedAmount: number;
+    minimumAmount?: number;
     notBefore: Date;
     notAfter: Date;
   },
@@ -119,26 +120,17 @@ export async function verifyTronTransfer(
     throw new Error("TRC20 transfer is not confirmed yet");
   }
 
-  let recipientMatch: (typeof contractTransfers)[number] | undefined;
-  let amountMatch: (typeof contractTransfers)[number] | undefined;
-  for (const event of contractTransfers) {
-    const result = event.result!;
+  const transfer = contractTransfers.find((event) => {
+    const result = event.result;
+    if (!result) return false;
     const toRaw = result.to ?? result["1"];
     const valueRaw = result.value ?? result["2"];
-    if (!toRaw || !valueRaw) continue;
-    if (normalizeTronAddress(toRaw) !== expectedRecipient) continue;
-    recipientMatch = event;
-    const amount = parseTokenAmount(valueRaw, 6);
-    if (Math.abs(amount - expected.expectedAmount) <= 0.0000001) {
-      amountMatch = event;
-      break;
-    }
-  }
+    return Boolean(toRaw && valueRaw && normalizeTronAddress(toRaw) === expectedRecipient);
+  });
 
-  if (!recipientMatch?.result) {
+  if (!transfer?.result) {
     throw new Error("Transfer recipient does not match order receive address");
   }
-  const transfer = amountMatch ?? recipientMatch;
   const toRaw = transfer.result!.to ?? transfer.result!["1"];
   const fromRaw = transfer.result!.from ?? transfer.result!["0"];
   const value = transfer.result!.value ?? transfer.result!["2"];
@@ -151,11 +143,9 @@ export async function verifyTronTransfer(
   }
 
   const amountNormalized = parseTokenAmount(value, 6);
-  if (amountNormalized + 0.0000001 < expected.expectedAmount) {
-    throw new Error(`Payment amount is less than order amount (${amountNormalized}/${expected.expectedAmount})`);
-  }
-  if (amountNormalized - 0.0000001 > expected.expectedAmount) {
-    throw new Error(`Payment amount exceeds order amount (${amountNormalized}/${expected.expectedAmount})`);
+  const minimumAmount = expected.minimumAmount ?? expected.expectedAmount;
+  if (amountNormalized + 0.0000001 < minimumAmount) {
+    throw new Error(`Payment amount is below minimum accepted amount (${amountNormalized}/${minimumAmount})`);
   }
 
   const blockTimestamp = transfer.block_timestamp ? new Date(transfer.block_timestamp) : new Date();
@@ -181,6 +171,7 @@ export async function verifyBscTransfer(
     recipientAddress: string;
     tokenContract: string;
     expectedAmount: number;
+    minimumAmount?: number;
     notBefore: Date;
     notAfter: Date;
     rpcUrl: string;
@@ -219,11 +210,9 @@ export async function verifyBscTransfer(
 
   const amountRaw = BigInt(transferLog.data);
   const amountNormalized = parseTokenAmount(amountRaw.toString(), expected.tokenDecimals ?? 18);
-  if (amountNormalized + 0.0000001 < expected.expectedAmount) {
-    throw new Error(`Payment amount is less than order amount (${amountNormalized}/${expected.expectedAmount})`);
-  }
-  if (amountNormalized - 0.0000001 > expected.expectedAmount) {
-    throw new Error(`Payment amount exceeds order amount (${amountNormalized}/${expected.expectedAmount})`);
+  const minimumAmount = expected.minimumAmount ?? expected.expectedAmount;
+  if (amountNormalized + 0.0000001 < minimumAmount) {
+    throw new Error(`Payment amount is below minimum accepted amount (${amountNormalized}/${minimumAmount})`);
   }
 
   const fromTopic = transferLog.topics?.[1] ?? "";
@@ -287,7 +276,7 @@ export function isTemporaryVerificationError(message: string): boolean {
 }
 
 export function isUnderpaymentError(message: string): boolean {
-  return /less than order amount/i.test(message);
+  return /less than order amount|below minimum accepted amount/i.test(message);
 }
 
 export type { VerifiedTransfer };

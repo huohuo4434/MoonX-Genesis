@@ -11,6 +11,7 @@ import { listResearchRecords } from "@/lib/data/research-records";
 import { resolveResearchVisibility } from "@/lib/research/visibility";
 import { isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
 import { countPendingPaymentOrders } from "@/lib/payments/payment-orders-store";
+import { countAutoPaymentOrdersByStatus, listAllAutoPaymentOrders } from "@/lib/payments/auto-payment-orders";
 
 export interface AdminDashboardStats {
   todayForecastStatus: string;
@@ -67,7 +68,13 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   const pendingForecasts = forecasts.filter((f) => f.status === "draft" || f.status === "reviewed").length;
 
   const users = await listAllAuthUsers();
-  const pendingPayments = await countPendingPaymentOrders();
+  const [legacyPendingPayments, autoPendingPayments, autoManualReview, recentAutoOrders] = await Promise.all([
+    countPendingPaymentOrders(),
+    countAutoPaymentOrdersByStatus(["pending", "verifying"]),
+    countAutoPaymentOrdersByStatus(["underpaid", "manual_review", "rejected"]),
+    listAllAutoPaymentOrders(50),
+  ]);
+  const pendingPayments = legacyPendingPayments + autoPendingPayments;
   const activeMembers = users.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
   const soon = now.getTime() + 7 * 24 * 60 * 60 * 1000;
   const expiringSoon = users.filter((u) => {
@@ -86,9 +93,18 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     featureFlags: flags,
     pendingForecasts,
     pendingPayments,
-    manualReviewOrders: pendingPayments,
+    manualReviewOrders: autoManualReview + legacyPendingPayments,
     activeMembers,
     expiringSoon,
-    recentPaid: [],
+    recentPaid: recentAutoOrders
+      .filter((order) => order.status === "paid" || order.status === "overpaid")
+      .slice(0, 8)
+      .map((order) => ({
+        orderNumber: order.orderNumber,
+        paidAmount: order.paidAmount,
+        chain: order.chain,
+        paidAt: order.paidAt,
+        txHash: order.txHash,
+      })),
   };
 }

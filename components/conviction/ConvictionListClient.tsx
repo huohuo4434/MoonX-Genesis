@@ -12,6 +12,25 @@ import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import SpcxWatchlistFeature from "@/components/conviction/SpcxWatchlistFeature";
+import { expectationTemperatureLabel, getExpectationSnapshot } from "@/lib/data/expectation-engine";
+
+
+const WATCHLIST_ACCENTS: Record<string, { border: string; background: string; shadow: string; line: string }> = {
+  cxmt: { border: "rgba(245, 196, 81, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(245,196,81,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(245,196,81,.04)", line: "#f5c451" },
+  asteroid: { border: "rgba(251, 113, 133, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(251,113,133,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(251,113,133,.04)", line: "#fb7185" },
+  mu: { border: "rgba(88, 214, 255, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(88,214,255,.09), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(88,214,255,.05)", line: "#58d6ff" },
+  googl: { border: "rgba(66, 214, 164, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(66,214,164,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(66,214,164,.04)", line: "#42d6a4" },
+  msft: { border: "rgba(96, 165, 250, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(96,165,250,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(96,165,250,.04)", line: "#60a5fa" },
+  hype: { border: "rgba(167, 139, 250, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(167,139,250,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(167,139,250,.04)", line: "#a78bfa" },
+  eth: { border: "rgba(129, 140, 248, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(129,140,248,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(129,140,248,.04)", line: "#818cf8" },
+};
+
+const DEFAULT_WATCHLIST_ACCENT = {
+  border: "rgba(255, 255, 255, 0.10)",
+  background: "radial-gradient(circle at 88% 4%, rgba(255,255,255,.035), transparent 34%), #0c0e12",
+  shadow: "0 18px 55px rgba(0,0,0,.15)",
+  line: "#94a3b8",
+};
 
 const RISK_EN: Record<string, string> = {
   低: "Low",
@@ -78,11 +97,15 @@ function PublicAssetCard({
   const benefits = en
     ? ["Weekly analysis", "Monthly analysis", "Liu Yao basis", "Cross-method view when available", "Long-term research archive", "Public verification"]
     : ["本周分析", "月度分析", "六爻依据", "多方法观点（有来源时）", "总趋势资料库", "历史验证（新基准后）"];
+  const expectation = getExpectationSnapshot(card.slug);
+  const accent = WATCHLIST_ACCENTS[card.slug] ?? DEFAULT_WATCHLIST_ACCENT;
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0e12]">
-      {/* MOOX_SPCX_WATCHLIST_V1 */}
-      <SpcxWatchlistFeature />
+    <article
+      className="group relative flex h-full flex-col overflow-hidden rounded-xl border transition duration-200 hover:-translate-y-0.5"
+      style={{ borderColor: accent.border, background: accent.background, boxShadow: accent.shadow }}
+    >
+      <div className="absolute inset-x-0 top-0 h-px opacity-80" style={{ background: `linear-gradient(90deg, transparent, ${accent.line}, transparent)` }} aria-hidden />
       <div className="border-b border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent px-5 py-5 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
@@ -121,6 +144,32 @@ function PublicAssetCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-5 px-5 py-5 sm:px-6">
+        <section className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/45">{en ? "Expectation Engine · research snapshot" : "预期引擎 · 研究快照"}</h3>
+            <span className="text-caption text-white/35">{expectation.updatedAt}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-white/[0.07] bg-white/[0.025] p-3">
+              <p className="text-caption text-white/40">{en ? "Expectation" : "市场预期"}</p>
+              <p className="mt-1 text-body-sm font-semibold text-white/85">{expectationTemperatureLabel(expectation.expectationTemperature, en)}</p>
+              <p className="mt-1 font-mono text-caption text-white/45">{expectation.expectationScore}/100</p>
+            </div>
+            <div className="rounded-md border border-white/[0.07] bg-white/[0.025] p-3">
+              <p className="text-caption text-white/40">{en ? "Expectation gap" : "预期差"}</p>
+              <p className={`mt-1 font-mono text-body-sm font-semibold ${expectation.gapScore > 0 ? "text-emerald-300" : expectation.gapScore < 0 ? "text-red-300" : "text-white/75"}`}>{expectation.gapScore > 0 ? "+" : ""}{expectation.gapScore}</p>
+              <p className="mt-1 text-caption text-white/40">{en ? "Higher can mean more room" : "正值代表潜在空间"}</p>
+            </div>
+            <div className="rounded-md border border-white/[0.07] bg-white/[0.025] p-3">
+              <p className="text-caption text-white/40">{en ? "Delivery difficulty" : "兑现难度"}</p>
+              <p className="mt-1 font-mono text-body-sm font-semibold text-amber-200">{"★".repeat(expectation.deliveryDifficulty)}{"☆".repeat(5 - expectation.deliveryDifficulty)}</p>
+              <p className="mt-1 text-caption text-white/40">{en ? "Not a return forecast" : "不代表涨跌幅"}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-body-sm leading-relaxed text-white/70">{en ? expectation.thesisEn : expectation.thesisZh}</p>
+          <p className="mt-2 text-caption leading-relaxed text-white/45">{en ? "Watch: " : "重点观察："}{en ? expectation.watchEn : expectation.watchZh}</p>
+        </section>
+
         <section>
           <h3 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">{en ? "Fundamental overview" : "基本面简介"}</h3>
           <p className="mt-2 text-body-sm leading-relaxed text-white/75">{summary}</p>
@@ -241,7 +290,11 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           ))}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="mt-6">
+          <SpcxWatchlistFeature />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {visibleCards.map((card) => <PublicAssetCard key={card.id} card={card} mode={payload.mode} evidence={payload.vibeEvidence[card.id]} />)}
         </div>
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getPaymentConfig } from "@/lib/payments/config";
+import { notifyAdminAutoPayment } from "@/lib/payments/admin-payment-notifications";
 import {
   claimOrderForVerification,
   getAutoPaymentOrderById,
@@ -10,7 +10,9 @@ import {
   releaseOrderForRetry,
   type AutoPaymentOrder,
 } from "@/lib/payments/auto-payment-orders";
+import { getPaymentConfig } from "@/lib/payments/config";
 import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-payment";
+import { minimumAcceptedPaymentAmount } from "@/lib/payments/payment-amount-policy";
 import {
   isTemporaryVerificationError,
   isUnderpaymentError,
@@ -32,9 +34,18 @@ function verificationWindow(order: AutoPaymentOrder): { notBefore: Date; notAfte
   const created = new Date(order.createdAt);
   const expires = new Date(order.expiresAt);
   return {
-    notBefore: new Date(created.getTime() - 2 * 60_000),
-    notAfter: new Date(expires.getTime() + 60 * 60_000),
+    notBefore: new Date(created.getTime() - 5 * 60_000),
+    // Users may pay from an exchange and submit the hash after the 45-minute UI timer.
+    // A submitted, unique hash still has to match token, recipient and discounted plan price.
+    notAfter: new Date(expires.getTime() + 24 * 60 * 60_000),
   };
+}
+
+function minimumAmount(order: AutoPaymentOrder): number {
+  return minimumAcceptedPaymentAmount({
+    plan: order.plan,
+    discountPercent: order.discountPercent,
+  });
 }
 
 async function verifyTransfer(order: AutoPaymentOrder): Promise<VerifiedTransfer> {
@@ -43,6 +54,7 @@ async function verifyTransfer(order: AutoPaymentOrder): Promise<VerifiedTransfer
   }
   const cfg = getPaymentConfig();
   const window = verificationWindow(order);
+  const acceptedMinimum = minimumAmount(order);
   if (order.chain === "TRON") {
     return verifyTronTransfer(
       order.txHash,
@@ -50,6 +62,7 @@ async function verifyTransfer(order: AutoPaymentOrder): Promise<VerifiedTransfer
         recipientAddress: order.recipientAddress,
         tokenContract: order.tokenContract,
         expectedAmount: order.expectedAmount,
+        minimumAmount: acceptedMinimum,
         ...window,
       },
       cfg.tronGridApiKey
@@ -60,10 +73,21 @@ async function verifyTransfer(order: AutoPaymentOrder): Promise<VerifiedTransfer
     recipientAddress: order.recipientAddress,
     tokenContract: order.tokenContract,
     expectedAmount: order.expectedAmount,
+    minimumAmount: acceptedMinimum,
     rpcUrl: cfg.bscRpcUrl,
     minConfirmations: cfg.bscConfirmations,
     tokenDecimals: cfg.bscTokenDecimals,
     ...window,
+  });
+}
+
+async function safeAdminNotice(
+  order: AutoPaymentOrder,
+  kind: Parameters<typeof notifyAdminAutoPayment>[0]["kind"],
+  options: { message?: string | null; paidAmount?: number | null; membershipExpiresAt?: string | null } = {}
+): Promise<void> {
+  await notifyAdminAutoPayment({ order, kind, ...options }).catch((error) => {
+    console.warn("[auto-payment] admin email failed", error instanceof Error ? error.message : error);
   });
 }
 
@@ -80,7 +104,12 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
     };
   }
   if (!["pending", "verifying"].includes(current.status)) {
-    return { orderId, status: current.status, activated: false, message: current.verificationError ?? "订单无需自动核验" };
+    return {
+      orderId,
+      status: current.status,
+      activated: false,
+      message: current.verificationError ?? "订单无需自动核验",
+    };
   }
 
   const claimed = await claimOrderForVerification(orderId);
@@ -100,6 +129,11 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
       amountRaw: transfer.amountRaw,
     });
     const finalStatus = transfer.amountNormalized > claimed.expectedAmount + 0.000001 ? "overpaid" : "paid";
+    await safeAdminNotice(claimed, "activated", {
+      message: `链上核验成功；grantApplied=${grant.grantApplied}; grantSkipped=${grant.grantSkipped ?? "none"}`,
+      paidAmount: transfer.amountNormalized,
+      membershipExpiresAt: grant.membershipExpiresAt,
+    });
     return {
       orderId,
       status: finalStatus,
@@ -109,21 +143,37 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const attempts = claimed.metadata.attemptCount ?? 1;
     if (isTemporaryVerificationError(message)) {
-      await releaseOrderForRetry(claimed, message);
-      return { orderId, status: "pending", activated: false, message: "链上确认中，系统会自动重试" };
+      if (attempts < 8) {
+        await releaseOrderForRetry(claimed, message);
+        if (attempts === 1 || attempts === 4) {
+          await safeAdminNotice(claimed, "pending", { message });
+        }
+        return { orderId, status: "pending", activated: false, message: "链上确认中，系统会自动重试" };
+      }
+      await markOrderException(claimed, "manual_review", `多次自动重试仍未完成：${message}`);
+      await safeAdminNotice(claimed, "manual_review", { message });
+      return { orderId, status: "manual_review", activated: false, message: "自动核验多次未完成，已转入人工复核" };
     }
     if (isUnderpaymentError(message)) {
       const match = message.match(/\((\d+(?:\.\d+)?)\//);
-      await markOrderException(claimed, "underpaid", message, match ? Number(match[1]) : undefined);
-      return { orderId, status: "underpaid", activated: false, message: "到账金额不足，会员未开通" };
+      const paidAmount = match ? Number(match[1]) : undefined;
+      await markOrderException(claimed, "underpaid", message, paidAmount);
+      await safeAdminNotice(claimed, "underpaid", { message, paidAmount });
+      return { orderId, status: "underpaid", activated: false, message: "到账金额低于套餐实付价，会员未开通" };
     }
-    if (/recipient|contract|timestamp|disabled|exceeds order amount|exactly match/i.test(message)) {
+    if (/recipient|contract|timestamp|disabled|invalid transaction hash/i.test(message)) {
       await markOrderException(claimed, "manual_review", message);
-      return { orderId, status: "manual_review", activated: false, message: "付款信息异常，已转入异常复核" };
+      await safeAdminNotice(claimed, "manual_review", { message });
+      return { orderId, status: "manual_review", activated: false, message: "付款信息需要人工复核" };
     }
-    await markOrderException(claimed, "rejected", message);
-    return { orderId, status: "rejected", activated: false, message: "链上核验未通过" };
+
+    // Unknown verifier/provider failures must not permanently reject money that may
+    // already have arrived. Preserve the hash and route the order to manual review.
+    await markOrderException(claimed, "manual_review", message);
+    await safeAdminNotice(claimed, "manual_review", { message });
+    return { orderId, status: "manual_review", activated: false, message: "自动核验未完成，已转入人工复核" };
   }
 }
 
