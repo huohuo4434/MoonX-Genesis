@@ -18,10 +18,12 @@ test("three independent strategy profiles use different horizons and holding per
   assert.match(source, /maxHoldingMinutes: 28 \* 24 \* 60/);
 });
 
-test("all new profiles default to shadow mode and require a separate demo execution gate", () => {
+test("profiles seed safely in shadow but switch to active Demo when the primary Demo gate is enabled", () => {
   const source = engine();
   assert.match(source, /VALUES \([\s\S]*'SHADOW'/);
-  assert.match(source, /BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED/);
+  assert.match(source, /MOOX_DEMO_ACTIVE_EXECUTION_V64/);
+  assert.match(source, /environment\.executionAllowed && DEMO_ACTIVE_EXECUTION_ENABLED/);
+  assert.match(source, /mode = 'DEMO'/);
   assert.match(source, /profile\.mode === "SHADOW"/);
   assert.match(source, /LEGACY_MIRROR_ACTIVE/);
 });
@@ -29,7 +31,7 @@ test("all new profiles default to shadow mode and require a separate demo execut
 test("position sizing is derived from stop distance and capped risk rather than fixed account percentage", () => {
   const source = engine();
   assert.match(source, /stopDistance = Math\.abs\(input\.evaluation\.entryPrice - input\.evaluation\.stopLoss\)/);
-  assert.match(source, /riskAmount = input\.equityUsdt \* input\.profile\.riskPerTradePct \/ 100/);
+  assert.match(source, /riskAmount = input\.equityUsdt \* requestedRiskPct \/ 100/);
   assert.match(source, /riskQuantity = riskAmount \/ stopDistance/);
   assert.match(source, /MAX_POSITION_NOTIONAL_PCT/);
 });
@@ -53,7 +55,7 @@ test("Bitget orders use idempotent clientOid and exchange-side preset protection
   assert.match(client, /getBitgetDemoOrderByClientOid\(oid\)/);
   assert.match(client, /body\.stopLoss/);
   assert.match(client, /body\.takeProfit/);
-  assert.match(client, /paptrading:\s*"1"/);
+  assert.match(client, /headers\.paptrading\s*=\s*"1"/);
 });
 
 test("long horizon is aggregated from closed daily candles and current endpoint supports adequate history", () => {
@@ -82,18 +84,19 @@ test("admin and member desks expose the three strategy profiles and rejection re
   assert.match(adminPage, /ThreeHorizonStrategyClient/);
   assert.match(adminClient, /三周期策略控制台/);
   assert.match(adminClient, /最近决策审计/);
-  assert.match(memberClient, /三周期策略/);
-  assert.match(memberClient, /影子观察只记录机会/);
+  assert.match(memberClient, /Bitget 模拟实验/);
+  assert.match(memberClient, /实验规则/);
   assert.match(memberTypes, /strategies: ThreeHorizonPublicStrategy\[\]/);
 });
 
 
-test("mandatory entry and volatility conditions cannot be bypassed by a high score", () => {
+test("active execution supports a smaller probe before exact entry confirmation while keeping risk mandatory", () => {
   const source = engine();
-  assert.match(source, /mandatoryKeys = profile\.strategyType === "INTRADAY"/);
-  assert.match(source, /\["environment", "direction", "entry", "risk"\]/);
-  assert.match(source, /\["weekly", "daily", "structure", "entry", "risk"\]/);
-  assert.match(source, /missingMandatory\.length === 0/);
+  assert.match(source, /executionTier: "FULL" \| "PROBE" \| "OBSERVE"/);
+  assert.match(source, /const fullReady = Boolean\([\s\S]*entryMet/);
+  assert.match(source, /const probeReady = Boolean\([\s\S]*profile\.strategyType !== "POSITION"/);
+  assert.match(source, /baseValid = Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet\)/);
+  assert.match(source, /PROBE_RISK_SCALE/);
 });
 
 test("same-run reservations and projected risk prevent concurrent duplicate orders", () => {
@@ -108,10 +111,41 @@ test("same-run reservations and projected risk prevent concurrent duplicate orde
 test("runtime pause still manages existing positions without scanning new entries", () => {
   const engineSource = engine();
   const runtime = read("lib/bitget/demo-runtime.ts");
-  assert.match(engineSource, /options: \{ manageOnly\?: boolean \} = \{\}/);
+  assert.match(engineSource, /options: \{[\s\S]*manageOnly\?: boolean;[\s\S]*\} = \{\}/);
   assert.match(engineSource, /options\.manageOnly/);
   assert.match(runtime, /\{ manageOnly: true \}/);
   assert.match(runtime, /THREE_HORIZON_MANAGE_ONLY/);
+});
+
+
+
+test("v6.4 active Demo uses a two-trade activity target, hard caps and staged entries", () => {
+  const source = engine();
+  assert.match(source, /MOOX_DEMO_ACTIVITY_TARGET_V64/);
+  assert.match(source, /MOOX_DEMO_GLOBAL_TRADE_CAP_V64/);
+  assert.match(source, /MOOX_DEMO_SYMBOL_TRADE_CAP_V64/);
+  assert.match(source, /DAILY_ACTIVITY_PROBE/);
+  assert.match(source, /entryStage: 1/);
+  assert.match(source, /entryStage: 2/);
+  assert.match(source, /scale-in-2/);
+});
+
+test("locked Liu Yao priors are soft directional inputs and never replace fresh risk controls", () => {
+  const source = engine();
+  const priors = read("lib/trading-signals/hexagram-direction-priors.ts");
+  assert.match(source, /getHexagramDirectionPrior/);
+  assert.match(source, /priorWeight/);
+  assert.match(source, /riskMet/);
+  for (const symbol of ["BTCUSDT", "ETHUSDT", "HYPEUSDT", "MUUSDT", "QQQUSDT", "SPYUSDT", "XAUTUSDT", "XAGUSDT", "CLUSDT"]) {
+    assert.match(priors, new RegExp(symbol));
+  }
+  assert.match(priors, /phaseShiftToleranceDays: 1/);
+});
+
+test("Demo leverage defaults to two while paptrading isolation remains mandatory", () => {
+  const client = read("lib/bitget/demo-client.ts");
+  assert.match(client, /BITGET_DEMO_LEVERAGE \?\? 2/);
+  assert.match(client, /headers\.paptrading\s*=\s*"1"/);
 });
 
 test("database migration is additive and seeds only shadow profiles", () => {

@@ -1,0 +1,43 @@
+MOOX AI主动交易 V6.4 部署后设置
+
+一、必须保持Demo模式
+
+BITGET_TRADING_MODE=DEMO
+BITGET_DEMO_EXECUTION_ALLOWED=true
+BITGET_DEMO_LEVERAGE=2
+
+请使用Bitget Demo API Key，不要填写真实资金API Key。
+
+二、V6.4主动执行设置
+
+MOOX_DEMO_ACTIVE_EXECUTION_V64=true
+BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED=true
+MOOX_DEMO_ACTIVITY_TARGET_V64=2
+MOOX_DEMO_ACTIVITY_START_HOUR_BJ_V64=10
+MOOX_DEMO_ACTIVITY_PROBE_RISK_PCT_V64=0.12
+MOOX_DEMO_GLOBAL_TRADE_CAP_V64=8
+MOOX_DEMO_SYMBOL_TRADE_CAP_V64=2
+MOOX_PROBE_RISK_SCALE_V64=0.45
+MOOX_SCALE_IN_MIN_AGE_MINUTES_V64=5
+
+说明：
+- 2笔是每日活动目标，不是无条件强制成交。
+- 8笔是全局硬上限，不能取消。
+- 单品种最多2笔，防止同一个品种反复追涨杀跌。
+- 第一批为小风险探路仓，第二批必须等待新确认。
+
+三、必须检查
+
+1. 旧镜像交易功能必须关闭，否则三周期策略会主动阻止重复执行。
+2. Vercel Cron：/api/cron/prediction-auto-trader 应每分钟运行。
+3. Vercel Cron：/api/cron/trading-watchdog 应每5分钟运行。
+4. 若可靠性状态此前被暂停，先清除管理员暂停；随后需要连续3轮健康检查，约15分钟后才恢复新开仓。
+5. 部署后打开管理员三周期策略控制台，确认显示“主动Demo执行已开启”。
+6. 若仍无订单，查看最近决策审计中的 rejectionCode 和 rejectionReason；V6.4不会再只显示笼统的“等待”。
+
+四、禁止设置
+
+BITGET_TRADING_MODE=LIVE_EXPERIMENT
+BITGET_LIVE_CONFIRMATION=I_ACCEPT_REAL_LOSS
+
+本版本没有经过真实资金授权，不得用于实盘。

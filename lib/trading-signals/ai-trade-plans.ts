@@ -20,9 +20,9 @@ import type {
 } from "@/types/ai-trade-plan";
 
 const MIN_LEAD_MINUTES: Record<ThreeHorizonStrategyType, number> = {
-  INTRADAY: 10,
-  SWING: 240,
-  POSITION: 1440,
+  INTRADAY: 2,
+  SWING: 15,
+  POSITION: 60,
 };
 
 const ENTRY_ZONE_BUFFER_PCT: Record<ThreeHorizonStrategyType, number> = {
@@ -33,9 +33,9 @@ const ENTRY_ZONE_BUFFER_PCT: Record<ThreeHorizonStrategyType, number> = {
 
 const LEVEL_CHANGE_TOLERANCE_PCT: Record<ThreeHorizonStrategyType, number> = {
   // Short-lived market noise should update the existing timeline, not publish V2/V3/V4.
-  INTRADAY: 1.25,
-  SWING: 1.75,
-  POSITION: 3,
+  INTRADAY: 2.5,
+  SWING: 3,
+  POSITION: 5,
 };
 
 const STRATEGY_LABEL: Record<ThreeHorizonStrategyType, string> = {
@@ -245,13 +245,17 @@ function buildContent(
   const buffer = entry * ENTRY_ZONE_BUFFER_PCT[profile.strategyType] / 100;
   const low = round(entry - buffer);
   const high = round(entry + buffer);
-  const tier: AiTradePlanTier = decision.confidence >= profile.minConfidence ? "FORMAL" : "CANDIDATE";
+  const commissioning = decision.rejectionCode === "LIVE_COMMISSIONING";
+  const probe = ["PROBE_ENTRY", "DAILY_ACTIVITY_PROBE", "DAILY_MINIMUM_EXECUTION"].includes(decision.rejectionCode);
+  const executionThreshold = probe
+    ? Math.max(profile.planningMinConfidence, profile.minConfidence - 8)
+    : profile.minConfidence;
+  const tier: AiTradePlanTier = decision.confidence >= executionThreshold ? "FORMAL" : "CANDIDATE";
   const directionText = decision.direction === "LONG" ? "准备做多" : "准备做空";
   const unmet = decision.conditions.filter((row) => !row.met).map((row) => row.label);
-  const commissioning = decision.rejectionCode === "LIVE_COMMISSIONING";
   const thesis = commissioning
     ? `首笔实盘闭环验收：${decision.symbol}${directionText}。使用小额风险、交易所止盈止损与30分钟限时退出，完成后自动转入正常三周期策略。`
-    : `${STRATEGY_LABEL[profile.strategyType]}${directionText}。${decision.conditionsMet}/${decision.conditionsTotal}项条件已满足${unmet.length ? `，仍等待${unmet.slice(0, 2).join("、")}` : "，等待最终执行闸门"}。`;
+    : `${STRATEGY_LABEL[profile.strategyType]}${directionText}。${probe ? "先以小风险探路仓分批进入" : "按确认仓执行"}；${decision.conditionsMet}/${decision.conditionsTotal}项条件已满足${unmet.length ? `，仍关注${unmet.slice(0, 2).join("、")}` : "，等待最终执行闸门"}。`;
   const validFrom = now.toISOString();
   const expiresAt = decision.expiresAt ?? new Date(now.getTime() + profile.maxHoldingMinutes * 60_000).toISOString();
   return {
@@ -261,14 +265,16 @@ function buildContent(
     tier,
     thesisSummary: thesis,
     planningConfidence: decision.confidence,
-    executionThreshold: profile.minConfidence,
+    executionThreshold,
     entryZoneLow: low,
     entryZoneHigh: high,
     triggerRule: commissioning
       ? "计划先公开锁定至少1分钟；下一轮CRON确认BTC/ETH实时行情仍新鲜且风控通过后提交小额市价单。"
-      : stableTriggerRule(profile, decision.direction),
-    confirmationTimeframe: commissioning ? "REALTIME + NEXT_CRON" : confirmationTimeframe(profile),
-    orderTypeIfTriggered: commissioning ? "ONE_TIME_LIVE_COMMISSIONING_MARKET" : "MARKET_AFTER_CLOSE_CONFIRMATION",
+      : probe
+        ? "方向与宽止损有效时先开第一批小仓；精确收盘确认后才允许第二批。"
+        : stableTriggerRule(profile, decision.direction),
+    confirmationTimeframe: commissioning ? "REALTIME + NEXT_CRON" : probe ? "NEXT_CRON + STAGED_CONFIRMATION" : confirmationTimeframe(profile),
+    orderTypeIfTriggered: commissioning ? "ONE_TIME_LIVE_COMMISSIONING_MARKET" : probe ? "STAGED_PROBE_MARKET" : "MARKET_AFTER_CLOSE_CONFIRMATION",
     protectiveStop: round(stop),
     target1: round(first),
     target2: round(second),
@@ -709,18 +715,24 @@ export async function prepareAiTradePlanBeforeExecution(input: {
   }
 
   const plan = mapPlan(current);
-  if (input.decision.confidence < input.profile.minConfidence) {
+  const acceleratedProbe = ["PROBE_ENTRY", "DAILY_ACTIVITY_PROBE", "DAILY_MINIMUM_EXECUTION"].includes(input.decision.rejectionCode);
+  const executionConfidenceFloor = acceleratedProbe
+    ? Math.max(input.profile.planningMinConfidence, input.profile.minConfidence - 8)
+    : input.profile.minConfidence;
+  if (input.decision.confidence < executionConfidenceFloor) {
     return {
       plan,
       allowed: false,
       code: "CURRENT_CONFIDENCE_LOW",
-      reason: `当前置信度${input.decision.confidence}%低于模拟执行门槛${input.profile.minConfidence}%，计划降为研究观察，本轮禁止下单。`,
+      reason: `当前置信度${input.decision.confidence}%低于${acceleratedProbe ? "探路仓" : "确认仓"}执行门槛${executionConfidenceFloor}%，本轮禁止下单。`,
     };
   }
   if (plan.tier !== "FORMAL") {
-    return { plan, allowed: false, code: "CANDIDATE_PLAN_ONLY", reason: "候选观察计划已向会员发布，但尚未达到模拟执行置信度。" };
+    return { plan, allowed: false, code: "CANDIDATE_PLAN_ONLY", reason: "候选计划尚未达到本次入场批次的执行门槛。" };
   }
-  const leadMinutes = input.decision.rejectionCode === "LIVE_COMMISSIONING" ? 1 : MIN_LEAD_MINUTES[input.profile.strategyType];
+  const leadMinutes = input.decision.rejectionCode === "LIVE_COMMISSIONING" || acceleratedProbe
+    ? 1
+    : MIN_LEAD_MINUTES[input.profile.strategyType];
   const ageMinutes = Math.max(0, (input.now.getTime() - new Date(plan.publishedAt).getTime()) / 60_000);
   if (ageMinutes + 1e-9 < leadMinutes) {
     return {
@@ -783,6 +795,10 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
     client_oid: string | null;
     bitget_order_id: string | null;
     protection_order_id: string | null;
+    tp1_done: boolean;
+    entry_stage: number;
+    max_entry_stages: number;
+    scale_in_order_id: string | null;
     opened_at: Date | null;
     closed_at: Date | null;
     realized_pnl_usdt: number | null;
@@ -832,6 +848,10 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
       clientOid: row.client_oid,
       bitgetOrderId: row.bitget_order_id,
       protectionOrderId: row.protection_order_id,
+      tp1Done: Boolean(row.tp1_done),
+      entryStage: Number(row.entry_stage ?? 0),
+      maxEntryStages: Number(row.max_entry_stages ?? 2),
+      scaleInOrderId: row.scale_in_order_id,
       openedAt: iso(row.opened_at),
       closedAt: iso(row.closed_at),
       realizedPnlUsdt: row.realized_pnl_usdt,

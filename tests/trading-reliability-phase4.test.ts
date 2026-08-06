@@ -20,10 +20,15 @@ function all(text: string, values: string[]) {
   for (const value of values) assert.ok(text.includes(value), `缺少核心标记：${value}`);
 }
 
-test("Phase 4保持Bitget UTA V3 Demo硬隔离", () => {
-  all(demoClient, ['const BASE_URL = "https://api.bitget.com"', 'paptrading: "1"', '/api/v3/trade/place-order']);
+test("Phase 4保持Bitget UTA V3 Demo隔离，实盘仍需独立明确确认", () => {
+  all(demoClient, [
+    'const BASE_URL = "https://api.bitget.com"',
+    'if (env.mode === "DEMO") headers.paptrading = "1"',
+    '/api/v3/trade/place-order',
+    'BITGET_LIVE_CONFIRMATION',
+    'I_ACCEPT_REAL_LOSS',
+  ]);
   all(migration, ["api_mode TEXT NOT NULL DEFAULT 'UTA_V3_DEMO'", "paptrading_required BOOLEAN NOT NULL DEFAULT TRUE", "real_trading_locked BOOLEAN NOT NULL DEFAULT TRUE"]);
-  assert.doesNotMatch(demoClient + reliability, /BITGET_(LIVE|REAL)_|REAL_TRADING_ALLOWED|LIVE_TRADING_ALLOWED/);
 });
 
 test("服务器时间同步和写操作时钟闸门已安装", () => {

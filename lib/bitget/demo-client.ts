@@ -244,10 +244,10 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
   const env = credentials();
   const configured = Boolean(env.apiKey && env.secretKey && env.passphrase);
   const live = env.mode === "LIVE_EXPERIMENT";
-  const leverageRaw = Number(live ? process.env.BITGET_LIVE_LEVERAGE ?? 2 : process.env.BITGET_DEMO_LEVERAGE ?? 1);
+  const leverageRaw = Number(live ? process.env.BITGET_LIVE_LEVERAGE ?? 2 : process.env.BITGET_DEMO_LEVERAGE ?? 2);
   const leverage = Number.isFinite(leverageRaw)
     ? Math.max(1, Math.min(live ? 2 : 3, Math.floor(leverageRaw)))
-    : 1;
+    : 2;
   const liveConfirmationAccepted = process.env.BITGET_LIVE_CONFIRMATION?.trim() === "I_ACCEPT_REAL_LOSS";
   // Vercel serverless egress IPs are not stable on the current plan.
   // Keep these compatibility fields, but IP binding is no longer a hard execution gate.

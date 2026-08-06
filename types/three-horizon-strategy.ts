@@ -90,6 +90,10 @@ export type ThreeHorizonStrategyDecision = {
   clientOid: string | null;
   bitgetOrderId: string | null;
   protectionOrderId: string | null;
+  tp1Done: boolean;
+  entryStage: number;
+  maxEntryStages: number;
+  scaleInOrderId: string | null;
   openedAt: string | null;
   closedAt: string | null;
   realizedPnlUsdt: number | null;

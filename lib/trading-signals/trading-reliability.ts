@@ -435,7 +435,8 @@ async function repairMissingProtections(input: {
 }): Promise<string[]> {
   const repairs: string[] = [];
   const environment = getBitgetDemoEnvironment();
-  const horizonAllowed = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase() === "true";
+  const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
+  const horizonAllowed = legacyHorizonToggle !== "false";
   if (!environment.executionAllowed || !horizonAllowed || !prisma) return repairs;
 
   for (const issue of input.issues) {
