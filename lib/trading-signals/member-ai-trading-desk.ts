@@ -58,6 +58,22 @@ const DEFAULT_SETTINGS: AiTradingDeskSettings = {
 };
 
 let ensured = false;
+const MEMBER_DESK_READ_TIMEOUT_MS = 2_500;
+let lastReadableSnapshot: AiTradingDeskSnapshot | null = null;
+
+async function withReadTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}读取超时`)), MEMBER_DESK_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function iso(value: Date | string | null): string | null {
   if (value == null) return null;
@@ -130,17 +146,23 @@ export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
 }
 
 export async function getMemberAiTradingDeskSettings(): Promise<AiTradingDeskSettings> {
-  if (!(await ensureMemberAiTradingDeskTables()) || !prisma) {
+  if (!prisma) return { ...DEFAULT_SETTINGS };
+  try {
+    const rows = await withReadTimeout(
+      prisma.$queryRawUnsafe<DbDeskSettings[]>(`
+        SELECT enabled, show_current_positions, show_trade_history,
+               show_absolute_pnl, history_limit, updated_at
+        FROM trade_member_ai_desk_settings
+        WHERE id = 'default'
+        LIMIT 1
+      `),
+      "交易台设置"
+    );
+    return mapSettings(rows[0]);
+  } catch (error) {
+    console.warn("member AI trading desk settings read failed", error);
     return { ...DEFAULT_SETTINGS };
   }
-  const rows = await prisma.$queryRawUnsafe<DbDeskSettings[]>(`
-    SELECT enabled, show_current_positions, show_trade_history,
-           show_absolute_pnl, history_limit, updated_at
-    FROM trade_member_ai_desk_settings
-    WHERE id = 'default'
-    LIMIT 1
-  `);
-  return mapSettings(rows[0]);
 }
 
 export async function updateMemberAiTradingDeskSettings(
@@ -597,6 +619,7 @@ export async function syncMemberAiTradingDeskSnapshot(
         updated_at = NOW()
       WHERE id = 'default'
     `;
+    lastReadableSnapshot = snapshot;
     return snapshot;
   } catch (error) {
     const message = error instanceof Error ? error.message : "同步失败";
@@ -611,75 +634,115 @@ export async function syncMemberAiTradingDeskSnapshot(
 }
 
 export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSnapshot> {
-  const settings = await getMemberAiTradingDeskSettings();
-  if (!(await ensureMemberAiTradingDeskTables()) || !prisma) {
-    return emptySnapshot(settings, "交易数据库未连接。");
+  const settingsPromise = getMemberAiTradingDeskSettings();
+  if (!prisma) {
+    const settings = await settingsPromise;
+    return lastReadableSnapshot
+      ? applyAiDeskOperationalState({
+          ...lastReadableSnapshot,
+          settings,
+          syncStatus: "PARTIAL",
+          syncMessage: "交易数据库暂时不可用，继续展示本实例最近一次只读快照。",
+        })
+      : emptySnapshot(settings, "交易数据库暂时不可用；页面保持可打开并等待自动恢复。");
   }
-  const rows = await prisma.$queryRawUnsafe<DbDeskSnapshot[]>(`
-    SELECT payload, last_synced_at, last_error
-    FROM trade_member_ai_desk_snapshot
-    WHERE id = 'default'
-    LIMIT 1
-  `);
-  const row = rows[0];
-  if (!row) return syncMemberAiTradingDeskSnapshot();
-  const payload = parseJson<AiTradingDeskSnapshot>(row.payload);
-  const hasPayload = payload && Array.isArray(payload.plans);
-  const syncedAt = iso(row.last_synced_at);
-  const stale = !syncedAt || Date.now() - new Date(syncedAt).getTime() > 3 * 60_000;
-  if (!hasPayload) {
-    return emptySnapshot(settings, "等待Vercel服务器完成首轮交易台同步；会员页面不会直接请求Bitget。");
-  }
-  // 会员访问只读取数据库快照。即使快照暂时过期，也不在用户请求中直连Bitget，
-  // 避免多人刷新触发并发账户/持仓请求，所有外部同步只由带运行锁的服务器任务完成。
-  const staleMessage = stale
-    ? `交易台快照等待服务器更新；最近同步时间${syncedAt ?? "未知"}，旧数据继续只读展示。`
-    : "";
-  return applyAiDeskOperationalState({
-    ...payload,
-    settings,
-    strategies: payload.strategies ?? [],
-    planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
-    intentDecisions: payload.intentDecisions ?? [],
-    marketQuotes: payload.marketQuotes ?? [],
-    publishedPlans: payload.publishedPlans ?? [],
-    lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
-    syncStatus: row.last_error || stale ? "PARTIAL" : payload.syncStatus,
-    syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : staleMessage || payload.syncMessage,
-    operationalState: payload.operationalState ?? "CONNECTING",
-    operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
-    quoteReady: payload.quoteReady ?? false,
-    latestQuoteAt: payload.latestQuoteAt ?? null,
-    ledgerSource: payload.ledgerSource ?? (payload.mode === "BITGET_LIVE_EXPERIMENT" ? "BITGET_LIVE" : "BITGET_DEMO"),
-    ledgerNotice:
-      payload.ledgerNotice ??
-      (payload.mode === "BITGET_LIVE_EXPERIMENT"
-        ? "本页只统计独立Bitget实盘实验账户。"
-        : "会员端只展示Bitget Demo实际模拟订单；MOOX站内模拟盘是独立账本。"),
-    experiment: payload.experiment ?? {
-      status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null,
-      pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
-      stopReason: "", securityMessage: "",
-    },
-    runtime: payload.runtime ?? {
-      paused: false,
-      pauseReason: "",
-      lastHeartbeatAt: null,
-      lastStrategyAt: null,
-      lastReconcileAt: null,
-      heartbeatAgeSeconds: null,
-      quoteAgeSeconds: null,
-      decisionStatsToday: {
-        scanRuns: 0,
-        symbolsEvaluated: 0,
-        confidenceBlocked: 0,
-        alignmentBlocked: 0,
-        triggerWaiting: 0,
-        riskBlocked: 0,
-        marketErrors: 0,
-        orderAttempts: 0,
-        executed: 0,
+
+  try {
+    const [settings, rows] = await Promise.all([
+      settingsPromise,
+      withReadTimeout(
+        prisma.$queryRawUnsafe<DbDeskSnapshot[]>(`
+          SELECT payload, last_synced_at, last_error
+          FROM trade_member_ai_desk_snapshot
+          WHERE id = 'default'
+          LIMIT 1
+        `),
+        "交易台快照"
+      ),
+    ]);
+    const row = rows[0];
+    if (!row) {
+      return lastReadableSnapshot
+        ? applyAiDeskOperationalState({
+            ...lastReadableSnapshot,
+            settings,
+            syncStatus: "PARTIAL",
+            syncMessage: "数据库尚未写入新的交易台快照，继续展示最近一次可读数据。",
+          })
+        : emptySnapshot(settings, "等待服务器任务写入首轮交易台快照；会员访问不会直连Bitget。");
+    }
+    const payload = parseJson<AiTradingDeskSnapshot>(row.payload);
+    const hasPayload = payload && Array.isArray(payload.plans);
+    const syncedAt = iso(row.last_synced_at);
+    const stale = !syncedAt || Date.now() - new Date(syncedAt).getTime() > 3 * 60_000;
+    if (!hasPayload) {
+      return emptySnapshot(settings, "等待服务器完成首轮交易台同步；页面已经正常打开。");
+    }
+    const staleMessage = stale
+      ? `交易台快照等待服务器更新；最近同步时间${syncedAt ?? "未知"}，旧数据继续只读展示。`
+      : "";
+    const snapshot = applyAiDeskOperationalState({
+      ...payload,
+      settings,
+      strategies: payload.strategies ?? [],
+      planSummary: payload.planSummary ?? { publishedToday: 0, watching: 0, armed: 0, submittedOrOpen: 0, closedToday: 0 },
+      intentDecisions: payload.intentDecisions ?? [],
+      marketQuotes: payload.marketQuotes ?? [],
+      publishedPlans: payload.publishedPlans ?? [],
+      lastSyncedAt: syncedAt ?? payload.lastSyncedAt,
+      syncStatus: row.last_error || stale ? "PARTIAL" : payload.syncStatus,
+      syncMessage: row.last_error ? `最近同步异常：${row.last_error}` : staleMessage || payload.syncMessage,
+      operationalState: payload.operationalState ?? "CONNECTING",
+      operationalStateLabel: payload.operationalStateLabel ?? "正在连接",
+      quoteReady: payload.quoteReady ?? false,
+      latestQuoteAt: payload.latestQuoteAt ?? null,
+      ledgerSource: payload.ledgerSource ?? (payload.mode === "BITGET_LIVE_EXPERIMENT" ? "BITGET_LIVE" : "BITGET_DEMO"),
+      ledgerNotice:
+        payload.ledgerNotice ??
+        (payload.mode === "BITGET_LIVE_EXPERIMENT"
+          ? "本页只统计独立Bitget实盘实验账户。"
+          : "会员端只展示Bitget Demo实际模拟订单；MOOX站内模拟盘是独立账本。"),
+      experiment: payload.experiment ?? {
+        status: "DISABLED", startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null,
+        pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
+        stopReason: "", securityMessage: "",
       },
-    },
-  });
+      runtime: payload.runtime ?? {
+        paused: false,
+        pauseReason: "",
+        lastHeartbeatAt: null,
+        lastStrategyAt: null,
+        lastReconcileAt: null,
+        heartbeatAgeSeconds: null,
+        quoteAgeSeconds: null,
+        decisionStatsToday: {
+          scanRuns: 0,
+          symbolsEvaluated: 0,
+          confidenceBlocked: 0,
+          alignmentBlocked: 0,
+          triggerWaiting: 0,
+          riskBlocked: 0,
+          marketErrors: 0,
+          orderAttempts: 0,
+          executed: 0,
+        },
+      },
+    });
+    lastReadableSnapshot = snapshot;
+    return snapshot;
+  } catch (error) {
+    const settings = await settingsPromise;
+    const message = error instanceof Error ? error.message : "交易台读取失败";
+    console.warn("member AI trading desk snapshot read failed", error);
+    if (lastReadableSnapshot) {
+      return applyAiDeskOperationalState({
+        ...lastReadableSnapshot,
+        settings,
+        syncStatus: "PARTIAL",
+        syncMessage: `${message}；继续展示本实例最近一次只读快照。`,
+      });
+    }
+    return emptySnapshot(settings, `${message}；页面保持可用并将在后台自动重试。`);
+  }
 }
+

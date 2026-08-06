@@ -71,6 +71,7 @@ export async function runDailyVerification(
 
   for (let forecast of candidates) {
     report.scanned += 1;
+    try {
 
     if (!isPublishedBeforeCutoff(forecast) || forecast.status === "invalid") {
       await upsertDailyForecastRecord({ ...forecast, status: "invalid" });
@@ -224,6 +225,17 @@ export async function runDailyVerification(
       ...forecast,
       status: result.verdict === "MANUAL_REVIEW" ? "verifying" : "verified",
     } satisfies DailyForecastRecord);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      report.errors.push(`${forecast.symbol}:${forecast.forecastDate}:${message}`);
+      try {
+        if (forecast.status === "published") {
+          await upsertDailyForecastRecord({ ...forecast, status: "verifying" });
+        }
+      } catch {
+        // Keep the batch alive even when the status write also fails.
+      }
+    }
   }
 
   return report;

@@ -343,7 +343,7 @@ export function publicStarAccuracyBreakdown(
     else if (item.verdict === "MISS") bucket.miss += 1;
     else bucket.fullHit += 1;
   }
-  return [5, 4, 3, 2, 1].map((stars) => {
+  return [1, 2, 3, 4, 5].map((stars) => {
     const bucket = buckets.get(stars)!;
     const sampleCount = bucket.fullHit + bucket.partialHit + bucket.miss;
     return {
@@ -358,3 +358,89 @@ export function publicStarAccuracyBreakdown(
     };
   });
 }
+
+export type PublicStarTrendAnalysis = {
+  ratedSampleCount: number;
+  ratedBucketCount: number;
+  highStarSampleCount: number;
+  lowStarSampleCount: number;
+  highStarWeightedHitRate: number | null;
+  lowStarWeightedHitRate: number | null;
+  highMinusLow: number | null;
+  starOutcomeCorrelation: number | null;
+  conclusion: "INSUFFICIENT" | "POSITIVE" | "FLAT" | "INVERTED";
+};
+
+function verdictScore(verdict: DailyVerdict): number | null {
+  if (verdict === "HIT" || verdict === "FULL_HIT") return 1;
+  if (verdict === "PARTIAL_HIT") return 0.5;
+  if (verdict === "MISS") return 0;
+  return null;
+}
+
+function average(values: number[]): number | null {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function pearson(points: Array<{ x: number; y: number }>): number | null {
+  if (points.length < 3) return null;
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  let covariance = 0;
+  let varianceX = 0;
+  let varianceY = 0;
+  for (const point of points) {
+    const dx = point.x - meanX;
+    const dy = point.y - meanY;
+    covariance += dx * dy;
+    varianceX += dx * dx;
+    varianceY += dy * dy;
+  }
+  if (varianceX <= 0 || varianceY <= 0) return null;
+  return covariance / Math.sqrt(varianceX * varianceY);
+}
+
+/**
+ * Tests whether higher locked consensus stars have actually produced better outcomes.
+ * This is descriptive only; small samples are explicitly labelled insufficient.
+ */
+export function publicStarTrendAnalysis(
+  items: PublicAccuracyHistoryItem[]
+): PublicStarTrendAnalysis {
+  const rated = items.flatMap((item) => {
+    const score = verdictScore(item.verdict);
+    return item.consensusStars && score != null
+      ? [{ stars: item.consensusStars, score }]
+      : [];
+  });
+  const ratedBucketCount = new Set(rated.map((item) => item.stars)).size;
+  const high = rated.filter((item) => item.stars >= 4).map((item) => item.score);
+  const low = rated.filter((item) => item.stars <= 2).map((item) => item.score);
+  const highRate = average(high);
+  const lowRate = average(low);
+  const lift = highRate != null && lowRate != null ? highRate - lowRate : null;
+  const correlation = pearson(rated.map((item) => ({ x: item.stars, y: item.score })));
+
+  let conclusion: PublicStarTrendAnalysis["conclusion"] = "INSUFFICIENT";
+  if (rated.length >= 10 && ratedBucketCount >= 2) {
+    const signal = lift ?? correlation;
+    if (signal != null) {
+      if (signal >= 0.1) conclusion = "POSITIVE";
+      else if (signal <= -0.1) conclusion = "INVERTED";
+      else conclusion = "FLAT";
+    }
+  }
+
+  return {
+    ratedSampleCount: rated.length,
+    ratedBucketCount,
+    highStarSampleCount: high.length,
+    lowStarSampleCount: low.length,
+    highStarWeightedHitRate: highRate,
+    lowStarWeightedHitRate: lowRate,
+    highMinusLow: lift,
+    starOutcomeCorrelation: correlation,
+    conclusion,
+  };
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { AiTradeIntentBoard } from "@/components/trading/AiTradeIntentBoard";
 import { AiDeskQuickNav } from "@/components/member/AiDeskQuickNav";
@@ -51,11 +51,27 @@ function time(value: string | null, en: boolean): string {
   }).format(date);
 }
 
-async function readSnapshot(): Promise<AiTradingDeskSnapshot> {
-  const response = await fetch("/api/member/ai-trading-desk", { cache: "no-store", headers: { Accept: "application/json" } });
-  const json = (await response.json()) as AiTradingDeskSnapshot & { error?: string };
-  if (!response.ok || json.error) throw new Error(json.error || "读取失败");
-  return json;
+async function readSnapshot(timeoutMs = 8_000): Promise<AiTradingDeskSnapshot> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch("/api/member/ai-trading-desk", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const json = (await response.json()) as AiTradingDeskSnapshot & { error?: string };
+    if (!response.ok || json.error) throw new Error(json.error || "读取失败");
+    return json;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("交易台读取超时，旧数据继续保留；系统会自动重试。");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 
@@ -73,15 +89,33 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const [error, setError] = useState("");
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void readSnapshot().then((next) => {
-        setSnapshot(next);
-        setError("");
-      }).catch((reason) => setError(reason instanceof Error ? reason.message : "刷新失败"));
-    }, 30_000);
-    return () => window.clearInterval(timer);
+  const refresh = useCallback(async () => {
+    try {
+      const next = await readSnapshot();
+      setSnapshot(next);
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "刷新失败");
+    }
   }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const onOnline = () => void refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [refresh]);
 
 
   const experimentDay = useMemo(() => {

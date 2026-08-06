@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
-import { unstable_noStore as noStore } from "next/cache";
 import { Section } from "@/components/ui";
 import { DailyAccuracyClient } from "@/components/verification/DailyAccuracyClient";
 import { WeeklyAccuracySummary } from "@/components/verification/WeeklyAccuracySummary";
 import { VerificationMethodDisclosure } from "@/components/verification/VerificationMethodDisclosure";
 import { VerificationEmptyState } from "@/components/verification/VerificationEmptyState";
-import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
-import { getWeeklyAccuracyHistory } from "@/lib/accuracy/get-weekly-history";
-import { getPendingVerificationRecords } from "@/lib/accuracy/get-pending-verification";
 import { PendingVerificationSummary } from "@/components/verification/PendingVerificationSummary";
+import { getCachedPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -23,17 +20,12 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-
-
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function VerificationPage() {
-  noStore();
-  const [{ items, stats }, weekly, pending, locale] = await Promise.all([
-    getPublicAccuracyHistory(),
-    getWeeklyAccuracyHistory(),
-    getPendingVerificationRecords(),
+  const [{ daily, weekly, pending }, locale] = await Promise.all([
+    getCachedPublicVerificationSnapshot(),
     getRequestLocale(),
   ]);
   const en = locale === "en";
@@ -43,12 +35,12 @@ export default async function VerificationPage() {
       <Section spacing="lg">
         <VerificationMethodDisclosure />
         <PendingVerificationSummary items={pending} en={en} />
-        {items.length === 0 && weekly.items.length === 0 ? (
+        {daily.items.length === 0 && weekly.items.length === 0 ? (
           <VerificationEmptyState />
         ) : (
           <>
             <WeeklyAccuracySummary items={weekly.items} stats={weekly.stats} />
-            <DailyAccuracyClient items={items} stats={stats} />
+            <DailyAccuracyClient items={daily.items} stats={daily.stats} />
           </>
         )}
       </Section>

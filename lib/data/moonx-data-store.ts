@@ -31,7 +31,28 @@ const emptyStore = <T>(): DailyJsonStore<T> => ({
   records: [],
 });
 
+const STORAGE_READ_TIMEOUT_MS = 4_000;
+const STORAGE_READ_CACHE_MS = 60_000;
+let dataBucketReadyUntil = 0;
+const jsonReadCache = new Map<DataFile, { expiresAt: number; value: DailyJsonStore<unknown> }>();
+const jsonReadInflight = new Map<DataFile, Promise<DailyJsonStore<unknown>>>();
+
+async function withStorageTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}读取超时`)), STORAGE_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function ensureDataBucket(): Promise<boolean> {
+  if (Date.now() < dataBucketReadyUntil) return true;
   const admin = getAdminClient();
   if (!admin) return false;
   const { data: buckets } = await admin.storage.listBuckets();
@@ -46,26 +67,48 @@ async function ensureDataBucket(): Promise<boolean> {
       return false;
     }
   }
+  dataBucketReadyUntil = Date.now() + 10 * 60_000;
   return true;
 }
 
 async function readJsonFile<T>(file: DataFile, fallback: DailyJsonStore<T>): Promise<DailyJsonStore<T>> {
-  const admin = getAdminClient();
-  if (!admin) return fallback;
-  await ensureDataBucket();
-  const { data, error } = await admin.storage.from(MOONX_DATA_BUCKET).download(file);
-  if (error || !data) return fallback;
-  try {
-    const parsed = JSON.parse(await data.text()) as DailyJsonStore<T>;
-    if (!parsed || !Array.isArray(parsed.records)) return fallback;
-    return {
-      version: 1,
-      updatedAt: parsed.updatedAt ?? new Date(0).toISOString(),
-      records: parsed.records,
-    };
-  } catch {
-    return fallback;
+  const cached = jsonReadCache.get(file);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value as DailyJsonStore<T>;
   }
+  const inflight = jsonReadInflight.get(file);
+  if (inflight) return (await inflight) as DailyJsonStore<T>;
+
+  const admin = getAdminClient();
+  if (!admin) return (cached?.value as DailyJsonStore<T> | undefined) ?? fallback;
+
+  const request = (async (): Promise<DailyJsonStore<unknown>> => {
+    try {
+      // The bucket is created on write paths. Public reads must not call listBuckets/createBucket.
+      const { data, error } = await withStorageTimeout(
+        admin.storage.from(MOONX_DATA_BUCKET).download(file),
+        file
+      );
+      if (error || !data) return cached?.value ?? fallback;
+      const parsed = JSON.parse(await data.text()) as DailyJsonStore<unknown>;
+      if (!parsed || !Array.isArray(parsed.records)) return cached?.value ?? fallback;
+      const value: DailyJsonStore<unknown> = {
+        version: 1,
+        updatedAt: parsed.updatedAt ?? new Date(0).toISOString(),
+        records: parsed.records,
+      };
+      jsonReadCache.set(file, { expiresAt: Date.now() + STORAGE_READ_CACHE_MS, value });
+      return value;
+    } catch (error) {
+      console.warn(`[moonx-data] read ${file} failed`, error);
+      return cached?.value ?? fallback;
+    } finally {
+      jsonReadInflight.delete(file);
+    }
+  })();
+
+  jsonReadInflight.set(file, request);
+  return (await request) as DailyJsonStore<T>;
 }
 
 async function writeJsonFile<T>(file: DataFile, store: DailyJsonStore<T>, retries = 3): Promise<void> {
@@ -90,6 +133,10 @@ async function writeJsonFile<T>(file: DataFile, store: DailyJsonStore<T>, retrie
       contentType: "application/json",
     });
     if (!error) {
+      jsonReadCache.set(file, {
+        expiresAt: Date.now() + STORAGE_READ_CACHE_MS,
+        value: payload as DailyJsonStore<unknown>,
+      });
       // best-effort daily backup
       try {
         const day = new Date().toISOString().slice(0, 10);
