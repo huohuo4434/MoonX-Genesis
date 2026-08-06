@@ -1,0 +1,10 @@
+node_modules/**
+.next/**
+coverage/**
+*.tsbuildinfo
+*.zip
+.moonx-upgrade-backups/**
+.moox-upgrade-backups/**
+data/*.json
+public/uploads/**
+public/generated/**

@@ -48,3 +48,6 @@ data/teacher-knowledge.json
 data/lesson-media/
 data/teacher-learning-media/
 /.moonx-upgrade-backups/
+# MOOX local developer workbench
+/.code-review-graph/
+/.moox-workbench/
