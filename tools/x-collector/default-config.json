@@ -1,0 +1,11 @@
+{
+  "site_url": "https://mooxintel.com",
+  "accounts": [
+    "btckik",
+    "BTCTW0",
+    "haliluya8911"
+  ],
+  "max_posts_per_account": 15,
+  "lookback_hours": 168,
+  "timeout_seconds": 60
+}

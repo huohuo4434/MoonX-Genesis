@@ -40,7 +40,7 @@ interface StoredRow {
   fetched_at: Date | string;
 }
 
-interface FeedPost {
+export interface ExternalAnalystFeedPostInput {
   username: string;
   id: string;
   text: string;
@@ -166,7 +166,7 @@ async function xUserId(username: string, bearerToken: string): Promise<string> {
   return id;
 }
 
-async function fetchXPosts(username: string, bearerToken: string): Promise<FeedPost[]> {
+async function fetchXPosts(username: string, bearerToken: string): Promise<ExternalAnalystFeedPostInput[]> {
   const userId = await xUserId(username, bearerToken);
   const url = new URL(`https://api.x.com/2/users/${encodeURIComponent(userId)}/tweets`);
   url.searchParams.set("max_results", "10");
@@ -192,12 +192,12 @@ async function fetchXPosts(username: string, bearerToken: string): Promise<FeedP
     }));
 }
 
-async function fetchConfiguredJsonFeed(feedUrl: string): Promise<FeedPost[]> {
+async function fetchConfiguredJsonFeed(feedUrl: string): Promise<ExternalAnalystFeedPostInput[]> {
   const payload = await fetchJson(feedUrl);
   const source = Array.isArray(payload)
     ? payload
     : (payload as { posts?: unknown[] })?.posts ?? [];
-  return source.flatMap((row): FeedPost[] => {
+  return source.flatMap((row): ExternalAnalystFeedPostInput[] => {
     if (!row || typeof row !== "object") return [];
     const item = row as Record<string, unknown>;
     const username = String(item.username ?? item.author ?? "").replace(/^@/, "");
@@ -215,9 +215,12 @@ async function fetchConfiguredJsonFeed(feedUrl: string): Promise<FeedPost[]> {
   });
 }
 
-async function storePost(post: FeedPost): Promise<boolean> {
+async function storePost(
+  post: ExternalAnalystFeedPostInput,
+  forcedSource?: ExternalAnalystSource
+): Promise<boolean> {
   if (!prisma) return false;
-  const source = analystSourceFromUsername(post.username);
+  const source = forcedSource ?? analystSourceFromUsername(post.username);
   if (!source) return false;
   const postedAt = new Date(post.createdAt);
   if (Number.isNaN(postedAt.getTime())) return false;
@@ -251,6 +254,104 @@ async function storePost(post: FeedPost): Promise<boolean> {
     JSON.stringify(parsed)
   );
   return parsed.symbols.length > 0;
+}
+
+export type ExternalAnalystCollectorIngestReport = {
+  acceptedPosts: number;
+  storedPosts: number;
+  parsedSignals: number;
+  rejectedPosts: number;
+  checkedAt: string;
+  collectorId: string;
+  errors: string[];
+};
+
+function configuredCollectorAccounts(): Set<string> {
+  const rows = [
+    ...ANALYSTS.map((row) => row.username),
+    ...(process.env.MOOX_X_WATCH_ACCOUNTS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ];
+  return new Set(rows.map((value) => value.replace(/^@/, "").toLowerCase()));
+}
+
+async function markCollectorState(payload: Record<string, unknown>): Promise<void> {
+  if (!prisma) return;
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO trade_external_analyst_state(state_key, payload, updated_at)
+     VALUES ('local_x_collector', $1::jsonb, NOW())
+     ON CONFLICT (state_key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()`,
+    JSON.stringify(payload)
+  );
+}
+
+export async function ingestExternalAnalystCollectorPosts(input: {
+  posts: ExternalAnalystFeedPostInput[];
+  collectorId?: string;
+  checkedAt?: string;
+}): Promise<ExternalAnalystCollectorIngestReport> {
+  const checkedAt = input.checkedAt && Number.isFinite(Date.parse(input.checkedAt))
+    ? new Date(input.checkedAt).toISOString()
+    : new Date().toISOString();
+  const collectorId = (input.collectorId ?? "moox-windows-x-collector").trim().slice(0, 120) || "moox-windows-x-collector";
+  const report: ExternalAnalystCollectorIngestReport = {
+    acceptedPosts: 0,
+    storedPosts: 0,
+    parsedSignals: 0,
+    rejectedPosts: 0,
+    checkedAt,
+    collectorId,
+    errors: [],
+  };
+
+  if (!(await ensureExternalAnalystTables())) {
+    report.errors.push("DATABASE_UNAVAILABLE");
+    return report;
+  }
+
+  const allowedAccounts = configuredCollectorAccounts();
+  const unique = Array.from(new Map(
+    input.posts
+      .slice(0, 120)
+      .map((post) => ({
+        username: String(post.username ?? "").replace(/^@/, "").trim(),
+        id: String(post.id ?? "").trim(),
+        text: String(post.text ?? "").replace(/\u0000/g, "").trim().slice(0, 20_000),
+        createdAt: String(post.createdAt ?? "").trim(),
+        url: post.url ? String(post.url).trim() : undefined,
+      }))
+      .filter((post) => post.username && post.id && post.text && post.createdAt)
+      .map((post) => [`${post.username.toLowerCase()}:${post.id}`, post] as const)
+  ).values());
+
+  for (const post of unique) {
+    const normalizedUsername = post.username.toLowerCase();
+    if (!allowedAccounts.has(normalizedUsername)) {
+      report.rejectedPosts += 1;
+      report.errors.push(`${post.username}/${post.id}: ACCOUNT_NOT_ALLOWED`);
+      continue;
+    }
+    // Local collector data is always observation-only. It may enrich the member
+    // radar, but it must never enter the automated trading overlay.
+    const forcedSource: ExternalAnalystSource = "BTCKIK";
+    try {
+      const parsed = await storePost(post, forcedSource);
+      report.acceptedPosts += 1;
+      report.storedPosts += 1;
+      if (parsed) report.parsedSignals += 1;
+    } catch (error) {
+      report.errors.push(`${post.username}/${post.id}: ${error instanceof Error ? error.message : "STORE_FAILED"}`);
+    }
+  }
+
+  await markCollectorState({
+    ...report,
+    receivedPosts: input.posts.length,
+    allowedAccounts: Array.from(allowedAccounts).sort(),
+  }).catch(() => undefined);
+  return report;
 }
 
 export async function refreshExternalAnalystSignals(
@@ -309,7 +410,7 @@ export async function refreshExternalAnalystSignals(
   const feedUrl = process.env.MOOX_EXTERNAL_ANALYST_FEED_URL?.trim() ?? "";
   const configured = Boolean(bearerToken || feedUrl);
   const errors: string[] = [];
-  let posts: FeedPost[] = [];
+  let posts: ExternalAnalystFeedPostInput[] = [];
   let source: ExternalAnalystRefreshReport["source"] = "NONE";
 
   if (bearerToken) {
