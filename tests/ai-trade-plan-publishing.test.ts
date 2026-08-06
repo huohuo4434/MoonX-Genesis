@@ -52,23 +52,25 @@ test("每个计划包含入场区止损三目标风险有效期和失效规则",
   ]) assert.ok(migration.includes(token), `缺少字段 ${token}`);
 });
 
-test("会员端展示事前计划、条件进度、时间线和免责声明", () => {
-  assert.match(member, /AI事前交易计划/);
-  assert.match(member, /完整时间线/);
-  assert.match(member, /这是AI事前计划，不代表已经成交/);
+test("会员端把锁定计划、条件与时间线交给统一交易意图面板", () => {
+  assert.match(member, /AiTradeIntentBoard/);
+  assert.match(member, /plans: snapshot\.publishedPlans/);
+  assert.match(member, /计划在执行前锁定/);
   assert.match(memberTypes, /publishedPlans: AiTradePlan\[\]/);
   assert.match(memberTypes, /planSummary: AiTradePlanSummary/);
 });
 
-test("管理员端展示计划版本和内容哈希", () => {
-  assert.match(admin, /AI事前计划与版本审计/);
-  assert.match(admin, /内容发生实质变化时保留V1并创建V2/);
-  assert.match(admin, /contentHash\.slice/);
+test("管理员端通过统一交易意图面板展示计划审计", () => {
+  assert.match(admin, /AiTradeIntentBoard/);
+  assert.match(admin, /showHistory/);
+  assert.match(admin, /dashboard/);
 });
 
-test("本阶段保持Bitget Demo隔离且不引入真钱标记", () => {
-  assert.doesNotMatch(plans + engine, /BITGET_(LIVE|REAL)_|REAL_TRADING_ALLOWED|LIVE_TRADING_ALLOWED/);
+test("AI计划按实际交易环境区分Demo与实盘，同时保持请求隔离", () => {
+  const client = read("lib/bitget/demo-client.ts");
   assert.match(plans, /BITGET_DEMO/);
+  assert.match(plans, /BITGET_LIVE/);
+  assert.match(client, /if \(env\.mode === "DEMO"\) headers\.paptrading = "1"/);
 });
 
 test("完整测试脚本包含计划发布回归", () => {

@@ -17,6 +17,13 @@ import {
   type ConvictionForecastType,
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
+import {
+  SANDISK_PERIOD_LABELS,
+  SANDISK_PERIOD_ORDER,
+  SANDISK_VISIBLE_PERIOD_ORDER,
+  listSandiskPeriodForecasts,
+  sandiskPeriodMeta,
+} from "@/lib/data/conviction/sandisk-forecasts";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
   LONGXIN_FULL_PERIOD_ORDER,
@@ -156,6 +163,7 @@ function filterPastVerifiedHistory(
 type StaticPeriodAssetId =
   | "cxmt"
   | "asteroid"
+  | "sandisk"
   | "mu"
   | "hype"
   | "eth"
@@ -164,6 +172,7 @@ type StaticPeriodAssetId =
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
   "cxmt",
   "asteroid",
+  "sandisk",
   "mu",
   "hype",
   "eth",
@@ -180,6 +189,7 @@ function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
 function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return listLongxinPeriodForecasts();
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
+  if (assetId === "sandisk") return listSandiskPeriodForecasts();
   if (assetId === "eth") return listEthPeriodForecasts();
   if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return listVibeFocusPeriodForecasts(assetId);
@@ -190,6 +200,7 @@ function staticPublished(assetId: StaticPeriodAssetId) {
 function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
+  if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
   if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return VIBE_FOCUS_PERIOD_ORDER;
@@ -200,11 +211,25 @@ function fullOrder(assetId: StaticPeriodAssetId) {
 function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
+  if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
   if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
   }
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
+}
+
+function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
+  if (assetId === "sandisk") {
+    return SANDISK_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
+  }
+  if (assetId === "asteroid" && type === "WEEK") {
+    return { ...ASTEROID_PERIOD_LABELS[type], zh: "本周逐日" };
+  }
+  if (assetId === "asteroid" && type === "WEEK_2") {
+    return { ...ASTEROID_PERIOD_LABELS[type], zh: "下周逐日" };
+  }
+  return ASTEROID_PERIOD_LABELS[type];
 }
 
 function buildStaticPeriodSlots(
@@ -217,13 +242,8 @@ function buildStaticPeriodSlots(
     const hit = published.find((f) => f.forecastType === type) ?? null;
     return {
       type,
-      labelZh:
-        assetId === "asteroid" && type === "WEEK"
-          ? "本周逐日"
-          : assetId === "asteroid" && type === "WEEK_2"
-            ? "下周逐日"
-            : ASTEROID_PERIOD_LABELS[type].zh,
-      emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
+      labelZh: periodLabelForAsset(assetId, type).zh,
+      emptyZh: periodLabelForAsset(assetId, type).emptyZh,
       forecast: includeBody ? hit : null,
       freshnessStatus: hit
         ? forecastFreshnessStatus(hit.periodStart, hit.periodEnd, asOfDate)
@@ -309,6 +329,7 @@ async function attachAdminKeyDates(
 }
 
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
+  if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
   if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
@@ -317,13 +338,8 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({
     type,
-    labelZh:
-      assetId === "asteroid" && type === "WEEK"
-        ? "本周逐日"
-        : assetId === "asteroid" && type === "WEEK_2"
-          ? "下周逐日"
-          : ASTEROID_PERIOD_LABELS[type].zh,
-    emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
+    labelZh: periodLabelForAsset(assetId, type).zh,
+    emptyZh: periodLabelForAsset(assetId, type).emptyZh,
     hasResearch: published.some((f) => f.forecastType === type),
   }));
 }
@@ -500,6 +516,7 @@ export type ConvictionWeeklyFreshnessOverview = {
 const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   cxmt: "长鑫科技",
   asteroid: "太空狗",
+  sandisk: "闪迪",
   mu: "美光",
   hype: "HYPE",
   eth: "ETH",

@@ -157,3 +157,26 @@ test("database migration is additive and seeds only shadow profiles", () => {
   assert.match(migration, /'POSITION', TRUE, 'SHADOW'/);
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM/i);
 });
+
+test("v6.4.1 live active execution targets two small real-money probes without removing hard caps", () => {
+  const source = engine();
+  const client = read("lib/bitget/demo-client.ts");
+  assert.match(source, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
+  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 2/);
+  assert.match(source, /MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641/);
+  assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
+  assert.match(source, /environment\.liveMaxTradesPerDay/);
+  assert.match(source, /DAILY_MINIMUM_EXECUTION/);
+  assert.match(client, /BITGET_LIVE_MAX_TRADES_PER_DAY/);
+  assert.match(client, /BITGET_LIVE_DAILY_LOSS_USDT/);
+  assert.match(client, /BITGET_LIVE_MAX_DRAWDOWN_USDT/);
+});
+
+test("live and demo plans are labeled separately while Demo paptrading remains isolated", () => {
+  const plans = read("lib/trading-signals/ai-trade-plans.ts");
+  const planTypes = read("types/ai-trade-plan.ts");
+  const client = read("lib/bitget/demo-client.ts");
+  assert.match(plans, /profile\.mode === "LIVE" \? "BITGET_LIVE" : "BITGET_DEMO"/);
+  assert.match(planTypes, /"BITGET_LIVE"/);
+  assert.match(client, /if \(env\.mode === "DEMO"\) headers\.paptrading = "1"/);
+});

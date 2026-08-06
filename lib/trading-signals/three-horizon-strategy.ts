@@ -61,27 +61,45 @@ const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
 const LIVE_COMMISSIONING_RISK_PCT = 0.05;
-// MOOX_LIVE_DAILY_MINIMUM_V1
-// The old BTC/ETH-only commissioning loop is disabled by default because it consumed
-// most of the Vercel time budget before the ten-market scan could start. It can still
-// be re-enabled explicitly for diagnostics.
+// MOOX_LIVE_ACTIVE_EXECUTION_V641
+// The ten-market live engine remains behind the existing real-money authorization gates:
+// BITGET_TRADING_MODE, BITGET_LIVE_EXECUTION_ALLOWED and BITGET_LIVE_CONFIRMATION.
+// This extra switch is only an emergency kill switch and defaults to enabled once those
+// explicit real-money gates have already been accepted.
 const LIVE_COMMISSIONING_ENABLED =
   process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
-const LIVE_DAILY_MINIMUM_ENABLED =
+const LIVE_ACTIVE_EXECUTION_ENABLED =
+  process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+const LIVE_ACTIVITY_ENABLED =
+  LIVE_ACTIVE_EXECUTION_ENABLED &&
   process.env.BITGET_LIVE_DAILY_MINIMUM_TRADE_ENABLED?.toLowerCase() !== "false";
-const LIVE_DAILY_MINIMUM_START_HOUR_BJ = envNumber(
-  "BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 9, 0, 23
+const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
+  "MOOX_LIVE_ACTIVITY_TARGET_V641", 2, 0, 4
+));
+const LIVE_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
+  "MOOX_LIVE_ACTIVITY_START_HOUR_BJ_V641",
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 9, 0, 23),
+  0,
+  23
+));
+const LIVE_ACTIVITY_MIN_CONFIDENCE = envNumber(
+  "MOOX_LIVE_ACTIVITY_MIN_CONFIDENCE_V641",
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_MIN_CONFIDENCE", 40, 38, 70),
+  38,
+  70
 );
-const LIVE_DAILY_MINIMUM_MIN_CONFIDENCE = envNumber(
-  "BITGET_LIVE_DAILY_MINIMUM_MIN_CONFIDENCE", 42, 40, 70
+const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
+  "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.1, 0.05, 0.15),
+  0.05,
+  0.15
 );
-const LIVE_DAILY_MINIMUM_RISK_PCT = envNumber(
-  "BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.1, 0.05, 0.15
-);
+const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
+  "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
+));
 
 // MOOX_ACTIVE_EXECUTION_V64
-// Demo execution becomes active when the primary Demo switch is enabled. A separate
-// explicit "false" can still stop this engine immediately. Live-experiment rules are untouched.
+// Demo execution remains separately controllable and cannot affect live credentials.
 const DEMO_ACTIVE_EXECUTION_ENABLED =
   process.env.MOOX_DEMO_ACTIVE_EXECUTION_V64?.toLowerCase() !== "false";
 const DEMO_ACTIVITY_TARGET = Math.floor(envNumber(
@@ -1077,24 +1095,24 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
           symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb,
           scan_interval_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 5
-            WHEN strategy_type='SWING' THEN 30
-            ELSE 240 END,
+            WHEN strategy_type='SWING' THEN 15
+            ELSE 60 END,
           risk_per_trade_pct = CASE
-            WHEN strategy_type='INTRADAY' THEN 0.25
-            WHEN strategy_type='SWING' THEN 0.35
-            ELSE 0.25 END,
+            WHEN strategy_type='INTRADAY' THEN 0.18
+            WHEN strategy_type='SWING' THEN 0.25
+            ELSE 0.20 END,
           max_holding_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 480
             WHEN strategy_type='SWING' THEN 10080
             ELSE 40320 END,
           planning_min_confidence = CASE
-            WHEN strategy_type='INTRADAY' THEN 48
-            WHEN strategy_type='SWING' THEN 50
-            ELSE 52 END,
+            WHEN strategy_type='INTRADAY' THEN 42
+            WHEN strategy_type='SWING' THEN 44
+            ELSE 46 END,
           min_confidence = CASE
-            WHEN strategy_type='INTRADAY' THEN 58
-            WHEN strategy_type='SWING' THEN 60
-            ELSE 62 END,
+            WHEN strategy_type='INTRADAY' THEN 50
+            WHEN strategy_type='SWING' THEN 52
+            ELSE 54 END,
           max_trades_per_day = 10,
           updated_at = NOW()
       `);
@@ -1218,12 +1236,18 @@ export async function getThreeHorizonProfiles(): Promise<ThreeHorizonStrategyPro
     if (environment.mode !== "LIVE_EXPERIMENT") return mapped;
     // Always expose the complete ten-market universe in live mode, even when an old
     // warm server instance still has legacy BTC/ETH profile rows cached.
+    const liveThresholds = mapped.strategyType === "INTRADAY"
+      ? { scanIntervalMinutes: 5, riskPerTradePct: 0.18, planningMinConfidence: 42, minConfidence: 50 }
+      : mapped.strategyType === "SWING"
+        ? { scanIntervalMinutes: 15, riskPerTradePct: 0.25, planningMinConfidence: 44, minConfidence: 52 }
+        : { scanIntervalMinutes: 60, riskPerTradePct: 0.20, planningMinConfidence: 46, minConfidence: 54 };
     return {
       ...mapped,
+      ...liveThresholds,
       enabled: true,
       mode: "LIVE" as const,
       symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
-      maxTradesPerDay: 10,
+      maxTradesPerDay: environment.liveMaxTradesPerDay,
     };
   });
 }
@@ -2342,7 +2366,7 @@ async function executeReadyDecision(input: {
   const environment = getBitgetDemoEnvironment();
   const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
   const horizonExecutionAllowed = environment.mode === "LIVE_EXPERIMENT"
-    ? environment.executionAllowed
+    ? environment.executionAllowed && LIVE_ACTIVE_EXECUTION_ENABLED
     : environment.executionAllowed && DEMO_ACTIVE_EXECUTION_ENABLED && legacyHorizonToggle !== "false";
   const mirror = await getBitgetMirrorSettings();
   const reliabilityGate = await getTradingReliabilityOpeningGate();
@@ -2726,21 +2750,23 @@ export async function runThreeHorizonStrategyEngine(
           rejectionCode = "DAILY_TRADE_LIMIT";
           rejectionReason = `${profile.label}今日已达到${profile.maxTradesPerDay}笔开仓上限。`;
         }
-        if (
-          evaluation.ready &&
-          environment.mode === "DEMO" &&
-          executedToday >= DEMO_GLOBAL_TRADE_CAP
-        ) {
+        const globalTradeCap = environment.mode === "LIVE_EXPERIMENT"
+          ? environment.liveMaxTradesPerDay
+          : DEMO_GLOBAL_TRADE_CAP;
+        const symbolTradeCap = environment.mode === "LIVE_EXPERIMENT"
+          ? LIVE_SYMBOL_TRADE_CAP
+          : DEMO_SYMBOL_TRADE_CAP;
+        if (evaluation.ready && executedToday >= globalTradeCap) {
           status = "BLOCKED";
           rejectionCode = "GLOBAL_DAILY_TRADE_CAP";
-          rejectionReason = `Demo今日已达到${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限；活动目标不是无限交易。`;
+          rejectionReason = `${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}今日已达到${globalTradeCap}笔全局硬上限；活动目标不是无限交易。`;
         }
-        if (evaluation.ready && environment.mode === "DEMO" && status === "READY") {
+        if (evaluation.ready && status === "READY") {
           const symbolTradesToday = await symbolExecutedOrderCountToday(symbol, now);
-          if (symbolTradesToday >= DEMO_SYMBOL_TRADE_CAP) {
+          if (symbolTradesToday >= symbolTradeCap) {
             status = "BLOCKED";
             rejectionCode = "SYMBOL_DAILY_TRADE_CAP";
-            rejectionReason = `${symbol}今日已完成${symbolTradesToday}笔，达到单品种${DEMO_SYMBOL_TRADE_CAP}笔硬上限。`;
+            rejectionReason = `${symbol}今日已完成${symbolTradesToday}笔，达到单品种${symbolTradeCap}笔硬上限。`;
           }
         }
         let decision = await insertDecision({
@@ -2833,122 +2859,136 @@ export async function runThreeHorizonStrategyEngine(
   let dailyMinimumMessage = "";
   if (
     liveExperimentMode &&
-    LIVE_DAILY_MINIMUM_ENABLED &&
-    orderSuccess === 0 &&
-    beijingHour(now) >= LIVE_DAILY_MINIMUM_START_HOUR_BJ &&
+    LIVE_ACTIVITY_ENABLED &&
+    LIVE_ACTIVITY_TARGET > 0 &&
+    beijingHour(now) >= LIVE_ACTIVITY_START_HOUR_BJ &&
     !risk.blocked &&
-    (await executedOrderCountToday(now)) === 0
+    executedToday < Math.min(LIVE_ACTIVITY_TARGET, environment.liveMaxTradesPerDay)
   ) {
-    const candidate = decisions
+    const needed = Math.min(
+      LIVE_ACTIVITY_TARGET - executedToday,
+      environment.liveMaxTradesPerDay - executedToday
+    );
+    const candidates = decisions
       .filter((decision) =>
         decision.strategyType === "INTRADAY" &&
         decision.mode === "LIVE" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
-        decision.confidence >= LIVE_DAILY_MINIMUM_MIN_CONFIDENCE &&
+        decision.confidence >= LIVE_ACTIVITY_MIN_CONFIDENCE &&
+        decision.technicalScore >= 30 &&
         decision.conditionsTotal > 0 &&
-        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.4)) &&
+        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.33)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
-        decisionRewardRisk(decision) >= 1.2 &&
+        decisionRewardRisk(decision) >= 1.05 &&
         !reservedSymbols.has(decision.symbol) &&
         !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
         !protections.some((row) => row.symbol === decision.symbol) &&
-        !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING"].includes(decision.rejectionCode)
+        !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"].includes(decision.rejectionCode)
       )
-      .sort((a, b) => dailyMinimumCandidateScore(b) - dailyMinimumCandidateScore(a))[0];
+      .sort((a, b) => dailyMinimumCandidateScore(b) - dailyMinimumCandidateScore(a));
 
-    if (candidate) {
+    const messages: string[] = [];
+    let promotedCount = 0;
+    for (const candidate of candidates) {
+      if (
+        promotedCount >= needed ||
+        executedToday >= environment.liveMaxTradesPerDay
+      ) break;
+      if (await symbolExecutedOrderCountToday(candidate.symbol, now) >= LIVE_SYMBOL_TRADE_CAP) continue;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
-      if (baseProfile) {
-        const fallbackProfile: ThreeHorizonStrategyProfile = {
-          ...baseProfile,
-          enabled: true,
-          mode: "LIVE",
-          symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
-          riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_DAILY_MINIMUM_RISK_PCT),
-          planningMinConfidence: 40,
-          minConfidence: Math.min(baseProfile.minConfidence, LIVE_DAILY_MINIMUM_MIN_CONFIDENCE),
-          maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 90),
-          maxTradesPerDay: 10,
-        };
-        const evaluation: EvaluationResult = {
-          direction: candidate.direction,
-          confidence: candidate.confidence,
-          technicalScore: candidate.technicalScore,
-          forecastScore: candidate.forecastScore,
-          conditions: candidate.conditions,
-          currentPrice: candidate.currentPrice,
-          entryPrice: candidate.entryPrice,
-          stopLoss: candidate.stopLoss,
-          target1: candidate.target1,
-          target2: candidate.target2,
-          ready: true,
-          rejectionCode: "DAILY_MINIMUM_EXECUTION",
-          rejectionReason: `今日尚无成交，系统选择十品种短线候选中综合得分最高的${candidate.symbol}，以${LIVE_DAILY_MINIMUM_RISK_PCT}%小风险执行最低交易目标。`,
-          executionTier: "PROBE",
-          riskScale: 1,
-          directionStrength: candidate.direction === "LONG" ? candidate.confidence : -candidate.confidence,
-          raw: {
-            dailyMinimumExecution: true,
-            candidateScore: dailyMinimumCandidateScore(candidate),
-            originalRejectionCode: candidate.rejectionCode,
-            originalRejectionReason: candidate.rejectionReason,
-          },
-        };
-        let promoted = await updateDecision(candidate.id, {
-          status: "READY",
-          rejectionCode: "DAILY_MINIMUM_EXECUTION",
-          rejectionReason: evaluation.rejectionReason,
+      if (!baseProfile) continue;
+      const activityProfile: ThreeHorizonStrategyProfile = {
+        ...baseProfile,
+        enabled: true,
+        mode: "LIVE",
+        symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+        riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_ACTIVITY_PROBE_RISK_PCT),
+        planningMinConfidence: 38,
+        minConfidence: Math.max(40, Math.min(candidate.confidence, 46)),
+        maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 180),
+        maxTradesPerDay: environment.liveMaxTradesPerDay,
+      };
+      const evaluation: EvaluationResult = {
+        direction: candidate.direction,
+        confidence: candidate.confidence,
+        technicalScore: candidate.technicalScore,
+        forecastScore: candidate.forecastScore,
+        conditions: candidate.conditions,
+        currentPrice: candidate.currentPrice,
+        entryPrice: candidate.entryPrice,
+        stopLoss: candidate.stopLoss,
+        target1: candidate.target1,
+        target2: candidate.target2,
+        ready: true,
+        rejectionCode: "DAILY_MINIMUM_EXECUTION",
+        rejectionReason: `今日实盘成交低于${LIVE_ACTIVITY_TARGET}笔活动目标，从十品种中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
+        executionTier: "PROBE",
+        riskScale: 1,
+        directionStrength: candidate.direction === "LONG" ? candidate.confidence : -candidate.confidence,
+        raw: {
+          liveActivityProbe: true,
+          candidateScore: dailyMinimumCandidateScore(candidate),
+          originalRejectionCode: candidate.rejectionCode,
+          originalRejectionReason: candidate.rejectionReason,
+        },
+      };
+      let promoted = await updateDecision(candidate.id, {
+        status: "READY",
+        rejectionCode: "DAILY_MINIMUM_EXECUTION",
+        rejectionReason: evaluation.rejectionReason,
+      });
+      const planGate = await prepareAiTradePlanBeforeExecution({
+        decision: promoted,
+        profile: activityProfile,
+        now,
+      }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
+        plan: null,
+        allowed: false,
+        code: "PLAN_PUBLISH_ERROR",
+        reason: error instanceof Error ? error.message : "实盘活动计划发布失败",
+      }));
+      if (!planGate.allowed) {
+        promoted = await updateDecision(promoted.id, {
+          status: "BLOCKED",
+          rejectionCode: planGate.code,
+          rejectionReason: planGate.reason,
         });
-        const planGate = await prepareAiTradePlanBeforeExecution({
+        messages.push(`${candidate.symbol}等待计划闸门：${planGate.reason}`);
+      } else {
+        const executed = await executeReadyDecision({
           decision: promoted,
-          profile: fallbackProfile,
+          profile: activityProfile,
+          evaluation,
+          risk,
+          positions,
+          protections,
           now,
-        }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
-          plan: null,
-          allowed: false,
-          code: "PLAN_PUBLISH_ERROR",
-          reason: error instanceof Error ? error.message : "每日最低执行计划发布失败",
-        }));
-        if (!planGate.allowed) {
-          promoted = await updateDecision(promoted.id, {
-            status: "BLOCKED",
-            rejectionCode: planGate.code,
-            rejectionReason: planGate.reason,
-          });
-          dailyMinimumMessage = `每日最低执行候选${candidate.symbol}被计划闸门拦截：${planGate.reason}`;
+          reservedSymbols,
+          reservedRiskPct,
+        });
+        promoted = executed.decision;
+        if (executed.attempted) orderAttempts += 1;
+        if (executed.success) {
+          orderSuccess += 1;
+          executedToday += 1;
+          promotedCount += 1;
+          reservedSymbols.add(candidate.symbol);
+          reservedRiskPct += executed.riskReservedPct;
+          messages.push(`${candidate.symbol}${candidate.direction === "LONG" ? "做多" : "做空"}实盘探路仓已提交，风险${round(executed.riskReservedPct, 3)}%`);
+        } else if (executed.error) {
+          orderErrors += 1;
+          messages.push(`${candidate.symbol}实盘下单失败：${promoted.rejectionReason}`);
         } else {
-          const executed = await executeReadyDecision({
-            decision: promoted,
-            profile: fallbackProfile,
-            evaluation,
-            risk,
-            positions,
-            protections,
-            now,
-            reservedSymbols,
-            reservedRiskPct,
-          });
-          promoted = executed.decision;
-          if (executed.attempted) orderAttempts += 1;
-          if (executed.success) {
-            orderSuccess += 1;
-            reservedSymbols.add(candidate.symbol);
-            reservedRiskPct += executed.riskReservedPct;
-            dailyMinimumMessage = `每日最低执行已提交：${candidate.symbol}${candidate.direction === "LONG" ? "做多" : "做空"}，风险预算${fallbackProfile.riskPerTradePct}%，最长持有${fallbackProfile.maxHoldingMinutes}分钟`;
-          } else if (executed.error) {
-            orderErrors += 1;
-            dailyMinimumMessage = `每日最低执行候选${candidate.symbol}下单失败：${promoted.rejectionReason}`;
-          } else {
-            dailyMinimumMessage = `每日最低执行候选${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`;
-          }
+          messages.push(`${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`);
         }
-        await syncAiTradePlanFromDecision(promoted, now).catch(() => undefined);
-        const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
-        if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
       }
-    } else {
-      dailyMinimumMessage = "今日尚无成交，但十品种短线候选均未达到最低方向、结构、盈亏比或安全条件；系统保留0笔，不伪造交易";
+      await syncAiTradePlanFromDecision(promoted, now).catch(() => undefined);
+      const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
+      if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
     }
+    dailyMinimumMessage = messages.length
+      ? `实盘每日活动目标${executedToday}/${LIVE_ACTIVITY_TARGET}：${messages.join("；")}`
+      : `实盘每日活动目标${executedToday}/${LIVE_ACTIVITY_TARGET}：本轮没有通过最小方向、宽止损和安全闸门的候选。`;
   }
   let demoActivityMessage = "";
   if (
@@ -3119,7 +3159,7 @@ export async function getThreeHorizonStrategyDashboard(
   const environment = getBitgetDemoEnvironment();
   const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
   const executionEnvironmentAllowed = environment.mode === "LIVE_EXPERIMENT"
-    ? environment.executionAllowed
+    ? environment.executionAllowed && LIVE_ACTIVE_EXECUTION_ENABLED
     : environment.executionAllowed && DEMO_ACTIVE_EXECUTION_ENABLED && legacyHorizonToggle !== "false";
   return {
     databaseReady,
@@ -3127,8 +3167,8 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? "1000 USDT实盘实验已开启；BTC/ETH小额闭环验收与10品种短线、波段、中长期策略并行运行，最高2倍逐仓及组合风控限制生效。"
-        : "实盘实验默认关闭；必须完成API安全检查并明确确认真实亏损风险后才会下单。"
+        ? `实盘主动执行已开启：10品种三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔活动目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
+        : "实盘主动执行未获授权：请检查BITGET_TRADING_MODE、BITGET_LIVE_EXECUTION_ALLOWED、BITGET_LIVE_CONFIRMATION及MOOX_LIVE_ACTIVE_EXECUTION_V641。"
       : executionEnvironmentAllowed
         ? `主动Demo执行已开启：全十品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
         : "主动Demo执行当前关闭。请确认BITGET_DEMO_EXECUTION_ALLOWED=true；MOOX_DEMO_ACTIVE_EXECUTION_V64或旧兼容开关若显式设为false，也会立即停止新开仓。",

@@ -21,7 +21,7 @@ export type AiTradePlanStatus =
   | "SUPERSEDED"
   | "EXECUTION_ERROR";
 
-export type AiTradePlanExecutionMode = "SHADOW" | "BITGET_DEMO";
+export type AiTradePlanExecutionMode = "SHADOW" | "BITGET_DEMO" | "BITGET_LIVE";
 
 export type AiTradeMarketQuote = {
   symbol: string;

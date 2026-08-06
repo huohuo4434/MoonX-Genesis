@@ -35,6 +35,9 @@ const RECOVERY_HEALTHY_RUNS = 3;
 const AUTO_REPAIR_AFTER_OCCURRENCES = 2;
 
 interface ReliabilityStateRow {
+  api_mode: "UTA_V3_DEMO" | "UTA_V3_LIVE";
+  paptrading_required: boolean;
+  real_trading_locked: boolean;
   mode: TradingReliabilityMode;
   admin_override: "MANAGE_ONLY" | "PAUSED" | null;
   mode_reason: string;
@@ -183,8 +186,24 @@ function modeAllowsOpening(mode: TradingReliabilityMode): boolean {
 }
 
 function modeAllowsManagement(_mode: TradingReliabilityMode): boolean {
-  // 即使管理员暂停，新开仓会被阻止，但已有Demo仓位仍必须继续被管理和对账。
+  // 即使管理员暂停，新开仓会被阻止，但已有仓位仍必须继续被管理和对账。
   return true;
+}
+
+function reliabilityApiConfig(): {
+  apiMode: "UTA_V3_DEMO" | "UTA_V3_LIVE";
+  paptradingRequired: boolean;
+  realTradingLocked: boolean;
+  environmentLabel: string;
+} {
+  const environment = getBitgetDemoEnvironment();
+  const live = environment.mode === "LIVE_EXPERIMENT";
+  return {
+    apiMode: live ? "UTA_V3_LIVE" : "UTA_V3_DEMO",
+    paptradingRequired: !live,
+    realTradingLocked: !live,
+    environmentLabel: live ? "Bitget UTA V3实盘" : "Bitget UTA V3 Demo",
+  };
 }
 
 let ensured = false;
@@ -192,6 +211,7 @@ export async function ensureTradingReliabilityTables(): Promise<boolean> {
   if (!prisma) return false;
   if (ensured) return true;
   try {
+    const apiConfig = reliabilityApiConfig();
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_reliability_state (
         id TEXT PRIMARY KEY,
@@ -214,21 +234,33 @@ export async function ensureTradingReliabilityTables(): Promise<boolean> {
         unknown_protection_orders INTEGER NOT NULL DEFAULT 0,
         last_report JSONB,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        CONSTRAINT trade_reliability_api_mode_check CHECK (api_mode = 'UTA_V3_DEMO'),
-        CONSTRAINT trade_reliability_paper_check CHECK (paptrading_required = TRUE),
-        CONSTRAINT trade_reliability_real_lock_check CHECK (real_trading_locked = TRUE),
+        CONSTRAINT trade_reliability_api_mode_check CHECK (api_mode IN ('UTA_V3_DEMO','UTA_V3_LIVE')),
+        CONSTRAINT trade_reliability_paper_check CHECK (
+          (api_mode='UTA_V3_DEMO' AND paptrading_required=TRUE) OR
+          (api_mode='UTA_V3_LIVE' AND paptrading_required=FALSE)
+        ),
+        CONSTRAINT trade_reliability_real_lock_check CHECK (
+          (api_mode='UTA_V3_DEMO' AND real_trading_locked=TRUE) OR
+          (api_mode='UTA_V3_LIVE' AND real_trading_locked=FALSE)
+        ),
         CONSTRAINT trade_reliability_mode_check CHECK (mode IN ('RUNNING','OPENING_DISABLED','MANAGE_ONLY','EMERGENCY_CLOSE_ONLY','PAUSED','RECOVERING')),
         CONSTRAINT trade_reliability_admin_override_check CHECK (admin_override IS NULL OR admin_override IN ('MANAGE_ONLY','PAUSED'))
       )
     `);
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO trade_reliability_state (
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO trade_reliability_state (
         id, api_mode, paptrading_required, real_trading_locked, mode, mode_reason
       ) VALUES (
-        'default','UTA_V3_DEMO',TRUE,TRUE,'RECOVERING','等待Phase 4首次健康检查'
+        'default',$1,$2,$3,'RECOVERING','等待可靠性健康检查'
       ) ON CONFLICT (id) DO UPDATE SET
-        api_mode='UTA_V3_DEMO',paptrading_required=TRUE,real_trading_locked=TRUE,updated_at=NOW()
-    `);
+        api_mode=EXCLUDED.api_mode,
+        paptrading_required=EXCLUDED.paptrading_required,
+        real_trading_locked=EXCLUDED.real_trading_locked,
+        updated_at=NOW()`,
+      apiConfig.apiMode,
+      apiConfig.paptradingRequired,
+      apiConfig.realTradingLocked
+    );
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_execution_outbox (
         id TEXT PRIMARY KEY,idempotency_key TEXT NOT NULL UNIQUE,decision_id TEXT,
@@ -361,7 +393,7 @@ async function sendIncidentAlerts(
       to: paymentNotifyTo(),
       subject: `[MOOX ${item.severity}] ${item.code}`,
       text: [
-        "MOOX Bitget Demo Phase 4可靠性报警",
+        `${reliabilityApiConfig().environmentLabel} Phase 4可靠性报警`,
         "",
         `级别：${item.severity}`,
         `代码：${item.code}`,
@@ -369,7 +401,7 @@ async function sendIncidentAlerts(
         `决策：${item.decisionId ?? "—"}`,
         `说明：${item.message}`,
         "",
-        "系统已阻止不安全的新开仓，并继续管理已有Demo仓位。",
+        "系统已阻止不安全的新开仓，并继续管理已有仓位。",
         "系统不会自动全部平仓。",
       ].join("\n"),
     });
@@ -424,7 +456,7 @@ function chooseMode(input: {
       reason: `异常恢复后需连续健康检查${RECOVERY_HEALTHY_RUNS}轮；当前${input.nextHealthyRuns}轮。`,
     };
   }
-  return { mode: "RUNNING", reason: "连续健康检查通过，允许按既有Demo策略规则开仓。" };
+  return { mode: "RUNNING", reason: `连续健康检查通过，允许按${reliabilityApiConfig().environmentLabel}策略规则开仓。` };
 }
 
 async function repairMissingProtections(input: {
@@ -436,7 +468,9 @@ async function repairMissingProtections(input: {
   const repairs: string[] = [];
   const environment = getBitgetDemoEnvironment();
   const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
-  const horizonAllowed = legacyHorizonToggle !== "false";
+  const horizonAllowed = environment.mode === "LIVE_EXPERIMENT"
+    ? process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false"
+    : legacyHorizonToggle !== "false";
   if (!environment.executionAllowed || !horizonAllowed || !prisma) return repairs;
 
   for (const issue of input.issues) {
@@ -471,7 +505,7 @@ async function repairMissingProtections(input: {
         decision.id,
         result.orderId
       );
-      repairs.push(`${decision.symbol}已补挂Demo保护单${result.orderId}`);
+      repairs.push(`${decision.symbol}已补挂${reliabilityApiConfig().environmentLabel}保护单${result.orderId}`);
     } catch (error) {
       repairs.push(`${decision.symbol}补挂保护单失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
@@ -490,6 +524,7 @@ export async function runTradingReliabilityWatchdog(input: {
   source: "CRON" | "ADMIN";
 }): Promise<TradingReliabilityWatchdogReport> {
   const startedAt = new Date();
+  const apiConfig = reliabilityApiConfig();
   const databaseReady = await ensureTradingReliabilityTables();
   if (!databaseReady || !prisma) {
     return {
@@ -630,7 +665,7 @@ export async function runTradingReliabilityWatchdog(input: {
       code: "BITGET_RECONCILIATION_FAILED",
       symbol: null,
       decisionId: null,
-      message: error instanceof Error ? error.message : "Bitget Demo账户对账失败。",
+      message: error instanceof Error ? error.message : `${reliabilityApiConfig().environmentLabel}账户对账失败。`,
     });
   }
 
@@ -643,7 +678,7 @@ export async function runTradingReliabilityWatchdog(input: {
         code: "ORPHAN_EXCHANGE_POSITION",
         symbol: position.symbol,
         decisionId: null,
-        message: `Bitget Demo存在${position.posSide}仓位，但网站没有对应活动决策。系统不会自动全部平仓。`,
+        message: `${reliabilityApiConfig().environmentLabel}存在${position.posSide}仓位，但网站没有对应活动决策。系统不会自动全部平仓。`,
       });
       continue;
     }
@@ -653,7 +688,7 @@ export async function runTradingReliabilityWatchdog(input: {
         code: "UNPROTECTED_POSITION",
         symbol: position.symbol,
         decisionId: decision.id,
-        message: `活动仓位缺少交易所侧止损/止盈保护单；连续出现${AUTO_REPAIR_AFTER_OCCURRENCES}次后才尝试Demo补挂。`,
+        message: `活动仓位缺少交易所侧止损/止盈保护单；连续出现${AUTO_REPAIR_AFTER_OCCURRENCES}次后才尝试自动补挂。`,
       });
     }
   }
@@ -665,7 +700,7 @@ export async function runTradingReliabilityWatchdog(input: {
         code: "UNKNOWN_PROTECTION_ORDER",
         symbol: protection.symbol,
         decisionId: null,
-        message: `Bitget Demo存在未能匹配活动决策的保护单${protection.orderId}。`,
+        message: `${reliabilityApiConfig().environmentLabel}存在未能匹配活动决策的保护单${protection.orderId}。`,
       });
     }
   }
@@ -718,15 +753,18 @@ export async function runTradingReliabilityWatchdog(input: {
 
   await prisma.$executeRawUnsafe(
     `UPDATE trade_reliability_state SET
-       api_mode='UTA_V3_DEMO',paptrading_required=TRUE,real_trading_locked=TRUE,
-       mode=$1,mode_reason=$2,server_time_offset_ms=$3,
-       last_server_time_sync_at=$4::timestamptz,last_watchdog_at=$5::timestamptz,
-       last_healthy_at=CASE WHEN $6 THEN $5::timestamptz ELSE last_healthy_at END,
-       consecutive_healthy_runs=$7,consecutive_failures=$8,
-       heartbeat_age_seconds=$9,market_age_seconds=$10,
-       unprotected_positions=$11,orphan_positions=$12,unknown_protection_orders=$13,
-       last_report=$14::jsonb,updated_at=NOW()
+       api_mode=$1,paptrading_required=$2,real_trading_locked=$3,
+       mode=$4,mode_reason=$5,server_time_offset_ms=$6,
+       last_server_time_sync_at=$7::timestamptz,last_watchdog_at=$8::timestamptz,
+       last_healthy_at=CASE WHEN $9 THEN $8::timestamptz ELSE last_healthy_at END,
+       consecutive_healthy_runs=$10,consecutive_failures=$11,
+       heartbeat_age_seconds=$12,market_age_seconds=$13,
+       unprotected_positions=$14,orphan_positions=$15,unknown_protection_orders=$16,
+       last_report=$17::jsonb,updated_at=NOW()
      WHERE id='default'`,
+    apiConfig.apiMode,
+    apiConfig.paptradingRequired,
+    apiConfig.realTradingLocked,
     selection.mode,
     selection.reason,
     clockOffset,
@@ -786,29 +824,37 @@ export async function setTradingReliabilityAdminMode(
   mode: "MANAGE_ONLY" | "PAUSED"
 ): Promise<void> {
   if (!(await ensureTradingReliabilityTables()) || !prisma) throw new Error("Phase 4数据库不可用");
+  const apiConfig = reliabilityApiConfig();
   const reason = mode === "PAUSED"
     ? "管理员已暂停新开仓；已有仓位仍继续管理。"
     : "管理员指定只管理已有仓位。";
   await prisma.$executeRawUnsafe(
     `UPDATE trade_reliability_state SET
        admin_override=$1,mode=$1,mode_reason=$2,consecutive_healthy_runs=0,
-       api_mode='UTA_V3_DEMO',paptrading_required=TRUE,real_trading_locked=TRUE,updated_at=NOW()
+       api_mode=$3,paptrading_required=$4,real_trading_locked=$5,updated_at=NOW()
      WHERE id='default'`,
     mode,
-    reason
+    reason,
+    apiConfig.apiMode,
+    apiConfig.paptradingRequired,
+    apiConfig.realTradingLocked
   );
 }
 
 export async function clearTradingReliabilityAdminOverride(): Promise<void> {
   if (!(await ensureTradingReliabilityTables()) || !prisma) throw new Error("Phase 4数据库不可用");
-  await prisma.$executeRawUnsafe(`
-    UPDATE trade_reliability_state SET
+  const apiConfig = reliabilityApiConfig();
+  await prisma.$executeRawUnsafe(
+    `UPDATE trade_reliability_state SET
       admin_override=NULL,mode='RECOVERING',
       mode_reason='管理员已申请恢复；需连续健康检查后才允许新开仓。',
-      consecutive_healthy_runs=0,api_mode='UTA_V3_DEMO',paptrading_required=TRUE,
-      real_trading_locked=TRUE,updated_at=NOW()
-    WHERE id='default'
-  `);
+      consecutive_healthy_runs=0,api_mode=$1,paptrading_required=$2,
+      real_trading_locked=$3,updated_at=NOW()
+    WHERE id='default'`,
+    apiConfig.apiMode,
+    apiConfig.paptradingRequired,
+    apiConfig.realTradingLocked
+  );
 }
 
 export async function retryFailedTradeOutbox(): Promise<{ reset: number; processed: number }> {
@@ -860,15 +906,16 @@ function mapIncident(row: IncidentRow): TradingReliabilityIncident {
 }
 
 export async function getTradingReliabilityDashboard(): Promise<TradingReliabilityDashboard> {
+  const apiConfig = reliabilityApiConfig();
   const databaseReady = await ensureTradingReliabilityTables();
   const now = new Date();
   const fallback: TradingReliabilityDashboard = {
     databaseReady: false,
     generatedAt: now.toISOString(),
     phase: "TRADE_RELIABILITY_PHASE4",
-    realTradingLocked: true,
-    apiMode: "UTA_V3_DEMO",
-    paptradingRequired: true,
+    realTradingLocked: apiConfig.realTradingLocked,
+    apiMode: apiConfig.apiMode,
+    paptradingRequired: apiConfig.paptradingRequired,
     mode: "PAUSED",
     modeLabel: "数据库不可用",
     modeReason: "Phase 4数据库表尚未建立或连接不可用。",
@@ -937,9 +984,9 @@ export async function getTradingReliabilityDashboard(): Promise<TradingReliabili
     databaseReady: true,
     generatedAt: now.toISOString(),
     phase: "TRADE_RELIABILITY_PHASE4",
-    realTradingLocked: true,
-    apiMode: "UTA_V3_DEMO",
-    paptradingRequired: true,
+    realTradingLocked: Boolean(state.real_trading_locked),
+    apiMode: state.api_mode,
+    paptradingRequired: Boolean(state.paptrading_required),
     mode: state.mode,
     modeLabel: modeLabel(state.mode),
     modeReason: state.mode_reason,

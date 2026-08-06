@@ -336,6 +336,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   const isStaticPeriodAsset = [
     "cxmt",
     "asteroid",
+    "sandisk",
     "mu",
     "hype",
     "eth",
@@ -345,6 +346,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     "kingsoft-office",
   ].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
+  const isSandisk = a.slug === "sandisk";
   const tabs = payload.periodSlots;
   const visibleTypes = new Set(tabs.map((item) => item.type));
   const archivePeriods = payload.forecast?.periods?.filter((item) => !visibleTypes.has(item.type)) ?? [];
@@ -486,7 +488,9 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             <p className="mt-2 text-body-sm text-white/55">
               {isAsteroid
                 ? "本周逐日、下周逐日、月度分析、双框架六爻依据与关键窗口仅对有效会员开放。"
-                : "本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。"}
+                : isSandisk
+                  ? "8月7日至31日逐日路径、3个月、1年、5年双框架六爻研究仅对有效会员开放。"
+                  : "本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。"}
             </p>
             <ul className="mt-4 space-y-2 text-body-sm text-white/60">
               {payload.locks.map((lock) => (

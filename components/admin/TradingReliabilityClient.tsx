@@ -58,12 +58,14 @@ export function TradingReliabilityClient({ initial }: { initial: TradingReliabil
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Text variant="body" weight="semibold">Phase 4 交易可靠性与故障恢复</Text>
-            <Badge variant="danger">真钱永久锁定</Badge>
-            <Badge variant="info">UTA V3 Demo</Badge>
+            <Badge variant={dashboard.realTradingLocked ? "warning" : "danger"}>
+              {dashboard.realTradingLocked ? "Demo隔离" : "真实资金"}
+            </Badge>
+            <Badge variant="info">{dashboard.apiMode === "UTA_V3_LIVE" ? "UTA V3 Live" : "UTA V3 Demo"}</Badge>
             <Badge variant={modeVariant(dashboard.mode)}>{dashboard.modeLabel}</Badge>
           </div>
           <Text variant="caption" color="tertiary" className="mt-2 block max-w-4xl">
-            {dashboard.modeReason}。暂停只阻止新开仓，系统仍继续管理已有Demo仓位、保护单和订单对账。
+            {dashboard.modeReason}。暂停只阻止新开仓，系统仍继续管理已有仓位、保护单和订单对账。
           </Text>
         </div>
         <Button size="sm" variant="outline" isLoading={loading} onClick={() => void post({ action: "refresh" })}>
@@ -120,7 +122,7 @@ export function TradingReliabilityClient({ initial }: { initial: TradingReliabil
             <div>未知保护单：{dashboard.unknownProtectionOrders}</div>
           </div>
           <Text variant="caption" color="tertiary">
-            无保护仓位连续两轮出现后才尝试补挂Demo保护单；孤儿仓位只报警，不自动全部平仓。
+            无保护仓位连续两轮出现后才尝试补挂交易所保护单；孤儿仓位只报警，不自动全部平仓。
           </Text>
         </div>
         <div className="space-y-2 rounded-xl border border-white/10 p-4">

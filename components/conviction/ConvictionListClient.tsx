@@ -20,6 +20,7 @@ const WATCHLIST_ACCENTS: Record<string, { border: string; background: string; sh
   cxmt: { border: "rgba(245, 196, 81, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(245,196,81,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(245,196,81,.04)", line: "#f5c451" },
   asteroid: { border: "rgba(251, 113, 133, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(251,113,133,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(251,113,133,.04)", line: "#fb7185" },
   mu: { border: "rgba(88, 214, 255, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(88,214,255,.09), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(88,214,255,.05)", line: "#58d6ff" },
+  sandisk: { border: "rgba(251, 191, 36, 0.24)", background: "radial-gradient(circle at 88% 4%, rgba(251,191,36,.10), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(251,191,36,.05)", line: "#fbbf24" },
   googl: { border: "rgba(66, 214, 164, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(66,214,164,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(66,214,164,.04)", line: "#42d6a4" },
   msft: { border: "rgba(96, 165, 250, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(96,165,250,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(96,165,250,.04)", line: "#60a5fa" },
   hype: { border: "rgba(167, 139, 250, 0.22)", background: "radial-gradient(circle at 88% 4%, rgba(167,139,250,.08), transparent 34%), #0c0e12", shadow: "0 18px 55px rgba(167,139,250,.04)", line: "#a78bfa" },
@@ -99,9 +100,13 @@ function PublicAssetCard({
     ? en
       ? ["Daily path", "This week", "Next week", "Monthly analysis", "Two-framework Liu Yao", "Timing windows"]
       : ["逐日路径", "本周分析", "下周分析", "月度分析", "双框架六爻", "关键时间窗口"]
-    : en
-      ? ["Weekly analysis", "Monthly analysis", "Liu Yao basis", "Cross-method view when available", "Long-term research archive", "Public verification"]
-      : ["本周分析", "月度分析", "六爻依据", "多方法观点（有来源时）", "总趋势资料库", "历史验证（新基准后）"];
+    : card.slug === "sandisk"
+      ? en
+        ? ["Daily path through Aug 31", "Three staged windows", "August structure", "3-month view", "1-year view", "5-year cycle"]
+        : ["8月末前逐日路径", "三阶段窗口", "8月整体", "3个月", "1年", "5年周期"]
+      : en
+        ? ["Weekly analysis", "Monthly analysis", "Liu Yao basis", "Cross-method view when available", "Long-term research archive", "Public verification"]
+        : ["本周分析", "月度分析", "六爻依据", "多方法观点（有来源时）", "总趋势资料库", "历史验证（新基准后）"];
   const expectation = getExpectationSnapshot(card.slug);
   const accent = WATCHLIST_ACCENTS[card.slug] ?? DEFAULT_WATCHLIST_ACCENT;
 

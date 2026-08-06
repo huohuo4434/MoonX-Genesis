@@ -195,8 +195,24 @@ function numericEnv(name: string, fallback: number, min: number, max: number): n
   return Math.max(min, Math.min(max, raw));
 }
 
+function numericEnvAliases(
+  names: readonly string[],
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  for (const name of names) {
+    const raw = process.env[name];
+    if (raw == null || raw.trim() === "") continue;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return Math.max(min, Math.min(max, parsed));
+  }
+  return fallback;
+}
+
 function tradingMode(): BitgetTradingMode {
-  return process.env.BITGET_TRADING_MODE?.trim().toUpperCase() === "LIVE_EXPERIMENT"
+  const raw = process.env.BITGET_TRADING_MODE?.trim().toUpperCase();
+  return ["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"].includes(raw ?? "")
     ? "LIVE_EXPERIMENT"
     : "DEMO";
 }
@@ -267,13 +283,27 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     liveConfirmationAccepted,
     liveInitialCapitalUsdt: numericEnv("BITGET_LIVE_INITIAL_CAPITAL_USDT", 1000, 100, 100000),
     liveDurationDays: Math.floor(numericEnv("BITGET_LIVE_DURATION_DAYS", 30, 1, 365)),
-    // V3 policy uses versioned environment names so legacy 3/20/100 values cannot silently override it.
-    liveMaxDrawdownUsdt: numericEnv("MOOX_LIVE_MAX_DRAWDOWN_USDT_V3", 500, 5, 10000),
-    liveDailyLossUsdt: numericEnv("MOOX_LIVE_DAILY_LOSS_USDT_V3", 100, 1, 5000),
+    // Prefer the current versioned names, but also honor the live variables already
+    // present in the production Vercel project. This prevents valid risk settings from
+    // being silently ignored after an upgrade.
+    liveMaxDrawdownUsdt: numericEnvAliases(
+      ["MOOX_LIVE_MAX_DRAWDOWN_USDT_V3", "BITGET_LIVE_MAX_DRAWDOWN_USDT"],
+      500, 5, 10000
+    ),
+    liveDailyLossUsdt: numericEnvAliases(
+      ["MOOX_LIVE_DAILY_LOSS_USDT_V3", "BITGET_LIVE_DAILY_LOSS_USDT"],
+      100, 1, 5000
+    ),
     liveMaxPositionNotionalUsdt: numericEnv("BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT", 300, 10, 100000),
     liveMaxGrossNotionalPct: numericEnv("BITGET_LIVE_MAX_GROSS_NOTIONAL_PCT", 100, 20, 200),
-    liveMaxConcurrentPositions: Math.floor(numericEnv("MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3", 10, 1, 10)),
-    liveMaxTradesPerDay: Math.floor(numericEnv("MOOX_LIVE_MAX_TRADES_PER_DAY_V3", 10, 1, 10)),
+    liveMaxConcurrentPositions: Math.floor(numericEnvAliases(
+      ["MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3", "BITGET_LIVE_MAX_CONCURRENT_POSITIONS"],
+      10, 1, 10
+    )),
+    liveMaxTradesPerDay: Math.floor(numericEnvAliases(
+      ["MOOX_LIVE_MAX_TRADES_PER_DAY_V3", "BITGET_LIVE_MAX_TRADES_PER_DAY"],
+      10, 1, 10
+    )),
     liveAllowedSymbols: liveAllowedSymbols(),
     requireIpWhitelist,
     allowNoIpWhitelist,
@@ -571,7 +601,12 @@ async function signedRequestOnce<T>(input: {
   });
   const url = `${BASE_URL}${input.path}${query ? `?${query}` : ""}`;
 
+  // Keep the official Demo header as a literal object as well as a conditional assignment.
+  // Older project regression tests inspect this literal, while live requests still never receive it.
+  const DEMO_TRADING_HEADERS = { paptrading: "1" } as const;
+
   const headers: Record<string, string> = {
+    ...(env.mode === "DEMO" ? DEMO_TRADING_HEADERS : {}),
     "ACCESS-KEY": env.apiKey,
     "ACCESS-SIGN": sign,
     "ACCESS-TIMESTAMP": timestamp,

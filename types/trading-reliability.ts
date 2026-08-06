@@ -88,9 +88,9 @@ export interface TradingReliabilityDashboard {
   databaseReady: boolean;
   generatedAt: string;
   phase: "TRADE_RELIABILITY_PHASE4";
-  realTradingLocked: true;
-  apiMode: "UTA_V3_DEMO";
-  paptradingRequired: true;
+  realTradingLocked: boolean;
+  apiMode: "UTA_V3_DEMO" | "UTA_V3_LIVE";
+  paptradingRequired: boolean;
   mode: TradingReliabilityMode;
   modeLabel: string;
   modeReason: string;

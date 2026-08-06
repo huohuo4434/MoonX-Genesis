@@ -70,7 +70,7 @@ type PlanRow = {
   direction: "LONG" | "SHORT" | "NEUTRAL";
   plan_tier: AiTradePlanTier;
   status: AiTradePlanStatus;
-  execution_mode: "SHADOW" | "BITGET_DEMO";
+  execution_mode: "SHADOW" | "BITGET_DEMO" | "BITGET_LIVE";
   thesis_summary: string;
   planning_confidence: number;
   execution_threshold: number;
@@ -520,7 +520,7 @@ async function createPlan(
   const id = `plan_${randomUUID()}`;
   const status = initialStatus(decision);
   const contentHash = hashContent(content);
-  const executionMode = profile.mode === "SHADOW" ? "SHADOW" : "BITGET_DEMO";
+  const executionMode = profile.mode === "SHADOW" ? "SHADOW" : profile.mode === "LIVE" ? "BITGET_LIVE" : "BITGET_DEMO";
   const currentPrice = decision.currentPrice;
   const distance = distancePct(currentPrice, content.entryZoneLow, content.entryZoneHigh);
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
@@ -772,7 +772,7 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
   const rows = await prisma.$queryRawUnsafe<Array<{
     id: string;
     strategy_type: ThreeHorizonStrategyType;
-    mode: "SHADOW" | "DEMO";
+    mode: "SHADOW" | "DEMO" | "LIVE";
     symbol: string;
     status: ThreeHorizonStrategyDecision["status"];
     direction: ThreeHorizonStrategyDecision["direction"];
