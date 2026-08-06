@@ -61,10 +61,6 @@ function aligned(
   return technical !== "NEUTRAL" && external === technical;
 }
 
-function sourceLabel(overlay: ExternalAnalystOverlay): string {
-  return overlay.sourceLabels.join(" / ") || "外部技术分析";
-}
-
 export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   evaluation: T;
   overlay: ExternalAnalystOverlay | null;
@@ -75,26 +71,22 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   if (!overlay || !evaluation.entryPrice || evaluation.direction === "NEUTRAL") return evaluation;
 
   const isAligned = aligned(primaryForecastDirection, evaluation.direction, overlay.direction);
-  const source = sourceLabel(overlay);
   const directionText = overlay.direction === "LONG" ? "偏多" : overlay.direction === "SHORT" ? "偏空" : "条件式/中性";
   const policyText = primaryForecastDirection === "NEUTRAL"
-    ? "当前卦象未给出单边方向，外部观点只能提供点位，不能单独触发交易。"
-    : `六爻主方向为${primaryForecastDirection === "LONG" ? "多" : "空"}；外部观点不得反向改写。`;
+    ? "当前卦象未给出单边方向，辅助线索只能提供点位，不能单独触发交易。"
+    : `六爻主方向为${primaryForecastDirection === "LONG" ? "多" : "空"}；辅助线索不得反向改写。`;
 
   const condition: ThreeHorizonCondition = {
     key: "external_analyst",
-    label: `外部技术点位参考（${source}）`,
+    label: "市场资金线索参考",
     met: isAligned,
-    value: `${source}近期观点${directionText}。${policyText}${overlay.timeWindows.length ? ` 时间窗口：${overlay.timeWindows.join("、")}。` : ""}`,
+    value: `系统近期捕捉到${directionText}资金线索。${policyText}${overlay.timeWindows.length ? ` 时间窗口：${overlay.timeWindows.join("、")}。` : ""}`,
     weight: 0,
   };
 
   const baseRaw = {
     ...evaluation.raw,
     externalAnalyst: {
-      sourceLabels: overlay.sourceLabels,
-      sourceUrls: overlay.sourceUrls,
-      summaries: overlay.summaries,
       direction: overlay.direction,
       confidence: overlay.confidence,
       supportLevels: overlay.supportLevels,
@@ -105,7 +97,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
       newestPostedAt: overlay.newestPostedAt,
       primaryForecastDirection,
       applied: false,
-      rule: "六爻周度/月度方向优先；外部技术观点仅辅助入场、止盈、止损和时间窗口，不得独立反转方向。",
+      rule: "六爻周度/月度方向优先；公开市场资金线索仅辅助入场、止盈、止损和时间窗口，不得独立反转方向。",
     },
   };
 
@@ -173,7 +165,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
       applied,
       originalLevels: original,
       adjustedLevels: applied ? { stopLoss, target1, target2, rewardRisk } : original,
-      rejection: applied ? null : "外部点位会导致结构无效或TP2盈亏比低于1:1.2，已保留系统原计划。",
+      rejection: applied ? null : "辅助点位会导致结构无效或TP2盈亏比低于1:1.2，已保留系统原计划。",
     },
   };
 
