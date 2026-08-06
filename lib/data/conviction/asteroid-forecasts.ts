@@ -1,6 +1,6 @@
 /**
  * Asteroid（太空狗）多周期六爻研究。
- * 重点关注页只展示本周与1个月；更长周期进入总趋势资料库。
+ * 重点关注页展示本周逐日、下周逐日与1个月；更长周期进入总趋势资料库。
  * 来源包含2026-07-24与2026-07-29两次3个月卦，复测结果分别保留。
  */
 import type { FormalDirection } from "@/lib/forecasts/formal-direction";
@@ -84,94 +84,183 @@ export type ConvictionPeriodForecast = {
   } | null;
   /** Compact text for the long-horizon archive. */
   archiveSummary?: string | null;
+  /** Rolling calibration preserves the locked forecast while recording live timing drift. */
+  rollingUpdate?: {
+    asOf: string;
+    label: string;
+    summary: string;
+    originalLockedView?: string | null;
+    timingTolerance?: string | null;
+  } | null;
+  /** Day-by-day path for high-volatility assets; actuals and forecasts are explicitly separated. */
+  dailyPath?: Array<{
+    date: string;
+    ganzhi?: string | null;
+    status: "已验证" | "进行中" | "预测";
+    direction: string;
+    consensusStars: 1 | 2 | 3 | 4 | 5;
+    summary: string;
+    confirmation?: string | null;
+    riskNote?: string | null;
+  }>;
 };
 
 /** Published long-horizon snapshots only — never fabricate TODAY/TOMORROW from these. */
 export const ASTEROID_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
   {
-    id: "ASTEROID-W1-20260803-V3",
+    id: "ASTEROID-W1-20260803-V4",
     assetId: "asteroid",
     forecastType: "WEEK",
     periodStart: "2026-08-03",
     periodEnd: "2026-08-09",
     direction: "冲高回落",
     upProbability: 35,
-    sidewaysProbability: 35,
-    downProbability: 30,
+    sidewaysProbability: 38,
+    downProbability: 27,
     summary:
-      "当前上涨更接近资金试盘、高位换手和部分获利兑现，不足以确认长期主升。父母申金持世发动化父母酉金，技术压力与筹码结构继续增强；子孙卯木空亡并化官鬼辰土，乐观情绪容易转为风险。",
+      "原始周结构仍是前强后弱，但实际节奏从8月4日开始提前约1天：3日稳定上涨，4日已完成冲高与快速回撤，5日至6日进入修复。当前重点转为判断修复能否重新站回4日回撤前的关键结构。",
     expectedPath:
-      "高位震荡或继续试探冲高，但持续性一般；若冲高后不能守住新平台，容易快速回吐。",
+      "3日启动上涨 → 4日提前完成第一轮冲高和兑现 → 5日至6日修复 → 7日方向选择 → 8日二次震荡或回踩 → 9日观察弱反弹和结构确认。",
     supportLevels: [],
     resistanceLevels: [],
     riskLevel: "极高",
-    catalysts: ["短线流动性继续放大", "资金二次试盘"],
-    risks: ["父母持世并继续增强", "子孙空亡化官鬼", "大阳线后的获利兑现"],
-    consensusStars: 3,
-    consensusLabel: "短期可继续试探，但尚未确认主升",
+    catalysts: ["修复资金延续", "社区情绪二次升温", "短线流动性放大"],
+    risks: ["4日高点附近抛压", "修复量能不足", "小市值资产时间节奏提前或延后", "快速滑点"],
+    consensusStars: 4,
+    consensusLabel: "两套六爻框架均支持先冲高后修复；奇门环境仅作15%节奏验证，不支持连续单边主升",
     methodViews: [
       {
-        id: "asteroid-liuyiao-w1",
-        label: "六爻·8月3日至9日",
-        direction: "冲高回落",
-        weight: 100,
-        summary: "父母持世化父母，子孙空亡化官鬼，冲高后承接仍需验证。",
+        id: "asteroid-structure-w1-v4",
+        label: "结构力量框架",
+        direction: "冲高后修复",
+        weight: 45,
+        summary: "父母申金持世化酉金，筹码与技术压力增强；子孙卯木空亡化官鬼，拉升后容易快速兑现。",
       },
+      {
+        id: "asteroid-timeline-w1-v4",
+        label: "时序演变框架",
+        direction: "前强后弱",
+        weight: 40,
+        summary: "雷火丰至泽山咸对应放量、过热、情绪修复；小市值资产把中段高潮提前压缩到4日。",
+      },
+      {
+        id: "asteroid-qimen-w1-v4",
+        label: "奇门环境验证",
+        direction: "震荡修复",
+        weight: 15,
+        summary: "仅验证整体风险偏好和板块分化，不单独为太空狗确定用神，也不独立触发交易。",
+      },
+    ],
+    rollingUpdate: {
+      asOf: "2026-08-06T22:35:00+08:00",
+      label: "滚动校准",
+      summary: "实际走势较原推演提前约1天。日级别改用核心日加前后1天容差，不追溯修改原始锁定结论。",
+      originalLockedView: "高位震荡或继续试探冲高，冲高后承接需要验证。",
+      timingTolerance: "高波动小市值资产默认允许±1天时间容差",
+    },
+    dailyPath: [
+      { date: "2026-08-03", ganzhi: "酉日", status: "已验证", direction: "稳定上涨", consensusStars: 4, summary: "稳定上涨并完成第一轮启动，方向与前强结构一致。" },
+      { date: "2026-08-04", ganzhi: "戌日", status: "已验证", direction: "冲高回落", consensusStars: 5, summary: "冲高后快速回撤，阶段高潮较原推演提前约1天。", riskNote: "高点附近抛压明显" },
+      { date: "2026-08-05", ganzhi: "亥日", status: "已验证", direction: "震荡上涨", consensusStars: 4, summary: "快速回撤后进入修复，属于高波动后的第一轮承接。" },
+      { date: "2026-08-06", ganzhi: "子日", status: "进行中", direction: "震荡上涨", consensusStars: 3, summary: "修复暂时延续，但尚未确认重新进入主升。", confirmation: "放量收复4日回撤核心区域", riskNote: "急拉但量价不配合时防再次诱多" },
+      { date: "2026-08-07", ganzhi: "丑日", status: "预测", direction: "震荡", consensusStars: 4, summary: "修复延续与方向选择日；能否突破4日回撤核心区决定二次上攻是否成立。", confirmation: "修复量能持续并站稳压力区", riskNote: "冲不过压力则重新回落" },
+      { date: "2026-08-08", ganzhi: "寅日", status: "预测", direction: "震荡下跌", consensusStars: 3, summary: "更可能进入第二次震荡或回踩，重点观察卖压是否减弱。", riskNote: "跌破修复起点则结构转弱" },
+      { date: "2026-08-09", ganzhi: "卯日", status: "预测", direction: "探底回升", consensusStars: 4, summary: "弱反弹或重新选择方向；站回关键结构才算修复有效。", confirmation: "回踩不破并收回周末短线压力" },
+    ],
+    keyDates: [
+      { date: "2026-08-04", ganzhi: "戌日", type: "阶段高点", label: "第一轮冲高与快速兑现已提前完成", source: "LIUYAO", confidence: 88, note: "作为滚动校准样本保留，不改写原始周预测。" },
+      { date: "2026-08-07", ganzhi: "丑日", type: "转折", label: "修复是否升级为二次上攻的方向选择日", source: "LIUYAO", confidence: 72 },
+      { date: "2026-08-09", ganzhi: "卯日", type: "突破确认", label: "周末修复有效性确认窗口", source: "TECHNICAL", confidence: 68 },
     ],
     ichingEvidence: {
       primaryHexagram: "雷火丰",
       changingHexagram: "泽山咸",
       notes:
-        "父母申金持世发动化父母酉金；子孙卯木旬空发动化官鬼辰土；妻财午火安静。",
+        "父母申金持世发动化父母酉金；子孙卯木旬空发动化官鬼辰土；妻财午火安静。实际走势显示高潮与修复阶段较预期提前约1天。",
     },
-    version: 3,
+    version: 4,
     status: "published",
     sourceType: "ICHING_RESEARCH",
-    publishedAt: "2026-08-01T10:38:00+08:00",
-    lockedAt: "2026-08-01T10:38:00+08:00",
+    publishedAt: "2026-08-06T22:35:00+08:00",
+    lockedAt: "2026-08-06T22:35:00+08:00",
     validationStatus: "UNVERIFIED",
   },
   {
-    id: "ASTEROID-W2-20260810-V1",
+    id: "ASTEROID-W2-20260810-V2",
     assetId: "asteroid",
     forecastType: "WEEK_2",
     periodStart: "2026-08-10",
     periodEnd: "2026-08-16",
-    direction: "震荡下跌",
-    upProbability: 25,
-    sidewaysProbability: 30,
-    downProbability: 45,
+    direction: "震荡",
+    upProbability: 34,
+    sidewaysProbability: 38,
+    downProbability: 28,
     summary:
-      "妻财卯木空亡；父母戌土发动化妻财寅木，但寅木同样空亡，表面有资金推动，实际承接不足。官鬼午火发动化父母戌土，风险最终落到筹码和技术压力。",
+      "下周不是连续主升，而是先弱震荡、中段修复、后段兑现。两套六爻框架把主要转强窗口放在12日至13日；考虑本周实际提前1天，前置观察从11日下午开始。奇门仅以15%权重验证整体锯齿上涨和板块分化。",
     expectedPath:
-      "若前一阶段已经明显上涨，本周更容易出现冲高失败、回落和高位兑现；偶发拉升也可能较短促。",
+      "10日至11日上午震荡蓄势 → 11日下午至13日主要修复和拉升 → 13日晚至14日冲高转折 → 14日至15日兑现回落 → 16日止跌整理或弱反弹。",
     supportLevels: [],
     resistanceLevels: [],
     riskLevel: "极高",
-    catalysts: ["短线消息或社区情绪"],
-    risks: ["财爻双空", "官鬼化父母", "归魂化损", "虚拉后回落"],
-    consensusStars: 2,
-    consensusLabel: "资金承接不足，属于8月相对偏弱阶段",
+    catalysts: ["11日下午起的前置转强窗口", "12日至13日修复资金", "社区情绪回暖"],
+    risks: ["财爻承接不足", "14日至15日兑现", "申酉金阶段抛压", "流动性与滑点风险"],
+    consensusStars: 4,
+    consensusLabel: "双框架均支持中段转强、后段回落；时间窗口按小市值资产增加±1天容差",
     methodViews: [
       {
-        id: "asteroid-liuyiao-w2",
-        label: "六爻·8月10日至16日",
-        direction: "震荡下跌",
-        weight: 100,
-        summary: "财爻卯木空，父母化财寅木仍空，官鬼化父母，回调压力较大。",
+        id: "asteroid-structure-w2-v2",
+        label: "结构力量框架",
+        direction: "先弱后修复",
+        weight: 45,
+        summary: "财爻卯木与化出寅木承接偏虚，官鬼发动带来洗盘；中段可修复，但后段重新受兄弟金压制。",
       },
+      {
+        id: "asteroid-timeline-w2-v2",
+        label: "时序演变框架",
+        direction: "中段转强后兑现",
+        weight: 40,
+        summary: "归妹至既济再到损，依次对应不稳、结构完成、减损兑现。",
+      },
+      {
+        id: "asteroid-qimen-w2-v2",
+        label: "奇门环境验证",
+        direction: "锯齿修复",
+        weight: 15,
+        summary: "整体市场更偏震荡式上涨与板块分化，支持修复但不支持把一次拉升解释为长期反转。",
+      },
+    ],
+    rollingUpdate: {
+      asOf: "2026-08-06T22:35:00+08:00",
+      label: "提前量修正",
+      summary: "根据本周实际节奏，核心日同时展示前置窗口；不机械地把全部日期统一平移。",
+      timingTolerance: "核心日±1天；前置窗口从8月11日下午开始",
+    },
+    dailyPath: [
+      { date: "2026-08-10", ganzhi: "辰日", status: "预测", direction: "震荡下跌", consensusStars: 4, summary: "震荡蓄势偏弱，容易先下探再收回。", riskNote: "避免把盘中急拉当成趋势确认" },
+      { date: "2026-08-11", ganzhi: "巳日", status: "预测", direction: "震荡", consensusStars: 3, summary: "前半段低位震荡，下午可能提前进入转强窗口。", confirmation: "下午放量并收复短线压力" },
+      { date: "2026-08-12", ganzhi: "午日", status: "预测", direction: "探底回升", consensusStars: 4, summary: "主要修复窗口启动，更偏先压后拉。", confirmation: "回踩不破并出现持续买盘" },
+      { date: "2026-08-13", ganzhi: "未日", status: "预测", direction: "上涨", consensusStars: 5, summary: "下周最明确的转强和拉升窗口，但尾段需要防过热。", riskNote: "高位放量滞涨时先保护利润" },
+      { date: "2026-08-14", ganzhi: "申日", status: "预测", direction: "冲高回落", consensusStars: 5, summary: "冲高转折概率升高，兑现风险明显增加。", riskNote: "申月申日对财爻压力更强" },
+      { date: "2026-08-15", ganzhi: "酉日", status: "预测", direction: "下跌", consensusStars: 5, summary: "抛压可能进一步放大，偏向回落和获利兑现。", riskNote: "不宜在快速下跌中盲目补仓" },
+      { date: "2026-08-16", ganzhi: "戌日", status: "预测", direction: "震荡", consensusStars: 3, summary: "跌势放缓，低位整理或弱反弹，但暂不确认反转。", confirmation: "缩量止跌并重新站回短线均衡区" },
+    ],
+    keyDates: [
+      { date: "2026-08-11", ganzhi: "巳日", type: "上涨候选", label: "下午开始观察提前转强", source: "LIUYAO", confidence: 66, note: "来自本周实际提前约1天后的前置窗口，不是机械平移。" },
+      { date: "2026-08-13", ganzhi: "未日", type: "阶段高点", label: "主要拉升窗口与过热观察日", source: "LIUYAO", confidence: 82 },
+      { date: "2026-08-14", ganzhi: "申日", type: "转折", label: "冲高转折与兑现风险窗口", source: "LIUYAO", confidence: 84 },
+      { date: "2026-08-15", ganzhi: "酉日", type: "下跌风险", label: "抛压放大窗口", source: "LIUYAO", confidence: 86 },
     ],
     ichingEvidence: {
       primaryHexagram: "雷泽归妹",
       changingHexagram: "山泽损",
       notes:
-        "妻财卯木空亡；父母戌土发动化妻财寅木，寅木同样空亡；官鬼午火发动化父母戌土。",
+        "妻财卯木空亡；父母戌土发动化妻财寅木，寅木同样空亡；官鬼午火发动化父母戌土。时序采用归妹—既济—损，奇门只作环境验证。",
     },
-    version: 1,
+    version: 2,
     status: "published",
     sourceType: "ICHING_RESEARCH",
-    publishedAt: "2026-08-01T10:38:00+08:00",
-    lockedAt: "2026-08-01T10:38:00+08:00",
+    publishedAt: "2026-08-06T22:35:00+08:00",
+    lockedAt: "2026-08-06T22:35:00+08:00",
     validationStatus: "UNVERIFIED",
   },
   {

@@ -154,7 +154,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: 26_180_000,
     marketCapCurrency: "USD",
     marketCapUpdatedAt: "2026-07-29T14:55:00+08:00",
-    researchUpdatedAt: "2026-07-31",
+    researchUpdatedAt: "2026-08-06",
     displayOrder: 2,
     isPublished: true,
     memberForecastStockId: null,

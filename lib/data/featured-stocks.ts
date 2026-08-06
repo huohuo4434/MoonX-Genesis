@@ -63,8 +63,8 @@ export const FEATURED_STOCKS: FeaturedStock[] = [
     longTermRating: "A-",
     ratingNote: "长期观察",
     research: {
-      lastUpdated: "2026-07-27",
-      researchCount: 6,
+      lastUpdated: "2026-08-06",
+      researchCount: 8,
       historicalAccuracyLabel: "样本积累中",
     },
   },

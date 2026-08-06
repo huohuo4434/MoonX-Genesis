@@ -199,7 +199,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
 
 function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
-  if (assetId === "asteroid") return ["WEEK", "MONTH_1"] as ConvictionForecastType[];
+  if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
   if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
@@ -217,7 +217,12 @@ function buildStaticPeriodSlots(
     const hit = published.find((f) => f.forecastType === type) ?? null;
     return {
       type,
-      labelZh: ASTEROID_PERIOD_LABELS[type].zh,
+      labelZh:
+        assetId === "asteroid" && type === "WEEK"
+          ? "本周逐日"
+          : assetId === "asteroid" && type === "WEEK_2"
+            ? "下周逐日"
+            : ASTEROID_PERIOD_LABELS[type].zh,
       emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
       forecast: includeBody ? hit : null,
       freshnessStatus: hit
@@ -312,7 +317,12 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({
     type,
-    labelZh: ASTEROID_PERIOD_LABELS[type].zh,
+    labelZh:
+      assetId === "asteroid" && type === "WEEK"
+        ? "本周逐日"
+        : assetId === "asteroid" && type === "WEEK_2"
+          ? "下周逐日"
+          : ASTEROID_PERIOD_LABELS[type].zh,
     emptyZh: ASTEROID_PERIOD_LABELS[type].emptyZh,
     hasResearch: published.some((f) => f.forecastType === type),
   }));

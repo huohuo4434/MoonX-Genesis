@@ -12,6 +12,7 @@ import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import SpcxWatchlistFeature from "@/components/conviction/SpcxWatchlistFeature";
+import AsteroidWatchlistFeature from "@/components/conviction/AsteroidWatchlistFeature";
 import { expectationTemperatureLabel, getExpectationSnapshot } from "@/lib/data/expectation-engine";
 
 
@@ -94,9 +95,13 @@ function PublicAssetCard({
   const catalysts = en ? card.catalystsEn : card.catalystsZh;
   const risks = en ? card.risksEn : card.risksZh;
   const status = en ? safeEnglish(card.researchStatusEn) : card.researchStatusZh;
-  const benefits = en
-    ? ["Weekly analysis", "Monthly analysis", "Liu Yao basis", "Cross-method view when available", "Long-term research archive", "Public verification"]
-    : ["本周分析", "月度分析", "六爻依据", "多方法观点（有来源时）", "总趋势资料库", "历史验证（新基准后）"];
+  const benefits = card.slug === "asteroid"
+    ? en
+      ? ["Daily path", "This week", "Next week", "Monthly analysis", "Two-framework Liu Yao", "Timing windows"]
+      : ["逐日路径", "本周分析", "下周分析", "月度分析", "双框架六爻", "关键时间窗口"]
+    : en
+      ? ["Weekly analysis", "Monthly analysis", "Liu Yao basis", "Cross-method view when available", "Long-term research archive", "Public verification"]
+      : ["本周分析", "月度分析", "六爻依据", "多方法观点（有来源时）", "总趋势资料库", "历史验证（新基准后）"];
   const expectation = getExpectationSnapshot(card.slug);
   const accent = WATCHLIST_ACCENTS[card.slug] ?? DEFAULT_WATCHLIST_ACCENT;
 
@@ -292,6 +297,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
 
         <div className="mt-6">
           <SpcxWatchlistFeature />
+          {filter !== "STOCK" ? <AsteroidWatchlistFeature /> : null}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

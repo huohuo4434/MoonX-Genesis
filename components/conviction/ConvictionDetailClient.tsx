@@ -157,6 +157,59 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </Text>
       </section>
 
+      {f.rollingUpdate ? (
+        <section className="space-y-2 rounded-lg border border-fuchsia-400/15 bg-fuchsia-400/[0.025] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-fuchsia-200/75">{f.rollingUpdate.label}</p>
+            <Badge variant="outline">截至 {formatDateTimeChina(f.rollingUpdate.asOf)}</Badge>
+          </div>
+          <p className="text-body-sm leading-relaxed text-white/75">{f.rollingUpdate.summary}</p>
+          {f.rollingUpdate.originalLockedView ? (
+            <p className="text-caption leading-relaxed text-white/45">原始锁定观点：{f.rollingUpdate.originalLockedView}</p>
+          ) : null}
+          {f.rollingUpdate.timingTolerance ? (
+            <p className="text-caption text-fuchsia-100/65">时间规则：{f.rollingUpdate.timingTolerance}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {f.dailyPath?.length ? (
+        <section className="space-y-3 rounded-xl border border-rose-400/15 bg-gradient-to-br from-rose-400/[0.035] to-transparent p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="font-mono text-caption uppercase tracking-[0.14em] text-rose-200/80">逐日路径</p>
+              <p className="mt-1 text-caption text-white/40">已验证、进行中与预测分开显示；星级代表方法共识，不代表涨跌幅。</p>
+            </div>
+            <Badge variant="outline">日级时间容差 ±1天</Badge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {f.dailyPath.map((day) => {
+              const statusClass =
+                day.status === "已验证"
+                  ? "border-emerald-400/20 bg-emerald-400/[0.035] text-emerald-200"
+                  : day.status === "进行中"
+                    ? "border-sky-400/20 bg-sky-400/[0.035] text-sky-200"
+                    : "border-white/10 bg-black/10 text-white/65";
+              return (
+                <div key={`${f.id}-${day.date}`} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-body-sm font-semibold text-white">{day.date}{day.ganzhi ? ` · ${day.ganzhi}` : ""}</p>
+                    <span className={`rounded-full border px-2 py-0.5 text-caption ${statusClass}`}>{day.status}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{day.direction}</Badge>
+                    <Stars value={day.consensusStars} />
+                  </div>
+                  <p className="mt-2 text-caption leading-relaxed text-white/65">{day.summary}</p>
+                  {day.confirmation ? <p className="mt-2 text-caption text-emerald-200/65">确认：{day.confirmation}</p> : null}
+                  {day.riskNote ? <p className="mt-1 text-caption text-red-200/60">风险：{day.riskNote}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {f.benchmarkEvidence ? (
         <section className="space-y-2 rounded-lg border border-sky-400/12 bg-sky-400/[0.025] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -431,7 +484,9 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <section className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-transparent p-5">
             <h2 className="text-h3 text-white">会员专享预测</h2>
             <p className="mt-2 text-body-sm text-white/55">
-              本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。
+              {isAsteroid
+                ? "本周逐日、下周逐日、月度分析、双框架六爻依据与关键窗口仅对有效会员开放。"
+                : "本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。"}
             </p>
             <ul className="mt-4 space-y-2 text-body-sm text-white/60">
               {payload.locks.map((lock) => (
