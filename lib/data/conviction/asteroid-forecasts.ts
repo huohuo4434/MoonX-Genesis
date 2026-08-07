@@ -103,6 +103,29 @@ export type ConvictionPeriodForecast = {
     confirmation?: string | null;
     riskNote?: string | null;
   }>;
+  /** Scenario ladder from separately cast target questions. Ratings are qualitative, not statistical probabilities. */
+  targetScenarioTests?: Array<{
+    targetMarketCap: string;
+    tier: string;
+    consensusStars: 1 | 2 | 3 | 4 | 5;
+    consensusRange?: string | null;
+    primaryHexagram: string;
+    changingHexagram: string;
+    structureView: string;
+    timelineView: string;
+    conclusion: string;
+    activation: string;
+    riskNote: string;
+  }>;
+  /** Event-level market environment reference; never used as a direct ASTEROID price signal. */
+  marketContext?: {
+    label: string;
+    primaryHexagram: string;
+    changingHexagram: string;
+    direction: string;
+    summary: string;
+    note: string;
+  } | null;
 };
 
 /** Published long-horizon snapshots only — never fabricate TODAY/TOMORROW from these. */
@@ -350,7 +373,7 @@ export const ASTEROID_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
     validationStatus: "UNVERIFIED",
   },
   {
-    id: "ASTEROID-M1-20260801-V3",
+    id: "ASTEROID-M1-20260801-V4",
     assetId: "asteroid",
     forecastType: "MONTH_1",
     periodStart: "2026-08-01",
@@ -360,9 +383,9 @@ export const ASTEROID_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
     sidewaysProbability: 34,
     downProbability: 30,
     summary:
-      "八月不是稳定主升，而是高波动反弹结构。短线可能继续试盘，中旬偏弱，8月17日至23日存在二次修复，月末再度出现分歧和回落。财爻多次空亡、伏藏或化兄弟，持续资金基础不足。",
+      "八月仍按高波动反弹结构管理，不把一次拉升直接解释成稳定主升。8月7日新增9月底目标市值梯度复测：4000万属于基准目标，5000万属于正常强势目标，7000万需要持续趋势，8000万属于极端情绪情景。四档卦不是统计概率，而是用两套六爻框架做相对难度压力测试。",
     expectedPath:
-      "上旬高位震荡或试探冲高 → 中旬回调 → 8月17日至23日二次修复 → 月末冲高分歧和回落。",
+      "上旬高位震荡或试探冲高 → 中旬回调与换手 → 8月17日至23日二次修复 → 月末冲高分歧。若后续先触及4000万，重点观察回撤能否守住3000万—3500万；守住并重新放量，才逐级激活5000万、7000万情景。",
     supportLevels: [],
     resistanceLevels: [],
     riskLevel: "极高",
@@ -379,17 +402,84 @@ export const ASTEROID_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
         summary: "分段卦支持试盘、回调、二次修复和月末兑现的高波动路径。",
       },
     ],
+    targetScenarioTests: [
+      {
+        targetMarketCap: "4000万美元",
+        tier: "基准目标",
+        consensusStars: 5,
+        primaryHexagram: "水火既济",
+        changingHexagram: "风天小畜",
+        structureView: "妻财午火持世，未月午未相合，目标本身有承接基础；两套方法里这是四档目标中最顺的一档。",
+        timelineView: "既济代表阶段目标具备完成条件，化小畜后更像达到后蓄势整理，而不是触及后马上失效。",
+        conclusion: "高概率能够触及，更像阶段中继位置而非最终顶部。",
+        activation: "触及后若回撤仍能守住3000万—3500万美元并重新放量，5000万以上情景开始增强。",
+        riskNote: "到达不等于一路上涨；既济之后的小畜仍要求换手和整理。",
+      },
+      {
+        targetMarketCap: "5000万美元",
+        tier: "正常强势目标",
+        consensusStars: 4,
+        primaryHexagram: "地火明夷",
+        changingHexagram: "水天需",
+        structureView: "财爻仍有基础，但兄弟、官鬼力量带来明显阻力；从4000万继续抬升时需要消化兑现盘。",
+        timelineView: "明夷先受压、需卦主等待，路径更像上涨后回撤或横盘，再等新催化突破。",
+        conclusion: "有明显机会，但通常需要一次洗盘和等待，不属于顺滑直达。",
+        activation: "4000万附近完成换手并能重新放量站稳，5000万才由目标变成主攻区。",
+        riskNote: "若4000万一触即溃并快速跌回原区间，5000万情景应降级。",
+      },
+      {
+        targetMarketCap: "7000万美元",
+        tier: "趋势强势情景",
+        consensusStars: 4,
+        consensusRange: "★★★☆☆～★★★★☆",
+        primaryHexagram: "雷泽归妹",
+        changingHexagram: "雷风恒",
+        structureView: "风险爻有转财的条件，但世侧又化出兄弟，说明上涨越高兑现越重，必须靠持续新增资金消化。",
+        timelineView: "归妹代表节奏不规则和突然加速，最终化恒说明只有形成连续数周趋势，7000万才具备持续性。",
+        conclusion: "属于强势行情目标，不是当前基准情景；需要真正的趋势行情才能实现。",
+        activation: "5000万突破后不是脉冲冲高，而是连续数周保持高低点抬升、成交与社区热度同步扩张。",
+        riskNote: "若只靠单日急拉触及高位而缺乏持续资金，容易迅速回吐。",
+      },
+      {
+        targetMarketCap: "8000万美元",
+        tier: "极端FOMO情景",
+        consensusStars: 2,
+        consensusRange: "★★☆☆☆～★★★☆☆",
+        primaryHexagram: "泽地萃",
+        changingHexagram: "天雷无妄",
+        structureView: "萃卦具备资金和注意力聚集的爆发条件，亥卯未木局条件也能增强财爻；但稳定承接不足。",
+        timelineView: "萃后无妄且见六冲，更像意外爆发、情绪高潮和巨大震荡，能碰到与能站稳是两回事。",
+        conclusion: "可以作为牛市或FOMO尾部目标观察，但不作为9月底基本盘；即使触及也更偏瞬时极值。",
+        activation: "7000万已经形成稳定趋势后，叙事和资金进一步集中、市场整体风险偏好同步走强。",
+        riskNote: "最需要防止把短暂冲高误判成新平台；六冲结构下高位回撤可能非常快。",
+      },
+    ],
+    marketContext: {
+      label: "市场环境旁证｜8月7日非农事件",
+      primaryHexagram: "火水未济",
+      changingHexagram: "山水蒙",
+      direction: "先乱后定，震荡偏多",
+      summary: "财爻发动而兄弟持世，事件落地后更像先扫动、反复定价，再偏向风险资产修复；第一根K线不宜直接当成最终方向。",
+      note: "该卦只作为BTC和加密市场风险偏好的环境旁证，不直接决定太空狗目标市值，也不计入四档目标评级。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-07T18:46:00+08:00",
+      label: "9月底目标市值压力测试",
+      summary: "连续四卦按4000万、5000万、7000万、8000万美元分档询问。由于属于同一主题的连续起卦，网站只把它们用于相对难度排序，不把星级解释成真实概率，也不替代原有月度锁定路径。",
+      originalLockedView: "8月高波动反弹，中旬与月末均需防快速兑现。",
+      timingTolerance: "目标按逐级激活管理：4000万 → 5000万 → 7000万 → 8000万；每一级必须由实际价格和流动性确认。",
+    },
     ichingEvidence: {
       primaryHexagram: "山地剥",
       changingHexagram: "巽为风",
       notes:
         "财寅木、财卯木同时出现但均空亡；妻财卯木发动化兄弟酉金并受回头克；子孙子水持世化官鬼巳火。",
     },
-    version: 3,
+    version: 4,
     status: "published",
     sourceType: "ICHING_RESEARCH",
-    publishedAt: "2026-08-01T10:38:00+08:00",
-    lockedAt: "2026-08-01T10:38:00+08:00",
+    publishedAt: "2026-08-07T18:46:00+08:00",
+    lockedAt: "2026-08-07T18:46:00+08:00",
     validationStatus: "UNVERIFIED",
   },
   {

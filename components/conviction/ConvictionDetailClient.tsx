@@ -210,6 +210,54 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </section>
       ) : null}
 
+      {f.targetScenarioTests?.length ? (
+        <section className="space-y-4 rounded-xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.055] via-orange-400/[0.025] to-transparent p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="font-mono text-caption uppercase tracking-[0.14em] text-amber-200/85">9月底目标市值压力测试</p>
+              <p className="mt-1 text-caption leading-relaxed text-white/45">四档目标用于比较相对难度，不是统计概率；必须由真实价格、流动性和成交持续性逐级确认。</p>
+            </div>
+            <Badge variant="outline">两套六爻框架交叉</Badge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {f.targetScenarioTests.map((item) => (
+              <article key={`${f.id}-${item.targetMarketCap}`} className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-body font-semibold text-white">{item.targetMarketCap}</p>
+                    <p className="mt-1 text-caption text-amber-200/75">{item.tier}</p>
+                  </div>
+                  <div className="text-right">
+                    <Stars value={item.consensusStars} />
+                    {item.consensusRange ? <p className="mt-1 text-caption text-white/35">区间：{item.consensusRange}</p> : null}
+                  </div>
+                </div>
+                <p className="mt-3 text-caption text-white/55">卦象：{item.primaryHexagram} → {item.changingHexagram}</p>
+                <div className="mt-3 space-y-2 text-caption leading-relaxed">
+                  <p className="text-white/65"><span className="text-white/40">结构力量：</span>{item.structureView}</p>
+                  <p className="text-white/65"><span className="text-white/40">时序演变：</span>{item.timelineView}</p>
+                  <p className="text-amber-100/80"><span className="text-white/40">综合：</span>{item.conclusion}</p>
+                  <p className="text-emerald-200/65"><span className="text-white/40">激活条件：</span>{item.activation}</p>
+                  <p className="text-red-200/60"><span className="text-white/40">风险：</span>{item.riskNote}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {f.marketContext ? (
+        <section className="space-y-2 rounded-lg border border-sky-400/15 bg-sky-400/[0.025] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-sky-200/75">{f.marketContext.label}</p>
+            <Badge variant="outline">环境旁证</Badge>
+          </div>
+          <p className="text-body-sm text-white/70">{f.marketContext.primaryHexagram} → {f.marketContext.changingHexagram} · {f.marketContext.direction}</p>
+          <p className="text-caption leading-relaxed text-white/55">{f.marketContext.summary}</p>
+          <p className="text-caption leading-relaxed text-sky-100/55">{f.marketContext.note}</p>
+        </section>
+      ) : null}
+
       {f.benchmarkEvidence ? (
         <section className="space-y-2 rounded-lg border border-sky-400/12 bg-sky-400/[0.025] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
