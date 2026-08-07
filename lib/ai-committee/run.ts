@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai-committee/prompts";
 import { saveCommitteeRun } from "@/lib/ai-committee/store";
 import type { CommitteeInput, CommitteeRun } from "@/lib/ai-committee/types";
+import { enrichCommitteeInputWithXIntelligence } from "@/lib/ai-committee/x-intelligence-context";
 import {
   hasBlockingGate,
   runInputGates,
@@ -16,25 +17,27 @@ import {
 } from "@/lib/ai-committee/verification";
 
 export async function previewCommittee(input: CommitteeInput): Promise<CommitteeRun> {
-  const gates = runInputGates(input);
+  const enrichedInput = await enrichCommitteeInputWithXIntelligence(input);
+  const gates = runInputGates(enrichedInput);
   return {
     id: randomUUID(),
-    inputHash: hashCommitteeInput(input),
+    inputHash: hashCommitteeInput(enrichedInput),
     createdAt: new Date().toISOString(),
     model: "prompt-preview",
     mode: "PROMPT_PREVIEW",
     executionPolicy: "RESEARCH_ONLY",
-    input,
+    input: enrichedInput,
     opinions: [],
     review: null,
     gates,
-    promptPreview: buildPromptPreview(input),
+    promptPreview: buildPromptPreview(enrichedInput),
     saved: false,
   };
 }
 
 export async function runCommittee(input: CommitteeInput): Promise<CommitteeRun> {
-  const inputGates = runInputGates(input);
+  const enrichedInput = await enrichCommitteeInputWithXIntelligence(input);
+  const inputGates = runInputGates(enrichedInput);
   if (hasBlockingGate(inputGates)) {
     const messages = inputGates
       .filter((gate) => gate.severity === "BLOCKER" && !gate.passed)
@@ -43,14 +46,14 @@ export async function runCommittee(input: CommitteeInput): Promise<CommitteeRun>
     throw new Error(`研究资料未通过输入闸门：${messages}`);
   }
 
-  const builderPrompts = buildBuilderPrompts(input);
+  const builderPrompts = buildBuilderPrompts(enrichedInput);
   const builder = await callCommitteeModel({
     system: builderPrompts.system,
     user: builderPrompts.user,
     schema: builderResponseSchema,
   });
 
-  const reviewerPrompts = buildReviewerPrompts(input, builder.value.opinions);
+  const reviewerPrompts = buildReviewerPrompts(enrichedInput, builder.value.opinions);
   const reviewer = await callCommitteeModel({
     system: reviewerPrompts.system,
     user: reviewerPrompts.user,
@@ -66,12 +69,12 @@ export async function runCommittee(input: CommitteeInput): Promise<CommitteeRun>
 
   const run: CommitteeRun = {
     id: randomUUID(),
-    inputHash: hashCommitteeInput(input),
+    inputHash: hashCommitteeInput(enrichedInput),
     createdAt: new Date().toISOString(),
     model: reviewer.model || builder.model,
     mode: "MODEL",
     executionPolicy: "RESEARCH_ONLY",
-    input,
+    input: enrichedInput,
     opinions: builder.value.opinions,
     review: reviewer.value.review,
     gates,

@@ -5,6 +5,7 @@ export type XIntelligenceMomentum = "NEW" | "ACCELERATING" | "STABLE" | "COOLING
 
 export type XIntelligenceAggregateInput = {
   postedAt: string;
+  sourceKey?: string;
   symbols: string[];
   direction: XIntelligenceDirection;
   confidence: number;
@@ -32,6 +33,8 @@ export type XIntelligenceSymbolSummary = {
   keyLevels: number[];
   timeWindows: string[];
   sampleSize: number;
+  uniqueSources24h: number;
+  agreementRatio24h: number;
 };
 
 export type XIntelligenceAggregate = {
@@ -210,6 +213,14 @@ export function aggregateXIntelligence(
       keyLevels: uniqueNumbers(scoringRows.flatMap((row) => row.levels), 8),
       timeWindows: uniqueStrings(scoringRows.flatMap((row) => row.timeWindows), 6),
       sampleSize: scoringRows.length,
+      uniqueSources24h: new Set(rows24h.map((row) => row.sourceKey?.trim().toLowerCase()).filter(Boolean)).size || (rows24h.length > 0 ? 1 : 0),
+      agreementRatio24h: (() => {
+        const directional = rows24h.filter((row) => row.direction === "LONG" || row.direction === "SHORT");
+        if (directional.length === 0) return 0;
+        const longs = directional.filter((row) => row.direction === "LONG").length;
+        const shorts = directional.length - longs;
+        return Math.max(longs, shorts) / directional.length;
+      })(),
     };
   }).sort((left, right) => summaryScore(right) - summaryScore(left) || right.mentions7d - left.mentions7d);
 

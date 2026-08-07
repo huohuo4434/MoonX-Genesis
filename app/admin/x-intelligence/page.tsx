@@ -2,6 +2,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { buildXIntelligenceAutoWeight } from "@/lib/trading-signals/x-intelligence-overlay";
 import type {
   XIntelligenceDirection,
   XIntelligenceMomentum,
@@ -61,7 +62,7 @@ export default async function AdminXIntelligencePage() {
           </Text>
           <Heading as="h1" size="h2" className="mt-2">X情报中枢</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 max-w-4xl leading-relaxed">
-            查看本地采集器是否正常、最近24小时捕捉到多少有效线索，以及哪些币种的讨论正在加速。后台不展示账号密码、Cookie，也不会把具体来源身份暴露给会员。
+            查看本地采集器是否正常、最近24小时捕捉到多少有效线索，以及系统为每个资产自动计算的X情报动态权重。采集、评分和权重计算均自动运行，不需要人工点按钮。后台不展示账号密码、Cookie，也不会把具体来源身份暴露给会员。
           </Text>
         </div>
         <Badge variant={statusVariant(collector.status)}>{statusLabel(collector.status)}</Badge>
@@ -112,7 +113,8 @@ export default async function AdminXIntelligencePage() {
           <Text variant="body-sm" color="secondary">· X登录凭据只保存在本机Windows DPAPI加密文件中。</Text>
           <Text variant="body-sm" color="secondary">· 网站只接收公开帖子与结构化结果，不接收Cookie。</Text>
           <Text variant="body-sm" color="secondary">· 会员前台不显示账号、作者、链接或合作暗示。</Text>
-          <Text variant="body-sm" color="secondary">· X线索属于观察层，不能单独触发实盘订单。</Text>
+          <Text variant="body-sm" color="secondary">· X线索自动进入下一次日度预测生成，但最高只占辅助权重，不能单独触发实盘订单。</Text>
+          <Text variant="body-sm" color="secondary">· 已锁定历史预测不会被X数据事后覆盖；新数据只影响后续新生成版本。</Text>
         </div>
       </Card>
 
@@ -135,7 +137,9 @@ export default async function AdminXIntelligencePage() {
         </Card>
       ) : (
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          {aggregate.summaries.slice(0, 20).map((item) => (
+          {aggregate.summaries.slice(0, 20).map((item) => {
+            const autoWeight = buildXIntelligenceAutoWeight(item);
+            return (
             <Card key={item.symbol} padding="md" className="border border-white/[0.08] bg-gradient-to-br from-white/[0.035] to-transparent">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -146,6 +150,7 @@ export default async function AdminXIntelligencePage() {
                   <Badge variant={item.risk === "HIGH" ? "danger" : item.risk === "MEDIUM" ? "warning" : "outline"}>
                     {stageLabel(item.dominantStage)}
                   </Badge>
+                  {autoWeight ? <Badge variant="outline">自动权重 {autoWeight.weightPct}%</Badge> : null}
                 </div>
                 <Text variant="caption" color="tertiary">{momentumLabel(item.momentum)}</Text>
               </div>
@@ -168,6 +173,10 @@ export default async function AdminXIntelligencePage() {
               <Text variant="caption" color="secondary" className="mt-3 block">
                 24小时方向样本：偏多 {item.longCount24h} · 偏空 {item.shortCount24h} · 中性 {item.neutralCount24h} · 平均解析置信度 {item.averageConfidence}%
               </Text>
+              <Text variant="caption" color="secondary" className="mt-2 block">
+                独立信号源 {item.uniqueSources24h} 组 · 方向一致度 {Math.round(item.agreementRatio24h * 100)}%
+                {autoWeight ? ` · 对上涨概率修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点` : ""}
+              </Text>
               {item.keyLevels.length > 0 ? (
                 <Text variant="caption" color="secondary" className="mt-2 block">
                   识别位置：{item.keyLevels.join(" / ")}
@@ -182,7 +191,8 @@ export default async function AdminXIntelligencePage() {
                 最近记录：{formatDateTimeChina(item.newestPostedAt)} · 当前统计样本 {item.sampleSize}
               </Text>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>

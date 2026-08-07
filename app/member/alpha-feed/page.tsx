@@ -5,10 +5,14 @@ import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
-import { assessAltcoinRadarPost } from "@/lib/trading-signals/altcoin-radar";
-import { getLatestExternalAnalystPosts } from "@/lib/trading-signals/external-analyst-signals";
+import type {
+  XIntelligenceDirection,
+  XIntelligenceMomentum,
+  XIntelligenceStage,
+} from "@/lib/trading-signals/x-intelligence-core";
+import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
-import type { ExternalAnalystParsedPost } from "@/types/external-analyst";
+import { buildXIntelligenceAutoWeight } from "@/lib/trading-signals/x-intelligence-overlay";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,40 +26,50 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: path,
     titleZh: "山寨币资金雷达",
     titleEn: "Altcoin Rotation Radar",
-    descriptionZh: "会员专享：聚合公开市场资金线索，识别币种、方向、阶段、关键位置和追高风险。",
-    descriptionEn: "Member-only aggregation of public market signals, including assets, direction, stage, key levels and chase risk.",
+    descriptionZh: "会员专享：聚合公开市场资金线索，识别热度、方向、阶段、关键位置与追高风险。",
+    descriptionEn: "Member-only aggregation of public market signals, including heat, direction, stage, key levels and chase risk.",
   });
 }
 
-function directionLabel(direction: "LONG" | "SHORT" | "NEUTRAL", en: boolean): string {
+function directionLabel(direction: XIntelligenceDirection, en: boolean): string {
   if (direction === "LONG") return en ? "Bullish watch" : "偏多观察";
   if (direction === "SHORT") return en ? "Bearish watch" : "偏空观察";
-  return en ? "Neutral / unclear" : "中性 / 不明确";
+  return en ? "Neutral / mixed" : "中性 / 分歧";
 }
 
-function compactLevels(post: ExternalAnalystParsedPost, en: boolean): string | null {
-  const levels = Array.from(new Set([
-    ...post.supportLevels,
-    ...post.resistanceLevels,
-    ...post.targetLevels,
-    ...post.invalidationLevels,
-    ...post.keyLevels,
-  ])).filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => a - b).slice(0, 6);
-  if (!levels.length) return null;
-  return `${en ? "Key levels" : "关键位置"}: ${levels.join(" / ")}`;
+function stageLabel(stage: XIntelligenceStage, en: boolean): string {
+  if (stage === "EARLY_WATCH") return en ? "Early watch" : "早期观察";
+  if (stage === "CONFIRMATION") return en ? "Confirmation" : "确认阶段";
+  if (stage === "OVERHEATED") return en ? "Possibly overheated" : "可能过热";
+  return en ? "Observe" : "信息观察";
 }
 
-function radarSummary(post: ExternalAnalystParsedPost, en: boolean): string {
-  const assetCount = post.symbols.length;
-  const direction = directionLabel(post.direction, en);
-  if (en) {
-    return assetCount
-      ? `The radar captured ${assetCount} asset${assetCount === 1 ? "" : "s"}. Current classification: ${direction}. Wait for liquidity, volume and price structure confirmation before acting.`
-      : "No clear asset ticker was extracted. Keep this item in observation status and do not convert it into a trade.";
+function momentumLabel(momentum: XIntelligenceMomentum, en: boolean): string {
+  if (momentum === "NEW") return en ? "New narrative" : "新叙事出现";
+  if (momentum === "ACCELERATING") return en ? "Heat accelerating" : "热度加速";
+  if (momentum === "COOLING") return en ? "Heat cooling" : "热度降温";
+  return en ? "Heat stable" : "热度平稳";
+}
+
+function actionText(stage: XIntelligenceStage, en: boolean): string {
+  if (stage === "EARLY_WATCH") {
+    return en
+      ? "Add to watch first. Confirm liquidity, volume and invalidation before considering a small position."
+      : "先加入观察；确认流动性、成交量和失效条件后，才考虑小仓。";
   }
-  return assetCount
-    ? `雷达捕捉到${assetCount}个明确币种，当前归类为“${direction}”。执行前仍需核对流动性、成交量和价格结构。`
-    : "暂未提取到明确币种，本条仅保留观察，不转化为交易。";
+  if (stage === "CONFIRMATION") {
+    return en
+      ? "Check whether price remains near the trigger area. Skip the trade if it has already moved too far."
+      : "核对价格是否仍在触发区附近；偏离过大就放弃追单。";
+  }
+  if (stage === "OVERHEATED") {
+    return en
+      ? "Do not chase. Wait for a retest, turnover and a fresh structure."
+      : "不要追高；等待回踩、换手和新的结构确认。";
+  }
+  return en
+    ? "Keep it in observation and wait for price, volume and liquidity confirmation."
+    : "继续观察，等待价格、成交量与流动性共同确认。";
 }
 
 export default async function AlphaFeedPage() {
@@ -67,11 +81,11 @@ export default async function AlphaFeedPage() {
       <main><Section spacing="lg"><PublicFeaturePreview
         eyebrow={en ? "Member smart-money radar · Public preview" : "会员资金雷达 · 公开预览"}
         title={en ? "Track capital rotation, not a blind call" : "捕捉资金节奏，不盲目追单"}
-        description={en ? "MOOX aggregates public market signals and extracts assets, direction, stage, key levels and chase risk. It is an observation layer, not an automatic buy instruction." : "MOOX聚合公开市场信息与资金线索，提取币种、方向、阶段、关键位置和追高风险。它是观察层，不是自动买入指令。"}
-        solves={en ? ["Reduce repeated manual scanning", "Separate early ideas from overheated moves", "Keep a timestamped record for later verification"] : ["减少反复手动刷信息", "区分早期机会与已经过热的行情", "保留雷达时间，便于事后验证"]}
-        memberBenefits={en ? ["Altcoin rotation radar", "Asset and direction extraction", "Early/confirmation/overheated classification", "Key levels and risk notes"] : ["山寨币轮动雷达", "币种与方向自动提取", "早期/确认/过热阶段分类", "关键位置与风险提示"]}
+        description={en ? "MOOX aggregates public market signals and converts them into anonymous symbol-level statistics: heat, direction, stage, levels and risk. It is an observation layer, not an automatic buy instruction." : "MOOX聚合公开市场资金线索，并转化为匿名的币种级统计：热度、方向、阶段、位置与风险。它是观察层，不是自动买入指令。"}
+        solves={en ? ["Reduce repeated manual scanning", "Separate early ideas from overheated moves", "Keep timestamped statistics for verification"] : ["减少反复手动刷信息", "区分早期机会与已经过热的行情", "保留时间戳统计，便于事后验证"]}
+        memberBenefits={en ? ["24-hour narrative heat", "Direction and stage aggregation", "Early/confirmation/overheated classification", "Key levels and risk notes"] : ["24小时叙事热度", "方向与阶段聚合", "早期/确认/过热分类", "关键位置与风险提示"]}
         exampleTitle={en ? "Example assessment" : "示例判断"}
-        exampleLines={en ? ["Stage: Early watch", "Action: Add to watch, do not chase", "Confirm: Volume + liquidity + price structure", "Risk: High volatility and low liquidity"] : ["阶段：早期观察", "动作：加入观察，不直接追单", "确认：成交量＋流动性＋价格结构", "风险：高波动与低流动性"]}
+        exampleLines={en ? ["Heat: Accelerating", "Stage: Early watch", "Action: Add to watch, do not chase", "Risk: High volatility and low liquidity"] : ["热度：正在加速", "阶段：早期观察", "动作：加入观察，不直接追单", "风险：高波动与低流动性"]}
         nextPath={en ? `/en${path}` : path}
       /></Section></main>
     );
@@ -80,65 +94,122 @@ export default async function AlphaFeedPage() {
     return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   }
 
-  // Data-source identities stay server-side. The member interface only displays MOOX's secondary analysis.
-  const posts = await getLatestExternalAnalystPosts({ source: "BTCKIK", limit: 40 });
+  const snapshot = await getXIntelligenceSnapshot();
+  const { aggregate, collector } = snapshot;
+  const visible = aggregate.summaries.filter((item) => item.mentions24h > 0 || item.momentum === "NEW").slice(0, 16);
 
   return (
     <main>
       <Section spacing="lg">
         <MemberDeviceHeartbeat />
-        <div className="max-w-3xl">
+        <div className="max-w-4xl">
           <Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MOOX SMART MONEY · NARRATIVE RADAR</Text>
           <Heading as="h1" size="h2" className="mt-2">{en ? "Altcoin Rotation Radar" : "山寨币资金雷达"}</Heading>
           <Text variant="body" color="secondary" className="mt-3 leading-relaxed">
-            {en ? "MOOX aggregates public market signals, extracts mentioned assets and classifies whether an idea looks early, confirmed or already overheated. The interface displays only MOOX's secondary analysis; no item becomes an automatic trade." : "MOOX聚合公开市场资金线索，提取币种，并判断它更接近早期观察、触发确认还是已经过热。前台只展示MOOX二次分析结果，任何线索都不会直接变成自动交易。"}
+            {en ? "MOOX converts public market clues into anonymous symbol-level statistics. It shows heat, direction, stage and risk without displaying the identity of any monitored source. No clue becomes an automatic trade." : "MOOX把公开市场线索转化为匿名的币种级统计，只展示热度、方向、阶段与风险，不展示任何监测来源身份。任何线索都不会直接变成自动交易。"}
           </Text>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card padding="md">
+            <Text variant="caption" color="tertiary">{en ? "Valid clues · 24h" : "24小时有效线索"}</Text>
+            <Text variant="body" weight="semibold" className="mt-2 block text-2xl">{aggregate.parsedPosts24h}</Text>
+          </Card>
+          <Card padding="md">
+            <Text variant="caption" color="tertiary">{en ? "Assets covered · 24h" : "24小时覆盖币种"}</Text>
+            <Text variant="body" weight="semibold" className="mt-2 block text-2xl">{aggregate.symbols24h}</Text>
+          </Card>
+          <Card padding="md">
+            <Text variant="caption" color="tertiary">{en ? "Bull / bear clues" : "多空线索"}</Text>
+            <Text variant="body" weight="semibold" className="mt-2 block">
+              {en ? `Bull ${aggregate.longSignals24h} · Bear ${aggregate.shortSignals24h}` : `多 ${aggregate.longSignals24h} · 空 ${aggregate.shortSignals24h}`}
+            </Text>
+          </Card>
+          <Card padding="md">
+            <Text variant="caption" color="tertiary">{en ? "Radar status" : "雷达状态"}</Text>
+            <Text variant="body" weight="semibold" className="mt-2 block">
+              {collector.status === "HEALTHY" ? (en ? "Online" : "在线") : (en ? "Data may be delayed" : "数据可能延迟")}
+            </Text>
+          </Card>
         </div>
 
         <Card padding="md" className="border border-amber-500/20 bg-amber-500/[0.05]">
           <Text variant="body-sm" weight="semibold">{en ? "Execution rule" : "执行规则"}</Text>
           <Text variant="caption" color="tertiary" className="mt-1 block leading-relaxed">
-            {en ? "Observe → verify liquidity and price → define invalidation → consider a small position. Never buy only because a single market clue mentions an asset." : "观察 → 核对流动性和价格 → 写明失效条件 → 才考虑小仓。绝不因为单一市场线索出现某个币就直接买入。"}
+            {en ? "Observe → verify liquidity and price → define invalidation → consider a small position. A symbol with more mentions is not automatically a better trade." : "观察 → 核对流动性和价格 → 写明失效条件 → 才考虑小仓。提及次数多，不等于一定值得交易。"}
           </Text>
         </Card>
 
-        {posts.length === 0 ? (
+        {visible.length === 0 ? (
           <Card padding="lg" className="border border-dashed border-white/10">
             <Heading as="h2" size="h3">{en ? "Waiting for the first radar data" : "等待首批雷达数据"}</Heading>
             <Text variant="body-sm" color="secondary" className="mt-2 leading-relaxed">
-              {en ? "No valid item is ready for display yet. Data will appear automatically after the background sync and MOOX screening are complete." : "目前尚无达到展示标准的有效线索。后台同步和MOOX筛选完成后会自动显示，会员无需进行任何配置。"}
+              {en ? "No valid symbol-level statistics are ready yet. Data will appear after the private collector and MOOX screening complete." : "目前尚无达到展示标准的币种级统计。私有采集器和MOOX筛选完成后会自动显示。"}
             </Text>
           </Card>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            {posts.map((post) => {
-              const assessment = assessAltcoinRadarPost(post);
-              const levels = compactLevels(post, en);
+            {visible.map((item) => {
+              const autoWeight = buildXIntelligenceAutoWeight(item);
               return (
-                <Card key={`${post.source}-${post.postId}`} padding="md" className="flex h-full flex-col border border-white/[0.08] bg-gradient-to-br from-white/[0.035] to-transparent">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={assessment.risk === "HIGH" ? "danger" : assessment.risk === "MEDIUM" ? "warning" : "outline"}>{en ? assessment.labelEn : assessment.labelZh}</Badge>
-                    <Badge variant="outline">{directionLabel(post.direction, en)}</Badge>
-                    <Badge variant={assessment.risk === "HIGH" ? "danger" : assessment.risk === "MEDIUM" ? "warning" : "outline"}>{en ? `${assessment.risk} risk` : `${assessment.risk === "HIGH" ? "高" : assessment.risk === "MEDIUM" ? "中" : "低"}风险`}</Badge>
+              <Card key={item.symbol} padding="md" className="flex h-full flex-col border border-white/[0.08] bg-gradient-to-br from-white/[0.035] to-transparent">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="neutral">{item.symbol.replace(/USDT$/, "")}</Badge>
+                  <Badge variant={item.direction === "LONG" ? "success" : item.direction === "SHORT" ? "danger" : "outline"}>
+                    {directionLabel(item.direction, en)}
+                  </Badge>
+                  <Badge variant={item.risk === "HIGH" ? "danger" : item.risk === "MEDIUM" ? "warning" : "outline"}>
+                    {stageLabel(item.dominantStage, en)}
+                  </Badge>
+                  <Badge variant="outline">{momentumLabel(item.momentum, en)}</Badge>
+                  {autoWeight ? <Badge variant="outline">{en ? `Auto weight ${autoWeight.weightPct}%` : `自动权重 ${autoWeight.weightPct}%`}</Badge> : null}
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md border border-white/[0.07] bg-black/20 p-2">
+                    <Text variant="caption" color="tertiary" className="block">{en ? "6h" : "近6小时"}</Text>
+                    <Text variant="body-sm" weight="semibold" className="mt-1 block">{item.mentions6h}</Text>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {post.symbols.length ? post.symbols.map((symbol) => <Badge key={symbol} variant="neutral">{symbol.replace(/USDT$/, "")}</Badge>) : <Badge variant="outline">{en ? "No clear ticker" : "未提取明确币种"}</Badge>}
+                  <div className="rounded-md border border-white/[0.07] bg-black/20 p-2">
+                    <Text variant="caption" color="tertiary" className="block">{en ? "24h" : "近24小时"}</Text>
+                    <Text variant="body-sm" weight="semibold" className="mt-1 block">{item.mentions24h}</Text>
                   </div>
-                  <Text variant="body-sm" className="mt-3 block leading-relaxed text-white/80">{radarSummary(post, en)}</Text>
-                  {(levels || post.timeWindows.length > 0) && (
-                    <div className="mt-3 rounded-md border border-white/[0.07] bg-black/20 p-3">
-                      {levels && <Text variant="caption" color="secondary" className="block leading-relaxed">{levels}</Text>}
-                      {post.timeWindows.length > 0 && <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">{en ? "Time window" : "时间窗口"}: {post.timeWindows.slice(0, 4).join(" / ")}</Text>}
-                    </div>
-                  )}
+                  <div className="rounded-md border border-white/[0.07] bg-black/20 p-2">
+                    <Text variant="caption" color="tertiary" className="block">{en ? "7d" : "近7天"}</Text>
+                    <Text variant="body-sm" weight="semibold" className="mt-1 block">{item.mentions7d}</Text>
+                  </div>
+                </div>
+
+                <Text variant="body-sm" className="mt-3 block leading-relaxed text-white/80">
+                  {en
+                    ? `Direction score ${item.directionScore > 0 ? "+" : ""}${item.directionScore}; average parsing confidence ${item.averageConfidence}%. ${item.uniqueSources24h} anonymous signal groups, ${Math.round(item.agreementRatio24h * 100)}% directional agreement. ${autoWeight ? `Automatic forecast adjustment ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct}pp.` : ""}`
+                    : `方向分 ${item.directionScore > 0 ? "+" : ""}${item.directionScore}，平均解析置信度 ${item.averageConfidence}%。24小时独立信号源 ${item.uniqueSources24h} 组，方向一致度 ${Math.round(item.agreementRatio24h * 100)}%。${autoWeight ? `自动预测修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点。` : ""}`}
+                </Text>
+
+                {item.keyLevels.length > 0 || item.timeWindows.length > 0 ? (
                   <div className="mt-3 rounded-md border border-white/[0.07] bg-black/20 p-3">
-                    <Text variant="caption" color="tertiary" className="block">{en ? "MOOX action" : "MOOX处理建议"}</Text>
-                    <Text variant="body-sm" className="mt-1 block leading-relaxed">{en ? assessment.actionEn : assessment.actionZh}</Text>
+                    {item.keyLevels.length > 0 ? (
+                      <Text variant="caption" color="secondary" className="block leading-relaxed">
+                        {en ? "Recognized levels" : "识别位置"}: {item.keyLevels.join(" / ")}
+                      </Text>
+                    ) : null}
+                    {item.timeWindows.length > 0 ? (
+                      <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">
+                        {en ? "Time windows" : "时间窗口"}: {item.timeWindows.join(" / ")}
+                      </Text>
+                    ) : null}
                   </div>
-                  <div className="mt-auto pt-4 text-caption text-white/40">
-                    <p>{en ? "Radar time" : "雷达记录时间"}: {formatDateTimeChina(post.postedAt)} · {en ? "Analysis confidence" : "解析置信度"} {post.confidence}%</p>
-                  </div>
-                </Card>
+                ) : null}
+
+                <div className="mt-3 rounded-md border border-white/[0.07] bg-black/20 p-3">
+                  <Text variant="caption" color="tertiary" className="block">{en ? "MOOX action" : "MOOX处理建议"}</Text>
+                  <Text variant="body-sm" className="mt-1 block leading-relaxed">{actionText(item.dominantStage, en)}</Text>
+                </div>
+
+                <Text variant="caption" className="mt-auto pt-4 text-white/40">
+                  {en ? "Latest radar record" : "最近雷达记录"}: {formatDateTimeChina(item.newestPostedAt)}
+                </Text>
+              </Card>
               );
             })}
           </div>

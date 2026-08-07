@@ -20,6 +20,12 @@ import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guid
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
+import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
+import {
+  applyXIntelligenceToGeneratedDaily,
+  buildXIntelligenceAutoWeight,
+  findXIntelligenceSummaryForMarket,
+} from "@/lib/trading-signals/x-intelligence-overlay";
 
 export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
@@ -330,6 +336,7 @@ export async function runDailyForecastPipeline(input?: {
   };
 
   await ensureCanonicalWeeklySourcesInDb();
+  const xIntelligence = await getXIntelligenceSnapshot().catch(() => null);
 
   if (phase === "idle" && !input?.forcePhase && !input?.forceDraftDate) {
     return report;
@@ -368,6 +375,13 @@ export async function runDailyForecastPipeline(input?: {
           status,
           snapshot,
         });
+
+        const xSummary = findXIntelligenceSummaryForMarket(
+          xIntelligence?.aggregate.summaries ?? [],
+          market
+        );
+        const xOverlay = buildXIntelligenceAutoWeight(xSummary);
+        record = applyXIntelligenceToGeneratedDaily(record, xOverlay);
 
         if (phase === "revise" && record.marketProgressStatus === "INVALIDATED") {
           record = reviseAsNewVersion(record, weekly, snapshot);

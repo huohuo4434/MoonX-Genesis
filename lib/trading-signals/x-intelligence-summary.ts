@@ -37,6 +37,7 @@ export type XIntelligenceSnapshot = {
 };
 
 interface StoredRow {
+  username: string;
   posted_at: Date | string;
   parsed: unknown;
 }
@@ -180,6 +181,7 @@ function mapParsedPost(row: StoredRow): XIntelligenceAggregateInput | null {
   const assessment = assessAltcoinRadarPost(parsed);
   return {
     postedAt: normalizedIso(parsed.postedAt) ?? normalizedIso(row.posted_at) ?? new Date(0).toISOString(),
+    sourceKey: parsed.username || row.username,
     symbols: parsed.symbols,
     direction: parsed.direction,
     confidence: parsed.confidence,
@@ -207,7 +209,7 @@ async function loadSnapshot(now: Date): Promise<XIntelligenceSnapshot> {
 
   const [rows, states] = await Promise.all([
     prisma.$queryRawUnsafe<StoredRow[]>(`
-      SELECT posted_at, parsed
+      SELECT username, posted_at, parsed
       FROM trade_external_analyst_posts
       WHERE source = 'BTCKIK'
         AND posted_at >= NOW() - INTERVAL '7 days'
