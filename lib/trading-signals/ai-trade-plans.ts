@@ -19,10 +19,11 @@ import type {
   AiTradePlanTier,
 } from "@/types/ai-trade-plan";
 
+// V7.5.2: keep the public audit lead, but do not let the audit timer consume the setup.
 const MIN_LEAD_MINUTES: Record<ThreeHorizonStrategyType, number> = {
-  INTRADAY: 2,
-  SWING: 15,
-  POSITION: 60,
+  INTRADAY: 1,
+  SWING: 5,
+  POSITION: 15,
 };
 
 const ENTRY_ZONE_BUFFER_PCT: Record<ThreeHorizonStrategyType, number> = {

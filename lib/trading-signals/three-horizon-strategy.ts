@@ -74,7 +74,7 @@ const LIVE_ACTIVITY_ENABLED =
   LIVE_ACTIVE_EXECUTION_ENABLED &&
   process.env.BITGET_LIVE_DAILY_MINIMUM_TRADE_ENABLED?.toLowerCase() !== "false";
 const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
-  "MOOX_LIVE_ACTIVITY_TARGET_V641", 2, 0, 4
+  "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
 ));
 const LIVE_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_START_HOUR_BJ_V641",
@@ -121,6 +121,14 @@ const PROBE_RISK_SCALE = envNumber("MOOX_PROBE_RISK_SCALE_V64", 0.45, 0.25, 0.6)
 const SCALE_IN_MIN_AGE_MINUTES = Math.floor(envNumber(
   "MOOX_SCALE_IN_MIN_AGE_MINUTES_V64", 5, 3, 30
 ));
+// V7.5.2: MOOX owns the directional thesis; the market confirms the actual turn.
+// These thresholds only govern timing confirmation inside the forecast window.
+const INTRADAY_PATH_MIN_MOVE_PCT = envNumber(
+  "MOOX_INTRADAY_PATH_MIN_MOVE_PCT", 0.35, 0.1, 2
+);
+const INTRADAY_PATH_CONFIRM_PCT = envNumber(
+  "MOOX_INTRADAY_PATH_CONFIRM_PCT", 0.15, 0.05, 1
+);
 
 const PROFILE_DEFINITIONS: Record<
   ThreeHorizonStrategyType,
@@ -649,8 +657,13 @@ function evaluateIntraday(
     primaryWeight: 0.58,
     secondaryWeight: 0.22,
   });
-  const direction = activeDirection.direction;
+  // Direction/execution split: when MOOX has an explicit BUY_DIP / SELL_RALLY or
+  // aligned weekly-daily thesis, that thesis defines the side. Market structure must
+  // still turn toward that side before a full entry can fire.
+  const mooxDirection = forecastDirection(plan);
+  const direction = mooxDirection !== "NEUTRAL" ? mooxDirection : activeDirection.direction;
   const latest15 = last(m15);
+  const previous15 = m15[m15.length - 2];
   const latest5 = last(m5);
   const previous5 = m5[m5.length - 2];
   const ema15 = last(ema(m15.map((row) => row.close), 20)) ?? 0;
@@ -671,25 +684,69 @@ function evaluateIntraday(
       ? Boolean(latest5 && previous5 && latest5.close < ema5 && previous5.close >= previousEma5 && latest5.close < latest5.open)
       : false;
   const continuationTrigger = direction === "LONG"
-    ? Boolean(latest5 && latest5.close > ema5 && latest5.close >= latest5.open && m15Signal.score >= 8)
+    ? Boolean(latest5 && previous5 && latest5.close > ema5 && latest5.close >= latest5.open && latest5.close >= previous5.close && m15Signal.score >= 4)
     : direction === "SHORT"
-      ? Boolean(latest5 && latest5.close < ema5 && latest5.close <= latest5.open && m15Signal.score <= -8)
+      ? Boolean(latest5 && previous5 && latest5.close < ema5 && latest5.close <= latest5.open && latest5.close <= previous5.close && m15Signal.score <= -4)
       : false;
-  const entryMet = exactCross || continuationTrigger;
+  const reclaimTrigger = direction === "LONG"
+    ? Boolean(latest5 && previous5 && previous5.low <= previousEma5 * 1.0015 && latest5.close > ema5 && latest5.close > previous5.close)
+    : direction === "SHORT"
+      ? Boolean(latest5 && previous5 && previous5.high >= previousEma5 * 0.9985 && latest5.close < ema5 && latest5.close < previous5.close)
+      : false;
+
+  // Forecast path timing: a path such as "down then up" gives a window, not an exact
+  // bottom. The market selects the node by first making a meaningful excursion and
+  // then closing back away from the local extreme.
+  const pathRows = m15.slice(-16);
+  const pathHigh = pathRows.length ? Math.max(...pathRows.map((row) => row.high)) : 0;
+  const pathLow = pathRows.length ? Math.min(...pathRows.map((row) => row.low)) : 0;
+  const dipPct = pathHigh > 0 ? Math.max(0, (pathHigh - pathLow) / pathHigh * 100) : 0;
+  const reboundPct = pathLow > 0 && latest15 ? Math.max(0, (latest15.close - pathLow) / pathLow * 100) : 0;
+  const rallyPct = pathLow > 0 ? Math.max(0, (pathHigh - pathLow) / pathLow * 100) : 0;
+  const reversalPct = pathHigh > 0 && latest15 ? Math.max(0, (pathHigh - latest15.close) / pathHigh * 100) : 0;
+  const pathTurnTrigger = plan?.setup === "BUY_DIP" && direction === "LONG"
+    ? Boolean(
+        latest15 && previous15 &&
+        dipPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
+        reboundPct >= INTRADAY_PATH_CONFIRM_PCT &&
+        latest15.close > previous15.close
+      )
+    : plan?.setup === "SELL_RALLY" && direction === "SHORT"
+      ? Boolean(
+          latest15 && previous15 &&
+          rallyPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
+          reversalPct >= INTRADAY_PATH_CONFIRM_PCT &&
+          latest15.close < previous15.close
+        )
+      : false;
+  const entryMet = exactCross || reclaimTrigger || continuationTrigger || pathTurnTrigger;
+  const entryTriggerLabel = pathTurnTrigger
+    ? plan?.setup === "BUY_DIP" ? "预测路径下探后出现市场回升确认" : "预测路径冲高后出现市场转弱确认"
+    : reclaimTrigger
+      ? "5分钟回踩/反抽后重新收回执行均线"
+      : exactCross
+        ? "5分钟收盘穿越执行均线"
+        : continuationTrigger
+          ? "5分钟顺势延续确认"
+          : "等待回踩收回、延续或路径转折确认";
   const volumeAverage = average(m5.slice(-20).map((row) => row.volume));
   const volumeMet = Boolean(latest5 && (volumeAverage <= 0 || latest5.volume >= volumeAverage * 0.55));
   const volatility = volatilityCondition(m15, atr15, 4.5);
   const priorCompatible = !prior || prior.direction === direction;
+  const environmentAligned = activeDirection.direction === direction;
+  const environmentSoft = mooxDirection !== "NEUTRAL" && activeDirection.direction === "NEUTRAL" && Math.abs(activeDirection.strength) < 12;
   const conditions: ThreeHorizonCondition[] = [
-    { key: "environment", label: "1小时主动方向", met: direction !== "NEUTRAL" && Math.abs(activeDirection.strength) >= 7, value: activeDirection.label, weight: 20 },
+    { key: "environment", label: "1小时主动方向", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : direction === "LONG" ? "偏多" : "偏空"}`, weight: 20 },
     { key: "direction", label: "15分钟方向结构", met: structureMet, value: `收盘${latest15?.close ?? 0}，EMA20 ${round(ema15, 2)}，RSI ${round(rsi15, 1)}，趋势分${m15Signal.score}`, weight: 20 },
-    { key: "entry", label: "5分钟入场触发", met: entryMet, value: exactCross ? "收盘穿越EMA9" : continuationTrigger ? "趋势延续触发，可先开探路仓" : "未出现精确交叉，等待或仅允许小探路仓", weight: 20 },
+    { key: "entry", label: "市场转折/入场触发", met: entryMet, value: `${entryTriggerLabel}；下探${round(dipPct, 2)}%/回升${round(reboundPct, 2)}%，冲高${round(rallyPct, 2)}%/回落${round(reversalPct, 2)}%`, weight: 20 },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序，完全依赖价格结构", weight: 10 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 20 },
   ];
   return finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice, {
-    directionStrength: activeDirection.strength,
+    directionStrength: mooxDirection !== "NEUTRAL"
+      ? Math.max(Math.abs(activeDirection.strength), clamp(plan?.confidence ?? 50, 35, 85)) * directionValue(direction)
+      : activeDirection.strength,
     prior,
   });
 }
@@ -2692,6 +2749,10 @@ export async function runThreeHorizonStrategyEngine(
   let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
   let executedToday = await executedOrderCountToday(now);
   let scanErrors = 0;
+  let directionalDecisions = 0;
+  let entryTriggers = 0;
+  let leadTimeBlocks = 0;
+  let riskBlocks = 0;
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
   const maxNewSymbols = liveExperimentMode
     ? Number.POSITIVE_INFINITY
@@ -2789,6 +2850,10 @@ export async function runThreeHorizonStrategyEngine(
           code: "PLAN_PUBLISH_ERROR",
           reason: error instanceof Error ? error.message : "AI事前计划发布失败",
         }));
+        if (decision.direction !== "NEUTRAL") directionalDecisions += 1;
+        if (evaluation.conditions.some((condition) => condition.key === "entry" && condition.met)) entryTriggers += 1;
+        if (planGate.code === "PLAN_LEAD_TIME") leadTimeBlocks += 1;
+        if (planGate.code.includes("RISK") || decision.rejectionCode.includes("RISK")) riskBlocks += 1;
         if (evaluation.ready && status === "READY") {
           if (!planGate.allowed) {
             decision = await updateDecision(decision.id, {
@@ -3143,7 +3208,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
+    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；方向明确${directionalDecisions}，入场触发${entryTriggers}，事前发布时间拦截${leadTimeBlocks}，风险拦截${riskBlocks}，可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
   };
 }
 
@@ -3167,7 +3232,9 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? `实盘主动执行已开启：10品种三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔活动目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
+        ? (LIVE_ACTIVITY_TARGET > 0
+            ? `实盘主动执行已开启：10品种三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔兼容活动目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
+            : "实盘主动执行已开启：10品种三周期扫描、MOOX方向+市场节点触发、分批探路仓、最高2倍逐仓及现有实盘风控上限生效；不为凑单强制交易。")
         : "实盘主动执行未获授权：请检查BITGET_TRADING_MODE、BITGET_LIVE_EXECUTION_ALLOWED、BITGET_LIVE_CONFIRMATION及MOOX_LIVE_ACTIVE_EXECUTION_V641。"
       : executionEnvironmentAllowed
         ? `主动Demo执行已开启：全十品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
