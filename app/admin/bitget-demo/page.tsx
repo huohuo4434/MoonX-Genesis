@@ -1,6 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { BitgetDemoClient } from "@/components/admin/BitgetDemoClient";
 import { BitgetLiveConsoleLoader } from "@/components/admin/BitgetLiveConsoleLoader";
+import { BitgetLiveReadinessClient } from "@/components/admin/BitgetLiveReadinessClient";
 import { PredictionAutoTraderClient } from "@/components/admin/PredictionAutoTraderClient";
 import { AiTradingDeskSettingsClient } from "@/components/admin/AiTradingDeskSettingsClient";
 import { ThreeHorizonStrategyClient } from "@/components/admin/ThreeHorizonStrategyClient";
@@ -32,6 +33,7 @@ export default async function AdminBitgetDemoPage() {
             1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。BTC/ETH小额真实闭环验收与10品种短线、波段和中长期扫描并行运行；只有达到技术触发和风控条件的计划才会下单。
           </Text>
           <div className="space-y-8">
+            <BitgetLiveReadinessClient />
             <AiTradePlanAdminClient lazy />
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>

@@ -1,6 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, Heading, Text, Badge } from "@/components/ui";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
+import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
 import { listResearchRecords } from "@/lib/data/research-records";
 import { policyForTags } from "@/lib/research/external-source-policy";
@@ -36,7 +37,7 @@ export default async function AdminExternalViewpointsPage() {
       records: allRecords,
     }),
   }));
-  const archivedViewpoints = [...teacher02Liuyao20260802Records, ...externalViewpoints20260801];
+  const archivedViewpoints = [...teacher02Liuyao20260802Records, ...externalViewpoints20260801, ...externalViewpointsFollowup20260801];
 
   return (
     <main className="mx-auto w-full max-w-container px-4 py-8 sm:px-6 lg:px-8">
