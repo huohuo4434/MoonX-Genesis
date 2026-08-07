@@ -6,6 +6,7 @@ export type XIntelligenceMomentum = "NEW" | "ACCELERATING" | "STABLE" | "COOLING
 export type XIntelligenceAggregateInput = {
   postedAt: string;
   sourceKey?: string;
+  sourceFamily?: string;
   symbols: string[];
   direction: XIntelligenceDirection;
   confidence: number;
@@ -34,6 +35,8 @@ export type XIntelligenceSymbolSummary = {
   timeWindows: string[];
   sampleSize: number;
   uniqueSources24h: number;
+  uniqueAccounts24h: number;
+  methodFamilies24h: number;
   agreementRatio24h: number;
 };
 
@@ -213,7 +216,18 @@ export function aggregateXIntelligence(
       keyLevels: uniqueNumbers(scoringRows.flatMap((row) => row.levels), 8),
       timeWindows: uniqueStrings(scoringRows.flatMap((row) => row.timeWindows), 6),
       sampleSize: scoringRows.length,
-      uniqueSources24h: new Set(rows24h.map((row) => row.sourceKey?.trim().toLowerCase()).filter(Boolean)).size || (rows24h.length > 0 ? 1 : 0),
+      uniqueSources24h: (() => {
+        const handles = new Set(rows24h.map((row) => row.sourceKey?.trim().toLowerCase()).filter(Boolean));
+        if (handles.size === 0) return rows24h.length > 0 ? 1 : 0;
+        const families = new Set(rows24h.map((row) => row.sourceFamily?.trim().toUpperCase() || "OTHER"));
+        const extraSameFamily = Math.max(0, handles.size - families.size);
+        return Math.max(1, families.size + Math.min(2, Math.floor(extraSameFamily / 3)));
+      })(),
+      uniqueAccounts24h: new Set(rows24h.map((row) => row.sourceKey?.trim().toLowerCase()).filter(Boolean)).size || (rows24h.length > 0 ? 1 : 0),
+      methodFamilies24h: (() => {
+        if (rows24h.length === 0) return 0;
+        return new Set(rows24h.map((row) => row.sourceFamily?.trim().toUpperCase() || "OTHER")).size;
+      })(),
       agreementRatio24h: (() => {
         const directional = rows24h.filter((row) => row.direction === "LONG" || row.direction === "SHORT");
         if (directional.length === 0) return 0;

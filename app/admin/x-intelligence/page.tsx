@@ -174,7 +174,7 @@ export default async function AdminXIntelligencePage() {
                 24小时方向样本：偏多 {item.longCount24h} · 偏空 {item.shortCount24h} · 中性 {item.neutralCount24h} · 平均解析置信度 {item.averageConfidence}%
               </Text>
               <Text variant="caption" color="secondary" className="mt-2 block">
-                独立信号源 {item.uniqueSources24h} 组 · 方向一致度 {Math.round(item.agreementRatio24h * 100)}%
+                账号 {item.uniqueAccounts24h} 个 · 方法组 {item.methodFamilies24h} 类 · 有效独立源 {item.uniqueSources24h} 组 · 方向一致度 {Math.round(item.agreementRatio24h * 100)}%
                 {autoWeight ? ` · 对上涨概率修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点` : ""}
               </Text>
               {item.keyLevels.length > 0 ? (

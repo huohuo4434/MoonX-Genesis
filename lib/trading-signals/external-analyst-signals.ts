@@ -12,6 +12,7 @@ import type {
   ExternalAnalystRefreshReport,
   ExternalAnalystSource,
 } from "@/types/external-analyst";
+import { configuredXWatchHandles } from "@/lib/trading-signals/x-source-registry.server";
 import type {
   ThreeHorizonDirection,
   ThreeHorizonStrategyType,
@@ -369,6 +370,7 @@ export type ExternalAnalystCollectorIngestReport = {
 
 function configuredCollectorAccounts(): Set<string> {
   const rows = [
+    ...configuredXWatchHandles(),
     ...ANALYSTS.map((row) => row.username),
     ...(process.env.MOOX_X_WATCH_ACCOUNTS ?? "")
       .split(",")

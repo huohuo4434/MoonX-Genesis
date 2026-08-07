@@ -182,8 +182,8 @@ export default async function AlphaFeedPage() {
 
                 <Text variant="body-sm" className="mt-3 block leading-relaxed text-white/80">
                   {en
-                    ? `Direction score ${item.directionScore > 0 ? "+" : ""}${item.directionScore}; average parsing confidence ${item.averageConfidence}%. ${item.uniqueSources24h} anonymous signal groups, ${Math.round(item.agreementRatio24h * 100)}% directional agreement. ${autoWeight ? `Automatic forecast adjustment ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct}pp.` : ""}`
-                    : `方向分 ${item.directionScore > 0 ? "+" : ""}${item.directionScore}，平均解析置信度 ${item.averageConfidence}%。24小时独立信号源 ${item.uniqueSources24h} 组，方向一致度 ${Math.round(item.agreementRatio24h * 100)}%。${autoWeight ? `自动预测修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点。` : ""}`}
+                    ? `Direction score ${item.directionScore > 0 ? "+" : ""}${item.directionScore}; average parsing confidence ${item.averageConfidence}%. ${item.uniqueSources24h} effective anonymous signal groups, ${Math.round(item.agreementRatio24h * 100)}% directional agreement. ${autoWeight ? `Automatic forecast adjustment ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct}pp.` : ""}`
+                    : `方向分 ${item.directionScore > 0 ? "+" : ""}${item.directionScore}，平均解析置信度 ${item.averageConfidence}%。24小时有效独立信号源 ${item.uniqueSources24h} 组，方向一致度 ${Math.round(item.agreementRatio24h * 100)}%。${autoWeight ? `自动预测修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点。` : ""}`}
                 </Text>
 
                 {item.keyLevels.length > 0 || item.timeWindows.length > 0 ? (

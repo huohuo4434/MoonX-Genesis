@@ -14,6 +14,8 @@ export type XIntelligenceAutoWeight = {
   directionScore: number;
   probabilityShiftPct: number;
   uniqueSources24h: number;
+  uniqueAccounts24h: number;
+  methodFamilies24h: number;
   agreementPct: number;
   stage: XIntelligenceStage;
   momentum: XIntelligenceMomentum;
@@ -81,7 +83,7 @@ export function buildXIntelligenceAutoWeight(
     forecastAction = "REDUCE";
   }
 
-  const explanation = `匿名X情报自动权重${weight}%：24小时${summary.mentions24h}条，独立信号源${sources}组，方向一致度${Math.round(agreement * 100)}%，方向分${summary.directionScore >= 0 ? "+" : ""}${summary.directionScore}，阶段${summary.dominantStage}，热度${summary.momentum}。`;
+  const explanation = `匿名X情报自动权重${weight}%：24小时${summary.mentions24h}条，账号${summary.uniqueAccounts24h}个，方法组${summary.methodFamilies24h}类，有效独立源${sources}组，方向一致度${Math.round(agreement * 100)}%，方向分${summary.directionScore >= 0 ? "+" : ""}${summary.directionScore}，阶段${summary.dominantStage}，热度${summary.momentum}。`;
 
   return {
     symbol: summary.symbol,
@@ -90,6 +92,8 @@ export function buildXIntelligenceAutoWeight(
     directionScore: summary.directionScore,
     probabilityShiftPct,
     uniqueSources24h: sources,
+    uniqueAccounts24h: summary.uniqueAccounts24h,
+    methodFamilies24h: summary.methodFamilies24h,
     agreementPct: Math.round(agreement * 100),
     stage: summary.dominantStage,
     momentum: summary.momentum,

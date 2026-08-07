@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  aggregateXIntelligence,
+  type XIntelligenceAggregateInput,
+  type XIntelligenceSymbolSummary,
+} from "../lib/trading-signals/x-intelligence-core.ts";
+import {
   applyXIntelligenceToGeneratedDaily,
   buildXIntelligenceAutoWeight,
   findXIntelligenceSummaryForMarket,
 } from "../lib/trading-signals/x-intelligence-overlay.ts";
-import type { XIntelligenceSymbolSummary } from "../lib/trading-signals/x-intelligence-core.ts";
 import type { GeneratedDailyForecastRecord } from "../lib/weekly-source/types.ts";
 
 function summary(overrides: Partial<XIntelligenceSymbolSummary> = {}): XIntelligenceSymbolSummary {
@@ -28,19 +32,61 @@ function summary(overrides: Partial<XIntelligenceSymbolSummary> = {}): XIntellig
     timeWindows: [],
     sampleSize: 6,
     uniqueSources24h: 3,
+    uniqueAccounts24h: 5,
+    methodFamilies24h: 3,
     agreementRatio24h: 5 / 6,
     ...overrides,
   };
 }
 
-test("three independent aligned sources can reach 10% but never exceed source cap", () => {
+function signal(sourceKey: string, sourceFamily = "OTHER"): XIntelligenceAggregateInput {
+  return {
+    postedAt: "2026-08-07T12:00:00.000Z",
+    sourceKey,
+    sourceFamily,
+    symbols: ["BTC"],
+    direction: "LONG",
+    confidence: 70,
+    stage: "EARLY_WATCH",
+    risk: "MEDIUM",
+    levels: [],
+    timeWindows: [],
+  };
+}
+
+test("same-method accounts do not count one-for-one as independent methods", () => {
+  const rows = ["Deltaking888", "ximihoo1", "Cycle_King1913", "formnoshape", "mat78704"].map((handle) => signal(handle, "CYCLE_TIMING"));
+  const aggregate = aggregateXIntelligence(rows, new Date("2026-08-07T13:00:00.000Z"));
+  const btc = aggregate.summaries.find((item) => item.symbol === "BTC");
+  assert.ok(btc);
+  assert.equal(btc.uniqueAccounts24h, 5);
+  assert.equal(btc.methodFamilies24h, 1);
+  assert.equal(btc.uniqueSources24h, 2);
+});
+
+test("cross-method confirmation increases effective source diversity", () => {
+  const rows = [
+    signal("Deltaking888", "CYCLE_TIMING"),
+    signal("big_hunter11", "FLOW_LIQUIDITY"),
+    signal("btcpiggy", "METAPHYSICAL_TIMING"),
+    signal("ArtofSpecuycky", "FUNDAMENTAL_EVENT"),
+    signal("btckik", "ALTCOIN_RADAR"),
+  ];
+  const aggregate = aggregateXIntelligence(rows, new Date("2026-08-07T13:00:00.000Z"));
+  const btc = aggregate.summaries.find((item) => item.symbol === "BTC");
+  assert.ok(btc);
+  assert.equal(btc.methodFamilies24h, 5);
+  assert.equal(btc.uniqueSources24h, 5);
+});
+
+test("three effective independent sources can reach 10% but never exceed source cap", () => {
   const overlay = buildXIntelligenceAutoWeight(summary());
   assert.ok(overlay);
   assert.equal(overlay.weightPct, 10);
   assert.equal(overlay.canTriggerTradeAlone, false);
 });
 
-test("one source is capped at five percent", () => {
+test("one effective source is capped at five percent", () => {
   const overlay = buildXIntelligenceAutoWeight(summary({ uniqueSources24h: 1, mentions24h: 20 }));
   assert.ok(overlay);
   assert.ok(overlay.weightPct <= 5);

@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { assessAltcoinRadarPost } from "@/lib/trading-signals/altcoin-radar";
 import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
+import { xSourceFamilyForHandle } from "@/lib/trading-signals/x-source-registry.server";
 import {
   aggregateXIntelligence,
   type XIntelligenceAggregate,
@@ -182,6 +183,7 @@ function mapParsedPost(row: StoredRow): XIntelligenceAggregateInput | null {
   return {
     postedAt: normalizedIso(parsed.postedAt) ?? normalizedIso(row.posted_at) ?? new Date(0).toISOString(),
     sourceKey: parsed.username || row.username,
+    sourceFamily: xSourceFamilyForHandle(parsed.username || row.username),
     symbols: parsed.symbols,
     direction: parsed.direction,
     confidence: parsed.confidence,
