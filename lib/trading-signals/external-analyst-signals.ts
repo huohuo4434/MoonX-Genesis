@@ -98,39 +98,48 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
   }
 }
 
+let ensureExternalAnalystTablesPromise: Promise<boolean> | null = null;
+
 export async function ensureExternalAnalystTables(): Promise<boolean> {
   if (!prisma) return false;
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS trade_external_analyst_posts (
-      id TEXT PRIMARY KEY,
-      source TEXT NOT NULL,
-      username TEXT NOT NULL,
-      post_id TEXT NOT NULL,
-      post_url TEXT NOT NULL,
-      posted_at TIMESTAMPTZ NOT NULL,
-      text TEXT NOT NULL,
-      parsed JSONB NOT NULL DEFAULT '{}'::jsonb,
-      fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS trade_external_analyst_posts_source_post_uq
-    ON trade_external_analyst_posts(source, post_id)
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS trade_external_analyst_posts_posted_idx
-    ON trade_external_analyst_posts(posted_at DESC)
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS trade_external_analyst_state (
-      state_key TEXT PRIMARY KEY,
-      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  return true;
+  if (ensureExternalAnalystTablesPromise) return ensureExternalAnalystTablesPromise;
+  ensureExternalAnalystTablesPromise = (async () => {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS trade_external_analyst_posts (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        username TEXT NOT NULL,
+        post_id TEXT NOT NULL,
+        post_url TEXT NOT NULL,
+        posted_at TIMESTAMPTZ NOT NULL,
+        text TEXT NOT NULL,
+        parsed JSONB NOT NULL DEFAULT '{}'::jsonb,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS trade_external_analyst_posts_source_post_uq
+      ON trade_external_analyst_posts(source, post_id)
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS trade_external_analyst_posts_posted_idx
+      ON trade_external_analyst_posts(posted_at DESC)
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS trade_external_analyst_state (
+        state_key TEXT PRIMARY KEY,
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    return true;
+  })().catch((error) => {
+    ensureExternalAnalystTablesPromise = null;
+    throw error;
+  });
+  return ensureExternalAnalystTablesPromise;
 }
 
 async function lastRefreshAt(): Promise<Date | null> {
@@ -256,6 +265,93 @@ async function storePost(
   return parsed.symbols.length > 0;
 }
 
+
+async function storeCollectorPostsBatch(
+  posts: ExternalAnalystFeedPostInput[],
+  source: ExternalAnalystSource
+): Promise<{ storedPosts: number; parsedSignals: number }> {
+  if (!prisma || posts.length === 0) return { storedPosts: 0, parsedSignals: 0 };
+
+  const prepared = posts.flatMap((post) => {
+    const postedAt = new Date(post.createdAt);
+    if (Number.isNaN(postedAt.getTime())) return [];
+    const parsed = parseExternalAnalystPost({
+      source,
+      username: post.username,
+      postId: post.id,
+      postUrl: post.url ?? `https://x.com/${post.username}/status/${post.id}`,
+      postedAt: postedAt.toISOString(),
+      text: post.text,
+    });
+    return [{
+      id: `${source}:${post.id}`,
+      source,
+      username: post.username,
+      post_id: post.id,
+      post_url: parsed.postUrl,
+      posted_at: parsed.postedAt,
+      text: parsed.text,
+      parsed,
+      hasSignal: parsed.symbols.length > 0,
+    }];
+  });
+
+  if (prepared.length === 0) return { storedPosts: 0, parsedSignals: 0 };
+
+  const dbRows = prepared.map((row) => ({
+    id: row.id,
+    source: row.source,
+    username: row.username,
+    post_id: row.post_id,
+    post_url: row.post_url,
+    posted_at: row.posted_at,
+    text: row.text,
+    parsed: row.parsed,
+  }));
+  await prisma.$executeRawUnsafe(
+    `WITH incoming AS (
+       SELECT *
+       FROM jsonb_to_recordset($1::jsonb) AS row(
+         id TEXT,
+         source TEXT,
+         username TEXT,
+         post_id TEXT,
+         post_url TEXT,
+         posted_at TEXT,
+         text TEXT,
+         parsed JSONB
+       )
+     )
+     INSERT INTO trade_external_analyst_posts(
+       id, source, username, post_id, post_url, posted_at, text, parsed, fetched_at, created_at, updated_at
+     )
+     SELECT
+       id, source, username, post_id, post_url, posted_at::timestamptz, text, parsed, NOW(), NOW(), NOW()
+     FROM incoming
+     ON CONFLICT (source, post_id) DO UPDATE SET
+       post_url = EXCLUDED.post_url,
+       posted_at = EXCLUDED.posted_at,
+       text = EXCLUDED.text,
+       parsed = EXCLUDED.parsed,
+       fetched_at = NOW(),
+       updated_at = NOW()`,
+    JSON.stringify(dbRows)
+  );
+
+  return {
+    storedPosts: prepared.length,
+    parsedSignals: prepared.filter((row) => row.hasSignal).length,
+  };
+}
+
+export type ExternalAnalystCollectorMeta = {
+  clientVersion?: string;
+  accountsAttempted?: number;
+  accountsSucceeded?: number;
+  errorCount?: number;
+  durationMs?: number;
+};
+
 export type ExternalAnalystCollectorIngestReport = {
   acceptedPosts: number;
   storedPosts: number;
@@ -263,6 +359,11 @@ export type ExternalAnalystCollectorIngestReport = {
   rejectedPosts: number;
   checkedAt: string;
   collectorId: string;
+  clientVersion: string;
+  accountsAttempted: number;
+  accountsSucceeded: number;
+  errorCount: number;
+  durationMs: number | null;
   errors: string[];
 };
 
@@ -291,11 +392,20 @@ export async function ingestExternalAnalystCollectorPosts(input: {
   posts: ExternalAnalystFeedPostInput[];
   collectorId?: string;
   checkedAt?: string;
+  collectorMeta?: ExternalAnalystCollectorMeta;
 }): Promise<ExternalAnalystCollectorIngestReport> {
   const checkedAt = input.checkedAt && Number.isFinite(Date.parse(input.checkedAt))
     ? new Date(input.checkedAt).toISOString()
     : new Date().toISOString();
   const collectorId = (input.collectorId ?? "moox-windows-x-collector").trim().slice(0, 120) || "moox-windows-x-collector";
+  const meta = input.collectorMeta ?? {};
+  const boundedCount = (value: number | undefined, maximum = 10_000): number => {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(maximum, Math.round(value ?? 0)));
+  };
+  const durationMs = Number.isFinite(meta.durationMs)
+    ? Math.max(0, Math.min(30 * 60_000, Math.round(meta.durationMs ?? 0)))
+    : null;
   const report: ExternalAnalystCollectorIngestReport = {
     acceptedPosts: 0,
     storedPosts: 0,
@@ -303,6 +413,11 @@ export async function ingestExternalAnalystCollectorPosts(input: {
     rejectedPosts: 0,
     checkedAt,
     collectorId,
+    clientVersion: String(meta.clientVersion ?? "").trim().slice(0, 80),
+    accountsAttempted: boundedCount(meta.accountsAttempted, 500),
+    accountsSucceeded: boundedCount(meta.accountsSucceeded, 500),
+    errorCount: boundedCount(meta.errorCount, 500),
+    durationMs,
     errors: [],
   };
 
@@ -326,6 +441,7 @@ export async function ingestExternalAnalystCollectorPosts(input: {
       .map((post) => [`${post.username.toLowerCase()}:${post.id}`, post] as const)
   ).values());
 
+  const accepted: ExternalAnalystFeedPostInput[] = [];
   for (const post of unique) {
     const normalizedUsername = post.username.toLowerCase();
     if (!allowedAccounts.has(normalizedUsername)) {
@@ -333,23 +449,28 @@ export async function ingestExternalAnalystCollectorPosts(input: {
       report.errors.push(`${post.username}/${post.id}: ACCOUNT_NOT_ALLOWED`);
       continue;
     }
-    // Local collector data is always observation-only. It may enrich the member
-    // radar, but it must never enter the automated trading overlay.
-    const forcedSource: ExternalAnalystSource = "BTCKIK";
-    try {
-      const parsed = await storePost(post, forcedSource);
-      report.acceptedPosts += 1;
-      report.storedPosts += 1;
-      if (parsed) report.parsedSignals += 1;
-    } catch (error) {
-      report.errors.push(`${post.username}/${post.id}: ${error instanceof Error ? error.message : "STORE_FAILED"}`);
-    }
+    accepted.push(post);
+  }
+
+  // Local collector data is always observation-only. It may enrich the member
+  // radar, but it must never enter the automated trading overlay. Batch the DB
+  // upsert into one round-trip so a normal 30-120 post payload does not spend
+  // the whole serverless invocation doing one INSERT per post.
+  const forcedSource: ExternalAnalystSource = "BTCKIK";
+  try {
+    const stored = await storeCollectorPostsBatch(accepted, forcedSource);
+    report.acceptedPosts = accepted.length;
+    report.storedPosts = stored.storedPosts;
+    report.parsedSignals = stored.parsedSignals;
+  } catch (error) {
+    report.errors.push(`BATCH_STORE_FAILED: ${error instanceof Error ? error.message : "STORE_FAILED"}`);
   }
 
   await markCollectorState({
     ...report,
     receivedPosts: input.posts.length,
-    allowedAccounts: Array.from(allowedAccounts).sort(),
+    allowedAccountCount: allowedAccounts.size,
+    heartbeatOnly: input.posts.length === 0,
   }).catch(() => undefined);
   return report;
 }

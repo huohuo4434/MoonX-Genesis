@@ -7,7 +7,7 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_POSTS = 120;
@@ -23,6 +23,23 @@ function requestSecret(request: NextRequest): string {
   const authorization = request.headers.get("authorization") ?? "";
   if (authorization.startsWith("Bearer ")) return authorization.slice(7).trim();
   return request.headers.get("x-moox-collector-secret")?.trim() ?? "";
+}
+
+
+function boundedNumber(value: unknown, maximum: number): number | undefined {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.max(0, Math.min(maximum, Math.round(parsed)));
+}
+
+function collectorMeta(value: Record<string, unknown>) {
+  return {
+    clientVersion: String(value.version ?? value.clientVersion ?? "").trim().slice(0, 80),
+    accountsAttempted: boundedNumber(value.accountsAttempted, 500),
+    accountsSucceeded: boundedNumber(value.accountsSucceeded, 500),
+    errorCount: boundedNumber(value.errorCount, 500),
+    durationMs: boundedNumber(value.durationMs, 30 * 60_000),
+  };
 }
 
 function normalizePosts(value: unknown): ExternalAnalystFeedPostInput[] {
@@ -74,6 +91,7 @@ export async function POST(request: NextRequest) {
       posts,
       collectorId: String(collector.id ?? collector.version ?? "moox-windows-x-collector"),
       checkedAt: String(collector.checkedAt ?? body.checkedAt ?? ""),
+      collectorMeta: collectorMeta(collector),
     });
     return NextResponse.json({
       ok: report.errors.length === 0 || report.storedPosts > 0,

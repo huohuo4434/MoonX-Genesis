@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
-COLLECTOR_VERSION = "7.1.0"
+COLLECTOR_VERSION = "7.2.2"
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MOOX-X-Collector"
 CONFIG_PATH = APP_DIR / "config.json"
 CREDENTIALS_PATH = APP_DIR / "credentials.dpapi"
@@ -203,13 +203,21 @@ def within_lookback(post: dict[str, str], hours: int) -> bool:
     return parsed >= datetime.now(timezone.utc) - timedelta(hours=hours)
 
 
-def post_to_moox(site_url: str, secret: str, posts: list[dict[str, str]], timeout: int) -> dict[str, Any]:
+def post_batch_to_moox(
+    site_url: str,
+    secret: str,
+    posts: list[dict[str, str]],
+    timeout: int,
+    collector_meta: dict[str, Any],
+) -> dict[str, Any]:
     endpoint = site_url.rstrip("/") + "/api/internal/x-intelligence/ingest"
     body = json.dumps(
         {
             "collector": {
                 "id": f"moox-windows-x-collector/{COLLECTOR_VERSION}",
+                "version": COLLECTOR_VERSION,
                 "checkedAt": utc_now(),
+                **collector_meta,
             },
             "posts": posts,
         },
@@ -235,7 +243,51 @@ def post_to_moox(site_url: str, secret: str, posts: list[dict[str, str]], timeou
         raise RuntimeError(f"无法连接MOOX接收接口：{error.reason}") from error
 
 
+
+def post_to_moox(
+    site_url: str,
+    secret: str,
+    posts: list[dict[str, str]],
+    timeout: int,
+    collector_meta: dict[str, Any],
+) -> dict[str, Any]:
+    batch_size = 20
+    batches = [posts[index:index + batch_size] for index in range(0, len(posts), batch_size)] or [[]]
+    aggregate_report: dict[str, Any] = {
+        "acceptedPosts": 0,
+        "storedPosts": 0,
+        "parsedSignals": 0,
+        "rejectedPosts": 0,
+        "errors": [],
+    }
+    all_ok = True
+    last_response: dict[str, Any] = {}
+    for index, batch in enumerate(batches, start=1):
+        batch_meta = {
+            **collector_meta,
+            "batchIndex": index,
+            "batchCount": len(batches),
+        }
+        response = post_batch_to_moox(site_url, secret, batch, timeout, batch_meta)
+        last_response = response if isinstance(response, dict) else {}
+        all_ok = all_ok and bool(last_response.get("ok", False))
+        report = last_response.get("report", {}) if isinstance(last_response, dict) else {}
+        if isinstance(report, dict):
+            for key in ("acceptedPosts", "storedPosts", "parsedSignals", "rejectedPosts"):
+                aggregate_report[key] += int(report.get(key, 0) or 0)
+            errors = report.get("errors", [])
+            if isinstance(errors, list):
+                aggregate_report["errors"].extend(str(value) for value in errors)
+        if len(batches) > 1:
+            log(f"MOOX上传批次 {index}/{len(batches)}：{len(batch)}条")
+    return {
+        **last_response,
+        "ok": all_ok,
+        "report": aggregate_report,
+    }
+
 def main() -> int:
+    started_at = time.monotonic()
     APP_DIR.mkdir(parents=True, exist_ok=True)
     config = load_json(CONFIG_PATH, {})
     credentials = load_credentials()
@@ -252,12 +304,14 @@ def main() -> int:
     sent_ids = set(str(value) for value in state.get("sent_ids", []))
 
     errors: list[str] = []
+    accounts_succeeded = 0
     collected: list[dict[str, str]] = []
     for index, username in enumerate(accounts):
         try:
             rows = fetch_user_posts(username, max_posts, credentials, timeout)
             fresh = [row for row in rows if within_lookback(row, lookback_hours)]
             collected.extend(row for row in fresh if f"{username.lower()}:{row['id']}" not in sent_ids)
+            accounts_succeeded += 1
             log(f"{username}: 读取{len(rows)}条，时间范围内{len(fresh)}条")
         except Exception as error:  # noqa: BLE001
             message = f"{username}: {error}"
@@ -271,17 +325,28 @@ def main() -> int:
         for row in collected
     }
     pending = list(unique.values())[:120]
-    response: dict[str, Any] = {"ok": True, "report": {"storedPosts": 0}}
+    collector_meta = {
+        "accountsAttempted": len(accounts),
+        "accountsSucceeded": accounts_succeeded,
+        "errorCount": len(errors),
+        "durationMs": int((time.monotonic() - started_at) * 1000),
+    }
+    response = post_to_moox(
+        site_url,
+        credentials["ingest_secret"],
+        pending,
+        timeout,
+        collector_meta,
+    )
+    report = response.get("report", {}) if isinstance(response, dict) else {}
+    stored = int(report.get("storedPosts", 0)) if isinstance(report, dict) else 0
     if pending:
-        response = post_to_moox(site_url, credentials["ingest_secret"], pending, timeout)
-        report = response.get("report", {}) if isinstance(response, dict) else {}
-        stored = int(report.get("storedPosts", 0)) if isinstance(report, dict) else 0
         log(f"已向MOOX提交{len(pending)}条，服务端写入{stored}条")
-        if not response.get("ok", False):
-            raise RuntimeError("MOOX接收接口返回失败：" + json.dumps(response, ensure_ascii=False)[:800])
-        sent_ids.update(f"{row['username'].lower()}:{row['id']}" for row in pending)
     else:
-        log("本轮没有新帖子需要提交")
+        log("本轮没有新帖子；健康心跳已提交")
+    if not response.get("ok", False):
+        raise RuntimeError("MOOX接收接口返回失败：" + json.dumps(response, ensure_ascii=False)[:800])
+    sent_ids.update(f"{row['username'].lower()}:{row['id']}" for row in pending)
 
     trimmed_ids = list(sent_ids)[-5000:]
     STATE_PATH.write_text(
@@ -293,6 +358,8 @@ def main() -> int:
         "version": COLLECTOR_VERSION,
         "checked_at": utc_now(),
         "accounts": accounts,
+        "accounts_attempted": len(accounts),
+        "accounts_succeeded": accounts_succeeded,
         "new_posts": len(pending),
         "errors": errors,
         "server_response": response,
