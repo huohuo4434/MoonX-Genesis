@@ -34,26 +34,28 @@ type GeneratedDailyLike = {
   marketCode: string;
   forecastDate: string;
   direction: string;
-  upProbability: number;
-  sidewaysProbability: number;
-  downProbability: number;
-  expectedPath: string;
-  supportLevels: unknown;
-  resistanceLevels: unknown;
-  confirmationLevel: string | null;
-  invalidationLevel: string | null;
-  liuyaoEvidence: string | null;
-  qimenEvidence: string | null;
-  calendarEvidence: unknown;
-  newsEvidence: string | null;
-  revisionReason: string | null;
-  version: number;
+  upProbability?: number | null;
+  sidewaysProbability?: number | null;
+  downProbability?: number | null;
+  expectedPath?: string | null;
+  supportLevels?: unknown;
+  resistanceLevels?: unknown;
+  confirmationLevel?: string | null;
+  invalidationLevel?: string | null;
+  liuyaoEvidence?: string | null;
+  qimenEvidence?: string | null;
+  calendarEvidence?: unknown;
+  newsEvidence?: string | null;
+  revisionReason?: string | null;
+  version?: number | null;
   status: string;
-  generatedAt: Date;
-  publishedAt: Date | null;
-  lockedAt: Date | null;
+  generatedAt?: Date | null;
+  publishedAt?: Date | null;
+  lockedAt?: Date | null;
   createdAt: Date;
 };
+
+type GeneratedQueryMode = "full" | "core" | "minimum";
 
 function cleanCode(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -148,8 +150,6 @@ export function generatedDailyToVerificationRecord(
   const resistanceLevels = asStringArray(row.resistanceLevels);
   const formalDirection = row.direction ?? "";
   const formalPath = `${formalDirection} ${row.expectedPath ?? ""}`.trim();
-  // Match the production UI contract: the formal direction comes from the
-  // locked direction field, while the richer path may use expectedPath.
   const direction = generatedDirection(formalDirection);
   const pattern = generatedPattern(formalPath);
   const probability = Math.max(
@@ -168,6 +168,7 @@ export function generatedDailyToVerificationRecord(
     pathDefined: Boolean(row.expectedPath?.trim()),
   });
   const cutoffAt = defaultCutoffAt(row.forecastDate, asset.market);
+  const version = Math.max(1, Number(row.version) || 1);
 
   return {
     id: `generated-daily:${row.id}`,
@@ -190,12 +191,12 @@ export function generatedDailyToVerificationRecord(
     publishedAt,
     cutoffAt,
     status: "published",
-    originalVersion: Math.max(1, Number(row.version) || 1),
+    originalVersion: version,
     source: "MOOX GeneratedDailyForecast locked publication",
     isSystemTest: false,
     quoteSymbol: asset.quoteSymbol,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.generatedAt.toISOString(),
+    updatedAt: (row.generatedAt ?? row.createdAt).toISOString(),
     supportLevels,
     resistanceLevels,
     confirmation: row.confirmationLevel ?? undefined,
@@ -214,53 +215,130 @@ function beijingDateKey(date: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-export async function listFormalGeneratedDailiesForVerification(
-  now = new Date()
+function formalGeneratedStatus(row: GeneratedDailyLike): boolean {
+  const status = String(row.status ?? "").trim().toUpperCase();
+  if (status === "PUBLISHED" || status === "LOCKED") return true;
+  if (status === "ARCHIVED") return Boolean(row.publishedAt || row.lockedAt);
+  return false;
+}
+
+async function queryGeneratedDailyRows(
+  mode: GeneratedQueryMode,
+  futureDateKey: string
 ): Promise<GeneratedDailyLike[]> {
-  if (!hasPrisma() || !prisma) return [];
-  const futureLimit = new Date(now.getTime() + 45 * 86_400_000);
-  return prisma.generatedDailyForecast.findMany({
-    where: {
-      forecastDate: {
-        gte: OFFICIAL_GENERATED_DAILY_SYNC_START,
-        lte: beijingDateKey(futureLimit),
-      },
-      OR: [
-        { status: { in: ["PUBLISHED", "LOCKED"] } },
-        {
-          status: "ARCHIVED",
-          OR: [{ publishedAt: { not: null } }, { lockedAt: { not: null } }],
-        },
-      ],
+  if (!prisma) return [];
+  const where = {
+    forecastDate: {
+      gte: OFFICIAL_GENERATED_DAILY_SYNC_START,
+      lte: futureDateKey,
     },
+  };
+  const versionedOrderBy = [{ forecastDate: "asc" as const }, { marketCode: "asc" as const }, { version: "asc" as const }];
+
+  if (mode === "full") {
+    const rows = await prisma.generatedDailyForecast.findMany({
+      where,
+      select: {
+        id: true,
+        marketCode: true,
+        forecastDate: true,
+        direction: true,
+        upProbability: true,
+        sidewaysProbability: true,
+        downProbability: true,
+        expectedPath: true,
+        supportLevels: true,
+        resistanceLevels: true,
+        confirmationLevel: true,
+        invalidationLevel: true,
+        liuyaoEvidence: true,
+        qimenEvidence: true,
+        calendarEvidence: true,
+        newsEvidence: true,
+        revisionReason: true,
+        version: true,
+        status: true,
+        generatedAt: true,
+        publishedAt: true,
+        lockedAt: true,
+        createdAt: true,
+      },
+      orderBy: versionedOrderBy,
+      take: 2000,
+    });
+    return rows as unknown as GeneratedDailyLike[];
+  }
+
+  if (mode === "core") {
+    const rows = await prisma.generatedDailyForecast.findMany({
+      where,
+      select: {
+        id: true,
+        marketCode: true,
+        forecastDate: true,
+        direction: true,
+        upProbability: true,
+        sidewaysProbability: true,
+        downProbability: true,
+        expectedPath: true,
+        version: true,
+        status: true,
+        generatedAt: true,
+        publishedAt: true,
+        lockedAt: true,
+        createdAt: true,
+      },
+      orderBy: versionedOrderBy,
+      take: 2000,
+    });
+    return rows as unknown as GeneratedDailyLike[];
+  }
+
+  const rows = await prisma.generatedDailyForecast.findMany({
+    where,
     select: {
       id: true,
       marketCode: true,
       forecastDate: true,
       direction: true,
-      upProbability: true,
-      sidewaysProbability: true,
-      downProbability: true,
-      expectedPath: true,
-      supportLevels: true,
-      resistanceLevels: true,
-      confirmationLevel: true,
-      invalidationLevel: true,
-      liuyaoEvidence: true,
-      qimenEvidence: true,
-      calendarEvidence: true,
-      newsEvidence: true,
-      revisionReason: true,
-      version: true,
       status: true,
-      generatedAt: true,
-      publishedAt: true,
-      lockedAt: true,
       createdAt: true,
     },
-    orderBy: [{ forecastDate: "asc" }, { marketCode: "asc" }, { version: "asc" }],
+    orderBy: [{ forecastDate: "asc" }, { marketCode: "asc" }],
     take: 2000,
   });
+  return rows as unknown as GeneratedDailyLike[];
+}
+
+export async function listFormalGeneratedDailiesForVerification(
+  now = new Date()
+): Promise<GeneratedDailyLike[]> {
+  if (!hasPrisma() || !prisma) return [];
+  const futureDateKey = beijingDateKey(new Date(now.getTime() + 45 * 86_400_000));
+  const modes: GeneratedQueryMode[] = ["full", "core", "minimum"];
+  let lastError: unknown = null;
+
+  for (const mode of modes) {
+    try {
+      const rows = await queryGeneratedDailyRows(mode, futureDateKey);
+      if (mode !== "full") {
+        console.warn(`[verification-generated-source] using ${mode} compatibility projection`);
+      }
+      return rows.filter(formalGeneratedStatus);
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `[verification-generated-source] ${mode} projection failed`,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  throw new Error(
+    `GeneratedDailyForecast source unavailable after compatibility fallbacks: ${
+      lastError instanceof Error ? lastError.message : String(lastError ?? "unknown")
+    }`
+  );
 }
 
 export async function syncGeneratedDailyForecastsToVerificationStore(input: {
@@ -304,10 +382,11 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
       report.unsupported += 1;
       continue;
     }
+    const version = Math.max(1, Number(row.version) || 1);
     const identity = generatedVerificationIdentity({
       forecastDate: row.forecastDate,
       symbol: asset.symbol,
-      version: row.version,
+      version,
     });
     if (identities.has(identity)) {
       report.existing += 1;
@@ -323,7 +402,9 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
       identities.add(identity);
       report.created += 1;
     } catch (error) {
-      report.errors.push(`${row.marketCode}:${row.forecastDate}:v${row.version}:${error instanceof Error ? error.message : String(error)}`);
+      report.errors.push(
+        `${row.marketCode}:${row.forecastDate}:v${version}:${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
