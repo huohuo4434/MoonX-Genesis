@@ -1,0 +1,68 @@
+{
+  "id": "LIUYAO-TEACHER02-WEEKLY-20260810",
+  "sourceType": "EXTERNAL_LIUYAO_MEMBER_VIDEO_TRANSCRIPT",
+  "sourceName": "第二位六爻老师（用户提供会员视频）",
+  "capturedAt": "2026-08-08T09:55:00+08:00",
+  "targetWindow": {
+    "crypto": {
+      "start": "2026-08-10",
+      "end": "2026-08-16"
+    },
+    "metals": {
+      "start": "2026-08-10",
+      "end": "2026-08-14"
+    }
+  },
+  "weightPolicy": {
+    "role": "liuyao_internal_crosscheck",
+    "raisesTotalMethodWeight": false,
+    "canTriggerTradeAlone": false,
+    "note": "只进入六爻方法内部交叉验证；技术价位仍由真实K线生成。"
+  },
+  "forwardViews": {
+    "bitcoin": {
+      "directionImpact": "不改变MOOX先涨后跌主方向",
+      "path": "猴市/快速反向，高低点可能在24至36小时内切换；上涨不追多、下跌不追空",
+      "specificDates": []
+    },
+    "ethereum": {
+      "direction": "探底回升",
+      "path": "10-11日低点窗口 -> 12日多头启动 -> 12-14日渐进上升 -> 15日阶段高点 -> 15-16日高位震荡/回落",
+      "keyDates": [
+        "2026-08-12",
+        "2026-08-15"
+      ],
+      "marketCalendar": "7x24，周六周日计入"
+    },
+    "gold": {
+      "direction": "震荡上涨",
+      "path": "10-11日先跌找低点 -> 11-12日反弹 -> 13-14日冲高后回落",
+      "specificDates": [],
+      "timingRanges": [
+        "2026-08-10/11",
+        "2026-08-11/12",
+        "2026-08-13/14"
+      ]
+    },
+    "silver": {
+      "direction": "震荡上涨/高波动",
+      "path": "10-11日前段上冲 -> 11-12日砸坑低点 -> 13-14日强势反攻 -> 高波动震荡",
+      "timingRanges": [
+        "2026-08-10/11",
+        "2026-08-11/12",
+        "2026-08-13/14"
+      ],
+      "technicalReference62": {
+        "publishAsFormalLevel": false,
+        "reason": "老师明确说明62来自K线配合，不是卦象价格位"
+      }
+    }
+  },
+  "guardrails": [
+    "V1不得删除，V2必须保留版本原因",
+    "不把时间区间伪造成老师未明确给出的单日关键点",
+    "不把62写成白银正式支撑/压力，除非真实K线技术确认",
+    "老师02不能单独触发AI交易",
+    "BTC/黄金主方向不因新增来源强行改动"
+  ]
+}
