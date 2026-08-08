@@ -293,28 +293,41 @@ export function CheckoutClient({
 
           {order.warningText ? <Text variant="caption" className="text-amber-400">{order.warningText}</Text> : null}
 
+          {network === "TRC20" ? (
+            <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/[0.04] p-3">
+              <Text variant="body-sm" className="text-emerald-400">
+                {en ? "Automatic arrival detection is on" : "已开启自动到账识别"}
+              </Text>
+              <Text variant="caption" color="secondary" className="mt-1 block">
+                {en
+                  ? "Send the exact amount and MOOX will scan confirmed TRC20 arrivals every minute and activate membership automatically. No transaction hash is required."
+                  : "按页面精确金额转账后，MOOX 每分钟自动扫描已确认的 TRC20 到账并开通会员，无需再粘贴交易哈希。"}
+              </Text>
+            </div>
+          ) : null}
+
           <form onSubmit={submitHash} className="flex flex-col gap-3">
             <input
               value={txHash}
               onChange={(event) => setTxHash(event.target.value)}
-              placeholder={en ? "Paste transaction hash after transfer" : "转账后粘贴交易哈希"}
+              placeholder={en ? (network === "TRC20" ? "Transaction hash (optional fallback)" : "Paste transaction hash after transfer") : (network === "TRC20" ? "交易哈希（可选，仅用于手动加速核验）" : "转账后粘贴交易哈希")}
               className="h-10 rounded-md border border-border bg-surface px-3 text-body-sm"
-              required
-              minLength={64}
+              required={network !== "TRC20"}
+              minLength={txHash ? 64 : undefined}
             />
             <Text variant="caption" color="tertiary">
               {en
-                ? "After submission, the chain is checked immediately and then every minute. Correct confirmed payments activate membership automatically; no manual review is required."
-                : "提交后系统会立即核验，并由 Vercel 每分钟自动重试。正确且已确认的付款会自动开通会员，无需人工审核。"}
+                ? (network === "TRC20" ? "The hash field below is optional. Use it only to accelerate verification if automatic discovery is delayed." : "After submission, the chain is checked immediately and then every minute. Correct confirmed payments activate membership automatically; no manual review is required.")
+                : (network === "TRC20" ? "下方交易哈希为可选项；只有自动识别延迟时，才需要粘贴哈希手动加速核验。" : "提交后系统会立即核验，并由 Vercel 每分钟自动重试。正确且已确认的付款会自动开通会员，无需人工审核。")}
             </Text>
-            <Button type="submit" disabled={loading || remaining <= 0}>
-              {loading ? (en ? "Verifying…" : "核验中…") : en ? "Verify payment automatically" : "提交并自动核验"}
+            <Button type="submit" disabled={loading || remaining <= 0 || !txHash.trim()}>
+              {loading ? (en ? "Verifying…" : "核验中…") : en ? "Verify with transaction hash" : "手动提交哈希核验（可选）"}
             </Button>
           </form>
 
           {status && ["pending", "verifying", "busy"].includes(status) ? (
             <Text variant="body-sm" className="text-sky-400">
-              {en ? "Blockchain confirmation in progress. This page updates automatically." : "链上确认中，本页面会自动更新，无需重复提交。"}
+              {en ? "Blockchain confirmation in progress. This page updates automatically." : network === "TRC20" ? "正在自动扫描 TRC20 到账，本页面会自动更新，无需任何操作。" : "链上确认中，本页面会自动更新，无需重复提交。"}
             </Text>
           ) : null}
         </>

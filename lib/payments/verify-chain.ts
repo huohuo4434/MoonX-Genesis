@@ -78,16 +78,19 @@ export async function verifyTronTransfer(
   const headers: Record<string, string> = { Accept: "application/json" };
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
 
-  const infoRes = await fetch(`https://api.trongrid.io/v1/transactions/${txHash}`, {
-    headers,
+  // Confirmed transaction lookup via the canonical Solidity HTTP API.
+  const infoRes = await fetch("https://api.trongrid.io/walletsolidity/gettransactionbyid", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ value: txHash }),
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });
-  if (infoRes.status === 404) throw new Error("TRON transaction not found yet");
   if (!infoRes.ok) throw new Error(`TRON transaction lookup unavailable (${infoRes.status})`);
-  const infoJson = (await infoRes.json()) as { data?: Array<Record<string, unknown>> };
-  const tx = infoJson.data?.[0];
-  if (!tx) throw new Error("TRON transaction not found yet");
+  const tx = (await infoRes.json()) as Record<string, unknown>;
+  if (!tx || typeof tx !== "object" || !String(tx.txID ?? "").trim()) {
+    throw new Error("TRON transaction not found yet");
+  }
 
   const contractRet = (tx.ret as Array<{ contractRet?: string }> | undefined)?.[0]?.contractRet;
   if (contractRet && contractRet !== "SUCCESS") throw new Error("TRON transaction failed");
@@ -163,6 +166,74 @@ export async function verifyTronTransfer(
     blockTimestamp,
     rawPayload: { tx, transfer },
   };
+}
+
+
+type TronGridAccountTrc20Transfer = {
+  transaction_id?: string;
+  block_timestamp?: number;
+  from?: string;
+  to?: string;
+  type?: string;
+  value?: string | number;
+  token_info?: { address?: string; decimals?: number | string; symbol?: string };
+};
+
+/**
+ * Finds a confirmed incoming TRC20 transfer matching the order's exact amount.
+ * The hash is only a discovery result; verifyTronTransfer still performs the
+ * final contract, recipient, amount, timestamp and confirmation checks.
+ */
+export async function discoverTronTransferHash(
+  expected: {
+    recipientAddress: string;
+    tokenContract: string;
+    expectedAmount: number;
+    notBefore: Date;
+    notAfter: Date;
+  },
+  apiKey?: string
+): Promise<string | null> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
+  const minTimestamp = Math.max(0, expected.notBefore.getTime());
+  const maxTimestamp = Math.max(minTimestamp, Math.min(expected.notAfter.getTime(), Date.now()));
+  const params = new URLSearchParams({
+    only_confirmed: "true",
+    only_to: "true",
+    limit: "200",
+    order_by: "block_timestamp,desc",
+    min_timestamp: String(minTimestamp),
+    max_timestamp: String(maxTimestamp),
+    contract_address: expected.tokenContract,
+  });
+  const url = `https://api.trongrid.io/v1/accounts/${encodeURIComponent(expected.recipientAddress)}/transactions/trc20?${params.toString()}`;
+  const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) });
+  if (!response.ok) throw new Error(`TRON account transfer lookup unavailable (${response.status})`);
+  const json = (await response.json()) as { data?: TronGridAccountTrc20Transfer[] };
+  const recipient = normalizeTronAddress(expected.recipientAddress);
+  const contract = normalizeTronAddress(expected.tokenContract);
+  const matches = (json.data ?? []).filter((item) => {
+    if (item.type && item.type !== "Transfer") return false;
+    if (!item.transaction_id || !validateTxHash("TRON", item.transaction_id)) return false;
+    if (normalizeTronAddress(item.to ?? "") !== recipient) return false;
+    const tokenAddress = item.token_info?.address;
+    if (tokenAddress && normalizeTronAddress(tokenAddress) !== contract) return false;
+    const decimalsRaw = Number(item.token_info?.decimals ?? 6);
+    const decimals = Number.isFinite(decimalsRaw) && decimalsRaw >= 0 ? decimalsRaw : 6;
+    if (item.value == null) return false;
+    let amount: number;
+    try { amount = parseTokenAmount(item.value, decimals); } catch { return false; }
+    const ts = Number(item.block_timestamp ?? 0);
+    if (!Number.isFinite(ts) || ts < minTimestamp || ts > maxTimestamp) return false;
+    return Math.abs(amount - expected.expectedAmount) <= 0.0000001;
+  });
+  const unique = [...new Map(matches.map((item) => [String(item.transaction_id).toLowerCase(), item])).values()];
+  if (unique.length === 0) return null;
+  if (unique.length > 1) throw new Error("Multiple matching TRON transfers found; manual review required");
+  const match = unique[0];
+  if (!match?.transaction_id) return null;
+  return String(match.transaction_id).toLowerCase();
 }
 
 export async function verifyBscTransfer(
@@ -272,7 +343,7 @@ export function validateTxHash(chain: PaymentChain, txHash: string): boolean {
 }
 
 export function isTemporaryVerificationError(message: string): boolean {
-  return /not found yet|not confirmed yet|waiting for confirmations|not mined yet|timeout|fetch failed|rate limit|network error|ECONN|429|500|502|503|504|lookup unavailable \((?:429|5\d\d)\)|events unavailable \((?:429|5\d\d)\)|rpc unavailable \((?:429|5\d\d)\)/i.test(message);
+  return /not found yet|not confirmed yet|waiting for confirmations|not mined yet|timeout|fetch failed|rate limit|network error|ECONN|429|500|502|503|504|lookup unavailable \((?:429|5\d\d)\)|events unavailable \((?:429|5\d\d)\)|account transfer lookup unavailable \((?:429|5\d\d)\)|rpc unavailable \((?:429|5\d\d)\)/i.test(message);
 }
 
 export function isUnderpaymentError(message: string): boolean {

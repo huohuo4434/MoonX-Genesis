@@ -2,6 +2,7 @@ import "server-only";
 
 import { notifyAdminAutoPayment } from "@/lib/payments/admin-payment-notifications";
 import {
+  attachTransactionHash,
   claimOrderForVerification,
   getAutoPaymentOrderById,
   listOrdersReadyForVerification,
@@ -14,6 +15,7 @@ import { getPaymentConfig } from "@/lib/payments/config";
 import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-payment";
 import { minimumAcceptedPaymentAmount } from "@/lib/payments/payment-amount-policy";
 import {
+  discoverTronTransferHash,
   isTemporaryVerificationError,
   isUnderpaymentError,
   validateTxHash,
@@ -92,7 +94,7 @@ async function safeAdminNotice(
 }
 
 export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaymentProcessResult> {
-  const current = await getAutoPaymentOrderById(orderId);
+  let current = await getAutoPaymentOrderById(orderId);
   if (!current) return { orderId, status: "rejected", activated: false, message: "订单不存在" };
   if (current.status === "paid" || current.status === "overpaid") {
     return {
@@ -110,6 +112,40 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
       activated: false,
       message: current.verificationError ?? "订单无需自动核验",
     };
+  }
+
+  // TRC20 customers no longer need to paste a transaction hash. The unique
+  // five-decimal order amount is used only to discover the matching confirmed
+  // incoming transfer; the normal full verification still runs before activation.
+  if (!current.txHash && current.chain === "TRON") {
+    try {
+      const cfg = getPaymentConfig();
+      const window = verificationWindow(current);
+      const discoveredHash = await discoverTronTransferHash({
+        recipientAddress: current.recipientAddress,
+        tokenContract: current.tokenContract,
+        expectedAmount: current.expectedAmount,
+        ...window,
+      }, cfg.tronGridApiKey);
+      if (!discoveredHash) {
+        return { orderId, status: "pending", activated: false, message: "等待链上自动识别到账，系统会每分钟继续扫描" };
+      }
+      current = await attachTransactionHash({ orderId: current.id, userId: current.userId, txHash: discoveredHash });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/Multiple matching TRON transfers|already used|已被其他订单使用/i.test(message)) {
+        await markOrderException(current, "manual_review", message);
+        return { orderId, status: "manual_review", activated: false, message: "发现重复或多笔匹配付款，已转入异常复核" };
+      }
+      if (isTemporaryVerificationError(message)) {
+        return { orderId, status: "pending", activated: false, message: "链上自动查账暂时不可用，系统会继续重试" };
+      }
+      return { orderId, status: "pending", activated: false, message: `自动查账等待重试：${message}` };
+    }
+  }
+
+  if (!current.txHash) {
+    return { orderId, status: "pending", activated: false, message: "等待交易哈希或自动到账识别" };
   }
 
   const claimed = await claimOrderForVerification(orderId);

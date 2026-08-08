@@ -494,7 +494,7 @@ export async function listOrdersReadyForVerification(limit = 20): Promise<AutoPa
     .from("payment_orders")
     .select("*, membership_plans(code,name,duration_days)")
     .eq("status", "pending")
-    .not("tx_hash", "is", null)
+    .or("chain.eq.TRON,tx_hash.not.is.null")
     .order("created_at", { ascending: true })
     .limit(limit);
   if (error || !data) return [];
