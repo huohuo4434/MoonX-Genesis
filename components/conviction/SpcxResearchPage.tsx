@@ -2,30 +2,65 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { SPCX_PUBLIC_RESEARCH, type SpcxLanguage } from "@/lib/data/spcx-public-20260806";
+import { SPCX_PUBLIC_RESEARCH, type SpcxLanguage } from "@/lib/data/spcx-public-20260808";
 import styles from "./SpcxWatchlist.module.css";
+
+type DailyItem = {
+  date: string;
+  biasZh: string;
+  biasEn: string;
+  pathZh: string;
+  pathEn: string;
+  actionZh: string;
+  actionEn: string;
+};
+
+type WeeklyItem = {
+  start: string;
+  end: string;
+  hexagramZh: string;
+  labelZh: string;
+  labelEn: string;
+  pathZh: string;
+  pathEn: string;
+  risk: string;
+};
+
+type HorizonItem = {
+  period: string;
+  hexagramZh: string;
+  directionZh: string;
+  directionEn: string;
+  pathZh: string;
+  pathEn: string;
+};
 
 type MemberResponse = {
   research: {
-    direction: Record<SpcxLanguage, string>;
-    consensus: { stars: number; meaningZh: string; meaningEn: string };
-    teacherPrivate01: { labelZh: string; labelEn: string; evidenceZh: string[]; evidenceEn: string[] };
-    teacherRev322: { labelZh: string; labelEn: string; evidenceZh: string[]; evidenceEn: string[] };
-    fusion: {
-      agreementZh: string[];
-      agreementEn: string[];
-      conflictZh: string;
-      conflictEn: string;
+    version: number;
+    revisionOf: string;
+    marketReview: {
+      asOf: string;
+      close: number;
+      dayChangePct: number;
+      weekChangePct: number;
+      recentLowApprox: number;
+      ipoPrice: number;
+      unlockDate: string;
+      unlockSupportObserved: number;
+      reviewZh: string;
+      reviewEn: string;
     };
-    phases: Array<{
-      start: string;
-      end: string;
-      labelZh: string;
-      labelEn: string;
-      pathZh: string;
-      pathEn: string;
-      risk: string;
-    }>;
+    direction: { zh: string; en: string };
+    consensus: { stars: number; meaningZh: string; meaningEn: string };
+    revisionLogic: { zh: string[]; en: string[] };
+    dailyPath: DailyItem[];
+    weeklyPath: WeeklyItem[];
+    monthly: HorizonItem;
+    threeMonth: HorizonItem;
+    oneYear: HorizonItem;
+    fiveYear: HorizonItem;
+    evidenceArchive: { zh: string[]; en: string[] };
     executionRules: { zh: string[]; en: string[] };
     verificationPlan: { zh: string; en: string };
   };
@@ -33,9 +68,16 @@ type MemberResponse = {
     asOf: string;
     source: string;
     currentClose: number;
+    previousClose: number | null;
+    dayChangePct: number | null;
+    fiveSessionChangePct: number | null;
     atr14: number | null;
     supportZone: [number, number];
+    secondarySupportZone: [number, number] | null;
     resistanceZone: [number, number];
+    secondaryResistanceZone: [number, number] | null;
+    trendZh: string;
+    trendEn: string;
     confirmationZh: string;
     confirmationEn: string;
     invalidationZh: string;
@@ -78,31 +120,31 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <div className={styles.kicker}>{english ? "MOOX Featured Research · SPCX" : "MOOX 近期重点研究 · SPCX"}</div>
+        <div className={styles.kicker}>{english ? "MOOX Featured Research · SPCX · V2" : "MOOX 重点研究 · SPCX · V2事件后复算"}</div>
         <h1 className={styles.heroTitle}>
-          {english ? "Supply shock first. Rebound window later." : "先经历供给冲击，再等待反弹窗口。"}
+          {english ? "The rally started early. Now the question is whether it can hold." : "反弹已经提前启动，现在看的是能不能站稳并走出第二段。"}
         </h1>
         <p className={styles.heroLead}>
           {english ? SPCX_PUBLIC_RESEARCH.publicSummaryEn : SPCX_PUBLIC_RESEARCH.publicSummaryZh}
         </p>
         <div className={styles.grid}>
           <div className={styles.card}>
-            <h3>{english ? "Locked research" : "锁定研究"}</h3>
-            <p>{english ? "Aug 6, 2026 · version 1 · pending verification" : "2026-08-06 · 第1版 · 待验证"}</p>
+            <h3>{english ? "V1 → V2 revision" : "V1 → V2 修订"}</h3>
+            <p>{english ? SPCX_PUBLIC_RESEARCH.revisionNoteEn : SPCX_PUBLIC_RESEARCH.revisionNoteZh}</p>
           </div>
           <div className={styles.card}>
-            <h3>{english ? "Consensus" : "方法共识"}</h3>
-            <p>{stars} · {english ? "directional agreement, not guaranteed return" : "表示方向共识，不代表保证收益"}</p>
+            <h3>{english ? "Observed market fact" : "已发生市场事实"}</h3>
+            <p>{english ? "Aug. 7 close $133.11 · about +16% on the day · about +23% on the week · near the $135 IPO price." : "8月7日收盘133.11美元 · 单日约+16% · 周涨约23% · 已逼近135美元IPO价。"}</p>
           </div>
           <div className={styles.card}>
-            <h3>{english ? "Main watch window" : "核心观察窗口"}</h3>
-            <p>{english ? "Late August through early September" : "8月下旬至9月初"}</p>
+            <h3>{english ? "Consensus" : "多周期共识"}</h3>
+            <p>{stars} · {english ? "directional agreement, not guaranteed return" : "方向共识较强，不代表保证收益"}</p>
           </div>
         </div>
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "What is public" : "公开部分"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Public revised roadmap" : "公开版修订路径"}</h2>
         <div className={styles.grid}>
           {windows.map((window) => (
             <article className={styles.card} key={window.period}>
@@ -117,7 +159,7 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
         <MemberResearch english={english} data={memberData} />
       ) : (
         <section className={styles.locked}>
-          <h2>{english ? "The decisive part is member-only" : "决定性的部分已锁定为会员内容"}</h2>
+          <h2>{english ? "Daily / weekly / monthly research is member-only" : "逐日、周、月与后期完整分析仅会员可见"}</h2>
           <p>{english ? SPCX_PUBLIC_RESEARCH.teaserEn : SPCX_PUBLIC_RESEARCH.teaserZh}</p>
           <div className={styles.actions} style={{ justifyContent: "center" }}>
             <Link className={styles.primary} href={pricingHref}>
@@ -131,7 +173,7 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
             {state === "loading"
               ? english ? "Checking membership…" : "正在核验会员状态…"
               : state === "unavailable"
-                ? english ? "Membership check is temporarily unavailable. No protected research has been exposed." : "会员核验暂时不可用，受保护研究未被公开。"
+                ? english ? "Membership check is temporarily unavailable. Protected research remains hidden." : "会员核验暂时不可用，受保护研究未被公开。"
                 : english ? "A valid membership is required." : "需要有效会员权限。"}
           </div>
         </section>
@@ -146,57 +188,54 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
 
 function MemberResearch({ english, data }: { english: boolean; data: MemberResponse }) {
   const research = data.research;
-  const teacher01 = english ? research.teacherPrivate01.evidenceEn : research.teacherPrivate01.evidenceZh;
-  const teacher02 = english ? research.teacherRev322.evidenceEn : research.teacherRev322.evidenceZh;
-  const agreements = english ? research.fusion.agreementEn : research.fusion.agreementZh;
-  const execution = english ? research.executionRules.en : research.executionRules.zh;
   const technical = data.technical;
+  const revisionLogic = english ? research.revisionLogic.en : research.revisionLogic.zh;
+  const execution = english ? research.executionRules.en : research.executionRules.zh;
+  const evidence = english ? research.evidenceArchive.en : research.evidenceArchive.zh;
 
   return (
     <>
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Member conclusion" : "会员结论"}</h2>
-        <div className={styles.card}>
-          <h3>{english ? research.direction.en : research.direction.zh}</h3>
-          <p>{english ? research.consensus.meaningEn : research.consensus.meaningZh}</p>
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Mr. Yi K · Two-Framework Cross-Analysis" : "易K先生：双框架交叉分析"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Member conclusion" : "会员版最新结论"}</h2>
         <div className={styles.phaseGrid}>
           <article className={styles.card}>
-            <h3>{english ? research.teacherPrivate01.labelEn : research.teacherPrivate01.labelZh}</h3>
-            <ul>{teacher01.map((item) => <li key={item}>{item}</li>)}</ul>
+            <h3>{english ? research.direction.en : research.direction.zh}</h3>
+            <p>{english ? research.consensus.meaningEn : research.consensus.meaningZh}</p>
           </article>
           <article className={styles.card}>
-            <h3>{english ? research.teacherRev322.labelEn : research.teacherRev322.labelZh}</h3>
-            <ul>{teacher02.map((item) => <li key={item}>{item}</li>)}</ul>
+            <h3>{english ? "Post-unlock review" : "解锁后K线复盘"}</h3>
+            <p>{english ? research.marketReview.reviewEn : research.marketReview.reviewZh}</p>
           </article>
         </div>
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Cross-framework validation" : "双框架交叉验证"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Why V2 changes the timing" : "为什么V2把时间节奏前移"}</h2>
+        <div className={styles.card}><ul>{revisionLogic.map((item) => <li key={item}>{item}</li>)}</ul></div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{english ? "Aug. 10–14 day-by-day path" : "8月10日—14日逐日路径"}</h2>
         <div className={styles.phaseGrid}>
-          <article className={styles.card}>
-            <h3>{english ? "Shared signal" : "共同指向"}</h3>
-            <ul>{agreements.map((item) => <li key={item}>{item}</li>)}</ul>
-          </article>
-          <article className={styles.card}>
-            <h3>{english ? "How differences are resolved" : "差异如何处理"}</h3>
-            <p>{english ? research.fusion.conflictEn : research.fusion.conflictZh}</p>
-          </article>
+          {research.dailyPath.map((day) => (
+            <article className={styles.card} key={day.date}>
+              <div className={styles.phaseDate}>{day.date}</div>
+              <h3>{english ? day.biasEn : day.biasZh}</h3>
+              <p>{english ? day.pathEn : day.pathZh}</p>
+              <p><strong>{english ? "Execution: " : "执行："}</strong>{english ? day.actionEn : day.actionZh}</p>
+            </article>
+          ))}
         </div>
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Locked weekly path" : "锁定周级路径"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Weekly roadmap" : "周级路径"}</h2>
         <div className={styles.phaseGrid}>
-          {research.phases.map((phase) => (
+          {research.weeklyPath.map((phase) => (
             <article className={styles.card} key={`${phase.start}-${phase.end}`}>
               <div className={styles.phaseDate}>{phase.start} → {phase.end} · {phase.risk}</div>
               <h3>{english ? phase.labelEn : phase.labelZh}</h3>
+              {!english ? <p><strong>{phase.hexagramZh}</strong></p> : null}
               <p>{english ? phase.pathEn : phase.pathZh}</p>
             </article>
           ))}
@@ -204,32 +243,63 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Live technical gate" : "实时技术确认门槛"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Month and later horizons" : "月度与后期分层"}</h2>
+        <div className={styles.phaseGrid}>
+          <HorizonCard english={english} titleZh="1个月" titleEn="1 month" item={research.monthly} />
+          <HorizonCard english={english} titleZh="3个月" titleEn="3 months" item={research.threeMonth} />
+          <HorizonCard english={english} titleZh="1年" titleEn="1 year" item={research.oneYear} />
+          <HorizonCard english={english} titleZh="5年" titleEn="5 years" item={research.fiveYear} />
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{english ? "Live technical gate" : "实时K线技术门槛"}</h2>
         {technical ? (
           <>
             <div className={styles.techRow}>
               <div className={styles.metric}><div className={styles.metricLabel}>{english ? "Latest close" : "最新收盘"}</div><div className={styles.metricValue}>${technical.currentClose}</div></div>
+              <div className={styles.metric}><div className={styles.metricLabel}>{english ? "1st support" : "第一支撑区"}</div><div className={styles.metricValue}>${technical.supportZone[0]}–${technical.supportZone[1]}</div></div>
+              <div className={styles.metric}><div className={styles.metricLabel}>{english ? "1st resistance" : "第一压力区"}</div><div className={styles.metricValue}>${technical.resistanceZone[0]}–${technical.resistanceZone[1]}</div></div>
               <div className={styles.metric}><div className={styles.metricLabel}>ATR14</div><div className={styles.metricValue}>{technical.atr14 == null ? "—" : `$${technical.atr14}`}</div></div>
-              <div className={styles.metric}><div className={styles.metricLabel}>{english ? "Support zone" : "支撑区"}</div><div className={styles.metricValue}>${technical.supportZone[0]}–${technical.supportZone[1]}</div></div>
-              <div className={styles.metric}><div className={styles.metricLabel}>{english ? "Resistance zone" : "压力区"}</div><div className={styles.metricValue}>${technical.resistanceZone[0]}–${technical.resistanceZone[1]}</div></div>
             </div>
             <div className={styles.phaseGrid} style={{ marginTop: 12 }}>
-              <div className={styles.card}><h3>{english ? "Confirmation" : "确认条件"}</h3><p>{english ? technical.confirmationEn : technical.confirmationZh}</p></div>
-              <div className={styles.card}><h3>{english ? "Invalidation / delay" : "失效或延后条件"}</h3><p>{english ? technical.invalidationEn : technical.invalidationZh}</p></div>
+              <article className={styles.card}><h3>{english ? "Current structure" : "当前结构"}</h3><p>{english ? technical.trendEn : technical.trendZh}</p><p className={styles.phaseDate}>{technical.asOf} · {technical.source}</p></article>
+              <article className={styles.card}><h3>{english ? "Confirmation" : "确认条件"}</h3><p>{english ? technical.confirmationEn : technical.confirmationZh}</p></article>
+              <article className={styles.card}><h3>{english ? "Invalidation / downgrade" : "失效／降级条件"}</h3><p>{english ? technical.invalidationEn : technical.invalidationZh}</p></article>
+              <article className={styles.card}><h3>{english ? "Second zones" : "第二支撑／压力"}</h3><p>{technical.secondarySupportZone ? `$${technical.secondarySupportZone[0]}–$${technical.secondarySupportZone[1]}` : "—"} / {technical.secondaryResistanceZone ? `$${technical.secondaryResistanceZone[0]}–$${technical.secondaryResistanceZone[1]}` : "—"}</p></article>
             </div>
           </>
         ) : (
-          <div className={styles.card}><p>{english ? "Live quote data is temporarily unavailable. The locked Liu Yao path remains unchanged, but execution must wait for technical data." : "实时行情暂时不可用。锁定的六爻路径不改写，但执行必须等待技术数据恢复。"}</p></div>
+          <div className={styles.card}>
+            <h3>{english ? "Live quote temporarily unavailable" : "实时行情暂时不可用"}</h3>
+            <p>{english ? "Use the locked V2 path and public anchors ($135 IPO pivot, roughly $109–110 unlock-demand zone) until server quote data resumes." : "先按V2锁定路径与公开锚点执行：135美元IPO枢轴、约109—110美元解锁承接区；服务器行情恢复后会自动更新技术区间。"}</p>
+          </div>
         )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{english ? "Original multi-horizon evidence" : "原始多周期卦组档案"}</h2>
+        <div className={styles.card}><ul>{evidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
       </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>{english ? "Execution and verification" : "执行与验证"}</h2>
         <div className={styles.phaseGrid}>
           <article className={styles.card}><h3>{english ? "Execution rules" : "执行规则"}</h3><ul>{execution.map((item) => <li key={item}>{item}</li>)}</ul></article>
-          <article className={styles.card}><h3>{english ? "Verification plan" : "验证计划"}</h3><p>{english ? research.verificationPlan.en : research.verificationPlan.zh}</p></article>
+          <article className={styles.card}><h3>{english ? "Verification plan" : "V1/V2验证计划"}</h3><p>{english ? research.verificationPlan.en : research.verificationPlan.zh}</p></article>
         </div>
       </section>
     </>
+  );
+}
+
+function HorizonCard({ english, titleZh, titleEn, item }: { english: boolean; titleZh: string; titleEn: string; item: HorizonItem }) {
+  return (
+    <article className={styles.card}>
+      <div className={styles.phaseDate}>{english ? titleEn : titleZh} · {item.period}</div>
+      <h3>{english ? item.directionEn : item.directionZh}</h3>
+      {!english ? <p><strong>{item.hexagramZh}</strong></p> : null}
+      <p>{english ? item.pathEn : item.pathZh}</p>
+    </article>
   );
 }

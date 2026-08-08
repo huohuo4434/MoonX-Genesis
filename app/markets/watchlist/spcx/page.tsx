@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import SpcxResearchPage from "@/components/conviction/SpcxResearchPage";
 
 export const metadata: Metadata = {
-  title: "SPCX 重点研究｜MOOX Intelligence",
-  description: "SPCX 解锁后的多周期路径、易K先生双框架六爻分析、技术确认与公开验证。",
+  title: "SPCX 重点研究 V2｜MOOX Intelligence",
+  description: "SPCX 解锁后实际K线复算：8/10—8/14逐日路径、周/月/三个月/一年/五年分层、动态技术确认与V1→V2公开修订。",
 };
 
 export default function Page() {
