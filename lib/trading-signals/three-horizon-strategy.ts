@@ -34,6 +34,11 @@ import {
   resolvePredictionStrategyPlans,
 } from "@/lib/trading-signals/prediction-auto-trader";
 import { applyExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-overlay";
+import {
+  aiTradingFocusPriority,
+  buildAiTradingFocusPredictionPlan,
+  getAiTradingExecutionFocus,
+} from "@/lib/trading-signals/ai-trading-focus";
 import { getHexagramDirectionPrior, type HexagramDirectionPrior } from "@/lib/trading-signals/hexagram-direction-priors";
 import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
@@ -52,10 +57,13 @@ import type {
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
 
-const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^(BTC|ETH|HYPE|MU|QQQ|XAUT|XAG|GOOGL|CL|SPY)USDT$/;
+// V7.9: profiles are no longer code-limited to one fixed group of ten.
+// The live allow-list in demo-client remains authoritative; V7.9.1 adds the explicitly approved SNDK/MSFT stock perps, then dynamically selects only currently available contracts.
+const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^[A-Z0-9]{2,20}USDT$/;
 const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
   "BTCUSDT", "ETHUSDT", "HYPEUSDT", "MUUSDT", "QQQUSDT",
   "XAUTUSDT", "XAGUSDT", "GOOGLUSDT", "CLUSDT", "SPYUSDT",
+  "SNDKUSDT", "MSFTUSDT",
 ];
 const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
@@ -94,6 +102,9 @@ const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
 );
 const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
   "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
+));
+const LIVE_DYNAMIC_UNIVERSE_LIMIT = Math.floor(envNumber(
+  "MOOX_LIVE_DYNAMIC_UNIVERSE_LIMIT_V79", 10, 4, 20
 ));
 
 // MOOX_ACTIVE_EXECUTION_V64
@@ -648,6 +659,21 @@ function evaluateIntraday(
   const prior = getHexagramDirectionPrior(symbol, profile.strategyType, now);
   const h1Signal = technicalDirectionSignal(h1, 20, 50, 6);
   const m15Signal = technicalDirectionSignal(m15, 8, 21, 8);
+  const executionFocus = getAiTradingExecutionFocus(symbol, now);
+  const focusMainDirection = executionFocus?.day?.mainDirection ?? executionFocus?.weeklyDirection ?? "NEUTRAL";
+  const focusTacticalDirection = executionFocus?.day?.tacticalDirection ?? "NEUTRAL";
+  const strongCountertrend = Boolean(
+    profile.strategyType === "INTRADAY" &&
+    executionFocus?.countertrendPolicy === "STRONG_ONLY" &&
+    executionFocus.countertrendConfluence >= 70 &&
+    focusMainDirection !== "NEUTRAL" &&
+    focusTacticalDirection !== "NEUTRAL" &&
+    focusTacticalDirection !== focusMainDirection &&
+    h1Signal.direction === focusTacticalDirection &&
+    m15Signal.direction === focusTacticalDirection &&
+    Math.abs(h1Signal.score) >= 10 &&
+    Math.abs(m15Signal.score) >= 10
+  );
   const activeDirection = resolveActiveDirection({
     primary: h1Signal,
     secondary: m15Signal,
@@ -656,11 +682,15 @@ function evaluateIntraday(
     primaryWeight: 0.58,
     secondaryWeight: 0.22,
   });
-  // Direction/execution split: when MOOX has an explicit BUY_DIP / SELL_RALLY or
-  // aligned weekly-daily thesis, that thesis defines the side. Market structure must
-  // still turn toward that side before a full entry can fire.
-  const mooxDirection = forecastDirection(plan);
-  const direction = mooxDirection !== "NEUTRAL" ? mooxDirection : activeDirection.direction;
+  // MOOX defines the weekly/day path. The market defines the actual entry node.
+  // Countertrend is only permitted for an explicitly forecast reversal leg plus strong 1H/15m confluence.
+  const forecastMooxDirection = forecastDirection(plan);
+  const mooxDirection = focusMainDirection !== "NEUTRAL" ? focusMainDirection : forecastMooxDirection;
+  const direction = strongCountertrend
+    ? focusTacticalDirection
+    : mooxDirection !== "NEUTRAL"
+      ? mooxDirection
+      : activeDirection.direction;
   const latest15 = last(m15);
   const previous15 = m15[m15.length - 2];
   const latest5 = last(m5);
@@ -671,7 +701,13 @@ function evaluateIntraday(
   const previousEma5 = ema5Series[Math.max(0, ema5Series.length - 2)] ?? ema5;
   const rsi15 = rsi(m15);
   const atr15 = atr(m15);
-  const forecast = forecastCompatibility(direction, plan);
+  const forecast = strongCountertrend && executionFocus
+    ? {
+        score: executionFocus.countertrendConfluence,
+        label: `周内反向段已预先标记，1H/15m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
+        compatible: true,
+      }
+    : forecastCompatibility(direction, plan);
   const structureMet = direction === "LONG"
     ? Boolean(latest15 && latest15.close >= ema15 * 0.997 && rsi15 >= 42 && m15Signal.score >= -4)
     : direction === "SHORT"
@@ -693,9 +729,6 @@ function evaluateIntraday(
       ? Boolean(latest5 && previous5 && previous5.high >= previousEma5 * 0.9985 && latest5.close < ema5 && latest5.close < previous5.close)
       : false;
 
-  // Forecast path timing: a path such as "down then up" gives a window, not an exact
-  // bottom. The market selects the node by first making a meaningful excursion and
-  // then closing back away from the local extreme.
   const pathRows = m15.slice(-16);
   const pathHigh = pathRows.length ? Math.max(...pathRows.map((row) => row.high)) : 0;
   const pathLow = pathRows.length ? Math.min(...pathRows.map((row) => row.low)) : 0;
@@ -703,14 +736,14 @@ function evaluateIntraday(
   const reboundPct = pathLow > 0 && latest15 ? Math.max(0, (latest15.close - pathLow) / pathLow * 100) : 0;
   const rallyPct = pathLow > 0 ? Math.max(0, (pathHigh - pathLow) / pathLow * 100) : 0;
   const reversalPct = pathHigh > 0 && latest15 ? Math.max(0, (pathHigh - latest15.close) / pathHigh * 100) : 0;
-  const pathTurnTrigger = plan?.setup === "BUY_DIP" && direction === "LONG"
+  const pathTurnTrigger = !strongCountertrend && plan?.setup === "BUY_DIP" && direction === "LONG"
     ? Boolean(
         latest15 && previous15 &&
         dipPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
         reboundPct >= INTRADAY_PATH_CONFIRM_PCT &&
         latest15.close > previous15.close
       )
-    : plan?.setup === "SELL_RALLY" && direction === "SHORT"
+    : !strongCountertrend && plan?.setup === "SELL_RALLY" && direction === "SHORT"
       ? Boolean(
           latest15 && previous15 &&
           rallyPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
@@ -731,23 +764,54 @@ function evaluateIntraday(
   const volumeAverage = average(m5.slice(-20).map((row) => row.volume));
   const volumeMet = Boolean(latest5 && (volumeAverage <= 0 || latest5.volume >= volumeAverage * 0.55));
   const volatility = volatilityCondition(m15, atr15, 4.5);
-  const priorCompatible = !prior || prior.direction === direction;
-  const environmentAligned = activeDirection.direction === direction;
+  const priorCompatible = strongCountertrend || !prior || prior.direction === direction;
+  const environmentAligned = strongCountertrend || activeDirection.direction === direction;
   const environmentSoft = mooxDirection !== "NEUTRAL" && activeDirection.direction === "NEUTRAL" && Math.abs(activeDirection.strength) < 12;
   const conditions: ThreeHorizonCondition[] = [
-    { key: "environment", label: "1小时主动方向", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : direction === "LONG" ? "偏多" : "偏空"}`, weight: 20 },
+    { key: "environment", label: "1小时主动方向", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`, weight: 20 },
     { key: "direction", label: "15分钟方向结构", met: structureMet, value: `收盘${latest15?.close ?? 0}，EMA20 ${round(ema15, 2)}，RSI ${round(rsi15, 1)}，趋势分${m15Signal.score}`, weight: 20 },
     { key: "entry", label: "市场转折/入场触发", met: entryMet, value: `${entryTriggerLabel}；下探${round(dipPct, 2)}%/回升${round(reboundPct, 2)}%，冲高${round(rallyPct, 2)}%/回落${round(reversalPct, 2)}%`, weight: 20 },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序，完全依赖价格结构", weight: 10 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 20 },
   ];
-  return finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice, {
-    directionStrength: mooxDirection !== "NEUTRAL"
+  const strength = strongCountertrend && executionFocus
+    ? Math.max(Math.abs(h1Signal.score), Math.abs(m15Signal.score), executionFocus.countertrendConfluence) * directionValue(direction)
+    : mooxDirection !== "NEUTRAL"
       ? Math.max(Math.abs(activeDirection.strength), clamp(plan?.confidence ?? 50, 35, 85)) * directionValue(direction)
-      : activeDirection.strength,
-    prior,
+      : activeDirection.strength;
+  const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice, {
+    directionStrength: strength,
+    prior: strongCountertrend ? null : prior,
   });
+  if (!strongCountertrend || !executionFocus) return result;
+  if (!result.ready) {
+    return {
+      ...result,
+      raw: {
+        ...result.raw,
+        focusCountertrend: true,
+        focusMainDirection,
+        focusTacticalDirection,
+        focusCountertrendConfluence: executionFocus.countertrendConfluence,
+      },
+    };
+  }
+  return {
+    ...result,
+    executionTier: "PROBE",
+    riskScale: Math.min(result.riskScale || PROBE_RISK_SCALE, executionFocus.countertrendRiskScale),
+    rejectionCode: "FOCUS_COUNTERTREND_PROBE",
+    rejectionReason: `周内反向段与1H/15m形成强共振，只执行小仓探路；风险缩放至${Math.round(executionFocus.countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`,
+    raw: {
+      ...result.raw,
+      focusCountertrend: true,
+      focusMainDirection,
+      focusTacticalDirection,
+      focusCountertrendConfluence: executionFocus.countertrendConfluence,
+      focusCountertrendRiskScale: executionFocus.countertrendRiskScale,
+    },
+  };
 }
 
 function evaluateSwing(
@@ -1154,7 +1218,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         UPDATE trade_three_horizon_profiles SET
           enabled = TRUE,
           mode = 'LIVE',
-          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb,
+          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT"]'::jsonb,
           scan_interval_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 5
             WHEN strategy_type='SWING' THEN 15
@@ -1188,7 +1252,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         UPDATE trade_three_horizon_profiles SET
           enabled = TRUE,
           mode = 'DEMO',
-          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT"]'::jsonb,
+          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT"]'::jsonb,
           scan_interval_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 5
             WHEN strategy_type='SWING' THEN 15
@@ -1428,15 +1492,61 @@ function decisionRewardRisk(decision: ThreeHorizonStrategyDecision): number {
   return Math.abs(decision.target2 - decision.entryPrice) / riskDistance;
 }
 
-function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision): number {
+function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision, now = new Date()): number {
   const completion = decision.conditionsTotal > 0
     ? decision.conditionsMet / decision.conditionsTotal
     : 0;
-  return decision.confidence * 2
+  return aiTradingFocusPriority(decision.symbol, now) * 1.5
+    + decision.confidence * 2
     + decision.technicalScore
     + decision.forecastScore * 0.5
     + completion * 50
     + decisionRewardRisk(decision) * 10;
+}
+
+async function selectDynamicTradeUniverse(
+  allowedSymbols: BitgetSupportedSymbol[],
+  forecastBySymbol: Map<string, PredictionStrategyPlan>,
+  now: Date
+): Promise<BitgetSupportedSymbol[]> {
+  const allowed = Array.from(new Set(allowedSymbols))
+    .map((value) => String(value).toUpperCase() as BitgetSupportedSymbol)
+    .filter((value) => LIVE_EXPERIMENT_SYMBOL_PATTERN.test(value));
+  // V7.9.1: stock-perp availability can differ by account/product state.
+  // Keep the user-approved symbols in the pool, but only score contracts that Bitget reports online now.
+  const contractRows = await Promise.all(
+    allowed.map(async (symbol) => ({ symbol, contract: await getContractConfig(symbol).catch(() => null) }))
+  );
+  const tradable = contractRows
+    .filter((row) => row.contract?.available)
+    .map((row) => row.symbol);
+  const recentRows = await listDecisionRows(300).catch(() => []);
+  const latestBySymbol = new Map<string, DecisionRow>();
+  for (const row of recentRows) {
+    const symbol = String(row.symbol).toUpperCase();
+    if (!latestBySymbol.has(symbol)) latestBySymbol.set(symbol, row);
+  }
+  return tradable
+    .map((symbol, index) => {
+      const forecast = forecastBySymbol.get(symbol);
+      const recent = latestBySymbol.get(symbol);
+      const statusBonus = recent?.status === "READY" || recent?.status === "SHADOW_READY"
+        ? 18
+        : recent?.status === "OBSERVING"
+          ? 6
+          : 0;
+      const score = aiTradingFocusPriority(symbol, now) * 2
+        + (forecast?.confidence ?? 0) * 0.55
+        + (recent?.confidence ?? 0) * 0.45
+        + (recent?.technical_score ?? 0) * 0.35
+        + (recent?.forecast_score ?? 0) * 0.2
+        + statusBonus
+        - index * 0.01;
+      return { symbol, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, LIVE_DYNAMIC_UNIVERSE_LIMIT)
+    .map((row) => row.symbol);
 }
 
 function beijingStartOfWeek(now: Date): Date {
@@ -2688,6 +2798,12 @@ export async function runThreeHorizonStrategyEngine(
     const symbol = String(plan.symbol).toUpperCase();
     forecastBySymbol.set(symbol.endsWith("USDT") ? symbol : `${symbol}USDT`, plan);
   }
+  // Curated focus playbooks (for example next-week gold) are explicit MOOX forecasts.
+  // They may override an older generic plan for the same day, but never bypass technical or risk gates.
+  for (const symbol of environment.liveAllowedSymbols) {
+    const focusPlan = buildAiTradingFocusPredictionPlan(symbol, now);
+    if (focusPlan) forecastBySymbol.set(symbol, focusPlan);
+  }
   const quoteBySymbol = new Map((options.quotes ?? []).map((quote) => [quote.symbol, quote] as const));
   const risk = await buildRiskSnapshot(now);
   let positions: BitgetDemoPosition[];
@@ -2770,6 +2886,11 @@ export async function runThreeHorizonStrategyEngine(
   let leadTimeBlocks = 0;
   let riskBlocks = 0;
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
+  const liveAllowedForThisRun = environment.liveAllowedSymbols
+    .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
+  const dynamicLiveSymbols = liveExperimentMode
+    ? await selectDynamicTradeUniverse(liveAllowedForThisRun, forecastBySymbol, now)
+    : [];
   const maxNewSymbols = liveExperimentMode
     ? Number.POSITIVE_INFINITY
     : options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
@@ -2780,7 +2901,7 @@ export async function runThreeHorizonStrategyEngine(
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
     let tradesToday = await todayTradeCount(profile, now);
-    const freshProfileSymbols = profile.symbols
+    const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
     for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
@@ -2956,9 +3077,9 @@ export async function runThreeHorizonStrategyEngine(
         decision.mode === "LIVE" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
         decision.confidence >= LIVE_ACTIVITY_MIN_CONFIDENCE &&
-        decision.technicalScore >= 25 &&
+        decision.technicalScore >= 20 &&
         decision.conditionsTotal > 0 &&
-        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.30)) &&
+        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.25)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
         decisionRewardRisk(decision) >= 1.05 &&
         !reservedSymbols.has(decision.symbol) &&
@@ -2966,7 +3087,7 @@ export async function runThreeHorizonStrategyEngine(
         !protections.some((row) => row.symbol === decision.symbol) &&
         !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"].includes(decision.rejectionCode)
       )
-      .sort((a, b) => dailyMinimumCandidateScore(b) - dailyMinimumCandidateScore(a));
+      .sort((a, b) => dailyMinimumCandidateScore(b, now) - dailyMinimumCandidateScore(a, now));
 
     const messages: string[] = [];
     let promotedCount = 0;
@@ -2982,7 +3103,7 @@ export async function runThreeHorizonStrategyEngine(
         ...baseProfile,
         enabled: true,
         mode: "LIVE",
-        symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
+        symbols: [...(dynamicLiveSymbols.length ? dynamicLiveSymbols : environment.liveAllowedSymbols)],
         riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_ACTIVITY_PROBE_RISK_PCT),
         planningMinConfidence: 38,
         minConfidence: Math.max(38, Math.min(candidate.confidence, 44)),
@@ -3002,13 +3123,13 @@ export async function runThreeHorizonStrategyEngine(
         target2: candidate.target2,
         ready: true,
         rejectionCode: "DAILY_MINIMUM_EXECUTION",
-        rejectionReason: `今日实盘成交低于${LIVE_ACTIVITY_TARGET}笔活动目标，从十品种中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
+        rejectionReason: `今日实盘成交低于${LIVE_ACTIVITY_TARGET}笔活动目标，从动态候选池Top${dynamicLiveSymbols.length || environment.liveAllowedSymbols.length}中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
         executionTier: "PROBE",
         riskScale: 1,
         directionStrength: candidate.direction === "LONG" ? candidate.confidence : -candidate.confidence,
         raw: {
           liveActivityProbe: true,
-          candidateScore: dailyMinimumCandidateScore(candidate),
+          candidateScore: dailyMinimumCandidateScore(candidate, now),
           originalRejectionCode: candidate.rejectionCode,
           originalRejectionReason: candidate.rejectionReason,
         },
@@ -3100,7 +3221,7 @@ export async function runThreeHorizonStrategyEngine(
         !protections.some((row) => row.symbol === decision.symbol) &&
         !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"].includes(decision.rejectionCode)
       )
-      .sort((a, b) => dailyMinimumCandidateScore(b) - dailyMinimumCandidateScore(a));
+      .sort((a, b) => dailyMinimumCandidateScore(b, now) - dailyMinimumCandidateScore(a, now));
 
     const messages: string[] = [];
     let promotedCount = 0;
@@ -3133,13 +3254,13 @@ export async function runThreeHorizonStrategyEngine(
         target2: candidate.target2,
         ready: true,
         rejectionCode: "DAILY_ACTIVITY_PROBE",
-        rejectionReason: `今日成交低于${DEMO_ACTIVITY_TARGET}笔活动目标，从十品种中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
+        rejectionReason: `今日成交低于${DEMO_ACTIVITY_TARGET}笔活动目标，从动态Top10品种中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
         executionTier: "PROBE",
         riskScale: 1,
         directionStrength: candidate.direction === "LONG" ? candidate.confidence : -candidate.confidence,
         raw: {
           dailyActivityProbe: true,
-          candidateScore: dailyMinimumCandidateScore(candidate),
+          candidateScore: dailyMinimumCandidateScore(candidate, now),
           originalRejectionCode: candidate.rejectionCode,
           originalRejectionReason: candidate.rejectionReason,
         },
@@ -3249,11 +3370,11 @@ export async function getThreeHorizonStrategyDashboard(
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
         ? (LIVE_ACTIVITY_TARGET > 0
-            ? `实盘主动执行已开启：10品种三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔兼容活动目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
-            : "实盘主动执行已开启：10品种三周期扫描、MOOX方向+市场节点触发、分批探路仓、最高2倍逐仓及现有实盘风控上限生效；不为凑单强制交易。")
+            ? `实盘主动执行已开启：允许池动态Top10三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔合格激活目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
+            : "实盘主动执行已开启：允许池动态Top10三周期扫描、MOOX方向+市场节点触发、分批探路仓、最高2倍逐仓及现有实盘风控上限生效；不为凑单强制交易。")
         : "实盘主动执行未获授权：请检查BITGET_TRADING_MODE、BITGET_LIVE_EXECUTION_ALLOWED、BITGET_LIVE_CONFIRMATION及MOOX_LIVE_ACTIVE_EXECUTION_V641。"
       : executionEnvironmentAllowed
-        ? `主动Demo执行已开启：全十品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
+        ? `主动Demo执行已开启：全动态Top10品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
         : "主动Demo执行当前关闭。请确认BITGET_DEMO_EXECUTION_ALLOWED=true；MOOX_DEMO_ACTIVE_EXECUTION_V64或旧兼容开关若显式设为false，也会立即停止新开仓。",
     profiles,
     risk,

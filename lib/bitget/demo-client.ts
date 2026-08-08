@@ -246,6 +246,17 @@ export const DEFAULT_LIVE_EXPERIMENT_SYMBOLS: BitgetSupportedSymbol[] = [
   "GOOGLUSDT",
   "CLUSDT",
   "SPYUSDT",
+  "SNDKUSDT",
+  "MSFTUSDT",
+];
+
+// V7.9.1: the user explicitly approved these stock-perp symbols for the live candidate pool.
+// Existing BITGET_LIVE_ALLOWED_SYMBOLS remains the base allow-list; these two approved additions
+// are unioned in so an older 10-symbol Vercel value does not silently block the new candidates.
+// Emergency opt-out: set MOOX_APPROVED_STOCK_PERPS_V791=false.
+export const USER_APPROVED_STOCK_PERP_SYMBOLS_V791: BitgetSupportedSymbol[] = [
+  "SNDKUSDT",
+  "MSFTUSDT",
 ];
 
 function liveAllowedSymbols(): BitgetSupportedSymbol[] {
@@ -253,7 +264,11 @@ function liveAllowedSymbols(): BitgetSupportedSymbol[] {
   const values = raw.split(",")
     .map((value) => normalizeBitgetUsdtSymbol(value))
     .filter((value): value is BitgetSupportedSymbol => Boolean(value));
-  return values.length ? Array.from(new Set(values)) : [...DEFAULT_LIVE_EXPERIMENT_SYMBOLS];
+  const approvedStockPerps = process.env.MOOX_APPROVED_STOCK_PERPS_V791?.trim().toLowerCase() === "false"
+    ? []
+    : USER_APPROVED_STOCK_PERP_SYMBOLS_V791;
+  const combined = [...values, ...approvedStockPerps];
+  return combined.length ? Array.from(new Set(combined)) : [...DEFAULT_LIVE_EXPERIMENT_SYMBOLS];
 }
 
 export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
