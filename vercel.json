@@ -17,6 +17,10 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/sync-verification",
+      "schedule": "*/5 12 * * *"
+    },
+    {
       "path": "/api/cron/verify-daily",
       "schedule": "15 16 * * *"
     },

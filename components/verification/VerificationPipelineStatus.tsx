@@ -18,6 +18,7 @@ function stateCopy(state: PipelineStatus["state"], en: boolean) {
   const map = {
     ACTIVE: en ? "Running normally" : "运行正常",
     WAITING: en ? "Waiting for sessions to close" : "等待交易窗口结束",
+    SYNCING: en ? "New locked forecasts are entering verification" : "新锁定预测正在自动入链",
     SYNC_GAP: en ? "Sync gap detected" : "发现同步缺口",
     BUILDING: en ? "Building first samples" : "首批样本积累中",
     LEGACY_ONLY: en ? "Verification records available; generated source not connected" : "既有验证记录可用，正式预测源未连接",
@@ -47,6 +48,7 @@ export function VerificationPipelineStatus({ status, en }: { status: PipelineSta
   const warning =
     status.state === "SYNC_GAP" ||
     status.state === "DEGRADED";
+  const syncing = status.state === "SYNCING";
   const supplementalDegraded = status.state === "SOURCE_DEGRADED";
   const publishedLockedCount = status.generatedSourceHealthy
     ? Math.max(status.generatedLocked, status.verificationRecords)
@@ -59,7 +61,7 @@ export function VerificationPipelineStatus({ status, en }: { status: PipelineSta
     [en ? "Completed" : "已完成", status.completed, false],
     [en ? "Unverifiable" : "不可验证", status.unverifiable, false],
     [en ? "Excluded" : "不计统计", status.excluded, false],
-    [en ? "Sync gaps" : "同步缺口", syncGapCount, status.generatedSourceHealthy && status.syncMissing > 0],
+    [en ? "Sync gaps" : "同步缺口", syncGapCount, status.state === "SYNC_GAP" && status.syncMissing > 0],
   ];
   const detail = friendlyError(status, en);
 
@@ -94,6 +96,14 @@ export function VerificationPipelineStatus({ status, en }: { status: PipelineSta
           </div>
         ))}
       </div>
+
+      {syncing ? (
+        <div className="mt-3 rounded-lg border border-primary/20 bg-primary/[0.05] px-3 py-2 text-xs text-foreground-secondary">
+          {en
+            ? "The publication has just been locked. MOOX is writing it into the immutable verification chain now; this normally completes within five minutes and requires no manual action."
+            : "本批预测刚刚锁定，MOOX 正在写入不可覆盖的验证链；通常 5 分钟内完成，无需任何人工操作。"}
+        </div>
+      ) : null}
 
       {status.excluded > 0 ? (
         <div className="mt-3 text-xs text-foreground-tertiary">

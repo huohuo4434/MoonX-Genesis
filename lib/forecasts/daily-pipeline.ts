@@ -21,6 +21,7 @@ import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
+import { syncGeneratedDailyForecastsToVerificationStore } from "@/lib/verification/sync-generated-dailies";
 import {
   applyXIntelligenceToGeneratedDaily,
   buildXIntelligenceAutoWeight,
@@ -455,6 +456,31 @@ export async function runDailyForecastPipeline(input?: {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+  }
+
+  // Publication and verification are one lifecycle: as soon as a formal LOCKED
+  // forecast is committed, bridge it into the immutable verification store.
+  // This removes the several-hour gap that previously existed between the
+  // Beijing 20:00 lock and the next daily verification cron. A transient sync
+  // failure is a warning only; the retry cron and normal verification scans will
+  // retry without blocking publication.
+  if (phase === "lock" && report.upserted.length > 0) {
+    try {
+      const sync = await syncGeneratedDailyForecastsToVerificationStore({ now });
+      if (sync.errors.length > 0) {
+        report.warnings.push({
+          market: "VERIFICATION",
+          date: beijingDate,
+          error: `verification-sync:${sync.errors.join(" | ")}`,
+        });
+      }
+    } catch (error) {
+      report.warnings.push({
+        market: "VERIFICATION",
+        date: beijingDate,
+        error: `verification-sync:${error instanceof Error ? error.message : String(error)}`,
+      });
     }
   }
 

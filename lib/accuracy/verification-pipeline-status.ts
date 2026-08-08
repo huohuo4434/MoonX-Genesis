@@ -18,6 +18,7 @@ export type VerificationPipelineStatus = {
   state:
     | "ACTIVE"
     | "WAITING"
+    | "SYNCING"
     | "SYNC_GAP"
     | "BUILDING"
     | "LEGACY_ONLY"
@@ -177,9 +178,19 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
     )
   ).length;
 
+  const latestLockedMs = latestLockedAt ? new Date(latestLockedAt).getTime() : Number.NaN;
+  const syncGraceMs = 10 * 60 * 1000;
+  const insideFreshSyncWindow =
+    syncMissing > 0 &&
+    Number.isFinite(latestLockedMs) &&
+    now.getTime() >= latestLockedMs &&
+    now.getTime() - latestLockedMs <= syncGraceMs;
+
   const state: VerificationPipelineStatus["state"] =
     syncMissing > 0
-      ? "SYNC_GAP"
+      ? insideFreshSyncWindow
+        ? "SYNCING"
+        : "SYNC_GAP"
       : pending > 0
         ? "WAITING"
         : completed > 0 || excluded > 0

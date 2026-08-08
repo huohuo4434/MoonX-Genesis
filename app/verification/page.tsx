@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
+export const revalidate = 0;
 
 export default async function VerificationPage() {
   const [{ daily, weekly, pending, generatedAt }, pipelineStatus, locale] = await Promise.all([
