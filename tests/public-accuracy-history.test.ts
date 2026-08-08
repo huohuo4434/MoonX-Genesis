@@ -12,20 +12,20 @@ import type { DailyForecastRecord, DailyVerificationResult } from "../types/dail
 function forecast(overrides: Partial<DailyForecastRecord> = {}): DailyForecastRecord {
   return {
     id: "df-1",
-    forecastDate: "2026-07-28",
+    forecastDate: "2026-08-02",
     assetName: "比特币",
     symbol: "BTC",
     market: "CRYPTO",
     direction: "UP",
     directionLabel: "上涨",
-    publishedAt: "2026-07-27T15:00:00.000Z",
-    cutoffAt: "2026-07-27T16:00:00.000Z",
+    publishedAt: "2026-08-01T15:00:00.000Z",
+    cutoffAt: "2026-08-01T16:00:00.000Z",
     status: "verified",
     originalVersion: 1,
     source: "MoonX",
     quoteSymbol: "BTC-USD",
-    createdAt: "2026-07-27T15:00:00.000Z",
-    updatedAt: "2026-07-27T15:00:00.000Z",
+    createdAt: "2026-08-01T15:00:00.000Z",
+    updatedAt: "2026-08-01T15:00:00.000Z",
     ...overrides,
   };
 }
@@ -33,7 +33,7 @@ function forecast(overrides: Partial<DailyForecastRecord> = {}): DailyForecastRe
 function result(overrides: Partial<DailyVerificationResult> = {}): DailyVerificationResult {
   return {
     forecastId: "df-1",
-    forecastDate: "2026-07-28",
+    forecastDate: "2026-08-02",
     assetName: "比特币",
     symbol: "BTC",
     previousClose: 100,
@@ -42,22 +42,22 @@ function result(overrides: Partial<DailyVerificationResult> = {}): DailyVerifica
     actualDirection: "UP",
     verdict: "HIT",
     verdictLabel: "命中",
-    verifiedAt: "2026-07-29T00:15:00.000Z",
+    verifiedAt: "2026-08-03T00:15:00.000Z",
     dataSource: "test",
     ...overrides,
   };
 }
 
-/** Fixed "now" = Beijing 2026-07-29 10:00 → todayKey 2026-07-29 */
-const NOW = new Date("2026-07-29T02:00:00.000Z");
+/** Fixed "now" = Beijing 2026-08-03 10:00 → todayKey 2026-08-03 */
+const NOW = new Date("2026-08-03T02:00:00.000Z");
 
 describe("china date key", () => {
   test("getChinaDateKey uses Asia/Shanghai", () => {
-    assert.equal(getChinaDateKey(NOW), "2026-07-29");
+    assert.equal(getChinaDateKey(NOW), "2026-08-03");
     // Just before Beijing midnight still previous day
-    assert.equal(getChinaDateKey(new Date("2026-07-28T15:59:00.000Z")), "2026-07-28");
+    assert.equal(getChinaDateKey(new Date("2026-08-02T15:59:00.000Z")), "2026-08-02");
     // Beijing 00:00 = UTC previous day 16:00
-    assert.equal(getChinaDateKey(new Date("2026-07-28T16:00:00.000Z")), "2026-07-29");
+    assert.equal(getChinaDateKey(new Date("2026-08-02T16:00:00.000Z")), "2026-08-03");
   });
 });
 
@@ -65,7 +65,7 @@ describe("public accuracy history filter", () => {
   test("1-4: today pending never visible for any audience (role-agnostic filter)", () => {
     const todayPending = forecast({
       id: "today",
-      forecastDate: "2026-07-29",
+      forecastDate: "2026-08-03",
       direction: "UP",
       directionLabel: "上涨",
       status: "published",
@@ -77,7 +77,7 @@ describe("public accuracy history filter", () => {
       now: NOW,
     });
     assert.equal(items.length, 0);
-    assert.ok(!items.some((i) => i.forecastDate === "2026-07-29"));
+    assert.ok(!items.some((i) => i.forecastDate === "2026-08-03"));
     assert.ok(!JSON.stringify(items).includes("待验证"));
   });
 
@@ -88,7 +88,7 @@ describe("public accuracy history filter", () => {
       now: NOW,
     });
     assert.equal(items.length, 1);
-    assert.equal(items[0]!.forecastDate, "2026-07-28");
+    assert.equal(items[0]!.forecastDate, "2026-08-02");
     assert.equal(items[0]!.verdict, "HIT");
     assert.equal(items[0]!.predictedDirection, "上涨");
   });
@@ -107,16 +107,16 @@ describe("public accuracy history filter", () => {
       forecasts: [
         forecast({
           id: "tmr",
-          forecastDate: "2026-07-30",
+          forecastDate: "2026-08-04",
           status: "published",
         }),
       ],
       results: [
         result({
           forecastId: "tmr",
-          forecastDate: "2026-07-30",
+          forecastDate: "2026-08-04",
           verdict: "HIT",
-          verifiedAt: "2026-07-31T00:00:00.000Z",
+          verifiedAt: "2026-08-05T00:00:00.000Z",
         }),
       ],
       now: NOW,
@@ -126,13 +126,13 @@ describe("public accuracy history filter", () => {
 
   test("today with verifiedAt still excluded (strict < today)", () => {
     const items = filterPublicAccuracyHistory({
-      forecasts: [forecast({ id: "t", forecastDate: "2026-07-29", status: "verified" })],
+      forecasts: [forecast({ id: "t", forecastDate: "2026-08-03", status: "verified" })],
       results: [
         result({
           forecastId: "t",
-          forecastDate: "2026-07-29",
+          forecastDate: "2026-08-03",
           verdict: "HIT",
-          verifiedAt: "2026-07-29T12:00:00.000Z",
+          verifiedAt: "2026-08-03T12:00:00.000Z",
         }),
       ],
       now: NOW,
@@ -141,14 +141,14 @@ describe("public accuracy history filter", () => {
   });
 
   test("8-9: PENDING and DRAFT do not enter accuracy", () => {
-    const draft = forecast({ id: "draft", status: "draft", forecastDate: "2026-07-27" });
+    const draft = forecast({ id: "draft", status: "draft", forecastDate: "2026-08-01" });
     // Even if a stray result exists for draft, draft status excludes it
     const items = filterPublicAccuracyHistory({
       forecasts: [draft],
       results: [
         result({
           forecastId: "draft",
-          forecastDate: "2026-07-27",
+          forecastDate: "2026-08-01",
           verdict: "HIT",
         }),
       ],
@@ -164,14 +164,14 @@ describe("public accuracy history filter", () => {
   test("10-11: HIT and MISS participate in accuracy", () => {
     const items = filterPublicAccuracyHistory({
       forecasts: [
-        forecast({ id: "h", forecastDate: "2026-07-27" }),
-        forecast({ id: "m", forecastDate: "2026-07-26", direction: "DOWN", directionLabel: "下跌" }),
+        forecast({ id: "h", forecastDate: "2026-08-02" }),
+        forecast({ id: "m", forecastDate: "2026-08-01", direction: "DOWN", directionLabel: "下跌" }),
       ],
       results: [
-        result({ forecastId: "h", forecastDate: "2026-07-27", verdict: "HIT", verdictLabel: "命中" }),
+        result({ forecastId: "h", forecastDate: "2026-08-02", verdict: "HIT", verdictLabel: "命中" }),
         result({
           forecastId: "m",
-          forecastDate: "2026-07-26",
+          forecastDate: "2026-08-01",
           verdict: "MISS",
           verdictLabel: "未命中",
           actualDirection: "UP",
@@ -192,11 +192,11 @@ describe("public accuracy history filter", () => {
 
   test("VOID never public on history page", () => {
     const items = filterPublicAccuracyHistory({
-      forecasts: [forecast({ id: "v", forecastDate: "2026-07-25" })],
+      forecasts: [forecast({ id: "v", forecastDate: "2026-08-01" })],
       results: [
         result({
           forecastId: "v",
-          forecastDate: "2026-07-25",
+          forecastDate: "2026-08-01",
           verdict: "VOID",
           verdictLabel: "不计入统计",
         }),
@@ -210,11 +210,11 @@ describe("public accuracy history filter", () => {
 
   test("MANUAL_REVIEW never public", () => {
     const items = filterPublicAccuracyHistory({
-      forecasts: [forecast({ id: "mr", forecastDate: "2026-07-25" })],
+      forecasts: [forecast({ id: "mr", forecastDate: "2026-08-01" })],
       results: [
         result({
           forecastId: "mr",
-          forecastDate: "2026-07-25",
+          forecastDate: "2026-08-01",
           verdict: "MANUAL_REVIEW",
           verdictLabel: "待人工核对",
         }),
@@ -225,10 +225,10 @@ describe("public accuracy history filter", () => {
   });
 
   test("12: after Beijing midnight previous day verified enters history", () => {
-    const beforeMidnight = new Date("2026-07-28T15:59:00.000Z"); // still 07-28 BJ
-    const afterMidnight = new Date("2026-07-28T16:00:00.000Z"); // 07-29 BJ
-    const f = forecast({ id: "prev", forecastDate: "2026-07-28" });
-    const r = result({ forecastId: "prev", forecastDate: "2026-07-28" });
+    const beforeMidnight = new Date("2026-08-02T15:59:00.000Z"); // still 08-02 BJ
+    const afterMidnight = new Date("2026-08-02T16:00:00.000Z"); // 08-03 BJ
+    const f = forecast({ id: "prev", forecastDate: "2026-08-02" });
+    const r = result({ forecastId: "prev", forecastDate: "2026-08-02" });
 
     assert.equal(
       filterPublicAccuracyHistory({ forecasts: [f], results: [r], now: beforeMidnight }).length,
@@ -243,7 +243,7 @@ describe("public accuracy history filter", () => {
   test("13: API-shaped payload never contains today prediction body", () => {
     const todayForecast = forecast({
       id: "today-body",
-      forecastDate: "2026-07-29",
+      forecastDate: "2026-08-03",
       directionLabel: "上涨",
       summary: "今日秘密路径与失效位",
       probability: 88,
@@ -257,14 +257,14 @@ describe("public accuracy history filter", () => {
     const json = JSON.stringify(items);
     assert.ok(!json.includes("今日秘密"));
     assert.ok(!json.includes("today-body"));
-    assert.equal(items.every((i) => i.forecastDate < "2026-07-29"), true);
-    assert.equal(items.some((i) => i.forecastDate === "2026-07-29"), false);
+    assert.equal(items.every((i) => i.forecastDate < "2026-08-03"), true);
+    assert.equal(items.some((i) => i.forecastDate === "2026-08-03"), false);
   });
 
   test("14: no pending card data in public items", () => {
     const items = filterPublicAccuracyHistory({
       forecasts: [
-        forecast({ id: "p", forecastDate: "2026-07-29", status: "published" }),
+        forecast({ id: "p", forecastDate: "2026-08-03", status: "published" }),
         forecast(),
       ],
       results: [result()],
@@ -279,15 +279,15 @@ describe("public accuracy history filter", () => {
   test("15: stats count matches visible verified records", () => {
     const items = filterPublicAccuracyHistory({
       forecasts: [
-        forecast({ id: "a", forecastDate: "2026-07-27" }),
-        forecast({ id: "b", forecastDate: "2026-07-26" }),
-        forecast({ id: "today", forecastDate: "2026-07-29", status: "published" }),
+        forecast({ id: "a", forecastDate: "2026-08-02" }),
+        forecast({ id: "b", forecastDate: "2026-08-01" }),
+        forecast({ id: "today", forecastDate: "2026-08-03", status: "published" }),
       ],
       results: [
-        result({ forecastId: "a", forecastDate: "2026-07-27", verdict: "HIT" }),
+        result({ forecastId: "a", forecastDate: "2026-08-02", verdict: "HIT" }),
         result({
           forecastId: "b",
-          forecastDate: "2026-07-26",
+          forecastDate: "2026-08-01",
           verdict: "MISS",
           verdictLabel: "未命中",
         }),

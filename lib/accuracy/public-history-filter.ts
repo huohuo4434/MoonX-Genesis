@@ -27,6 +27,15 @@ export const PUBLIC_FINAL_VERDICTS = new Set<DailyVerdict>([
   "UNVERIFIABLE",
 ]);
 
+/**
+ * Terminal processing states. VOID is terminal but intentionally excluded from
+ * the public hit-rate history because it represents休市、晚发布或系统测试等不计分情况。
+ */
+export const TERMINAL_VERIFICATION_VERDICTS = new Set<DailyVerdict>([
+  ...PUBLIC_FINAL_VERDICTS,
+  "VOID",
+]);
+
 /** Countable for weighted accuracy denominator. */
 export const PUBLIC_COUNTABLE_VERDICTS = new Set<DailyVerdict>([
   "HIT",
@@ -89,6 +98,10 @@ export function isPublicFinalVerdict(v: DailyVerdict | string | null | undefined
 
 export function isPublicCountableVerdict(v: DailyVerdict | string | null | undefined): boolean {
   return Boolean(v && PUBLIC_COUNTABLE_VERDICTS.has(v as DailyVerdict));
+}
+
+export function isTerminalVerificationVerdict(v: DailyVerdict | string | null | undefined): boolean {
+  return Boolean(v && TERMINAL_VERIFICATION_VERDICTS.has(v as DailyVerdict));
 }
 
 function inLastDays(isoDate: string, days: number, now: Date): boolean {

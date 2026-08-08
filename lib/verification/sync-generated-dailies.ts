@@ -7,6 +7,7 @@ import {
 } from "@/lib/data/daily-accuracy-store";
 import { defaultCutoffAt } from "@/lib/market-data/daily-prices";
 import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
+import { ensureGeneratedForecastSourceSchema } from "@/lib/weekly-source/generated-source-schema";
 import {
   DAILY_ACCURACY_ASSETS,
   DIRECTION_LABELS,
@@ -334,6 +335,24 @@ export async function listFormalGeneratedDailiesForVerification(
     }
   }
 
+  // Production databases created before this optional source table was migrated
+  // can self-heal without waiting for a manual database operation. The bootstrap
+  // is additive only (CREATE/ADD COLUMN/CREATE INDEX IF NOT EXISTS).
+  const repaired = await ensureGeneratedForecastSourceSchema();
+  if (repaired.ready) {
+    for (const mode of modes) {
+      try {
+        const rows = await queryGeneratedDailyRows(mode, futureDateKey);
+        console.warn(`[verification-generated-source] recovered after additive schema bootstrap via ${mode} projection`);
+        return rows.filter(formalGeneratedStatus);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+  } else if (repaired.error) {
+    lastError = new Error(repaired.error);
+  }
+
   throw new Error(
     `GeneratedDailyForecast source unavailable after compatibility fallbacks: ${
       lastError instanceof Error ? lastError.message : String(lastError ?? "unknown")
@@ -355,6 +374,12 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
     errors: [],
   };
   if (!hasPrisma() || !prisma) return report;
+
+  const schema = await ensureGeneratedForecastSourceSchema();
+  if (!schema.ready) {
+    report.errors.push(`generated-schema:${schema.error ?? "unavailable"}`);
+    return report;
+  }
 
   let rows: GeneratedDailyLike[];
   try {

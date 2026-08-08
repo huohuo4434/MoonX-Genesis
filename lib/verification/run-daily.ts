@@ -45,11 +45,24 @@ export type RunDailyVerificationReport = {
   voided: number;
   manualReview: number;
   finalizedUnverifiable: number;
+  reopenedLegacyVoid: number;
   notReady: number;
   errors: string[];
 };
 
 const AUTO_UNVERIFIABLE_AFTER_MS = 72 * 60 * 60 * 1000;
+
+function shouldReopenLegacyVoid(
+  forecast: DailyForecastRecord,
+  prior: DailyVerificationResult | undefined
+): boolean {
+  if (!prior || prior.verdict !== "VOID") return false;
+  if (forecast.isSystemTest) return false;
+  if (!isPublishedBeforeCutoff(forecast)) return false;
+  const reason = `${prior.errorMessage ?? ""} ${prior.pathVerdictLabel ?? ""}`;
+  if (/休市|market\s*closed|系统测试|system\s*test/i.test(reason)) return false;
+  return true;
+}
 
 function isAgedPastRetryWindow(forecastDate: string, now: Date): boolean {
   const start = new Date(`${forecastDate}T00:00:00+08:00`).getTime();
@@ -103,6 +116,7 @@ export async function runDailyVerification(
     voided: 0,
     manualReview: 0,
     finalizedUnverifiable: 0,
+    reopenedLegacyVoid: 0,
     notReady: 0,
     errors: sync.errors.map((message) => `sync:${message}`),
   };
@@ -118,6 +132,13 @@ export async function runDailyVerification(
   for (let forecast of candidates) {
     report.scanned += 1;
     try {
+
+    const prior = existingById.get(forecast.id);
+    const reopenLegacyVoid = shouldReopenLegacyVoid(forecast, prior);
+    if (reopenLegacyVoid && forecast.status === "invalid") {
+      forecast = { ...forecast, status: "verifying" };
+      await upsertDailyForecastRecord(forecast);
+    }
 
     if (!isPublishedBeforeCutoff(forecast) || forecast.status === "invalid") {
       await upsertDailyForecastRecord({ ...forecast, status: "invalid" });
@@ -137,10 +158,10 @@ export async function runDailyVerification(
       continue;
     }
 
-    const prior = existingById.get(forecast.id);
     const locked =
       prior &&
       (["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS", "UNVERIFIABLE", "VOID"].includes(prior.verdict)) &&
+      !reopenLegacyVoid &&
       !force.has(forecast.id);
 
     if (locked) {
@@ -270,6 +291,19 @@ export async function runDailyVerification(
       );
       report.manualReview = Math.max(0, report.manualReview - 1);
       report.finalizedUnverifiable += 1;
+    }
+
+    if (reopenLegacyVoid && result.verdict !== "VOID" && result.verdict !== "MANUAL_REVIEW") {
+      result = {
+        ...result,
+        validationExplanation: [
+          "历史不计分状态经现行发布截止规则复核后自动重新验证；原预测内容与发布时间均未修改。",
+          result.validationExplanation,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
+      report.reopenedLegacyVoid += 1;
     }
 
     if (prior || force.has(forecast.id)) {

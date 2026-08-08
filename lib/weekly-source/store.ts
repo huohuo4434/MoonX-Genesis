@@ -3,6 +3,7 @@
  * Curated canonical six are always available; Prisma upsert is best-effort.
  */
 import { prisma, hasPrisma } from "@/lib/prisma";
+import { ensureGeneratedForecastSourceSchema } from "@/lib/weekly-source/generated-source-schema";
 import {
   CANONICAL_WEEKLY_LIUYAO_SOURCES,
   findCanonicalWeeklySource,
@@ -149,6 +150,11 @@ export async function upsertGeneratedDaily(
   if (!hasPrisma() || !prisma) {
     return { created: true, record };
   }
+  const schema = await ensureGeneratedForecastSourceSchema();
+  if (!schema.ready) {
+    console.warn("[weekly-source] GeneratedDailyForecast schema unavailable; generated record remains runtime-only", schema.error);
+    return { created: true, record };
+  }
   try {
     const existing = await prisma.generatedDailyForecast.findUnique({
       where: {
@@ -247,6 +253,8 @@ export async function listGeneratedDailiesForDate(
   forecastDate: string
 ): Promise<GeneratedDailyForecastRecord[]> {
   if (!hasPrisma() || !prisma) return [];
+  const schema = await ensureGeneratedForecastSourceSchema();
+  if (!schema.ready) return [];
   try {
     const rows = await prisma.generatedDailyForecast.findMany({
       where: {

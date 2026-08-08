@@ -26,9 +26,9 @@ test("pipeline status preserves immutable verification counters when generated s
 
 test("public pipeline UI hides internal error codes and unknown source counts", () => {
   const text = read("components/verification/VerificationPipelineStatus.tsx");
-  assert.match(text, /正式预测源同步暂时不可用，既有验证记录继续运行/);
-  assert.match(text, /正式预测源暂时无法读取；既有锁定记录和验证结果未丢失/);
-  assert.match(text, /status\.generatedSourceHealthy \? status\.generatedLocked : "—"/);
+  assert.match(text, /正式验证记录正常，补充预测源同步暂时不可用/);
+  assert.match(text, /补充生成预测源暂时无法读取；既有锁定记录仍是正式验证依据/);
+  assert.match(text, /Math\.max\(status\.generatedLocked, status\.verificationRecords\)/);
   assert.match(text, /status\.generatedSourceHealthy \? status\.syncMissing : "—"/);
   assert.doesNotMatch(text, /状态详情.*status\.error/);
   assert.doesNotMatch(text, />\{status\.error\}</);

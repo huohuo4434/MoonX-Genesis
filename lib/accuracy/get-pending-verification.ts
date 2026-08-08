@@ -3,7 +3,7 @@ import "server-only";
 import { unstable_noStore as noStore } from "next/cache";
 import { getChinaDateKey } from "@/lib/date/china-date";
 import { listDailyForecastRecords, listDailyVerificationResults } from "@/lib/data/moonx-data-store";
-import { isPublicFinalVerdict, OFFICIAL_DAILY_VERIFICATION_START } from "@/lib/accuracy/public-history-filter";
+import { isTerminalVerificationVerdict, OFFICIAL_DAILY_VERIFICATION_START } from "@/lib/accuracy/public-history-filter";
 
 export type PendingVerificationItem = {
   forecastId: string;
@@ -28,7 +28,7 @@ export async function getPendingVerificationRecords(
 
   const finalized = new Set(
     results
-      .filter((result) => Boolean(result.verifiedAt) && isPublicFinalVerdict(result.verdict))
+      .filter((result) => Boolean(result.verifiedAt) && isTerminalVerificationVerdict(result.verdict))
       .map((result) => result.forecastId)
   );
 

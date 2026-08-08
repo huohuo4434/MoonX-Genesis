@@ -2,6 +2,7 @@ import "server-only";
 
 import { hasPrisma } from "@/lib/prisma";
 import type { DailyVerificationResult } from "@/types/daily-accuracy";
+import { isPublicFinalVerdict, isTerminalVerificationVerdict } from "@/lib/accuracy/public-history-filter";
 import {
   listDailyForecastRecords,
   listDailyVerificationResults,
@@ -29,21 +30,13 @@ export type VerificationPipelineStatus = {
   pending: number;
   completed: number;
   unverifiable: number;
+  excluded: number;
   syncMissing: number;
   latestLockedAt: string | null;
   latestVerifiedAt: string | null;
   checkedAt: string;
   error: "generated_source_unavailable" | "legacy_store_unavailable" | null;
 };
-
-const FINAL_VERDICTS = new Set([
-  "HIT",
-  "FULL_HIT",
-  "PARTIAL_HIT",
-  "MISS",
-  "UNVERIFIABLE",
-  "VOID",
-]);
 
 function maxIso(values: Array<string | null | undefined>): string | null {
   let best: string | null = null;
@@ -84,6 +77,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
       pending: 0,
       completed: 0,
       unverifiable: 0,
+      excluded: 0,
       syncMissing: 0,
       latestLockedAt: null,
       latestVerifiedAt: null,
@@ -99,16 +93,18 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
       record.status !== "draft"
   );
   const resultById = new Map(results.map((result) => [result.forecastId, result]));
-  const completedResults = formalRecords
+  const terminalResults = formalRecords
     .map((record) => resultById.get(record.id))
-    .filter((result): result is DailyVerificationResult => Boolean(result && FINAL_VERDICTS.has(result.verdict)));
+    .filter((result): result is DailyVerificationResult => Boolean(result && isTerminalVerificationVerdict(result.verdict)));
+  const publicCompletedResults = terminalResults.filter((result) => isPublicFinalVerdict(result.verdict));
   const pending = formalRecords.filter((record) => {
     const result = resultById.get(record.id);
-    return !result || !FINAL_VERDICTS.has(result.verdict);
+    return !result || !isTerminalVerificationVerdict(result.verdict);
   }).length;
-  const completed = completedResults.length;
-  const unverifiable = completedResults.filter((result) => result.verdict === "UNVERIFIABLE").length;
-  const latestVerifiedAt = maxIso(completedResults.map((result) => result.verifiedAt));
+  const completed = publicCompletedResults.length;
+  const unverifiable = publicCompletedResults.filter((result) => result.verdict === "UNVERIFIABLE").length;
+  const excluded = terminalResults.filter((result) => result.verdict === "VOID").length;
+  const latestVerifiedAt = maxIso(terminalResults.map((result) => result.verifiedAt));
 
   if (!sourceAvailable) {
     return {
@@ -120,6 +116,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
       pending,
       completed,
       unverifiable,
+      excluded,
       syncMissing: 0,
       latestLockedAt: null,
       latestVerifiedAt,
@@ -142,6 +139,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
       pending,
       completed,
       unverifiable,
+      excluded,
       syncMissing: 0,
       latestLockedAt: null,
       latestVerifiedAt,
@@ -184,7 +182,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
       ? "SYNC_GAP"
       : pending > 0
         ? "WAITING"
-        : completed > 0
+        : completed > 0 || excluded > 0
           ? "ACTIVE"
           : "BUILDING";
 
@@ -197,6 +195,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
     pending,
     completed,
     unverifiable,
+    excluded,
     syncMissing,
     latestLockedAt,
     latestVerifiedAt,
