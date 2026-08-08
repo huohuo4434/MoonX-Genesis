@@ -41,6 +41,8 @@ import {
 } from "@/lib/trading-signals/ai-trading-focus";
 import { getHexagramDirectionPrior, type HexagramDirectionPrior } from "@/lib/trading-signals/hexagram-direction-priors";
 import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
+import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
+import { buildXIntelligenceTradeUniverseBoost } from "@/lib/trading-signals/market-environment";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
 import type {
   ThreeHorizonCondition,
@@ -1526,6 +1528,11 @@ async function selectDynamicTradeUniverse(
     const symbol = String(row.symbol).toUpperCase();
     if (!latestBySymbol.has(symbol)) latestBySymbol.set(symbol, row);
   }
+  // MOOX_MARKET_ENVIRONMENT_V711: capital-flow context is a bounded ranking input only.
+  // It never sets direction, entry, readiness or bypasses hard risk gates.
+  const xSnapshot = await getXIntelligenceSnapshot().catch(() => null);
+  const xSummaries = xSnapshot?.aggregate.summaries ?? [];
+
   return tradable
     .map((symbol, index) => {
       const forecast = forecastBySymbol.get(symbol);
@@ -1535,12 +1542,14 @@ async function selectDynamicTradeUniverse(
         : recent?.status === "OBSERVING"
           ? 6
           : 0;
+      const xEnvironmentBoost = buildXIntelligenceTradeUniverseBoost(xSummaries, symbol).score;
       const score = aiTradingFocusPriority(symbol, now) * 2
         + (forecast?.confidence ?? 0) * 0.55
         + (recent?.confidence ?? 0) * 0.45
         + (recent?.technical_score ?? 0) * 0.35
         + (recent?.forecast_score ?? 0) * 0.2
         + statusBonus
+        + xEnvironmentBoost
         - index * 0.01;
       return { symbol, score };
     })

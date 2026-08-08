@@ -32,7 +32,7 @@ const MARKET_ALIASES: Record<string, string[]> = {
   NDX: ["NDX", "QQQ", "NASDAQ", "NASDAQ100"],
   SHCOMP: ["SHCOMP", "SSEC", "000001SS", "A股", "上证"],
   HSTECH: ["HSTECH", "恒生科技"],
-  GLD: ["GLD", "GOLD", "XAU", "XAUUSD", "GCF"],
+  GLD: ["GLD", "GOLD", "XAU", "XAUUSD", "GCF", "XAUT", "XAUTUSDT"],
   SILVER: ["SILVER", "SLV", "XAG", "XAGUSD", "SIF"],
   WTI: ["WTI", "CL", "CLF", "OIL", "CRUDE"],
 };
