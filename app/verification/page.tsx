@@ -4,7 +4,9 @@ import { Section } from "@/components/ui";
 import { VerificationMethodDisclosure } from "@/components/verification/VerificationMethodDisclosure";
 import { PendingVerificationSummary } from "@/components/verification/PendingVerificationSummary";
 import { PublicVerificationCenter } from "@/components/verification/PublicVerificationCenter";
+import { VerificationPipelineStatus } from "@/components/verification/VerificationPipelineStatus";
 import { getCachedPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
+import { getVerificationPipelineStatus } from "@/lib/accuracy/verification-pipeline-status";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -22,8 +24,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export default async function VerificationPage() {
-  const [{ daily, weekly, pending, generatedAt }, locale] = await Promise.all([
+  const [{ daily, weekly, pending, generatedAt }, pipelineStatus, locale] = await Promise.all([
     getCachedPublicVerificationSnapshot(),
+    getVerificationPipelineStatus(),
     getRequestLocale(),
   ]);
   const en = locale === "en";
@@ -40,6 +43,8 @@ export default async function VerificationPage() {
           generatedAt={generatedAt}
           en={en}
         />
+
+        <VerificationPipelineStatus status={pipelineStatus} en={en} />
 
         <div className="mx-auto mt-8 w-full max-w-[1280px]">
           <PendingVerificationSummary items={pending} en={en} />

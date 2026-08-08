@@ -26,6 +26,7 @@ import {
   looksLikeFuturesRoll,
 } from "@/lib/verification/daily-rules";
 import type { DailyForecastRecord, DailyVerificationResult } from "@/types/daily-accuracy";
+import { syncGeneratedDailyForecastsToVerificationStore } from "@/lib/verification/sync-generated-dailies";
 
 export type RunDailyVerificationOptions = {
   forceRefetchForecastIds?: string[];
@@ -33,6 +34,11 @@ export type RunDailyVerificationOptions = {
 };
 
 export type RunDailyVerificationReport = {
+  syncedPublished: number;
+  syncExisting: number;
+  syncUnsupported: number;
+  syncLatePublished: number;
+  syncErrors: string[];
   scanned: number;
   verified: number;
   skippedExisting: number;
@@ -76,11 +82,21 @@ export async function runDailyVerification(
 ): Promise<RunDailyVerificationReport> {
   const now = options.now ?? new Date();
   const force = new Set(options.forceRefetchForecastIds ?? []);
+
+  // Bridge the canonical Prisma GeneratedDailyForecast store into the immutable
+  // public verification store before each scan. This makes every locked/published
+  // forecast auditable without relying on an administrator to duplicate it.
+  const sync = await syncGeneratedDailyForecastsToVerificationStore({ now });
   const forecasts = await listDailyForecastRecords();
   const existing = await listDailyVerificationResults();
   const existingById = new Map(existing.map((r) => [r.forecastId, r]));
 
   const report: RunDailyVerificationReport = {
+    syncedPublished: sync.created,
+    syncExisting: sync.existing,
+    syncUnsupported: sync.unsupported,
+    syncLatePublished: sync.latePublished,
+    syncErrors: sync.errors,
     scanned: 0,
     verified: 0,
     skippedExisting: 0,
@@ -88,7 +104,7 @@ export async function runDailyVerification(
     manualReview: 0,
     finalizedUnverifiable: 0,
     notReady: 0,
-    errors: [],
+    errors: sync.errors.map((message) => `sync:${message}`),
   };
 
   const candidates = forecasts.filter(

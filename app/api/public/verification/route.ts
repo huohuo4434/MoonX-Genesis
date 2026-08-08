@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCachedPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
+import { getVerificationPipelineStatus } from "@/lib/accuracy/verification-pipeline-status";
 
 function csvCell(value: unknown): string {
   const raw = value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -7,7 +8,10 @@ function csvCell(value: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
-  const snapshot = await getCachedPublicVerificationSnapshot();
+  const [snapshot, pipeline] = await Promise.all([
+    getCachedPublicVerificationSnapshot(),
+    getVerificationPipelineStatus(),
+  ]);
   const { daily, weekly, pending, generatedAt } = snapshot;
   const format = request.nextUrl.searchParams.get("format") ?? "json";
 
@@ -26,6 +30,7 @@ export async function GET(request: NextRequest) {
         ...daily,
         weekly,
         pending,
+        pipeline,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
