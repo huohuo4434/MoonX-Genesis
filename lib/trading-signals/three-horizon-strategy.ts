@@ -70,27 +70,25 @@ const LIVE_COMMISSIONING_ENABLED =
   process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
   process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
-const LIVE_ACTIVITY_ENABLED =
-  LIVE_ACTIVE_EXECUTION_ENABLED &&
-  process.env.BITGET_LIVE_DAILY_MINIMUM_TRADE_ENABLED?.toLowerCase() !== "false";
-const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
-  "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
-));
+const LIVE_ACTIVITY_ENABLED = LIVE_ACTIVE_EXECUTION_ENABLED;
+const LIVE_ACTIVITY_TARGET = Math.max(1, Math.floor(envNumber(
+  "MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4
+)));
 const LIVE_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_START_HOUR_BJ_V641",
-  envNumber("BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 9, 0, 23),
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 0, 0, 23),
   0,
   23
 ));
 const LIVE_ACTIVITY_MIN_CONFIDENCE = envNumber(
   "MOOX_LIVE_ACTIVITY_MIN_CONFIDENCE_V641",
-  envNumber("BITGET_LIVE_DAILY_MINIMUM_MIN_CONFIDENCE", 40, 38, 70),
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_MIN_CONFIDENCE", 38, 38, 70),
   38,
   70
 );
 const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
   "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
-  envNumber("BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.1, 0.05, 0.15),
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.08, 0.05, 0.15),
   0.05,
   0.15
 );
@@ -121,7 +119,8 @@ const PROBE_RISK_SCALE = envNumber("MOOX_PROBE_RISK_SCALE_V64", 0.45, 0.25, 0.6)
 const SCALE_IN_MIN_AGE_MINUTES = Math.floor(envNumber(
   "MOOX_SCALE_IN_MIN_AGE_MINUTES_V64", 5, 3, 30
 ));
-// V7.5.2: MOOX owns the directional thesis; the market confirms the actual turn.
+// V7.7: MOOX owns the directional thesis; the market confirms the actual turn.
+// LIVE also keeps one small-risk daily activation target so a valid directional system cannot remain permanently idle.
 // These thresholds only govern timing confirmation inside the forecast window.
 const INTRADAY_PATH_MIN_MOVE_PCT = envNumber(
   "MOOX_INTRADAY_PATH_MIN_MOVE_PCT", 0.35, 0.1, 2
@@ -956,11 +955,17 @@ function finalizeEvaluation(
   ).length;
   const minimumEvidence = profile.strategyType === "INTRADAY" ? 1 : 2;
   const baseValid = Boolean(direction !== "NEUTRAL" && currentPrice && prices && riskMet);
+  // V7.7: live execution uses MOOX for side selection and the market for timing.
+  // The old 48/38 technical floors were calibrated like a confirmation-only system;
+  // with a directional prior they rejected too many otherwise valid probe entries.
+  // LIVE keeps the same hard risk filters but allows smaller staged entries earlier.
+  const fullTechnicalFloor = profile.mode === "LIVE" ? 44 : 48;
+  const probeTechnicalFloor = profile.mode === "LIVE" ? 34 : 38;
   const fullReady = Boolean(
     baseValid &&
     entryMet &&
     directionEvidenceMet >= minimumEvidence &&
-    technicalScore >= 48 &&
+    technicalScore >= fullTechnicalFloor &&
     confidence >= profile.minConfidence
   );
   const probeThreshold = Math.max(profile.planningMinConfidence, profile.minConfidence - 8);
@@ -969,10 +974,10 @@ function finalizeEvaluation(
     baseValid &&
     !fullReady &&
     directionEvidenceMet >= minimumEvidence &&
-    technicalScore >= 38 &&
+    technicalScore >= probeTechnicalFloor &&
     confidence >= probeThreshold &&
     Math.abs(context.directionStrength) >= 7 &&
-    (priorCompatible || forecastScore >= 45)
+    (priorCompatible || forecastScore >= 42)
   );
   const executionTier: EvaluationResult["executionTier"] = fullReady
     ? "FULL"
@@ -1163,13 +1168,13 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
             WHEN strategy_type='SWING' THEN 10080
             ELSE 40320 END,
           planning_min_confidence = CASE
-            WHEN strategy_type='INTRADAY' THEN 42
-            WHEN strategy_type='SWING' THEN 44
-            ELSE 46 END,
+            WHEN strategy_type='INTRADAY' THEN 40
+            WHEN strategy_type='SWING' THEN 42
+            ELSE 44 END,
           min_confidence = CASE
-            WHEN strategy_type='INTRADAY' THEN 50
-            WHEN strategy_type='SWING' THEN 52
-            ELSE 54 END,
+            WHEN strategy_type='INTRADAY' THEN 48
+            WHEN strategy_type='SWING' THEN 50
+            ELSE 52 END,
           max_trades_per_day = 10,
           updated_at = NOW()
       `);
@@ -1294,10 +1299,10 @@ export async function getThreeHorizonProfiles(): Promise<ThreeHorizonStrategyPro
     // Always expose the complete ten-market universe in live mode, even when an old
     // warm server instance still has legacy BTC/ETH profile rows cached.
     const liveThresholds = mapped.strategyType === "INTRADAY"
-      ? { scanIntervalMinutes: 5, riskPerTradePct: 0.18, planningMinConfidence: 42, minConfidence: 50 }
+      ? { scanIntervalMinutes: 5, riskPerTradePct: 0.18, planningMinConfidence: 40, minConfidence: 48 }
       : mapped.strategyType === "SWING"
-        ? { scanIntervalMinutes: 15, riskPerTradePct: 0.25, planningMinConfidence: 44, minConfidence: 52 }
-        : { scanIntervalMinutes: 60, riskPerTradePct: 0.20, planningMinConfidence: 46, minConfidence: 54 };
+        ? { scanIntervalMinutes: 15, riskPerTradePct: 0.25, planningMinConfidence: 42, minConfidence: 50 }
+        : { scanIntervalMinutes: 60, riskPerTradePct: 0.20, planningMinConfidence: 44, minConfidence: 52 };
     return {
       ...mapped,
       ...liveThresholds,
@@ -2426,7 +2431,18 @@ async function executeReadyDecision(input: {
     ? environment.executionAllowed && LIVE_ACTIVE_EXECUTION_ENABLED
     : environment.executionAllowed && DEMO_ACTIVE_EXECUTION_ENABLED && legacyHorizonToggle !== "false";
   const mirror = await getBitgetMirrorSettings();
-  const reliabilityGate = await getTradingReliabilityOpeningGate();
+  // V7.7: Phase-4 reliability state was built as a UTA_V3_DEMO-only gate
+  // (its schema even hard-locks real_trading_locked=TRUE). It must not veto a
+  // LIVE_EXPERIMENT order that already passed the native live environment and
+  // portfolio-risk gates below. Demo keeps the original Phase-4 watchdog gate.
+  const reliabilityGate = environment.mode === "LIVE_EXPERIMENT"
+    ? {
+        allowed: true,
+        mode: "RUNNING" as const,
+        code: "LIVE_NATIVE_RISK_GATE",
+        reason: "LIVE使用原生实盘权限、账户、组合风险和交易所保护闸门。",
+      }
+    : await getTradingReliabilityOpeningGate();
   const plannedRiskPct = evaluationRiskBudgetPct(input.profile, input.evaluation);
   let blockReason = "";
   let blockCode = "";
@@ -2940,9 +2956,9 @@ export async function runThreeHorizonStrategyEngine(
         decision.mode === "LIVE" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
         decision.confidence >= LIVE_ACTIVITY_MIN_CONFIDENCE &&
-        decision.technicalScore >= 30 &&
+        decision.technicalScore >= 25 &&
         decision.conditionsTotal > 0 &&
-        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.33)) &&
+        decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.30)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
         decisionRewardRisk(decision) >= 1.05 &&
         !reservedSymbols.has(decision.symbol) &&
@@ -2969,7 +2985,7 @@ export async function runThreeHorizonStrategyEngine(
         symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
         riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_ACTIVITY_PROBE_RISK_PCT),
         planningMinConfidence: 38,
-        minConfidence: Math.max(40, Math.min(candidate.confidence, 46)),
+        minConfidence: Math.max(38, Math.min(candidate.confidence, 44)),
         maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 180),
         maxTradesPerDay: environment.liveMaxTradesPerDay,
       };

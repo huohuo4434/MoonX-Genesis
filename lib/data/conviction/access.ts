@@ -54,6 +54,12 @@ import {
   vibeFocusPeriodMeta,
   type VibeFocusAssetId,
 } from "@/lib/data/conviction/vibe-focus-forecasts";
+import {
+  GOOGLE_PERIOD_ORDER,
+  GOOGLE_VISIBLE_PERIOD_ORDER,
+  googlePeriodMeta,
+  listGooglePeriodForecasts,
+} from "@/lib/data/conviction/google-forecasts";
 import { getVibeEvidence, getVibeEvidenceMap, toVibePublicView } from "@/lib/data/vibe/store";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import {
@@ -191,7 +197,8 @@ function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "sandisk") return listSandiskPeriodForecasts();
   if (assetId === "eth") return listEthPeriodForecasts();
-  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "googl") return listGooglePeriodForecasts();
+  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return listVibeFocusPeriodForecasts(assetId);
   }
   return listMuHypePeriodForecasts(assetId);
@@ -202,7 +209,8 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
-  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "googl") return GOOGLE_PERIOD_ORDER;
+  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return VIBE_FOCUS_PERIOD_ORDER;
   }
   return PERIOD_ORDER_BY_ASSET[assetId];
@@ -213,7 +221,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
-  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "googl") return GOOGLE_VISIBLE_PERIOD_ORDER;
+  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
   }
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
@@ -332,7 +341,8 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
-  if (assetId === "googl" || assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "googl") return googlePeriodMeta();
+  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
     return vibeFocusPeriodMeta(assetId);
   }
   const published = staticPublished(assetId);

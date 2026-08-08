@@ -12,6 +12,8 @@ import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import SpcxWatchlistFeature from "@/components/conviction/SpcxWatchlistFeature";
+import GoogleWatchlistFeature from "@/components/conviction/GoogleWatchlistFeature";
+import SndkWatchlistFeature from "@/components/conviction/SndkWatchlistFeature";
 import AsteroidWatchlistFeature from "@/components/conviction/AsteroidWatchlistFeature";
 import { expectationTemperatureLabel, getExpectationSnapshot } from "@/lib/data/expectation-engine";
 
@@ -304,6 +306,13 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           <SpcxWatchlistFeature />
           {filter !== "STOCK" ? <AsteroidWatchlistFeature /> : null}
         </div>
+
+        {filter !== "CRYPTO" ? (
+          <div className="mt-6 space-y-6">
+            <GoogleWatchlistFeature />
+            <SndkWatchlistFeature />
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {visibleCards.map((card) => <PublicAssetCard key={card.id} card={card} mode={payload.mode} evidence={payload.vibeEvidence[card.id]} />)}

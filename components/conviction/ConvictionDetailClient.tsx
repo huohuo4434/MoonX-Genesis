@@ -5,6 +5,7 @@ import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
+import GoogleDailyResearch from "@/components/conviction/GoogleDailyResearch";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
@@ -499,6 +500,8 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
         {payload.mode === "fullAccess" && payload.vibeEvidence ? (
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}
+
+        {payload.mode === "fullAccess" && a.slug === "googl" ? <GoogleDailyResearch /> : null}
 
         {payload.freshness.needsUpdate ? (
           <Card padding="md" className="border-red-400/20 bg-red-400/[0.04]">
