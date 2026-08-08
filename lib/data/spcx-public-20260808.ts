@@ -10,36 +10,31 @@ export const SPCX_PUBLIC_RESEARCH = {
   revisedAt: "2026-08-08T20:50:00+08:00",
   revisionOf: "spcx-20260806-v1",
   consensusStars: 4,
-  executionState: "REVISED_AFTER_UNLOCK_BREAKOUT",
-  observedClose: 133.11,
-  observedCloseDate: "2026-08-07",
-  ipoPrice: 135,
-  recentLowApprox: 105,
-  publicHeadlineZh: "解锁后反而快速上冲：原方向未错，但反弹启动明显提前",
-  publicHeadlineEn: "The unlock triggered a fast rebound: the direction held, but the timing accelerated",
+  publicHeadlineZh: "解锁后实际走势明显前移：V1保留，V2已经重新校准",
+  publicHeadlineEn: "Post-unlock timing moved materially: V1 stays locked and V2 is recalibrated",
   publicSummaryZh:
-    "8月6日解锁后，SPCX没有出现预期中的持续供给踩踏，买盘在约109美元附近承接；8月7日又大涨约16%至133.11美元，周涨幅约23%，几乎收复135美元IPO价。MOOX因此把原V1“先消化、后反弹”修订为：供给消化和第一轮反弹已经提前完成，下周核心不再是等首次启动，而是观察135美元附近的突破确认、回踩承接与第二段上冲。",
+    "解锁后的真实K线让原先的时间节奏需要重算。MOOX没有覆盖旧版，而是保留V1并新增V2。公开版只展示为什么需要修订、研究覆盖到哪些周期；下一阶段方向、关键枢轴、回踩条件和第二段路径只在会员版展示。",
   publicSummaryEn:
-    "After the Aug. 6 unlock, SPCX did not suffer a sustained supply washout. Buyers absorbed shares near the $109 area, and the stock then jumped about 16% on Aug. 7 to $133.11, up roughly 23% for the week and nearly back to the $135 IPO price. MOOX therefore revises V1: the initial supply absorption and first rebound happened earlier than expected. Next week is no longer about waiting for the first rally; the key is whether SPCX can confirm above the IPO pivot, hold a pullback, and launch a second leg.",
+    "Post-unlock price action changed the timing assumptions. MOOX keeps V1 intact and adds V2 rather than rewriting history. The public view shows why a revision was required and which horizons are covered; the next-stage direction, pivots, pullback conditions and path remain member-only.",
   revisionNoteZh:
-    "V1的“解锁不等于一路下跌、后续偏修复”方向得到验证，但时间节奏偏慢。V2保留原卦方向，依据实际K线把强势窗口前移，并提高对短线冲高回吐的警惕。",
+    "这次修订的价值在于记录‘实际走势与原节奏发生偏移’并保留审计链。具体偏移方向、技术枢轴和后续执行条件不再放在公开页。",
   revisionNoteEn:
-    "V1 was directionally right that the unlock did not imply a one-way collapse and that repair was more likely, but the timing was too slow. V2 keeps the original directional thesis, shifts the strength window forward based on observed price action, and raises short-term pullback risk after the surge.",
+    "The revision records a material timing drift while preserving the audit trail. The direction of that drift, technical pivots and execution conditions are no longer exposed publicly.",
   publicWindows: [
     {
       period: "2026-08-10 / 2026-08-14",
-      zh: "IPO价确认周：先看135美元附近能否站稳。主路径改为“冲高确认／回踩承接 → 再上”，不再把这周定义成单纯等待反弹。",
-      en: "IPO-pivot confirmation week: first test whether $135 can hold. The main path becomes 'breakout test / supported pullback → second push', not simply waiting for a rebound.",
+      zh: "第一阶段已完成逐日拆分与技术条件树。公开版只显示该研究已更新，不公开方向、枢轴与具体执行条件。",
+      en: "Stage one has a completed day-by-day path and technical condition tree. Public view confirms the update without revealing direction, pivots or execution rules.",
     },
     {
       period: "2026-08-17 / 2026-08-23",
-      zh: "延续与第二轮供给测试：若前一周守住突破结构，偏强延续概率提高；若重新跌回关键支撑，则转入宽幅震荡。",
-      en: "Continuation and a second supply test: if the prior week holds the breakout structure, bullish continuation improves; a loss of key support shifts the path to a wide range.",
+      zh: "第二阶段已建立供给与承接情景。哪一种情景占优、什么条件触发切换，仅会员可见。",
+      en: "Stage two includes supply/absorption scenarios. Which scenario leads and what triggers a switch remain member-only.",
     },
     {
       period: "2026-08-24 / 2026-08-30",
-      zh: "结构最顺窗口仍保留，但含义调整：若前两周已经大涨，这一段更可能表现为高位稳定、二次上攻，而不是首次启动。",
-      en: "The cleanest structural window remains, but its meaning changes: if the stock has already rallied hard, this phase is more likely to be high-level stabilization or a second advance rather than the first launch.",
+      zh: "第三阶段已完成独立周卦与中期衔接。公开页不提前泄露它是延续、整理还是风险窗口。",
+      en: "Stage three has an independent weekly reading tied into the medium-term view. Public users are not shown whether it represents continuation, consolidation or risk.",
     },
   ],
   teaserZh:

@@ -60,6 +60,23 @@ import {
   googlePeriodMeta,
   listGooglePeriodForecasts,
 } from "@/lib/data/conviction/google-forecasts";
+import {
+  MSFT_PERIOD_ORDER,
+  MSFT_VISIBLE_PERIOD_ORDER,
+  listMsftPeriodForecasts,
+  msftPeriodMeta,
+} from "@/lib/data/conviction/msft-forecasts";
+import {
+  TENCENT_PERIOD_LABELS,
+  TENCENT_PERIOD_ORDER,
+  TENCENT_VISIBLE_PERIOD_ORDER,
+  listTencentPeriodForecasts,
+  tencentPeriodMeta,
+} from "@/lib/data/conviction/tencent-forecasts";
+import {
+  BTC_PERIOD_ORDER,
+  listBtcPeriodForecasts20260801,
+} from "@/lib/data/conviction/btc-forecasts-20260801";
 import { getVibeEvidence, getVibeEvidenceMap, toVibePublicView } from "@/lib/data/vibe/store";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import {
@@ -173,6 +190,7 @@ type StaticPeriodAssetId =
   | "mu"
   | "hype"
   | "eth"
+  | "btc"
   | VibeFocusAssetId;
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
@@ -182,6 +200,7 @@ const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
   "mu",
   "hype",
   "eth",
+  "btc",
   "googl",
   "msft",
   "tencent",
@@ -197,8 +216,11 @@ function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "sandisk") return listSandiskPeriodForecasts();
   if (assetId === "eth") return listEthPeriodForecasts();
+  if (assetId === "btc") return listBtcPeriodForecasts20260801();
   if (assetId === "googl") return listGooglePeriodForecasts();
-  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "msft") return listMsftPeriodForecasts();
+  if (assetId === "tencent") return listTencentPeriodForecasts();
+  if (assetId === "kingsoft-office") {
     return listVibeFocusPeriodForecasts(assetId);
   }
   return listMuHypePeriodForecasts(assetId);
@@ -209,8 +231,11 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
+  if (assetId === "btc") return BTC_PERIOD_ORDER;
   if (assetId === "googl") return GOOGLE_PERIOD_ORDER;
-  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "msft") return MSFT_PERIOD_ORDER;
+  if (assetId === "tencent") return TENCENT_PERIOD_ORDER;
+  if (assetId === "kingsoft-office") {
     return VIBE_FOCUS_PERIOD_ORDER;
   }
   return PERIOD_ORDER_BY_ASSET[assetId];
@@ -221,14 +246,33 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
+  if (assetId === "btc") return ["WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
   if (assetId === "googl") return GOOGLE_VISIBLE_PERIOD_ORDER;
-  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "msft") return MSFT_VISIBLE_PERIOD_ORDER;
+  if (assetId === "tencent") return TENCENT_VISIBLE_PERIOD_ORDER;
+  if (assetId === "kingsoft-office") {
     return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
   }
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
+  if (assetId === "tencent" && TENCENT_PERIOD_LABELS[type]) {
+    return TENCENT_PERIOD_LABELS[type]!;
+  }
+  if (assetId === "btc") {
+    const btcLabels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK: { zh: "8/1–9", en: "Aug 1–9", emptyZh: "该周期预测尚未发布" },
+      WEEK_2: { zh: "8/10–16", en: "Aug 10–16", emptyZh: "该周期预测尚未发布" },
+      WEEK_3: { zh: "8/17–23", en: "Aug 17–23", emptyZh: "该周期预测尚未发布" },
+      WEEK_4: { zh: "8/24–30", en: "Aug 24–30", emptyZh: "该周期预测尚未发布" },
+      MONTH_1: { zh: "1个月", en: "1M", emptyZh: "该周期预测尚未发布" },
+      MONTH_3: { zh: "3个月", en: "3M", emptyZh: "该周期预测尚未发布" },
+      YEAR_1: { zh: "1年", en: "1Y", emptyZh: "该周期预测尚未发布" },
+      YEAR_10: { zh: "10年", en: "10Y", emptyZh: "该周期预测尚未发布" },
+    };
+    if (btcLabels[type]) return btcLabels[type]!;
+  }
   if (assetId === "sandisk") {
     return SANDISK_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
   }
@@ -342,7 +386,9 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
   if (assetId === "googl") return googlePeriodMeta();
-  if (assetId === "msft" || assetId === "tencent" || assetId === "kingsoft-office") {
+  if (assetId === "msft") return msftPeriodMeta();
+  if (assetId === "tencent") return tencentPeriodMeta();
+  if (assetId === "kingsoft-office") {
     return vibeFocusPeriodMeta(assetId);
   }
   const published = staticPublished(assetId);
@@ -530,6 +576,7 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   mu: "美光",
   hype: "HYPE",
   eth: "ETH",
+  btc: "BTC",
   googl: "Alphabet",
   msft: "微软",
   tencent: "腾讯",

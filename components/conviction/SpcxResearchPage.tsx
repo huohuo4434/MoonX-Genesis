@@ -61,6 +61,16 @@ type MemberResponse = {
     oneYear: HorizonItem;
     fiveYear: HorizonItem;
     evidenceArchive: { zh: string[]; en: string[] };
+    externalTechnicalView?: {
+      asOf: string;
+      sourceLabelZh: string;
+      sourceLabelEn: string;
+      summaryZh: string;
+      summaryEn: string;
+      levels: Array<{ label: string; value: string }>;
+      ruleZh: string;
+      ruleEn: string;
+    };
     executionRules: { zh: string[]; en: string[] };
     verificationPlan: { zh: string; en: string };
   };
@@ -122,7 +132,7 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
       <section className={styles.hero}>
         <div className={styles.kicker}>{english ? "MOOX Featured Research · SPCX · V2" : "MOOX 重点研究 · SPCX · V2事件后复算"}</div>
         <h1 className={styles.heroTitle}>
-          {english ? "The rally started early. Now the question is whether it can hold." : "反弹已经提前启动，现在看的是能不能站稳并走出第二段。"}
+          {english ? "The timing changed. The member dossier contains what that means next." : "时间节奏已经改变，下一步怎么走只在会员专题里给答案。"}
         </h1>
         <p className={styles.heroLead}>
           {english ? SPCX_PUBLIC_RESEARCH.publicSummaryEn : SPCX_PUBLIC_RESEARCH.publicSummaryZh}
@@ -133,8 +143,8 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
             <p>{english ? SPCX_PUBLIC_RESEARCH.revisionNoteEn : SPCX_PUBLIC_RESEARCH.revisionNoteZh}</p>
           </div>
           <div className={styles.card}>
-            <h3>{english ? "Observed market fact" : "已发生市场事实"}</h3>
-            <p>{english ? "Aug. 7 close $133.11 · about +16% on the day · about +23% on the week · near the $135 IPO price." : "8月7日收盘133.11美元 · 单日约+16% · 周涨约23% · 已逼近135美元IPO价。"}</p>
+            <h3>{english ? "What changed" : "这次为什么重算"}</h3>
+            <p>{english ? "Observed post-unlock price action moved materially faster than the original timing assumption. Exact pivots and the next-stage path are now member-only." : "解锁后的真实K线明显快于原时间假设，因此产生V2。具体枢轴、支撑压力和下一阶段路径不再公开。"}</p>
           </div>
           <div className={styles.card}>
             <h3>{english ? "Consensus" : "多周期共识"}</h3>
@@ -144,7 +154,7 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Public revised roadmap" : "公开版修订路径"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Public research coverage" : "公开版研究覆盖"}</h2>
         <div className={styles.grid}>
           {windows.map((window) => (
             <article className={styles.card} key={window.period}>
@@ -252,6 +262,25 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
         </div>
       </section>
 
+      {research.externalTechnicalView ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>{english ? "External technical cross-check" : "外部技术交叉验证"}</h2>
+          <div className={styles.card}>
+            <div className={styles.phaseDate}>{research.externalTechnicalView.asOf} · {english ? research.externalTechnicalView.sourceLabelEn : research.externalTechnicalView.sourceLabelZh}</div>
+            <p>{english ? research.externalTechnicalView.summaryEn : research.externalTechnicalView.summaryZh}</p>
+            <div className={styles.techRow}>
+              {research.externalTechnicalView.levels.map((item) => (
+                <div className={styles.metric} key={`${item.label}-${item.value}`}>
+                  <div className={styles.metricLabel}>{item.label}</div>
+                  <div className={styles.metricValue}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <p className={styles.phaseDate}>{english ? research.externalTechnicalView.ruleEn : research.externalTechnicalView.ruleZh}</p>
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>{english ? "Live technical gate" : "实时K线技术门槛"}</h2>
         {technical ? (
@@ -272,7 +301,7 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
         ) : (
           <div className={styles.card}>
             <h3>{english ? "Live quote temporarily unavailable" : "实时行情暂时不可用"}</h3>
-            <p>{english ? "Use the locked V2 path and public anchors ($135 IPO pivot, roughly $109–110 unlock-demand zone) until server quote data resumes." : "先按V2锁定路径与公开锚点执行：135美元IPO枢轴、约109—110美元解锁承接区；服务器行情恢复后会自动更新技术区间。"}</p>
+            <p>{english ? "Live quotes are temporarily unavailable. Use the locked V2 research logic; exact anchors are not embedded in the public client bundle and will return when server-side quote data resumes." : "实时行情暂不可用。先按V2锁定研究逻辑执行；具体技术锚点不再内置到公共客户端，服务器行情恢复后会自动返回会员技术区间。"}</p>
           </div>
         )}
       </section>

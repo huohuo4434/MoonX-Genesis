@@ -12,7 +12,7 @@ import {
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
 
-export const ETH_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "MONTH_1"];
+export const ETH_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "MONTH_1"];
 
 export const ETH_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
@@ -100,6 +100,14 @@ export const ETH_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
       changingHexagram: null,
       notes:
         "财爻酉金得申月之助；兄弟巳火持世但月令不旺。静卦六冲，方向偏强但路径非常不稳。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-08T08:38:00+08:00",
+      label: "8/8外部技术交叉验证（不改锁定方向）",
+      summary:
+        "外部技术视频把ETH的1–3天结构定义为震荡消化/回调优先：两小时MACD顶背离已经死叉，若继续冲高也更偏向滞涨或诱多；6小时级别给出的回调参考在约1,860附近。该观点同时认为周线此前存在大级别MACD底背离，因此把更长到一个月的路径仍定义为‘调整之后上涨’。MOOX不据此改写8/10–16原V1的震荡上涨，只把执行节奏收紧为‘短线先消化，随后再验证中旬强势窗口是否启动’。",
+      originalLockedView: "8/10–16原V1：震荡上涨，中旬是8月相对更强的窗口，但静卦六冲意味着路径非常不稳。",
+      timingTolerance: "1,860仅记录外部技术视频的6小时回调参考，不是MOOX硬目标；必须结合实时ETH价格与结构重新确认。",
     },
     version: 1,
     status: "published",

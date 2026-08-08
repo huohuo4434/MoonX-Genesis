@@ -117,6 +117,17 @@ export type ConvictionPeriodForecast = {
     activation: string;
     riskNote: string;
   }>;
+  /** Calendar-month roadmap for dossiers that have independently cast month-by-month charts. */
+  calendarMonthPath?: Array<{
+    period: string;
+    labelZh: string;
+    direction: FormalDirection;
+    primaryHexagram: string;
+    changingHexagram?: string | null;
+    summary: string;
+    sourceNote?: string | null;
+    riskNote?: string | null;
+  }>;
   /** Event-level market environment reference; never used as a direct ASTEROID price signal. */
   marketContext?: {
     label: string;

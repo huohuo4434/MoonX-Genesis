@@ -97,10 +97,103 @@ export const GOOGLE_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
     ichingEvidence: { primaryHexagram: "泽地萃→天水讼；山水蒙；水风井→天风姤", changingHexagram: "12月火天大有→雷风恒", notes: "8月强势窗口后，中期总卦艮→蒙限制线性上涨预期，故按阶段行情而非全年单边牛市处理。" },
     version: 1, status: "published", sourceType: "ICHING_RESEARCH", publishedAt: PUBLISHED_AT, lockedAt: PUBLISHED_AT, validationStatus: "UNVERIFIED",
   },
+  {
+    id: "GOOGL-W1-20260810-V3",
+    assetId: "googl",
+    forecastType: "WEEK",
+    periodStart: "2026-08-10",
+    periodEnd: "2026-08-16",
+    direction: "震荡上涨",
+    upProbability: 55,
+    sidewaysProbability: 28,
+    downProbability: 17,
+    summary: "方向沿用8/8锁定的W1-V2，不做事后改判。本版只新增8/8外部技术视频的独立支撑压力参考，并继续要求用实时量价确认。",
+    expectedPath: "8/10—12偏强启动与延续 → 8/13换手分歧 → 8/14若结构未坏仍偏修复上行；8/15—16休市只做风险观察。",
+    supportLevels: ["348–355.5（8/8外部技术视频支撑箱体；仅作技术票，需实时价格确认）"],
+    resistanceLevels: ["378.37–382.4（8/8外部技术视频压力箱体；仅作技术票，需实时价格确认）"],
+    confirmationLevel: "支撑箱体承接有效，回踩后重新收回并站稳短线平台。",
+    invalidationLevel: "持续放量跌破外部支撑箱体下沿，且1小时结构同步转空。",
+    riskLevel: "中高",
+    catalysts: ["AI商业化", "Google Cloud", "大型科技风险偏好"],
+    risks: ["财报后估值分歧", "资本开支", "监管事件", "外部技术箱体失守"],
+    consensusStars: 5,
+    consensusLabel: "六爻方向不变，外部视频只增加技术确认层",
+    methodViews: [
+      { id: "googl-structure-w1-v3", label: "框架A·六亲世应", direction: "震荡上涨", weight: 50, summary: "申月对水财条件改善，阶段抛压不足以构成持续空头。" },
+      { id: "googl-timeline-w1-v3", label: "框架B·卦变时序", direction: "震荡上涨", weight: 40, summary: "夬到随体现先决断、再跟随，适合定义为启动周。" },
+      { id: "googl-external-tech-20260808", label: "外部技术视频·8/8", direction: "箱体确认", weight: 10, summary: "视频标注348–355.5为支撑、378.37–382.4为压力；独立记录，不覆盖六爻。" },
+    ],
+    rollingUpdate: {
+      asOf: "2026-08-09T06:47:00+08:00",
+      label: "技术位补充 · V3",
+      summary: "W1-V2方向、概率与周内路径全部保留；V3仅加入用户提供的8/8外部技术视频箱体。",
+      originalLockedView: "GOOGL-W1-20260810-V2 保留且不覆盖。",
+      timingTolerance: "技术箱体随真实K线失效或迁移，不作为永久固定价位。",
+    },
+    ichingEvidence: { primaryHexagram: "泽天夬", changingHexagram: "泽雷随（归魂）", notes: "六爻证据与V2一致。新增技术位来自独立外部视频，不改变原卦结论。" },
+    version: 3,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-09T06:47:00+08:00",
+    lockedAt: "2026-08-09T06:47:00+08:00",
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "GOOGL-M1-20260808-V3",
+    assetId: "googl",
+    forecastType: "MONTH_1",
+    periodStart: "2026-08-08",
+    periodEnd: "2026-09-06",
+    direction: "震荡上涨",
+    upProbability: 54,
+    sidewaysProbability: 29,
+    downProbability: 17,
+    summary: "月度方向沿用M1-V2，不做事后覆盖。本版仅把8/8外部技术视频的348–355.5支撑和378.37–382.4压力作为独立技术票加入会员档案。",
+    expectedPath: "启动 → 修复 → 恒势推进 → 高位收敛。技术箱体用于判断各周卦是否被真实价格确认。",
+    supportLevels: ["348–355.5（8/8外部技术视频支撑箱体；需实时确认）"],
+    resistanceLevels: ["378.37–382.4（8/8外部技术视频压力箱体；需实时确认）"],
+    confirmationLevel: "支撑区域守住并重新形成高低点抬升；突破压力后不快速跌回。",
+    invalidationLevel: "支撑箱体失守且大型科技相对强度同步转弱。",
+    riskLevel: "中高",
+    catalysts: ["Google Cloud", "AI商业化", "广告与搜索现金流", "大型科技风险偏好"],
+    risks: ["资本开支", "监管", "估值与获利盘", "9月分歧", "技术箱体失守"],
+    aiEvidence: "MOOX将卦象用于方向和时间框架；外部视频只提供价格箱体参考，最终节点必须由实时量价确认。",
+    ichingEvidence: { primaryHexagram: "地泽临", changingHexagram: "地天泰（六合）", notes: "月度六爻证据沿用V2；V3新增独立技术箱体，不改写已锁定方向。" },
+    consensusStars: 5,
+    consensusLabel: "双框架方向不变，技术票用于验证而非替代",
+    methodViews: [
+      { id: "googl-structure-month-v3", label: "框架A·六亲世应", direction: "震荡上涨", weight: 50, summary: "财爻条件后段改善，阶段抛压不足以贯穿整月。" },
+      { id: "googl-timeline-month-v3", label: "框架B·卦变时序", direction: "震荡上涨", weight: 40, summary: "临→泰总基调与分段卦构成改善路径。" },
+      { id: "googl-external-tech-month-20260808", label: "外部技术视频·8/8", direction: "箱体确认", weight: 10, summary: "348–355.5支撑、378.37–382.4压力，只作为第三方法票。" },
+    ],
+    rollingUpdate: {
+      asOf: "2026-08-09T06:47:00+08:00",
+      label: "技术位补充 · V3",
+      summary: "M1-V2保持锁定；V3只补充外部技术视频支撑压力，不修改原方向。",
+      originalLockedView: "GOOGL-M1-20260808-V2 保留且不覆盖。",
+      timingTolerance: "技术位会随K线迁移，需动态验证。",
+    },
+    version: 3,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-09T06:47:00+08:00",
+    lockedAt: "2026-08-09T06:47:00+08:00",
+    validationStatus: "UNVERIFIED",
+  },
+
 ];
 
 export function listGooglePeriodForecasts() {
-  return GOOGLE_PERIOD_FORECASTS.filter((item) => item.status === "published");
+  const latest = new Map<ConvictionForecastType, ConvictionPeriodForecast>();
+  for (const item of GOOGLE_PERIOD_FORECASTS.filter((entry) => entry.status === "published")) {
+    const current = latest.get(item.forecastType);
+    if (!current || item.version > current.version || item.lockedAt > current.lockedAt) {
+      latest.set(item.forecastType, item);
+    }
+  }
+  return GOOGLE_PERIOD_ORDER.map((type) => latest.get(type)).filter(
+    (item): item is ConvictionPeriodForecast => Boolean(item)
+  );
 }
 
 export function googlePeriodMeta() {

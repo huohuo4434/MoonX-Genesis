@@ -19,14 +19,15 @@ test("SPCX member API enforces membership and provides live technical context", 
   assert.match(route, /private, no-store/);
 });
 
-test("SPCX V2 keeps the observed unlock rally and does not overwrite V1", () => {
+test("SPCX V2 keeps observed unlock anchors member-side and does not overwrite V1", () => {
   const publicV2 = read("lib/data/spcx-public-20260808.ts");
   const memberV2 = read("lib/data/spcx-member-20260808.ts");
   const publicV1 = read("lib/data/spcx-public-20260806.ts");
   const memberV1 = read("lib/data/spcx-member-20260806.ts");
   assert.match(publicV2, /spcx-20260808-v2/);
-  assert.match(publicV2, /133\.11/);
-  assert.match(publicV2, /135/);
+  assert.doesNotMatch(publicV2, /133\.11|ipoPrice|recentLowApprox|observedClose/);
+  assert.match(memberV2, /133\.11/);
+  assert.match(memberV2, /135/);
   assert.match(publicV2, /revisionOf:\s*"spcx-20260806-v1"/);
   assert.match(memberV2, /2026-08-10/);
   assert.match(memberV2, /2026-08-14/);
@@ -37,13 +38,14 @@ test("SPCX V2 keeps the observed unlock rally and does not overwrite V1", () => 
   assert.match(memberV1, /spcx-20260806-v1/);
 });
 
-test("SPCX watchlist and detail page both use the revised V2 dataset", () => {
-  assert.match(read("components/conviction/SpcxWatchlistFeature.tsx"), /spcx-public-20260808/);
+test("SPCX watchlist uses the safe teaser and detail loads member data through the protected API", () => {
+  const list = read("components/conviction/ConvictionListClient.tsx");
+  assert.match(list, /ResearchSpotlightCard/);
+  assert.doesNotMatch(list, /SpcxWatchlistFeature/);
   const detail = read("components/conviction/SpcxResearchPage.tsx");
   assert.match(detail, /spcx-public-20260808/);
-  assert.match(detail, /8月10日—14日逐日路径/);
-  assert.match(detail, /月度与后期分层/);
-  assert.match(detail, /V1\/V2验证计划/);
+  assert.match(detail, /\/api\/member\/spcx-research/);
+  assert.doesNotMatch(detail, /135美元IPO枢轴|109—110美元/);
 });
 
 test("SPCX technical engine includes IPO and unlock-demand anchors", () => {

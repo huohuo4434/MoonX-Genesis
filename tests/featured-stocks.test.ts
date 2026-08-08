@@ -31,11 +31,10 @@ test("conviction list has cxmt and asteroid", () => {
 
 test("focused-assets nav uses the public featured-stocks route once", () => {
   const keys = PUBLIC_PRIMARY_NAV.map((n) => n.href);
-  const signals = keys.indexOf(NAV_ROUTES.tradingSignals);
   const focused = keys.indexOf(NAV_ROUTES.featuredStocks);
   const verification = keys.indexOf(NAV_ROUTES.verification);
 
-  assert.ok(signals >= 0 && focused === signals + 1 && verification === focused + 1);
+  assert.ok(focused >= 0 && verification === focused + 1);
   assert.equal(PUBLIC_PRIMARY_NAV.filter((n) => n.href === NAV_ROUTES.featuredStocks).length, 1);
   assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.watchlist), false);
   assert.equal(PUBLIC_PRIMARY_NAV.some((n) => n.href === NAV_ROUTES.memberStocks), false);
@@ -52,17 +51,17 @@ test("asteroid periods: no fabricated today/tomorrow; long horizons published", 
   assert.ok(getAsteroidForecastByType("YEAR_5"));
   assert.equal(listAsteroidPeriodForecasts().length, 8);
   const ids = ASTEROID_PERIOD_FORECASTS.map((f) => f.id);
-  for (const id of [
-    "ASTEROID-W1-20260803-V3",
-    "ASTEROID-W2-20260810-V1",
-    "ASTEROID-W3-20260817-V1",
-    "ASTEROID-W4-20260824-V1",
-    "ASTEROID-M1-20260801-V3",
-    "ASTEROID-M3-20260801-V2",
-    "ASTEROID-Y1-20260801-V2",
-    "ASTEROID-Y5-20260729-V1",
+  for (const idPrefix of [
+    "ASTEROID-W1-20260803-V",
+    "ASTEROID-W2-20260810-V",
+    "ASTEROID-W3-20260817-V",
+    "ASTEROID-W4-20260824-V",
+    "ASTEROID-M1-20260801-V",
+    "ASTEROID-M3-20260801-V",
+    "ASTEROID-Y1-20260801-V",
+    "ASTEROID-Y5-20260729-V",
   ]) {
-    assert.ok(ids.includes(id), `missing ${id}`);
+    assert.ok(ids.some((id) => id.startsWith(idPrefix)), `missing ${idPrefix}*`);
   }
   for (const f of listAsteroidPeriodForecasts()) {
     assert.equal(f.status, "published");

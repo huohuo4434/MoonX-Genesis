@@ -5,7 +5,6 @@ import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
-import GoogleDailyResearch from "@/components/conviction/GoogleDailyResearch";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
@@ -157,6 +156,31 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
           {f.expectedPath}
         </Text>
       </section>
+
+      {f.calendarMonthPath?.length ? (
+        <section className="space-y-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.025] p-4">
+          <div>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/75">逐月路线</p>
+            <p className="mt-1 text-caption text-white/40">每个月来自独立月卦；局部月卦与跨月大卦分层验证，不互相覆盖。</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {f.calendarMonthPath.map((item) => (
+              <article key={`${f.id}-${item.period}`} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-body-sm font-semibold text-white">{item.labelZh}</p>
+                  <Badge variant="outline">{item.direction}</Badge>
+                </div>
+                <p className="mt-2 text-caption text-white/45">
+                  {item.primaryHexagram}{item.changingHexagram ? ` → ${item.changingHexagram}` : ""}
+                </p>
+                <p className="mt-2 text-caption leading-relaxed text-white/65">{item.summary}</p>
+                {item.sourceNote ? <p className="mt-2 text-caption text-cyan-100/45">来源：{item.sourceNote}</p> : null}
+                {item.riskNote ? <p className="mt-2 text-caption leading-relaxed text-amber-100/60">风险：{item.riskNote}</p> : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {f.rollingUpdate ? (
         <section className="space-y-2 rounded-lg border border-fuchsia-400/15 bg-fuchsia-400/[0.025] p-4">
@@ -389,13 +413,13 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     "mu",
     "hype",
     "eth",
+    "btc",
     "googl",
     "msft",
     "tencent",
     "kingsoft-office",
   ].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
-  const isSandisk = a.slug === "sandisk";
   const tabs = payload.periodSlots;
   const visibleTypes = new Set(tabs.map((item) => item.type));
   const archivePeriods = payload.forecast?.periods?.filter((item) => !visibleTypes.has(item.type)) ?? [];
@@ -501,7 +525,6 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}
 
-        {payload.mode === "fullAccess" && a.slug === "googl" ? <GoogleDailyResearch /> : null}
 
         {payload.freshness.needsUpdate ? (
           <Card padding="md" className="border-red-400/20 bg-red-400/[0.04]">
@@ -534,33 +557,41 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
         </section>
 
         {payload.mode === "publicOnly" ? (
-          <section className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-transparent p-5">
-            <h2 className="text-h3 text-white">会员专享预测</h2>
-            <p className="mt-2 text-body-sm text-white/55">
-              {isAsteroid
-                ? "本周逐日、下周逐日、月度分析、双框架六爻依据与关键窗口仅对有效会员开放。"
-                : isSandisk
-                  ? "8月7日至31日逐日路径、3个月、1年、5年双框架六爻研究仅对有效会员开放。"
-                  : "本周分析、月度分析、六爻依据与总趋势资料库仅对有效会员开放。"}
-            </p>
-            <ul className="mt-4 space-y-2 text-body-sm text-white/60">
-              {payload.locks.map((lock) => (
-                <li
-                  key={lock.key}
-                  className="flex items-center justify-between gap-3 border-b border-white/[0.05] py-2 last:border-0"
-                >
-                  <span>{lock.labelZh}</span>
-                  <span className="font-mono text-caption text-white/35">研究记录</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button asChild>
-                <Link href={unlockHref}>解锁完整预测</Link>
-              </Button>
-              <Button asChild variant="outline" className="border-white/20 text-white hover:bg-white/5">
-                <Link href="/pricing">会员价格</Link>
-              </Button>
+          <section className="relative overflow-hidden rounded-2xl border border-cyan-300/15 bg-[radial-gradient(circle_at_80%_0%,rgba(77,208,225,.10),transparent_32%),linear-gradient(145deg,rgba(15,19,28,.98),rgba(8,10,14,.98))] p-5 sm:p-6">
+            <div className="pointer-events-none absolute -bottom-6 -right-2 text-[clamp(70px,14vw,145px)] font-black tracking-[-.08em] text-white/[.025]">LOCK</div>
+            <div className="relative z-10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-caption uppercase tracking-[0.16em] text-cyan-200/55">MOOX MEMBER DOSSIER</p>
+                  <h2 className="mt-1 text-h3 text-white">研究已经做完，答案没有放在公开页。</h2>
+                </div>
+                <Badge variant="outline" className="border-amber-300/20 bg-amber-300/[.05] text-amber-100/75">
+                  已完成 {tabs.filter((item) => item.hasResearch).length} 个公开可识别周期
+                </Badge>
+              </div>
+              <p className="mt-3 max-w-3xl text-body-sm leading-7 text-white/55">
+                你现在能看到的是研究范围和更新状态。真正影响决策的方向路径、关键日期、支撑压力、确认/失效条件和完整六爻证据不会以模糊文字藏在网页DOM里，而是服务器鉴权后才返回给会员。
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {payload.locks.map((lock, index) => (
+                  <div key={lock.key} className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.07] bg-black/15 px-3 py-3">
+                    <span className="text-body-sm text-white/65">{lock.labelZh}</span>
+                    <span className="font-mono text-caption text-white/30">0{index + 1} · LOCK</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
+                <p className="text-body-sm font-medium text-white/80">会员打开后会直接看到什么？</p>
+                <p className="mt-2 text-caption leading-6 text-white/48">当前周期的正式方向、周内/逐日节奏（有真实来源时）、技术位、风险切换条件、多方法共识，以及旧版→新版的修订记录。公开页只留“钩子”，不提前给结论。</p>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button asChild>
+                  <Link href={unlockHref}>解锁方向 · 日期 · 支撑压力</Link>
+                </Button>
+                <Button asChild variant="outline" className="border-white/20 text-white hover:bg-white/5">
+                  <Link href="/pricing">查看会员价格</Link>
+                </Button>
+              </div>
             </div>
           </section>
         ) : (

@@ -189,6 +189,22 @@ export const SPCX_MEMBER_RESEARCH = {
       "2026-08-06 06:29 | Aug. 24–30: static Tai (Six Harmony).",
     ],
   },
+  externalTechnicalView: {
+    asOf: "2026-08-08",
+    sourceLabelZh: "外部波浪技术观点 · 8/8截图",
+    sourceLabelEn: "External wave-structure view · Aug. 8 screenshot",
+    summaryZh:
+      "该观点认为109.59–101.74美元的见底区域此前有效，130.64美元第一压力已经通过，下一关键考验是138.62美元。其波浪框架把当前红线反弹视为535结构：若138.62无法有效突破，可能仍只是4浪反弹并存在后续下探；若能有效通过，则更接近b浪反弹延续。MOOX只把它作为独立技术票，不覆盖V2六爻和实时ATR结构。",
+    summaryEn:
+      "The source treats $109.59–$101.74 as a previously valid bottoming zone. It views $130.64 as the first resistance already cleared and $138.62 as the next key test. Under its wave count, failure at $138.62 could leave the move as a wave-4 rebound with renewed downside risk; a clean break would be more consistent with a continuing wave-b rebound. MOOX uses this only as an independent technical vote and does not let it overwrite V2 Liu Yao or live ATR structure.",
+    levels: [
+      { label: "外部底部区", value: "$101.74–$109.59" },
+      { label: "已通过压力", value: "$130.64" },
+      { label: "下一关键压力", value: "$138.62" },
+    ],
+    ruleZh: "138.62只作为外部技术确认位；是否真正突破仍以实时K线收盘、成交和MOOX服务器技术快照共同确认。",
+    ruleEn: "$138.62 is an external technical confirmation level only; a true break still requires live closes, volume and the MOOX server-side technical snapshot.",
+  },
   executionRules: {
     zh: [
       "135美元IPO价是第一公开技术枢轴：站稳才算突破确认；只瞬间刺穿不算。",
