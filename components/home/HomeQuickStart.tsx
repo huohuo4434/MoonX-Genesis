@@ -100,9 +100,9 @@ export async function HomeQuickStart() {
   }
 
   let weeklyCard: QuickCard = {
-    label: en ? "Current weekly stage" : "本周所处阶段",
-    title: en ? "Open the weekly outlook" : "查看本周整体路径",
-    body: en ? "Daily views are easier to use inside the weekly context." : "日度判断最好放在周度背景中理解。",
+    label: en ? "Weekly Alpha 5" : "本周精选5",
+    title: en ? "Open the member weekly report" : "查看会员核心周报",
+    body: en ? "Five concentrated weekly opportunities first, then the broader core-market map." : "先看本周最值得盯的5个，再看九大核心市场背景。",
     href: "/member/weekly",
     badge: en ? "Weekly" : "周度",
   };
@@ -113,15 +113,13 @@ export async function HomeQuickStart() {
       .sort((a, b) => b.confidence - a.confidence)[0];
     if (published) {
       weeklyCard = {
-        label: en ? "Current weekly stage" : "本周所处阶段",
-        title: en
-          ? `${assetNameEn(published.assetName)} · ${directionEn(published.overallDirection)}`
-          : `${published.assetName} · ${published.overallDirection}`,
+        label: en ? "Weekly Alpha 5" : "本周精选5",
+        title: en ? "Member weekly report is live" : "会员核心周报已发布",
         body: en
-          ? safeEnglish(firstText([published.weeklyPath, published.headline], "Read the full weekly path."), "Read the full weekly path.")
-          : firstText([published.weeklyPath, published.headline], "进入周度页查看完整运行顺序。"),
+          ? "Open the concentrated five-name report first, then use the core-market appendix for context."
+          : "先看本周精选5深度研究，再用九大核心市场附录判断整体环境。",
         href: "/member/weekly",
-        badge: `${published.confidence}%`,
+        badge: en ? "Members" : "会员",
       };
     }
   }

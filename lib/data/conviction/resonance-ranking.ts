@@ -7,6 +7,7 @@ import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecast
 import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-forecasts";
 import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
+import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
 import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-forecasts";
@@ -125,7 +126,8 @@ export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistReson
     regularSignal("msft", listMsftPeriodForecasts(), asOfDate),
     regularSignal("cxmt", listLongxinPeriodForecasts(), asOfDate),
     regularSignal("mu", listMuHypePeriodForecasts("mu"), asOfDate),
-    regularSignal("hype", listMuHypePeriodForecasts("hype"), asOfDate),
+    regularSignal("hype", listHypePeriodForecasts20260809(), asOfDate),
+    regularSignal("sol", listSolPeriodForecasts20260809(), asOfDate),
     regularSignal("eth", listEthPeriodForecasts(), asOfDate),
     regularSignal("btc", listBtcPeriodForecasts20260801(), asOfDate),
     regularSignal("tencent", listTencentPeriodForecasts(), asOfDate),

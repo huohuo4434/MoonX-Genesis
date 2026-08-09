@@ -208,7 +208,7 @@ export function PricingPageContent({
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { label: en ? "Today" : "今天先看这里", path: "/#moonx-view" },
-              { label: en ? "Weekly outlook" : "本周走势", path: "/member/weekly" },
+              { label: en ? "Weekly Alpha 5" : "本周精选5", path: "/member/weekly" },
               { label: en ? "AI Strategy Desk" : "AI交易计划", path: "/member/ai-trading" },
               { label: en ? "Public verification" : "历史验证", path: "/verification" },
             ].map(({ label, path }) => (

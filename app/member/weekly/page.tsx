@@ -10,6 +10,7 @@ import {
 } from "@/components/member/MemberWeeklyPage";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
+import { buildWeeklyAlphaIssue } from "@/lib/data/weekly-alpha";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,10 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/member/weekly",
-    titleZh: "周度行情分析",
-    titleEn: "Weekly Outlook",
-    descriptionZh: "会员专享：本周或下周整体方向、周内运行顺序与风险窗口。",
-    descriptionEn: "Member outlooks for the current or next week, including direction, probabilities, expected path, key dates, levels and invalidation.",
+    titleZh: "本周精选5 · 会员周报",
+    titleEn: "Weekly Alpha 5",
+    descriptionZh: "会员专享：每周精选5个高价值标的，包含老师法六爻解读、万年历校验、真实K线、支撑压力与周内推演。",
+    descriptionEn: "Member-only Weekly Alpha 5 with teacher-method Liu Yao, verified calendar data, real candles, execution levels and weekly path scenarios.",
   });
 }
 
@@ -40,5 +41,6 @@ export default async function MemberWeeklyRoute() {
   if (payload.mode === "locked") {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
-  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} /></>;
+  const alphaIssue = await buildWeeklyAlphaIssue(payload.summary.weekStart);
+  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} /></>;
 }

@@ -37,6 +37,18 @@ import {
   VISIBLE_PERIOD_ORDER_BY_ASSET,
 } from "@/lib/data/conviction/mu-hype-forecasts";
 import {
+  HYPE_UPDATED_PERIOD_ORDER,
+  HYPE_UPDATED_VISIBLE_PERIOD_ORDER,
+  SOL_PERIOD_ORDER,
+  SOL_VISIBLE_PERIOD_ORDER,
+  hypePeriodMeta20260809,
+  listHypePeriodForecasts20260809,
+  listSolPeriodForecasts20260809,
+  periodLabelForHype20260809,
+  periodLabelForSol20260809,
+  solPeriodMeta20260809,
+} from "@/lib/data/conviction/hype-sol-20260809";
+import {
   ETH_PERIOD_ORDER,
   ETH_VISIBLE_PERIOD_ORDER,
   ethPeriodMeta,
@@ -206,6 +218,7 @@ type StaticPeriodAssetId =
   | "sandisk"
   | "mu"
   | "hype"
+  | "sol"
   | "eth"
   | "btc"
   | VibeFocusAssetId;
@@ -216,6 +229,7 @@ const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
   "sandisk",
   "mu",
   "hype",
+  "sol",
   "eth",
   "btc",
   "googl",
@@ -232,6 +246,8 @@ function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return listLongxinPeriodForecasts();
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "sandisk") return listSandiskPeriodForecasts();
+  if (assetId === "hype") return listHypePeriodForecasts20260809();
+  if (assetId === "sol") return listSolPeriodForecasts20260809();
   if (assetId === "eth") return listEthPeriodForecasts();
   if (assetId === "btc") return listBtcPeriodForecasts20260801();
   if (assetId === "googl") return listGooglePeriodForecasts();
@@ -247,6 +263,8 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
+  if (assetId === "hype") return HYPE_UPDATED_PERIOD_ORDER;
+  if (assetId === "sol") return SOL_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
   if (assetId === "btc") return BTC_PERIOD_ORDER;
   if (assetId === "googl") return GOOGLE_PERIOD_ORDER;
@@ -262,6 +280,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
+  if (assetId === "hype") return HYPE_UPDATED_VISIBLE_PERIOD_ORDER;
+  if (assetId === "sol") return SOL_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
   if (assetId === "btc") return ["WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
   if (assetId === "googl") return GOOGLE_VISIBLE_PERIOD_ORDER;
@@ -274,6 +294,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
 }
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
+  if (assetId === "hype") return periodLabelForHype20260809(type);
+  if (assetId === "sol") return periodLabelForSol20260809(type);
   if (assetId === "tencent" && TENCENT_PERIOD_LABELS[type]) {
     return TENCENT_PERIOD_LABELS[type]!;
   }
@@ -309,7 +331,9 @@ function buildStaticPeriodSlots(
 ): ConvictionPeriodSlot[] {
   const published = staticPublished(assetId);
   return fullOrder(assetId).map((type) => {
-    const hit = published.find((f) => f.forecastType === type) ?? null;
+    const hit = published
+      .filter((f) => f.forecastType === type && f.status === "published")
+      .sort((a, b) => b.version - a.version || b.publishedAt.localeCompare(a.publishedAt))[0] ?? null;
     return {
       type,
       labelZh: periodLabelForAsset(assetId, type).zh,
@@ -401,7 +425,9 @@ async function attachAdminKeyDates(
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "eth") return ethPeriodMeta();
-  if (assetId === "mu" || assetId === "hype") return periodMetaForAsset(assetId);
+  if (assetId === "hype") return hypePeriodMeta20260809();
+  if (assetId === "sol") return solPeriodMeta20260809();
+  if (assetId === "mu") return periodMetaForAsset(assetId);
   if (assetId === "googl") return googlePeriodMeta();
   if (assetId === "msft") return msftPeriodMeta();
   if (assetId === "tencent") return tencentPeriodMeta();
@@ -597,6 +623,7 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   sandisk: "闪迪",
   mu: "美光",
   hype: "HYPE",
+  sol: "SOL",
   eth: "ETH",
   btc: "BTC",
   googl: "Alphabet",

@@ -7,6 +7,7 @@ import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-forecasts";
 import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
+import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
 import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
 import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecasts";
@@ -39,6 +40,7 @@ export const ADMIN_FULL_CYCLE_ASSETS: AdminCycleAsset[] = [
   { id: "asteroid", name: "Asteroid（太空狗）", symbol: "ASTEROID", assetClass: "FOCUS", market: "crypto" },
   { id: "mu", name: "美光科技", symbol: "MU", assetClass: "FOCUS", market: "us" },
   { id: "hype", name: "HYPE", symbol: "HYPE", assetClass: "FOCUS", market: "crypto" },
+  { id: "sol", name: "Solana", symbol: "SOL", assetClass: "FOCUS", market: "crypto" },
   { id: "eth", name: "以太坊", symbol: "ETH", assetClass: "FOCUS", market: "crypto" },
 ];
 
@@ -54,6 +56,7 @@ const ASSET_ALIASES: Record<string, string[]> = {
   asteroid: ["asteroid", "ASTEROID", "太空狗"],
   mu: ["mu", "MU", "美光", "美光科技"],
   hype: ["hype", "HYPE"],
+  sol: ["sol", "SOL", "Solana", "索拉纳"],
   eth: ["eth", "ETH", "以太坊"],
 };
 
@@ -153,7 +156,8 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     ...listLongxinPeriodForecasts(),
     ...listAsteroidPeriodForecasts(),
     ...listMuHypePeriodForecasts("mu"),
-    ...listMuHypePeriodForecasts("hype"),
+    ...listHypePeriodForecasts20260809(),
+    ...listSolPeriodForecasts20260809(),
     ...listEthPeriodForecasts(),
     ...listBtcPeriodForecasts20260801(),
     ...listGooglePeriodForecasts(),

@@ -1,5 +1,6 @@
-import { permanentRedirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
-export default function LegacyEnglishSpcxFeaturedResearchRedirect() {
-  permanentRedirect("/en/markets/watchlist/spcx");
+/** Legacy English SPCX featured-stock URL. Use a temporary redirect so stale browser/CDN 308 state is not reinforced. */
+export default function LegacySpcxFeaturedResearchRedirectEn() {
+  redirect("/en/markets/watchlist/spcx");
 }
