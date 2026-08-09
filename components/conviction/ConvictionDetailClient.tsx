@@ -477,6 +477,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     "sandisk",
     "mu",
     "hype",
+    "sol",
     "eth",
     "btc",
     "googl",
