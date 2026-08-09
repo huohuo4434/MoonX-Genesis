@@ -409,9 +409,8 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">实盘总开关</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.executionAllowed ? "已开启" : "未开启"}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">真实亏损确认</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.liveConfirmationAccepted ? "已确认" : "未确认"}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">提币权限</Text><Text variant="body-sm" className={`mt-1 block ${securityResult?.withdrawalPermission ? "text-red-300" : ""}`}>{securityResult ? (securityResult.withdrawalPermission ? "危险：已开启" : "未开启") : "点击安全检查读取"}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">IP白名单（实盘必需）</Text><Text variant="body-sm" className={`mt-1 block ${securityResult && !securityResult.ipWhitelist.length ? "text-red-300" : ""}`}>{securityResult ? (securityResult.ipWhitelist.length ? `已绑定${securityResult.ipWhitelist.length}个IP` : "未绑定 · 禁止新开仓") : "点击安全检查读取"}</Text></div>
           </div>
-          <Text variant="body-sm" className={securityResult && !securitySafe ? "text-red-300" : "text-white/60"}>{securityResult?.message || experiment?.securityMessage || "配置完成后点击上方安全检查。只有无提币权限、具备UTA交易与管理权限并已配置IP白名单时才允许新的实盘开仓。"}</Text>
+          <Text variant="body-sm" className={securityResult && !securitySafe ? "text-red-300" : "text-white/60"}>{securityResult?.message || experiment?.securityMessage || "配置完成后点击上方安全检查。只有无提币权限并具备UTA交易与管理权限时才允许新的实盘开仓。"}</Text>
         </Card>
 
         {testResult ? (

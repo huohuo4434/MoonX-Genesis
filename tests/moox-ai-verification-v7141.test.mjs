@@ -17,15 +17,18 @@ test('live commissioning is enabled by default but still uses MOOX direction and
   assert.match(source, /executeReadyDecision/);
 });
 
-test('real-money live safety remains fail-closed rather than forcing an order', () => {
+test('real-money live safety remains fail-closed on credentials and market safety without requiring an IP whitelist', () => {
   const client = read('lib/bitget/demo-client.ts');
-  assert.match(client, /IP白名单/);
+  assert.match(client, /failClosedReady\s*=\s*safeForLiveExperiment/);
+  assert.doesNotMatch(client, /failClosedReady\s*=\s*safeForLiveExperiment\s*&&\s*ipWhitelistConfigured/);
   assert.match(client, /提币/);
   assert.match(client, /行情/);
   assert.match(client, /LIVE_EXPERIMENT/);
   const ui = read('components/admin/BitgetDemoClient.tsx');
-  assert.match(ui, /IP白名单（实盘必需）/);
-  assert.match(ui, /未绑定 · 禁止新开仓/);
+  assert.doesNotMatch(ui, /IP白名单（实盘必需）/);
+  assert.doesNotMatch(ui, /未绑定 · 禁止新开仓/);
+  const readiness = read('app/api/admin/bitget-demo/live-readiness/route.ts');
+  assert.doesNotMatch(readiness, /id:\s*"ip-whitelist"/);
   const admin = read('app/admin/bitget-demo/page.tsx');
   assert.match(admin, /自动交易启动诊断/);
   assert.match(admin, /CRON_SECRET 未配置/);

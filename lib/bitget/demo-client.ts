@@ -871,18 +871,15 @@ export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
   });
   const managementPermission = permissions.some((value) => value.toLowerCase() === "uta_mgt");
   const ipWhitelistConfigured = ipWhitelist.length > 0;
-  // Credential safety and order-opening readiness are deliberately separate.
-  // Missing IP whitelist must block NEW orders/startup, but must not implicitly
-  // flip an already-running experiment state or prevent reduce-only closes.
+  // MOOX live readiness is fail-closed on credential permissions, but IP binding
+  // is informational only. Vercel egress can change, so a missing whitelist must
+  // not block startup or NEW orders. Reduce-only exits remain available as before.
   const safeForLiveExperiment = !withdrawalPermission && tradingPermission && managementPermission;
-  const failClosedReady = safeForLiveExperiment && ipWhitelistConfigured;
+  const failClosedReady = safeForLiveExperiment;
   const messages = [
     withdrawalPermission ? "API密钥包含提币权限，禁止实盘实验。" : "未检测到提币权限。",
     tradingPermission ? "已检测到统一账户交易权限。" : "未检测到UTA交易权限。",
     managementPermission ? "已检测到统一账户管理权限。" : "未检测到UTA管理权限。",
-    ipWhitelistConfigured
-      ? `已绑定${ipWhitelist.length}个IP。`
-      : "未绑定IP白名单；fail-closed：禁止启动实盘实验和提交新的真实开仓。",
   ];
   return {
     permissions,

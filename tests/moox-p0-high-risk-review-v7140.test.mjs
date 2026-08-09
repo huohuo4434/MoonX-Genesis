@@ -6,24 +6,25 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('reviewer: LIVE new-open path is fail-closed but reduce-only exits stay available', () => {
+test('reviewer: LIVE new-open path stays fail-closed on credential safety while IP whitelist is not a hard gate', () => {
   const source = read('lib/bitget/demo-client.ts');
-  assert.match(source, /failClosedReady\s*=\s*safeForLiveExperiment\s*&&\s*ipWhitelistConfigured/);
+  assert.match(source, /failClosedReady\s*=\s*safeForLiveExperiment/);
+  assert.doesNotMatch(source, /failClosedReady\s*=\s*safeForLiveExperiment\s*&&\s*ipWhitelistConfigured/);
   assert.match(source, /if \(!security\.failClosedReady\)/);
   assert.match(source, /超过180秒，禁止新开仓/);
-  assert.match(source, /Missing IP whitelist must block NEW orders\/startup, but must not implicitly/);
-  assert.match(source, /reduce-only closes/);
-  // The open guard must remain tied to the open-order path, not all writes.
+  assert.match(source, /missing whitelist must\s*\n?\s*\/\/ not block startup or NEW orders/i);
+  assert.match(source, /reduce-only exits remain available/i);
   assert.match(source, /assertLiveExperimentOpenAllowed/);
   assert.match(source, /reduceOnly/);
 });
 
-test('reviewer: LIVE readiness requires no withdrawal permission and an IP whitelist', () => {
+test('reviewer: LIVE readiness requires safe API permissions but does not require an IP whitelist', () => {
   const source = read('app/api/admin/bitget-demo/live-readiness/route.ts');
   assert.match(source, /requireAdmin/);
-  assert.match(source, /API IP白名单/);
-  assert.match(source, /failClosedReady|ipWhitelistConfigured/);
+  assert.doesNotMatch(source, /id:\s*"ip-whitelist"/);
   assert.match(source, /提币/);
+  assert.match(source, /UTA交易权限/);
+  assert.match(source, /UTA管理权限/);
 });
 
 test('reviewer: technical analysis cannot manufacture or flip strategy direction', () => {
