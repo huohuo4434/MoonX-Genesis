@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/permissions";
 import {
   getBitgetRuntimeState,
+  refreshBitgetRuntimeHealthOnly,
   runBitgetDemoServerRuntime,
   setBitgetRuntimePaused,
 } from "@/lib/bitget/demo-runtime";
@@ -25,6 +26,7 @@ export async function GET() {
 }
 
 const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("REFRESH_HEALTH") }),
   z.object({ action: z.literal("RUN_NOW") }),
   z.object({ action: z.literal("PAUSE"), reason: z.string().trim().max(300).optional() }),
   z.object({ action: z.literal("RESUME"), confirmation: z.string().trim().max(100) }),
@@ -34,6 +36,15 @@ export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
   try {
     const input = actionSchema.parse(await request.json());
+    if (input.action === "REFRESH_HEALTH") {
+      const state = await refreshBitgetRuntimeHealthOnly(new Date(), "ADMIN");
+      return NextResponse.json({
+        ok: true,
+        readOnly: true,
+        message: "只读健康快照已刷新；未运行策略、未下单、未解除暂停。",
+        state,
+      });
+    }
     const live = getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT";
     const gate = await guardRuntimeAdminAction({
       action: input.action,

@@ -745,6 +745,98 @@ export async function getBitgetRuntimeState(
   };
 }
 
+/**
+ * Refresh only the server liveness / market / account snapshot.
+ *
+ * SAFETY CONTRACT:
+ * - read-only Bitget calls only;
+ * - never runs prediction/three-horizon strategy engines;
+ * - never places/cancels orders or protection orders;
+ * - never changes paused / pause_source / pause_reason;
+ * - does not acquire the long trading runtime lock, so AUTO_ORDER recovery
+ *   cannot deadlock behind a stale/long-running strategy cycle.
+ */
+export async function refreshBitgetRuntimeHealthOnly(
+  now = new Date(),
+  source: "CRON" | "ADMIN" = "CRON"
+): Promise<BitgetRuntimeState> {
+  if (!(await ensureBitgetRuntimeTables()) || !prisma) {
+    throw new Error("交易数据库未连接");
+  }
+
+  const runId = `bgh_${randomUUID()}`;
+  const environment = getBitgetDemoEnvironment();
+  const runtimeSymbols = environment.mode === "LIVE_EXPERIMENT" ? environment.liveAllowedSymbols : DEFAULT_SYMBOLS;
+  let marketEndpointOk = false;
+  let marketError = "";
+  let accountError = "";
+  let quotes: BitgetRuntimeQuote[] = [];
+  let account = emptyAccount();
+
+  const [marketResult, accountResult] = await Promise.allSettled([
+    getBitgetDemoMarketQuotes(runtimeSymbols),
+    reconcileAccount(now),
+  ] as const);
+
+  const completedAt = new Date();
+  if (marketResult.status === "fulfilled") {
+    marketEndpointOk = true;
+    quotes = marketResult.value.filter((quote) => {
+      const captured = Date.parse(quote.capturedAt);
+      return Number.isFinite(captured) && Math.max(0, completedAt.getTime() - captured) <= QUOTE_HEALTH_SECONDS * 1000;
+    });
+  } else {
+    marketError = marketResult.reason instanceof Error ? marketResult.reason.message : "Bitget行情读取失败";
+  }
+
+  if (accountResult.status === "fulfilled") {
+    account = accountResult.value;
+  } else {
+    account = emptyAccount(accountResult.reason instanceof Error ? accountResult.reason.message : "Bitget账户对账失败");
+  }
+  if (!account.connected) accountError = account.message;
+
+  // Intentionally do not touch paused/pause_source/pause_reason, error counters,
+  // strategy timestamps, order timestamps, or the strategy last_report.
+  await prisma.$executeRaw`
+    UPDATE trade_bitget_runtime_state SET
+      last_heartbeat_at = ${completedAt},
+      last_market_at = CASE WHEN ${marketEndpointOk} THEN ${completedAt} ELSE last_market_at END,
+      last_reconcile_at = ${completedAt},
+      latest_quotes = CASE
+        WHEN ${quotes.length > 0} THEN ${JSON.stringify(quotes)}::jsonb
+        ELSE latest_quotes
+      END,
+      account_snapshot = ${JSON.stringify(account)}::jsonb,
+      last_market_error = ${marketError},
+      last_account_error = ${accountError},
+      updated_at = NOW()
+    WHERE id = 'default'
+  `;
+
+  const allQuotesFresh = runtimeSymbols.length > 0 && quotes.length >= runtimeSymbols.length;
+  await recordEvent({
+    runId,
+    stage: "HEARTBEAT",
+    level: marketEndpointOk && allQuotesFresh && account.connected ? "SUCCESS" : "WARNING",
+    action: "READ_ONLY_HEALTH_REFRESH",
+    message: marketEndpointOk
+      ? `只读健康刷新完成：行情${quotes.length}/${runtimeSymbols.length}，账户${account.connected ? "正常" : "异常"}；未运行策略、未下单、未解除暂停。`
+      : `只读健康刷新完成但行情失败：${marketError || "未知错误"}；未运行策略、未下单、未解除暂停。`,
+    payload: {
+      source,
+      marketEndpointOk,
+      freshQuotesCount: quotes.length,
+      totalSymbols: runtimeSymbols.length,
+      accountConnected: account.connected,
+      readOnly: true,
+      pausedStateUnchanged: true,
+    },
+  });
+
+  return getBitgetRuntimeState(completedAt);
+}
+
 export async function runBitgetDemoServerRuntime(
   now = new Date(),
   source: BitgetRuntimeSource = "CRON"

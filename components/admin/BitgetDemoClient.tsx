@@ -254,6 +254,31 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
     }
   }
 
+  async function refreshRuntimeHealth() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/bitget-demo/runtime", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "REFRESH_HEALTH" }),
+      });
+      const json = await parseJson<{
+        error?: string;
+        message?: string;
+        state?: BitgetRuntimeState;
+      }>(res, "只读健康刷新");
+      if (!res.ok || json.error) throw new Error(json.error || "健康刷新失败");
+      if (json.state) setDashboard((current) => ({ ...current, runtime: json.state! }));
+      await refresh(true);
+      setMessage(json.message || "只读健康快照已刷新；未运行策略、未下单、未解除暂停。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "健康刷新失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function runtimeAction(action: "RUN_NOW" | "PAUSE" | "RESUME") {
     setLoading(true);
     setMessage("");
@@ -493,6 +518,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
+            <Button type="button" variant="outline" onClick={() => void refreshRuntimeHealth()} isLoading={loading}>刷新健康快照（只读、不下单）</Button>
             {autoOrderPaused ? <Button type="button" variant="outline" onClick={auditLegacyErrors} isLoading={loading}>核对旧版订单错误（只读、不下单）</Button> : null}
             {dashboard.runtime.paused ? <Button type="button" variant="outline" onClick={checkResumeReadiness} isLoading={loading}>检查恢复条件（只读）</Button> : null}
             {canRunNow ? <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button> : null}
