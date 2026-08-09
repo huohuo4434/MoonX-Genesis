@@ -8,6 +8,7 @@ import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { assetNameEn, directionEn, safeEnglish } from "@/lib/i18n/english-content";
+import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import type {
   WeeklyAnalysisMemberView,
   WeeklyAnalysisPublicSummary,
@@ -26,14 +27,6 @@ function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO"
   return en ? english[source] : zh[source];
 }
 
-const BASIS_LABELS = {
-  technical: { zh: "技术结构", en: "Technical" },
-  liuyao: { zh: "六爻方向", en: "Liu Yao" },
-  cycle: { zh: "周期", en: "Cycle" },
-  qimen: { zh: "奇门择时", en: "Qimen" },
-  macro: { zh: "宏观资金", en: "Macro" },
-  bazi: { zh: "八字背景", en: "BaZi" },
-} as const;
 
 function dateRange(summary: WeeklyAnalysisPublicSummary, en: boolean): string {
   if (!en) return summary.weekLabel;
@@ -88,26 +81,35 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
     <Card padding="lg" className="flex min-w-0 flex-col gap-3 overflow-hidden">
       <div className="flex items-start justify-between gap-2">
         <Text variant="body" weight="semibold" className="min-w-0 break-words">{en ? assetNameEn(a.assetName) : a.assetName} <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{code} · {assetVenue(code)}</span></Text>
-        <Badge variant="default">{en ? directionEn(a.overallDirection) : a.overallDirection}</Badge>
+        <Badge variant="default">{mooxDirectionArrow(a.overallDirection)} {en ? mooxDirectionLabelEn(a.overallDirection) : mooxDirectionLabelZh(a.overallDirection)}</Badge>
       </div>
-      <Text variant="body-sm" color="secondary" className="break-words">{en ? safeEnglish(a.headline) : a.headline}</Text>
       <PlainLanguageSummary
-        direction={en ? directionEn(a.overallDirection) : a.overallDirection}
+        direction={a.overallDirection}
         path={en ? safeEnglish(a.weeklyPath) : a.weeklyPath}
         confirmation={en ? (a.confirmation ? safeEnglish(a.confirmation) : undefined) : a.confirmation}
         invalidation={en ? safeEnglish(a.invalidation) : a.invalidation}
         en={en}
       />
+      {a.headline ? <details className="rounded-lg border border-border/[0.07] bg-muted/10 px-3 py-2">
+        <summary className="cursor-pointer text-caption text-foreground-tertiary">{en ? "Archived edition note" : "原始版本研究说明（留档）"}</summary>
+        <Text variant="caption" color="tertiary" className="mt-2 block break-words">{en ? safeEnglish(a.headline) : a.headline}</Text>
+      </details> : null}
       <dl className="grid gap-2 text-body-sm sm:grid-cols-2">
-        <div><dt className="text-caption text-foreground-tertiary">{en ? "Direction" : "方向"}</dt><dd className="font-medium">{en ? directionEn(a.overallDirection) : a.overallDirection}</dd></div>
+        <div><dt className="text-caption text-foreground-tertiary">{en ? "Official call" : "MOOX唯一方向"}</dt><dd className="font-medium">{mooxDirectionArrow(a.overallDirection)} {en ? mooxDirectionLabelEn(a.overallDirection) : mooxDirectionLabelZh(a.overallDirection)}</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Higher" : "上涨概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.up}%</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Range-bound" : "震荡概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.flat}%</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Lower" : "下跌概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.down}%</dd></div>
         <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Expected weekly path" : "本周路径"}</dt><dd className="text-foreground-secondary">{en ? safeEnglish(a.weeklyPath) : a.weeklyPath}</dd></div>
         {a.basisWeights ? <div className="sm:col-span-2">
-          <dt className="text-caption text-foreground-tertiary">{en ? "Research influence" : "研究权重"}</dt>
-          <dd className="mt-2 flex flex-wrap gap-2">{(Object.keys(BASIS_LABELS) as Array<keyof typeof BASIS_LABELS>).map((key) => <Badge key={`${a.id}-${key}`} variant={key === "qimen" ? "default" : "outline"}>{en ? BASIS_LABELS[key].en : BASIS_LABELS[key].zh} {a.basisWeights?.[key]}%</Badge>)}</dd>
-          {a.basisWeights.note ? <div className="mt-2 text-caption text-foreground-tertiary">{en ? safeEnglish(a.basisWeights.note) : a.basisWeights.note}</div> : null}
+          <dt className="text-caption text-foreground-tertiary">{en ? "Research roles" : "研究分工"}</dt>
+          <dd className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="default">{en ? "Liu Yao · direction" : "六爻 · 定方向"}</Badge>
+            <Badge variant="outline">{en ? "Qimen · timing" : "奇门 · 择时"}</Badge>
+            <Badge variant="outline">{en ? "Cycle / BaZi · background" : "周期 / 八字 · 大背景"}</Badge>
+            <Badge variant="outline">{en ? "Technical · levels only" : "技术 · 只找点位"}</Badge>
+            <Badge variant="outline">{en ? "Macro · context" : "宏观 · 背景校验"}</Badge>
+          </dd>
+          <div className="mt-2 text-caption text-primary">{en ? "The official bullish/bearish call comes from metaphysical evidence. Technical analysis has no vote on direction." : "看涨/看跌的正式方向由玄学证据决定；技术分析没有方向投票权。"}</div>
         </div> : null}
         {a.keyDates?.length ? <div className="sm:col-span-2">
           <dt className="text-caption text-foreground-tertiary">{en ? "Key dates" : "本周关键日期"}</dt>
@@ -120,7 +122,7 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
         </div> : null}
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Key support" : "关键支撑"}</dt><dd>{a.keySupport?.join(joiner) || "—"}</dd></div>
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Key resistance" : "关键压力"}</dt><dd>{a.keyResistance?.join(joiner) || "—"}</dd></div>
-        <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Primary risks" : "主要风险"}</dt><dd>{en ? safeEnglish(a.risks?.join(sentenceJoiner) || a.invalidation) : (a.risks?.length ? a.risks.join(sentenceJoiner) : a.invalidation || "—")}</dd></div>
+        <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Primary risks" : "主要风险"}</dt><dd>{a.risks?.length ? (en ? safeEnglish(a.risks.join(sentenceJoiner)) : a.risks.join(sentenceJoiner)) : (en ? "See technical risk-control levels below. They do not reverse the official call." : "技术风控点位见下方；触发风控只处理仓位，不反向修改MOOX方向。")}</dd></div>
         <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Catalysts / stronger window" : "主要催化"}</dt><dd>{en ? safeEnglish(a.catalysts?.join(sentenceJoiner) || a.strongWindow) : (a.catalysts?.length ? a.catalysts.join(joiner) : a.strongWindow || "—")}</dd></div>
       </dl>
       <PriceLevelsBlock support={a.keySupport} resistance={a.keyResistance} invalidation={en ? safeEnglish(a.invalidation) : a.invalidation} confirmation={en ? safeEnglish(a.confirmation) : a.confirmation} />
@@ -151,11 +153,14 @@ export function MemberWeeklyFullPage({ slots, summary }: { slots: WeeklyMarketSl
     <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Outlook" : summary.headingZh ?? "本周行情分析"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-2xl">{en ? "A structured view of direction, weekly sequence, key dates and risk windows across nine core markets." : summary.subtitleZh ?? "提前了解九个核心市场的整体方向、周内运行顺序和关键风险窗口。"}</Text>
     <MetaHeader summary={summary} />
-    {(summary.researchBlendNoteZh || summary.researchBlendNoteEn) ? <Card padding="md" className="mb-4 border-cyan-400/20 bg-cyan-400/[0.035]">
-      <Text variant="body-sm" weight="semibold">{en ? "Research blend for this edition" : "本期研究融合"}</Text>
-      <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? summary.researchBlendNoteEn : summary.researchBlendNoteZh}</Text>
-      {(summary.sourceVerificationNoteZh || summary.sourceVerificationNoteEn) ? <Text variant="caption" color="tertiary" className="mt-2 block">{en ? summary.sourceVerificationNoteEn : summary.sourceVerificationNoteZh}</Text> : null}
-    </Card> : null}
+    <Card padding="md" className="mb-4 border-cyan-400/20 bg-cyan-400/[0.035]">
+      <Text variant="body-sm" weight="semibold">{en ? "MOOX direction doctrine" : "本期方向规则"}</Text>
+      <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "The official bullish/bearish call is determined by Liu Yao and cross-horizon metaphysical resonance. Qimen is used for timing; technical analysis is used only for price levels and execution." : "正式看涨/看跌方向由六爻主判断与多周期玄学共振决定；奇门负责时间窗口；技术分析只负责支撑、压力、入场与风控点位，不拥有方向投票权。"}</Text>
+      {(summary.researchBlendNoteZh || summary.researchBlendNoteEn) ? <details className="mt-2">
+        <summary className="cursor-pointer text-caption text-foreground-tertiary">{en ? "Archived edition methodology note" : "原版本融合说明（仅留档）"}</summary>
+        <Text variant="caption" color="tertiary" className="mt-2 block">{en ? summary.researchBlendNoteEn : summary.researchBlendNoteZh}</Text>
+      </details> : null}
+    </Card>
     <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">{rows.map((slot) => slot.kind === "published" ? <PublishedCard key={slot.analysis.id} a={slot.analysis} weekLabel={dateRange(summary, en)} /> : <UnpublishedCard key={slot.assetId} assetName={slot.assetName} displaySymbol={slot.displaySymbol} nextWeek={summary.displayMode === "NEXT_WEEK"} />)}</div>
   </div></Section></main>;
 }

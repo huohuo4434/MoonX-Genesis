@@ -26,12 +26,14 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
   const en = locale === "en";
   const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO">("ALL");
   const cardBySlug = useMemo(() => new Map(payload.cards.map((card) => [card.slug, card])), [payload.cards]);
+  const rankIndex = useMemo(() => new Map(payload.rankOrder.map((slug, index) => [slug, index])), [payload.rankOrder]);
+  const signalBySlug = useMemo(() => new Map((payload.resonanceSignals ?? []).map((signal) => [signal.slug, signal])), [payload.resonanceSignals]);
   const visible = useMemo(
     () => WATCHLIST_TEASERS
       .filter((teaser) => teaser.slug === "spcx" || cardBySlug.has(teaser.slug))
       .filter((teaser) => filter === "ALL" || teaser.assetType === filter)
-      .sort((a, b) => a.priority - b.priority),
-    [cardBySlug, filter]
+      .sort((a, b) => (rankIndex.get(a.slug) ?? 999) - (rankIndex.get(b.slug) ?? 999) || a.priority - b.priority),
+    [cardBySlug, filter, rankIndex]
   );
   const filters = en
     ? ([['ALL', 'All'], ['STOCK', 'Stocks'], ['CRYPTO', 'Crypto']] as const)
@@ -46,17 +48,17 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           <div className="relative z-10 max-w-4xl">
             <p className="font-mono text-caption uppercase tracking-[0.22em] text-cyan-200/55">{en ? "MOOX SPECIAL RESEARCH" : "MOOX 重点关注 · 专题研究"}</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              {en ? "See the research. Unlock the call." : "公开页看逻辑，会员页直接看方向、时间和关键位。"}
+              {en ? "Metaphysics sets direction. Technicals set levels." : "玄学定方向，技术找点位；多周期越共振，观点越靠前。"}
             </h1>
             <p className="mt-4 max-w-3xl text-body leading-7 text-white/58">
               {en
-                ? "Each member dossier answers four things first: bullish or bearish, when the move matters, where the key levels are, and what invalidates the call. Public pages keep the research logic and coverage without giving away the actionable answer."
-                : "每个会员专题先回答四件事：看涨还是看跌、什么时候最关键、支撑压力在哪里、什么情况说明判断错了。公开页只保留研究逻辑和覆盖范围，不提前泄露这些答案。"}
+                ? "The official call comes from the metaphysical evidence. Technical analysis is used only to locate levels and timing. Dossiers are ranked by current-week multi-horizon resonance, whether bullish or bearish."
+                : "MOOX先用周卦、月卦和更大周期卦确定唯一方向；技术分析只负责找位置和风控，不参与把看涨改成看跌、也不参与把看跌改成看涨。重点关注按本周多周期卦象共振强度自动排序，看涨和看跌一视同仁。"}
             </p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/60">
               <p>{en ? "Research dossiers" : "当前专题"}: <span className="text-white">{trackedCount}</span></p>
               {payload.latestResearchUpdatedAt ? <p>{en ? "Latest update" : "最近研究更新"}: <span className="text-white">{formatDate(payload.latestResearchUpdatedAt, en)}</span></p> : null}
-              <p className="text-amber-100/75">{en ? "Public preview intentionally hides the directional call, timing and key levels." : "公开预览不展示明确方向、关键日期和价位；这些直接留给会员。"}</p>
+              <p className="text-amber-100/75">{en ? "Public preview hides the actual direction. Ordering still reflects current-week resonance strength." : "公开预览不泄露具体看涨/看跌结论；卡片顺序按本周卦象共振强弱实时排列：极强共振 → 强共振 → 方向明确 → 方向冲突/资料不足。看涨与看跌同权。"}</p>
             </div>
           </div>
         </header>
@@ -85,7 +87,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
 
         <div className="mt-6 space-y-6">
           {visible.map((teaser) => (
-            <ResearchSpotlightCard key={teaser.slug} teaser={teaser} card={cardBySlug.get(teaser.slug)} mode={payload.mode} />
+            <ResearchSpotlightCard key={teaser.slug} teaser={teaser} card={cardBySlug.get(teaser.slug)} mode={payload.mode} signal={signalBySlug.get(teaser.slug)} />
           ))}
         </div>
 

@@ -27,7 +27,7 @@ export default async function TechnicalResearchPage() {
           Technical Analysis
         </Heading>
         <Text variant="body" color="secondary" className="mt-3 max-w-3xl">
-          公开页只展示技术结构概览；会员或预览用户可查看完整确认条件、失效条件与验证统计。
+          技术页只负责支撑、压力、入场和风控位置；它不负责给MOOX定看涨或看跌。会员可查看完整技术点位与验证统计。
         </Text>
 
         {payload.access.unlocked ? (
@@ -72,7 +72,7 @@ export default async function TechnicalResearchPage() {
                   公开说明
                 </Text>
                 <Text variant="body-sm" color="secondary" className="mt-1">
-                  不展示确认条件、失效条件与完整技术载荷
+                  不展示完整技术点位、风控参考与技术载荷
                 </Text>
               </Card>
             </div>

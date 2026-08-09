@@ -30,11 +30,11 @@ export default async function MonthlyPage() {
     return <main><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Monthly outlook · Public preview" : "月度趋势 · 公开预览"}
       title={en ? "See the monthly structure before planning weekly execution" : "先看整月结构，再安排周内节奏"}
-      description={en ? "The monthly page separates medium-term direction from short-term entry timing by presenting probabilities, an expected path, timing windows and invalidation in one structure." : "月度页把方向、运行路径、关键时间窗和失效条件放在同一套结构中，帮助用户区分中期判断与短线入场。"}
+      description={en ? "The monthly page separates medium-term direction from short-term entry timing by presenting probabilities, an expected path, timing windows and invalidation in one structure." : "月度页先用卦象给唯一方向，再展示月内路径和关键时间窗；技术分析只补充点位，不参与修改方向。"}
       solves={en ? ["Avoid treating one-day volatility as a monthly trend", "Identify rally-then-fade or dip-then-rebound structures early", "Separate monthly research from weekly and daily confirmation"] : ["避免把单日波动误当成整月趋势", "提前识别可能的先涨后跌、先跌后涨结构", "把月度判断与周度、日度确认分开"]}
-      memberBenefits={en ? ["Complete monthly direction and probabilities", "Expected path and timing windows", "Liu Yao, Qimen and technical-structure evidence", "Risk notes, confirmation and invalidation"] : ["核心市场完整月度方向与概率", "月内运行路径和关键时间窗", "六爻、奇门与技术结构依据", "风险提示、确认条件与失效条件"]}
+      memberBenefits={en ? ["Complete monthly direction and probabilities", "Expected path and timing windows", "Liu Yao, Qimen and technical-structure evidence", "Risk notes, confirmation and invalidation"] : ["核心市场完整月度方向与概率", "月内运行路径和关键时间窗", "六爻、奇门与技术结构依据", "风险提示与技术点位参考"]}
       exampleTitle={en ? "Gold · Monthly structure example" : "黄金 · 月度结构示例"}
-      exampleLines={en ? ["Monthly probabilities: higher 42% / range-bound 33% / lower 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Signal strength: medium", "Key levels appear only when verified technical data is available"] : ["收盘方向概率：上涨 42% / 震荡 33% / 下跌 25%", "运行路径倾向：月初整理 → 月中反弹 → 月末等待确认", "信号强度：中", "关键价位：仅在取得真实技术数据后展示"]}
+      exampleLines={en ? ["Monthly probabilities: higher 42% / range-bound 33% / lower 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Signal strength: medium", "Key levels appear only when verified technical data is available"] : ["收盘方向概率：上涨 42% / 震荡 33% / 下跌 25%", "运行路径：月初整理 → 月中反弹 → 月末观察节奏；正式方向仍以月卦为准", "信号强度：中", "关键价位：仅在取得真实技术数据后展示"]}
       nextPath={path}
     /></Section></main>;
   }

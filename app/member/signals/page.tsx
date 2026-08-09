@@ -36,11 +36,11 @@ export default async function MemberSignalsPage() {
       <main><Section spacing="lg"><PublicFeaturePreview
         eyebrow={en ? "Member signals · Public preview" : "会员观察与触发条件 · 公开预览"}
         title={en ? "Define the conditions before taking action" : "AI交易信号：先定义条件，再决定是否行动"}
-        description={en ? "This is not a buy list. Each signal defines the monitored direction, confirmation trigger, invalidation condition and risk control. When conditions are incomplete, the correct action remains waiting." : "信号页不是简单的买入名单，而是把观察方向、触发条件、失效条件和风险控制写清楚。条件未满足时，结论可以是继续等待。"}
+        description={en ? "This is not a buy list. Each signal defines the monitored direction, confirmation trigger, invalidation condition and risk control. When conditions are incomplete, the correct action remains waiting." : "信号页不负责重新判断多空：方向已经由MOOX玄学研究给出。这里仅判断技术入场位置、风控与执行状态；条件未到可以等待，但不会因此反向修改方向。"}
         solves={en ? ["Avoid chasing a directional headline", "Define when a view becomes actionable", "Set invalidation and risk before entry"] : ["避免看到方向后立刻追单", "明确什么情况下观点才转化为可执行信号", "在入场前先写清失效和风险条件"]}
-        memberBenefits={en ? ["Live monitoring direction and status", "Confirmation, invalidation and risk controls", "Cross-method consensus and evidence", "Closed-signal review and statistics"] : ["实时会员观察方向与状态", "入场确认、失效条件与风险提示", "多方法共识度和证据摘要", "已结束信号的复盘与统计"]}
+        memberBenefits={en ? ["Live monitoring direction and status", "Confirmation, invalidation and risk controls", "Cross-method consensus and evidence", "Closed-signal review and statistics"] : ["实时会员观察方向与状态", "技术入场位置与风险控制", "多方法共识度和证据摘要", "已结束信号的复盘与统计"]}
         exampleTitle={en ? "Nasdaq monitoring example" : "纳斯达克观察信号示例"}
-        exampleLines={en ? ["Direction: Bullish bias, not confirmed", "Trigger: Break resistance and hold the retest", "Invalidation: Lose structural support", "Current action: Await confirmation"] : ["观察方向：偏多，但尚未确认", "触发条件：突破压力并回踩保持", "失效条件：跌破结构支撑", "当前动作：等待确认"]}
+        exampleLines={en ? ["Direction: Bullish bias, not confirmed", "Trigger: Break resistance and hold the retest", "Invalidation: Lose structural support", "Current action: Await confirmation"] : ["MOOX方向：看涨（由玄学确定）", "技术执行：等待更合适的入场位置", "风控参考：结构支撑", "当前动作：方向不变，暂缓执行"]}
         nextPath={en ? `/en${path}` : path}
       /></Section></main>
     );

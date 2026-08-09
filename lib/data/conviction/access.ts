@@ -90,6 +90,8 @@ import {
 } from "@/lib/data/member-stocks/store";
 import { isIpoHighVolatilityDate } from "@/lib/data/member-stocks/ipo-rules";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
+import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-ranking";
+import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
 import type {
   MemberStockDailyMemberView,
@@ -107,6 +109,10 @@ export type ConvictionListPagePayload = {
   locks: typeof CONVICTION_MEMBER_LOCKS;
   vibeEvidence: Partial<Record<string, VibeEvidencePublicView>>;
   deviceAccessRequired: boolean;
+  /** Server-ranked by current-week multi-horizon metaphysical resonance. Public users receive order only, not direction. */
+  rankOrder: string[];
+  /** Member/admin only; never sent to public users. */
+  resonanceSignals: WatchlistResonanceSignal[] | null;
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
@@ -122,6 +128,8 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
       .map((c) => c.researchUpdatedAt)
       .sort()
       .at(-1) ?? null;
+  const asOfDate = getChinaDateKey(new Date());
+  const resonanceSignals = buildWatchlistResonanceRanking(asOfDate);
   return {
     mode: fullAccess ? "fullAccess" : "publicOnly",
     isAdmin: access.isAdmin,
@@ -132,6 +140,8 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     locks: CONVICTION_MEMBER_LOCKS,
     vibeEvidence,
     deviceAccessRequired: Boolean(membershipAllows && !access.isAdmin && !fullAccess),
+    rankOrder: resonanceSignals.map((item) => item.slug),
+    resonanceSignals: fullAccess ? resonanceSignals : null,
   };
 }
 
@@ -155,6 +165,8 @@ export type ConvictionDetailPayload = {
   deviceAccessRequired: boolean;
   asOfDate: string;
   freshness: ForecastFreshnessSummary;
+  /** Member/admin only: current-week multi-horizon metaphysical resonance. */
+  resonanceSignal: WatchlistResonanceSignal | null;
   /** Only present when fullAccess — never sent to unauthorized clients via API. */
   forecast: null | {
     today: MemberStockDailyMemberView | null;
@@ -407,6 +419,7 @@ export async function getConvictionDetailPayload(
   const asset = await getConvictionAssetBySlug(slug);
   if (!asset) return null;
   const asOfDate = getChinaDateKey(new Date());
+  const resonanceSignal = buildWatchlistResonanceRanking(asOfDate).find((item) => item.slug === slug) ?? null;
   const access = await getAccessUser();
   const membershipAllows = hasConvictionFullAccess(access);
   const deviceGate = membershipAllows && !access.isAdmin ? await getMemberDevicePageAccess() : null;
@@ -442,6 +455,7 @@ export async function getConvictionDetailPayload(
           : [],
         asOfDate
       ),
+      resonanceSignal: null,
       forecast: null,
     };
   }
@@ -462,6 +476,7 @@ export async function getConvictionDetailPayload(
       deviceAccessRequired,
       asOfDate,
       freshness: summarizeForecastFreshness(periods.map((slot) => slot.freshnessStatus), asOfDate),
+      resonanceSignal,
       forecast: {
         today: null,
         tomorrow: null,
@@ -488,6 +503,7 @@ export async function getConvictionDetailPayload(
       deviceAccessRequired,
       asOfDate,
       freshness: summarizeForecastFreshness([], asOfDate),
+      resonanceSignal,
       forecast: {
         today: null,
         tomorrow: null,
@@ -547,6 +563,7 @@ export async function getConvictionDetailPayload(
       ],
       asOfDate
     ),
+    resonanceSignal,
     forecast: {
       today: today ? toDailyMemberView(today) : null,
       tomorrow: tomorrow ? toDailyMemberView(tomorrow) : null,

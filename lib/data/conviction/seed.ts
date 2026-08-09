@@ -186,7 +186,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "行业供给纪律与价格变化是中期走势的重要变量。",
       "短期波动大，适合结合逐日窗口、周结构和长期周期一起判断。",
       "MOOX已建立逐日、月度、3个月、1年和5年多周期研究档案。",
-      "具体方向、阶段窗口、支撑压力与确认条件仅在会员研究中展示。",
+      "唯一方向、多周期共振、阶段窗口与技术点位仅在会员研究中展示。",
     ],
     thesisEn: [
       "A NAND and SSD recovery can create earnings and valuation sensitivity.",

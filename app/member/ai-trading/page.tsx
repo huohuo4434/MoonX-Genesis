@@ -35,7 +35,7 @@ export default async function MemberAiTradingDeskPage() {
       solves={en ? ["Separate directional research from execution rules", "Check whether entries, stops and exits follow the plan", "Evaluate a continuous record rather than isolated screenshots"] : ["区分预测观点与实际执行规则", "查看策略是否遵守入场、止损和退出条件", "用连续记录而不是单次截图评估表现"]}
       memberBenefits={en ? ["Full simulated strategy plans and current status", "Recent Demo trades, stops, targets and reviews", "Performance and drawdown summaries", "Links between plans and member signals"] : ["完整模拟策略计划与当前状态", "最近成交、止损止盈与复盘", "策略表现与回撤摘要", "与会员交易信号的对应关系"]}
       exampleTitle={en ? "Bitcoin simulated plan example" : "BTC模拟策略记录示例"}
-      exampleLines={en ? ["Plan status: monitoring; do not chase", "Trigger: price structure and volume must confirm together", "Risk control: per-trade risk follows the locked plan", "Result: locked and moved to verification after completion"] : ["计划状态：等待确认，不追涨", "触发条件：价格结构与成交量同时满足", "风险控制：单次风险上限按策略规则执行", "结果记录：完成后锁定并进入公开验证"]}
+      exampleLines={en ? ["Plan status: monitoring; do not chase", "Trigger: price structure and volume must confirm together", "Risk control: per-trade risk follows the locked plan", "Result: locked and moved to verification after completion"] : ["MOOX方向：先由玄学研究确定", "执行状态：等待技术入场位置", "风险控制：单次风险上限按策略规则执行", "结果记录：完成后锁定并进入公开验证"]}
       nextPath={path}
     /></Section></main>;
   }

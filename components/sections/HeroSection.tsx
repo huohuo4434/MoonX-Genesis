@@ -14,12 +14,12 @@ export function HeroSection() {
           MOOX INTELLIGENCE
         </span>
         <Heading as="h1" size="h2" className="max-w-4xl break-keep text-h2 lg:text-h1">
-          {en ? "Direction first. Confirmation before entry." : "开盘前先看方向，入场前再等确认。"}
+          {en ? "Metaphysics sets direction. Technicals find levels." : "玄学定方向，技术找点位。"}
         </Heading>
         <Text variant="body" color="secondary" className="max-w-4xl leading-7">
           {en
-            ? "MOOX tracks Bitcoin, Ether, U.S. and Asian equity indices, gold, silver and WTI. Each outlook combines Liu Yao directional analysis, Qimen timing and technical market structure, then defines probabilities, an expected path, key levels, confirmation triggers and invalidation conditions. Published views are time-stamped, locked and publicly verified."
-            : `MOOX持续跟踪${CORE_MARKETS.join("、")}，提供方向、概率、运行路径、关键价位和失效条件。六爻判断方向，奇门辅助择时，技术结构确认入场；每条观点发布后锁定，行情结束后公开验证。`}
+            ? "MOOX uses metaphysical research to make one official bullish, bearish or unclear call. Qimen assists timing; technical analysis is strictly used for levels and execution. Multi-horizon alignment raises conviction. Published views are time-stamped, locked and publicly verified."
+            : `MOOX持续跟踪${CORE_MARKETS.join("、")}。方向只看玄学主判断：卦象明确就只给看涨或看跌，卦象冲突才写方向不明确；奇门辅助时间，技术分析只找支撑、压力和位置，不反向修改方向。多周期同向就是共振，共振越强，观点越明确。`}
         </Text>
         <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap">
           <Button asChild size="lg" variant="primary" className="whitespace-nowrap">

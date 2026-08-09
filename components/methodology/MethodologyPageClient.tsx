@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { ALLOWED_FORMAL_DIRECTIONS } from "@/lib/forecasts/formal-direction";
-import { directionEn } from "@/lib/i18n/english-content";
 import type { MethodologyModule } from "@/lib/methodology/types";
 
 const CORE_FOUR = [
@@ -29,9 +27,9 @@ const CORE_FOUR = [
   {
     id: "market_structure",
     titleZh: "技术分析（结构）",
-    titleEn: "Technical Structure — Levels & Invalidation",
-    bodyZh: "支撑、压力、路径与失效位",
-    bodyEn: "Entry structure, key levels and invalidation",
+    titleEn: "Technical Structure — Levels Only",
+    bodyZh: "只负责支撑、压力、入场与风控点位",
+    bodyEn: "Support, resistance, entry and risk-control levels only",
     accent: "border-emerald-500/35 bg-emerald-500/10",
     ring: "ring-emerald-400/25",
   },
@@ -50,10 +48,10 @@ const FLOW_ZH = [
   "周卦与六爻",
   "动爻与时间节奏",
   "奇门遁甲／万年历",
-  "技术结构与关键价位",
-  "消息面校验",
-  "实际行情动态修正",
-  "方向、概率和路径",
+  "多周期卦象共振定方向",
+  "技术结构只找点位",
+  "消息面只做背景校验",
+  "唯一方向、路径和点位",
   "发布锁定",
   "结果验证",
 ];
@@ -61,17 +59,16 @@ const FLOW_ZH = [
 const FLOW_EN = [
   "Liu Yao directional thesis",
   "Qimen timing windows",
-  "Technical structure and key levels",
+  "Multi-horizon metaphysical resonance",
+  "Technical levels only",
   "Catalyst and risk monitoring",
-  "Cross-method assessment",
-  "Live scenario tracking",
-  "Direction, probability and path",
+  "One official direction and path",
   "Publish and lock",
   "Public verification",
 ];
 
-const OUTPUTS_ZH = ["方向", "概率", "路径", "支撑", "压力", "失效位", "风险"];
-const OUTPUTS_EN = ["Direction", "Probability", "Expected path", "Support", "Resistance", "Confirmation", "Invalidation", "Risk"];
+const OUTPUTS_ZH = ["唯一方向", "共振强度", "运行路径", "支撑", "压力", "风控位", "风险"];
+const OUTPUTS_EN = ["Official direction", "Resonance", "Expected path", "Support", "Resistance", "Risk-control level", "Risk"];
 
 function Arrow() {
   return (
@@ -109,8 +106,8 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         </Heading>
         <Text variant="body" color="secondary" className="block max-w-2xl">
           {zh
-            ? "六爻负责一周核心方向与变化节奏；奇门与万年历研究时间窗口；技术分析确认价位；消息面校验催化与风险；实际行情判断是否提前、滞后或失效。"
-            : "MOOX combines Liu Yao directional analysis, Qimen timing, technical market structure and catalyst monitoring. Each published view defines a directional thesis, expected path, key levels, confirmation triggers and invalidation conditions. Live market data determines whether the scenario is unfolding on schedule, delayed or invalidated."}
+            ? "MOOX的规则只有一条主线：玄学定方向，技术找点位。周卦、月卦和更大周期同向时形成共振，直接给唯一看涨或看跌结论；只有卦象真正冲突才写方向不明确。奇门负责时间窗口，技术分析只负责支撑、压力、入场和风控，不得反向修改玄学方向。"
+            : "MOOX uses metaphysical research to set one official direction. Alignment across weekly, monthly and larger-horizon readings creates resonance. Qimen is for timing; technical analysis is strictly for levels and execution, never for flipping the metaphysical call."}
         </Text>
       </header>
 
@@ -186,7 +183,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
               ? [
                   ["六爻", "核心主判断"],
                   ["奇门遁甲", "重要择时"],
-                  ["技术分析", "结构确认"],
+                  ["技术分析", "只找点位"],
                   ["消息面", "催化与风险校验"],
                   ["波浪分析", "辅助观察"],
                   ["AI／量化", "辅助参考"],
@@ -194,7 +191,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
               : [
                   ["Liu Yao", "Directional thesis"],
                   ["Qimen Dunjia", "Timing windows"],
-                  ["Technical structure", "Entry and invalidation"],
+                  ["Technical structure", "Levels only"],
                   ["Catalyst monitoring", "Events and risk"],
                   ["Cross-method assessment", "Final scenario"],
                   ["AI / Quant", "Supporting evidence"],
@@ -219,12 +216,13 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
           {zh ? "正式方向用语" : "Formal direction labels"}
         </Heading>
         <div className="flex flex-wrap gap-2">
-          {ALLOWED_FORMAL_DIRECTIONS.map((d) => (
-            <Badge key={d} variant="outline">
-              {zh ? d : directionEn(d)}
-            </Badge>
+          {(zh ? ["↑ 看涨", "↓ 看跌", "↔ 方向不明确"] : ["↑ Bullish", "↓ Bearish", "↔ Unclear"]).map((label) => (
+            <Badge key={label} variant="outline">{label}</Badge>
           ))}
         </div>
+        <Text variant="caption" color="tertiary">
+          {zh ? "先涨后跌、先跌后涨、冲高回落等词只描述运行路径，不再充当正式方向。正式方向永远只保留上面三种。" : "Path labels such as rally-then-fall describe sequence only. The official call is always one of the three labels above."}
+        </Text>
       </section>
 
       <p className="text-caption text-foreground-tertiary">
@@ -237,7 +235,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
             。
           </>
         ) : (
-          "Forecast cards include an expandable research basis and retain the confirmation and invalidation rules published with each scenario."
+          "Forecast cards lead with one metaphysical direction. Technical levels remain execution references only."
         )}
       </p>
     </div>

@@ -91,7 +91,7 @@ export async function HomeQuickStart() {
             )
           : firstText(
               [forecast.pathBias, forecast.headline, forecast.summary, forecast.expectedPath?.join(" → ")],
-              "等待页面中的确认条件，不要只看一句方向。"
+              "先认准MOOX唯一方向，再用技术点位找更合适的位置；技术不负责改方向。"
             ),
         href: "/#moonx-view",
         badge: `${forecast.confidence}%`,

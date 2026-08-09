@@ -80,7 +80,7 @@ export function AssetIntelligenceCard({
       {publicTeaser ? (
         <div className="flex flex-col gap-3">
           <Text variant="caption" color="tertiary" className="rounded-md border border-border/[0.08] bg-muted/30 p-3">
-            完整目标价、支撑压力、时间路径与失效条件为会员权益。公开页仅展示综合方向与摘要。
+            完整方向证据、目标价、支撑压力与时间路径为会员权益。技术点位不参与修改玄学方向。
           </Text>
           <Link href={routes.pricing} className="text-body-sm text-primary underline-offset-4 hover:underline">
             查看会员权益

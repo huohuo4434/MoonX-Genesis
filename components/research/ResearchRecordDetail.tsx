@@ -359,7 +359,7 @@ export function ResearchRecordDetail({ record }: { record: ResearchRecord }) {
 
       {record.technicalConfirmation && record.technicalConfirmation.length > 0 && (
         <DetailList
-          title="技术确认条件"
+          title="技术跟随参考"
           items={record.technicalConfirmation.map((item) => pickLocalized(item, locale))}
         />
       )}

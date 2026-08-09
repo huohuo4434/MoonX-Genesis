@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { WatchlistTeaser } from "@/lib/data/conviction/watchlist-teasers";
+import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 
 type Props = {
   teaser: WatchlistTeaser;
   card?: ConvictionPublicCard;
   mode: "publicOnly" | "fullAccess";
+  signal?: WatchlistResonanceSignal;
 };
 
 const ACCENTS: Record<WatchlistTeaser["accent"], {
@@ -37,7 +39,7 @@ function assetTypeLabel(type: WatchlistTeaser["assetType"], en: boolean) {
   return en ? "Stock" : "股票";
 }
 
-export default function ResearchSpotlightCard({ teaser, card, mode }: Props) {
+export default function ResearchSpotlightCard({ teaser, card, mode, signal }: Props) {
   const { locale, href } = useLocale();
   const en = locale === "en";
   const accent = ACCENTS[teaser.accent];
@@ -64,6 +66,11 @@ export default function ResearchSpotlightCard({ teaser, card, mode }: Props) {
                 {en ? teaser.eyebrowEn : teaser.eyebrowZh}
               </span>
               <Badge variant="outline" className="border-white/10 bg-black/10 text-white/55">{assetTypeLabel(teaser.assetType, en)}</Badge>
+              {mode === "fullAccess" && signal ? (
+                <Badge variant="outline" className={signal.direction === "BULLISH" ? "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-100" : signal.direction === "BEARISH" ? "border-rose-300/25 bg-rose-300/[.08] text-rose-100" : "border-amber-300/20 bg-amber-300/[.06] text-amber-100"}>
+                  {signal.strengthZh} · {signal.labelZh}{signal.sameDirectionPeriods > 1 ? ` · ${signal.sameDirectionPeriods}周期同向` : ""}
+                </Badge>
+              ) : null}
             </div>
             <p className="mt-3 text-caption font-mono tracking-[.16em] text-white/35">{symbol} · {en ? "MOOX SPECIAL RESEARCH" : "MOOX 专题研究"}</p>
             <h2 className={`mt-2 max-w-[980px] text-[clamp(25px,3.7vw,40px)] font-semibold leading-[1.14] tracking-[-.035em] ${accent.title}`}>
@@ -81,14 +88,22 @@ export default function ResearchSpotlightCard({ teaser, card, mode }: Props) {
           {en ? teaser.hookEn : teaser.hookZh}
         </p>
 
+        {mode === "fullAccess" && signal ? (
+          <section className={`mt-4 rounded-xl border p-4 ${signal.direction === "BULLISH" ? "border-emerald-300/20 bg-emerald-300/[.045]" : signal.direction === "BEARISH" ? "border-rose-300/20 bg-rose-300/[.045]" : "border-amber-300/20 bg-amber-300/[.035]"}`}>
+            <p className="font-mono text-caption uppercase tracking-[.14em] text-white/40">{en ? "CURRENT-WEEK MOOX CALL" : "本周 MOOX 唯一方向"}</p>
+            <p className="mt-2 text-xl font-semibold text-white">{signal.direction === "BULLISH" ? "↑ 看涨" : signal.direction === "BEARISH" ? "↓ 看跌" : "↔ 方向不明确"} · {signal.strengthZh}</p>
+            <p className="mt-2 text-caption leading-relaxed text-white/60">{signal.evidenceZh.join(" · ")}</p>
+          </section>
+        ) : null}
+
         <div className="mt-5 grid gap-3 lg:grid-cols-[1.1fr_1.9fr]">
           <section className="rounded-xl border border-white/[.08] bg-black/20 p-4">
             <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "Research coverage" : "研究范围"}</p>
             <p className="mt-2 text-body-sm font-medium text-white/85">{en ? teaser.coverageEn : teaser.coverageZh}</p>
             <p className="mt-3 text-caption leading-relaxed text-white/45">
               {locked
-                ? (en ? "Public view shows the research range. Direction, timing, levels and invalidation stay locked." : "公开页只展示研究范围；方向、时间、关键价位和失效条件进入会员页。")
-                : (en ? "Member access is active. The dossier gives the call first, then the evidence." : "会员权限已解锁：先看明确结论，再看节奏、价位和证据。")}
+                ? (en ? "Public view shows the research range. The actual bullish/bearish call remains locked." : "公开页只展示研究范围；真正的看涨/看跌结论留在会员页。")
+                : (en ? "Member access is active. The metaphysical call comes first; technical levels come after it." : "会员权限已解锁：先看玄学唯一方向，再看技术点位；技术不反向修改方向。")}
             </p>
           </section>
 

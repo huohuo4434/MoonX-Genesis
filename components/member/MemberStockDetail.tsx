@@ -5,6 +5,7 @@ import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import type {
   MemberBenefitStock,
   MemberStockDailyMemberView,
@@ -40,7 +41,7 @@ function DailyPanel({
       <Text variant="body-sm" weight="semibold" className="block">
         收盘倾向：{forecast.closingBias}
       </Text>
-      <Badge variant="outline">{forecast.direction}</Badge>
+      <Badge variant="outline">{mooxDirectionArrow(forecast.direction)} {mooxDirectionLabelZh(forecast.direction)}</Badge>
       <ProbRow p={forecast.probabilities} />
       <Text variant="body-sm" className="block break-words">
         {forecast.headline}
@@ -99,7 +100,7 @@ function WeeklyPanel({ weekly }: { weekly: MemberStockWeeklyMemberView }) {
       <Text variant="body-sm" weight="semibold" className="block">
         周末倾向：{weekly.closingBias}
       </Text>
-      <Badge variant="outline">{weekly.overallDirection}</Badge>
+      <Badge variant="outline">{mooxDirectionArrow(weekly.overallDirection)} {mooxDirectionLabelZh(weekly.overallDirection)}</Badge>
       <ProbRow p={weekly.probabilities} />
       <Text variant="body-sm" className="block break-words">
         {weekly.headline}
@@ -246,7 +247,7 @@ export function MemberStockDetailView({
         </Text>
         {today ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{today.direction}</Badge>
+            <Badge variant="outline">{mooxDirectionArrow(today.direction)} {mooxDirectionLabelZh(today.direction)}</Badge>
           </div>
         ) : null}
         {today ? (

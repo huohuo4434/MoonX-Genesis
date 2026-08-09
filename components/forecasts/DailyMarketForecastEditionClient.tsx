@@ -7,6 +7,7 @@ import { SectionHeader } from "@/components/home/SectionHeader";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { pickLocalized } from "@/lib/i18n/config";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { formatDateChina } from "@/lib/utils/datetime";
 import type { DailyMarketForecastEditionPayload } from "@/types/daily-market-edition";
 
@@ -91,7 +92,7 @@ export function DailyMarketForecastEditionClient({
             {!edition ? (
               <div className="mt-4 rounded-lg border border-border/[0.08] bg-muted/20 p-4">
                 <Text variant="body-sm" color="secondary">
-                  完整方向、日内路径、关键价位与失效条件仅按当前访问权限展示。
+                  唯一方向、日内路径与技术点位仅按当前访问权限展示。方向由玄学判断，技术只负责位置和风控。
                 </Text>
               </div>
             ) : null}
@@ -111,13 +112,14 @@ export function DailyMarketForecastEditionClient({
                             <Text variant="body" weight="semibold">{pickLocalized(entry.assetName, locale)}</Text>
                             <Text variant="caption" color="tertiary">{entry.symbol} · {pickLocalized(entry.marketLabel, locale)}</Text>
                           </div>
-                          <Badge variant="outline">{entry.mainDirection}</Badge>
+                          <Badge variant="outline">{mooxDirectionArrow(entry.mainDirection)} {mooxDirectionLabelZh(entry.mainDirection)}</Badge>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline">{entry.intradayPath}</Badge>
+                          <Badge variant="outline">节奏：{entry.intradayPath}</Badge>
                           <Badge variant="outline">置信度 {entry.confidence}%</Badge>
                         </div>
-                        <Text variant="body-sm" color="secondary">{pickLocalized(entry.summary, locale)}</Text>
+                        <Text variant="body-sm" weight="semibold">MOOX唯一方向：{mooxDirectionLabelZh(entry.mainDirection)}</Text>
+                        <Text variant="caption" color="secondary">研究说明：{pickLocalized(entry.summary, locale)}</Text>
                         <ShareButtons
                           url="/forecasts/daily"
                           forecastDate={edition.forecastDate}
@@ -132,8 +134,8 @@ export function DailyMarketForecastEditionClient({
                           <div className="space-y-2 border-t border-border/[0.06] pt-3">
                             <Text variant="body-sm" color="secondary">支撑：{entry.supportLevels.join("、") || "暂无明确价位"}</Text>
                             <Text variant="body-sm" color="secondary">压力：{entry.resistanceLevels.join("、") || "暂无明确价位"}</Text>
-                            {entry.confirmation ? <Text variant="body-sm" color="secondary">确认条件：{pickLocalized(entry.confirmation, locale)}</Text> : null}
-                            {entry.invalidation ? <Text variant="body-sm" color="secondary">失效条件：{pickLocalized(entry.invalidation, locale)}</Text> : null}
+                            {entry.confirmation ? <Text variant="body-sm" color="secondary">技术跟随参考：{pickLocalized(entry.confirmation, locale)}</Text> : null}
+                            {entry.invalidation ? <Text variant="body-sm" color="secondary">技术风控参考：{pickLocalized(entry.invalidation, locale)}</Text> : null}
                             {entry.conditions?.length ? (
                               <div>
                                 <Text variant="caption" color="tertiary">观察条件</Text>

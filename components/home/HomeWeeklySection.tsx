@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Text } from "@/components/ui";
 import { getWeeklySectionPayload } from "@/lib/data/weekly-analysis-access";
+import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 
 export async function HomeWeeklySection() {
   const payload = await getWeeklySectionPayload();
@@ -40,10 +41,10 @@ export async function HomeWeeklySection() {
                     <Text variant="body" weight="semibold" className="min-w-0 break-words">
                       {t.assetName}
                     </Text>
-                    <Badge variant="outline">{analysis?.overallDirection ?? "已发布"}</Badge>
+                    <Badge variant="outline">{analysis ? `${mooxDirectionArrow(analysis.overallDirection)} ${mooxDirectionLabelZh(analysis.overallDirection)}` : "已发布"}</Badge>
                   </div>
                   <p className="text-caption text-foreground-secondary break-words">
-                    {analysis?.headline ?? "本周分析已发布"}
+                    {analysis ? `MOOX唯一方向：${mooxDirectionLabelZh(analysis.overallDirection)}。${analysis.headline}` : "本周分析已发布"}
                   </p>
                 </div>
               );

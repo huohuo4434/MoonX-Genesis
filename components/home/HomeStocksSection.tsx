@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Text } from "@/components/ui";
 import { listPublishedStocks } from "@/lib/data/stocks-store";
+import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 
 export async function HomeStocksSection() {
   const stocks = (await listPublishedStocks()).slice(0, 3);
@@ -22,7 +23,7 @@ export async function HomeStocksSection() {
                 <Text variant="body" weight="semibold">
                   {s.name}
                 </Text>
-                <Badge variant="outline">{s.directionLabel}</Badge>
+                <Badge variant="outline">{mooxDirectionArrow(s.directionLabel)} {mooxDirectionLabelZh(s.directionLabel)}</Badge>
               </div>
               <Text variant="caption" color="tertiary" className="mt-1 block font-mono">
                 {s.symbol}

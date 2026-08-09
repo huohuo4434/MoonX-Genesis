@@ -4,7 +4,7 @@ import { Badge, Card, Heading, Text } from "@/components/ui";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { listCurrentMonthlyMarketOutlooks } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { directionEn } from "@/lib/i18n/english-content";
+import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 
 function bars(values: { up: number; flat: number; down: number }, en: boolean) {
   return [
@@ -25,8 +25,8 @@ export function MemberMonthlyPage() {
         <Heading as="h1" size="h2" className="mt-3">{en ? "Monthly Outlook" : "月度走势分析"}</Heading>
         <Text variant="body" color="secondary" className="mt-2 block max-w-4xl">
           {en
-            ? "Monthly direction and expected paths are shown only where locked source research exists. MOOX does not invent conclusions for assets without a current, valid research basis."
-            : "展示已有原始研究依据的月度方向和运行路径。没有当前有效卦象的项目不会补写结论。"}
+            ? "MOOX OFFICIAL DIRECTION comes first. Where the metaphysical evidence is clear, the call is bullish or bearish; only genuinely conflicting evidence is marked unclear. Technical analysis is used for levels, not for changing the call."
+            : "月度页先给 MOOX 唯一方向：卦象明确就直接看涨或看跌，卦象冲突才写方向不明确。技术分析只负责点位，不参与修改方向。"}
         </Text>
       </div>
       <Card padding="md" className="border-primary/20 bg-primary/[0.025]">
@@ -44,9 +44,15 @@ export function MemberMonthlyPage() {
                 <Heading as="h2" size="h3">{en ? item.assetNameEn : item.assetName} <span className="text-base font-normal text-foreground-tertiary">{item.symbol}</span></Heading>
                 <Text variant="caption" color="tertiary" className="mt-1 block">{en ? item.venueEn : item.venue} · {item.periodStart} {en ? "to" : "至"} {item.periodEnd}</Text>
               </div>
-              <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{en ? directionEn(item.direction) : item.direction}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
+              <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{mooxDirectionArrow(item.direction)} {en ? mooxDirectionLabelEn(item.direction) : mooxDirectionLabelZh(item.direction)}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
             </div>
+            <PlainLanguageSummary
+              direction={item.direction}
+              path={en ? item.pathEn : item.path}
+              en={en}
+            />
             <div className="space-y-2">
+              <Text variant="caption" color="tertiary">{en ? "Confidence distribution (does not change the call)" : "置信分布（不改变唯一方向）"}</Text>
               {bars(item.probabilities, en).map(([label, value, color]) => (
                 <div key={label} className="flex items-center gap-3 text-sm">
                   <span className="w-14 text-foreground-tertiary">{label}</span>
@@ -56,13 +62,6 @@ export function MemberMonthlyPage() {
               ))}
             </div>
             <div><Text variant="caption" color="tertiary">{en ? "Expected path" : "运行路径"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.pathEn : item.path}</Text></div>
-            <PlainLanguageSummary
-              direction={en ? directionEn(item.direction) : item.direction}
-              path={en ? item.pathEn : item.path}
-              confirmation={en ? item.keyWindowEn : item.keyWindow}
-              invalidation={en ? item.riskEn : item.risk}
-              en={en}
-            />
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Key window" : "重点窗口"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.keyWindowEn : item.keyWindow}</Text></div>
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Primary risk" : "主要风险"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.riskEn : item.risk}</Text></div>

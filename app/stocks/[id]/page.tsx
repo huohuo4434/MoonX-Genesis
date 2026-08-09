@@ -52,7 +52,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ id
               ))}
             </ul>
           </div>
-          <Text variant="body-sm">失效条件：{s.invalidation}</Text>
+          <Text variant="body-sm">技术风控参考：{s.invalidation}</Text>
           {s.verificationSummary && <Text variant="body-sm">历史验证：{s.verificationSummary}</Text>}
           <Text variant="caption" color="tertiary">
             最后更新：{new Date(s.lastUpdatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}

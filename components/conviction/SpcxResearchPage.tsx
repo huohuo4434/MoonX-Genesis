@@ -196,6 +196,19 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
   );
 }
 
+function spcxDirectionFromText(text: string): "BULLISH" | "BEARISH" | "UNCLEAR" {
+  if (/偏强|偏上|偏多|上涨|上攻|增益|成长|推进|延续/.test(text)) return "BULLISH";
+  if (/偏弱|偏下|偏空|下跌|主跌/.test(text)) return "BEARISH";
+  return "UNCLEAR";
+}
+
+function spcxDirectionLabel(text: string, english: boolean): string {
+  const direction = spcxDirectionFromText(text);
+  if (direction === "BULLISH") return english ? "↑ Bullish" : "↑ 看涨";
+  if (direction === "BEARISH") return english ? "↓ Bearish" : "↓ 看跌";
+  return english ? "↔ Unclear" : "↔ 方向不明确";
+}
+
 function MemberResearch({ english, data }: { english: boolean; data: MemberResponse }) {
   const research = data.research;
   const technical = data.technical;
@@ -206,7 +219,16 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
   return (
     <>
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Member conclusion" : "会员版最新结论"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "MOOX official direction" : "MOOX 唯一方向"}</h2>
+        <div className={styles.card}>
+          <div className={styles.phaseDate}>{english ? "4-horizon bullish resonance" : "4周期看涨共振"}</div>
+          <h3>{english ? "↑ BULLISH — the only official direction" : "↑ 看涨｜唯一方向"}</h3>
+          <p>{english ? "The Aug. 10–16 weekly reading, the one-month reading, the three-month reading and the five-year reading all lean upward. MOOX therefore keeps one official call: bullish. Technical analysis only supplies levels and execution timing." : "8/10–16周卦看涨、1个月卦看涨、3个月卦偏正、5年卦偏成长，四个周期同向。MOOX正式观点只有一个：看涨。技术分析只负责找位置，不负责把方向改成看跌。"}</p>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{english ? "Member conclusion" : "会员版研究说明"}</h2>
         <div className={styles.phaseGrid}>
           <article className={styles.card}>
             <h3>{english ? research.direction.en : research.direction.zh}</h3>
@@ -230,9 +252,9 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
           {research.dailyPath.map((day) => (
             <article className={styles.card} key={day.date}>
               <div className={styles.phaseDate}>{day.date}</div>
-              <h3>{english ? day.biasEn : day.biasZh}</h3>
+              <h3>{spcxDirectionLabel(day.biasZh, english)} · {english ? day.biasEn : day.biasZh}</h3>
               <p>{english ? day.pathEn : day.pathZh}</p>
-              <p><strong>{english ? "Execution: " : "执行："}</strong>{english ? day.actionEn : day.actionZh}</p>
+              <p><strong>{english ? "Technical execution: " : "技术执行："}</strong>{english ? day.actionEn : day.actionZh}</p>
             </article>
           ))}
         </div>
@@ -244,7 +266,8 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
           {research.weeklyPath.map((phase) => (
             <article className={styles.card} key={`${phase.start}-${phase.end}`}>
               <div className={styles.phaseDate}>{phase.start} → {phase.end} · {phase.risk}</div>
-              <h3>{english ? phase.labelEn : phase.labelZh}</h3>
+              <h3>{english ? "↑ Bullish" : "↑ 唯一方向：看涨"}</h3>
+              <p><strong>{english ? phase.labelEn : phase.labelZh}</strong></p>
               {!english ? <p><strong>{phase.hexagramZh}</strong></p> : null}
               <p>{english ? phase.pathEn : phase.pathZh}</p>
             </article>
@@ -264,7 +287,7 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
 
       {research.externalTechnicalView ? (
         <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>{english ? "External technical cross-check" : "外部技术交叉验证"}</h2>
+          <h2 className={styles.sectionTitle}>{english ? "Technical levels only" : "技术点位参考｜不决定方向"}</h2>
           <div className={styles.card}>
             <div className={styles.phaseDate}>{research.externalTechnicalView.asOf} · {english ? research.externalTechnicalView.sourceLabelEn : research.externalTechnicalView.sourceLabelZh}</div>
             <p>{english ? research.externalTechnicalView.summaryEn : research.externalTechnicalView.summaryZh}</p>
@@ -282,7 +305,7 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
       ) : null}
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Live technical gate" : "实时K线技术门槛"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Live technical levels" : "实时技术点位｜只负责位置与风控"}</h2>
         {technical ? (
           <>
             <div className={styles.techRow}>
@@ -293,15 +316,15 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
             </div>
             <div className={styles.phaseGrid} style={{ marginTop: 12 }}>
               <article className={styles.card}><h3>{english ? "Current structure" : "当前结构"}</h3><p>{english ? technical.trendEn : technical.trendZh}</p><p className={styles.phaseDate}>{technical.asOf} · {technical.source}</p></article>
-              <article className={styles.card}><h3>{english ? "Confirmation" : "确认条件"}</h3><p>{english ? technical.confirmationEn : technical.confirmationZh}</p></article>
-              <article className={styles.card}><h3>{english ? "Invalidation / downgrade" : "失效／降级条件"}</h3><p>{english ? technical.invalidationEn : technical.invalidationZh}</p></article>
+              <article className={styles.card}><h3>{english ? "Follow-through reference" : "跟随参考"}</h3><p>{english ? technical.confirmationEn : technical.confirmationZh}</p></article>
+              <article className={styles.card}><h3>{english ? "Risk-control reference" : "风控参考"}</h3><p>{english ? technical.invalidationEn : technical.invalidationZh}</p></article>
               <article className={styles.card}><h3>{english ? "Second zones" : "第二支撑／压力"}</h3><p>{technical.secondarySupportZone ? `$${technical.secondarySupportZone[0]}–$${technical.secondarySupportZone[1]}` : "—"} / {technical.secondaryResistanceZone ? `$${technical.secondaryResistanceZone[0]}–$${technical.secondaryResistanceZone[1]}` : "—"}</p></article>
             </div>
           </>
         ) : (
           <div className={styles.card}>
             <h3>{english ? "Live quote temporarily unavailable" : "实时行情暂时不可用"}</h3>
-            <p>{english ? "Live quotes are temporarily unavailable. Use the locked V2 research logic; exact anchors are not embedded in the public client bundle and will return when server-side quote data resumes." : "实时行情暂不可用。先按V2锁定研究逻辑执行；具体技术锚点不再内置到公共客户端，服务器行情恢复后会自动返回会员技术区间。"}</p>
+            <p>{english ? "Live quotes are temporarily unavailable. Use the locked V2 research logic; exact anchors are not embedded in the public client bundle and will return when server-side quote data resumes." : "实时行情暂不可用。方向继续按上方多周期卦象的看涨结论；具体技术锚点暂时不显示，服务器行情恢复后只补充位置参考。"}</p>
           </div>
         )}
       </section>
@@ -312,9 +335,9 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{english ? "Execution and verification" : "执行与验证"}</h2>
+        <h2 className={styles.sectionTitle}>{english ? "Technical execution and verification" : "技术执行与验证"}</h2>
         <div className={styles.phaseGrid}>
-          <article className={styles.card}><h3>{english ? "Execution rules" : "执行规则"}</h3><ul>{execution.map((item) => <li key={item}>{item}</li>)}</ul></article>
+          <article className={styles.card}><h3>{english ? "Technical execution rules" : "技术执行规则"}</h3><ul>{execution.map((item) => <li key={item}>{item}</li>)}</ul></article>
           <article className={styles.card}><h3>{english ? "Verification plan" : "V1/V2验证计划"}</h3><p>{english ? research.verificationPlan.en : research.verificationPlan.zh}</p></article>
         </div>
       </section>
@@ -326,7 +349,8 @@ function HorizonCard({ english, titleZh, titleEn, item }: { english: boolean; ti
   return (
     <article className={styles.card}>
       <div className={styles.phaseDate}>{english ? titleEn : titleZh} · {item.period}</div>
-      <h3>{english ? item.directionEn : item.directionZh}</h3>
+      <h3>{spcxDirectionLabel(item.directionZh, english)}</h3>
+      <p><strong>{english ? item.directionEn : item.directionZh}</strong></p>
       {!english ? <p><strong>{item.hexagramZh}</strong></p> : null}
       <p>{english ? item.pathEn : item.pathZh}</p>
     </article>

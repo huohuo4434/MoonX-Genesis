@@ -1,6 +1,7 @@
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import type { CryptoCycleAlignment } from "@/lib/data/crypto-cycle-comparison-20260801";
+import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 
 function ForecastCard({
   item,
@@ -21,14 +22,17 @@ function ForecastCard({
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{item.direction}</Badge>
+          <Badge variant="outline">{mooxDirectionArrow(item.direction)} {mooxDirectionLabelZh(item.direction)}</Badge>
           {item.consensusStars ? (
             <Badge variant="outline">{"★".repeat(item.consensusStars)}{"☆".repeat(5 - item.consensusStars)}</Badge>
           ) : null}
         </div>
       </div>
-      <Text variant="body-sm" className="block leading-relaxed text-white/80">
-        {item.summary}
+      <Text variant="body-sm" weight="semibold" className="block leading-relaxed text-white/90">
+        MOOX唯一方向：{mooxDirectionLabelZh(item.direction)}
+      </Text>
+      <Text variant="caption" className="block leading-relaxed text-white/55">
+        研究说明：{item.summary}
       </Text>
       <div className="rounded-lg border border-white/10 bg-black/15 p-3">
         <Text variant="caption" className="block text-white/55">

@@ -5,10 +5,10 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 const ITEMS = [
   {
-    zhTitle: "今日方向与概率",
-    enTitle: "Direction and probabilities",
-    zhBody: "把上涨、震荡、下跌概率与收盘方向分开呈现，避免只看一句结论。",
-    enBody: "Closing direction is shown separately from up, sideways and down probabilities.",
+    zhTitle: "唯一方向先给结论",
+    enTitle: "One official direction",
+    zhBody: "卦象明确就直接给看涨或看跌；只有玄学证据冲突时才写方向不明确。",
+    enBody: "Aligned metaphysical evidence produces one bullish or bearish call; only genuine conflict is labeled unclear.",
   },
   {
     zhTitle: "下一交易日运行路径",
@@ -17,10 +17,10 @@ const ITEMS = [
     enBody: "Daily forecasts use open, intraday and close language rather than weekly wording.",
   },
   {
-    zhTitle: "关键价位与失效条件",
-    enTitle: "Levels and invalidation",
-    zhBody: "有真实技术数据才展示支撑、压力和确认位；数据不足时明确标注待技术确认。",
-    enBody: "Support, resistance and confirmation levels appear only when real technical data is available.",
+    zhTitle: "技术只负责点位",
+    enTitle: "Technicals are levels only",
+    zhBody: "支撑、压力、入场和风控来自技术分析，但技术位不参与把玄学方向反向修改。",
+    enBody: "Support, resistance, entry and risk levels come from technical analysis, but they never flip the metaphysical call.",
   },
   {
     zhTitle: "发布锁定与公开验证",

@@ -58,7 +58,7 @@ export function ResearchConflictPanel({ conflict }: { conflict: ResearchConflict
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Text variant="label" color="tertiary" className="mb-2 block">
-            上涨确认条件
+            上涨技术跟随参考
           </Text>
           <ul className="space-y-1 text-body-sm text-foreground-secondary">
             {conflict.bullishConfirmation.map((item, i) => (
@@ -71,7 +71,7 @@ export function ResearchConflictPanel({ conflict }: { conflict: ResearchConflict
         </div>
         <div>
           <Text variant="label" color="tertiary" className="mb-2 block">
-            下跌确认条件
+            下跌技术跟随参考
           </Text>
           <ul className="space-y-1 text-body-sm text-foreground-secondary">
             {conflict.bearishConfirmation.map((item, i) => (

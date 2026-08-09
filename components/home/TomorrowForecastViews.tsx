@@ -8,9 +8,10 @@ import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/dail
 import { LockIcon } from "@/components/icons";
 import { Badge, Button, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
-import { assetNameEn, directionEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
+import { assetNameEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
 import { formatForecastDateEn, formatForecastDateZh } from "@/lib/calendar/next-trading-day";
 import { displayDirection } from "@/lib/data/daily-forecasts";
+import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { displayMarketCode } from "@/lib/forecasts/formal-direction";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
@@ -19,7 +20,7 @@ const LOCKED_ROWS = [
   { key: "prob", zh: "上涨/下跌概率", en: "Up/down probability" },
   { key: "levels", zh: "支撑压力", en: "Support / resistance" },
   { key: "windows", zh: "关键时间窗口", en: "Key time windows" },
-  { key: "invalidation", zh: "失效条件", en: "Invalidation" },
+  { key: "invalidation", zh: "技术风控参考", en: "Technical risk reference" },
 ] as const;
 
 function formatDate(iso: string, isChinese: boolean) {
@@ -167,7 +168,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
   const normalizedPath = en ? safeEnglishList(sourcePath) : sourcePath;
   const pathBias = en
     ? safeEnglish(forecast.pathBias || normalizedPath.join(" → "), "Expected path is awaiting technical confirmation.")
-    : normalizeDailyLanguage(forecast.pathBias) || normalizedPath.join(" → ") || "运行路径待技术确认";
+    : normalizeDailyLanguage(forecast.pathBias) || normalizedPath.join(" → ") || "运行节奏待补充";
   const summary = en ? safeEnglish(forecast.summary) : normalizeDailyLanguage(forecast.summary);
 
   return (
@@ -182,7 +183,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
           </Text>
         </div>
         <Badge variant={pending ? "neutral" : "default"}>
-          {pending ? t("home.tomorrowResearchPending") : en ? directionEn(displayDirection(forecast)) : displayDirection(forecast)}
+          {pending ? t("home.tomorrowResearchPending") : `${mooxDirectionArrow(displayDirection(forecast))} ${en ? mooxDirectionLabelEn(displayDirection(forecast)) : mooxDirectionLabelZh(displayDirection(forecast))}`}
         </Badge>
       </div>
 
@@ -198,14 +199,17 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
         </Text>
       ) : (
         <>
-          <Text variant="body-sm" className="mt-3">
-            {summary}
+          <Text variant="body-sm" weight="semibold" className="mt-3">
+            {en ? "MOOX official direction: " : "MOOX唯一方向："}{en ? mooxDirectionLabelEn(displayDirection(forecast)) : mooxDirectionLabelZh(displayDirection(forecast))}
+          </Text>
+          <Text variant="caption" color="secondary" className="mt-1 block">
+            {en ? "Research note: " : "研究说明："}{summary}
           </Text>
           <div className="mt-3 grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-2">
             <p><span className="text-foreground-tertiary">{en ? "Closing-direction probabilities: " : "收盘方向概率："}</span><span className="text-foreground-secondary">{en ? "Bullish" : "上涨"} {forecast.probabilities?.up ?? "—"}% / {en ? "Range-bound" : "震荡"} {forecast.probabilities?.flat ?? "—"}% / {en ? "Bearish" : "下跌"} {forecast.probabilities?.down ?? "—"}%</span></p>
             <p><span className="text-foreground-tertiary">{en ? "Expected path: " : "运行路径："}</span><span className="text-foreground-secondary">{pathBias}</span></p>
             <p><span className="text-foreground-tertiary">{en ? "Signal strength: " : "信号强度："}</span><span className="text-foreground-secondary">{en ? signalStrengthEn(forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")) : forecast.signalStrength ?? (forecast.confidence >= 66 ? "高" : forecast.confidence >= 52 ? "中" : "低")}</span></p>
-            <p><span className="text-foreground-tertiary">{en ? "Wait for confirmation: " : "建议等待确认："}</span><span className="text-foreground-secondary">{forecast.waitForConfirmation === false ? (en ? "No" : "否") : (en ? "Yes" : "是")}</span></p>
+            <p><span className="text-foreground-tertiary">{en ? "Wait for confirmation: " : "技术执行是否等待条件："}</span><span className="text-foreground-secondary">{forecast.waitForConfirmation === false ? (en ? "No" : "否") : (en ? "Yes" : "是")}</span></p>
           </div>
         </>
       )}

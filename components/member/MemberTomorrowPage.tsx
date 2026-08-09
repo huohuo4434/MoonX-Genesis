@@ -10,6 +10,7 @@ import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { getTradingSessionDisplay } from "@/lib/calendar/trading-session-display";
 import { deriveForecastConsensus, starsText } from "@/lib/forecasts/consensus-confidence";
 import { normalizeDailyLanguage, normalizeDailyPath, signalStrengthFromConfidence } from "@/lib/forecasts/daily-language";
+import { mooxDirectionArrow, mooxDirectionLabelZh, mooxTechnicalReferenceZh } from "@/lib/forecasts/moox-direction-doctrine";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 function isPending(f: DailyForecast) {
@@ -62,11 +63,11 @@ function cleanConditionText(text: string | undefined, kind: "confirmation" | "in
   if (!text) return "—";
   if (kind === "confirmation") {
     const match = text.match(/(1小时|30分钟|日线)K?线?收盘[^。；]*?压力区上沿\s*([\d,.]+(?:美元|点|元)?)/);
-    if (match) return `${match[1]}收盘站稳${match[2]}上方，确认突破有效。`;
+    if (match) return `${match[1]}收盘站稳${match[2]}上方，作为跟随/加仓位置参考。`;
   }
   const match = text.match(/(1小时|30分钟|日线)K?线?收盘[^。；]*?支撑区下沿\s*([\d,.]+(?:美元|点|元)?)/);
-  if (match) return `${match[1]}收盘跌破${match[2]}，原判断失效。`;
-  return text;
+  if (match) return `${match[1]}收盘跌破${match[2]}，作为风控位置参考；不反向修改六爻方向。`;
+  return mooxTechnicalReferenceZh(text, kind === "confirmation" ? "follow" : "risk");
 }
 
 export function MarketForecastCard({ f }: { f: DailyForecast }) {
@@ -92,9 +93,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
     symbol: f.symbol,
   });
   const consensus = deriveForecastConsensus(f);
-  const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ")) || "运行路径待技术确认";
+  const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ")) || "运行节奏待补充";
   const signalStrength = f.signalStrength ?? iching.signalStrength ?? signalStrengthFromConfidence(f.confidence);
-  const waitForConfirmation = f.waitForConfirmation ?? signalStrength !== "高";
 
   return (
     <Card padding="lg" className="flex flex-col gap-4">
@@ -134,7 +134,13 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             最近更新：{formatDateTimeChina(f.publishedAt)} · 版本 V{f.version} · 已锁定
           </Text>
         </div>
-        <Badge variant="default">{iching.directionLabel}</Badge>
+        <Badge variant="default">{mooxDirectionArrow(iching.directionLabel)} {mooxDirectionLabelZh(iching.directionLabel)}</Badge>
+      </div>
+
+      <div className={`rounded-xl border p-4 ${mooxDirectionLabelZh(iching.directionLabel) === "看涨" ? "border-emerald-400/20 bg-emerald-400/[0.04]" : mooxDirectionLabelZh(iching.directionLabel) === "看跌" ? "border-rose-400/20 bg-rose-400/[0.04]" : "border-amber-400/20 bg-amber-400/[0.04]"}`}>
+        <Text variant="caption" className="font-semibold text-foreground-tertiary">MOOX 唯一方向</Text>
+        <div className="mt-1 text-xl font-semibold">{mooxDirectionArrow(iching.directionLabel)} {mooxDirectionLabelZh(iching.directionLabel)}</div>
+        <Text variant="body-sm" color="secondary" className="mt-2 block">方向由六爻主判断确定；技术结构只负责找点位、跟随位置与风控，不会把看涨改成看跌或把看跌改成看涨。</Text>
       </div>
 
       <div className="rounded-md border border-primary/20 bg-primary/[0.06] p-3">
@@ -163,7 +169,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
         </Text>
         <dl className="grid gap-2 text-body-sm sm:grid-cols-2">
           <div>
-            <dt className="text-caption text-foreground-tertiary">预测方向</dt>
+            <dt className="text-caption text-foreground-tertiary">六爻原始路径</dt>
             <dd className="font-medium text-foreground">{iching.directionLabel}</dd>
           </div>
           <div>
@@ -187,8 +193,8 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             <dd className="text-foreground-secondary">{pathBias}</dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-caption text-foreground-tertiary">是否建议等待确认</dt>
-            <dd className="text-foreground-secondary">{waitForConfirmation ? "是，达到确认条件后再考虑入场" : "否，但仍需遵守失效条件"}</dd>
+            <dt className="text-caption text-foreground-tertiary">方向规则</dt>
+            <dd className="text-foreground-secondary">六爻定方向；技术条件只决定位置和节奏，不决定多空方向。</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-caption text-foreground-tertiary">六爻方向依据</dt>
@@ -200,8 +206,9 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
       {showTech ? (
         <div className="space-y-2 rounded-md border border-border/[0.08] bg-muted/10 p-3">
           <Text variant="caption" weight="semibold" className="uppercase tracking-wide text-foreground-tertiary">
-            【技术结构】
+            【技术点位｜不决定方向】
           </Text>
+          <Text variant="caption" color="tertiary" className="block">技术分析只用于找支撑、压力和执行位置，不参与修改上方MOOX唯一方向。</Text>
           <dl className="grid gap-2 text-body-sm">
             {supportLines.map((line, index) => (
               <div key={line}>
@@ -216,11 +223,11 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
               </div>
             ))}
             <div>
-              <dt className="text-caption text-foreground-tertiary">确认条件</dt>
+              <dt className="text-caption text-foreground-tertiary">跟随参考</dt>
               <dd className="break-words text-foreground-secondary">{cleanConditionText(f.confirmation, "confirmation")}</dd>
             </div>
             <div>
-              <dt className="text-caption text-foreground-tertiary">失效条件</dt>
+              <dt className="text-caption text-foreground-tertiary">风控参考</dt>
               <dd className="break-words text-foreground-secondary">{cleanConditionText(f.invalidation, "invalidation")}</dd>
             </div>
           </dl>
@@ -308,7 +315,7 @@ export function TomorrowForecastContent({
           下一交易日预测
         </Heading>
         <Text variant="body" color="secondary" className="mb-2 max-w-2xl">
-          完整方向、概率、运行路径与关键价位按账户权限展示。
+          先给六爻唯一方向，再给运行节奏和技术点位；技术分析不反向修改方向。
         </Text>
         <Text variant="caption" color="tertiary" className="mb-6 block">
           各市场目标交易日见对应卡片 · 最后更新{" "}

@@ -11,8 +11,9 @@ import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import { assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/daily-language";
+import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { assetNameEn, directionEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
+import { assetNameEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
 import type { DailyForecast } from "@/types/daily-forecast";
 
 const EN_ASSET_NAMES: Record<string, string> = {
@@ -166,7 +167,7 @@ export function TodayDailyForecastView({
     readyForecasts.length === 0
       ? ""
       : `${en ? "Today’s combined view: " : "今日综合判断："}${readyForecasts
-          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} ${en ? directionEn(displayDirection(f)) : displayDirection(f)}`)
+          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} ${en ? mooxDirectionLabelEn(displayDirection(f)) : mooxDirectionLabelZh(displayDirection(f))}`)
           .join(en ? ", " : "、")}${en ? "." : "。"}`;
 
   return (
@@ -244,7 +245,7 @@ export function TodayDailyForecastView({
                 const normalizedPath = en ? safeEnglishList(normalizeDailyPath(f.expectedPath)) : normalizeDailyPath(f.expectedPath);
                 const pathBias = en
                   ? safeEnglish(f.pathBias || normalizedPath.join(" → "), "Expected path is awaiting technical confirmation.")
-                  : normalizeDailyLanguage(f.pathBias) || normalizedPath.join(" → ") || "待确认";
+                  : normalizeDailyLanguage(f.pathBias) || normalizedPath.join(" → ") || "运行节奏待补充";
                 return (
                   <article
                     key={f.id}
@@ -257,28 +258,30 @@ export function TodayDailyForecastView({
                         </Text>
                         <Text variant="caption" color="tertiary" className="mt-1 block">{en ? EN_VENUES[assetDisplaySymbol(f.symbol)] ?? assetVenue(f.symbol) : assetVenue(f.symbol)}</Text>
                       </div>
-                      <Badge variant="outline">{en ? directionEn(displayDirection(f)) : displayDirection(f)}</Badge>
+                      <Badge variant="outline">{mooxDirectionArrow(displayDirection(f))} {en ? mooxDirectionLabelEn(displayDirection(f)) : mooxDirectionLabelZh(displayDirection(f))}</Badge>
                     </div>
                     <div className="grid gap-2 text-caption text-foreground-tertiary sm:grid-cols-2">
                       <p>{en ? safeEnglish(f.targetSessionLabel ?? f.tradingSessionLabel, "Next market session") : f.targetSessionLabel ?? f.tradingSessionLabel}</p><p>{en ? "Version" : "版本"} V{f.version} · {en ? "Locked" : "已锁定"}</p>
                       <p>{en ? "Updated" : "更新"}：{formatDateTimeForLocale(f.publishedAt, en)}</p>
                     </div>
-                    <ProbabilityBars up={p.up} flat={p.flat} down={p.down} en={en} />
+                    <Text variant="caption" color="tertiary" className="block">{en ? "MOOX OFFICIAL DIRECTION" : "MOOX 唯一方向"}</Text>
+                    <PlainLanguageSummary
+                      direction={displayDirection(f)}
+                      path={pathBias}
+                      en={en}
+                    />
+                    <div>
+                      <Text variant="caption" color="tertiary" className="mb-1 block">{en ? "Confidence distribution (does not change the call)" : "置信分布（不改变唯一方向）"}</Text>
+                      <ProbabilityBars up={p.up} flat={p.flat} down={p.down} en={en} />
+                    </div>
                     <div className="grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-3">
                       <p><span className="text-foreground-tertiary">{en ? "Expected path: " : "运行路径："}</span><span className="text-foreground-secondary">{pathBias}</span></p>
                       <p><span className="text-foreground-tertiary">{en ? "Signal strength: " : "信号强度："}</span><span className="text-foreground-secondary">{en ? signalStrengthEn(f.signalStrength ?? (f.confidence >= 66 ? "高" : f.confidence >= 52 ? "中" : "低")) : f.signalStrength ?? (f.confidence >= 66 ? "高" : f.confidence >= 52 ? "中" : "低")}</span></p>
-                      <p><span className="text-foreground-tertiary">{en ? "Wait for confirmation: " : "等待确认："}</span><span className="text-foreground-secondary">{f.waitForConfirmation === false ? (en ? "No" : "否") : (en ? "Yes" : "是")}</span></p>
+                      <p><span className="text-foreground-tertiary">{en ? "Direction rule: " : "方向规则："}</span><span className="text-foreground-secondary">{en ? "Metaphysics sets direction" : "玄学定方向"}</span></p>
                     </div>
-                    <p className="break-words text-body-sm text-foreground-secondary">
-                      {en ? safeEnglish(f.headline ?? f.summary) : normalizeDailyLanguage(f.headline ?? f.summary)}
+                    <p className="break-words text-caption text-foreground-secondary">
+                      {en ? "Research note: " : "研究说明："}{en ? safeEnglish(f.headline ?? f.summary) : normalizeDailyLanguage(f.headline ?? f.summary)}
                     </p>
-                    <PlainLanguageSummary
-                      direction={en ? directionEn(displayDirection(f)) : displayDirection(f)}
-                      path={pathBias}
-                      confirmation={en ? (f.confirmation ? safeEnglish(f.confirmation) : undefined) : f.confirmation}
-                      invalidation={en ? (f.invalidation ? safeEnglish(f.invalidation) : undefined) : f.invalidation}
-                      en={en}
-                    />
                     {showFull ? (
                       <>
                         <button

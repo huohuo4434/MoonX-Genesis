@@ -8,6 +8,7 @@ import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
+import { mooxDirectionLabelZh, mooxPrimaryDirection, mooxTechnicalReferenceZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { ConvictionDetailPayload, ConvictionPeriodSlot } from "@/lib/data/conviction/access";
@@ -33,10 +34,13 @@ function DailyPanel({ title, forecast }: { title: string; forecast: MemberStockD
       <Text variant="caption" className="block text-white/45">
         预测日期：{forecast.forecastDate}
       </Text>
-      <Badge variant="outline">{forecast.direction}</Badge>
+      <Badge variant="outline">{mooxDirectionLabelZh(forecast.direction)}</Badge>
       <ProbRow p={forecast.probabilities} />
-      <Text variant="body-sm" className="block break-words text-white/75">
-        {forecast.headline}
+      <Text variant="body-sm" className="block break-words font-semibold text-white/85">
+        MOOX唯一方向：{mooxDirectionLabelZh(forecast.direction)}
+      </Text>
+      <Text variant="caption" className="block break-words text-white/55">
+        运行说明：{forecast.headline}
       </Text>
       <Text variant="caption" className="block break-words text-white/55">
         盘中运行顺序：{forecast.expectedPath || forecast.pathDirection}
@@ -69,10 +73,13 @@ function WeeklyPanel({ weekly }: { weekly: MemberStockWeeklyMemberView }) {
       <Text variant="body" weight="semibold" className="text-white">
         本周分析
       </Text>
-      <Badge variant="outline">{weekly.overallDirection}</Badge>
+      <Badge variant="outline">{mooxDirectionLabelZh(weekly.overallDirection)}</Badge>
       <ProbRow p={weekly.probabilities} />
-      <Text variant="body-sm" className="block break-words text-white/75">
-        {weekly.headline}
+      <Text variant="body-sm" className="block break-words font-semibold text-white/85">
+        MOOX唯一方向：{mooxDirectionLabelZh(weekly.overallDirection)}
+      </Text>
+      <Text variant="caption" className="block break-words text-white/55">
+        运行说明：{weekly.headline}
       </Text>
       <PriceLevelsBlock
         support={weekly.keySupport}
@@ -95,28 +102,17 @@ function Stars({ value }: { value: number }) {
 }
 
 function tradeCall(direction: string) {
-  if (direction === "上涨") {
-    return { label: "↑ 偏多｜买涨优先", note: "顺势找多头机会，不逆势猜顶。", tone: "emerald" as const };
+  const primary = mooxPrimaryDirection(direction);
+  if (primary === "BULLISH") {
+    return { label: "↑ 看涨｜唯一方向", note: "卦象主方向看涨。技术分析只负责找支撑、压力和更合适的位置，不负责把方向改成看跌。", tone: "emerald" as const };
   }
-  if (direction === "震荡上涨") {
-    return { label: "↑ 偏多｜回踩做多优先", note: "方向偏上，但不追高；优先等回踩和承接确认。", tone: "emerald" as const };
+  if (primary === "BEARISH") {
+    return { label: "↓ 看跌｜唯一方向", note: "卦象主方向看跌。技术分析只负责找反弹压力、减仓/做空位置和风控，不负责把方向改成看涨。", tone: "rose" as const };
   }
-  if (direction === "下跌") {
-    return { label: "↓ 偏空｜买跌优先", note: "反弹先按减仓或偏空处理，不急着抄底。", tone: "rose" as const };
-  }
-  if (direction === "震荡下跌") {
-    return { label: "↓ 偏空｜反弹承压后看跌", note: "主方向偏下，等反弹承压比低位追空更合适。", tone: "rose" as const };
-  }
-  if (direction === "先跌后涨" || direction === "探底回升") {
-    return { label: "↘↗ 先等回踩｜企稳后转多", note: "前半段先防回落，确认止跌和承接后再偏多。", tone: "amber" as const };
-  }
-  if (direction === "先涨后跌" || direction === "冲高回落") {
-    return { label: "↗↘ 前强后弱｜高位不追", note: "前半段允许走强，越靠后越要防冲高兑现。", tone: "amber" as const };
-  }
-  return { label: "↔ 中性｜先不押方向", note: "等突破或跌破确认后再跟随，不在区间中间猜方向。", tone: "slate" as const };
+  return { label: "↔ 方向不明确｜不强行下注", note: "当前卦象没有形成统一方向。MOOX明确写不明确，不用技术突破或跌破来替玄学补一个方向。", tone: "slate" as const };
 }
 
-function tradeToneClass(tone: ReturnType<typeof tradeCall>["tone"]) {
+function tradeToneClass(tone: "emerald" | "rose" | "amber" | "slate") {
   if (tone === "emerald") return "border-emerald-300/20 bg-emerald-300/[0.045] text-emerald-100";
   if (tone === "rose") return "border-rose-300/20 bg-rose-300/[0.045] text-rose-100";
   if (tone === "amber") return "border-amber-300/20 bg-amber-300/[0.045] text-amber-100";
@@ -134,6 +130,10 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
     );
   }
   const f = slot.forecast;
+  const directionViews = (f.methodViews ?? []).filter((view) => !/技术|价格|支撑|压力|technical|price|support|resistance/i.test(`${view.label} ${view.id}`));
+  const directionEvidence = f.ichingEvidence
+    ? `${f.ichingEvidence.primaryHexagram}${f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}。${f.consensusLabel || f.ichingEvidence.notes || "卦象决定本周期正式方向。"}`
+    : (f.consensusLabel || "卦象决定本周期正式方向。");
   const ended = slot.freshnessStatus === "EXPIRED";
   const upcoming = slot.freshnessStatus === "UPCOMING";
   return (
@@ -144,7 +144,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
             <Text variant="body" weight="semibold" className="text-white">
               {slot.labelZh}分析
             </Text>
-            <Badge variant="outline">{f.direction}</Badge>
+            <Badge variant="outline">{mooxDirectionLabelZh(f.direction)}</Badge>
             <Badge variant="outline">风险 {f.riskLevel}</Badge>
             {ended ? <Badge variant="outline">历史周期 · 已结束</Badge> : null}{upcoming ? <Badge variant="outline">即将开始</Badge> : null}
           </div>
@@ -164,7 +164,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         const call = tradeCall(f.direction);
         return (
           <section className={`rounded-xl border p-4 ${tradeToneClass(call.tone)}`}>
-            <p className="font-mono text-caption uppercase tracking-[0.14em] opacity-60">MOOX 本周期结论</p>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] opacity-60">MOOX 本周期唯一方向</p>
             <p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">{call.label}</p>
             <p className="mt-2 text-body-sm leading-relaxed opacity-75">{call.note}</p>
           </section>
@@ -172,7 +172,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
       })()}
 
       <section className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">为什么这么看</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">为什么定为{mooxDirectionLabelZh(f.direction)}</p>
         <ProbRow
           p={{
             up: f.upProbability,
@@ -181,17 +181,21 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
           }}
         />
         <Text variant="body-sm" className="block break-words leading-relaxed text-white/80">
-          {f.summary}
+          {directionEvidence}
         </Text>
-        {f.consensusLabel ? (
-          <Text variant="caption" className="block text-amber-200/75">
-            方法共识：{f.consensusLabel}
-          </Text>
+        <Text variant="caption" className="block text-cyan-100/60">
+          方向由玄学证据决定；下方技术点位不参与方向投票。
+        </Text>
+        {f.summary ? (
+          <details className="rounded-lg border border-white/[0.06] bg-black/10 px-3 py-2">
+            <summary className="cursor-pointer text-caption text-white/40">查看原始版本研究摘要（留档，不替代上方唯一方向）</summary>
+            <p className="mt-2 text-caption leading-relaxed text-white/50">{f.summary}</p>
+          </details>
         ) : null}
       </section>
 
       <section className="space-y-2">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">怎么走</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">方向内的运行节奏</p>
         <Text variant="body-sm" className="block break-words leading-relaxed text-white/70">
           {f.expectedPath}
         </Text>
@@ -200,17 +204,18 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
       {(f.supportLevels.length || f.resistanceLevels.length || f.confirmationLevel || f.invalidationLevel) ? (
         <section className="grid gap-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.025] p-4 md:grid-cols-2">
           <div>
-            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">关键价位</p>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">技术点位（不决定方向）</p>
             <div className="mt-2 space-y-2 text-body-sm text-white/75">
               {f.supportLevels.length ? <p><span className="text-emerald-200/80">支撑：</span>{f.supportLevels.join(" / ")}</p> : null}
               {f.resistanceLevels.length ? <p><span className="text-rose-200/80">压力：</span>{f.resistanceLevels.join(" / ")}</p> : null}
             </div>
           </div>
           <div>
-            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">确认 / 失效</p>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">执行 / 风控参考</p>
             <div className="mt-2 space-y-2 text-body-sm leading-relaxed text-white/75">
-              {f.confirmationLevel ? <p><span className="text-emerald-200/80">继续成立：</span>{f.confirmationLevel}</p> : null}
-              {f.invalidationLevel ? <p><span className="text-rose-200/80">判断失效：</span>{f.invalidationLevel}</p> : null}
+              {f.confirmationLevel ? <p><span className="text-emerald-200/80">跟随参考：</span>{mooxTechnicalReferenceZh(f.confirmationLevel, "follow")}</p> : null}
+              {f.invalidationLevel ? <p><span className="text-rose-200/80">风控参考：</span>{mooxTechnicalReferenceZh(f.invalidationLevel, "risk")}</p> : null}
+              <p className="text-cyan-100/55">以上只管位置与风控，不改变上方MOOX唯一方向。</p>
             </div>
           </div>
         </section>
@@ -227,7 +232,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
               <article key={`${f.id}-${item.period}`} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-body-sm font-semibold text-white">{item.labelZh}</p>
-                  <Badge variant="outline">{item.direction}</Badge>
+                  <Badge variant="outline">{mooxDirectionLabelZh(item.direction)}</Badge>
                 </div>
                 <p className="mt-2 text-caption text-white/45">
                   {item.primaryHexagram}{item.changingHexagram ? ` → ${item.changingHexagram}` : ""}
@@ -281,11 +286,11 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
                     <span className={`rounded-full border px-2 py-0.5 text-caption ${statusClass}`}>{day.status}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{day.direction}</Badge>
+                    <Badge variant="outline">{mooxDirectionLabelZh(day.direction)}</Badge>
                     <Stars value={day.consensusStars} />
                   </div>
                   <p className="mt-2 text-caption leading-relaxed text-white/65">{day.summary}</p>
-                  {day.confirmation ? <p className="mt-2 text-caption text-emerald-200/65">确认：{day.confirmation}</p> : null}
+                  {day.confirmation ? <p className="mt-2 text-caption text-emerald-200/65">技术跟随参考：{mooxTechnicalReferenceZh(day.confirmation, "follow")}</p> : null}
                   {day.riskNote ? <p className="mt-1 text-caption text-red-200/60">风险：{day.riskNote}</p> : null}
                 </div>
               );
@@ -380,11 +385,12 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </section>
       ) : null}
 
-      {f.methodViews?.length ? (
+      {directionViews.length ? (
         <section className="space-y-2">
-          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">证据怎么投票</p>
+          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">玄学方向票</p>
+          <p className="text-caption text-white/40">这里只展示参与方向判断的玄学证据；技术分析不进入方向投票。</p>
           <div className="grid gap-2 md:grid-cols-2">
-            {f.methodViews.map((view) => (
+            {directionViews.map((view) => (
               <div key={view.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-body-sm font-medium text-white/80">{view.label}</p>
@@ -443,7 +449,7 @@ function LongTermArchive({ periods }: { periods: ConvictionPeriodSlot[] }) {
             <div key={f.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-body-sm font-medium text-white/80">{slot.labelZh}</p>
-                <Badge variant="outline">{f.direction}</Badge>
+                <Badge variant="outline">{mooxDirectionLabelZh(f.direction)}</Badge>
               </div>
               <p className="mt-2 text-caption leading-relaxed text-white/55">{f.archiveSummary}</p>
               <p className="mt-2 text-caption text-white/35">
@@ -584,6 +590,14 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}
 
+        {payload.mode === "fullAccess" && payload.resonanceSignal ? (
+          <section className={`rounded-2xl border p-5 ${payload.resonanceSignal.direction === "BULLISH" ? "border-emerald-300/25 bg-emerald-300/[0.045]" : payload.resonanceSignal.direction === "BEARISH" ? "border-rose-300/25 bg-rose-300/[0.045]" : "border-amber-300/20 bg-amber-300/[0.035]"}`}>
+            <p className="font-mono text-caption uppercase tracking-[0.16em] text-white/45">本周多周期共振</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">{payload.resonanceSignal.direction === "BULLISH" ? "↑ 看涨｜唯一方向" : payload.resonanceSignal.direction === "BEARISH" ? "↓ 看跌｜唯一方向" : "↔ 方向不明确"}</h2>
+            <p className="mt-2 text-body-sm text-white/70">{payload.resonanceSignal.strengthZh} · {payload.resonanceSignal.evidenceZh.join(" · ")}</p>
+            <p className="mt-2 text-caption text-cyan-100/60">排序与方向只使用周卦、月卦和更大周期的玄学证据；技术分析只在下面提供点位。</p>
+          </section>
+        ) : null}
 
         {payload.freshness.needsUpdate ? (
           <Card padding="md" className="border-red-400/20 bg-red-400/[0.04]">
@@ -629,7 +643,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                 </Badge>
               </div>
               <p className="mt-3 max-w-3xl text-body-sm leading-7 text-white/55">
-                你现在能看到的是研究范围和更新状态。真正影响决策的方向路径、关键日期、支撑压力、确认/失效条件和完整六爻证据不会以模糊文字藏在网页DOM里，而是服务器鉴权后才返回给会员。
+                你现在能看到的是研究范围和更新状态。真正影响决策的唯一方向、多周期共振、关键日期、技术点位和完整六爻证据不会以模糊文字藏在网页DOM里，而是服务器鉴权后才返回给会员。
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {payload.locks.map((lock, index) => (
@@ -641,7 +655,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
               </div>
               <div className="mt-4 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
                 <p className="text-body-sm font-medium text-white/80">会员打开后会直接看到什么？</p>
-                <p className="mt-2 text-caption leading-6 text-white/48">当前周期的正式方向、周内/逐日节奏（有真实来源时）、技术位、风险切换条件、多方法共识，以及旧版→新版的修订记录。公开页只留“钩子”，不提前给结论。</p>
+                <p className="mt-2 text-caption leading-6 text-white/48">当前周期先给唯一看涨/看跌结论；周内/逐日节奏用于说明怎么走，技术位只用于找位置和风控，多周期卦象负责判断共振强弱。公开页只留“钩子”，不提前给方向。</p>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button asChild>

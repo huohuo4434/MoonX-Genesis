@@ -13,7 +13,7 @@ const BENEFITS = [
   ["上涨／震荡／下跌概率", "基础版", "完整展示", "Bullish / range-bound / bearish probabilities", "Basic", "Full access"],
   ["运行路径", "基础版", "完整展示", "Expected path", "Basic", "Full access"],
   ["支撑、压力与确认位", "—", "完整展示", "Support, resistance and confirmation", "—", "Full access"],
-  ["失效条件与风险提示", "—", "完整展示", "Invalidation and risk notes", "—", "Full access"],
+  ["技术风控参考与风险提示", "—", "完整展示", "Technical risk references and risk notes", "—", "Full access"],
   ["周度与月度趋势", "—", "完整展示", "Weekly and monthly outlooks", "—", "Full access"],
   ["六爻、奇门与技术依据", "—", "完整展示", "Liu Yao, Qimen Dunjia and technical structure", "—", "Full access"],
   ["重点资产完整研究", "摘要", "完整展示", "Focused-asset research", "Summary", "Full access"],

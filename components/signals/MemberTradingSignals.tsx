@@ -29,7 +29,7 @@ function waitingReason(signal: TradeSignalRecord): string | null {
   if (new Date(signal.validFrom).getTime() > Date.now()) {
     return `实时价格已经取得，入场、止损和目标已生成。信号将于北京时间 ${formatBeijingTime(signal.validFrom)} 开始监控，开始前不会提前模拟入场。`;
   }
-  return "计划价位已经生成，正在等待价格进入入场区并满足确认条件。";
+  return "MOOX方向已经确定；当前只是在等待价格进入更合适的技术执行区。";
 }
 
 export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalRecord[]; stats: TradeSignalStarStat[] }) {
@@ -52,7 +52,7 @@ export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalR
         <div className="grid gap-3 text-body-sm md:grid-cols-4">
           <div><span className="font-medium">星级</span><span className="mt-1 block text-foreground-secondary">方法共识度，不代表预期涨幅。</span></div>
           <div><span className="font-medium">共识分</span><span className="mt-1 block text-foreground-secondary">发布时锁定的证据一致程度。</span></div>
-          <div><span className="font-medium">执行状态</span><span className="mt-1 block text-foreground-secondary">观察、等待确认、已触发或失效。</span></div>
+          <div><span className="font-medium">执行状态</span><span className="mt-1 block text-foreground-secondary">观察、等待技术位置、已触发或结束；这些是执行状态，不修改MOOX方向。</span></div>
           <div><span className="font-medium">风险</span><span className="mt-1 block text-foreground-secondary">与方向独立；高风险不等于看空。</span></div>
         </div>
       </Card>
