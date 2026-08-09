@@ -210,6 +210,29 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         </div>
       </section>
 
+      {/* Key-person BaZi corroboration */}
+      <section className="space-y-4 border-t border-border/[0.08] pt-10">
+        <Heading as="h2" size="h3">
+          {zh ? "关键人物八字旁证" : "Key-person BaZi corroboration"}
+        </Heading>
+        <Card padding="lg" className="space-y-3">
+          <Text variant="body" weight="semibold">
+            {zh ? "只做中长期旁证，不抢资产自身卦象的方向权。" : "Long-horizon corroboration only; it never overrides the asset reading."}
+          </Text>
+          <Text variant="body-sm" color="secondary">
+            {zh
+              ? "仅用于与资产高度绑定的创始人、CEO、控股股东或核心持有人。出生资料必须可追溯；时辰不确定就降低权重并保留候选盘；还要先用公开可核实的重大事业事件回验。通过后只进入月度、季度、年度背景，默认约5%，最高10%，不进入日度方向投票。"
+              : "Used only for people tightly bound to an asset, such as founders, CEOs, controlling shareholders or major strategic holders. Birth data must be traceable; uncertain birth time lowers the weight and keeps alternate charts. Historical career events are backtested first. The signal is then limited to monthly, quarterly and yearly context, normally 5% and capped at 10%."}
+          </Text>
+          <div className="flex flex-wrap gap-2">
+            {(zh
+              ? ["出生资料可追溯", "历史事件回验", "月度以上", "默认5%", "最高10%", "不得覆盖资产卦象"]
+              : ["Traceable birth data", "Historical backtest", "Monthly+ only", "Default 5%", "Max 10%", "Never overrides asset reading"]
+            ).map((label) => <Badge key={label} variant="outline">{label}</Badge>)}
+          </div>
+        </Card>
+      </section>
+
       {/* Directions */}
       <section className="space-y-3 border-t border-border/[0.08] pt-10">
         <Heading as="h2" size="h3">

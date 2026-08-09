@@ -17,7 +17,7 @@ import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily
 
 const LOCKED_ROWS = [
   { key: "direction", zh: "明日方向", en: "Direction" },
-  { key: "prob", zh: "上涨/下跌概率", en: "Up/down probability" },
+  { key: "prob", zh: "上涨/震荡/下跌情景权重", en: "Bull/range/bear scenario weights" },
   { key: "levels", zh: "支撑压力", en: "Support / resistance" },
   { key: "windows", zh: "关键时间窗口", en: "Key time windows" },
   { key: "invalidation", zh: "技术风控参考", en: "Technical risk reference" },

@@ -163,10 +163,10 @@ function forecastImpactFor(
     effectZh = "过热保护：不增加追涨权重";
     effectEn = "Overheat guard: no chase boost";
   } else if (overlay.probabilityShiftPct > 0) {
-    effectZh = `上涨概率 +${overlay.probabilityShiftPct} 个百分点`;
+    effectZh = `上涨情景权重 +${overlay.probabilityShiftPct} 个百分点`;
     effectEn = `Up probability +${overlay.probabilityShiftPct}pp`;
   } else if (overlay.probabilityShiftPct < 0) {
-    effectZh = `上涨概率 ${overlay.probabilityShiftPct} 个百分点`;
+    effectZh = `上涨情景权重 ${overlay.probabilityShiftPct} 个百分点`;
     effectEn = `Up probability ${overlay.probabilityShiftPct}pp`;
   }
 

@@ -22,6 +22,7 @@ import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { syncGeneratedDailyForecastsToVerificationStore } from "@/lib/verification/sync-generated-dailies";
+import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
 import {
   applyXIntelligenceToGeneratedDaily,
   buildXIntelligenceAutoWeight,
@@ -397,7 +398,7 @@ export async function runDailyForecastPipeline(input?: {
             ...record,
             resistanceLevels: [],
             technicalEvidence:
-              "ETH日预测由本周研究和点位卦自动推演；自动交易入场由Bitget ETH 15分钟K线独立确认，不复用BTC价位。",
+              "ETH日预测由本周研究和点位卦自动推演；技术价位等待Bitget ETH真实K线确认，不复用BTC价位，不提供虚构支撑压力。",
           };
         } else {
           try {
@@ -438,6 +439,16 @@ export async function runDailyForecastPipeline(input?: {
         }
 
         if (phase === "lock") {
+          const quality = validateGeneratedDailyPublication(record);
+          if (!quality.ok) {
+            report.errors.push({
+              market,
+              date: target,
+              error: `publication-quality-gate:${quality.issues.map((issue) => `${issue.code}:${issue.message}`).join(" | ")}`,
+            });
+            report.skipped.push(`${market}:${target}:publication-quality-gate`);
+            continue;
+          }
           record = {
             ...record,
             status: "LOCKED",

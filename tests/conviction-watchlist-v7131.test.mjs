@@ -91,7 +91,7 @@ test("SPCX external wave levels stay in member research only", () => {
 test("SPCX page renders external technical cross-validation from member response", () => {
   const page = read("components/conviction/SpcxResearchPage.tsx");
   assert.match(page, /externalTechnicalView/);
-  assert.match(page, /外部技术交叉验证/);
+  assert.match(page, /技术点位参考｜不决定方向/);
 });
 
 test("calendar month path is supported by the shared period model and rendered only from full forecast payload", () => {

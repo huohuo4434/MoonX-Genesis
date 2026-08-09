@@ -3,12 +3,9 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
 import { listPublishedStocks } from "@/lib/data/stocks-store";
-import {
-  countPendingPaymentOrders,
-  listPendingPaymentOrders,
-} from "@/lib/payments/payment-orders-store";
+import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
-import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
+import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 import { isSandboxUser } from "@/lib/admin/sandbox-data";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
@@ -20,18 +17,20 @@ export const revalidate = 0;
 
 export default async function AdminHomePage() {
   const now = new Date();
-  const [user, users, stocks, publicAccuracy, pending, recentPending, tlcStats, todayRows, tomorrowRows] = await Promise.all([
+  const [user, users, stocks, verificationSnapshot, paymentQueue, tlcStats, todayRows, tomorrowRows] = await Promise.all([
     getCurrentUser(),
     listAllAuthUsers(),
     listPublishedStocks(),
-    getPublicAccuracyHistory(now),
-    countPendingPaymentOrders(),
-    listPendingPaymentOrders(5),
+    getPublicVerificationSnapshot(),
+    getAdminPaymentQueueSummary(200),
     getKnowledgeGrowthStats(),
     loadTodayForecastRows(now),
     loadTomorrowForecastRows(now),
   ]);
-  const stats = publicAccuracy.stats;
+  const stats = verificationSnapshot.daily.stats;
+  const pending = paymentQueue.pendingCount;
+  const recentAuto = [...paymentQueue.autoAttention, ...paymentQueue.autoProcessing].slice(0, 5);
+  const recentLegacy = paymentQueue.legacyPending.slice(0, Math.max(0, 5 - recentAuto.length));
   const convictionFreshness = getConvictionWeeklyFreshnessOverview(now);
   const productionUsers = users.filter((u) => !isSandboxUser(u));
   const memberCount = productionUsers.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
@@ -46,6 +45,7 @@ export default async function AdminHomePage() {
     { label: "已发布个股", value: String(stocks.length) },
     { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
     { label: "公开验证样本", value: String(stats.verifiedCount) },
+    { label: "公开待验证", value: String(verificationSnapshot.pending.length + verificationSnapshot.weekly.stats.pending) },
     { label: "公开加权命中率", value: stats.weightedHitRate == null ? "暂无样本" : `${(stats.weightedHitRate * 100).toFixed(1)}%` },
     { label: "老师课程", value: `${tlcStats.lessonCount}节` },
     { label: "老师规则", value: `${tlcStats.ruleCount}条` },
@@ -89,20 +89,26 @@ export default async function AdminHomePage() {
           <Text variant="body-sm" weight="semibold">
             待审核付款：{pending}笔
           </Text>
-          {recentPending.length ? (
+          {recentAuto.length || recentLegacy.length ? (
             <div className="mt-3 flex flex-col gap-2">
-              {recentPending.map((o) => (
-                <div key={o.orderId} className="rounded-md border border-border/[0.08] p-3">
-                  <Text variant="body-sm" weight="semibold">
-                    {o.userEmail}
-                  </Text>
+              {recentAuto.map((o) => (
+                <div key={o.id} className="rounded-md border border-border/[0.08] p-3">
+                  <Text variant="body-sm" weight="semibold">自动订单 · {o.orderNumber}</Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">
-                    {o.planName} · {o.amount} USDT · {o.network} · {formatDateTimeChina(o.submittedAt)}
+                    {o.planName} · {o.expectedAmount} USDT · {o.network} · {formatDateTimeChina(o.createdAt)}
+                  </Text>
+                </div>
+              ))}
+              {recentLegacy.map((o) => (
+                <div key={o.orderId} className="rounded-md border border-border/[0.08] p-3">
+                  <Text variant="body-sm" weight="semibold">{o.userEmail}</Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    旧版订单 · {o.planName} · {o.amount} USDT · {o.network} · {formatDateTimeChina(o.submittedAt)}
                   </Text>
                 </div>
               ))}
               <Button asChild size="sm" className="mt-2 w-fit">
-                <Link href="/admin/payments">立即审核</Link>
+                <Link href="/admin/payments">立即处理</Link>
               </Button>
             </div>
           ) : (

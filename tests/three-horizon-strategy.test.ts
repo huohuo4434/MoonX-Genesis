@@ -84,8 +84,11 @@ test("admin and member desks expose the three strategy profiles and rejection re
   assert.match(adminPage, /ThreeHorizonStrategyClient/);
   assert.match(adminClient, /三周期策略控制台/);
   assert.match(adminClient, /最近决策审计/);
-  assert.match(memberClient, /Bitget 模拟实验/);
-  assert.match(memberClient, /实验规则/);
+  assert.match(memberClient, /AI交易执行台/);
+  assert.match(memberClient, /MEMBER_FEED/);
+  assert.match(memberClient, /LIVE_EXPERIMENT/);
+  assert.match(memberClient, /PAPER/);
+  assert.match(memberClient, /技术分析不参与多空方向投票/);
   assert.match(memberTypes, /strategies: ThreeHorizonPublicStrategy\[\]/);
 });
 
@@ -158,11 +161,11 @@ test("database migration is additive and seeds only shadow profiles", () => {
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM/i);
 });
 
-test("v6.4.1 live active execution targets two small real-money probes without removing hard caps", () => {
+test("v6.4.1 live active execution keeps one small activation target without removing hard caps", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
-  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 2/);
+  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);
   assert.match(source, /MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
   assert.match(source, /environment\.liveMaxTradesPerDay/);

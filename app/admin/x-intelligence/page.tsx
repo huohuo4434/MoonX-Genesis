@@ -175,7 +175,7 @@ export default async function AdminXIntelligencePage() {
               </Text>
               <Text variant="caption" color="secondary" className="mt-2 block">
                 账号 {item.uniqueAccounts24h} 个 · 方法组 {item.methodFamilies24h} 类 · 有效独立源 {item.uniqueSources24h} 组 · 方向一致度 {Math.round(item.agreementRatio24h * 100)}%
-                {autoWeight ? ` · 对上涨概率修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点` : ""}
+                {autoWeight ? ` · 对上涨情景权重修订 ${autoWeight.probabilityShiftPct > 0 ? "+" : ""}${autoWeight.probabilityShiftPct} 个百分点` : ""}
               </Text>
               {item.keyLevels.length > 0 ? (
                 <Text variant="caption" color="secondary" className="mt-2 block">

@@ -17,7 +17,8 @@ export type HexagramDirectionPrior = {
 
 /**
  * Internal directional priors synthesized from the user's locked Liu Yao research set.
- * They are intentionally soft priors: fresh price structure and risk controls remain decisive.
+ * They own directional bias for their valid window. Technical structure may confirm
+ * execution timing and risk levels, but may not flip the metaphysical direction.
  * Date matching uses Beijing natural days and supports the documented +/-1 day phase shift.
  */
 const PRIORS: HexagramDirectionPrior[] = [
@@ -43,7 +44,7 @@ const PRIORS: HexagramDirectionPrior[] = [
     phase: "DECLINE",
     phaseShiftToleranceDays: 1,
     sourceSummary: "反弹完成后重新承压的概率提高。",
-    riskNote: "只在价格结构转弱时启用，不在快速逼空中追空。",
+    riskNote: "方向仍为看跌；技术结构只用于等待更合适的执行时点，不在快速逼空中追价。",
   },
   {
     symbol: "ETHUSDT",
@@ -67,7 +68,7 @@ const PRIORS: HexagramDirectionPrior[] = [
     phase: "DISTRIBUTION",
     phaseShiftToleranceDays: 1,
     sourceSummary: "强波动窗口后段提高兑现权重。",
-    riskNote: "只有技术方向同步转弱才执行。",
+    riskNote: "方向判断不变；技术只负责确认执行时点。",
   },
   {
     symbol: "HYPEUSDT",
@@ -115,7 +116,7 @@ const PRIORS: HexagramDirectionPrior[] = [
     phase: "DISTRIBUTION",
     phaseShiftToleranceDays: 1,
     sourceSummary: "临卦前段完成后进入坤卦承压和横弱阶段。",
-    riskNote: "必须等待反弹失败，不得在超跌低点追空。",
+    riskNote: "看跌方向不变；执行上避免在超跌低点追空。",
   },
   {
     symbol: "QQQUSDT",
@@ -127,7 +128,7 @@ const PRIORS: HexagramDirectionPrior[] = [
     phase: "REPAIR",
     phaseShiftToleranceDays: 1,
     sourceSummary: "8月9日至16日地水师变山雷颐，组织修复、震荡上行但不是直线主升。",
-    riskNote: "科技内部会分化，入场更依赖价格确认。",
+    riskNote: "科技内部会分化；技术只用于选择入场位置。",
   },
   {
     symbol: "SPYUSDT",

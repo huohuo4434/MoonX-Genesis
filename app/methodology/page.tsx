@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/methodology",
     titleZh: "预测方法",
     titleEn: "Methodology",
-    descriptionZh: "六爻负责方向假设，奇门辅助择时，技术结构确认入场与失效，再以公开验证承担结果。",
+    descriptionZh: "六爻负责方向假设，奇门辅助择时，技术结构只负责点位、入场与执行失效，再以公开验证承担结果。",
     descriptionEn: "How MOOX combines Liu Yao directional analysis, Qimen timing, technical market structure, catalyst monitoring and public verification.",
   });
 }

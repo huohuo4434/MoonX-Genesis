@@ -271,7 +271,7 @@ export function TodayDailyForecastView({
                       en={en}
                     />
                     <div>
-                      <Text variant="caption" color="tertiary" className="mb-1 block">{en ? "Confidence distribution (does not change the call)" : "置信分布（不改变唯一方向）"}</Text>
+                      <Text variant="caption" color="tertiary" className="mb-1 block">{en ? "Scenario weights (not a direction vote)" : "情景权重（不参与方向投票）"}</Text>
                       <ProbabilityBars up={p.up} flat={p.flat} down={p.down} en={en} />
                     </div>
                     <div className="grid gap-2 rounded-lg border border-border/[0.07] bg-muted/20 p-3 text-caption sm:grid-cols-3">

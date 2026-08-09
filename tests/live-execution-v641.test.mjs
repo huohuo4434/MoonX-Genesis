@@ -22,10 +22,10 @@ test("existing Vercel live variables are honored", () => {
   assert.match(client, /\["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"\]/);
 });
 
-test("live execution targets two probe entries with small risk and hard caps", () => {
+test("live execution keeps one activation target with small risk and hard caps", () => {
   for (const token of [
     "MOOX_LIVE_ACTIVE_EXECUTION_V641",
-    'MOOX_LIVE_ACTIVITY_TARGET_V641", 2',
+    'MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4',
     "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
     "MOOX_LIVE_SYMBOL_TRADE_CAP_V641",
     "DAILY_MINIMUM_EXECUTION",

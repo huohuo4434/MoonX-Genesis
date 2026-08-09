@@ -42,6 +42,7 @@ export async function POST() {
       { id: "trade-permission", label: "UTA交易权限", ok: security.tradingPermission, detail: security.tradingPermission ? "具备" : "缺失" },
       { id: "manage-permission", label: "UTA管理权限", ok: security.managementPermission, detail: security.managementPermission ? "具备" : "缺失" },
       { id: "withdrawal", label: "API无提币权限", ok: !security.withdrawalPermission, detail: security.withdrawalPermission ? "危险：检测到提币权限" : "未检测到提币权限" },
+      { id: "ip-whitelist", label: "API IP白名单", ok: security.ipWhitelistConfigured, detail: security.ipWhitelistConfigured ? `已绑定${security.ipWhitelist.length}个IP` : "未绑定：服务器将fail-closed拒绝实盘新开仓" },
       { id: "btc-contract", label: "BTCUSDT合约参数", ok: Boolean(btc?.available), detail: btc ? `最小量 ${btc.minTradeNum} · 步长 ${btc.sizeMultiplier} · 状态 ${btc.symbolStatus}` : "未读取到BTCUSDT合约" },
       { id: "btc-quote", label: "BTCUSDT实时行情", ok: Boolean(quote?.price && quote.price > 0), detail: quote ? `${quote.price} @ ${quote.capturedAt}` : "未读取到报价" },
     ];

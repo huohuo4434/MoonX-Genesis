@@ -121,6 +121,79 @@ async function fetchYahooDailyBars(
 }
 
 
+/**
+ * Crypto verification uses a Beijing 00:00-24:00 session because MOOX publishes
+ * and labels crypto forecasts by Beijing date. Yahoo daily candles are UTC-based,
+ * which can shift the validation day and leave otherwise valid BTC/ETH forecasts
+ * stuck in manual review. Aggregate hourly candles into Asia/Shanghai calendar days.
+ */
+async function fetchYahooCryptoBeijingBars(
+  quoteSymbol: string,
+  forecastDate: string
+): Promise<DailyMarketBar[]> {
+  const day = new Date(`${forecastDate}T12:00:00+08:00`);
+  const period1 = Math.floor((day.getTime() - 4 * 24 * 60 * 60 * 1000) / 1000);
+  const period2 = Math.floor((day.getTime() + 2 * 24 * 60 * 60 * 1000) / 1000);
+  const encoded = encodeURIComponent(quoteSymbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1h&period1=${period1}&period2=${period2}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; MOOX/1.0)",
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) throw new Error(`Yahoo crypto hourly HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    chart?: {
+      result?: Array<{
+        timestamp?: number[];
+        indicators?: {
+          quote?: Array<{
+            open?: (number | null)[];
+            high?: (number | null)[];
+            low?: (number | null)[];
+            close?: (number | null)[];
+            volume?: (number | null)[];
+          }>;
+        };
+      }>;
+    };
+  };
+  const result = json.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  if (!result?.timestamp?.length || !quote) return [];
+  const buckets = new Map<string, Array<{ ts: number; open: number; high: number; low: number; close: number; volume: number }>>();
+  for (let i = 0; i < result.timestamp.length; i++) {
+    const ts = result.timestamp[i]!;
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+    if (open == null || high == null || low == null || close == null) continue;
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    const key = toDateKeyInTz(ts, "Asia/Shanghai");
+    const rows = buckets.get(key) ?? [];
+    rows.push({ ts, open, high, low, close, volume: Number(quote.volume?.[i] ?? 0) || 0 });
+    buckets.set(key, rows);
+  }
+  return [...buckets.entries()]
+    .map(([date, rows]) => {
+      const ordered = [...rows].sort((a, b) => a.ts - b.ts);
+      return {
+        date,
+        open: ordered[0]!.open,
+        high: Math.max(...ordered.map((row) => row.high)),
+        low: Math.min(...ordered.map((row) => row.low)),
+        close: ordered[ordered.length - 1]!.close,
+        volume: ordered.reduce((sum, row) => sum + row.volume, 0),
+      } satisfies DailyMarketBar;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+
 
 function localDateTimeParts(tsSeconds: number, timeZone: string): { date: string; time: string; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -241,11 +314,18 @@ export async function fetchRecentDailyBarsForForecast(input: {
   return withRetries(() => fetchYahooDailyBars(input.quoteSymbol, input.asOfDate, input.market), 3);
 }
 
-async function fetchCoinGeckoBtcBars(forecastDate: string): Promise<DailyMarketBar[]> {
-  const day = new Date(`${forecastDate}T00:00:00Z`);
-  const from = Math.floor((day.getTime() - 10 * 24 * 60 * 60 * 1000) / 1000);
+async function fetchCoinGeckoCryptoBars(
+  symbol: string,
+  quoteSymbol: string,
+  forecastDate: string
+): Promise<DailyMarketBar[]> {
+  const normalized = `${symbol} ${quoteSymbol}`.toUpperCase();
+  const coinId = normalized.includes("ETH") ? "ethereum" : normalized.includes("BTC") ? "bitcoin" : null;
+  if (!coinId) throw new Error("CoinGecko fallback only supports BTC/ETH verification");
+  const day = new Date(`${forecastDate}T00:00:00+08:00`);
+  const from = Math.floor((day.getTime() - 4 * 24 * 60 * 60 * 1000) / 1000);
   const to = Math.floor((day.getTime() + 2 * 24 * 60 * 60 * 1000) / 1000);
-  const url = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
+  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(15000),
@@ -253,23 +333,29 @@ async function fetchCoinGeckoBtcBars(forecastDate: string): Promise<DailyMarketB
   });
   if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
   const json = (await res.json()) as { prices?: [number, number][] };
-  const prices = json.prices ?? [];
-  // Aggregate to daily close by UTC date (last price of day)
-  const byDay = new Map<string, number>();
-  for (const [ms, price] of prices) {
-    const key = toDateKeyInTz(Math.floor(ms / 1000), "UTC");
-    byDay.set(key, price);
+  const buckets = new Map<string, Array<{ ms: number; price: number }>>();
+  for (const [ms, price] of json.prices ?? []) {
+    if (!Number.isFinite(ms) || !Number.isFinite(price) || price <= 0) continue;
+    const key = toDateKeyInTz(Math.floor(ms / 1000), "Asia/Shanghai");
+    const rows = buckets.get(key) ?? [];
+    rows.push({ ms, price });
+    buckets.set(key, rows);
   }
-  return [...byDay.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, close]) => ({
-      date,
-      open: close,
-      high: close,
-      low: close,
-      close,
-    }));
+  return [...buckets.entries()]
+    .map(([date, rows]) => {
+      const ordered = [...rows].sort((a, b) => a.ms - b.ms);
+      const prices = ordered.map((row) => row.price);
+      return {
+        date,
+        open: prices[0]!,
+        high: Math.max(...prices),
+        low: Math.min(...prices),
+        close: prices[prices.length - 1]!,
+      } satisfies DailyMarketBar;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
+
 
 function pickSessionBars(
   bars: DailyMarketBar[],
@@ -315,21 +401,26 @@ export async function getDailyMarketResult(input: {
   let bars: DailyMarketBar[] = [];
   let dataSource = `yahoo-finance:${quoteSymbol}`;
 
-  try {
-    bars = await withRetries(() => fetchYahooDailyBars(quoteSymbol, forecastDate, market), 3);
-  } catch (err) {
-    if (market === "CRYPTO" && (quoteSymbol === "BTC-USD" || input.symbol === "BTC")) {
+  if (market === "CRYPTO") {
+    try {
+      bars = await withRetries(() => fetchYahooCryptoBeijingBars(quoteSymbol, forecastDate), 2);
+      dataSource = `yahoo-finance-hourly-beijing:${quoteSymbol}`;
+    } catch (yahooCryptoError) {
       try {
-        bars = await withRetries(() => fetchCoinGeckoBtcBars(forecastDate), 3);
-        dataSource = "coingecko";
+        bars = await withRetries(() => fetchCoinGeckoCryptoBars(input.symbol, quoteSymbol, forecastDate), 2);
+        dataSource = "coingecko-beijing-session";
       } catch (cgErr) {
         return {
-          error: `行情获取失败：Yahoo ${err instanceof Error ? err.message : String(err)}; CoinGecko ${
+          error: `加密行情获取失败：Yahoo ${yahooCryptoError instanceof Error ? yahooCryptoError.message : String(yahooCryptoError)}; CoinGecko ${
             cgErr instanceof Error ? cgErr.message : String(cgErr)
           }`,
         };
       }
-    } else {
+    }
+  } else {
+    try {
+      bars = await withRetries(() => fetchYahooDailyBars(quoteSymbol, forecastDate, market), 3);
+    } catch (err) {
       return { error: `行情获取失败：${err instanceof Error ? err.message : String(err)}` };
     }
   }

@@ -139,7 +139,7 @@ export function generateDailyFromWeekly(input: {
     forecastDate,
   });
 
-  let direction = directionForDay(weekly, progress, moving.active);
+  const direction = directionForDay(weekly, progress, moving.active);
   let path = pathForDay(weekly, progress);
   let probs = baseProbabilities(direction);
   const calendarEvidence = buildCalendarEvidence(forecastDate, weekly.weeklyDirection);
@@ -177,7 +177,8 @@ export function generateDailyFromWeekly(input: {
     invalidationTriggered: input.invalidationTriggered,
   });
 
-  direction = assessed.direction;
+  // Market progress is a technical/execution layer. It may revise path and scenario
+  // weights, but must never overwrite the metaphysical daily direction derived above.
   path = assessed.expectedPath;
   probs = {
     up: assessed.upProbability,

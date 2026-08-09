@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/",
     titleZh: "MOOX Intelligence",
     titleEn: "MOOX Intelligence | Direction First. Confirmation Before Entry.",
-    descriptionZh: "先判方向，再等确认。MOOX提供主要市场方向、概率、路径、关键价位与公开验证。",
+    descriptionZh: "先判方向，再等确认。MOOX提供主要市场方向、情景权重、路径、关键价位与公开验证。",
     descriptionEn: "Structured market outlooks for Bitcoin, Ether, global equity indices, gold, silver and WTI—combining Liu Yao directional analysis, Qimen timing, technical market structure, key levels and public verification.",
   });
 }

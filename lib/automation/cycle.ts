@@ -6,6 +6,7 @@ import { getEffectiveAutomationFlags } from "@/lib/automation/flags";
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { generateReviewsForVerified } from "@/lib/automation/generate-reviews";
 import { runDailyVerification } from "@/lib/verification/run-daily";
+import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 import {
   hasAutomationRunKey,
   listAutomationRuns,
@@ -125,13 +126,14 @@ export async function runMoonxCycle(now = new Date()): Promise<CycleReport> {
 }
 
 export async function getAutomationDashboard() {
-  const [settingsFlags, runs, forecasts, results, reviews, cases] = await Promise.all([
+  const [settingsFlags, runs, forecasts, results, reviews, cases, publicVerification] = await Promise.all([
     getEffectiveAutomationFlags(),
     listAutomationRuns(),
     listDailyForecastRecords(),
     listDailyVerificationResults(),
     listDailyReviews(),
     listLearningCases(),
+    getPublicVerificationSnapshot(),
   ]);
   const last = runs[0] ?? null;
   const failed = runs.filter((row) => row.status === "failed").slice(0, 20);
@@ -161,6 +163,8 @@ export async function getAutomationDashboard() {
     counts: {
       forecasts: forecasts.length,
       verifications: results.length,
+      publicVerifications: publicVerification.daily.stats.verifiedCount + publicVerification.weekly.stats.sampleSize,
+      publicPending: publicVerification.pending.length + publicVerification.weekly.stats.pending,
       reviews: reviews.length,
       cases: cases.length,
       todayForecasts: forecasts.filter((forecast) => forecast.forecastDate === today).length,

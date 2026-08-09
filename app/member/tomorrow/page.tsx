@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/member/tomorrow",
     titleZh: "明日观点 | MOOX Intelligence",
     titleEn: "Next-Session Outlook | MOOX Intelligence",
-    descriptionZh: "下一交易日方向、概率、运行路径与关键价位。",
+    descriptionZh: "下一交易日唯一方向、情景权重、运行路径与技术点位。",
     descriptionEn: "Next-session direction, probabilities, expected path, key levels, confirmation triggers and invalidation conditions.",
   });
 }

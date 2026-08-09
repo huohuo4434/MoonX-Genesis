@@ -177,15 +177,15 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
             <dd>{signalStrength}</dd>
           </div>
           <div>
-            <dt className="text-caption text-foreground-tertiary">上涨概率</dt>
+            <dt className="text-caption text-foreground-tertiary">上涨情景权重</dt>
             <dd className="font-mono tabular-nums">{p.up}%</dd>
           </div>
           <div>
-            <dt className="text-caption text-foreground-tertiary">震荡概率</dt>
+            <dt className="text-caption text-foreground-tertiary">震荡情景权重</dt>
             <dd className="font-mono tabular-nums">{p.flat}%</dd>
           </div>
           <div>
-            <dt className="text-caption text-foreground-tertiary">下跌概率</dt>
+            <dt className="text-caption text-foreground-tertiary">下跌情景权重</dt>
             <dd className="font-mono tabular-nums">{p.down}%</dd>
           </div>
           <div className="sm:col-span-2">

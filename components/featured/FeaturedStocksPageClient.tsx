@@ -314,7 +314,7 @@ export function FeaturedStocksPageClient({ isMember }: { isMember: boolean }) {
 
         <footer className="mt-14 border-t border-white/[0.08] pt-8">
           <p className="max-w-3xl text-caption leading-relaxed text-white/40">
-            MOOX提供的是市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。
+            MOOX提供的是多周期玄学方向研究、技术点位与长期跟踪记录。方向结论不代表保证盈利；所有内容仅供研究参考，不构成任何投资建议。
             MOOX publishes research, probabilistic forecasts, and long-term observation notes. Nothing
             on this page is investment advice.
           </p>

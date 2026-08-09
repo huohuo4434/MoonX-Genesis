@@ -32,7 +32,7 @@ export default async function AccountMembershipPage() {
           )}
           <ul className="mt-4 list-disc space-y-1 pl-5 text-body-sm text-foreground-secondary">
             <li>提前查看下一交易日完整预测</li>
-            <li>方向、概率与运行路径</li>
+            <li>方向、情景权重与运行路径</li>
             <li>支撑、压力与技术风控参考</li>
             <li>盘中修正与历史验证</li>
             <li>邀请好友加入 MOOX，双方各赠送 7 天会员时间</li>

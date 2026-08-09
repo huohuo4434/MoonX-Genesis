@@ -63,12 +63,11 @@ export function assessMarketProgress(input: {
   const snap = input.snapshot;
 
   if (input.invalidationTriggered) {
-    const flipped = /涨|上/.test(weekly) ? "震荡下跌" : /跌|下/.test(weekly) ? "震荡上涨" : "震荡";
     const probs = clampProb(30, 40, 30);
     return {
       status: "INVALIDATED",
-      revisionReason: "价格触发正式失效位，原路径失效；建立修正版本",
-      direction: flipped,
+      revisionReason: "价格触发执行失效位：停止当前执行计划并建立新版本评估；不倒改玄学方向",
+      direction: baseDir,
       ...probs,
       expectedPath: "失效后进入修正路径，等待新确认",
     };
@@ -84,7 +83,7 @@ export function assessMarketProgress(input: {
     return {
       status: "AHEAD",
       revisionReason: "上涨提前兑现并接近压力位",
-      direction: "冲高回落",
+      direction: baseDir,
       ...clampProb(22, 38, 40),
       expectedPath: "高位震荡或冲高回落，不宜继续机械追涨",
     };
@@ -103,8 +102,8 @@ export function assessMarketProgress(input: {
   if (/震荡上涨/.test(weekly) && (hitResistance || weekUp)) {
     return {
       status: "AHEAD",
-      revisionReason: "本周预期涨幅已接近压力位",
-      direction: "冲高回落",
+      revisionReason: "价格已接近技术压力位：执行层进入高位风险控制，不改变玄学看涨方向",
+      direction: baseDir,
       ...clampProb(24, 42, 34),
       expectedPath: "高位震荡或冲高回落，不再重复输出上涨",
     };
@@ -113,8 +112,8 @@ export function assessMarketProgress(input: {
   if (/震荡下跌/.test(weekly) && (hitSupport || weekDown)) {
     return {
       status: "AHEAD",
-      revisionReason: "下跌提前兑现并接近支撑位",
-      direction: "探底回升",
+      revisionReason: "价格已接近技术支撑位：执行层进入低位风险控制，不改变玄学看跌方向",
+      direction: baseDir,
       ...clampProb(36, 40, 24),
       expectedPath: "支撑附近震荡或探底回升，不宜机械追空",
     };

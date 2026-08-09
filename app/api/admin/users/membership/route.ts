@@ -19,6 +19,9 @@ const bodySchema = z.object({
     "suspend",
     "cancel",
   ]),
+  requestId: z.string().uuid(),
+  reason: z.string().trim().min(4).max(300),
+  confirmed: z.literal(true),
 });
 
 const ACTION_PLAN: Record<string, MembershipPlan | null> = {
@@ -57,9 +60,9 @@ export async function POST(request: NextRequest) {
   if (body.action === "suspend" || body.action === "cancel") {
     const result = await revokeMembership({
       userId: body.userId,
-      sourceId: `admin_${body.action}_${body.userId}_${Date.now()}`,
+      sourceId: `admin_${body.action}_${body.requestId}`,
       operatorId: operator?.id ?? null,
-      note: body.action,
+      note: `${body.action}; reason=${body.reason}`,
       mode: body.action,
     });
     return NextResponse.json({ ok: true, ...result });
@@ -70,10 +73,10 @@ export async function POST(request: NextRequest) {
     userId: body.userId,
     plan,
     eventType: "ADMIN_ADJUSTMENT",
-    source: "admin_membership",
-    sourceId: `admin_${body.action}_${body.userId}_${Date.now()}`,
+    source: "admin_grant",
+    sourceId: `admin_${body.action}_${body.requestId}`,
     operatorId: operator?.id ?? null,
-    note: body.action,
+    note: `${body.action}; reason=${body.reason}`,
   });
 
   return NextResponse.json({

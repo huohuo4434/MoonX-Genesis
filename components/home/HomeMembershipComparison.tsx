@@ -7,7 +7,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 const ROWS = [
   ["当日核心市场预测", "北京时间08:00后", "全天提前", "Daily core-market forecasts", "After 08:00 Beijing time", "Early access all day"],
   ["下一交易日方向", "—", "✓", "Next-session direction", "—", "✓"],
-  ["方向概率与运行路径", "基础版", "完整版", "Probabilities and expected path", "Basic", "Full"],
+  ["方向、情景权重与运行路径", "基础版", "完整版", "Direction, scenario weights and path", "Basic", "Full"],
   ["关键价位、确认与失效", "—", "✓", "Levels, confirmation and invalidation", "—", "✓"],
   ["周度与月度趋势", "—", "✓", "Weekly and monthly outlooks", "—", "✓"],
   ["六爻、奇门和技术依据", "—", "✓", "Liu Yao, Qimen Dunjia and technical structure", "—", "✓"],

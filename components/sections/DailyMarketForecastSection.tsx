@@ -93,7 +93,7 @@ export async function DailyMarketForecastSection() {
               覆盖资产：{summary.assetNames.join("、")}
             </Text>
             <ul className="grid gap-2 sm:grid-cols-2 text-body-sm text-foreground-secondary">
-              {["明日唯一方向", "上涨/下跌概率", "技术支撑压力", "关键时间窗口", "技术风控参考"].map((label) => (
+              {["明日唯一方向", "上涨/震荡/下跌情景权重", "技术支撑压力", "关键时间窗口", "技术风控参考"].map((label) => (
                 <li key={label} className="rounded-md border border-border/[0.08] px-3 py-2">
                   {label}：<span className="text-foreground-tertiary">会员解锁</span>
                 </li>

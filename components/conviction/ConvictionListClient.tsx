@@ -94,7 +94,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
         {!visible.length ? <Text variant="body-sm" className="mt-8 text-white/55">{en ? "No published research-watchlist assets yet." : "暂无已发布的重点关注资产。"}</Text> : null}
 
         <footer className="mt-12 border-t border-white/[0.08] pt-6">
-          <p className="max-w-3xl text-caption leading-relaxed text-white/40">{en ? "MOOX provides market research and probability-based outlooks. Nothing on this page is investment advice." : "MOOX提供市场研究、概率预测和长期跟踪观点。所有内容仅供研究参考，不构成任何投资建议。"}</p>
+          <p className="max-w-3xl text-caption leading-relaxed text-white/40">{en ? "MOOX provides multi-horizon metaphysical direction research, technical level references and research archives. Direction calls do not guarantee outcomes and are not investment advice." : "MOOX提供多周期玄学方向研究、技术点位与长期跟踪记录。方向结论不代表保证盈利；所有内容仅供研究参考，不构成任何投资建议。"}</p>
         </footer>
       </div>
     </div>

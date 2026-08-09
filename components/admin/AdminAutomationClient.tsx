@@ -132,7 +132,9 @@ export function AdminAutomationClient({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["预测记录", dashboard.counts.forecasts],
-          ["验证结果", dashboard.counts.verifications],
+          ["内部验证流水", dashboard.counts.verifications],
+          ["公开验证已完成", dashboard.counts.publicVerifications ?? 0],
+          ["公开待验证", dashboard.counts.publicPending ?? 0],
           ["复盘", dashboard.counts.reviews],
           ["学习案例", dashboard.counts.cases],
         ].map(([label, value]) => (

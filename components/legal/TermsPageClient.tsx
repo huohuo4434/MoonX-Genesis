@@ -5,7 +5,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 const BENEFITS_ZH = [
   "全天提前查看当日完整预测与下一交易日观点",
-  "唯一方向、完整概率、运行路径、关键价位与技术风控参考",
+  "唯一方向、完整情景权重、运行路径、关键价位与技术风控参考",
   "周度、月度趋势及六爻、奇门、技术分析依据",
   "重点资产完整研究、AI交易台与会员交易信号",
 ];
@@ -28,7 +28,7 @@ export function TermsPageClient({ supportEmail }: { supportEmail: string }) {
           {en ? "By using MOOX, you agree to the following terms." : "使用MOOX服务，即表示您同意以下条款。"}
         </Text>
         <div className="mt-8 space-y-8 text-body-sm text-foreground-secondary">
-          <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Nature of the service" : "服务性质"}</h2><p>{en ? "MOOX provides research on market direction, probabilities, expected paths, key levels and verification records. It is not investment advice, trading advice or a return guarantee. Past performance does not predict future results." : "MOOX提供市场方向、概率、运行路径、关键价位与验证记录等研究内容，仅供参考，不构成投资建议、交易建议或收益保证。历史表现不代表未来结果。"}</p></section>
+          <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Nature of the service" : "服务性质"}</h2><p>{en ? "MOOX provides research on market direction, scenario weights, expected paths, key levels and verification records. It is not investment advice, trading advice or a return guarantee. Past performance does not predict future results." : "MOOX提供市场方向、情景权重、运行路径、关键价位与验证记录等研究内容，仅供参考，不构成投资建议、交易建议或收益保证。历史表现不代表未来结果。"}</p></section>
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Paid-member benefits" : "付费会员权益"}</h2><ul className="list-disc space-y-1 pl-5">{benefits.map((item)=><li key={item}>{item}</li>)}</ul></section>
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Prices and founding-member offer" : "价格与创始会员优惠"}</h2><p>{en ? "List prices are 80 USDT monthly, 200 USDT quarterly and 700 USDT annually. The first 10 valid paid accounts receive 20% off while renewals remain uninterrupted; accounts ranked 11–50 receive 10% off. The benefit is account-bound, non-transferable and non-stackable. A renewal order must be submitted before expiry; once interrupted, the founding discount is permanently forfeited." : "标准价格为月度80 USDT、季度200 USDT、年度700 USDT。前10名有效付费账户在连续续订期间享永久8折，第11至50名享永久9折。资格仅限本人账户，不可转让、不可叠加。续费订单必须在到期前提交；一旦中断，创始会员折扣永久失效。"}</p></section>
           <section className="space-y-2"><h2 className="text-body font-semibold text-foreground">{en ? "Payment and automatic verification" : "付款与自动核验"}</h2><p>{en ? "Choose a plan, generate a time-limited order, send the exact amount of the configured token on the selected network and submit the transaction hash. The system verifies the token contract, recipient, amount, time and confirmations; matching payments activate membership automatically. Exceptional payments may be held for support review." : "请选择套餐并生成限时订单，使用所选网络向指定地址转账页面显示的精确金额，再提交交易哈希。系统会自动核对代币合约、收款地址、金额、时间和确认数，匹配后自动开通会员；异常付款才会转入客服复核。"}</p></section>

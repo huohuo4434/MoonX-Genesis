@@ -5,11 +5,10 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady, paymentNotifyTo } from "@/lib/email/notifications";
 import {
   getAutoPaymentUserEmailMap,
-  listAllAutoPaymentOrders,
   type AutoPaymentOrder,
 } from "@/lib/payments/auto-payment-orders";
 import { getPaymentConfig } from "@/lib/payments/config";
-import { listPaymentOrders } from "@/lib/payments/payment-orders-store";
+import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
@@ -37,25 +36,10 @@ function legacyStatusBadge(status: string, isTest: boolean) {
   return <Badge variant="warning">待审核</Badge>;
 }
 
-function autoOrderNeedsAttention(order: AutoPaymentOrder): boolean {
-  return Boolean(order.txHash) && ["underpaid", "manual_review", "rejected", "expired"].includes(order.status);
-}
-
 export default async function AdminPaymentsPage() {
-  const [autoOrders, legacyOrders] = await Promise.all([
-    listAllAutoPaymentOrders(200),
-    listPaymentOrders(),
-  ]);
+  const paymentQueue = await getAdminPaymentQueueSummary(200);
+  const { autoOrders, legacyOrders, autoAttention, autoProcessing, autoPaid, legacyPending, legacyApproved, legacyRejected, legacyTests: tests } = paymentQueue;
   const emailMap = await getAutoPaymentUserEmailMap(autoOrders.map((order) => order.userId));
-  const autoAttention = autoOrders.filter(autoOrderNeedsAttention);
-  const autoProcessing = autoOrders.filter((order) => order.status === "pending" || order.status === "verifying");
-  const autoPaid = autoOrders.filter((order) => order.status === "paid" || order.status === "overpaid");
-
-  const production = legacyOrders.filter((order) => !order.isTest);
-  const legacyPending = production.filter((order) => order.status === "pending");
-  const legacyApproved = production.filter((order) => order.status === "approved");
-  const legacyRejected = production.filter((order) => order.status === "rejected");
-  const tests = legacyOrders.filter((order) => order.isTest);
   const cfg = getPaymentConfig();
   const emailConfigured = isPaymentEmailConfigured();
   const emailProductionReady = isPaymentEmailProductionReady();
@@ -129,7 +113,7 @@ export default async function AdminPaymentsPage() {
   return (
     <main>
       <Section spacing="lg">
-        <AdminNav current="/admin/payments" pendingCount={autoAttention.length + autoProcessing.length + legacyPending.length} />
+        <AdminNav current="/admin/payments" pendingCount={paymentQueue.pendingCount} />
         <Heading as="h1" size="h2">付款与自动开通</Heading>
 
         <Card padding="md" className="mt-4 space-y-1 border border-cyan-500/20 bg-cyan-500/[0.04]">

@@ -52,7 +52,7 @@ export function MemberMonthlyPage() {
               en={en}
             />
             <div className="space-y-2">
-              <Text variant="caption" color="tertiary">{en ? "Confidence distribution (does not change the call)" : "置信分布（不改变唯一方向）"}</Text>
+              <Text variant="caption" color="tertiary">{en ? "Scenario weights (not a direction vote)" : "情景权重（不参与方向投票）"}</Text>
               {bars(item.probabilities, en).map(([label, value, color]) => (
                 <div key={label} className="flex items-center gap-3 text-sm">
                   <span className="w-14 text-foreground-tertiary">{label}</span>

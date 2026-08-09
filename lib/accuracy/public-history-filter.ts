@@ -1,6 +1,6 @@
 /**
  * Pure public historical accuracy filters (no I/O).
- * Past verified forecasts only — never today / tomorrow / pending / draft.
+ * Verified forecasts only — never future / pending / draft. A same-day row may appear after its market session has been verified.
  */
 import { getChinaDateKey } from "@/lib/date/china-date";
 import { HSTECH_MIN_INDEX_LEVEL, isHstechSymbol } from "@/lib/market-data/quote-symbols";
@@ -116,14 +116,16 @@ function rate(hits: number, misses: number): number | null {
 }
 
 /**
- * predictionDate < China today AND verifiedAt present AND final verdict.
+ * predictionDate <= China today AND verifiedAt present AND final verdict.
+ * Session readiness is enforced by the verifier, so a CN/HK same-day result may become public after close.
  */
 export function filterPublicAccuracyHistory(input: {
   forecasts: DailyForecastRecord[];
   results: DailyVerificationResult[];
   now?: Date;
 }): PublicAccuracyHistoryItem[] {
-  const todayKey = getChinaDateKey(input.now ?? new Date());
+  const now = input.now ?? new Date();
+  const todayKey = getChinaDateKey(now);
   const forecastById = new Map(input.forecasts.map((f) => [f.id, f]));
 
   const items: PublicAccuracyHistoryItem[] = [];
@@ -133,8 +135,13 @@ export function filterPublicAccuracyHistory(input: {
     if (r.forecastDate < OFFICIAL_DAILY_VERIFICATION_START) continue;
     if (!r.verifiedAt) continue;
     if (!isPublicFinalVerdict(r.verdict)) continue;
-    // Strict: forecastDate < today (never <=)
-    if (!(r.forecastDate < todayKey)) continue;
+    // Never publish a result before its recorded verification time. This also prevents
+    // calendar rollover from exposing a row that the verifier has not actually finalized yet.
+    const verifiedAtMs = new Date(r.verifiedAt).getTime();
+    if (!Number.isFinite(verifiedAtMs) || verifiedAtMs > now.getTime()) continue;
+    // Terminal same-day results are safe to show as soon as verification is actually complete.
+    // Future-dated forecast rows remain hidden.
+    if (r.forecastDate > todayKey) continue;
 
     const f = forecastById.get(r.forecastId);
     if (f) {

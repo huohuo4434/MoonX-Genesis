@@ -96,9 +96,9 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
       </details> : null}
       <dl className="grid gap-2 text-body-sm sm:grid-cols-2">
         <div><dt className="text-caption text-foreground-tertiary">{en ? "Official call" : "MOOX唯一方向"}</dt><dd className="font-medium">{mooxDirectionArrow(a.overallDirection)} {en ? mooxDirectionLabelEn(a.overallDirection) : mooxDirectionLabelZh(a.overallDirection)}</dd></div>
-        <div><dt className="text-caption text-foreground-tertiary">{en ? "Higher" : "上涨概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.up}%</dd></div>
-        <div><dt className="text-caption text-foreground-tertiary">{en ? "Range-bound" : "震荡概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.flat}%</dd></div>
-        <div><dt className="text-caption text-foreground-tertiary">{en ? "Lower" : "下跌概率"}</dt><dd className="font-mono tabular-nums">{a.probabilities.down}%</dd></div>
+        <div><dt className="text-caption text-foreground-tertiary">{en ? "Bullish scenario" : "上涨情景权重"}</dt><dd className="font-mono tabular-nums">{a.probabilities.up}%</dd></div>
+        <div><dt className="text-caption text-foreground-tertiary">{en ? "Range scenario" : "震荡情景权重"}</dt><dd className="font-mono tabular-nums">{a.probabilities.flat}%</dd></div>
+        <div><dt className="text-caption text-foreground-tertiary">{en ? "Bearish scenario" : "下跌情景权重"}</dt><dd className="font-mono tabular-nums">{a.probabilities.down}%</dd></div>
         <div className="sm:col-span-2"><dt className="text-caption text-foreground-tertiary">{en ? "Expected weekly path" : "本周路径"}</dt><dd className="text-foreground-secondary">{en ? safeEnglish(a.weeklyPath) : a.weeklyPath}</dd></div>
         {a.basisWeights ? <div className="sm:col-span-2">
           <dt className="text-caption text-foreground-tertiary">{en ? "Research roles" : "研究分工"}</dt>

@@ -20,7 +20,7 @@ export const CORE_MARKETS = [
 
 export const MEMBERSHIP_BENEFIT_ROWS: MembershipBenefitRow[] = [
   { feature: "当日核心市场预测", free: "北京时间08:00后查看", paid: "全天提前查看完整内容" },
-  { feature: "上涨／震荡／下跌概率", free: "基础展示", paid: "完整展示" },
+  { feature: "上涨／震荡／下跌情景权重", free: "基础展示", paid: "完整展示" },
   { feature: "运行路径", free: "基础展示", paid: "完整展示" },
   { feature: "下一交易日方向", free: "—", paid: "✓" },
   { feature: "支撑、压力与入场确认", free: "—", paid: "✓" },

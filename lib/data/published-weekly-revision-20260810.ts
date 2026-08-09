@@ -13,6 +13,7 @@ const WEEK_START = "2026-08-10";
 const WEEK_END = "2026-08-16";
 const PUBLISHED_AT = "2026-08-06T21:10:00+08:00";
 const PUBLISHED_AT_V2 = "2026-08-08T09:55:00+08:00";
+const PUBLISHED_AT_V3 = "2026-08-09T10:02:00+08:00";
 
 const STANDARD_BLEND: WeeklyBasisWeights = {
   technical: 30,
@@ -49,9 +50,19 @@ export const WEEKLY_RESEARCH_BLEND_NOTE_20260810_V2 = {
   en: "V2 was locked on Aug 8, 2026, before the target week. The second Liu Yao teacher is used only as an independent cross-check inside the Liu Yao method bucket; it does not raise the total method weight and cannot trigger trades alone. BTC and gold keep their primary directions with refined weekly paths. ETH and silver are newly filled because a week-specific source is now available. WTI remains pending. Aug 12 and Aug 15 are explicit ETH timing windows from the source; gold and silver keep range-based timing instead of inventing single-day precision.",
 };
 
+export const WEEKLY_RESEARCH_BLEND_NOTE_20260810_V3 = {
+  zh: "V3于2026年8月9日、目标周开始前锁定。MOOX统一方法论：六爻与多周期玄学共振负责唯一方向，技术分析只负责点位、执行和风险边界，不参与方向投票。BTC因此以此前已锁定的8/10–16六爻W2 V2（震荡上涨）作为正式方向源，V1/V2完整保留；页面百分比统一称为情景权重，不作为方向投票。",
+  en: "V3 was locked on Aug 9 before the target week. MOOX now uses Liu Yao and cross-horizon metaphysical resonance for the official direction; technical analysis is restricted to levels, execution and risk boundaries. BTC therefore uses the previously locked Aug 10–16 Liu Yao W2 V2 bullish reading as the formal direction source. V1/V2 remain archived. Percentages are scenario weights, not direction votes.",
+};
+
 export const WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V2 = {
   zh: "版本审计：2026年8月6日V1原始文件不删除；BTC与黄金V1作为审计副本保留，V2在8月10日目标周开始前发布。第二位老师对白银提到的62属于结合K线的技术参考，不是卦象价格位，本次不写入正式支撑/压力，等待真实行情技术确认。此前奇门老师8月5日亥日黄金反弹样本仍只作为来源验证，不用于追溯改写旧预测。",
   en: "Version audit: the original Aug 6 V1 module is not deleted. BTC and gold V1 are retained as audit snapshots, while V2 is published before the Aug 10 target week. The silver 62 reference from the second teacher was explicitly a chart-based technical reference rather than a hexagram-derived level, so it is not published as formal support/resistance until real market data confirms it. The prior Aug 5 gold Qimen sample remains source verification only and does not rewrite history.",
+};
+
+export const WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V3 = {
+  zh: "版本审计：V1、V2均保留；V3在2026年8月9日、目标周开始前发布，仅用于统一方法论与正式方向源，没有使用目标周结果。技术点位仍必须来自真实行情；没有可靠价位时明确显示等待技术数据，不虚构支撑压力。",
+  en: "Version audit: V1 and V2 are preserved. V3 was published on Aug 9 before the target week solely to unify methodology and the formal direction source; no target-week outcome was used. Technical levels still require real market data and are never fabricated.",
 };
 
 const BASE_BTC_V1: WeeklyAnalysisRecord = {
@@ -328,6 +339,47 @@ const BTC_V2: WeeklyAnalysisRecord = {
   ],
 };
 
+const BTC_V3: WeeklyAnalysisRecord = {
+  ...BTC_V2,
+  id: "WEEKLY-BTC-20260810-V3",
+  overallDirection: "震荡上涨",
+  weeklyPath:
+    "本周唯一方向：看涨。8月10日至16日是BTC八月相对最强的卦象窗口，周卦与月度背景同向偏多；上涨过程仍会伴随六冲、游魂带来的快速回撤，但回撤属于周内路径，不把MOOX正式方向改成看跌。",
+  headline:
+    "BTC 8/10–16正式方向统一为看涨：以六爻周卦和更大周期共振定方向，技术分析只负责入场与风险点位。",
+  probabilities: { up: 55, flat: 25, down: 20 },
+  strongWindow: "8月中旬整体为偏强窗口；周中更容易放大上行动能",
+  weakWindow: "六冲/游魂意味着途中会出现快速回撤和高波动，但属于节奏风险，不反向修改周度看涨结论",
+  invalidation:
+    "技术结构失效只会暂停当前执行计划并触发新版本评估，不倒改本V3已锁定的玄学看涨方向。若未来新增卦象与当前周/月卦发生冲突，则另发新版本并保留V1/V2/V3审计链。",
+  confirmation:
+    "技术分析仅用于寻找更合适的入场、止损与止盈位置；不参与本周多空方向投票。",
+  catalysts: ["8/10–16周卦看涨", "申月扶助财爻金", "BTC与ETH同期卦象共振"],
+  risks: ["六冲带来快速反向波动", "游魂提示持续性不平滑", "看涨方向不等于追高"],
+  basisWeights: {
+    ...BTC_V2.basisWeights!,
+    note: "V3方法统一：六爻与多周期玄学共振负责唯一方向；技术结构不再拥有方向投票权，只负责点位、执行与风险边界。原V1/V2不删除。",
+  },
+  sourceIds: [
+    ...(BTC_V2.sourceIds ?? []),
+    "BTC-W2-20260810-V2",
+    "MOOX-DIRECTION-DOCTRINE-V7136",
+  ],
+  publishedAt: PUBLISHED_AT_V3,
+  updatedAt: PUBLISHED_AT_V3,
+  version: 3,
+  originalLocked: true,
+  revisions: [
+    ...(BTC_V2.revisions ?? []),
+    {
+      version: 2,
+      previousContent: "V2方向=先涨后跌；第二来源仅细化24–36小时快速反向风险。",
+      changedAt: PUBLISHED_AT_V3,
+      reason: "目标周开始前统一MOOX方法论：以已锁定BTC 8/10–16六爻W2 V2（震荡上涨）作为正式方向源。此次修订发生在结果未知时，保留V1/V2，不事后覆盖。",
+    },
+  ],
+};
+
 const ETH_V1: WeeklyAnalysisRecord = {
   id: "WEEKLY-ETH-20260810-V1",
   assetId: "eth",
@@ -466,11 +518,24 @@ const SILVER_V1: WeeklyAnalysisRecord = {
 
 export const ARCHIVED_WEEKLY_ANALYSES_20260810: WeeklyAnalysisRecord[] = [
   { ...BASE_BTC_V1, status: "archived", updatedAt: PUBLISHED_AT_V2 },
+  { ...BTC_V2, status: "archived", updatedAt: PUBLISHED_AT_V3 },
   { ...BASE_GOLD_V1, status: "archived", updatedAt: PUBLISHED_AT_V2 },
 ];
 
+/** V2 remains exported for historical audit/tests; current pages use V3 below. */
 export const PUBLISHED_WEEKLY_ANALYSES_20260810_V2: WeeklyAnalysisRecord[] = [
   BTC_V2,
+  ETH_V1,
+  BASE_SPX_V1,
+  BASE_NDX_V1,
+  BASE_SHCOMP_V1,
+  BASE_HSTECH_V1,
+  GOLD_V2,
+  SILVER_V1,
+];
+
+export const PUBLISHED_WEEKLY_ANALYSES_20260810_V3: WeeklyAnalysisRecord[] = [
+  BTC_V3,
   ETH_V1,
   BASE_SPX_V1,
   BASE_NDX_V1,

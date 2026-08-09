@@ -105,8 +105,9 @@ function guidanceDayStage(forecastDate: string): "PRESSURE" | "TURN" | "REBOUND"
 }
 
 /**
- * Convert the weekly path plus a point-specific support question into a conservative
- * daily execution forecast. This is explicitly a weekly/point inference, not a daily hexagram.
+ * Convert a point-specific Liu Yao support question into an execution overlay.
+ * It may add levels, timing notes and scenario weights, but it never replaces the
+ * official direction inherited from the weekly/metaphysical research.
  */
 export function applyCryptoPointGuidanceToDaily(
   record: GeneratedDailyForecastRecord
@@ -121,7 +122,6 @@ export function applyCryptoPointGuidanceToDaily(
   if (stage === "PRESSURE") {
     return {
       ...record,
-      direction: "震荡下跌",
       upProbability: gate.symbol === "BTC" ? 23 : 25,
       sidewaysProbability: 31,
       downProbability: gate.symbol === "BTC" ? 46 : 44,
@@ -139,11 +139,10 @@ export function applyCryptoPointGuidanceToDaily(
   if (stage === "TURN") {
     return {
       ...record,
-      direction: "先跌后涨",
       upProbability: 37,
       sidewaysProbability: 32,
       downProbability: 31,
-      expectedPath: `仍可能先测试${threshold}，若4小时未有效跌破且15分钟出现止跌，转入探底修复；若有效跌破则取消做多。`,
+      expectedPath: `仍可能先测试${threshold}；4小时与15分钟结构只用于判断执行节奏。有效跌破时暂停当前做多执行计划，但不反向修改MOOX正式方向。`,
       supportLevels: [threshold, ...record.supportLevels.filter((item) => item !== threshold)],
       confirmationLevel: `4小时收盘守住${threshold}且15分钟止跌反弹`,
       invalidationLevel: `4小时收盘低于${threshold}`,
@@ -155,11 +154,10 @@ export function applyCryptoPointGuidanceToDaily(
 
   return {
     ...record,
-    direction: "探底回升",
     upProbability: 42,
     sidewaysProbability: 33,
     downProbability: 25,
-    expectedPath: `关键窗口内观察${threshold}支撑确认；守住并出现15分钟回升结构后，以修复反弹为主，未确认前继续等待。`,
+    expectedPath: `关键窗口内观察${threshold}附近的执行位置；15分钟回升结构用于择时，未确认前等待更好的入场位置，不改变MOOX正式方向。`,
     supportLevels: [threshold, ...record.supportLevels.filter((item) => item !== threshold)],
     confirmationLevel: `4小时收盘守住${threshold}且15分钟回升确认`,
     invalidationLevel: `4小时收盘低于${threshold}`,

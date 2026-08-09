@@ -1,6 +1,6 @@
 /**
  * Server loader for public historical accuracy.
- * Never returns today / tomorrow / pending / draft records.
+ * Never returns future / pending / draft records; verified same-day market-close results are allowed.
  */
 import "server-only";
 

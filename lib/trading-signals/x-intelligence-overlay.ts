@@ -126,7 +126,7 @@ export function applyXIntelligenceToGeneratedDaily(
     record.sidewaysProbability,
     record.downProbability - shift
   );
-  let direction = record.direction;
+  const direction = record.direction;
   let revisionReason = record.revisionReason;
   const riskNotes = [...record.risks];
 
@@ -140,16 +140,14 @@ export function applyXIntelligenceToGeneratedDaily(
     riskNotes.push("匿名X情报多空分歧较大：动态权重已自动降至低档。")
   }
 
-  if (/^震荡$/.test(direction) && Math.abs(shift) >= 4) {
-    direction = shift > 0 ? "震荡上涨" : "震荡下跌";
-  }
-
+  // MOOX doctrine: X/social intelligence can shift scenario weights and risk notes,
+  // but it never owns the official bullish/bearish direction.
   if (overlay.weightPct >= 5 || overlay.forecastAction === "OVERHEAT_GUARD") {
     const effect = overlay.forecastAction === "OVERHEAT_GUARD"
       ? "触发过热保护"
       : shift === 0
         ? "保持中性"
-        : `对上涨概率${shift > 0 ? "+" : ""}${shift}个百分点`;
+        : `对上涨情景权重${shift > 0 ? "+" : ""}${shift}个百分点`;
     revisionReason = [record.revisionReason, `X情报自动层：${effect}；${overlay.explanation}`]
       .filter(Boolean)
       .join("；");
@@ -161,7 +159,7 @@ export function applyXIntelligenceToGeneratedDaily(
     upProbability: probs.up,
     sidewaysProbability: probs.flat,
     downProbability: probs.down,
-    newsEvidence: [record.newsEvidence, `MOOX匿名X情报：${overlay.explanation} 仅作辅助权重，不能单独触发实盘。`]
+    newsEvidence: [record.newsEvidence, `MOOX匿名X情报：${overlay.explanation} 只调整情景权重与风险提示，不参与官方多空方向投票，也不能单独触发实盘。`]
       .filter(Boolean)
       .join("；"),
     revisionReason,
@@ -175,6 +173,6 @@ export function xIntelligenceCommitteeMemo(overlay: XIntelligenceAutoWeight | nu
     ? "过热保护，不追高"
     : overlay.probabilityShiftPct === 0
       ? "中性，不调整方向"
-      : `方向概率修订${overlay.probabilityShiftPct > 0 ? "+" : ""}${overlay.probabilityShiftPct}个百分点`;
+      : `情景权重修订${overlay.probabilityShiftPct > 0 ? "+" : ""}${overlay.probabilityShiftPct}个百分点`;
   return `[MOOX匿名X情报自动层] ${overlay.explanation} 预测作用：${effect}。该层不能单独触发交易，也不得覆盖已锁定历史预测。`;
 }

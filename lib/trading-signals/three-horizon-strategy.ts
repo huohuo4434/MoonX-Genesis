@@ -77,7 +77,7 @@ const LIVE_COMMISSIONING_RISK_PCT = 0.05;
 // This extra switch is only an emergency kill switch and defaults to enabled once those
 // explicit real-money gates have already been accepted.
 const LIVE_COMMISSIONING_ENABLED =
-  process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
+  process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() !== "false";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
   process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
 const LIVE_ACTIVITY_ENABLED = LIVE_ACTIVE_EXECUTION_ENABLED;
@@ -461,6 +461,49 @@ function priorDirectionalScore(prior: HexagramDirectionPrior | null): number {
   return directionValue(prior.direction) * clamp(prior.confidence, 40, 85);
 }
 
+/**
+ * Official MOOX side selector. Metaphysical/canonical research owns direction.
+ * Technical signals never enter this vote; they are evaluated later only for
+ * timing, entry quality and hard risk controls. When formal sources disagree,
+ * the direction is explicitly NEUTRAL rather than letting price action break the tie.
+ */
+function resolveOfficialMooxDirection(input: {
+  plan?: PredictionStrategyPlan;
+  prior: HexagramDirectionPrior | null;
+  focusDirection?: ThreeHorizonDirection;
+}): { direction: ThreeHorizonDirection; strength: number; label: string } {
+  const candidates: Array<{ source: string; direction: ThreeHorizonDirection; confidence: number }> = [];
+  const focusDirection = input.focusDirection ?? "NEUTRAL";
+  if (focusDirection !== "NEUTRAL") {
+    candidates.push({ source: "研究总控", direction: focusDirection, confidence: 68 });
+  }
+  const planDirection = forecastDirection(input.plan);
+  if (planDirection !== "NEUTRAL") {
+    candidates.push({ source: "正式预测", direction: planDirection, confidence: clamp(input.plan?.confidence ?? 55, 35, 85) });
+  }
+  if (input.prior) {
+    candidates.push({ source: "六爻先验", direction: input.prior.direction, confidence: clamp(input.prior.confidence, 40, 85) });
+  }
+  if (!candidates.length) {
+    return { direction: "NEUTRAL", strength: 0, label: "未找到锁定的玄学/正式预测方向" };
+  }
+  const unique = new Set(candidates.map((item) => item.direction));
+  if (unique.size > 1) {
+    return {
+      direction: "NEUTRAL",
+      strength: 0,
+      label: `正式方向冲突：${candidates.map((item) => `${item.source}${item.direction === "LONG" ? "看涨" : "看跌"}`).join(" / ")}`,
+    };
+  }
+  const direction = candidates[0]!.direction;
+  const confidence = Math.max(...candidates.map((item) => item.confidence));
+  return {
+    direction,
+    strength: confidence * directionValue(direction),
+    label: `${direction === "LONG" ? "看涨" : "看跌"}；${candidates.map((item) => item.source).join(" + ")}同向`,
+  };
+}
+
 function resolveActiveDirection(input: {
   primary: DirectionSignal;
   secondary?: DirectionSignal;
@@ -585,11 +628,11 @@ function forecastCompatibility(
     return { score: 50, label: "预测暂未形成明确方向，仅作中性权重", compatible: true };
   }
   if (direction === forecast) {
-    return { score: Math.max(55, confidence), label: `预测方向与技术方向一致（${confidence}%）`, compatible: true };
+    return { score: Math.max(55, confidence), label: `正式预测方向与策略方向一致（情景置信${confidence}%）`, compatible: true };
   }
   return {
     score: Math.max(0, 100 - confidence),
-    label: `预测方向与技术方向冲突（预测${forecast === "LONG" ? "偏多" : "偏空"}）`,
+    label: `当前策略方向与正式预测冲突（正式预测${forecast === "LONG" ? "看涨" : "看跌"}）`,
     compatible: false,
   };
 }
@@ -679,20 +722,17 @@ function evaluateIntraday(
   const activeDirection = resolveActiveDirection({
     primary: h1Signal,
     secondary: m15Signal,
-    plan,
-    prior,
-    primaryWeight: 0.58,
-    secondaryWeight: 0.22,
+    plan: undefined,
+    prior: null,
+    primaryWeight: 0.72,
+    secondaryWeight: 0.28,
   });
-  // MOOX defines the weekly/day path. The market defines the actual entry node.
-  // Countertrend is only permitted for an explicitly forecast reversal leg plus strong 1H/15m confluence.
-  const forecastMooxDirection = forecastDirection(plan);
-  const mooxDirection = focusMainDirection !== "NEUTRAL" ? focusMainDirection : forecastMooxDirection;
-  const direction = strongCountertrend
-    ? focusTacticalDirection
-    : mooxDirection !== "NEUTRAL"
-      ? mooxDirection
-      : activeDirection.direction;
+  // MOOX defines the side. Price action only confirms the execution node.
+  // Countertrend is permitted only when the RESEARCH layer explicitly pre-marks
+  // a tactical reversal leg; 1H/15m evidence merely confirms timing.
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior, focusDirection: focusMainDirection });
+  const mooxDirection = officialDirection.direction;
+  const direction = strongCountertrend ? focusTacticalDirection : mooxDirection;
   const latest15 = last(m15);
   const previous15 = m15[m15.length - 2];
   const latest5 = last(m5);
@@ -770,18 +810,16 @@ function evaluateIntraday(
   const environmentAligned = strongCountertrend || activeDirection.direction === direction;
   const environmentSoft = mooxDirection !== "NEUTRAL" && activeDirection.direction === "NEUTRAL" && Math.abs(activeDirection.strength) < 12;
   const conditions: ThreeHorizonCondition[] = [
-    { key: "environment", label: "1小时主动方向", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`, weight: 20 },
-    { key: "direction", label: "15分钟方向结构", met: structureMet, value: `收盘${latest15?.close ?? 0}，EMA20 ${round(ema15, 2)}，RSI ${round(rsi15, 1)}，趋势分${m15Signal.score}`, weight: 20 },
+    { key: "environment", label: "1小时执行环境", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`, weight: 20 },
+    { key: "direction", label: "15分钟执行结构", met: structureMet, value: `收盘${latest15?.close ?? 0}，EMA20 ${round(ema15, 2)}，RSI ${round(rsi15, 1)}，趋势分${m15Signal.score}`, weight: 20 },
     { key: "entry", label: "市场转折/入场触发", met: entryMet, value: `${entryTriggerLabel}；下探${round(dipPct, 2)}%/回升${round(reboundPct, 2)}%，冲高${round(rallyPct, 2)}%/回落${round(reversalPct, 2)}%`, weight: 20 },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
-    { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序，完全依赖价格结构", weight: 10 },
+    { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；不允许由技术结构自行决定多空", weight: 10 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 20 },
   ];
   const strength = strongCountertrend && executionFocus
-    ? Math.max(Math.abs(h1Signal.score), Math.abs(m15Signal.score), executionFocus.countertrendConfluence) * directionValue(direction)
-    : mooxDirection !== "NEUTRAL"
-      ? Math.max(Math.abs(activeDirection.strength), clamp(plan?.confidence ?? 50, 35, 85)) * directionValue(direction)
-      : activeDirection.strength;
+    ? executionFocus.countertrendConfluence * directionValue(direction)
+    : officialDirection.strength;
   const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice, {
     directionStrength: strength,
     prior: strongCountertrend ? null : prior,
@@ -841,12 +879,13 @@ function evaluateSwing(
   const activeDirection = resolveActiveDirection({
     primary: primarySignal,
     secondary: h4Signal,
-    plan,
-    prior,
-    primaryWeight: 0.62,
-    secondaryWeight: 0.2,
+    plan: undefined,
+    prior: null,
+    primaryWeight: 0.75,
+    secondaryWeight: 0.25,
   });
-  const direction = activeDirection.direction;
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior });
+  const direction = officialDirection.direction;
   const latest4h = last(h4);
   const ema4h = last(ema(h4.map((row) => row.close), 20)) ?? 0;
   const rsi4h = rsi(h4);
@@ -875,7 +914,7 @@ function evaluateSwing(
   const priorCompatible = !prior || prior.direction === direction;
   const conditions: ThreeHorizonCondition[] = [
     { key: "weekly", label: "周线环境", met: weeklySignal.direction !== "NEUTRAL" || Math.abs(primaryScore) >= 7, value: weeklySignal.label, weight: 15 },
-    { key: "daily", label: "日线主动方向", met: direction !== "NEUTRAL", value: activeDirection.label, weight: 20 },
+    { key: "daily", label: "日线执行环境", met: direction !== "NEUTRAL" && (activeDirection.direction === direction || activeDirection.direction === "NEUTRAL"), value: `${officialDirection.label}；技术环境：${activeDirection.label}`, weight: 20 },
     { key: "structure", label: "4小时结构", met: structureMet, value: `收盘${latest4h?.close ?? 0}，EMA20 ${round(ema4h, 2)}，RSI ${round(rsi4h, 1)}，趋势分${h4Signal.score}`, weight: 20 },
     { key: "entry", label: "1小时入场", met: triggerMet, value: breakoutTrigger ? "突破确认" : continuationTrigger ? "趋势延续，可先开探路仓" : "未突破，等待或分批探路", weight: 15 },
     { key: "forecast", label: "周日预测加权", met: forecast.compatible, value: forecast.label, weight: 10 },
@@ -883,7 +922,7 @@ function evaluateSwing(
     { key: "risk", label: "4小时波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
   ];
   return finalizeEvaluation(profile, direction, conditions, forecast.score, h4, atr4h, plan, livePrice, {
-    directionStrength: activeDirection.strength,
+    directionStrength: officialDirection.strength,
     prior,
   });
 }
@@ -911,21 +950,8 @@ function evaluatePosition(
       };
   const weeklySignal = technicalDirectionSignal(weeks, 3, 6, 3);
   const dailySignal = technicalDirectionSignal(d1, 10, 30, 8);
-  const primaryScore = monthlySignal.score * 0.42 + weeklySignal.score * 0.58;
-  const primarySignal: DirectionSignal = {
-    direction: primaryScore >= 8 ? "LONG" : primaryScore <= -8 ? "SHORT" : "NEUTRAL",
-    score: round(primaryScore, 1),
-    label: `月线${monthlySignal.score}/周线${weeklySignal.score}合成${round(primaryScore, 1)}`,
-  };
-  const activeDirection = resolveActiveDirection({
-    primary: primarySignal,
-    secondary: dailySignal,
-    plan,
-    prior,
-    primaryWeight: 0.68,
-    secondaryWeight: 0.16,
-  });
-  const direction = activeDirection.direction;
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior });
+  const direction = officialDirection.direction;
   const latestDaily = last(d1);
   const dailyEma = last(ema(d1.map((row) => row.close), 20)) ?? 0;
   const latest4h = last(h4);
@@ -947,7 +973,7 @@ function evaluatePosition(
   const priorCompatible = !prior || prior.direction === direction;
   const conditions: ThreeHorizonCondition[] = [
     { key: "monthly", label: "月度环境", met: monthlySignal.direction !== "NEUTRAL", value: monthlySignal.label, weight: 15 },
-    { key: "weekly", label: "周度方向", met: weeklySignal.direction !== "NEUTRAL" || Math.abs(primaryScore) >= 8, value: weeklySignal.label, weight: 20 },
+    { key: "weekly", label: "周度技术环境", met: weeklySignal.direction === direction || weeklySignal.direction === "NEUTRAL", value: `${officialDirection.label}；技术环境：${weeklySignal.label}`, weight: 20 },
     { key: "daily", label: "日线结构", met: directionMet, value: `日线收盘${latestDaily?.close ?? 0}，EMA20 ${round(dailyEma, 2)}，趋势分${dailySignal.score}`, weight: 20 },
     { key: "entry", label: "4小时入场", met: triggerMet, value: triggerMet ? "4小时延续确认" : "等待4小时结构确认", weight: 15 },
     { key: "forecast", label: "长期预测加权", met: forecast.compatible, value: forecast.label, weight: 10 },
@@ -955,7 +981,7 @@ function evaluatePosition(
     { key: "risk", label: "日线波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
   ];
   return finalizeEvaluation(profile, direction, conditions, forecast.score, d1, atrDaily, plan, livePrice, {
-    directionStrength: activeDirection.strength,
+    directionStrength: officialDirection.strength,
     prior,
   });
 }
@@ -1060,7 +1086,7 @@ function finalizeEvaluation(
       : "等待方向、风险或最小结构证据。";
   if (direction === "NEUTRAL") {
     rejectionCode = "NO_DIRECTION";
-    rejectionReason = "技术、站内预测和六爻先验合成后仍未形成可交易方向。";
+    rejectionReason = "玄学/正式预测来源没有形成唯一方向；技术分析不得替它决定多空。";
   } else if (!riskMet) {
     rejectionCode = "RISK_FILTER";
     rejectionReason = "行情数据、波动或成交过滤未通过。";
@@ -1069,7 +1095,7 @@ function finalizeEvaluation(
     rejectionReason = "无法根据结构和ATR生成有效宽止损。";
   } else if (directionEvidenceMet < minimumEvidence) {
     rejectionCode = "DIRECTION_EVIDENCE_LOW";
-    rejectionReason = `方向证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;
+    rejectionReason = `执行结构证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;
   } else if (confidence < probeThreshold || technicalScore < 38) {
     rejectionCode = "CONFIDENCE_LOW";
     rejectionReason = `综合置信度${confidence}%或技术分${technicalScore}%低于探路仓门槛。`;
@@ -1958,6 +1984,8 @@ function buildLiveCommissioningEvaluation(input: {
   direction: Exclude<ThreeHorizonDirection, "NEUTRAL">;
   quote: BitgetDemoMarketQuote;
   momentumScore: number;
+  mooxDirectionLabel: string;
+  mooxDirectionStrength: number;
 }): EvaluationResult {
   const price = input.quote.price;
   const stopPct = 0.6;
@@ -1969,7 +1997,7 @@ function buildLiveCommissioningEvaluation(input: {
   const target2 = round(price * (1 + (long ? target2Pct : -target2Pct) / 100), 8);
   const conditions: ThreeHorizonCondition[] = [
     { key: "environment", label: "实时行情", met: true, value: `Bitget报价${price}，时间${input.quote.capturedAt}`, weight: 20 },
-    { key: "direction", label: "多周期动量择向", met: true, value: `BTC/ETH动量比较后选择${input.direction === "LONG" ? "做多" : "做空"}，得分${input.momentumScore}`, weight: 25 },
+    { key: "direction", label: "MOOX玄学方向", met: true, value: `${input.mooxDirectionLabel}；技术动量只用于选择入场时机，当前动量分${input.momentumScore}`, weight: 25 },
     { key: "entry", label: "闭环验收入场", met: true, value: "小额市价单，仅用于验证真实订单全链路", weight: 25 },
     { key: "forecast", label: "事前公开计划", met: true, value: "计划先发布并锁定，至少等待下一轮CRON", weight: 15 },
     { key: "risk", label: "小额风控", met: true, value: `风险预算${LIVE_COMMISSIONING_RISK_PCT}%，止损${stopPct}%，最长${LIVE_COMMISSIONING_MAX_HOLDING_MINUTES}分钟`, weight: 15 },
@@ -1990,12 +2018,14 @@ function buildLiveCommissioningEvaluation(input: {
     rejectionReason: `首笔实盘闭环验收：${input.symbol}${input.direction === "LONG" ? "做多" : "做空"}，使用实时行情、小额风险、交易所保护单和30分钟限时退出。`,
     executionTier: "FULL",
     riskScale: 1,
-    directionStrength: input.direction === "LONG" ? input.momentumScore : -input.momentumScore,
+    directionStrength: input.direction === "LONG" ? Math.abs(input.mooxDirectionStrength) : -Math.abs(input.mooxDirectionStrength),
     raw: {
       commissioning: true,
       quoteCapturedAt: input.quote.capturedAt,
       quotePrice: price,
       momentumScore: input.momentumScore,
+      mooxDirectionLabel: input.mooxDirectionLabel,
+      mooxDirectionStrength: input.mooxDirectionStrength,
       maxHoldingMinutes: LIVE_COMMISSIONING_MAX_HOLDING_MINUTES,
       riskPct: LIVE_COMMISSIONING_RISK_PCT,
     },
@@ -2010,6 +2040,7 @@ async function runLiveCommissioning(input: {
   positions: BitgetDemoPosition[];
   protections: BitgetDemoStrategyOrder[];
   reservedSymbols: Set<string>;
+  forecastBySymbol: ReadonlyMap<string, PredictionStrategyPlan>;
 }): Promise<{
   state: "COMPLETE" | "ACTIVE" | "WAITING" | "ATTEMPTED" | "ERROR";
   decision: ThreeHorizonStrategyDecision | null;
@@ -2046,21 +2077,52 @@ async function runLiveCommissioning(input: {
     const pinned = LIVE_COMMISSIONING_SYMBOLS.includes(priorSymbol) && (priorDirection === "LONG" || priorDirection === "SHORT")
       ? { symbol: priorSymbol, direction: priorDirection as Exclude<ThreeHorizonDirection, "NEUTRAL"> }
       : null;
-    const scored: Array<{ quote: BitgetDemoMarketQuote; candles: CandleSet; score: number }> = [];
+    const scored: Array<{
+      quote: BitgetDemoMarketQuote;
+      candles: CandleSet;
+      momentumScore: number;
+      direction: Exclude<ThreeHorizonDirection, "NEUTRAL">;
+      directionStrength: number;
+      directionLabel: string;
+    }> = [];
     for (const quote of candidates) {
+      const plan = input.forecastBySymbol.get(quote.symbol);
+      const prior = getHexagramDirectionPrior(quote.symbol, "INTRADAY", input.now);
+      const official = resolveOfficialMooxDirection({ plan, prior });
+      if (official.direction === "NEUTRAL") continue;
       const candles = await loadCommissioningCandleSet(quote.symbol);
-      scored.push({ quote, candles, score: candleMomentumScore(candles, quote.price, input.now) });
+      scored.push({
+        quote,
+        candles,
+        momentumScore: candleMomentumScore(candles, quote.price, input.now),
+        direction: official.direction,
+        directionStrength: official.strength,
+        directionLabel: official.label,
+      });
+    }
+    if (!scored.length) {
+      return {
+        state: "WAITING",
+        decision: null,
+        attempted: false,
+        success: false,
+        error: false,
+        message: "BTC/ETH当前没有形成明确的MOOX玄学方向，首笔实盘闭环不允许由技术指标替代决定多空。",
+      };
     }
     const selected = pinned
-      ? scored.find((row) => row.quote.symbol === pinned.symbol) ?? scored[0]
-      : [...scored].sort((a, b) => Math.abs(b.score) - Math.abs(a.score))[0];
-    if (!selected) throw new Error("未能生成BTC/ETH闭环验收方向");
-    const direction: Exclude<ThreeHorizonDirection, "NEUTRAL"> = pinned?.direction ?? (selected.score >= 0 ? "LONG" : "SHORT");
+      ? scored.find((row) => row.quote.symbol === pinned.symbol && row.direction === pinned.direction) ??
+        [...scored].sort((a, b) => Math.abs(b.directionStrength) - Math.abs(a.directionStrength) || Math.abs(b.momentumScore) - Math.abs(a.momentumScore))[0]
+      : [...scored].sort((a, b) => Math.abs(b.directionStrength) - Math.abs(a.directionStrength) || Math.abs(b.momentumScore) - Math.abs(a.momentumScore))[0];
+    if (!selected) throw new Error("未能找到具备明确MOOX方向的BTC/ETH闭环候选");
+    const direction = selected.direction;
     const evaluation = buildLiveCommissioningEvaluation({
       symbol: selected.quote.symbol,
       direction,
       quote: selected.quote,
-      momentumScore: selected.score,
+      momentumScore: selected.momentumScore,
+      mooxDirectionLabel: selected.directionLabel,
+      mooxDirectionStrength: selected.directionStrength,
     });
     const profile = liveCommissioningProfile(input.now);
     let decision = await insertDecision({
@@ -2857,6 +2919,7 @@ export async function runThreeHorizonStrategyEngine(
       positions,
       protections,
       reservedSymbols,
+      forecastBySymbol,
     });
     commissioningMessage = commissioning.message;
     commissioningAttempted = commissioning.attempted;

@@ -1,6 +1,6 @@
 /**
  * Multi-method forecast reference mix.
- * The percentages describe research influence, not statistical guarantees.
+ * The percentages describe research material coverage only, not direction votes or statistical guarantees.
  */
 
 export type ForecastBasisWeights = {
@@ -45,12 +45,12 @@ export function buildForecastBasisWeights(
 }
 
 export const BASIS_LABELS: Array<{ key: keyof ForecastBasisWeights; label: string }> = [
-  { key: "technical", label: "技术结构" },
-  { key: "liuyao", label: "六爻方向" },
+  { key: "technical", label: "技术点位资料（不投票）" },
+  { key: "liuyao", label: "六爻方向依据" },
   { key: "cycle", label: "周期分析" },
   { key: "qimen", label: "奇门择时" },
   { key: "macro", label: "资金与消息" },
-  { key: "bazi", label: "八字长期背景" },
+  { key: "bazi", label: "八字中长期旁证" },
 ];
 
 /** Markets allowed to attach Wave evidence notes on tomorrow page. */

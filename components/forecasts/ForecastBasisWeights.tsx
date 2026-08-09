@@ -35,7 +35,7 @@ export function ForecastBasisWeights({
         aria-expanded={open}
       >
         <Text variant="caption" color="tertiary">
-          模块权重（参考）
+          研究资料占比（不等于方向投票）
         </Text>
         <span className="text-caption text-foreground-tertiary">{open ? "收起" : "展开"}</span>
       </button>
@@ -58,7 +58,7 @@ export function ForecastBasisWeights({
             </p>
           ) : null}
           <p className="mt-2 text-caption text-foreground-tertiary">
-            上述比例为研究参考权重。周期观点会随有效期衰减，星级只表示方法一致程度。
+            上述比例只表示研究资料的参考占比，不用于决定多空。正式方向由六爻与多周期玄学共振决定；技术分析只负责点位与执行。周期观点会随有效期衰减，星级只表示方法一致程度。
           </p>
           <Link
             href="/methodology"

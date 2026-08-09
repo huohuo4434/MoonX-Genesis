@@ -124,7 +124,7 @@ describe("public accuracy history filter", () => {
     assert.equal(items.length, 0);
   });
 
-  test("today with verifiedAt still excluded (strict < today)", () => {
+  test("same-day terminal verification is visible only after verification has completed", () => {
     const items = filterPublicAccuracyHistory({
       forecasts: [forecast({ id: "t", forecastDate: "2026-08-03", status: "verified" })],
       results: [
@@ -132,7 +132,23 @@ describe("public accuracy history filter", () => {
           forecastId: "t",
           forecastDate: "2026-08-03",
           verdict: "HIT",
-          verifiedAt: "2026-08-03T12:00:00.000Z",
+          verifiedAt: "2026-08-03T01:00:00.000Z", // 09:00 Beijing, before NOW=10:00
+        }),
+      ],
+      now: NOW,
+    });
+    assert.equal(items.length, 1);
+  });
+
+  test("same-day terminal verification never leaks before verifiedAt", () => {
+    const items = filterPublicAccuracyHistory({
+      forecasts: [forecast({ id: "future-verify", forecastDate: "2026-08-03", status: "verified" })],
+      results: [
+        result({
+          forecastId: "future-verify",
+          forecastDate: "2026-08-03",
+          verdict: "HIT",
+          verifiedAt: "2026-08-03T03:00:00.000Z", // 11:00 Beijing, after NOW=10:00
         }),
       ],
       now: NOW,
@@ -224,18 +240,27 @@ describe("public accuracy history filter", () => {
     assert.equal(items.length, 0);
   });
 
-  test("12: after Beijing midnight previous day verified enters history", () => {
+  test("12: publication follows verifiedAt, not the Beijing calendar rollover", () => {
     const beforeMidnight = new Date("2026-08-02T15:59:00.000Z"); // still 08-02 BJ
-    const afterMidnight = new Date("2026-08-02T16:00:00.000Z"); // 08-03 BJ
+    const afterMidnightBeforeVerification = new Date("2026-08-02T16:00:00.000Z"); // 08-03 00:00 BJ
+    const afterVerification = new Date("2026-08-03T00:16:00.000Z"); // 08-03 08:16 BJ
     const f = forecast({ id: "prev", forecastDate: "2026-08-02" });
-    const r = result({ forecastId: "prev", forecastDate: "2026-08-02" });
+    const r = result({
+      forecastId: "prev",
+      forecastDate: "2026-08-02",
+      verifiedAt: "2026-08-03T00:15:00.000Z",
+    });
 
     assert.equal(
       filterPublicAccuracyHistory({ forecasts: [f], results: [r], now: beforeMidnight }).length,
       0
     );
     assert.equal(
-      filterPublicAccuracyHistory({ forecasts: [f], results: [r], now: afterMidnight }).length,
+      filterPublicAccuracyHistory({ forecasts: [f], results: [r], now: afterMidnightBeforeVerification }).length,
+      0
+    );
+    assert.equal(
+      filterPublicAccuracyHistory({ forecasts: [f], results: [r], now: afterVerification }).length,
       1
     );
   });

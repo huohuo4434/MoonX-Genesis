@@ -97,7 +97,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl">
               {en
                 ? "MOOX sets the weekly path first. The AI then chooses the entry, stop and targets from live technical structure. The universe is dynamically ranked, not hard-coded."
-                : "先用MOOX周度预测定方向和节奏，再由AI用实时技术结构决定入场、止损和止盈。候选品种动态排序，不再固定十个名字。"}
+                : "先由MOOX玄学研究锁定唯一方向，再由AI用实时技术结构寻找入场、止损和止盈位置。技术分析不参与多空方向投票。候选品种动态排序，不再固定十个名字。"}
             </Text>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -113,10 +113,19 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Open positions" : "当前持仓"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{snapshot.positions.length}</Text></div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/45">
-          <span>{en ? "Latest market" : "最新行情"}：{time(snapshot.latestQuoteAt, en)}</span>
-          <span>{en ? "Server" : "服务器"}：{snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}</span>
-          <span className={snapshot.syncStatus === "ERROR" || error ? "text-red-300" : ""}>{error || snapshot.syncMessage}</span>
+        <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/10 p-3 text-xs text-white/55">
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            <span>{en ? "Display layer" : "展示层"}：MEMBER_FEED</span>
+            <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
+            <span>{en ? "Snapshot" : "快照时间"}：{time(snapshot.lastSyncedAt ?? snapshot.generatedAt, en)}</span>
+            <span>{en ? "Initial equity" : "初始资金"}：{number(snapshot.experiment.initialEquityUsdt)} USDT</span>
+            <span>{en ? "Quote age" : "行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">
+            <span>{en ? "Latest market" : "最新行情"}：{time(snapshot.latestQuoteAt, en)}</span>
+            <span>{en ? "Server" : "服务器"}：{snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}</span>
+            <span className={snapshot.syncStatus === "ERROR" || error ? "text-red-300" : ""}>{error || snapshot.syncMessage}</span>
+          </div>
         </div>
       </Card>
 

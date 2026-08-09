@@ -848,7 +848,9 @@ export type BitgetApiSecurity = {
   withdrawalPermission: boolean;
   tradingPermission: boolean;
   managementPermission: boolean;
+  ipWhitelistConfigured: boolean;
   safeForLiveExperiment: boolean;
+  failClosedReady: boolean;
   message: string;
 };
 
@@ -868,16 +870,31 @@ export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
     return normalized === "uta_trade" || normalized.includes("trade") || normalized.includes("order");
   });
   const managementPermission = permissions.some((value) => value.toLowerCase() === "uta_mgt");
+  const ipWhitelistConfigured = ipWhitelist.length > 0;
+  // Credential safety and order-opening readiness are deliberately separate.
+  // Missing IP whitelist must block NEW orders/startup, but must not implicitly
+  // flip an already-running experiment state or prevent reduce-only closes.
   const safeForLiveExperiment = !withdrawalPermission && tradingPermission && managementPermission;
+  const failClosedReady = safeForLiveExperiment && ipWhitelistConfigured;
   const messages = [
     withdrawalPermission ? "API密钥包含提币权限，禁止实盘实验。" : "未检测到提币权限。",
     tradingPermission ? "已检测到统一账户交易权限。" : "未检测到UTA交易权限。",
     managementPermission ? "已检测到统一账户管理权限。" : "未检测到UTA管理权限。",
-    ipWhitelist.length > 0
+    ipWhitelistConfigured
       ? `已绑定${ipWhitelist.length}个IP。`
-      : "未绑定IP白名单；按当前实盘实验配置，此项仅提示风险，不再阻止启动和下单。",
+      : "未绑定IP白名单；fail-closed：禁止启动实盘实验和提交新的真实开仓。",
   ];
-  return { permissions, ipWhitelist, withdrawalPermission, tradingPermission, managementPermission, safeForLiveExperiment, message: messages.join(" ") };
+  return {
+    permissions,
+    ipWhitelist,
+    withdrawalPermission,
+    tradingPermission,
+    managementPermission,
+    ipWhitelistConfigured,
+    safeForLiveExperiment,
+    failClosedReady,
+    message: messages.join(" "),
+  };
 }
 
 export type BitgetLiveExperimentStatus = {
@@ -1109,7 +1126,7 @@ export async function syncBitgetLiveExperimentStatus(
     securityMessage = security.message;
     securitySafe = security.safeForLiveExperiment;
     if (!environment.liveConfirmationAccepted) throw new Error("未确认真实亏损风险");
-    if (!securitySafe) throw new Error(securityMessage);
+    if (!security.failClosedReady) throw new Error(securityMessage);
     const accountMode = String(account.accountMode ?? "").toLowerCase();
     if (!["unified", "hybrid"].includes(accountMode)) throw new Error(`当前账户模式为${account.accountMode || "unknown"}，实盘实验只支持Bitget UTA的unified或hybrid模式。`);
     const unavailableSymbols = environment.liveAllowedSymbols.filter((symbol) => !account.symbols.some((item) => item.symbol === symbol && item.available));
@@ -1158,11 +1175,15 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
   if ((experiment.dailyPnlUsdt ?? 0) <= -environment.liveDailyLossUsdt) {
     throw new Error(`今日净亏损${Math.abs(experiment.dailyPnlUsdt ?? 0).toFixed(2)} USDT，达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损，明日再评估。`);
   }
-  const [positions, quotes, attempts] = await Promise.all([
+  const [positions, quotes, attempts, security] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoMarketQuotes([input.symbol]),
     liveOpenAttemptsToday(new Date()),
+    getBitgetApiSecurity(),
   ]);
+  if (!security.failClosedReady) {
+    throw new Error(`实盘安全检查未通过，fail-closed禁止新开仓：${security.message}`);
+  }
   if (positions.some((row) => row.symbol === input.symbol && row.total > 0)) {
     throw new Error(`${input.symbol}已有持仓，禁止同品种重复开仓`);
   }
@@ -1170,7 +1191,14 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
     throw new Error(`实盘实验最多同时持有${environment.liveMaxConcurrentPositions}个仓位`);
   }
   if (attempts >= environment.liveMaxTradesPerDay) throw new Error(`今日已达到${environment.liveMaxTradesPerDay}笔开仓上限`);
-  const price = quotes.find((row) => row.symbol === input.symbol)?.price ?? 0;
+  const quote = quotes.find((row) => row.symbol === input.symbol);
+  const price = quote?.price ?? 0;
+  const capturedAtMs = quote?.capturedAt ? Date.parse(quote.capturedAt) : Number.NaN;
+  const quoteAgeMs = Number.isFinite(capturedAtMs) ? Date.now() - capturedAtMs : Number.POSITIVE_INFINITY;
+  if (!quote || !Number.isFinite(price) || price <= 0) throw new Error("实盘行情不可用，禁止新开仓");
+  if (quoteAgeMs < -30_000 || quoteAgeMs > 180_000) {
+    throw new Error(`实盘行情已陈旧（${Math.max(0, Math.round(quoteAgeMs / 1000))}秒），超过180秒，禁止新开仓`);
+  }
   const notional = Number(input.size) * price;
   if (!Number.isFinite(notional) || notional <= 0) throw new Error("无法计算实盘订单名义价值");
   const equity = experiment.currentEquityUsdt ?? environment.liveInitialCapitalUsdt;

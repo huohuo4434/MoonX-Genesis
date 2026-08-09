@@ -10,7 +10,7 @@ import { PricingPlansClient } from "@/components/payments/PricingPlansClient";
 const BENEFITS = [
   ["当日核心市场预测", "北京时间08:00后查看", "全天提前查看", "Daily core-market forecasts", "Available after 08:00 Beijing time", "Early access all day"],
   ["下一交易日方向", "—", "完整展示", "Next-session direction", "—", "Full access"],
-  ["上涨／震荡／下跌概率", "基础版", "完整展示", "Bullish / range-bound / bearish probabilities", "Basic", "Full access"],
+  ["上涨／震荡／下跌情景权重", "基础版", "完整展示", "Bullish / range / bearish scenario weights", "Basic", "Full access"],
   ["运行路径", "基础版", "完整展示", "Expected path", "Basic", "Full access"],
   ["支撑、压力与确认位", "—", "完整展示", "Support, resistance and confirmation", "—", "Full access"],
   ["技术风控参考与风险提示", "—", "完整展示", "Technical risk references and risk notes", "—", "Full access"],

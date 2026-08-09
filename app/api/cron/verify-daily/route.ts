@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runMemberStockVerification } from "@/lib/data/member-stocks/verify";
 import { runDailyVerification } from "@/lib/verification/run-daily";
+import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
+import { getVerificationPipelineStatus } from "@/lib/accuracy/verification-pipeline-status";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -37,11 +39,22 @@ export async function GET(request: NextRequest) {
 
   const dailyOk = dailyResult.status === "fulfilled";
   const stockOk = stockResult.status === "fulfilled";
+  const [publicSnapshot, pipeline] = await Promise.all([
+    getPublicVerificationSnapshot().catch(() => null),
+    getVerificationPipelineStatus().catch(() => null),
+  ]);
   const body = {
     ok: dailyOk && stockOk,
     partial: dailyOk !== stockOk,
     report: dailyOk ? dailyResult.value : null,
     stockReport: stockOk ? stockResult.value : null,
+    publicAfterRun: publicSnapshot ? {
+      completed: publicSnapshot.daily.stats.verifiedCount,
+      visibleRows: publicSnapshot.daily.items.length,
+      pending: publicSnapshot.pending.length,
+      weeklySamples: publicSnapshot.weekly.stats.sampleSize,
+    } : null,
+    pipelineAfterRun: pipeline,
     errors: {
       daily: dailyOk ? null : errorMessage(dailyResult.reason),
       memberStocks: stockOk ? null : errorMessage(stockResult.reason),

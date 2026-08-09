@@ -8,12 +8,12 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("member period card leads with a direct directional call", () => {
   const source = read("components/conviction/ConvictionDetailClient.tsx");
-  assert.match(source, /MOOX 本周期结论/);
-  assert.match(source, /偏多｜回踩做多优先/);
-  assert.match(source, /偏空｜买跌优先/);
-  assert.match(source, /中性｜先不押方向/);
-  assert.match(source, /关键价位/);
-  assert.match(source, /判断失效/);
+  assert.match(source, /MOOX 本周期唯一方向/);
+  assert.match(source, /看涨｜唯一方向/);
+  assert.match(source, /看跌｜唯一方向/);
+  assert.match(source, /方向不明确/);
+  assert.match(source, /技术点位（不决定方向）/);
+  assert.match(source, /以上只管位置与风控，不改变上方MOOX唯一方向/);
 });
 
 test("Google latest weekly research states the action and invalidation plainly", () => {
@@ -29,7 +29,8 @@ test("Google latest weekly research states the action and invalidation plainly",
 
 test("public watchlist copy stays concise without leaking protected levels", () => {
   const teaser = read("lib/data/conviction/watchlist-teasers.ts");
-  assert.match(teaser, /会员页先给明确方向，再给周内节奏、关键支撑压力和看错时的失效条件/);
+  assert.match(teaser, /会员页先给唯一方向/);
+  assert.match(teaser, /技术区最后只负责列关键价位|技术点位最后再看|技术点位参考/);
   for (const forbidden of ["348–355.5", "378.37–382.4", "500–510", "66k", "63k", "1860"]) {
     assert.equal(teaser.includes(forbidden), false, `public teaser leaked ${forbidden}`);
   }
@@ -37,6 +38,7 @@ test("public watchlist copy stays concise without leaking protected levels", () 
 
 test("watchlist hero explains member value in plain language", () => {
   const source = read("components/conviction/ConvictionListClient.tsx");
-  assert.match(source, /会员页直接看方向、时间和关键位/);
-  assert.match(source, /看涨还是看跌、什么时候最关键、支撑压力在哪里、什么情况说明判断错了/);
+  assert.match(source, /玄学定方向，技术找点位/);
+  assert.match(source, /重点关注按本周多周期卦象共振强度自动排序/);
+  assert.match(source, /看涨和看跌一视同仁/);
 });

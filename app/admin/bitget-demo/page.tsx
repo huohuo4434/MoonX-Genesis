@@ -22,6 +22,8 @@ export const revalidate = 0;
 export default async function AdminBitgetDemoPage() {
   const environment = getBitgetDemoEnvironment();
   const live = environment.mode === "LIVE_EXPERIMENT";
+  const cronAuthorized = Boolean(process.env.CRON_SECRET);
+  const commissioningEnabled = process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() !== "false";
 
   if (live) {
     return (
@@ -30,9 +32,20 @@ export default async function AdminBitgetDemoPage() {
           <AdminNav current="/admin/bitget-demo" />
           <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。BTC/ETH小额真实闭环验收与10品种短线、波段和中长期扫描并行运行；只有达到技术触发和风控条件的计划才会下单。
+            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。玄学与锁定预测决定多空方向，技术结构只负责寻找入场时点和风控位置；BTC/ETH首笔小额闭环与10品种三周期扫描都必须通过实盘安全闸门后才会下单。
           </Text>
           <div className="space-y-8">
+            <Card padding="lg" className={cronAuthorized && commissioningEnabled ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}>
+              <Heading size="h3">自动交易启动诊断</Heading>
+              <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
+                {cronAuthorized
+                  ? "Vercel 自动任务鉴权已配置；服务器每分钟可进入实盘运行链路。"
+                  : "CRON_SECRET 未配置：生产环境的自动交易任务会被服务器拒绝。系统不会绕过鉴权，请先在 Vercel 环境变量中完成配置。"}
+                {commissioningEnabled
+                  ? " BTC/ETH 首笔小额闭环默认开启；方向只读取 MOOX 已锁定的玄学方向，技术只负责入场时机。"
+                  : " BITGET_LIVE_COMMISSIONING_ENABLED 当前被显式关闭，因此首笔闭环不会自动下单。"}
+              </Text>
+            </Card>
             <BitgetLiveReadinessClient />
             <AiTradePlanAdminClient lazy />
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
