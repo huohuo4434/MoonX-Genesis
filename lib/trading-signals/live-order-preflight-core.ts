@@ -1,10 +1,17 @@
-export type LiveOrderFailureStage = "PREFLIGHT" | "REMOTE_WRITE";
+import type { LiveExecutionStage } from "../bitget/live-execution-core";
+
+export type LiveOrderFailureStage = LiveExecutionStage;
 
 export type LiveOrderFailureDisposition = {
   attempted: boolean;
   error: boolean;
   status: "BLOCKED" | "ERROR";
-  rejectionCode: "ORDER_PREFLIGHT_BLOCK" | "ORDER_ERROR";
+  rejectionCode:
+    | "ORDER_PREFLIGHT_BLOCK"
+    | "ACCOUNT_CONFIG_BLOCK"
+    | "ORDER_ERROR"
+    | "ORDER_STATUS_UNKNOWN"
+    | "STATUS_QUERY_BLOCK";
 };
 
 export type LiveContractRules = {
@@ -25,17 +32,44 @@ function decimalPlaces(value: number): number {
 }
 
 /**
- * Only failures after an actual exchange write attempt count as order errors.
- * Local sizing, exchange-minimum, precision and risk checks are fail-closed
- * preflight blocks and must never trip the consecutive real-order error pause.
+ * Only a definite error returned after POST /api/v3/trade/place-order was dispatched
+ * counts as an order error. Everything else stays fail-closed without incrementing the
+ * consecutive real-order error pause counter.
  */
-export function classifyLiveOrderFailure(stage: LiveOrderFailureStage): LiveOrderFailureDisposition {
-  if (stage === "REMOTE_WRITE") {
+export function classifyLiveOrderFailure(
+  stage: LiveOrderFailureStage,
+  remoteSubmissionAttempted = stage === "REMOTE_ORDER_WRITE" || stage === "AMBIGUOUS_WRITE"
+): LiveOrderFailureDisposition {
+  if (stage === "REMOTE_ORDER_WRITE") {
     return {
       attempted: true,
       error: true,
       status: "ERROR",
       rejectionCode: "ORDER_ERROR",
+    };
+  }
+  if (stage === "AMBIGUOUS_WRITE") {
+    return {
+      attempted: true,
+      error: false,
+      status: "BLOCKED",
+      rejectionCode: "ORDER_STATUS_UNKNOWN",
+    };
+  }
+  if (stage === "STATUS_QUERY") {
+    return {
+      attempted: remoteSubmissionAttempted,
+      error: false,
+      status: "BLOCKED",
+      rejectionCode: "STATUS_QUERY_BLOCK",
+    };
+  }
+  if (stage === "ACCOUNT_CONFIG_WRITE") {
+    return {
+      attempted: false,
+      error: false,
+      status: "BLOCKED",
+      rejectionCode: "ACCOUNT_CONFIG_BLOCK",
     };
   }
   return {

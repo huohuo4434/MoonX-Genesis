@@ -976,6 +976,22 @@ export async function runBitgetDemoServerRuntime(
             orderAttempts: threeHorizon.orderAttempts,
             orderSuccess: threeHorizon.orderSuccess,
             orderErrors: threeHorizon.orderErrors,
+            executionFailures: threeHorizon.decisions
+              .filter((decision) => [
+                "ORDER_ERROR",
+                "ACCOUNT_CONFIG_BLOCK",
+                "ORDER_STATUS_UNKNOWN",
+                "STATUS_QUERY_BLOCK",
+                "ORDER_PREFLIGHT_BLOCK",
+              ].includes(decision.rejectionCode))
+              .slice(0, 10)
+              .map((decision) => ({
+                symbol: decision.symbol,
+                action: "OPEN_MARKET",
+                clientOid: decision.clientOid ?? null,
+                rejectionCode: decision.rejectionCode,
+                lastError: decision.rejectionReason,
+              })),
           },
         });
         if (threeHorizon.orderErrors > 0) {

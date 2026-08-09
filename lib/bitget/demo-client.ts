@@ -1,9 +1,19 @@
 import "server-only";
 
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
+import {
+  LiveTradeExecutionError,
+  liveExecutionErrorFrom,
+  planUtaLeverageConfiguration,
+  runIdempotentOrderDispatch,
+  serializeLiveExecutionError,
+  type LiveExecutionStage,
+  type RemoteFailureDescriptor,
+} from "@/lib/bitget/live-execution-core";
 
 import { createHash, createHmac, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { auditFailureReferencesCore } from "@/lib/bitget/live-order-audit-core";
 
 const BASE_URL = "https://api.bitget.com";
 const PRODUCT_TYPE = "USDT-FUTURES";
@@ -86,6 +96,31 @@ function isAmbiguousBitgetWriteError(error: unknown): boolean {
   return error instanceof BitgetApiError && error.ambiguousWrite;
 }
 
+function describeBitgetFailure(error: unknown): RemoteFailureDescriptor {
+  if (error instanceof BitgetApiError) {
+    return {
+      message: error.message,
+      bitgetCode: error.code,
+      httpStatus: error.httpStatus,
+      ambiguous: error.ambiguousWrite,
+    };
+  }
+  if (error instanceof LiveTradeExecutionError) {
+    return {
+      message: error.message,
+      bitgetCode: error.bitgetCode,
+      httpStatus: error.httpStatus,
+      ambiguous: error.stage === "AMBIGUOUS_WRITE",
+    };
+  }
+  return {
+    message: error instanceof Error ? error.message : "Unknown Bitget execution error",
+    bitgetCode: null,
+    httpStatus: null,
+    ambiguous: false,
+  };
+}
+
 type BitgetUtaAssetRow = {
   coin?: string;
   equity?: string;
@@ -122,7 +157,7 @@ type BitgetUtaSettings = {
     category?: string;
     symbol?: string;
     marginMode?: string;
-    leverage?: string;
+    leverage?: string | number | Array<string | number>;
   }>;
 };
 
@@ -598,6 +633,7 @@ async function signedRequestOnce<T>(input: {
   path: string;
   query?: Record<string, string | number | undefined>;
   body?: Record<string, unknown>;
+  onDispatch?: () => void;
 }): Promise<T> {
   const env = credentials();
   if (!env.apiKey || !env.secretKey || !env.passphrase) {
@@ -648,6 +684,7 @@ async function signedRequestOnce<T>(input: {
 
   let response: Response;
   try {
+    input.onDispatch?.();
     response = await fetchWithTimeout(url, requestInit);
   } catch (error) {
     throw new BitgetApiError({
@@ -692,6 +729,7 @@ async function signedRequest<T>(input: {
   path: string;
   query?: Record<string, string | number | undefined>;
   body?: Record<string, unknown>;
+  onDispatch?: () => void;
 }): Promise<T> {
   if (input.method === "POST") return signedRequestOnce<T>(input);
   return withReadRetry(`Bitget只读接口${input.path}`, () => signedRequestOnce<T>(input));
@@ -1340,28 +1378,40 @@ export function normalizeContractTriggerPrice(
 
 
 async function configureUtaSymbol(
-  symbol: BitgetSupportedSymbol
+  symbol: BitgetSupportedSymbol,
+  posSide: "long" | "short",
+  settings: BitgetUtaSettings
 ): Promise<string[]> {
   const env = getBitgetDemoEnvironment();
+  const plan = planUtaLeverageConfiguration({
+    settings,
+    symbol,
+    leverage: env.leverage,
+    marginMode: "isolated",
+    posSide,
+    category: PRODUCT_TYPE,
+  });
+  if (!plan.required) return [`UTA V3杠杆已就绪：${symbol}逐仓${env.leverage}倍`];
 
   try {
     await signedRequest<string>({
       method: "POST",
       path: "/api/v3/account/set-leverage",
-      body: {
-        category: PRODUCT_TYPE,
-        symbol,
-        leverage: String(env.leverage),
-        marginMode: "isolated",
-      },
+      body: plan.body,
     });
-    return [`UTA V3已设置逐仓${env.leverage}倍`];
+    return [
+      String(settings.holdMode ?? "").toLowerCase() === "hedge_mode"
+        ? `UTA V3已设置${posSide === "long" ? "多头" : "空头"}逐仓${env.leverage}倍`
+        : `UTA V3已设置逐仓${env.leverage}倍`,
+    ];
   } catch (error) {
-    throw new Error(
-      `无法设置${symbol}逐仓${env.leverage}倍：${
-        error instanceof Error ? error.message : "未知错误"
-      }`
-    );
+    throw liveExecutionErrorFrom(error, {
+      stage: "ACCOUNT_CONFIG_WRITE",
+      remoteSubmissionAttempted: false,
+      symbol,
+      action: "SET_LEVERAGE",
+      describe: describeBitgetFailure,
+    });
   }
 }
 
@@ -1577,12 +1627,17 @@ async function updateOutbox(input: {
   lastError?: string;
   retrySeconds?: number;
   terminal?: boolean;
+  executionError?: LiveTradeExecutionError | null;
 }): Promise<void> {
   if (!prisma) return;
+  const executionFailure = input.executionError
+    ? JSON.stringify(serializeLiveExecutionError(input.executionError))
+    : null;
   await prisma.$executeRawUnsafe(
     `UPDATE trade_execution_outbox SET
        status=$2,client_oid=COALESCE($3,client_oid),bitget_order_id=COALESCE($4,bitget_order_id),
        last_error=$5,next_attempt_at=NOW()+($6::text||' seconds')::interval,locked_until=NULL,
+       payload=CASE WHEN $8::jsonb IS NULL THEN payload ELSE jsonb_set(payload,'{executionFailure}',$8::jsonb,true) END,
        acknowledged_at=CASE WHEN $2 IN ('ACKNOWLEDGED','CONFIRMED','RECONCILED') THEN COALESCE(acknowledged_at,NOW()) ELSE acknowledged_at END,
        confirmed_at=CASE WHEN $2 IN ('CONFIRMED','RECONCILED') THEN COALESCE(confirmed_at,NOW()) ELSE confirmed_at END,
        reconciled_at=CASE WHEN $2='RECONCILED' THEN COALESCE(reconciled_at,NOW()) ELSE reconciled_at END,
@@ -1594,8 +1649,28 @@ async function updateOutbox(input: {
     input.bitgetOrderId ?? null,
     input.lastError ?? "",
     Math.max(0, Math.floor(input.retrySeconds ?? 0)),
-    Boolean(input.terminal)
+    Boolean(input.terminal),
+    executionFailure
   );
+}
+
+function executionErrorFromOutbox(row: ExecutionOutboxRow): LiveTradeExecutionError | null {
+  const payload = parsePayload<Record<string, unknown>>(row.payload);
+  const meta = payload.executionFailure;
+  if (!meta || typeof meta !== "object") return null;
+  const record = meta as Record<string, unknown>;
+  const stage = String(record.stage ?? "") as LiveExecutionStage;
+  if (!["LOCAL_PREFLIGHT","ACCOUNT_CONFIG_WRITE","REMOTE_ORDER_WRITE","AMBIGUOUS_WRITE","STATUS_QUERY"].includes(stage)) return null;
+  return new LiveTradeExecutionError({
+    message: String(record.message ?? row.last_error ?? "Bitget execution failed"),
+    stage,
+    bitgetCode: record.bitgetCode == null ? null : String(record.bitgetCode),
+    httpStatus: record.httpStatus == null ? null : Number(record.httpStatus),
+    remoteSubmissionAttempted: Boolean(record.remoteSubmissionAttempted),
+    clientOid: record.clientOid == null ? row.client_oid : String(record.clientOid),
+    symbol: record.symbol == null ? row.symbol : String(record.symbol),
+    action: record.action == null ? row.action_type : String(record.action),
+  });
 }
 
 function orderTerminalStatus(order: BitgetDemoOrderDetails | null): "CONFIRMED" | "ACKNOWLEDGED" | "FAILED" | null {
@@ -1610,10 +1685,9 @@ function orderTerminalStatus(order: BitgetDemoOrderDetails | null): "CONFIRMED" 
 async function submitMarketOrderDirect(
   payload: MarketExecutionPayload,
   oid: string,
+  settings: BitgetUtaSettings,
   onDispatch?: () => void
 ): Promise<BitgetOrderResponse> {
-  await assertBitgetClockSafe();
-  const settings = await getUtaSettings();
   const body: Record<string, unknown> = {
     category: PRODUCT_TYPE,
     symbol: payload.symbol,
@@ -1635,8 +1709,12 @@ async function submitMarketOrderDirect(
     body.tpOrderType = "market";
   }
   if (settings.holdMode === "hedge_mode") body.posSide = inferHedgePositionSide(payload);
-  onDispatch?.();
-  return signedRequest<BitgetOrderResponse>({ method: "POST", path: "/api/v3/trade/place-order", body });
+  return signedRequest<BitgetOrderResponse>({
+    method: "POST",
+    path: "/api/v3/trade/place-order",
+    body,
+    onDispatch,
+  });
 }
 
 type BitgetStrategyOrderRecord = {
@@ -1713,7 +1791,7 @@ async function cancelProtectionDirect(payload: CancelProtectionPayload): Promise
 
 async function confirmAcknowledgedOutbox(row: ExecutionOutboxRow): Promise<ExecutionOutboxRow> {
   if (row.action_type === "OPEN_MARKET" || row.action_type === "CLOSE_MARKET") {
-    const order = await getBitgetDemoOrderDetails({
+    const order = await getBitgetDemoOrderDetailsStrict({
       orderId: row.bitget_order_id ?? undefined,
       clientOid: row.client_oid ?? undefined,
     });
@@ -1756,29 +1834,116 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
     try {
       return await confirmAcknowledgedOutbox(existing);
     } catch (error) {
+      const typed = liveExecutionErrorFrom(error, {
+        stage: "STATUS_QUERY",
+        remoteSubmissionAttempted: Boolean(existing.client_oid),
+        clientOid: existing.client_oid,
+        symbol: existing.symbol,
+        action: existing.action_type,
+        describe: describeBitgetFailure,
+      });
       await updateOutbox({
         id: existing.id,
         status: "ACKNOWLEDGED",
-        lastError: `FINAL_STATUS_QUERY_FAILED：${error instanceof Error ? error.message : "最终状态回查失败"}`,
+        lastError: `FINAL_STATUS_QUERY_FAILED：${typed.message}`,
         retrySeconds: 20,
+        executionError: typed,
       });
       return (await getOutboxById(existing.id)) ?? existing;
     }
   }
   const acquired = await acquireOutboxTask(id);
   if (!acquired) return (await getOutboxById(id)) ?? existing;
+
+  if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
+    const payload = parsePayload<MarketExecutionPayload>(acquired.payload);
+    const oid = acquired.client_oid || clientOid(payload.paperOrderId);
+    const posSide = inferHedgePositionSide(payload);
+    let preparedSettings: BitgetUtaSettings | null = null;
+    const dispatch = await runIdempotentOrderDispatch<BitgetOrderResponse>({
+      clientOid: oid,
+      symbol: payload.symbol,
+      action: acquired.action_type,
+      prepareLocal: async () => {
+        await assertBitgetClockSafe();
+        preparedSettings = await getUtaSettings();
+      },
+      configureAccount: acquired.action_type === "OPEN_MARKET"
+        ? async () => {
+            if (!preparedSettings) throw new Error("UTA账户设置未完成预读取");
+            await configureUtaSymbol(payload.symbol, posSide, preparedSettings);
+          }
+        : undefined,
+      queryExisting: () => getBitgetDemoOrderByClientOid(oid),
+      submitOrder: async (onRemoteDispatch) => {
+        if (!preparedSettings) throw new Error("UTA账户设置未完成预读取");
+        return submitMarketOrderDirect(payload, oid, preparedSettings, onRemoteDispatch);
+      },
+      describeError: describeBitgetFailure,
+    });
+
+    if (dispatch.kind === "ACKNOWLEDGED") {
+      const response = dispatch.order;
+      if (!response?.orderId) {
+        const typed = new LiveTradeExecutionError({
+          message: "Bitget未返回orderId",
+          stage: dispatch.remoteSubmissionAttempted ? "AMBIGUOUS_WRITE" : "STATUS_QUERY",
+          remoteSubmissionAttempted: dispatch.remoteSubmissionAttempted,
+          clientOid: oid,
+          symbol: payload.symbol,
+          action: acquired.action_type,
+        });
+        await updateOutbox({
+          id,
+          status: "ACKNOWLEDGED",
+          clientOid: oid,
+          lastError: typed.message,
+          retrySeconds: 20,
+          executionError: typed,
+        });
+        return (await getOutboxById(id)) ?? acquired;
+      }
+      await updateOutbox({
+        id,
+        status: "ACKNOWLEDGED",
+        clientOid: response.clientOid ?? oid,
+        bitgetOrderId: response.orderId,
+        lastError: dispatch.recovered ? "响应异常后已按clientOid找回订单；已确认现存订单，未重复提交。" : "",
+        retrySeconds: 5,
+      });
+      const acknowledged = await getOutboxById(id);
+      return acknowledged ? confirmAcknowledgedOutbox(acknowledged) : acquired;
+    }
+
+    const typed = dispatch.error;
+    if (typed.stage === "AMBIGUOUS_WRITE" || (typed.stage === "STATUS_QUERY" && typed.remoteSubmissionAttempted)) {
+      await updateOutbox({
+        id,
+        status: "ACKNOWLEDGED",
+        clientOid: oid,
+        lastError: `ORDER_STATUS_UNKNOWN：${typed.message}；为防止重复下单，系统只回查、不自动重提。`,
+        retrySeconds: 20,
+        executionError: typed,
+      });
+      return (await getOutboxById(id)) ?? acquired;
+    }
+
+    const terminal = typed.stage === "REMOTE_ORDER_WRITE" || acquired.attempt_count >= acquired.max_attempts;
+    await updateOutbox({
+      id,
+      status: "FAILED",
+      clientOid: oid,
+      lastError: typed.message,
+      retrySeconds: terminal ? 3600 : Math.min(300, 15 * 2 ** Math.max(0, acquired.attempt_count - 1)),
+      terminal,
+      executionError: typed,
+    });
+    return (await getOutboxById(id)) ?? acquired;
+  }
+
   let remoteSubmissionAttempted = false;
   try {
-    if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
-      const payload = parsePayload<MarketExecutionPayload>(acquired.payload);
-      const oid = acquired.client_oid || clientOid(payload.paperOrderId);
-      const previous = await getBitgetDemoOrderByClientOid(oid);
-      const response = previous?.orderId
-        ? previous
-        : await submitMarketOrderDirect(payload, oid, () => { remoteSubmissionAttempted = true; });
-      if (!response?.orderId) throw new Error("Bitget未返回orderId");
-      await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: response.clientOid ?? oid, bitgetOrderId: response.orderId, retrySeconds: 5 });
-    } else if (acquired.action_type === "PLACE_PROTECTION") {
+    if (acquired.action_type === "PLACE_PROTECTION") {
       const payload = parsePayload<ProtectionExecutionPayload>(acquired.payload);
       const oid = acquired.client_oid || clientOid(`${payload.paperOrderId}:protection`);
       const previous = await getStrategyOrderRecord({ clientOid: oid });
@@ -1799,13 +1964,7 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
     const message = error instanceof Error ? error.message : "Bitget执行失败";
     if (remoteSubmissionAttempted && acquired.client_oid) {
       try {
-        if (acquired.action_type === "OPEN_MARKET" || acquired.action_type === "CLOSE_MARKET") {
-          const recoveredOrder = await getBitgetDemoOrderByClientOid(acquired.client_oid);
-          if (recoveredOrder?.orderId) {
-            await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: recoveredOrder.clientOid, bitgetOrderId: recoveredOrder.orderId, lastError: `响应异常后已按clientOid找回订单：${message}`, retrySeconds: 5 });
-            return confirmAcknowledgedOutbox((await getOutboxById(id)) ?? acquired);
-          }
-        } else if (acquired.action_type === "PLACE_PROTECTION") {
+        if (acquired.action_type === "PLACE_PROTECTION") {
           const recoveredProtection = await getStrategyOrderRecord({ clientOid: acquired.client_oid });
           if (recoveredProtection?.orderId) {
             await updateOutbox({ id, status: "ACKNOWLEDGED", clientOid: recoveredProtection.clientOid, bitgetOrderId: recoveredProtection.orderId, lastError: `响应异常后已按clientOid找回保护单：${message}`, retrySeconds: 5 });
@@ -1827,7 +1986,7 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
         await updateOutbox({
           id,
           status: "ACKNOWLEDGED",
-          lastError: `ORDER_STATUS_UNKNOWN：${message}；为防止重复下单，系统只回查、不自动重提。`,
+          lastError: `ORDER_STATUS_UNKNOWN：${message}；为防止重复写入，系统只回查、不自动重提。`,
           retrySeconds: 20,
         });
         return (await getOutboxById(id)) ?? acquired;
@@ -1897,7 +2056,7 @@ export async function placeBitgetDemoMarketOrder(input: {
   const contract = await getContractConfig(input.symbol);
   const size = normalizeOrderSize(input.quantity, contract);
   if (!input.reduceOnly) await assertLiveExperimentOpenAllowed({ symbol: input.symbol, size });
-  const warnings = input.reduceOnly ? [] : await configureUtaSymbol(input.symbol);
+  const warnings: string[] = [];
   const stopLoss = !input.reduceOnly && input.stopLoss && input.stopLoss > 0
     ? normalizeContractTriggerPrice(input.stopLoss, contract, input.side === "buy" ? "floor" : "ceil")
     : input.stopLoss;
@@ -1919,7 +2078,16 @@ export async function placeBitgetDemoMarketOrder(input: {
   });
   const result = await processSingleOutboxTask(task.id);
   if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
-    throw new Error(result.last_error || "Bitget订单未进入可确认状态");
+    const typed = executionErrorFromOutbox(result);
+    if (typed) throw typed;
+    throw new LiveTradeExecutionError({
+      message: result.last_error || "Bitget订单未进入可确认状态",
+      stage: result.status === "ACKNOWLEDGED" ? "STATUS_QUERY" : "LOCAL_PREFLIGHT",
+      remoteSubmissionAttempted: result.status === "ACKNOWLEDGED",
+      clientOid: result.client_oid,
+      symbol: result.symbol,
+      action: result.action_type,
+    });
   }
   const raw = await getBitgetDemoOrderDetails({ orderId: result.bitget_order_id, clientOid: result.client_oid }) ?? {
     orderId: result.bitget_order_id,
@@ -2160,4 +2328,167 @@ export async function getBitgetDemoPendingStrategyOrders(): Promise<
       createdAt: timestampIso(row.createdTime),
     }))
     .filter((row) => row.orderId && row.symbol);
+}
+
+export type BitgetFailedOrderAuditItem = {
+  outboxId: string;
+  decisionId: string | null;
+  symbol: string;
+  action: string;
+  status: string;
+  clientOid: string | null;
+  bitgetOrderId: string | null;
+  attemptCount: number;
+  failureStage: string;
+  bitgetCode: string | null;
+  httpStatus: number | null;
+  remoteSubmissionAttempted: boolean | null;
+  lastError: string;
+  updatedAt: string;
+  orderLookup: "FOUND" | "ABSENT" | "NOT_CHECKED" | "QUERY_ERROR";
+  orderStatus: string | null;
+  positionPresent: boolean;
+  strategyOrderPresent: boolean;
+  queryError: string | null;
+};
+
+export type BitgetFailedOrderAuditReport = {
+  checkedAt: string;
+  readOnly: true;
+  items: BitgetFailedOrderAuditItem[];
+  recentOrderErrorDecisions: Array<{
+    id: string;
+    symbol: string;
+    status: string;
+    rejectionCode: string;
+    rejectionReason: string;
+    clientOid: string | null;
+    bitgetOrderId: string | null;
+    updatedAt: string;
+  }>;
+  positionsCount: number | null;
+  pendingStrategyOrdersCount: number | null;
+  safeToConsiderResume: boolean;
+  summary: string;
+};
+
+export async function auditRecentBitgetLiveOrderFailures(limit = 50): Promise<BitgetFailedOrderAuditReport> {
+  if (!prisma) throw new Error("数据库不可用，无法核对历史失败订单");
+  const bounded = Math.max(1, Math.min(100, Math.floor(limit)));
+  const outboxRows = await prisma.$queryRawUnsafe<ExecutionOutboxRow[]>(
+    `SELECT * FROM trade_execution_outbox
+     WHERE environment_mode='LIVE_EXPERIMENT'
+       AND (status='FAILED' OR last_error<>'' OR COALESCE(payload->'executionFailure'->>'stage','')<>'')
+     ORDER BY updated_at DESC LIMIT $1`,
+    bounded
+  );
+  const decisionRows = await prisma.$queryRawUnsafe<Array<{
+    id: string;
+    symbol: string;
+    status: string;
+    rejection_code: string;
+    rejection_reason: string;
+    client_oid: string | null;
+    bitget_order_id: string | null;
+    updated_at: Date | string;
+  }>>(
+    `SELECT id,symbol,status,rejection_code,rejection_reason,client_oid,bitget_order_id,updated_at
+     FROM trade_three_horizon_decisions
+     WHERE rejection_code='ORDER_ERROR'
+       AND mode='LIVE'
+     ORDER BY updated_at DESC LIMIT $1`,
+    bounded
+  );
+
+  let positions: BitgetDemoPosition[] | null = null;
+  let strategies: BitgetDemoStrategyOrder[] | null = null;
+  let accountQueryError = "";
+  try {
+    [positions, strategies] = await Promise.all([
+      getBitgetDemoCurrentPositions(),
+      getBitgetDemoPendingStrategyOrders(),
+    ]);
+  } catch (error) {
+    accountQueryError = error instanceof Error ? error.message : "账户只读核对失败";
+  }
+
+  const core = await auditFailureReferencesCore({
+    outboxRows: outboxRows.map((row) => {
+      const failure = executionErrorFromOutbox(row);
+      return {
+        id: row.id,
+        decisionId: row.decision_id,
+        symbol: row.symbol,
+        action: row.action_type,
+        status: row.status,
+        clientOid: row.client_oid,
+        bitgetOrderId: row.bitget_order_id,
+        attemptCount: Number(row.attempt_count ?? 0),
+        failureStage: failure?.stage ?? "LEGACY_UNKNOWN",
+        bitgetCode: failure?.bitgetCode ?? null,
+        httpStatus: failure?.httpStatus ?? null,
+        remoteSubmissionAttempted: failure ? failure.remoteSubmissionAttempted : null,
+        lastError: row.last_error,
+        updatedAt: new Date(row.updated_at).toISOString(),
+      };
+    }),
+    decisionRows: decisionRows.map((row) => ({
+      id: row.id,
+      symbol: row.symbol,
+      status: row.status,
+      rejectionCode: row.rejection_code,
+      rejectionReason: row.rejection_reason,
+      clientOid: row.client_oid,
+      bitgetOrderId: row.bitget_order_id,
+      updatedAt: new Date(row.updated_at).toISOString(),
+    })),
+    positions: positions?.map((row) => ({ symbol: row.symbol, total: row.total })) ?? null,
+    strategies: strategies?.map((row) => ({
+      symbol: row.symbol,
+      clientOid: row.clientOid,
+      orderId: row.orderId,
+    })) ?? null,
+    accountQueryError,
+    lookupOrder: async (ref) => getBitgetDemoOrderDetailsStrict(ref),
+  });
+
+  return {
+    checkedAt: new Date().toISOString(),
+    readOnly: true,
+    items: core.items.map((item) => ({
+      outboxId: item.outboxId,
+      decisionId: item.decisionId,
+      symbol: item.symbol,
+      action: item.action,
+      status: item.status,
+      clientOid: item.clientOid,
+      bitgetOrderId: item.bitgetOrderId,
+      attemptCount: item.attemptCount,
+      failureStage: item.failureStage,
+      bitgetCode: item.bitgetCode,
+      httpStatus: item.httpStatus,
+      remoteSubmissionAttempted: item.remoteSubmissionAttempted,
+      lastError: item.lastError,
+      updatedAt: item.updatedAt,
+      orderLookup: item.orderLookup,
+      orderStatus: item.orderStatus,
+      positionPresent: item.positionPresent,
+      strategyOrderPresent: item.strategyOrderPresent,
+      queryError: item.queryError,
+    })),
+    recentOrderErrorDecisions: decisionRows.map((row) => ({
+      id: row.id,
+      symbol: row.symbol,
+      status: row.status,
+      rejectionCode: row.rejection_code,
+      rejectionReason: row.rejection_reason,
+      clientOid: row.client_oid,
+      bitgetOrderId: row.bitget_order_id,
+      updatedAt: new Date(row.updated_at).toISOString(),
+    })),
+    positionsCount: positions?.length ?? null,
+    pendingStrategyOrdersCount: strategies?.length ?? null,
+    safeToConsiderResume: core.safeToConsiderResume,
+    summary: core.summary,
+  };
 }

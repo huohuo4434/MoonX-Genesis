@@ -3,6 +3,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type {
+  BitgetFailedOrderAuditReport,
   BitgetRuntimeState,
   BitgetSmokeTestReport,
 } from "@/types/bitget-demo-runtime";
@@ -141,6 +142,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [securityResult, setSecurityResult] = useState<SecurityResult | null>(null);
   const [smokeResult, setSmokeResult] = useState<BitgetSmokeTestReport | null>(null);
+  const [failureAudit, setFailureAudit] = useState<BitgetFailedOrderAuditReport | null>(null);
   const [smokeConfirmation, setSmokeConfirmation] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -280,6 +282,24 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
     }
   }
 
+  async function verifyFailedOrders() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/bitget-demo/verify-failed-orders", { method: "POST" });
+      const json = await parseJson<{ error?: string; report?: BitgetFailedOrderAuditReport }>(res, "失败订单核对");
+      if (!res.ok || json.error || !json.report) throw new Error(json.error || "失败订单核对失败");
+      setFailureAudit(json.report);
+      setMessage(json.report.summary);
+      await refresh(true);
+    } catch (error) {
+      setFailureAudit(null);
+      setMessage(error instanceof Error ? error.message : "失败订单核对失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function runSmokeTest() {
     setLoading(true);
     setMessage("");
@@ -331,6 +351,10 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
           ? "已停止"
           : "待启动";
     const securitySafe = securityResult?.safeForLiveExperiment ?? Boolean(experiment?.securityMessage && !experiment.stopReason);
+    const autoOrderPaused = dashboard.runtime.paused && dashboard.runtime.pauseSource === "AUTO_ORDER";
+    const autoApiPaused = dashboard.runtime.paused && (dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO");
+    const canRunNow = !dashboard.runtime.paused;
+    const canResume = dashboard.runtime.paused && !autoApiPaused && (!autoOrderPaused || Boolean(failureAudit?.safeToConsiderResume));
     return (
       <div className="space-y-6">
         {message ? (
@@ -365,7 +389,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
               {dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO" ? (
                 <Text variant="caption" className="block text-amber-100/80">临时接口异常会继续重试；连续2轮行情和账户恢复正常后自动解除，无需手动点击恢复。</Text>
               ) : dashboard.runtime.pauseSource === "AUTO_ORDER" ? (
-                <Text variant="caption" className="block text-red-100/80">这是订单写入错误保护，必须核对Bitget订单与持仓后再手动恢复。</Text>
+                <Text variant="caption" className="block text-red-100/80">这是订单写入错误保护。先使用下方“核对失败订单（只读、不下单）”确认 clientOid、订单、持仓和策略单；核对完成前不提供恢复按钮。</Text>
               ) : null}
             </div>
           ) : null}
@@ -375,6 +399,28 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
               <Text variant="caption" className="block text-red-100/75">最近交易/执行错误</Text>
               <Text variant="body-sm" className="block text-red-200 break-words">{dashboard.runtime.lastError}</Text>
               <Text variant="caption" className="block text-white/45">只有真实远端下单写入失败才累计“订单错误”；规格、最小金额、风险预算等下单前拦截不会触发自动暂停。</Text>
+            </div>
+          ) : null}
+          {dashboard.runtime.recentExecutionFailures?.length ? (
+            <div className="rounded-lg border border-red-400/20 bg-red-400/[0.025] p-4 space-y-3">
+              <div>
+                <Text variant="caption" className="block text-red-100/75">最近失败订单 / 执行发件箱</Text>
+                <Text variant="caption" className="mt-1 block text-white/45">独立于最近事件20条，不会因为普通心跳把根因冲掉。仅显示脱敏字段。</Text>
+              </div>
+              <div className="space-y-2">
+                {dashboard.runtime.recentExecutionFailures.slice(0, 10).map((item) => (
+                  <div key={item.outboxId} className="rounded-md border border-white/10 bg-black/20 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={item.stage === "REMOTE_ORDER_WRITE" ? "danger" : item.stage === "AMBIGUOUS_WRITE" ? "warning" : "outline"}>{item.stage}</Badge>
+                      <Text variant="body-sm" weight="semibold">{item.symbol} · {item.action}</Text>
+                      <Text variant="caption" color="tertiary">attempt {item.attemptCount}</Text>
+                    </div>
+                    <Text variant="caption" className="mt-2 block text-white/60 break-words">clientOid {item.clientOid || "—"} · code {item.bitgetCode || "—"} · HTTP {item.httpStatus ?? "—"}</Text>
+                    <Text variant="caption" className="mt-1 block text-red-100/75 break-words">{item.lastError || "—"}</Text>
+                    <Text variant="caption" color="tertiary" className="mt-1 block">{time(item.updatedAt)}</Text>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
           {dashboard.runtime.lastMarketError || dashboard.runtime.lastAccountError ? (
@@ -400,14 +446,35 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
-            <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button>
-            {dashboard.runtime.paused ? (
-              dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO" ? null : <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
-            ) : (
+            {dashboard.runtime.paused && dashboard.runtime.pauseSource === "AUTO_ORDER" ? (
+              <Button type="button" variant="outline" onClick={verifyFailedOrders} isLoading={loading}>核对失败订单（只读、不下单）</Button>
+            ) : null}
+            {canRunNow ? (
+              <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button>
+            ) : null}
+            {canResume ? (
+              <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
+            ) : !dashboard.runtime.paused ? (
               <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>紧急暂停新开仓</Button>
-            )}
+            ) : null}
             <Button type="button" variant="outline" onClick={() => void refresh(false)} isLoading={loading}>刷新状态</Button>
           </div>
+          {failureAudit ? (
+            <div className={`rounded-lg border p-4 ${failureAudit.safeToConsiderResume ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}`}>
+              <Text variant="body-sm" weight="semibold">失败订单只读核对：{failureAudit.safeToConsiderResume ? "未发现现存订单/持仓/策略单" : "仍有不确定项或现存交易状态"}</Text>
+              <Text variant="caption" className="mt-2 block text-white/60">{failureAudit.summary}</Text>
+              <Text variant="caption" className="mt-1 block text-white/45">核对时间 {time(failureAudit.checkedAt)} · 持仓 {failureAudit.positionsCount ?? "?"} · 策略单 {failureAudit.pendingStrategyOrdersCount ?? "?"}</Text>
+              <div className="mt-3 space-y-2">
+                {failureAudit.items.slice(0, 10).map((item) => (
+                  <div key={item.outboxId} className="rounded-md border border-white/10 bg-black/20 p-3">
+                    <Text variant="caption" className="block text-white/80">{item.symbol} · {item.action} · {item.failureStage} · clientOid {item.clientOid || "—"}</Text>
+                    <Text variant="caption" className="mt-1 block text-white/55">order-info {item.orderLookup}{item.orderStatus ? ` (${item.orderStatus})` : ""} · position {item.positionPresent ? "FOUND" : "ABSENT"} · strategy {item.strategyOrderPresent ? "FOUND" : "ABSENT"}</Text>
+                    {item.queryError ? <Text variant="caption" className="mt-1 block text-red-200">{item.queryError}</Text> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </Card>
 
         <Card padding="lg" className="space-y-4">
@@ -530,23 +597,6 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
           ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>
-            服务器立即检查一次
-          </Button>
-          {dashboard.runtime.paused ? (
-            <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>
-              恢复服务器执行
-            </Button>
-          ) : (
-            <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>
-              暂停新订单执行
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => void refresh(false)} isLoading={loading}>
-            刷新状态
-          </Button>
-        </div>
       </Card>
 
       <Card padding="lg" className="space-y-4">

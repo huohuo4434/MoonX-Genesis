@@ -54,6 +54,24 @@ export interface BitgetRuntimeEvent {
   createdAt: string;
 }
 
+
+export interface BitgetRuntimeExecutionFailure {
+  outboxId: string;
+  decisionId: string | null;
+  symbol: string;
+  action: string;
+  status: string;
+  stage: string;
+  bitgetCode: string | null;
+  httpStatus: number | null;
+  remoteSubmissionAttempted: boolean | null;
+  clientOid: string | null;
+  bitgetOrderId: string | null;
+  attemptCount: number;
+  lastError: string;
+  updatedAt: string;
+}
+
 export interface BitgetRuntimeState {
   databaseReady: boolean;
   mode: "BITGET_DEMO_REST_CRON" | "BITGET_LIVE_EXPERIMENT_REST_CRON";
@@ -89,6 +107,7 @@ export interface BitgetRuntimeState {
   lastError: string;
   lastReport: Record<string, unknown> | null;
   recentEvents: BitgetRuntimeEvent[];
+  recentExecutionFailures?: BitgetRuntimeExecutionFailure[];
   updatedAt: string;
   liveExperiment?: {
     status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
@@ -151,4 +170,46 @@ export interface BitgetSmokeTestReport {
   closedAt: string;
   finalPositionCount: number;
   messages: string[];
+}
+
+export interface BitgetFailedOrderAuditItem {
+  outboxId: string;
+  decisionId: string | null;
+  symbol: string;
+  action: string;
+  status: string;
+  clientOid: string | null;
+  bitgetOrderId: string | null;
+  attemptCount: number;
+  failureStage: string;
+  bitgetCode: string | null;
+  httpStatus: number | null;
+  remoteSubmissionAttempted: boolean | null;
+  lastError: string;
+  updatedAt: string;
+  orderLookup: "FOUND" | "ABSENT" | "NOT_CHECKED" | "QUERY_ERROR";
+  orderStatus: string | null;
+  positionPresent: boolean;
+  strategyOrderPresent: boolean;
+  queryError: string | null;
+}
+
+export interface BitgetFailedOrderAuditReport {
+  checkedAt: string;
+  readOnly: true;
+  items: BitgetFailedOrderAuditItem[];
+  recentOrderErrorDecisions: Array<{
+    id: string;
+    symbol: string;
+    status: string;
+    rejectionCode: string;
+    rejectionReason: string;
+    clientOid: string | null;
+    bitgetOrderId: string | null;
+    updatedAt: string;
+  }>;
+  positionsCount: number | null;
+  pendingStrategyOrdersCount: number | null;
+  safeToConsiderResume: boolean;
+  summary: string;
 }

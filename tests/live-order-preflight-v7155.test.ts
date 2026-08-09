@@ -17,7 +17,7 @@ const btcContract: LiveContractRules = {
 };
 
 test("local preflight blocks do not count as real order write failures", () => {
-  assert.deepEqual(classifyLiveOrderFailure("PREFLIGHT"), {
+  assert.deepEqual(classifyLiveOrderFailure("LOCAL_PREFLIGHT"), {
     attempted: false,
     error: false,
     status: "BLOCKED",
@@ -25,12 +25,36 @@ test("local preflight blocks do not count as real order write failures", () => {
   });
 });
 
-test("only remote exchange write failures count as order errors", () => {
-  assert.deepEqual(classifyLiveOrderFailure("REMOTE_WRITE"), {
+test("account configuration failures stay blocked and never count as order errors", () => {
+  assert.deepEqual(classifyLiveOrderFailure("ACCOUNT_CONFIG_WRITE"), {
+    attempted: false,
+    error: false,
+    status: "BLOCKED",
+    rejectionCode: "ACCOUNT_CONFIG_BLOCK",
+  });
+});
+
+test("only definite place-order remote failures count as order errors", () => {
+  assert.deepEqual(classifyLiveOrderFailure("REMOTE_ORDER_WRITE", true), {
     attempted: true,
     error: true,
     status: "ERROR",
     rejectionCode: "ORDER_ERROR",
+  });
+});
+
+test("ambiguous writes and status queries never increment order errors", () => {
+  assert.deepEqual(classifyLiveOrderFailure("AMBIGUOUS_WRITE", true), {
+    attempted: true,
+    error: false,
+    status: "BLOCKED",
+    rejectionCode: "ORDER_STATUS_UNKNOWN",
+  });
+  assert.deepEqual(classifyLiveOrderFailure("STATUS_QUERY", true), {
+    attempted: true,
+    error: false,
+    status: "BLOCKED",
+    rejectionCode: "STATUS_QUERY_BLOCK",
   });
 });
 

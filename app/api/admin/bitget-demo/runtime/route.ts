@@ -7,6 +7,8 @@ import {
   setBitgetRuntimePaused,
 } from "@/lib/bitget/demo-runtime";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
+import { auditRecentBitgetLiveOrderFailures } from "@/lib/bitget/demo-client";
+import { guardRuntimeAdminAction } from "@/lib/bitget/runtime-admin-action-core";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -37,18 +39,32 @@ export async function POST(request: NextRequest) {
   }
   try {
     const input = actionSchema.parse(await request.json());
-    if (input.action === "PAUSE") {
-      return NextResponse.json({
-        ok: true,
-        state: await setBitgetRuntimePaused(true, input.reason || "管理员手动暂停"),
-      });
+    const gate = await guardRuntimeAdminAction({
+      action: input.action,
+      pauseReason: input.action === "PAUSE" ? input.reason : undefined,
+      getState: () => getBitgetRuntimeState(),
+      setPaused: (paused, reason) => setBitgetRuntimePaused(paused, reason),
+      auditFailures: () => auditRecentBitgetLiveOrderFailures(50),
+    });
+    if (gate.handled) {
+      return NextResponse.json(
+        {
+          ok: gate.allowed,
+          ...(gate.error ? { error: gate.error } : {}),
+          state: gate.state,
+          ...(gate.audit ? {
+            audit: {
+              safeToConsiderResume: gate.audit.safeToConsiderResume,
+              summary: gate.audit.summary,
+              positionsCount: gate.audit.positionsCount,
+              pendingStrategyOrdersCount: gate.audit.pendingStrategyOrdersCount,
+            },
+          } : {}),
+        },
+        { status: gate.status }
+      );
     }
-    if (input.action === "RESUME") {
-      return NextResponse.json({
-        ok: true,
-        state: await setBitgetRuntimePaused(false),
-      });
-    }
+
     const now = new Date();
     const report = await runBitgetDemoServerRuntime(now, "ADMIN");
     let memberDeskSync: { ok: true } | { ok: false; error: string } = { ok: true };

@@ -6,6 +6,7 @@ import type {
   BitgetRuntimeAccountSnapshot,
   BitgetRuntimeDecisionStats,
   BitgetRuntimeEvent,
+  BitgetRuntimeExecutionFailure,
   BitgetRuntimeQuote,
   BitgetRuntimeState,
 } from "@/types/bitget-demo-runtime";
@@ -72,11 +73,26 @@ type EventRow = {
   created_at: Date | string;
 };
 
+type ExecutionFailureRow = {
+  id: string;
+  decision_id: string | null;
+  action_type: string;
+  symbol: string;
+  status: string;
+  client_oid: string | null;
+  bitget_order_id: string | null;
+  attempt_count: number;
+  last_error: string;
+  failure_meta: unknown;
+  updated_at: Date | string;
+};
+
 type SnapshotEnvelope = {
   runtime_state: RuntimeStateRow | null;
   live_experiment: LiveExperimentRow | null;
   daily_history: DailyRow[] | null;
   recent_events: EventRow[] | null;
+  recent_execution_failures: ExecutionFailureRow[] | null;
 };
 
 type LiveAdminDashboard = {
@@ -197,6 +213,7 @@ function fallbackDashboard(now: Date, errorMessage: string): LiveAdminDashboard 
     lastError: errorMessage,
     lastReport: null,
     recentEvents: [],
+    recentExecutionFailures: [],
     updatedAt: now.toISOString(),
     liveExperiment: {
       status: environment.executionAllowed ? "NOT_STARTED" : "DISABLED",
@@ -285,6 +302,25 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
     payload: safeJson<Record<string, unknown> | null>(event.payload, null),
     createdAt: iso(event.created_at) ?? now.toISOString(),
   }));
+  const recentExecutionFailures: BitgetRuntimeExecutionFailure[] = (envelope.recent_execution_failures ?? []).map((row) => {
+    const meta = safeJson<Record<string, unknown>>(row.failure_meta, {});
+    return {
+      outboxId: row.id,
+      decisionId: row.decision_id,
+      symbol: row.symbol,
+      action: row.action_type,
+      status: row.status,
+      stage: String(meta.stage ?? "LEGACY_UNKNOWN"),
+      bitgetCode: meta.bitgetCode == null ? null : String(meta.bitgetCode),
+      httpStatus: meta.httpStatus == null ? null : Number(meta.httpStatus),
+      remoteSubmissionAttempted: meta.remoteSubmissionAttempted == null ? null : Boolean(meta.remoteSubmissionAttempted),
+      clientOid: row.client_oid,
+      bitgetOrderId: row.bitget_order_id,
+      attemptCount: Number(row.attempt_count ?? 0),
+      lastError: row.last_error,
+      updatedAt: iso(row.updated_at) ?? now.toISOString(),
+    };
+  });
 
   return {
     environment,
@@ -325,6 +361,7 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
       lastError: String(row.last_error ?? ""),
       lastReport: safeJson<Record<string, unknown> | null>(row.last_report, null),
       recentEvents,
+      recentExecutionFailures,
       updatedAt: iso(row.updated_at) ?? now.toISOString(),
       liveExperiment: {
         status,
@@ -381,7 +418,16 @@ async function querySnapshot(): Promise<SnapshotEnvelope> {
         FROM trade_bitget_runtime_events
         ORDER BY created_at DESC
         LIMIT 20
-      ) event_row), '[]'::json) AS recent_events
+      ) event_row), '[]'::json) AS recent_events,
+      COALESCE((SELECT json_agg(failure_row) FROM (
+        SELECT id, decision_id, action_type, symbol, status, client_oid, bitget_order_id,
+               attempt_count, last_error, payload->'executionFailure' AS failure_meta, updated_at
+        FROM trade_execution_outbox
+        WHERE environment_mode='LIVE_EXPERIMENT'
+          AND (status='FAILED' OR last_error<>'' OR COALESCE(payload->'executionFailure'->>'stage','')<>'')
+        ORDER BY updated_at DESC
+        LIMIT 20
+      ) failure_row), '[]'::json) AS recent_execution_failures
   `);
   if (!rows[0]) throw new Error("数据库没有返回实盘状态快照");
   return rows[0];

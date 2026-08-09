@@ -27,6 +27,7 @@ import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
 import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
 import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-plan-renewal-core";
 import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-preflight-core";
+import { LiveTradeExecutionError } from "@/lib/bitget/live-execution-core";
 import {
   prepareAiTradePlanBeforeExecution,
   syncAiTradePlanFromDecision,
@@ -2759,7 +2760,7 @@ async function executeReadyDecision(input: {
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "下单前规格/风险检查失败";
-    const disposition = classifyLiveOrderFailure("PREFLIGHT");
+    const disposition = classifyLiveOrderFailure("LOCAL_PREFLIGHT");
     return {
       decision: await updateDecision(input.decision.id, {
         status: disposition.status,
@@ -2812,13 +2813,26 @@ async function executeReadyDecision(input: {
       riskReservedPct: sizing.riskPct,
     };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}下单失败`;
-    const disposition = classifyLiveOrderFailure("REMOTE_WRITE");
+    const typed = error instanceof LiveTradeExecutionError ? error : new LiveTradeExecutionError({
+      message: error instanceof Error ? error.message : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}下单失败`,
+      stage: "LOCAL_PREFLIGHT",
+      remoteSubmissionAttempted: false,
+      symbol: input.decision.symbol,
+      action: "OPEN_MARKET",
+    });
+    const disposition = classifyLiveOrderFailure(typed.stage, typed.remoteSubmissionAttempted);
+    const meta = [
+      `stage=${typed.stage}`,
+      typed.bitgetCode ? `code=${typed.bitgetCode}` : "",
+      typed.httpStatus != null ? `http=${typed.httpStatus}` : "",
+      typed.clientOid ? `clientOid=${typed.clientOid}` : "",
+    ].filter(Boolean).join(" · ");
     return {
       decision: await updateDecision(input.decision.id, {
         status: disposition.status,
         rejectionCode: disposition.rejectionCode,
-        rejectionReason: reason,
+        rejectionReason: `${typed.message}${meta ? ` [${meta}]` : ""}`,
+        clientOid: typed.clientOid ?? undefined,
       }),
       attempted: disposition.attempted,
       success: false,
