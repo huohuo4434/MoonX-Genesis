@@ -70,7 +70,9 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank
               <Badge variant="outline" className="border-white/10 bg-black/10 text-white/55">{assetTypeLabel(teaser.assetType, en)}</Badge>
               {rank ? (
                 <Badge variant="outline" className={rank <= 3 ? "border-amber-300/30 bg-amber-300/[.10] text-amber-100" : "border-white/10 bg-white/[.03] text-white/60"}>
-                  #{rank} · {rank <= 3 ? (en ? "Priority tier" : "优先关注") : (en ? "Resonance rank" : "共振排序")}
+                  #{rank} · {locked
+                    ? (rank <= 3 ? (en ? "Watch first" : "本周先看") : (en ? "Priority" : "优先级"))
+                    : (rank <= 3 ? (en ? "Priority tier" : "优先关注") : (en ? "Resonance rank" : "共振排序"))}
                 </Badge>
               ) : null}
               {mode === "fullAccess" && signal ? (
@@ -91,9 +93,11 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank
           </div>
         </div>
 
-        <p className="mt-4 max-w-[980px] text-body-sm leading-7 text-slate-300/90">
-          {en ? teaser.hookEn : teaser.hookZh}
-        </p>
+        {mode === "publicOnly" ? (
+          <p className="mt-4 max-w-[980px] text-body-sm leading-7 text-slate-300/90">
+            {en ? teaser.hookEn : teaser.hookZh}
+          </p>
+        ) : null}
 
         {mode === "fullAccess" && signal ? (
           <section className={`mt-4 rounded-xl border p-4 ${signal.direction === "BULLISH" ? "border-emerald-300/20 bg-emerald-300/[.045]" : signal.direction === "BEARISH" ? "border-rose-300/20 bg-rose-300/[.045]" : "border-amber-300/20 bg-amber-300/[.035]"}`}>
@@ -110,14 +114,14 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank
             <p className="mt-2 text-body-sm font-medium text-white/85">{en ? teaser.coverageEn : teaser.coverageZh}</p>
             <p className="mt-3 text-caption leading-relaxed text-white/45">
               {locked
-                ? (en ? "Public view shows the research range. The actual bullish/bearish call remains locked." : "公开页只展示研究范围；真正的看涨/看跌结论留在会员页。")
-                : (en ? "Member access is active. The metaphysical call comes first; technical levels come after it." : "会员权限已解锁：先看玄学唯一方向，再看技术点位；技术不反向修改方向。")}
+                ? (en ? "The public view shows how deep the research goes. The decisive call, timing window and execution levels remain inside the full dossier." : "公开页只展示研究做到哪一层；真正的结论、关键时间和执行位置留在完整专题。")
+                : (en ? "Full research is unlocked: direction, timing, supporting evidence and execution levels are all available below." : "完整研究已解锁：方向、节奏、关键时间、证据与执行位置都可直接查看。")}
             </p>
           </section>
 
           <section className="relative overflow-hidden rounded-xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "What the dossier answers" : "专题直接回答什么"}</p>
+              <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? (locked ? "What the full dossier reveals" : "Member dossier") : (locked ? "完整专题会揭晓" : "会员专题内容")}</p>
               <span className={`rounded-full border px-2.5 py-1 text-caption ${locked ? "border-amber-300/20 bg-amber-300/[.06] text-amber-100/80" : "border-emerald-300/20 bg-emerald-300/[.06] text-emerald-100/80"}`}>
                 {locked ? (en ? "Locked" : "已锁定") : (en ? "Unlocked" : "已解锁")}
               </span>
@@ -138,11 +142,11 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank
 
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href={href(detailHref)} className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent.button} px-4 text-body-sm font-semibold text-slate-950 transition hover:brightness-105`}>
-            {locked ? (en ? "Preview dossier" : "查看专题预览") : (en ? "Open full dossier" : "查看明确结论")}
+            {locked ? (en ? "Open teaser" : "查看专题线索") : (en ? "Open full dossier" : "查看完整结论")}
           </Link>
           {locked ? (
             <Link href={href("/pricing")} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/[.03] px-4 text-body-sm font-semibold text-white/80 transition hover:bg-white/[.07]">
-              {en ? "Unlock call, timing & levels" : "解锁明确方向 · 时间 · 关键价位"}
+              {en ? "Unlock the full answer" : "解锁完整答案 · 时间窗 · 执行位置"}
             </Link>
           ) : null}
         </div>

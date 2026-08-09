@@ -58,17 +58,21 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           <div className="relative z-10 max-w-4xl">
             <p className="font-mono text-caption uppercase tracking-[0.22em] text-cyan-200/55">{en ? "MOOX SPECIAL RESEARCH" : "MOOX 重点关注 · 专题研究"}</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              {en ? "Metaphysics sets direction. Technicals set levels." : "玄学定方向，技术找点位；多周期越共振，观点越靠前。"}
+              {payload.mode === "publicOnly"
+                ? (en ? "The assets worth watching first next week are already ranked." : "下周先看谁，答案已经排好顺序。")
+                : (en ? "Start with the clearest setups for the target week." : "下周先看谁，按当前信号清晰度直接排。")}
             </h1>
             <p className="mt-4 max-w-3xl text-body leading-7 text-white/58">
-              {en
-                ? "The official call comes from the metaphysical evidence. Technical analysis is used only to locate levels and timing. Dossiers are ranked by current-week multi-horizon resonance, whether bullish or bearish."
-                : "MOOX先用周卦、月卦和更大周期卦确定唯一方向；技术分析只负责找位置和风控，不参与把看涨改成看跌、也不参与把看跌改成看涨。重点关注按本周多周期卦象共振强度自动排序，看涨和看跌一视同仁。"}
+              {payload.mode === "publicOnly"
+                ? (en ? "This is not a flat list of popular assets. The higher a dossier sits, the more attention it deserves first. Public cards reveal research depth and selected clues; the decisive call, timing and execution map stay inside the full dossier." : "重点关注不是把所有资产平铺给你。越靠前，越值得先打开专题。公开卡只露研究深度和部分节奏线索，真正的结论、关键时间与执行位置留在完整专题。")
+                : (en ? "Open the front-ranked dossiers first, then use the full page for the target-week call, weekly rhythm, key timing and execution levels." : "先看前排，再进专题拿目标周结论、周内节奏、关键时间和执行位置；不需要在十几个标的之间自己猜谁更值得先看。")}
             </p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/60">
               <p>{en ? "Research dossiers" : "当前专题"}: <span className="text-white">{trackedCount}</span></p>
               {payload.latestResearchUpdatedAt ? <p>{en ? "Latest update" : "最近研究更新"}: <span className="text-white">{formatDate(payload.latestResearchUpdatedAt, en)}</span></p> : null}
-              <p className="text-amber-100/75">{en ? "Public preview hides the actual direction. Ordering still reflects current-week resonance strength." : "公开预览不泄露具体看涨/看跌结论；卡片顺序按本周卦象共振强弱实时排列：极强共振 → 强共振 → 方向明确 → 方向冲突/资料不足。看涨与看跌同权。"}</p>
+              <p className="text-amber-100/75">{payload.mode === "publicOnly"
+                ? (en ? "The ordering itself is a clue; the decisive answer stays locked." : "顺序本身就是线索；越靠前，越值得优先研究，真正答案仍留在专题里。")
+                : (en ? "The front of the list is the first research tier for the target week." : "前排就是目标周第一研究梯队；方向和证据在会员专题里直接展开。")}</p>
             </div>
           </div>
         </header>
@@ -98,16 +102,16 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
         <section className="mt-6 overflow-hidden rounded-[22px] border border-amber-300/15 bg-[radial-gradient(circle_at_12%_0%,rgba(251,191,36,.10),transparent_32%),#0a0c11] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="font-mono text-caption uppercase tracking-[.16em] text-amber-200/60">{en ? "TARGET-WEEK METAPHYSICAL PRIORITY" : "目标周玄学共振优先级"}</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{en ? `Priority watchlist · ${weekLabel}` : `${weekLabel}：先看卦象最明确的标的`}</h2>
+              <p className="font-mono text-caption uppercase tracking-[.16em] text-amber-200/60">{en ? (payload.mode === "publicOnly" ? "NEXT-WEEK PRIORITY" : "TARGET-WEEK PRIORITY") : (payload.mode === "publicOnly" ? "下周优先关注" : "目标周优先级")}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{en ? `Priority watchlist · ${weekLabel}` : `${weekLabel}：这几个先看`}</h2>
               <p className="mt-2 max-w-3xl text-body-sm leading-7 text-white/58">
-                {en
-                  ? "Weekly, monthly and larger-horizon metaphysical readings are ranked by alignment. Bullish and bearish calls are treated equally; technical analysis does not add ranking points."
-                  : "排序只看目标周周卦、月卦和更大周期卦是否同向。看涨和看跌完全同权；技术分析不参与排名，只在进入专题后负责找点位。前排代表方向证据更一致，不代表保证盈利。"}
+                {payload.mode === "publicOnly"
+                  ? (en ? "The front of the list contains the setups with the clearest concentration of research signals. Public view tells you what deserves attention first; the full direction and timing stay locked." : "前排不是热度榜，而是当前研究里最值得先盯的几只。公开页只告诉你谁值得优先看；真正方向、关键时间和执行区进入专题后才揭晓。")
+                  : (en ? "Higher-ranked dossiers have stronger target-week alignment. Bullish and bearish opportunities can both rank near the top; execution levels are shown inside each dossier." : "越靠前，目标周信号越集中。看多和看空机会都可能排在前面；进入专题后直接看唯一方向、周内节奏和执行位置。")}
               </p>
             </div>
             <span className="rounded-full border border-amber-300/20 bg-amber-300/[.07] px-3 py-1.5 text-caption text-amber-100/85">
-              {en ? "Top 3 = first research tier" : "前3名 = 第一研究梯队"}
+              {en ? "Top 3 = first research tier" : "前3名 = 本周先看"}
             </span>
           </div>
 
@@ -140,7 +144,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
                   <div key={slug} className="rounded-xl border border-white/[.08] bg-black/20 p-4">
                     <p className="font-mono text-sm font-semibold text-amber-100">#{index + 1}</p>
                     <p className="mt-2 text-lg font-semibold text-white">{name}</p>
-                    <p className="mt-2 text-caption text-white/45">{en ? "Direction and resonance evidence are member-only." : "唯一方向与同向周期证据仅会员可见。"}</p>
+                    <p className="mt-2 text-caption text-white/45">{en ? "The full answer and timing map are inside the member dossier." : "完整答案、周内节奏和关键时间仅在会员专题展开。"}</p>
                   </div>
                 );
               })}
