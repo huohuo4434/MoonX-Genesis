@@ -67,7 +67,7 @@ const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
   "XAUTUSDT", "XAGUSDT", "GOOGLUSDT", "CLUSDT", "SPYUSDT",
   "SNDKUSDT", "MSFTUSDT",
 ];
-const LIVE_COMMISSIONING_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
+const LIVE_COMMISSIONING_PREFERRED_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
 const LIVE_COMMISSIONING_RISK_PCT = 0.05;
@@ -1904,14 +1904,14 @@ type LiveCommissioningState = {
   latest: DecisionRow | null;
 };
 
-function liveCommissioningProfile(now: Date): ThreeHorizonStrategyProfile {
+function liveCommissioningProfile(now: Date, symbols: BitgetSupportedSymbol[]): ThreeHorizonStrategyProfile {
   return {
     ...PROFILE_DEFINITIONS.INTRADAY,
     label: "短线实盘闭环验收",
     description: "仅执行一次的小额真实开仓、保护和限时平仓验收；完成后自动转入正常三周期策略。",
     enabled: true,
     mode: "LIVE",
-    symbols: [...LIVE_COMMISSIONING_SYMBOLS],
+    symbols: [...symbols],
     scanIntervalMinutes: 1,
     riskPerTradePct: LIVE_COMMISSIONING_RISK_PCT,
     maxHoldingMinutes: LIVE_COMMISSIONING_MAX_HOLDING_MINUTES,
@@ -2064,17 +2064,37 @@ async function runLiveCommissioning(input: {
     return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "账户已有持仓，首笔闭环验收暂缓，避免与现有仓位冲突。" };
   }
   const quoteMap = new Map(input.quotes.map((quote) => [quote.symbol, quote] as const));
-  const candidates = LIVE_COMMISSIONING_SYMBOLS
+  const requestedCommissioningSymbols = Array.from(new Set<BitgetSupportedSymbol>([
+    ...LIVE_COMMISSIONING_PREFERRED_SYMBOLS,
+    ...environment.liveAllowedSymbols,
+  ]));
+  const contractRows = await Promise.all(
+    requestedCommissioningSymbols.map(async (symbol) => ({
+      symbol,
+      contract: await getContractConfig(symbol).catch(() => null),
+    }))
+  );
+  const commissioningUniverse = contractRows
+    .filter((row) => row.contract?.available)
+    .map((row) => row.symbol);
+  const candidates = commissioningUniverse
     .map((symbol) => quoteMap.get(symbol))
     .filter((quote): quote is BitgetDemoMarketQuote => Boolean(quote))
     .filter((quote) => quoteAgeSeconds(quote, input.now) <= LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS);
   if (!candidates.length) {
-    return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: `BTC/ETH实时行情超过${LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS}秒或缺失，首笔闭环禁止下单。` };
+    return {
+      state: "WAITING",
+      decision: null,
+      attempted: false,
+      success: false,
+      error: false,
+      message: `实盘允许池没有${LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS}秒内的新鲜可交易报价，首笔闭环禁止下单。`,
+    };
   }
   try {
     const priorSymbol = String(state.latest?.symbol ?? "").toUpperCase() as BitgetSupportedSymbol;
     const priorDirection = state.latest?.direction;
-    const pinned = LIVE_COMMISSIONING_SYMBOLS.includes(priorSymbol) && (priorDirection === "LONG" || priorDirection === "SHORT")
+    const pinned = commissioningUniverse.includes(priorSymbol) && (priorDirection === "LONG" || priorDirection === "SHORT")
       ? { symbol: priorSymbol, direction: priorDirection as Exclude<ThreeHorizonDirection, "NEUTRAL"> }
       : null;
     const scored: Array<{
@@ -2107,13 +2127,19 @@ async function runLiveCommissioning(input: {
         attempted: false,
         success: false,
         error: false,
-        message: "BTC/ETH当前没有形成明确的MOOX玄学方向，首笔实盘闭环不允许由技术指标替代决定多空。",
+        message: "当前实盘允许池没有任何品种形成明确的MOOX玄学方向；首笔实盘闭环不允许由技术指标替代决定多空。",
       };
     }
+    const commissioningRank = (row: (typeof scored)[number]): number => {
+      const preferred = LIVE_COMMISSIONING_PREFERRED_SYMBOLS.includes(row.quote.symbol) ? 6 : 0;
+      // Direction strength decides the side and dominates selection. Momentum is only a small
+      // tie-breaker for *when/which asset* to execute, never for LONG vs SHORT.
+      return Math.abs(row.directionStrength) * 10 + preferred + Math.min(5, Math.abs(row.momentumScore));
+    };
     const selected = pinned
       ? scored.find((row) => row.quote.symbol === pinned.symbol && row.direction === pinned.direction) ??
-        [...scored].sort((a, b) => Math.abs(b.directionStrength) - Math.abs(a.directionStrength) || Math.abs(b.momentumScore) - Math.abs(a.momentumScore))[0]
-      : [...scored].sort((a, b) => Math.abs(b.directionStrength) - Math.abs(a.directionStrength) || Math.abs(b.momentumScore) - Math.abs(a.momentumScore))[0];
+        [...scored].sort((a, b) => commissioningRank(b) - commissioningRank(a))[0]
+      : [...scored].sort((a, b) => commissioningRank(b) - commissioningRank(a))[0];
     if (!selected) throw new Error("未能找到具备明确MOOX方向的BTC/ETH闭环候选");
     const direction = selected.direction;
     const evaluation = buildLiveCommissioningEvaluation({
@@ -2124,7 +2150,7 @@ async function runLiveCommissioning(input: {
       mooxDirectionLabel: selected.directionLabel,
       mooxDirectionStrength: selected.directionStrength,
     });
-    const profile = liveCommissioningProfile(input.now);
+    const profile = liveCommissioningProfile(input.now, commissioningUniverse);
     let decision = await insertDecision({
       runId: input.runId,
       profile,
@@ -2172,7 +2198,7 @@ async function runLiveCommissioning(input: {
       success: executed.success,
       error: executed.error,
       message: executed.success
-        ? `首笔实盘闭环订单已提交：${decision.symbol}${decision.direction === "LONG" ? "做多" : "做空"}，随后由交易所止盈止损和${LIVE_COMMISSIONING_MAX_HOLDING_MINUTES}分钟限时退出管理。`
+        ? `首笔实盘闭环订单已提交：${decision.symbol}${decision.direction === "LONG" ? "做多" : "做空"}。方向来自MOOX玄学锁定；随后由交易所止盈止损和${LIVE_COMMISSIONING_MAX_HOLDING_MINUTES}分钟限时退出管理。`
         : decision.rejectionReason || "首笔实盘闭环尚未达到执行闸门。",
     };
   } catch (error) {

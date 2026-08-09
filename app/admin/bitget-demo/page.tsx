@@ -32,7 +32,7 @@ export default async function AdminBitgetDemoPage() {
           <AdminNav current="/admin/bitget-demo" />
           <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。玄学与锁定预测决定多空方向，技术结构只负责寻找入场时点和风控位置；BTC/ETH首笔小额闭环与10品种三周期扫描都必须通过实盘安全闸门后才会下单。
+            1000 USDT、30天、10个USDT合约品种、最高2倍逐仓。玄学与锁定预测决定多空方向，技术结构只负责寻找入场时点和风控位置；首笔小额闭环会从实盘允许池中选择MOOX玄学方向最明确且可交易的品种（BTC/ETH优先），10品种三周期扫描同样必须通过实盘安全闸门后才会下单。
           </Text>
           <div className="space-y-8">
             <Card padding="lg" className={cronAuthorized && commissioningEnabled ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}>
@@ -42,7 +42,7 @@ export default async function AdminBitgetDemoPage() {
                   ? "Vercel 自动任务鉴权已配置；服务器每分钟可进入实盘运行链路。"
                   : "CRON_SECRET 未配置：生产环境的自动交易任务会被服务器拒绝。系统不会绕过鉴权，请先在 Vercel 环境变量中完成配置。"}
                 {commissioningEnabled
-                  ? " BTC/ETH 首笔小额闭环默认开启；方向只读取 MOOX 已锁定的玄学方向，技术只负责入场时机。"
+                  ? " 首笔小额闭环默认开启；优先BTC/ETH，若其方向不明确则自动检查其余实盘允许品种。方向只读取MOOX已锁定的玄学方向，技术只负责入场时机。"
                   : " BITGET_LIVE_COMMISSIONING_ENABLED 当前被显式关闭，因此首笔闭环不会自动下单。"}
               </Text>
             </Card>
@@ -51,7 +51,7 @@ export default async function AdminBitgetDemoPage() {
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
-                BTC/ETH首笔闭环验收风险预算0.05%，最长持有30分钟，同时不再阻断其余8个品种；短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每天最多新开10笔，最多同时持有10个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到100 USDT后停止当天新开仓，总权益较峰值回撤达到500 USDT后停止实验并尝试平掉全部仓位。系统只在条件满足时下单，不会为了凑满10笔或10个仓位强行交易。
+                首笔闭环验收风险预算0.05%，最长持有30分钟；系统从实盘允许池选择玄学方向最明确的可交易品种，BTC/ETH优先；短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每天最多新开10笔，最多同时持有10个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT；单日账户亏损达到100 USDT后停止当天新开仓，总权益较峰值回撤达到500 USDT后停止实验并尝试平掉全部仓位。系统只在条件满足时下单，不会为了凑满10笔或10个仓位强行交易。
               </Text>
             </Card>
             <BitgetLiveConsoleLoader />

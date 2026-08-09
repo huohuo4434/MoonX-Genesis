@@ -70,13 +70,14 @@ function statusVariant(status: string) {
 
 function latestPlanBySymbol(plans: AiTradePlan[]): Map<string, AiTradePlan> {
   const map = new Map<string, AiTradePlan>();
-  for (const plan of [...plans].sort((a, b) => {
-    const activeA = TERMINAL.has(a.status) ? 1 : 0;
-    const activeB = TERMINAL.has(b.status) ? 1 : 0;
-    if (activeA !== activeB) return activeA - activeB;
-    if (a.version !== b.version) return b.version - a.version;
-    return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
-  })) {
+  // Terminal plans are audit history, not current execution intent. Never let an old EXPIRED
+  // plan mask a newer live decision in the Top 10 board.
+  for (const plan of [...plans]
+    .filter((row) => !TERMINAL.has(row.status))
+    .sort((a, b) => {
+      if (a.version !== b.version) return b.version - a.version;
+      return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
+    })) {
     const symbol = plan.symbol.toUpperCase();
     if (!map.has(symbol)) map.set(symbol, plan);
   }
@@ -237,7 +238,7 @@ export function AiTradeIntentBoard({
             <Text variant="body-sm" color="secondary" className="mt-1 block">
               {en
                 ? "Ranked from the live allow-list by MOOX focus, forecast, technical confirmation and trigger progress."
-                : "从实盘允许池里按重点关注、MOOX预测、技术确认和触发进度动态排序；不再固定十个名字。"}
+                : "从实盘允许池里按MOOX方向明确度、技术入场进度和实时可执行性动态排序；过期计划只进入历史审计，不再占据当前Top10状态。"}
             </Text>
           </div>
           <Badge variant="outline">{en ? "Hard risk gates remain" : "硬风控仍不可绕过"}</Badge>
