@@ -303,7 +303,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "加密市场风险偏好与平台活跃度是主要驱动因素。",
       "流动性、交易量和生态扩展可能强化价格弹性。",
       "适合高风险跟踪，不适合作为低风险核心资产。",
-      "8月连续三周与9—12月路线已补齐，并保留既有中长期版本用于审计对照。",
+      "26张HYPE/SOL原始卦已按双导师方法逐周期发布；HYPE覆盖8月三周、8月、9—12月、1年、2027与10年，旧版本继续保留审计。",
     ],
     thesisEn: [
       "Crypto risk appetite and platform activity are primary drivers.",
@@ -318,7 +318,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: null,
     marketCapCurrency: "USD",
     marketCapUpdatedAt: null,
-    researchUpdatedAt: "2026-08-09",
+    researchUpdatedAt: "2026-08-10",
     displayOrder: 9,
     isPublished: true,
     memberForecastStockId: null,
@@ -346,7 +346,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     thesisZh: [
       "链上活跃度、生态应用和加密市场风险偏好共同影响价格弹性。",
       "高波动环境下，周度方向与月度背景可能出现不同节奏，需要按周期独立读取。",
-      "已录入8月连续三周、9—12月、2027、2028与10年六爻材料。",
+      "12张SOL原始卦已逐张录入：8月三周、8月、9/10/11/12月、到2026年底、2027、2028与10年，并按双导师方法发布正式结论。",
       "技术结构仅用于执行位置与风险控制，不替代正式周期方向。",
     ],
     thesisEn: [
@@ -362,7 +362,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: null,
     marketCapCurrency: "USD",
     marketCapUpdatedAt: null,
-    researchUpdatedAt: "2026-08-09",
+    researchUpdatedAt: "2026-08-10",
     displayOrder: 9.5,
     isPublished: true,
     memberForecastStockId: null,
