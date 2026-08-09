@@ -27,7 +27,7 @@ function describe(error: unknown): RemoteFailureDescriptor {
   };
 }
 
-test("hedge isolated leverage passes long posSide", () => {
+test("hedge isolated leverage writes both directions and keeps documented posSide", () => {
   const plan = planUtaLeverageConfiguration({
     settings: { holdMode: "hedge_mode", symbolConfigList: [] },
     symbol: "BTCUSDT",
@@ -39,20 +39,34 @@ test("hedge isolated leverage passes long posSide", () => {
   assert.equal(plan.body.posSide, "long");
   assert.equal(plan.body.marginMode, "isolated");
   assert.equal(plan.body.leverage, "2");
+  assert.equal(plan.body.longLeverage, "2");
+  assert.equal(plan.body.shortLeverage, "2");
 });
 
-test("hedge isolated leverage passes short posSide", () => {
-  const plan = planUtaLeverageConfiguration({
+test("hedge isolated leverage keeps requested posSide while both leverage values are explicit", () => {
+  const longPlan = planUtaLeverageConfiguration({
+    settings: { holdMode: "hedge_mode", symbolConfigList: [] },
+    symbol: "ETHUSDT",
+    leverage: 2,
+    marginMode: "isolated",
+    posSide: "long",
+  });
+  const shortPlan = planUtaLeverageConfiguration({
     settings: { holdMode: "hedge_mode", symbolConfigList: [] },
     symbol: "ETHUSDT",
     leverage: 2,
     marginMode: "isolated",
     posSide: "short",
   });
-  assert.equal(plan.body.posSide, "short");
+  assert.equal(longPlan.body.posSide, "long");
+  assert.equal(shortPlan.body.posSide, "short");
+  assert.equal(longPlan.body.longLeverage, "2");
+  assert.equal(longPlan.body.shortLeverage, "2");
+  assert.equal(shortPlan.body.longLeverage, "2");
+  assert.equal(shortPlan.body.shortLeverage, "2");
 });
 
-test("one-way leverage does not send posSide", () => {
+test("one-way leverage does not send hedge-only leverage fields", () => {
   const plan = planUtaLeverageConfiguration({
     settings: { holdMode: "one_way_mode", symbolConfigList: [] },
     symbol: "BTCUSDT",
@@ -61,9 +75,40 @@ test("one-way leverage does not send posSide", () => {
     posSide: "long",
   });
   assert.equal("posSide" in plan.body, false);
+  assert.equal("longLeverage" in plan.body, false);
+  assert.equal("shortLeverage" in plan.body, false);
+  assert.equal(plan.body.leverage, "2");
 });
 
-test("already configured leverage does not write every cron", () => {
+test("hedge leverage array must have every returned side at desired leverage", () => {
+  const ready = planUtaLeverageConfiguration({
+    settings: {
+      holdMode: "hedge_mode",
+      symbolConfigList: [{ category: "USDT-FUTURES", symbol: "BTCUSDT", marginMode: "isolated", leverage: ["2", "2"] }],
+    },
+    symbol: "BTCUSDT",
+    leverage: 2,
+    marginMode: "isolated",
+    posSide: "long",
+  });
+  assert.equal(ready.required, false);
+
+  const mismatch = planUtaLeverageConfiguration({
+    settings: {
+      holdMode: "hedge_mode",
+      symbolConfigList: [{ category: "USDT-FUTURES", symbol: "BTCUSDT", marginMode: "isolated", leverage: ["2", "3"] }],
+    },
+    symbol: "BTCUSDT",
+    leverage: 2,
+    marginMode: "isolated",
+    posSide: "long",
+  });
+  assert.equal(mismatch.required, true);
+  assert.equal(mismatch.body.longLeverage, "2");
+  assert.equal(mismatch.body.shortLeverage, "2");
+});
+
+test("already configured scalar leverage does not write every cron", () => {
   const plan = planUtaLeverageConfiguration({
     settings: {
       holdMode: "hedge_mode",

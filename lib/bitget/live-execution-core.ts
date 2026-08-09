@@ -110,13 +110,24 @@ export type UtaSettingsLike = {
   symbolConfigList?: UtaSymbolConfig[];
 };
 
-function normalizedLeverage(value: unknown): number | null {
-  if (Array.isArray(value)) {
-    const first = value.find((item) => Number.isFinite(Number(item)));
-    return first == null ? null : Number(first);
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function normalizedLeverages(value: unknown): number[] {
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item));
+}
+
+function leverageMatches(value: unknown, desiredLeverage: number, hedgeIsolated: boolean): boolean {
+  const values = normalizedLeverages(value);
+  const first = values[0];
+  if (first === undefined) return false;
+  if (!hedgeIsolated) return Math.abs(first - desiredLeverage) < 1e-9;
+
+  // UTA account/settings documents hedge leverage as an array. Do not treat
+  // "first side happens to be 2x" as fully configured when the second side
+  // may still differ. If Bitget returns a scalar, it represents one common
+  // leverage and can still be accepted.
+  return values.every((item) => Math.abs(item - desiredLeverage) < 1e-9);
 }
 
 export function planUtaLeverageConfiguration(input: {
@@ -137,10 +148,13 @@ export function planUtaLeverageConfiguration(input: {
     String(row.symbol ?? "").toUpperCase() === input.symbol.toUpperCase()
   );
   const currentMode = String(current?.marginMode ?? "").toLowerCase();
-  const currentLeverage = normalizedLeverage(current?.leverage);
   const desiredLeverage = Number(input.leverage);
-  const alreadyConfigured = currentMode === input.marginMode &&
-    currentLeverage != null && Math.abs(currentLeverage - desiredLeverage) < 1e-9;
+  const hedgeIsolated =
+    String(input.settings.holdMode ?? "").toLowerCase() === "hedge_mode" &&
+    input.marginMode === "isolated";
+  const alreadyConfigured =
+    currentMode === input.marginMode &&
+    leverageMatches(current?.leverage, desiredLeverage, hedgeIsolated);
 
   const body: Record<string, string> = {
     category,
@@ -148,8 +162,16 @@ export function planUtaLeverageConfiguration(input: {
     leverage: String(input.leverage),
     marginMode: input.marginMode,
   };
-  if (String(input.settings.holdMode ?? "").toLowerCase() === "hedge_mode" && input.marginMode === "isolated") {
+
+  if (hedgeIsolated) {
+    // The live account returned Bitget 25200 while using only leverage +
+    // posSide in DOUBLE_SIDE_HOLD. Keep the documented isolated-margin
+    // posSide and also make both post-change directional leverages explicit.
+    // This fixes the server-side afterLongLeverage/afterShortLeverage NONE
+    // validation without switching hold mode or changing order-side semantics.
     body.posSide = input.posSide;
+    body.longLeverage = String(input.leverage);
+    body.shortLeverage = String(input.leverage);
   }
 
   return {
