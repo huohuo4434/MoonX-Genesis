@@ -11,8 +11,12 @@ test("admin page has one RUN_NOW and one RESUME control path", () => {
   assert.equal(text.includes("恢复服务器执行"), false);
 });
 
-test("AUTO_ORDER resume and paused RUN_NOW use the shared UI gate", () => {
+test("AUTO_ORDER recovery uses separate legacy reconcile and resume-readiness gates", () => {
   assert.match(text, /const canRunNow = !dashboard\.runtime\.paused;/);
-  assert.match(text, /const canResume = dashboard\.runtime\.paused/);
-  assert.match(text, /!autoOrderPaused \|\| Boolean\(failureAudit\?\.safeToConsiderResume\)/);
+  assert.match(text, /const canResume = dashboard\.runtime\.paused && Boolean\(resumeReadiness\?\.safeToConsiderResume\);/);
+  assert.match(text, /核对旧版订单错误（只读、不下单）/);
+  assert.match(text, /检查恢复条件（只读）/);
+  assert.match(text, /CONFIRM_LEGACY_ORDER_ERRORS_RECONCILED/);
+  assert.match(text, /RESUME_LIVE_EXPERIMENT/);
+  assert.equal(/failureAudit\?\.safeToConsiderResume/.test(text), false);
 });

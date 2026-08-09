@@ -2245,6 +2245,85 @@ type BitgetStrategyOrderRow = {
   createdTime?: string;
 };
 
+export type BitgetAuditOrderRow = {
+  orderId?: string;
+  clientOid?: string;
+  symbol?: string;
+  orderStatus?: string;
+  side?: string;
+  tradeSide?: string;
+  createdTime?: string;
+  updatedTime?: string;
+};
+
+export type BitgetAuditFillRow = {
+  execId?: string;
+  orderId?: string;
+  clientOid?: string;
+  symbol?: string;
+  tradeSide?: string;
+  createdTime?: string;
+  updatedTime?: string;
+};
+
+export type BitgetAuditStrategyRow = BitgetStrategyOrderRow & {
+  status?: string;
+  updatedTime?: string;
+};
+
+export type BitgetAuditPositionHistoryRow = {
+  positionId?: string;
+  symbol?: string;
+  posSide?: string;
+  openTotalPos?: string;
+  closeTotalPos?: string;
+  createdTime?: string;
+  updatedTime?: string;
+};
+
+export type BitgetAuditFinancialRow = {
+  id?: string;
+  symbol?: string;
+  coin?: string;
+  type?: string;
+  positionAmount?: string;
+  amount?: string;
+  ts?: string;
+};
+
+type BitgetPagedPayload<T> = { list?: T[]; cursor?: string } | T[];
+
+async function readAllBitgetCursorPages<T>(input: {
+  path: string;
+  query: Record<string, string | number | undefined>;
+  maxPages?: number;
+}): Promise<T[]> {
+  const result: T[] = [];
+  const seen = new Set<string>();
+  let cursor = "";
+  const maxPages = Math.max(1, Math.min(100, input.maxPages ?? 30));
+  for (let page = 0; page < maxPages; page += 1) {
+    const payload = await signedRequest<BitgetPagedPayload<T>>({
+      method: "GET",
+      path: input.path,
+      query: { ...input.query, ...(cursor ? { cursor } : {}) },
+    });
+    if (Array.isArray(payload)) {
+      result.push(...payload);
+      break;
+    }
+    const rows = Array.isArray(payload?.list) ? payload.list : [];
+    result.push(...rows);
+    const next = String(payload?.cursor ?? "").trim();
+    if (!next) break;
+    if (seen.has(next)) throw new Error(`Bitget分页游标重复：${input.path}`);
+    seen.add(next);
+    cursor = next;
+    if (page === maxPages - 1) throw new Error(`Bitget分页超过安全上限：${input.path}`);
+  }
+  return result;
+}
+
 function timestampIso(value: unknown): string | null {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
@@ -2328,6 +2407,99 @@ export async function getBitgetDemoPendingStrategyOrders(): Promise<
       createdAt: timestampIso(row.createdTime),
     }))
     .filter((row) => row.orderId && row.symbol);
+}
+
+export async function getBitgetDemoOpenOrders(): Promise<BitgetAuditOrderRow[]> {
+  return readAllBitgetCursorPages<BitgetAuditOrderRow>({
+    path: "/api/v3/trade/unfilled-orders",
+    query: { category: PRODUCT_TYPE, limit: 100 },
+  });
+}
+
+export async function getBitgetDemoAllPendingStrategyOrders(): Promise<BitgetAuditStrategyRow[]> {
+  const [tpsl, trigger] = await Promise.all([
+    signedRequest<BitgetAuditStrategyRow[]>({
+      method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "tpsl" },
+    }),
+    signedRequest<BitgetAuditStrategyRow[]>({
+      method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "trigger" },
+    }),
+  ]);
+  const merged = [...(tpsl ?? []), ...(trigger ?? [])];
+  const seen = new Set<string>();
+  return merged.filter((row) => {
+    const key = `${row.orderId ?? ""}:${row.clientOid ?? ""}:${row.symbol ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function auditWindowQuery(symbol: string, startAt: string, endAt: string) {
+  return {
+    category: PRODUCT_TYPE,
+    symbol: String(symbol).toUpperCase(),
+    startTime: String(new Date(startAt).getTime()),
+    endTime: String(new Date(endAt).getTime()),
+    limit: 100,
+  };
+}
+
+export async function getBitgetDemoHistoricalOrdersWindow(symbol: string, startAt: string, endAt: string): Promise<BitgetAuditOrderRow[]> {
+  return readAllBitgetCursorPages<BitgetAuditOrderRow>({
+    path: "/api/v3/trade/history-orders",
+    query: auditWindowQuery(symbol, startAt, endAt),
+  });
+}
+
+export async function getBitgetDemoFillsWindow(symbol: string, startAt: string, endAt: string): Promise<BitgetAuditFillRow[]> {
+  return readAllBitgetCursorPages<BitgetAuditFillRow>({
+    path: "/api/v3/trade/fills",
+    query: auditWindowQuery(symbol, startAt, endAt),
+  });
+}
+
+export async function getBitgetDemoHistoricalStrategyOrdersWindow(symbol: string, startAt: string, endAt: string): Promise<BitgetAuditStrategyRow[]> {
+  const base = {
+    category: PRODUCT_TYPE,
+    startTime: String(new Date(startAt).getTime()),
+    endTime: String(new Date(endAt).getTime()),
+    limit: 100,
+  };
+  const [tpsl, trigger] = await Promise.all([
+    readAllBitgetCursorPages<BitgetAuditStrategyRow>({ path: "/api/v3/trade/history-strategy-orders", query: { ...base, type: "tpsl" } }),
+    readAllBitgetCursorPages<BitgetAuditStrategyRow>({ path: "/api/v3/trade/history-strategy-orders", query: { ...base, type: "trigger" } }),
+  ]);
+  const normalized = String(symbol).toUpperCase();
+  const seen = new Set<string>();
+  return [...tpsl, ...trigger].filter((row) => {
+    if (String(row.symbol ?? "").toUpperCase() !== normalized) return false;
+    const key = `${row.orderId ?? ""}:${row.clientOid ?? ""}:${row.symbol ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function getBitgetDemoPositionHistoryWindow(symbol: string, startAt: string, endAt: string): Promise<BitgetAuditPositionHistoryRow[]> {
+  return readAllBitgetCursorPages<BitgetAuditPositionHistoryRow>({
+    path: "/api/v3/position/history-position",
+    query: auditWindowQuery(symbol, startAt, endAt),
+  });
+}
+
+export async function getBitgetDemoFinancialRecordsWindow(symbol: string, startAt: string, endAt: string): Promise<BitgetAuditFinancialRow[]> {
+  const rows = await readAllBitgetCursorPages<BitgetAuditFinancialRow>({
+    path: "/api/v3/account/financial-records",
+    query: {
+      category: PRODUCT_TYPE,
+      startTime: String(new Date(startAt).getTime()),
+      endTime: String(new Date(endAt).getTime()),
+      limit: 100,
+    },
+  });
+  const normalized = String(symbol).toUpperCase();
+  return rows.filter((row) => !row.symbol || String(row.symbol).toUpperCase() === normalized);
 }
 
 export type BitgetFailedOrderAuditItem = {

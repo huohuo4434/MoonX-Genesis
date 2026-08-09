@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { guardRuntimeAdminAction } from "../lib/bitget/runtime-admin-action-core";
+import { LIVE_RESUME_CONFIRMATION_PHRASE } from "../lib/bitget/legacy-order-reconciliation-core";
 
 type State = {
   paused: boolean;
@@ -24,6 +25,7 @@ test("AUTO_ORDER + unsafe audit: RESUME is 409 and state stays paused", async ()
   let setPausedCalls = 0;
   const result = await guardRuntimeAdminAction({
     action: "RESUME",
+    resumeConfirmation: LIVE_RESUME_CONFIRMATION_PHRASE,
     getState: async () => current,
     setPaused: async (paused) => {
       setPausedCalls += 1;
@@ -50,6 +52,7 @@ test("AUTO_ORDER + safe audit: RESUME is allowed only after same-request audit",
   let setPausedCalls = 0;
   const result = await guardRuntimeAdminAction({
     action: "RESUME",
+    resumeConfirmation: LIVE_RESUME_CONFIRMATION_PHRASE,
     getState: async () => current,
     setPaused: async (paused) => {
       setPausedCalls += 1;
@@ -141,6 +144,7 @@ test("AUTO_ORDER paused + PAUSE is idempotent and cannot rewrite recovery source
 
   const resumeResult = await guardRuntimeAdminAction({
     action: "RESUME",
+    resumeConfirmation: LIVE_RESUME_CONFIRMATION_PHRASE,
     getState: async () => current,
     setPaused: async (paused) => {
       setPausedCalls += 1;

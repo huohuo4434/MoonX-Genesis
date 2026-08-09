@@ -1,0 +1,11 @@
+{
+  "version": "v7.15.13",
+  "generated_at": "2026-08-09T13:39:34.607Z",
+  "read_only": true,
+  "status": "DEFERRED",
+  "reason": "LOCAL_DATABASE_URL_MISSING",
+  "database_rows_modified": false,
+  "remote_env_pulled": false,
+  "trading_action_executed": false,
+  "note": "Local DATABASE_URL/DIRECT_URL is unavailable. Existing database rows were not modified. After deployment, AUTO_ORDER resume remains server-gated and the server read-only failed-order audit must be run before any resume decision."
+}

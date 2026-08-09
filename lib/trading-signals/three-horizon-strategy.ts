@@ -1,5 +1,6 @@
 import "server-only";
 
+import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -73,8 +74,6 @@ const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
 ];
 const LIVE_COMMISSIONING_PREFERRED_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
-const LIVE_COMMISSIONING_MAX_HOLDING_MINUTES = 30;
-const LIVE_COMMISSIONING_RISK_PCT = 0.05;
 // MOOX_LIVE_ACTIVE_EXECUTION_V641
 // The ten-market live engine remains behind the existing real-money authorization gates:
 // BITGET_TRADING_MODE, BITGET_LIVE_EXECUTION_ALLOWED and BITGET_LIVE_CONFIRMATION.

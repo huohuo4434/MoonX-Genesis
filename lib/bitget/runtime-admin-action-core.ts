@@ -1,3 +1,5 @@
+import { LIVE_RESUME_CONFIRMATION_PHRASE } from "./legacy-order-reconciliation-core";
+
 export type RuntimeAdminAction = "RUN_NOW" | "PAUSE" | "RESUME";
 
 export type RuntimeControlState = {
@@ -12,6 +14,8 @@ export type RuntimeResumeAuditSummary = {
   summary: string;
   positionsCount: number | null;
   pendingStrategyOrdersCount: number | null;
+  openOrdersCount?: number | null;
+  legacyUnresolvedCount?: number;
 };
 
 export type RuntimeAdminActionGateResult<TState extends RuntimeControlState> = {
@@ -26,6 +30,8 @@ export type RuntimeAdminActionGateResult<TState extends RuntimeControlState> = {
 export async function guardRuntimeAdminAction<TState extends RuntimeControlState>(input: {
   action: RuntimeAdminAction;
   pauseReason?: string;
+  resumeConfirmation?: string;
+  strictResumeGate?: boolean;
   getState: () => Promise<TState>;
   setPaused: (paused: boolean, reason?: string) => Promise<TState>;
   auditFailures: () => Promise<RuntimeResumeAuditSummary>;
@@ -48,9 +54,6 @@ export async function guardRuntimeAdminAction<TState extends RuntimeControlState
   }
 
   if (input.action === "PAUSE") {
-    // PAUSE must be idempotent. Re-pausing an AUTO_ORDER/AUTO_API state must never
-    // rewrite pauseSource/pauseReason or error counters to MANUAL. Otherwise a
-    // later RESUME could bypass the server-side recovery audit.
     if (current.paused) {
       return { allowed: true, handled: true, status: 200, state: current };
     }
@@ -59,15 +62,20 @@ export async function guardRuntimeAdminAction<TState extends RuntimeControlState
   }
 
   if (!current.paused) {
-    return {
-      allowed: true,
-      handled: true,
-      status: 200,
-      state: current,
-    };
+    return { allowed: true, handled: true, status: 200, state: current };
   }
 
-  if (current.pauseSource === "AUTO_ORDER") {
+  const requiresHardGate = Boolean(input.strictResumeGate) || current.pauseSource === "AUTO_ORDER";
+  if (requiresHardGate) {
+    if (input.resumeConfirmation !== LIVE_RESUME_CONFIRMATION_PHRASE) {
+      return {
+        allowed: false,
+        handled: true,
+        status: 409,
+        state: current,
+        error: `恢复确认短语不正确。请输入 ${LIVE_RESUME_CONFIRMATION_PHRASE}`,
+      };
+    }
     const audit = await input.auditFailures();
     if (!audit.safeToConsiderResume) {
       return {
@@ -76,7 +84,7 @@ export async function guardRuntimeAdminAction<TState extends RuntimeControlState
         status: 409,
         state: current,
         audit,
-        error: `AUTO_ORDER恢复被服务器安全门拒绝：${audit.summary}`,
+        error: `恢复被服务器安全门拒绝：${audit.summary}`,
       };
     }
     const next = await input.setPaused(false);

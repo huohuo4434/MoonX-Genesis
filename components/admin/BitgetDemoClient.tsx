@@ -3,7 +3,8 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import type {
-  BitgetFailedOrderAuditReport,
+  BitgetLegacyOrderErrorAuditReport,
+  BitgetLiveResumeReadiness,
   BitgetRuntimeState,
   BitgetSmokeTestReport,
 } from "@/types/bitget-demo-runtime";
@@ -22,6 +23,8 @@ const LIVE_ASSET_LABELS: Record<string, string> = {
   GOOGLUSDT: "谷歌",
   CLUSDT: "WTI原油",
   SPYUSDT: "标普",
+  SNDKUSDT: "闪迪",
+  MSFTUSDT: "微软",
 };
 
 function signed(value: number | null | undefined, suffix = ""): string {
@@ -127,11 +130,11 @@ function seconds(value: number | null): string {
   return `${Math.floor(value / 60)}分${value % 60}秒`;
 }
 
-function runtimeBadge(runtime: BitgetRuntimeState): {
+function runtimeBadge(runtime: BitgetRuntimeState, live: boolean): {
   label: string;
   variant: "success" | "warning" | "danger" | "outline";
 } {
-  if (runtime.paused) return { label: "已暂停", variant: "danger" };
+  if (runtime.paused) return { label: live ? "实验进行中 · 新开仓安全暂停" : "已暂停", variant: "danger" };
   if (runtime.serverHealthy) return { label: "服务器运行正常", variant: "success" };
   if (runtime.running) return { label: "正在执行", variant: "warning" };
   return { label: "等待正常心跳", variant: "warning" };
@@ -142,7 +145,10 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [securityResult, setSecurityResult] = useState<SecurityResult | null>(null);
   const [smokeResult, setSmokeResult] = useState<BitgetSmokeTestReport | null>(null);
-  const [failureAudit, setFailureAudit] = useState<BitgetFailedOrderAuditReport | null>(null);
+  const [legacyAudit, setLegacyAudit] = useState<BitgetLegacyOrderErrorAuditReport | null>(null);
+  const [resumeReadiness, setResumeReadiness] = useState<BitgetLiveResumeReadiness | null>(null);
+  const [legacyConfirmation, setLegacyConfirmation] = useState("");
+  const [resumeConfirmation, setResumeConfirmation] = useState("");
   const [smokeConfirmation, setSmokeConfirmation] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -258,6 +264,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
         body: JSON.stringify({
           action,
           reason: action === "PAUSE" ? "管理员从后台手动暂停" : undefined,
+          confirmation: action === "RESUME" ? resumeConfirmation : undefined,
         }),
       });
       const json = await parseJson<{
@@ -273,7 +280,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
           ? json.report?.message || "服务器执行链路已手动运行一次。"
           : action === "PAUSE"
             ? "服务器新订单执行已暂停，行情和账户对账仍会继续。"
-            : "服务器执行已恢复。"
+            : "服务器新开仓安全暂停已解除；本次恢复动作没有下单，也没有运行RUN_NOW。"
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "操作失败");
@@ -282,19 +289,59 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
     }
   }
 
-  async function verifyFailedOrders() {
+  async function auditLegacyErrors() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/admin/bitget-demo/verify-failed-orders", { method: "POST" });
-      const json = await parseJson<{ error?: string; report?: BitgetFailedOrderAuditReport }>(res, "失败订单核对");
-      if (!res.ok || json.error || !json.report) throw new Error(json.error || "失败订单核对失败");
-      setFailureAudit(json.report);
+      const res = await fetch("/api/admin/bitget-demo/legacy-order-errors", { method: "POST" });
+      const json = await parseJson<{ error?: string; report?: BitgetLegacyOrderErrorAuditReport }>(res, "旧版订单错误核对");
+      if (!res.ok || json.error || !json.report) throw new Error(json.error || "旧版订单错误核对失败");
+      setLegacyAudit(json.report);
+      setResumeReadiness(null);
       setMessage(json.report.summary);
-      await refresh(true);
     } catch (error) {
-      setFailureAudit(null);
-      setMessage(error instanceof Error ? error.message : "失败订单核对失败");
+      setLegacyAudit(null);
+      setResumeReadiness(null);
+      setMessage(error instanceof Error ? error.message : "旧版订单错误核对失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmLegacyErrors() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/bitget-demo/reconcile-legacy-order-errors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: legacyConfirmation }),
+      });
+      const json = await parseJson<{ error?: string; report?: BitgetLegacyOrderErrorAuditReport; changed?: number }>(res, "旧版记录人工确认");
+      if (!res.ok || json.error || !json.report) throw new Error(json.error || "旧版记录人工确认失败");
+      setLegacyAudit(json.report);
+      setLegacyConfirmation("");
+      setResumeReadiness(null);
+      setMessage(`已保存${json.changed ?? 0}条不可删除的旧版核对记录；交易仍保持暂停。`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "旧版记录人工确认失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function checkResumeReadiness() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/bitget-demo/resume-readiness", { method: "POST" });
+      const json = await parseJson<{ error?: string; report?: BitgetLiveResumeReadiness }>(res, "恢复前安全核对");
+      if (!res.ok || json.error || !json.report) throw new Error(json.error || "恢复前安全核对失败");
+      setResumeReadiness(json.report);
+      setMessage(json.report.summary);
+    } catch (error) {
+      setResumeReadiness(null);
+      setMessage(error instanceof Error ? error.message : "恢复前安全核对失败");
     } finally {
       setLoading(false);
     }
@@ -337,14 +384,14 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
     return () => window.clearInterval(timer);
   }, []);
 
-  const runtimeStatus = runtimeBadge(dashboard.runtime);
+  const runtimeStatus = runtimeBadge(dashboard.runtime, dashboard.environment.mode === "LIVE_EXPERIMENT");
   const stats = dashboard.runtime.decisionStatsToday;
   const live = dashboard.environment.mode === "LIVE_EXPERIMENT";
 
   if (live) {
     const experiment = dashboard.runtime.liveExperiment;
     const statusLabel = experiment?.status === "ACTIVE"
-      ? "运行中"
+      ? (dashboard.runtime.paused ? "实验进行中 · 新开仓安全暂停" : "实验进行中 · 新开仓可执行")
       : experiment?.status === "COMPLETED"
         ? "已结束"
         : experiment?.status === "STOPPED"
@@ -352,9 +399,10 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
           : "待启动";
     const securitySafe = securityResult?.safeForLiveExperiment ?? Boolean(experiment?.securityMessage && !experiment.stopReason);
     const autoOrderPaused = dashboard.runtime.paused && dashboard.runtime.pauseSource === "AUTO_ORDER";
-    const autoApiPaused = dashboard.runtime.paused && (dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO");
     const canRunNow = !dashboard.runtime.paused;
-    const canResume = dashboard.runtime.paused && !autoApiPaused && (!autoOrderPaused || Boolean(failureAudit?.safeToConsiderResume));
+    const canResume = dashboard.runtime.paused && Boolean(resumeReadiness?.safeToConsiderResume);
+    const cronFresh = dashboard.runtime.heartbeatAgeSeconds != null && dashboard.runtime.heartbeatAgeSeconds <= 180;
+    const quotesFresh = dashboard.runtime.quoteAgeSeconds != null && dashboard.runtime.quoteAgeSeconds <= 180 && (dashboard.runtime.freshQuotesCount ?? 0) >= (dashboard.runtime.totalSymbols ?? dashboard.environment.liveAllowedSymbols.length);
     return (
       <div className="space-y-6">
         {message ? (
@@ -368,7 +416,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div>
               <Heading size="h3">实盘实验运行状态</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-                30天实验由Vercel服务器定时运行；关闭电脑不会停止。10个USDT合约品种全部自动分析，逐仓杠杆不超过2倍；每天最多新开10笔、最多同时持有10个仓位，但不会强行凑单。
+                30天实验由Vercel服务器定时运行；关闭电脑不会停止。{dashboard.environment.liveAllowedSymbols.length}个正式允许品种全部扫描，动态Top10进入候选排序；逐仓杠杆不超过2倍。每天最多新开10笔、最多同时持有10个仓位，但不会强行凑单。
               </Text>
             </div>
             <Badge variant={experiment?.status === "ACTIVE" ? "success" : experiment?.status === "STOPPED" ? "danger" : "warning"}>{statusLabel}</Badge>
@@ -389,7 +437,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
               {dashboard.runtime.pauseSource === "AUTO_API" || dashboard.runtime.pauseSource === "AUTO" ? (
                 <Text variant="caption" className="block text-amber-100/80">临时接口异常会继续重试；连续2轮行情和账户恢复正常后自动解除，无需手动点击恢复。</Text>
               ) : dashboard.runtime.pauseSource === "AUTO_ORDER" ? (
-                <Text variant="caption" className="block text-red-100/80">这是订单写入错误保护。先使用下方“核对失败订单（只读、不下单）”确认 clientOid、订单、持仓和策略单；核对完成前不提供恢复按钮。</Text>
+                <Text variant="caption" className="block text-red-100/80">这是新开仓安全暂停。先使用下方“核对旧版订单错误（只读、不下单）”完成历史订单、成交、策略单、仓位与流水核对；核对和恢复是两个独立动作。</Text>
               ) : null}
             </div>
           ) : null}
@@ -436,43 +484,62 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">服务器心跳</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情</Text><Text variant="body-sm" className="mt-1 block">{time(dashboard.runtime.lastMarketAt)}</Text><Text variant="caption" color="tertiary" className="mt-1 block">接口延迟 {seconds(dashboard.runtime.quoteAgeSeconds)} · 新鲜报价 {dashboard.runtime.freshQuotesCount ?? 0}/{dashboard.runtime.totalSymbols ?? 0}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户连接</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.connected ? "正常" : "未正常连接"}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">当前持仓</Text><Text variant="body-sm" className="mt-1 block">{dashboard.runtime.account.positionsCount} 个</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">API密钥</Text><Text variant="body-sm" className="mt-1 block">{dashboard.environment.configured ? dashboard.environment.apiKeyMasked : "未配置"}</Text></div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">CRON心跳状态</Text><Text variant="body-sm" className={`mt-1 block ${cronFresh ? "text-emerald-300" : "text-amber-300"}`}>{cronFresh ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)} · 距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情新鲜度</Text><Text variant="body-sm" className={`mt-1 block ${quotesFresh ? "text-emerald-300" : "text-amber-300"}`}>{quotesFresh ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{dashboard.runtime.freshQuotesCount ?? 0}/{dashboard.runtime.totalSymbols ?? 0} · {seconds(dashboard.runtime.quoteAgeSeconds)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户对账状态</Text><Text variant="body-sm" className={`mt-1 block ${dashboard.runtime.account.connected ? "text-emerald-300" : "text-amber-300"}`}>{dashboard.runtime.account.connected ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">持仓 {dashboard.runtime.account.positionsCount} · 策略单 {dashboard.runtime.account.pendingStrategyOrdersCount}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">新开仓执行状态</Text><Text variant="body-sm" className={`mt-1 block ${dashboard.runtime.paused ? "text-red-300" : "text-emerald-300"}`}>{dashboard.runtime.paused ? "安全暂停" : "可按风控扫描"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{dashboard.runtime.paused ? dashboard.runtime.pauseSource || "PAUSED" : "CRON正常扫描，不自动RUN_NOW"}</Text></div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
-            {dashboard.runtime.paused && dashboard.runtime.pauseSource === "AUTO_ORDER" ? (
-              <Button type="button" variant="outline" onClick={verifyFailedOrders} isLoading={loading}>核对失败订单（只读、不下单）</Button>
-            ) : null}
-            {canRunNow ? (
-              <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button>
-            ) : null}
-            {canResume ? (
-              <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>恢复运行</Button>
-            ) : !dashboard.runtime.paused ? (
-              <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>紧急暂停新开仓</Button>
-            ) : null}
+            {autoOrderPaused ? <Button type="button" variant="outline" onClick={auditLegacyErrors} isLoading={loading}>核对旧版订单错误（只读、不下单）</Button> : null}
+            {dashboard.runtime.paused ? <Button type="button" variant="outline" onClick={checkResumeReadiness} isLoading={loading}>检查恢复条件（只读）</Button> : null}
+            {canRunNow ? <Button type="button" variant="outline" onClick={() => void runtimeAction("RUN_NOW")} isLoading={loading}>立即运行一次</Button> : null}
+            {!dashboard.runtime.paused ? <Button type="button" variant="danger" onClick={() => void runtimeAction("PAUSE")} isLoading={loading}>紧急暂停新开仓</Button> : null}
             <Button type="button" variant="outline" onClick={() => void refresh(false)} isLoading={loading}>刷新状态</Button>
           </div>
-          {failureAudit ? (
-            <div className={`rounded-lg border p-4 ${failureAudit.safeToConsiderResume ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}`}>
-              <Text variant="body-sm" weight="semibold">失败订单只读核对：{failureAudit.safeToConsiderResume ? "未发现现存订单/持仓/策略单" : "仍有不确定项或现存交易状态"}</Text>
-              <Text variant="caption" className="mt-2 block text-white/60">{failureAudit.summary}</Text>
-              <Text variant="caption" className="mt-1 block text-white/45">核对时间 {time(failureAudit.checkedAt)} · 持仓 {failureAudit.positionsCount ?? "?"} · 策略单 {failureAudit.pendingStrategyOrdersCount ?? "?"}</Text>
+
+          {legacyAudit ? (
+            <div className={`rounded-lg border p-4 ${legacyAudit.canConfirmLegacyAbsent ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}`}>
+              <Text variant="body-sm" weight="semibold">旧版订单错误历史核对 · 未核对 {legacyAudit.unresolvedCount} · 已留档 {legacyAudit.reconciledCount}</Text>
+              <Text variant="caption" className="mt-2 block text-white/60">{legacyAudit.summary}</Text>
+              <Text variant="caption" className="mt-1 block text-white/45">当前持仓 {legacyAudit.current.positionsCount ?? "?"} · 普通挂单 {legacyAudit.current.openOrdersCount ?? "?"} · 策略单 {legacyAudit.current.pendingStrategyOrdersCount ?? "?"}</Text>
               <div className="mt-3 space-y-2">
-                {failureAudit.items.slice(0, 10).map((item) => (
-                  <div key={item.outboxId} className="rounded-md border border-white/10 bg-black/20 p-3">
-                    <Text variant="caption" className="block text-white/80">{item.symbol} · {item.action} · {item.failureStage} · clientOid {item.clientOid || "—"}</Text>
-                    <Text variant="caption" className="mt-1 block text-white/55">order-info {item.orderLookup}{item.orderStatus ? ` (${item.orderStatus})` : ""} · position {item.positionPresent ? "FOUND" : "ABSENT"} · strategy {item.strategyOrderPresent ? "FOUND" : "ABSENT"}</Text>
-                    {item.queryError ? <Text variant="caption" className="mt-1 block text-red-200">{item.queryError}</Text> : null}
+                {legacyAudit.items.map((item) => (
+                  <div key={item.decisionId} className="rounded-md border border-white/10 bg-black/20 p-3">
+                    <div className="flex flex-wrap items-center gap-2"><Badge variant={item.reconciled ? "success" : item.safeAsAbsent ? "outline" : "warning"}>{item.reconciled ? "LEGACY_RECONCILED" : "LEGACY_ORDER_ERROR"}</Badge><Text variant="body-sm" weight="semibold">{item.symbol}</Text></div>
+                    <Text variant="caption" className="mt-2 block text-white/70">decisionId {item.decisionId}</Text>
+                    <Text variant="caption" className="mt-1 block text-white/55">原始错误 {time(item.originalErrorAt)} · 远程发送可能性 {item.remoteSubmissionPossibility}</Text>
+                    <Text variant="caption" className="mt-1 block text-white/55">核对窗口 {time(item.auditWindow.startAt)} → {time(item.auditWindow.endAt)}</Text>
+                    <Text variant="caption" className="mt-1 block text-white/70 break-words">{item.originalRejectionReason || "—"}</Text>
+                    <Text variant="caption" className="mt-1 block text-white/45">历史查询 {item.allQueriesSucceeded ? "全部成功" : "存在失败"} · 交易证据 {item.foundTradingEvidence ? "FOUND" : "ABSENT"}</Text>
+                    {item.queryErrors.length ? <Text variant="caption" className="mt-1 block text-red-200 break-words">{item.queryErrors.join("；")}</Text> : null}
                   </div>
                 ))}
               </div>
+              {legacyAudit.canConfirmLegacyAbsent ? (
+                <div className="mt-4 space-y-2 rounded-md border border-amber-300/20 p-3">
+                  <Text variant="caption" className="block text-amber-100/80">此操作只给旧记录写入不可删除的人工核对证据，不会恢复交易。</Text>
+                  <input className={inputClass} value={legacyConfirmation} onChange={(e) => setLegacyConfirmation(e.target.value)} placeholder="输入 CONFIRM_LEGACY_ORDER_ERRORS_RECONCILED" />
+                  <Button type="button" variant="outline" onClick={confirmLegacyErrors} isLoading={loading}>确认旧版记录已人工核对</Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {resumeReadiness ? (
+            <div className={`rounded-lg border p-4 ${resumeReadiness.safeToConsiderResume ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-red-400/20 bg-red-400/[0.025]"}`}>
+              <Text variant="body-sm" weight="semibold">恢复前服务器硬闸：{resumeReadiness.safeToConsiderResume ? "全部通过" : "仍禁止恢复"}</Text>
+              <Text variant="caption" className="mt-2 block text-white/60">{resumeReadiness.summary}</Text>
+              <Text variant="caption" className="mt-1 block text-white/45">持仓 {resumeReadiness.positionsCount ?? "?"} · 普通挂单 {resumeReadiness.openOrdersCount ?? "?"} · 策略单 {resumeReadiness.pendingStrategyOrdersCount ?? "?"} · 旧错误未核对 {resumeReadiness.legacyUnresolvedCount}</Text>
+              {canResume ? (
+                <div className="mt-3 space-y-2">
+                  <Text variant="caption" className="block text-amber-100/80">恢复与旧记录核对是两个独立动作。恢复本身不会下单，也不会自动RUN_NOW。</Text>
+                  <input className={inputClass} value={resumeConfirmation} onChange={(e) => setResumeConfirmation(e.target.value)} placeholder="输入 RESUME_LIVE_EXPERIMENT" />
+                  <Button type="button" variant="primary" onClick={() => void runtimeAction("RESUME")} isLoading={loading}>管理员确认恢复新开仓扫描</Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </Card>

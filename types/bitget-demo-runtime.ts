@@ -213,3 +213,73 @@ export interface BitgetFailedOrderAuditReport {
   safeToConsiderResume: boolean;
   summary: string;
 }
+
+export interface BitgetLegacyOrderErrorAuditItem {
+  decisionId: string;
+  symbol: string;
+  originalErrorAt: string;
+  originalRejectionReason: string;
+  clientOid: string | null;
+  orderId: string | null;
+  remoteSubmissionPossibility: "POSSIBLE" | "UNLIKELY" | "UNKNOWN";
+  auditWindow: { startAt: string; endAt: string };
+  queryStatus: Record<string, "FOUND" | "ABSENT" | "QUERY_ERROR" | "NOT_CHECKED">;
+  evidence: Record<string, number>;
+  queryErrors: string[];
+  allQueriesSucceeded: boolean;
+  foundTradingEvidence: boolean;
+  safeAsAbsent: boolean;
+  reconciled: boolean;
+  reconciliation: Record<string, unknown> | null;
+}
+
+export interface BitgetLegacyOrderErrorAuditReport {
+  checkedAt: string;
+  readOnly: true;
+  deploymentVersion: string;
+  items: BitgetLegacyOrderErrorAuditItem[];
+  current: {
+    accountQuerySucceeded: boolean;
+    accountError: string;
+    positionsCount: number | null;
+    openOrdersCount: number | null;
+    pendingStrategyOrdersCount: number | null;
+    securityQuerySucceeded: boolean;
+    withdrawPermission: boolean | null;
+  };
+  unresolvedCount: number;
+  reconciledCount: number;
+  allHistoricalQueriesSucceeded: boolean;
+  foundTradingEvidence: boolean;
+  canConfirmLegacyAbsent: boolean;
+  summary: string;
+}
+
+export interface BitgetLiveResumeReadiness {
+  checkedAt: string;
+  readOnly: true;
+  safeToConsiderResume: boolean;
+  summary: string;
+  checks: Record<string, boolean>;
+  positionsCount: number | null;
+  openOrdersCount: number | null;
+  pendingStrategyOrdersCount: number | null;
+  legacyUnresolvedCount: number;
+  legacyReconciledCount: number;
+  heartbeatAgeSeconds: number | null;
+  quoteAgeSeconds: number | null;
+  freshQuotesCount: number;
+  totalSymbols: number;
+  security: {
+    querySucceeded: boolean;
+    withdrawalPermission: boolean | null;
+    tradingPermission: boolean | null;
+    managementPermission: boolean | null;
+  };
+  executionFailureAudit: {
+    querySucceeded: boolean;
+    safe: boolean;
+    summary: string;
+  };
+  errors: string[];
+}

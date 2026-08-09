@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Badge, Card, Heading, Text } from "@/components/ui";
@@ -96,8 +96,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl">
               {en
-                ? "MOOX sets the weekly path first. The AI then chooses the entry, stop and targets from live technical structure. The universe is dynamically ranked, not hard-coded."
-                : "先由MOOX玄学研究锁定唯一方向，再由AI用实时技术结构寻找入场、止损和止盈位置。技术分析不参与多空方向投票。候选品种动态排序，不再固定十个名字。"}
+                ? "MOOX sets the weekly path first. The AI then chooses the entry, stop and targets from live technical structure. The formal live universe contains 12 allowed instruments; all are scanned and a dynamic Top 10 is ranked for execution."
+                : "先由MOOX玄学研究锁定唯一方向，再由AI用实时技术结构寻找入场、止损和止盈位置。技术分析不参与多空方向投票。正式允许池共12个品种全部扫描，动态Top10进入候选排序。"}
             </Text>
           </div>
           <div className="flex flex-wrap items-center gap-2">
