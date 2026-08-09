@@ -94,6 +94,35 @@ function Stars({ value }: { value: number }) {
   );
 }
 
+function tradeCall(direction: string) {
+  if (direction === "上涨") {
+    return { label: "↑ 偏多｜买涨优先", note: "顺势找多头机会，不逆势猜顶。", tone: "emerald" as const };
+  }
+  if (direction === "震荡上涨") {
+    return { label: "↑ 偏多｜回踩做多优先", note: "方向偏上，但不追高；优先等回踩和承接确认。", tone: "emerald" as const };
+  }
+  if (direction === "下跌") {
+    return { label: "↓ 偏空｜买跌优先", note: "反弹先按减仓或偏空处理，不急着抄底。", tone: "rose" as const };
+  }
+  if (direction === "震荡下跌") {
+    return { label: "↓ 偏空｜反弹承压后看跌", note: "主方向偏下，等反弹承压比低位追空更合适。", tone: "rose" as const };
+  }
+  if (direction === "先跌后涨" || direction === "探底回升") {
+    return { label: "↘↗ 先等回踩｜企稳后转多", note: "前半段先防回落，确认止跌和承接后再偏多。", tone: "amber" as const };
+  }
+  if (direction === "先涨后跌" || direction === "冲高回落") {
+    return { label: "↗↘ 前强后弱｜高位不追", note: "前半段允许走强，越靠后越要防冲高兑现。", tone: "amber" as const };
+  }
+  return { label: "↔ 中性｜先不押方向", note: "等突破或跌破确认后再跟随，不在区间中间猜方向。", tone: "slate" as const };
+}
+
+function tradeToneClass(tone: ReturnType<typeof tradeCall>["tone"]) {
+  if (tone === "emerald") return "border-emerald-300/20 bg-emerald-300/[0.045] text-emerald-100";
+  if (tone === "rose") return "border-rose-300/20 bg-rose-300/[0.045] text-rose-100";
+  if (tone === "amber") return "border-amber-300/20 bg-amber-300/[0.045] text-amber-100";
+  return "border-white/10 bg-white/[0.025] text-white";
+}
+
 function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
   if (!slot.forecast) {
     return (
@@ -131,8 +160,19 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         ) : null}
       </div>
 
+      {(() => {
+        const call = tradeCall(f.direction);
+        return (
+          <section className={`rounded-xl border p-4 ${tradeToneClass(call.tone)}`}>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] opacity-60">MOOX 本周期结论</p>
+            <p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">{call.label}</p>
+            <p className="mt-2 text-body-sm leading-relaxed opacity-75">{call.note}</p>
+          </section>
+        );
+      })()}
+
       <section className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">综合判断</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">为什么这么看</p>
         <ProbRow
           p={{
             up: f.upProbability,
@@ -145,17 +185,36 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
         </Text>
         {f.consensusLabel ? (
           <Text variant="caption" className="block text-amber-200/75">
-            共识说明：{f.consensusLabel}
+            方法共识：{f.consensusLabel}
           </Text>
         ) : null}
       </section>
 
       <section className="space-y-2">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">运行路径</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">怎么走</p>
         <Text variant="body-sm" className="block break-words leading-relaxed text-white/70">
           {f.expectedPath}
         </Text>
       </section>
+
+      {(f.supportLevels.length || f.resistanceLevels.length || f.confirmationLevel || f.invalidationLevel) ? (
+        <section className="grid gap-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.025] p-4 md:grid-cols-2">
+          <div>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">关键价位</p>
+            <div className="mt-2 space-y-2 text-body-sm text-white/75">
+              {f.supportLevels.length ? <p><span className="text-emerald-200/80">支撑：</span>{f.supportLevels.join(" / ")}</p> : null}
+              {f.resistanceLevels.length ? <p><span className="text-rose-200/80">压力：</span>{f.resistanceLevels.join(" / ")}</p> : null}
+            </div>
+          </div>
+          <div>
+            <p className="font-mono text-caption uppercase tracking-[0.14em] text-cyan-100/70">确认 / 失效</p>
+            <div className="mt-2 space-y-2 text-body-sm leading-relaxed text-white/75">
+              {f.confirmationLevel ? <p><span className="text-emerald-200/80">继续成立：</span>{f.confirmationLevel}</p> : null}
+              {f.invalidationLevel ? <p><span className="text-rose-200/80">判断失效：</span>{f.invalidationLevel}</p> : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {f.calendarMonthPath?.length ? (
         <section className="space-y-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.025] p-4">
@@ -323,7 +382,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
 
       {f.methodViews?.length ? (
         <section className="space-y-2">
-          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">多方法观点</p>
+          <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">证据怎么投票</p>
           <div className="grid gap-2 md:grid-cols-2">
             {f.methodViews.map((view) => (
               <div key={view.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
@@ -340,7 +399,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
       ) : null}
 
       <section className="space-y-2">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">六爻依据</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">六爻依据（放在结论之后）</p>
         <Text variant="body-sm" className="block text-white/75">
           {f.ichingEvidence.primaryHexagram}
           {f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}

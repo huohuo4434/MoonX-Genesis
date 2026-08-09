@@ -46,17 +46,17 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           <div className="relative z-10 max-w-4xl">
             <p className="font-mono text-caption uppercase tracking-[0.22em] text-cyan-200/55">{en ? "MOOX SPECIAL RESEARCH" : "MOOX 重点关注 · 专题研究"}</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              {en ? "See the depth. Unlock the answer." : "公开看研究深度，会员看真正答案。"}
+              {en ? "See the research. Unlock the call." : "公开页看逻辑，会员页直接看方向、时间和关键位。"}
             </h1>
             <p className="mt-4 max-w-3xl text-body leading-7 text-white/58">
               {en
-                ? "Public pages show why an asset matters, what MOOX has researched, and which variables remain unresolved. Direction, timing windows, support/resistance and full Liu Yao evidence are kept inside the member dossier."
-                : "公开页只告诉你：为什么值得研究、MOOX已经研究到哪一层、现在最值得盯什么。真正可用于决策的方向路径、关键日期、支撑压力和完整卦象证据只在会员专题里展示。"}
+                ? "Each member dossier answers four things first: bullish or bearish, when the move matters, where the key levels are, and what invalidates the call. Public pages keep the research logic and coverage without giving away the actionable answer."
+                : "每个会员专题先回答四件事：看涨还是看跌、什么时候最关键、支撑压力在哪里、什么情况说明判断错了。公开页只保留研究逻辑和覆盖范围，不提前泄露这些答案。"}
             </p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/60">
               <p>{en ? "Research dossiers" : "当前专题"}: <span className="text-white">{trackedCount}</span></p>
               {payload.latestResearchUpdatedAt ? <p>{en ? "Latest update" : "最近研究更新"}: <span className="text-white">{formatDate(payload.latestResearchUpdatedAt, en)}</span></p> : null}
-              <p className="text-amber-100/75">{en ? "Public preview intentionally excludes actionable forecast answers." : "公开预览主动隐藏可交易结论，不再把会员价值泄露在展板上。"}</p>
+              <p className="text-amber-100/75">{en ? "Public preview intentionally hides the directional call, timing and key levels." : "公开预览不展示明确方向、关键日期和价位；这些直接留给会员。"}</p>
             </div>
           </div>
         </header>
@@ -76,7 +76,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           </div>
           {payload.mode === "publicOnly" ? (
             <Link href={href("/pricing")} className="text-body-sm font-medium text-cyan-200/80 hover:text-cyan-100">
-              {en ? "What membership unlocks →" : "会员到底多看到什么 →"}
+              {en ? "What members get →" : "会员直接看到什么 →"}
             </Link>
           ) : (
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.06] px-3 py-1.5 text-caption text-emerald-100/80">{en ? "Member access active" : "会员完整研究已解锁"}</span>

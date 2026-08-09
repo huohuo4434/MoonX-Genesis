@@ -83,18 +83,18 @@ export default function ResearchSpotlightCard({ teaser, card, mode }: Props) {
 
         <div className="mt-5 grid gap-3 lg:grid-cols-[1.1fr_1.9fr]">
           <section className="rounded-xl border border-white/[.08] bg-black/20 p-4">
-            <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "Research coverage" : "研究覆盖"}</p>
+            <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "Research coverage" : "研究范围"}</p>
             <p className="mt-2 text-body-sm font-medium text-white/85">{en ? teaser.coverageEn : teaser.coverageZh}</p>
             <p className="mt-3 text-caption leading-relaxed text-white/45">
               {locked
-                ? (en ? "Public view confirms what has been researched, without exposing the actionable answer." : "公开页确认“研究到了哪里”，但不直接泄露可交易答案。")
-                : (en ? "Your member access is active. Open the dossier for the full roadmap." : "当前账号已解锁，进入专题页查看完整路径。")}
+                ? (en ? "Public view shows the research range. Direction, timing, levels and invalidation stay locked." : "公开页只展示研究范围；方向、时间、关键价位和失效条件进入会员页。")
+                : (en ? "Member access is active. The dossier gives the call first, then the evidence." : "会员权限已解锁：先看明确结论，再看节奏、价位和证据。")}
             </p>
           </section>
 
           <section className="relative overflow-hidden rounded-xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "Inside the member dossier" : "会员专题里有什么"}</p>
+              <p className="text-caption uppercase tracking-[.14em] text-white/35">{en ? "What the dossier answers" : "专题直接回答什么"}</p>
               <span className={`rounded-full border px-2.5 py-1 text-caption ${locked ? "border-amber-300/20 bg-amber-300/[.06] text-amber-100/80" : "border-emerald-300/20 bg-emerald-300/[.06] text-emerald-100/80"}`}>
                 {locked ? (en ? "Locked" : "已锁定") : (en ? "Unlocked" : "已解锁")}
               </span>
@@ -115,11 +115,11 @@ export default function ResearchSpotlightCard({ teaser, card, mode }: Props) {
 
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href={href(detailHref)} className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent.button} px-4 text-body-sm font-semibold text-slate-950 transition hover:brightness-105`}>
-            {locked ? (en ? "Open public dossier" : "查看公开专题档案") : (en ? "Open full dossier" : "进入完整专题研究")}
+            {locked ? (en ? "Preview dossier" : "查看专题预览") : (en ? "Open full dossier" : "查看明确结论")}
           </Link>
           {locked ? (
             <Link href={href("/pricing")} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/[.03] px-4 text-body-sm font-semibold text-white/80 transition hover:bg-white/[.07]">
-              {en ? "Unlock direction, dates & levels" : "解锁方向 · 日期 · 支撑压力"}
+              {en ? "Unlock call, timing & levels" : "解锁明确方向 · 时间 · 关键价位"}
             </Link>
           ) : null}
         </div>
