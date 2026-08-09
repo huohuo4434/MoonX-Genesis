@@ -13,6 +13,7 @@ import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecast
 import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
+import { US_INDEX_CYCLE_ADMIN_ROWS_20260809 } from "@/lib/data/us-index-liuyao-20260809";
 import { REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
 import { hasPrisma, prisma } from "@/lib/prisma";
@@ -139,6 +140,9 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
   }
 
   for (const item of CORE_MARKET_CYCLE_ADMIN_ROWS_20260801) {
+    rows.push({ ...item });
+  }
+  for (const item of US_INDEX_CYCLE_ADMIN_ROWS_20260809) {
     rows.push({ ...item });
   }
   for (const item of REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801) {

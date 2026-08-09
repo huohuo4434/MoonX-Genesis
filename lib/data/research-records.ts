@@ -24,6 +24,8 @@ import { curatedImportRecords } from "@/lib/data/curated-import-records";
 import { externalObservations } from "@/lib/data/external-observations";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { coreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-20260801";
+import { usIndexLiuyao20260809Records } from "@/lib/data/us-index-liuyao-20260809";
+import { externalWolfUsIndices20260809 } from "@/lib/data/external-wolf-us-indices-20260809";
 import { remainingCoreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
@@ -1409,6 +1411,8 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...externalViewpointsFollowup20260801,
     ...teacher02Liuyao20260802Records,
     ...coreMarketLiuyao20260801Records,
+    ...usIndexLiuyao20260809Records,
+    ...externalWolfUsIndices20260809,
     ...remainingCoreMarketLiuyao20260801Records,
     ...curatedImportRecords,
     ...chinaEquityOracle0727Records,

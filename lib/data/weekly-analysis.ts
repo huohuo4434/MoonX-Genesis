@@ -5,11 +5,11 @@ import {
 } from "@/lib/data/published-weekly-analysis-20260727";
 import { PUBLISHED_WEEKLY_ANALYSES_20260803 } from "@/lib/data/published-weekly-analysis-20260803";
 import {
-  ARCHIVED_WEEKLY_ANALYSES_20260810,
-  PUBLISHED_WEEKLY_ANALYSES_20260810_V3,
-  WEEKLY_RESEARCH_BLEND_NOTE_20260810_V3,
-  WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V3,
-} from "@/lib/data/published-weekly-revision-20260810";
+  ARCHIVED_WEEKLY_ANALYSES_20260810_V4,
+  PUBLISHED_WEEKLY_ANALYSES_20260810_V4,
+  WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4,
+  WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V4,
+} from "@/lib/data/published-weekly-us-indices-20260809";
 import { applyWeeklyPriceOverlay } from "@/lib/data/apply-price-overlays";
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
@@ -26,14 +26,14 @@ export { WEEKLY_CORE_MARKETS };
 const ALL_PUBLISHED: WeeklyAnalysisRecord[] = [
   ...PUBLISHED_WEEKLY_ANALYSES,
   ...PUBLISHED_WEEKLY_ANALYSES_20260803,
-  ...PUBLISHED_WEEKLY_ANALYSES_20260810_V3,
+  ...PUBLISHED_WEEKLY_ANALYSES_20260810_V4,
 ];
 
 const ALL_RECORDS: WeeklyAnalysisRecord[] = [
   ...ALL_WEEKLY_ANALYSES,
   ...PUBLISHED_WEEKLY_ANALYSES_20260803,
-  ...ARCHIVED_WEEKLY_ANALYSES_20260810,
-  ...PUBLISHED_WEEKLY_ANALYSES_20260810_V3,
+  ...ARCHIVED_WEEKLY_ANALYSES_20260810_V4,
+  ...PUBLISHED_WEEKLY_ANALYSES_20260810_V4,
 ];
 
 function addUtcDays(iso: string, days: number): string {
@@ -216,9 +216,9 @@ export function buildWeeklyPublicSummary(now = new Date()): WeeklyAnalysisPublic
         ? `已进入下周窗口，当前已发布 ${published.length} / ${WEEKLY_CORE_MARKETS.length} 个有依据的市场；其余不会复制上周内容冒充新预测。`
         : "已进入下周窗口，下周预测待发布；系统不会复制上周内容冒充新预测。"
       : "本周观点在周五结束后进入历史验证；周六自动切换下周窗口。",
-    researchBlendNoteZh: window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V3.zh : undefined,
-    researchBlendNoteEn: window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V3.en : undefined,
-    sourceVerificationNoteZh: window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V3.zh : undefined,
-    sourceVerificationNoteEn: window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V3.en : undefined,
+    researchBlendNoteZh: window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.zh : undefined,
+    researchBlendNoteEn: window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.en : undefined,
+    sourceVerificationNoteZh: window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V4.zh : undefined,
+    sourceVerificationNoteEn: window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V4.en : undefined,
   };
 }
