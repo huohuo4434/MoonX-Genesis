@@ -8,5 +8,8 @@ export type WatchlistResonanceSignal = {
   score: number;
   sameDirectionPeriods: number;
   directionalPeriods: number;
+  hasWeeklyVote: boolean;
   evidenceZh: string[];
+  targetPeriodStart: string;
+  targetPeriodEnd: string;
 };

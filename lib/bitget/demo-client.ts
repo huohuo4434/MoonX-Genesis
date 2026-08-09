@@ -1,5 +1,7 @@
 import "server-only";
 
+import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
+
 import { createHash, createHmac, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -27,6 +29,8 @@ export type BitgetContractConfig = {
   minOrderAmount: number;
   sizeMultiplier: number;
   volumePlace: number;
+  priceMultiplier?: number;
+  pricePrecision?: number;
   symbolStatus: string;
 };
 
@@ -128,6 +132,8 @@ type BitgetInstrumentRow = {
   minOrderQty?: string;
   quantityMultiplier?: string;
   quantityPrecision?: string;
+  priceMultiplier?: string;
+  pricePrecision?: string;
   minOrderAmount?: string;
   status?: string;
 };
@@ -1249,6 +1255,8 @@ export async function getContractConfig(
         minOrderAmount: 0,
         sizeMultiplier: 0,
         volumePlace: 8,
+        priceMultiplier: 0,
+        pricePrecision: 8,
         symbolStatus: "UTA V3当前环境未返回该合约",
       };
     }
@@ -1261,6 +1269,8 @@ export async function getContractConfig(
       minOrderAmount: Number(row.minOrderAmount ?? 0),
       sizeMultiplier: Number(row.quantityMultiplier ?? 0),
       volumePlace: Number(row.quantityPrecision ?? 8),
+      priceMultiplier: Number(row.priceMultiplier ?? 0),
+      pricePrecision: Number(row.pricePrecision ?? 8),
       symbolStatus: status,
     };
   } catch (error) {
@@ -1271,6 +1281,8 @@ export async function getContractConfig(
       minOrderAmount: 0,
       sizeMultiplier: 0,
       volumePlace: 8,
+      priceMultiplier: 0,
+      pricePrecision: 8,
       symbolStatus: error instanceof Error ? error.message : "unavailable",
     };
   }
@@ -1309,6 +1321,23 @@ export function normalizeOrderSize(
 
   return normalized.toFixed(Math.min(places, 12)).replace(/\.?0+$/, "");
 }
+
+
+export function normalizeOrderSizeUp(
+  quantity: number,
+  contract: BitgetContractConfig
+): string {
+  return normalizeLiveOrderSizeUp(quantity, contract);
+}
+
+export function normalizeContractTriggerPrice(
+  price: number,
+  contract: BitgetContractConfig,
+  rounding: "floor" | "ceil" | "nearest" = "nearest"
+): number {
+  return normalizeLiveTriggerPrice(price, contract, rounding);
+}
+
 
 async function configureUtaSymbol(
   symbol: BitgetSupportedSymbol
@@ -1869,8 +1898,16 @@ export async function placeBitgetDemoMarketOrder(input: {
   const size = normalizeOrderSize(input.quantity, contract);
   if (!input.reduceOnly) await assertLiveExperimentOpenAllowed({ symbol: input.symbol, size });
   const warnings = input.reduceOnly ? [] : await configureUtaSymbol(input.symbol);
+  const stopLoss = !input.reduceOnly && input.stopLoss && input.stopLoss > 0
+    ? normalizeContractTriggerPrice(input.stopLoss, contract, input.side === "buy" ? "floor" : "ceil")
+    : input.stopLoss;
+  const takeProfit = !input.reduceOnly && input.takeProfit && input.takeProfit > 0
+    ? normalizeContractTriggerPrice(input.takeProfit, contract, input.side === "buy" ? "ceil" : "floor")
+    : input.takeProfit;
+  if (stopLoss && stopLoss !== input.stopLoss) warnings.push(`止损已按Bitget价格步长归一化为${stopLoss}`);
+  if (takeProfit && takeProfit !== input.takeProfit) warnings.push(`止盈已按Bitget价格步长归一化为${takeProfit}`);
   const oid = clientOid(input.paperOrderId);
-  const payload: MarketExecutionPayload = { ...input, size, warnings };
+  const payload: MarketExecutionPayload = { ...input, stopLoss, takeProfit, size, warnings };
   const task = await createOutboxIntent({
     idempotencyKey: `${input.reduceOnly ? "close" : "open"}:${oid}`,
     decisionId: input.paperOrderId.split(":")[0] || null,
@@ -1907,6 +1944,12 @@ export async function placeBitgetDemoProtectionOrder(input: {
   const env = getBitgetDemoEnvironment();
   if (!env.executionAllowed) throw new Error(env.mode === "LIVE_EXPERIMENT" ? "Bitget实盘执行尚未开启" : "BITGET_DEMO_EXECUTION_ALLOWED尚未设为true");
   await assertBitgetClockSafe();
+  const contract = await getContractConfig(input.symbol);
+  const normalizedInput = {
+    ...input,
+    stopLoss: normalizeContractTriggerPrice(input.stopLoss, contract, input.posSide === "long" ? "floor" : "ceil"),
+    takeProfit: normalizeContractTriggerPrice(input.takeProfit, contract, input.posSide === "long" ? "ceil" : "floor"),
+  };
   const oid = clientOid(`${input.paperOrderId}:protection`);
   const task = await createOutboxIntent({
     idempotencyKey: `protection:${oid}`,
@@ -1915,7 +1958,7 @@ export async function placeBitgetDemoProtectionOrder(input: {
     symbol: input.symbol,
     direction: input.posSide,
     clientOid: oid,
-    payload: input as unknown as Record<string, unknown>,
+    payload: normalizedInput as unknown as Record<string, unknown>,
   });
   const result = await processSingleOutboxTask(task.id);
   if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {

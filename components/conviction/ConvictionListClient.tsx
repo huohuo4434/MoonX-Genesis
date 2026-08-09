@@ -26,6 +26,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
   const en = locale === "en";
   const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO">("ALL");
   const cardBySlug = useMemo(() => new Map(payload.cards.map((card) => [card.slug, card])), [payload.cards]);
+  const teaserBySlug = useMemo(() => new Map(WATCHLIST_TEASERS.map((teaser) => [teaser.slug, teaser])), []);
   const rankIndex = useMemo(() => new Map(payload.rankOrder.map((slug, index) => [slug, index])), [payload.rankOrder]);
   const signalBySlug = useMemo(() => new Map((payload.resonanceSignals ?? []).map((signal) => [signal.slug, signal])), [payload.resonanceSignals]);
   const visible = useMemo(
@@ -35,10 +36,19 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
       .sort((a, b) => (rankIndex.get(a.slug) ?? 999) - (rankIndex.get(b.slug) ?? 999) || a.priority - b.priority),
     [cardBySlug, filter, rankIndex]
   );
+  const rankedSignals = useMemo(() => (payload.resonanceSignals ?? []).filter((signal) => {
+    const teaser = teaserBySlug.get(signal.slug);
+    return teaser && (filter === "ALL" || teaser.assetType === filter);
+  }), [filter, payload.resonanceSignals, teaserBySlug]);
+  const publicRankedSlugs = useMemo(() => payload.rankOrder.filter((slug) => {
+    const teaser = teaserBySlug.get(slug);
+    return teaser && (filter === "ALL" || teaser.assetType === filter);
+  }), [filter, payload.rankOrder, teaserBySlug]);
   const filters = en
     ? ([['ALL', 'All'], ['STOCK', 'Stocks'], ['CRYPTO', 'Crypto']] as const)
     : ([['ALL', '全部'], ['STOCK', '股票'], ['CRYPTO', '加密资产']] as const);
   const trackedCount = payload.trackedCount + (cardBySlug.has("spcx") ? 0 : 1);
+  const weekLabel = payload.resonanceWindow.labelZh;
 
   return (
     <div className="min-h-screen bg-[#07080a] text-white">
@@ -85,10 +95,75 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
           )}
         </div>
 
+        <section className="mt-6 overflow-hidden rounded-[22px] border border-amber-300/15 bg-[radial-gradient(circle_at_12%_0%,rgba(251,191,36,.10),transparent_32%),#0a0c11] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="font-mono text-caption uppercase tracking-[.16em] text-amber-200/60">{en ? "TARGET-WEEK METAPHYSICAL PRIORITY" : "目标周玄学共振优先级"}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{en ? `Priority watchlist · ${weekLabel}` : `${weekLabel}：先看卦象最明确的标的`}</h2>
+              <p className="mt-2 max-w-3xl text-body-sm leading-7 text-white/58">
+                {en
+                  ? "Weekly, monthly and larger-horizon metaphysical readings are ranked by alignment. Bullish and bearish calls are treated equally; technical analysis does not add ranking points."
+                  : "排序只看目标周周卦、月卦和更大周期卦是否同向。看涨和看跌完全同权；技术分析不参与排名，只在进入专题后负责找点位。前排代表方向证据更一致，不代表保证盈利。"}
+              </p>
+            </div>
+            <span className="rounded-full border border-amber-300/20 bg-amber-300/[.07] px-3 py-1.5 text-caption text-amber-100/85">
+              {en ? "Top 3 = first research tier" : "前3名 = 第一研究梯队"}
+            </span>
+          </div>
+
+          {payload.mode === "fullAccess" ? (
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+              {rankedSignals.slice(0, 3).map((signal, index) => {
+                const teaser = teaserBySlug.get(signal.slug);
+                const card = cardBySlug.get(signal.slug);
+                const name = en ? (teaser?.nameEn || card?.nameEn || signal.slug.toUpperCase()) : (teaser?.nameZh || card?.nameZh || signal.slug.toUpperCase());
+                return (
+                  <Link key={signal.slug} href={href(teaser?.detailHref || card?.detailHref || `/featured-stocks/${signal.slug}`)} className={`rounded-xl border p-4 transition hover:-translate-y-0.5 ${signal.direction === "BULLISH" ? "border-emerald-300/20 bg-emerald-300/[.045]" : signal.direction === "BEARISH" ? "border-rose-300/20 bg-rose-300/[.045]" : "border-amber-300/20 bg-amber-300/[.035]"}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-sm font-semibold text-amber-100">#{index + 1}</span>
+                      <span className="text-caption text-white/45">{signal.strengthZh}</span>
+                    </div>
+                    <p className="mt-3 text-xl font-semibold text-white">{name}</p>
+                    <p className={`mt-2 text-lg font-semibold ${signal.direction === "BULLISH" ? "text-emerald-200" : signal.direction === "BEARISH" ? "text-rose-200" : "text-amber-100"}`}>{signal.direction === "BULLISH" ? "↑ 看涨" : signal.direction === "BEARISH" ? "↓ 看跌" : "↔ 方向不明确"}</p>
+                    <p className="mt-2 text-caption leading-6 text-white/55">{signal.evidenceZh.join(" · ")}</p>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {publicRankedSlugs.slice(0, 3).map((slug, index) => {
+                const teaser = teaserBySlug.get(slug);
+                const card = cardBySlug.get(slug);
+                const name = en ? (teaser?.nameEn || card?.nameEn || slug.toUpperCase()) : (teaser?.nameZh || card?.nameZh || slug.toUpperCase());
+                return (
+                  <div key={slug} className="rounded-xl border border-white/[.08] bg-black/20 p-4">
+                    <p className="font-mono text-sm font-semibold text-amber-100">#{index + 1}</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{name}</p>
+                    <p className="mt-2 text-caption text-white/45">{en ? "Direction and resonance evidence are member-only." : "唯一方向与同向周期证据仅会员可见。"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {payload.mode === "fullAccess" && rankedSignals.length > 3 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {rankedSignals.slice(3).map((signal, index) => {
+                const teaser = teaserBySlug.get(signal.slug);
+                const card = cardBySlug.get(signal.slug);
+                const name = en ? (teaser?.nameEn || card?.nameEn || signal.slug.toUpperCase()) : (teaser?.nameZh || card?.nameZh || signal.slug.toUpperCase());
+                return <span key={signal.slug} className="rounded-full border border-white/10 bg-white/[.025] px-3 py-1.5 text-caption text-white/55">#{index + 4} {name} · {signal.strengthZh}</span>;
+              })}
+            </div>
+          ) : null}
+        </section>
+
         <div className="mt-6 space-y-6">
-          {visible.map((teaser) => (
-            <ResearchSpotlightCard key={teaser.slug} teaser={teaser} card={cardBySlug.get(teaser.slug)} mode={payload.mode} signal={signalBySlug.get(teaser.slug)} />
-          ))}
+          {visible.map((teaser) => {
+            const rank = (rankIndex.get(teaser.slug) ?? -1) + 1;
+            return <ResearchSpotlightCard key={teaser.slug} teaser={teaser} card={cardBySlug.get(teaser.slug)} mode={payload.mode} signal={signalBySlug.get(teaser.slug)} rank={rank > 0 ? rank : undefined} targetWeekLabel={weekLabel} />;
+          })}
         </div>
 
         {!visible.length ? <Text variant="body-sm" className="mt-8 text-white/55">{en ? "No published research-watchlist assets yet." : "暂无已发布的重点关注资产。"}</Text> : null}

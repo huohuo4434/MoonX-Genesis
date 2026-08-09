@@ -91,6 +91,7 @@ import {
 import { isIpoHighVolatilityDate } from "@/lib/data/member-stocks/ipo-rules";
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-ranking";
+import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
 import type {
@@ -113,6 +114,8 @@ export type ConvictionListPagePayload = {
   rankOrder: string[];
   /** Member/admin only; never sent to public users. */
   resonanceSignals: WatchlistResonanceSignal[] | null;
+  /** Shared Monday-Sunday window used by the current resonance ranking. */
+  resonanceWindow: { start: string; end: string; labelZh: string };
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
@@ -130,6 +133,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
       .at(-1) ?? null;
   const asOfDate = getChinaDateKey(new Date());
   const resonanceSignals = buildWatchlistResonanceRanking(asOfDate);
+  const resonanceWindow = targetWeekWindow(asOfDate);
   return {
     mode: fullAccess ? "fullAccess" : "publicOnly",
     isAdmin: access.isAdmin,
@@ -142,6 +146,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     deviceAccessRequired: Boolean(membershipAllows && !access.isAdmin && !fullAccess),
     rankOrder: resonanceSignals.map((item) => item.slug),
     resonanceSignals: fullAccess ? resonanceSignals : null,
+    resonanceWindow,
   };
 }
 

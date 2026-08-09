@@ -978,6 +978,16 @@ export async function runBitgetDemoServerRuntime(
             orderErrors: threeHorizon.orderErrors,
           },
         });
+        if (threeHorizon.orderErrors > 0) {
+          const remoteWriteDetails = threeHorizon.decisions
+            .filter((decision) => decision.rejectionCode === "ORDER_ERROR")
+            .map((decision) => `${decision.symbol}: ${decision.rejectionReason || "Bitget remote order write failed"}`)
+            .filter(Boolean)
+            .slice(0, 3);
+          if (remoteWriteDetails.length) {
+            diagnosticErrors.push(`真实订单写入失败：${remoteWriteDetails.join("；")}`);
+          }
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "三周期策略执行失败";
         diagnosticErrors.push(message);

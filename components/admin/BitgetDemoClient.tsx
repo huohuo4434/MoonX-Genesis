@@ -370,6 +370,13 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             </div>
           ) : null}
           {experiment?.stopReason ? <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-4"><Text variant="body-sm" className="text-amber-200">{experiment.stopReason}</Text></div> : null}
+          {dashboard.runtime.lastError ? (
+            <div className="rounded-lg border border-red-400/20 bg-red-400/[0.035] p-4 space-y-1">
+              <Text variant="caption" className="block text-red-100/75">最近交易/执行错误</Text>
+              <Text variant="body-sm" className="block text-red-200 break-words">{dashboard.runtime.lastError}</Text>
+              <Text variant="caption" className="block text-white/45">只有真实远端下单写入失败才累计“订单错误”；规格、最小金额、风险预算等下单前拦截不会触发自动暂停。</Text>
+            </div>
+          ) : null}
           {dashboard.runtime.lastMarketError || dashboard.runtime.lastAccountError ? (
             <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.03] p-4 space-y-1">
               {dashboard.runtime.lastMarketError ? <Text variant="caption" className="block text-amber-100/80">行情接口：{dashboard.runtime.lastMarketError}</Text> : null}

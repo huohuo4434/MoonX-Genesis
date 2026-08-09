@@ -12,6 +12,8 @@ type Props = {
   card?: ConvictionPublicCard;
   mode: "publicOnly" | "fullAccess";
   signal?: WatchlistResonanceSignal;
+  rank?: number;
+  targetWeekLabel?: string;
 };
 
 const ACCENTS: Record<WatchlistTeaser["accent"], {
@@ -39,7 +41,7 @@ function assetTypeLabel(type: WatchlistTeaser["assetType"], en: boolean) {
   return en ? "Stock" : "股票";
 }
 
-export default function ResearchSpotlightCard({ teaser, card, mode, signal }: Props) {
+export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank, targetWeekLabel }: Props) {
   const { locale, href } = useLocale();
   const en = locale === "en";
   const accent = ACCENTS[teaser.accent];
@@ -66,6 +68,11 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal }: Pr
                 {en ? teaser.eyebrowEn : teaser.eyebrowZh}
               </span>
               <Badge variant="outline" className="border-white/10 bg-black/10 text-white/55">{assetTypeLabel(teaser.assetType, en)}</Badge>
+              {rank ? (
+                <Badge variant="outline" className={rank <= 3 ? "border-amber-300/30 bg-amber-300/[.10] text-amber-100" : "border-white/10 bg-white/[.03] text-white/60"}>
+                  #{rank} · {rank <= 3 ? (en ? "Priority tier" : "优先关注") : (en ? "Resonance rank" : "共振排序")}
+                </Badge>
+              ) : null}
               {mode === "fullAccess" && signal ? (
                 <Badge variant="outline" className={signal.direction === "BULLISH" ? "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-100" : signal.direction === "BEARISH" ? "border-rose-300/25 bg-rose-300/[.08] text-rose-100" : "border-amber-300/20 bg-amber-300/[.06] text-amber-100"}>
                   {signal.strengthZh} · {signal.labelZh}{signal.sameDirectionPeriods > 1 ? ` · ${signal.sameDirectionPeriods}周期同向` : ""}
@@ -90,8 +97,9 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal }: Pr
 
         {mode === "fullAccess" && signal ? (
           <section className={`mt-4 rounded-xl border p-4 ${signal.direction === "BULLISH" ? "border-emerald-300/20 bg-emerald-300/[.045]" : signal.direction === "BEARISH" ? "border-rose-300/20 bg-rose-300/[.045]" : "border-amber-300/20 bg-amber-300/[.035]"}`}>
-            <p className="font-mono text-caption uppercase tracking-[.14em] text-white/40">{en ? "CURRENT-WEEK MOOX CALL" : "本周 MOOX 唯一方向"}</p>
+            <p className="font-mono text-caption uppercase tracking-[.14em] text-white/40">{en ? "TARGET-WEEK MOOX CALL" : "目标周 MOOX 唯一方向"}</p>
             <p className="mt-2 text-xl font-semibold text-white">{signal.direction === "BULLISH" ? "↑ 看涨" : signal.direction === "BEARISH" ? "↓ 看跌" : "↔ 方向不明确"} · {signal.strengthZh}</p>
+            {targetWeekLabel ? <p className="mt-1 text-caption text-white/45">{en ? "Target week" : "目标周"}：{targetWeekLabel}</p> : null}
             <p className="mt-2 text-caption leading-relaxed text-white/60">{signal.evidenceZh.join(" · ")}</p>
           </section>
         ) : null}

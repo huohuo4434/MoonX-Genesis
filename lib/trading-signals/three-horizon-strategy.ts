@@ -11,6 +11,7 @@ import {
   getBitgetDemoPendingStrategyOrders,
   getContractConfig,
   normalizeOrderSize,
+  normalizeOrderSizeUp,
   placeBitgetDemoMarketOrder,
   placeBitgetDemoProtectionOrder,
   testBitgetDemoConnection,
@@ -25,6 +26,7 @@ import {
 import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
 import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
 import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-plan-renewal-core";
+import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-preflight-core";
 import {
   prepareAiTradePlanBeforeExecution,
   syncAiTradePlanFromDecision,
@@ -2595,9 +2597,20 @@ async function calculatePositionSize(input: {
     : input.equityUsdt * MAX_POSITION_NOTIONAL_PCT / 100;
   const cappedQuantity = Math.min(riskQuantity, maxNotional / input.evaluation.entryPrice);
   const contract = await getContractConfig(input.symbol);
-  const normalized = Number(normalizeOrderSize(cappedQuantity, contract));
+  const minNotionalQuantity = contract.minOrderAmount > 0
+    ? contract.minOrderAmount / input.evaluation.entryPrice
+    : 0;
+  const minimumExchangeQuantity = Math.max(contract.minTradeNum, minNotionalQuantity);
+  const minimumNormalized = minimumExchangeQuantity > 0
+    ? Number(normalizeOrderSizeUp(minimumExchangeQuantity, contract))
+    : 0;
+  const quantityBeforeFloor = Math.max(cappedQuantity, minimumNormalized);
+  const normalized = Number(normalizeOrderSize(quantityBeforeFloor, contract));
   if (!Number.isFinite(normalized) || normalized <= 0) {
     throw new Error("交易所规格归一化后下单数量无效");
+  }
+  if (contract.minOrderAmount > 0 && normalized * input.evaluation.entryPrice + 1e-9 < contract.minOrderAmount) {
+    throw new Error(`${input.symbol}最小订单金额要求${contract.minOrderAmount} USDT，当前风险预算不足以形成合规订单`);
   }
   const actualRisk = normalized * stopDistance;
   const actualRiskPct = actualRisk / input.equityUsdt * 100;
@@ -2731,28 +2744,47 @@ async function executeReadyDecision(input: {
       riskReservedPct: 0,
     };
   }
+  let sizing: Awaited<ReturnType<typeof calculatePositionSize>>;
   try {
     const equityUsdt = input.risk.equityUsdt;
     if (equityUsdt == null || equityUsdt <= 0) {
       throw new Error(environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金" : "未检测到可用模拟资金");
     }
-    const sizing = await calculatePositionSize({
+    sizing = await calculatePositionSize({
       profile: input.profile,
       evaluation: input.evaluation,
       equityUsdt,
       symbol: input.decision.symbol as BitgetSupportedSymbol,
       riskScale: input.evaluation.riskScale,
     });
-    let current = await updateDecision(input.decision.id, {
-      status: "READY",
-      quantity: sizing.quantity,
-      riskAmountUsdt: sizing.riskAmountUsdt,
-      riskPct: sizing.riskPct,
-      rejectionCode: input.evaluation.executionTier === "PROBE" ? "PROBE_ENTRY" : "",
-      rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "完整确认仓"}通过组合风控，准备提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单。`,
-      entryStage: 0,
-      maxEntryStages: input.evaluation.executionTier === "PROBE" ? 2 : 1,
-    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "下单前规格/风险检查失败";
+    const disposition = classifyLiveOrderFailure("PREFLIGHT");
+    return {
+      decision: await updateDecision(input.decision.id, {
+        status: disposition.status,
+        rejectionCode: disposition.rejectionCode,
+        rejectionReason: reason,
+      }),
+      attempted: disposition.attempted,
+      success: false,
+      error: disposition.error,
+      riskReservedPct: 0,
+    };
+  }
+
+  let current = await updateDecision(input.decision.id, {
+    status: "READY",
+    quantity: sizing.quantity,
+    riskAmountUsdt: sizing.riskAmountUsdt,
+    riskPct: sizing.riskPct,
+    rejectionCode: input.evaluation.executionTier === "PROBE" ? "PROBE_ENTRY" : "",
+    rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "完整确认仓"}通过组合风控与交易所规格预检，准备提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单。`,
+    entryStage: 0,
+    maxEntryStages: input.evaluation.executionTier === "PROBE" ? 2 : 1,
+  });
+
+  try {
     const order = await placeBitgetDemoMarketOrder({
       paperOrderId: current.id,
       symbol: current.symbol as BitgetSupportedSymbol,
@@ -2780,15 +2812,17 @@ async function executeReadyDecision(input: {
       riskReservedPct: sizing.riskPct,
     };
   } catch (error) {
+    const reason = error instanceof Error ? error.message : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}下单失败`;
+    const disposition = classifyLiveOrderFailure("REMOTE_WRITE");
     return {
       decision: await updateDecision(input.decision.id, {
-        status: "ERROR",
-        rejectionCode: "ORDER_ERROR",
-        rejectionReason: error instanceof Error ? error.message : `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}下单失败`,
+        status: disposition.status,
+        rejectionCode: disposition.rejectionCode,
+        rejectionReason: reason,
       }),
-      attempted: true,
+      attempted: disposition.attempted,
       success: false,
-      error: true,
+      error: disposition.error,
       riskReservedPct: 0,
     };
   }
