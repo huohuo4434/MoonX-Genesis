@@ -111,6 +111,15 @@ const SYMBOL_CATALOG: Record<string, SymbolMeta> = {
   AVAX: { assetId: "avalanche", assetName: "Avalanche", tradeSymbol: "AVAX" },
   LINK: { assetId: "chainlink", assetName: "Chainlink", tradeSymbol: "LINK" },
   HYPE: { assetId: "hype", assetName: "Hyperliquid", tradeSymbol: "HYPE" },
+  MU: { assetId: "mu", assetName: "美光科技", tradeSymbol: "MU" },
+  QQQ: { assetId: "nasdaq-100", assetName: "纳斯达克100", tradeSymbol: "QQQ" },
+  XAUT: { assetId: "gold", assetName: "黄金", tradeSymbol: "XAUT" },
+  XAG: { assetId: "silver", assetName: "白银", tradeSymbol: "XAG" },
+  GOOGL: { assetId: "googl", assetName: "Alphabet", tradeSymbol: "GOOGL" },
+  CL: { assetId: "wti-crude", assetName: "WTI原油", tradeSymbol: "CL" },
+  SPY: { assetId: "sp500", assetName: "标普500", tradeSymbol: "SPY" },
+  SNDK: { assetId: "sandisk", assetName: "SanDisk", tradeSymbol: "SNDK" },
+  MSFT: { assetId: "msft", assetName: "微软", tradeSymbol: "MSFT" },
 };
 
 const DEFAULT_WATCH_SYMBOLS = ["BTC", "ETH"];
@@ -574,7 +583,6 @@ function currentCryptoResearchWeeklyRows(
   for (const item of groups) {
     if (
       !item.forecastType.startsWith("WEEK") ||
-      item.periodStart > today ||
       item.periodEnd < today
     ) {
       continue;
@@ -583,15 +591,12 @@ function currentCryptoResearchWeeklyRows(
     if (!symbol) continue;
     const point = getCryptoPointGuidance(symbol, now);
     rows.push({
-      id: point ? `${item.id}-POINT-${point.threshold}` : item.id,
+      id: item.id,
       assetId: item.assetId,
       horizon: "WEEK",
       periodStart: item.periodStart,
       periodEnd: item.periodEnd,
-      direction:
-        symbol === "BTC" && point && item.forecastType === "WEEK"
-          ? "先跌后涨"
-          : item.direction,
+      direction: item.direction,
       path: [
         item.expectedPath,
         point
@@ -601,9 +606,11 @@ function currentCryptoResearchWeeklyRows(
         .filter(Boolean)
         .join("；"),
       probabilityLabel: probabilityLabelFromPeriod(item),
-      sourceLabel: "自动交易正式周研究 · 六爻周卦与点位卦",
+      sourceLabel: "MOOX锁定周研究 · 六爻周卦",
       status: "locked",
       version: item.version,
+      publishedAt: item.publishedAt,
+      lockedAt: item.lockedAt,
     });
   }
   return rows;
@@ -659,6 +666,9 @@ function runtimeDailyRow(
     sourceLabel: "自动交易运行时日预测 · 周卦拆日 + 点位卦",
     status: "locked",
     version: generated.version,
+    publishedAt: generated.publishedAt,
+    // Runtime daily fallback is execution guidance, not an independently locked canonical forecast.
+    lockedAt: null,
   };
 }
 
@@ -686,6 +696,8 @@ async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecast
       sourceLabel: `自动日预测数据库 · ${item.sourceWeeklyForecastId}`,
       status: item.status,
       version: item.version,
+      publishedAt: item.publishedAt,
+      lockedAt: item.lockedAt,
     });
   }
 
@@ -704,6 +716,8 @@ async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecast
       sourceLabel: `周预测源数据库 · ${item.sourceType}`,
       status: item.status,
       version: item.version,
+      publishedAt: item.publishedAt,
+      lockedAt: item.lockedAt,
     });
   }
 
@@ -726,23 +740,43 @@ async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecast
   return rows;
 }
 
+function rowIsFormallyLocked(row: AdminCycleForecastRow): boolean {
+  const status = String(row.status ?? "").toLowerCase();
+  return Boolean(
+    row.publishedAt &&
+    row.lockedAt &&
+    !status.includes("draft") &&
+    !status.includes("pending") &&
+    (status.includes("lock") || status.includes("publish") || status.includes("verif") || status.includes("正式"))
+  );
+}
+
 function selectForecast(
   rows: AdminCycleForecastRow[],
   assetId: string,
-  horizon: "DAY" | "WEEK",
+  horizon: "DAY" | "WEEK" | "MONTH",
   today: string
 ): AdminCycleForecastRow | null {
-  return (
-    rows
-      .filter(
-        (row) =>
-          row.assetId === assetId &&
-          row.horizon === horizon &&
-          row.periodStart <= today &&
-          row.periodEnd >= today
-      )
-      .sort((a, b) => forecastScore(b) - forecastScore(a))[0] ?? null
+  const eligible = rows.filter(
+    (row) =>
+      row.assetId === assetId &&
+      row.horizon === horizon &&
+      row.periodEnd >= today
   );
+  return eligible.sort((a, b) => {
+    const aLocked = rowIsFormallyLocked(a) ? 1 : 0;
+    const bLocked = rowIsFormallyLocked(b) ? 1 : 0;
+    if (aLocked !== bLocked) return bLocked - aLocked;
+    const aCurrent = a.periodStart <= today && a.periodEnd >= today ? 1 : 0;
+    const bCurrent = b.periodStart <= today && b.periodEnd >= today ? 1 : 0;
+    if (aCurrent !== bCurrent) return bCurrent - aCurrent;
+    if (a.periodStart !== b.periodStart) return a.periodStart.localeCompare(b.periodStart);
+    const versionDelta = Number(b.version ?? 0) - Number(a.version ?? 0);
+    if (versionDelta !== 0) return versionDelta;
+    const publishedDelta = Date.parse(b.publishedAt ?? "") - Date.parse(a.publishedAt ?? "");
+    if (Number.isFinite(publishedDelta) && publishedDelta !== 0) return publishedDelta;
+    return forecastScore(b) - forecastScore(a);
+  })[0] ?? null;
 }
 
 function forecastLeg(
@@ -759,6 +793,9 @@ function forecastLeg(
     confidence: forecastConfidence(row, direction),
     sourceLabel: row.sourceLabel,
     status: row.status,
+    version: row.version,
+    publishedAt: row.publishedAt ?? null,
+    lockedAt: row.lockedAt ?? null,
   };
 }
 
@@ -787,13 +824,16 @@ function buildPlan(
   const normalizedSymbol = normalizeSymbol(symbol);
   const meta = symbolMeta(normalizedSymbol);
   const today = getChinaDateKey(now);
+  const monthlyRow = selectForecast(rows, meta.assetId, "MONTH", today);
   const weeklyRow = selectForecast(rows, meta.assetId, "WEEK", today);
   const dailyRow = selectForecast(rows, meta.assetId, "DAY", today);
+  const monthlyDirection = weeklyPhaseDirection(monthlyRow, now);
   const weeklyDirection = weeklyPhaseDirection(weeklyRow, now);
   const dailyPattern = dailyRow
     ? patternFromText(`${dailyRow.direction} ${dailyRow.path}`)
     : "NEUTRAL";
   const dailyDirection = directionalFromPattern(dailyPattern);
+  const monthly = forecastLeg(monthlyRow, monthlyDirection);
   const weekly = forecastLeg(weeklyRow, weeklyDirection);
   const daily = forecastLeg(dailyRow, dailyDirection);
 
@@ -836,8 +876,10 @@ function buildPlan(
     tradeSymbol: meta.tradeSymbol,
     assetId: meta.assetId,
     assetName: meta.assetName,
+    monthlyForecast: monthly,
     weeklyForecast: weekly,
     dailyForecast: daily,
+    monthlyDirection,
     weeklyDirection,
     dailyDirection,
     setup,
@@ -860,12 +902,14 @@ function buildPlan(
 
 export async function resolvePredictionStrategyPlans(
   settings: PredictionAutoTraderSettings,
-  now = new Date()
+  now = new Date(),
+  requestedSymbols?: readonly PredictionAutoSymbol[]
 ): Promise<PredictionStrategyPlan[]> {
   const rows = await loadPredictionForecastRows(now);
-  return normalizeWatchSymbols(settings.watchSymbols).map((symbol) =>
-    buildPlan(symbol, rows, settings, now)
-  );
+  const symbols = requestedSymbols?.length
+    ? Array.from(new Set(requestedSymbols.map((symbol) => normalizeSymbol(symbol))))
+    : normalizeWatchSymbols(settings.watchSymbols);
+  return symbols.map((symbol) => buildPlan(symbol, rows, settings, now));
 }
 
 function directionForSetup(setup: PredictionAutoSetup): PredictionAutoDirection {

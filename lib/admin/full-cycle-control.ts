@@ -8,6 +8,10 @@ import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-foreca
 import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
+import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecasts";
+import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
+import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
 import { REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
@@ -107,6 +111,8 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
       sourceLabel: item.publishedBy || "日度预测库",
       status: item.status,
       version: item.version,
+      publishedAt: item.publishedAt || null,
+      lockedAt: item.status === "published" || item.status === "revised" || item.status === "verified" ? item.publishedAt || null : null,
     });
   }
 
@@ -127,6 +133,8 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
       sourceLabel: (item.sourceIds ?? []).join("、") || "周度预测库",
       status: item.status,
       version: item.version,
+      publishedAt: item.publishedAt || null,
+      lockedAt: item.status === "published" ? item.publishedAt || null : null,
     });
   }
 
@@ -143,13 +151,13 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     ...listMuHypePeriodForecasts("mu"),
     ...listMuHypePeriodForecasts("hype"),
     ...listEthPeriodForecasts(),
+    ...listBtcPeriodForecasts20260801(),
+    ...listGooglePeriodForecasts(),
+    ...listMsftPeriodForecasts(),
+    ...listSandiskPeriodForecasts(),
   ];
   for (const item of focusGroups) {
-    const horizon = item.forecastType.startsWith("WEEK")
-      ? "WEEK"
-      : item.forecastType.startsWith("MONTH")
-        ? "WEEK"
-        : "MONTH";
+    const horizon = item.forecastType.startsWith("WEEK") ? "WEEK" : "MONTH";
     if (horizon === "WEEK" && item.periodStart > monthEnd) continue;
     if (horizon === "MONTH" && item.periodStart > yearEnd) continue;
     rows.push({
@@ -168,6 +176,8 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
       sourceLabel: item.sourceType === "ICHING_RESEARCH" ? "六爻研究" : "管理员",
       status: item.status,
       version: item.version,
+      publishedAt: item.publishedAt,
+      lockedAt: item.lockedAt,
     });
   }
 

@@ -112,6 +112,14 @@ export type AiTradePlan = {
   clientOid: string | null;
   bitgetOrderId: string | null;
   sourceDecisionId: string | null;
+  forecastId: string | null;
+  forecastVersion: string | null;
+  forecastHorizon: "DAY" | "WEEK" | "MONTH" | null;
+  forecastPublishedAt: string | null;
+  forecastLockedAt: string | null;
+  forecastValidFrom: string | null;
+  forecastValidUntil: string | null;
+  forecastSource: string | null;
   createdAt: string;
   updatedAt: string;
   events: AiTradePlanEvent[];

@@ -54,6 +54,9 @@ export interface PredictionForecastLeg {
   confidence: number;
   sourceLabel: string;
   status: string;
+  version: number | null;
+  publishedAt: string | null;
+  lockedAt: string | null;
 }
 
 export interface PredictionPointGuidance {
@@ -72,8 +75,10 @@ export interface PredictionStrategyPlan {
   tradeSymbol: string;
   assetId: string;
   assetName: string;
+  monthlyForecast: PredictionForecastLeg | null;
   weeklyForecast: PredictionForecastLeg | null;
   dailyForecast: PredictionForecastLeg | null;
+  monthlyDirection: PredictionAutoDirection;
   weeklyDirection: PredictionAutoDirection;
   dailyDirection: PredictionAutoDirection;
   setup: PredictionAutoSetup;

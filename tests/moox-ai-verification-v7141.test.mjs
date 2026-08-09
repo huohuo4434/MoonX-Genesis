@@ -9,7 +9,8 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 test('live commissioning is enabled by default but still uses MOOX direction and safety gates', () => {
   const source = read('lib/trading-signals/three-horizon-strategy.ts');
   assert.match(source, /BITGET_LIVE_COMMISSIONING_ENABLED\?\.toLowerCase\(\) !== "false"/);
-  assert.match(source, /resolveOfficialMooxDirection\(\{ plan, prior \}\)/);
+  assert.match(source, /resolveOfficialMooxDirection\(\{ plan, prior, strategyType:/);
+  assert.match(source, /forecastDirectionForStrategy\(input\.plan, input\.strategyType\)/);
   assert.match(source, /MOOX玄学方向/);
   assert.match(source, /技术指标替代决定多空/);
   assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);

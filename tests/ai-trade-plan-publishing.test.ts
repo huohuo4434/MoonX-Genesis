@@ -34,7 +34,7 @@ test("计划采用不可覆盖版本和内容哈希", () => {
   assert.match(migration, /UNIQUE\(plan_group_id, version\)/);
   assert.match(plans, /hashContent/);
   assert.match(plans, /PLAN_SUPERSEDED/);
-  assert.match(plans, /Number\(current\.version\) \+ 1/);
+  assert.match(plans, /reconcileForecastBoundPlan/);
 });
 
 test("计划与事件账本是追加式结构", () => {

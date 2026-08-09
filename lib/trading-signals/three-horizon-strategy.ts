@@ -24,6 +24,7 @@ import {
 } from "@/lib/bitget/demo-client";
 import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
 import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
+import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-plan-renewal-core";
 import {
   prepareAiTradePlanBeforeExecution,
   syncAiTradePlanFromDecision,
@@ -104,9 +105,6 @@ const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
 );
 const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
   "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
-));
-const LIVE_DYNAMIC_UNIVERSE_LIMIT = Math.floor(envNumber(
-  "MOOX_LIVE_DYNAMIC_UNIVERSE_LIMIT_V79", 10, 4, 20
 ));
 
 // MOOX_ACTIVE_EXECUTION_V64
@@ -470,6 +468,7 @@ function priorDirectionalScore(prior: HexagramDirectionPrior | null): number {
 function resolveOfficialMooxDirection(input: {
   plan?: PredictionStrategyPlan;
   prior: HexagramDirectionPrior | null;
+  strategyType: ThreeHorizonStrategyType;
   focusDirection?: ThreeHorizonDirection;
 }): { direction: ThreeHorizonDirection; strength: number; label: string } {
   const candidates: Array<{ source: string; direction: ThreeHorizonDirection; confidence: number }> = [];
@@ -477,7 +476,7 @@ function resolveOfficialMooxDirection(input: {
   if (focusDirection !== "NEUTRAL") {
     candidates.push({ source: "研究总控", direction: focusDirection, confidence: 68 });
   }
-  const planDirection = forecastDirection(input.plan);
+  const planDirection = forecastDirectionForStrategy(input.plan, input.strategyType);
   if (planDirection !== "NEUTRAL") {
     candidates.push({ source: "正式预测", direction: planDirection, confidence: clamp(input.plan?.confidence ?? 55, 35, 85) });
   }
@@ -618,11 +617,22 @@ function forecastDirection(plan: PredictionStrategyPlan | undefined): ThreeHoriz
   return "NEUTRAL";
 }
 
+function forecastDirectionForStrategy(
+  plan: PredictionStrategyPlan | undefined,
+  strategyType: ThreeHorizonStrategyType
+): ThreeHorizonDirection {
+  if (!plan) return "NEUTRAL";
+  if (strategyType === "INTRADAY") return plan.dailyDirection;
+  if (strategyType === "SWING") return plan.weeklyDirection;
+  return plan.monthlyDirection;
+}
+
 function forecastCompatibility(
   direction: ThreeHorizonDirection,
-  plan: PredictionStrategyPlan | undefined
+  plan: PredictionStrategyPlan | undefined,
+  strategyType: ThreeHorizonStrategyType
 ): { score: number; label: string; compatible: boolean } {
-  const forecast = forecastDirection(plan);
+  const forecast = forecastDirectionForStrategy(plan, strategyType);
   const confidence = clamp(plan?.confidence ?? 50, 0, 100);
   if (forecast === "NEUTRAL") {
     return { score: 50, label: "预测暂未形成明确方向，仅作中性权重", compatible: true };
@@ -730,7 +740,7 @@ function evaluateIntraday(
   // MOOX defines the side. Price action only confirms the execution node.
   // Countertrend is permitted only when the RESEARCH layer explicitly pre-marks
   // a tactical reversal leg; 1H/15m evidence merely confirms timing.
-  const officialDirection = resolveOfficialMooxDirection({ plan, prior, focusDirection: focusMainDirection });
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType, focusDirection: focusMainDirection });
   const mooxDirection = officialDirection.direction;
   const direction = strongCountertrend ? focusTacticalDirection : mooxDirection;
   const latest15 = last(m15);
@@ -749,7 +759,7 @@ function evaluateIntraday(
         label: `周内反向段已预先标记，1H/15m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
         compatible: true,
       }
-    : forecastCompatibility(direction, plan);
+    : forecastCompatibility(direction, plan, profile.strategyType);
   const structureMet = direction === "LONG"
     ? Boolean(latest15 && latest15.close >= ema15 * 0.997 && rsi15 >= 42 && m15Signal.score >= -4)
     : direction === "SHORT"
@@ -884,7 +894,7 @@ function evaluateSwing(
     primaryWeight: 0.75,
     secondaryWeight: 0.25,
   });
-  const officialDirection = resolveOfficialMooxDirection({ plan, prior });
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
   const direction = officialDirection.direction;
   const latest4h = last(h4);
   const ema4h = last(ema(h4.map((row) => row.close), 20)) ?? 0;
@@ -908,7 +918,7 @@ function evaluateSwing(
       ? Boolean(latest1h && latest1h.close < ema1h && h4Signal.score <= -10)
       : false;
   const triggerMet = breakoutTrigger || continuationTrigger;
-  const forecast = forecastCompatibility(direction, plan);
+  const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atr4h = atr(h4);
   const volatility = volatilityCondition(h4, atr4h, 8);
   const priorCompatible = !prior || prior.direction === direction;
@@ -950,7 +960,7 @@ function evaluatePosition(
       };
   const weeklySignal = technicalDirectionSignal(weeks, 3, 6, 3);
   const dailySignal = technicalDirectionSignal(d1, 10, 30, 8);
-  const officialDirection = resolveOfficialMooxDirection({ plan, prior });
+  const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
   const direction = officialDirection.direction;
   const latestDaily = last(d1);
   const dailyEma = last(ema(d1.map((row) => row.close), 20)) ?? 0;
@@ -967,7 +977,7 @@ function evaluatePosition(
     : direction === "SHORT"
       ? Boolean(latest4h && previous4h && latest4h.close < ema4h && latest4h.close < previous4h.close)
       : false;
-  const forecast = forecastCompatibility(direction, plan);
+  const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atrDaily = atr(d1);
   const volatility = volatilityCondition(d1, atrDaily, 12);
   const priorCompatible = !prior || prior.direction === direction;
@@ -1580,7 +1590,8 @@ async function selectDynamicTradeUniverse(
       return { symbol, score };
     })
     .sort((a, b) => b.score - a.score)
-    .slice(0, LIVE_DYNAMIC_UNIVERSE_LIMIT)
+    // Every tradable liveAllowedSymbol must enter the Cron decision/plan renewal pass.
+    // UI may still display Top10, but plan renewal must not silently omit lower-ranked allowed symbols.
     .map((row) => row.symbol);
 }
 
@@ -2064,10 +2075,10 @@ async function runLiveCommissioning(input: {
     return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "账户已有持仓，首笔闭环验收暂缓，避免与现有仓位冲突。" };
   }
   const quoteMap = new Map(input.quotes.map((quote) => [quote.symbol, quote] as const));
-  const requestedCommissioningSymbols = Array.from(new Set<BitgetSupportedSymbol>([
-    ...LIVE_COMMISSIONING_PREFERRED_SYMBOLS,
-    ...environment.liveAllowedSymbols,
-  ]));
+  const requestedCommissioningSymbols = prioritizeAllowedCommissioningSymbols(
+    environment.liveAllowedSymbols,
+    LIVE_COMMISSIONING_PREFERRED_SYMBOLS
+  );
   const contractRows = await Promise.all(
     requestedCommissioningSymbols.map(async (symbol) => ({
       symbol,
@@ -2094,6 +2105,7 @@ async function runLiveCommissioning(input: {
   try {
     const priorSymbol = String(state.latest?.symbol ?? "").toUpperCase() as BitgetSupportedSymbol;
     const priorDirection = state.latest?.direction;
+    const profile = liveCommissioningProfile(input.now, commissioningUniverse);
     const pinned = commissioningUniverse.includes(priorSymbol) && (priorDirection === "LONG" || priorDirection === "SHORT")
       ? { symbol: priorSymbol, direction: priorDirection as Exclude<ThreeHorizonDirection, "NEUTRAL"> }
       : null;
@@ -2108,7 +2120,7 @@ async function runLiveCommissioning(input: {
     for (const quote of candidates) {
       const plan = input.forecastBySymbol.get(quote.symbol);
       const prior = getHexagramDirectionPrior(quote.symbol, "INTRADAY", input.now);
-      const official = resolveOfficialMooxDirection({ plan, prior });
+      const official = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
       if (official.direction === "NEUTRAL") continue;
       const candles = await loadCommissioningCandleSet(quote.symbol);
       scored.push({
@@ -2150,7 +2162,6 @@ async function runLiveCommissioning(input: {
       mooxDirectionLabel: selected.directionLabel,
       mooxDirectionStrength: selected.directionStrength,
     });
-    const profile = liveCommissioningProfile(input.now, commissioningUniverse);
     let decision = await insertDecision({
       runId: input.runId,
       profile,
@@ -2161,7 +2172,12 @@ async function runLiveCommissioning(input: {
       rejectionCode: "LIVE_COMMISSIONING",
       rejectionReason: evaluation.rejectionReason,
     });
-    const planGate = await prepareAiTradePlanBeforeExecution({ decision, profile, now: input.now });
+    const planGate = await prepareAiTradePlanBeforeExecution({
+      decision,
+      profile,
+      now: input.now,
+      forecastPlan: input.forecastBySymbol.get(selected.quote.symbol) ?? null,
+    });
     if (!planGate.allowed) {
       decision = await updateDecision(decision.id, {
         status: "BLOCKED",
@@ -2889,14 +2905,18 @@ export async function runThreeHorizonStrategyEngine(
     profile.enabled && (liveExperimentMode || profileDue(profile, now))
   );
   const settings = await getPredictionAutoTraderSettings();
-  const forecastPlans = await resolvePredictionStrategyPlans(settings, now).catch(() => []);
-  const forecastBySymbol = new Map<string, PredictionStrategyPlan>();
+  const forecastSymbols = liveExperimentMode
+    ? environment.liveAllowedSymbols.map((symbol) => symbol.replace(/USDT$/, ""))
+    : undefined;
+  const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => []);
+  const canonicalForecastBySymbol = new Map<string, PredictionStrategyPlan>();
   for (const plan of forecastPlans) {
     const symbol = String(plan.symbol).toUpperCase();
-    forecastBySymbol.set(symbol.endsWith("USDT") ? symbol : `${symbol}USDT`, plan);
+    canonicalForecastBySymbol.set(symbol.endsWith("USDT") ? symbol : `${symbol}USDT`, plan);
   }
-  // Curated focus playbooks (for example next-week gold) are explicit MOOX forecasts.
-  // They may override an older generic plan for the same day, but never bypass technical or risk gates.
+  // Evaluation may use curated focus playbooks, but real plan identity is always bound to
+  // canonical locked forecast metadata from canonicalForecastBySymbol.
+  const forecastBySymbol = new Map(canonicalForecastBySymbol);
   for (const symbol of environment.liveAllowedSymbols) {
     const focusPlan = buildAiTradingFocusPredictionPlan(symbol, now);
     if (focusPlan) forecastBySymbol.set(symbol, focusPlan);
@@ -2945,7 +2965,7 @@ export async function runThreeHorizonStrategyEngine(
       positions,
       protections,
       reservedSymbols,
-      forecastBySymbol,
+      forecastBySymbol: canonicalForecastBySymbol,
     });
     commissioningMessage = commissioning.message;
     commissioningAttempted = commissioning.attempted;
@@ -3079,6 +3099,7 @@ export async function runThreeHorizonStrategyEngine(
           decision,
           profile,
           now,
+          forecastPlan: canonicalForecastBySymbol.get(symbol) ?? null,
         }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
           plan: null,
           allowed: false,
@@ -3241,6 +3262,7 @@ export async function runThreeHorizonStrategyEngine(
         decision: promoted,
         profile: activityProfile,
         now,
+        forecastPlan: canonicalForecastBySymbol.get(candidate.symbol) ?? null,
       }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
         plan: null,
         allowed: false,
@@ -3372,6 +3394,7 @@ export async function runThreeHorizonStrategyEngine(
         decision: promoted,
         profile: activityProfile,
         now,
+        forecastPlan: canonicalForecastBySymbol.get(candidate.symbol) ?? null,
       }).catch((error): Awaited<ReturnType<typeof prepareAiTradePlanBeforeExecution>> => ({
         plan: null,
         allowed: false,

@@ -229,6 +229,7 @@ export function buildAiTradingFocusPredictionPlan(
     tradeSymbol: focus.symbol.replace(/USDT$/, ""),
     assetId: focus.assetId,
     assetName: focus.assetName,
+    monthlyForecast: null,
     weeklyForecast: {
       id: `AI-FOCUS-${focus.symbol}-${focus.periodStart}`,
       periodStart: focus.periodStart,
@@ -238,6 +239,9 @@ export function buildAiTradingFocusPredictionPlan(
       confidence: Math.min(82, Math.max(58, Math.round(focus.priority * 0.72))),
       sourceLabel: "MOOX周度预测+重点交易编排",
       status: "published",
+      version: 1,
+      publishedAt: null,
+      lockedAt: null,
     },
     dailyForecast: day
       ? {
@@ -249,8 +253,12 @@ export function buildAiTradingFocusPredictionPlan(
           confidence: Math.min(82, Math.max(58, focus.countertrendPolicy === "STRONG_ONLY" ? focus.countertrendConfluence : 66)),
           sourceLabel: "MOOX周内路径推演",
           status: "published",
+          version: 1,
+          publishedAt: null,
+          lockedAt: null,
         }
       : null,
+    monthlyDirection: "NEUTRAL",
     weeklyDirection: focus.weeklyDirection === "NEUTRAL" ? mainDirection : focus.weeklyDirection,
     dailyDirection,
     setup,

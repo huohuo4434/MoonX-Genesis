@@ -2,6 +2,14 @@ import "server-only";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
+import {
+  forecastHorizonForStrategy,
+  reconcileForecastBoundPlan,
+  type ForecastBoundStoredPlan,
+  type ForecastPlanReadiness,
+  type LockedForecastBinding,
+} from "@/lib/trading-signals/ai-plan-renewal-core";
 import type {
   ThreeHorizonCondition,
   ThreeHorizonStrategyDecision,
@@ -104,6 +112,14 @@ type PlanRow = {
   client_oid: string | null;
   bitget_order_id: string | null;
   source_decision_id: string | null;
+  forecast_id: string | null;
+  forecast_version: string | null;
+  forecast_horizon: "DAY" | "WEEK" | "MONTH" | null;
+  forecast_published_at: Date | null;
+  forecast_locked_at: Date | null;
+  forecast_valid_from: Date | null;
+  forecast_valid_until: Date | null;
+  forecast_source: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -183,8 +199,8 @@ function iso(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
-function hashContent(content: PlanContent): string {
-  return createHash("sha256").update(JSON.stringify(content)).digest("hex");
+function hashContent(content: PlanContent, binding?: LockedForecastBinding): string {
+  return createHash("sha256").update(JSON.stringify({ content, binding: binding ?? null })).digest("hex");
 }
 
 function midpoint(low: number, high: number): number {
@@ -229,7 +245,7 @@ function target3(decision: ThreeHorizonStrategyDecision): number {
 function buildContent(
   decision: ThreeHorizonStrategyDecision,
   profile: ThreeHorizonStrategyProfile,
-  now: Date
+  binding: LockedForecastBinding
 ): PlanContent | null {
   const entry = Number(decision.entryPrice);
   const stop = Number(decision.stopLoss);
@@ -257,8 +273,10 @@ function buildContent(
   const thesis = commissioning
     ? `首笔实盘闭环验收：${decision.symbol}${directionText}。使用小额风险、交易所止盈止损与30分钟限时退出，完成后自动转入正常三周期策略。`
     : `${STRATEGY_LABEL[profile.strategyType]}${directionText}。${probe ? "先以小风险探路仓分批进入" : "按确认仓执行"}；${decision.conditionsMet}/${decision.conditionsTotal}项条件已满足${unmet.length ? `，仍关注${unmet.slice(0, 2).join("、")}` : "，等待最终执行闸门"}。`;
-  const validFrom = now.toISOString();
-  const expiresAt = decision.expiresAt ?? new Date(now.getTime() + profile.maxHoldingMinutes * 60_000).toISOString();
+  const validFrom = binding.validFrom;
+  // A pre-entry plan lives for the locked forecast window. Position max-holding remains
+  // a separate execution/position lifecycle control and must not expire the forecast plan.
+  const expiresAt = binding.validUntil;
   return {
     strategyType: profile.strategyType,
     symbol: decision.symbol,
@@ -350,6 +368,14 @@ function mapPlan(row: PlanRow, events: AiTradePlanEvent[] = []): AiTradePlan {
     clientOid: row.client_oid,
     bitgetOrderId: row.bitget_order_id,
     sourceDecisionId: row.source_decision_id,
+    forecastId: row.forecast_id,
+    forecastVersion: row.forecast_version,
+    forecastHorizon: row.forecast_horizon,
+    forecastPublishedAt: iso(row.forecast_published_at),
+    forecastLockedAt: iso(row.forecast_locked_at),
+    forecastValidFrom: iso(row.forecast_valid_from),
+    forecastValidUntil: iso(row.forecast_valid_until),
+    forecastSource: row.forecast_source,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     events,
@@ -412,6 +438,14 @@ export async function ensureAiTradePlanTables(): Promise<boolean> {
         client_oid TEXT,
         bitget_order_id TEXT,
         source_decision_id TEXT,
+        forecast_id TEXT,
+        forecast_version TEXT,
+        forecast_horizon TEXT,
+        forecast_published_at TIMESTAMPTZ,
+        forecast_locked_at TIMESTAMPTZ,
+        forecast_valid_from TIMESTAMPTZ,
+        forecast_valid_until TIMESTAMPTZ,
+        forecast_source TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(plan_group_id, version)
@@ -435,6 +469,18 @@ export async function ensureAiTradePlanTables(): Promise<boolean> {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_ai_plans
+        ADD COLUMN IF NOT EXISTS forecast_id TEXT,
+        ADD COLUMN IF NOT EXISTS forecast_version TEXT,
+        ADD COLUMN IF NOT EXISTS forecast_horizon TEXT,
+        ADD COLUMN IF NOT EXISTS forecast_published_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS forecast_locked_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS forecast_valid_from TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS forecast_valid_until TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS forecast_source TEXT
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS trade_ai_plans_forecast_version_unique ON trade_ai_plans(strategy_type, symbol, forecast_version) WHERE forecast_version IS NOT NULL`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS trade_ai_plans_active_idx ON trade_ai_plans(strategy_type, symbol, status, updated_at DESC)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS trade_ai_plan_events_plan_time_idx ON trade_ai_plan_events(plan_id, event_at ASC)`);
     ensured = true;
@@ -476,16 +522,31 @@ async function appendEvent(input: {
   `;
 }
 
-async function findActivePlan(strategyType: ThreeHorizonStrategyType, symbol: string): Promise<PlanRow | null> {
+async function findLatestPlan(strategyType: ThreeHorizonStrategyType, symbol: string): Promise<PlanRow | null> {
   if (!prisma) return null;
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
     `SELECT * FROM trade_ai_plans
      WHERE strategy_type = $1 AND symbol = $2
-       AND status IN ('PUBLISHED','WATCHING','ARMED','ORDER_SUBMITTED','PARTIALLY_FILLED','OPEN','REDUCED','EXECUTION_ERROR')
-       AND (expires_at > NOW() OR status IN ('ORDER_SUBMITTED','PARTIALLY_FILLED','OPEN','REDUCED'))
      ORDER BY version DESC, published_at DESC LIMIT 1`,
     strategyType,
     symbol
+  );
+  return rows[0] ?? null;
+}
+
+async function findPlanByForecastVersion(
+  strategyType: ThreeHorizonStrategyType,
+  symbol: string,
+  forecastVersion: string
+): Promise<PlanRow | null> {
+  if (!prisma) return null;
+  const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
+    `SELECT * FROM trade_ai_plans
+     WHERE strategy_type = $1 AND symbol = $2 AND forecast_version = $3
+     ORDER BY version DESC, published_at DESC LIMIT 1`,
+    strategyType,
+    symbol,
+    forecastVersion
   );
   return rows[0] ?? null;
 }
@@ -504,7 +565,8 @@ function contentMateriallyChanged(current: PlanRow, next: PlanContent): boolean 
     relativeDifferencePct(Number(current.target_2), next.target2) > tolerance * 2;
 }
 
-function initialStatus(decision: ThreeHorizonStrategyDecision): AiTradePlanStatus {
+function initialStatus(decision: ThreeHorizonStrategyDecision, readiness: ForecastPlanReadiness): AiTradePlanStatus {
+  if (readiness !== "TRIGGERABLE") return "WATCHING";
   if (decision.status === "READY" || decision.status === "SHADOW_READY" || decision.conditionsMet === decision.conditionsTotal) return "ARMED";
   return "WATCHING";
 }
@@ -515,12 +577,14 @@ async function createPlan(
   content: PlanContent,
   now: Date,
   groupId: string,
-  version: number
+  version: number,
+  binding: LockedForecastBinding,
+  readiness: ForecastPlanReadiness
 ): Promise<PlanRow> {
   if (!prisma) throw new Error("交易数据库未连接");
   const id = `plan_${randomUUID()}`;
-  const status = initialStatus(decision);
-  const contentHash = hashContent(content);
+  const status = initialStatus(decision, readiness);
+  const contentHash = hashContent(content, binding);
   const executionMode = profile.mode === "SHADOW" ? "SHADOW" : profile.mode === "LIVE" ? "BITGET_LIVE" : "BITGET_DEMO";
   const currentPrice = decision.currentPrice;
   const distance = distancePct(currentPrice, content.entryZoneLow, content.entryZoneHigh);
@@ -533,10 +597,13 @@ async function createPlan(
       target_1, target_2, target_3, risk_percent, max_leverage, valid_from,
       expires_at, invalidation_rule, cancel_if, conditions_met, conditions_total,
       current_price, distance_to_entry_pct, published_at, last_checked_at,
-      source_decision_id, created_at, updated_at
+      source_decision_id, forecast_id, forecast_version, forecast_horizon,
+      forecast_published_at, forecast_locked_at, forecast_valid_from, forecast_valid_until,
+      forecast_source, created_at, updated_at
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,NOW(),NOW()
+      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,
+      $39,$40,$41,$42,$43,NOW(),NOW()
     ) RETURNING *`,
     id, groupId, version, contentHash, content.strategyType, content.symbol,
     content.direction, content.tier, status, executionMode, content.thesisSummary,
@@ -546,7 +613,10 @@ async function createPlan(
     content.target2, content.target3, content.riskPercent, content.maxLeverage,
     new Date(content.validFrom), new Date(content.expiresAt), content.invalidationRule,
     content.cancelIf, decision.conditionsMet, decision.conditionsTotal,
-    currentPrice, distance, now, now, decision.id
+    currentPrice, distance, now, now, decision.id,
+    binding.forecastId, binding.forecastVersion, binding.horizon,
+    new Date(binding.publishedAt), new Date(binding.lockedAt), new Date(binding.validFrom),
+    new Date(binding.validUntil), binding.source
   );
   await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${id}, updated_at = NOW() WHERE id = ${decision.id}`;
   await appendEvent({
@@ -654,6 +724,8 @@ async function updateDynamicPlan(current: PlanRow, decision: ThreeHorizonStrateg
 
 function statusFromDecision(decision: ThreeHorizonStrategyDecision, current: AiTradePlanStatus): AiTradePlanStatus {
   if (current === "SUPERSEDED" || current === "CLOSED" || current === "EXPIRED" || current === "INVALIDATED") return current;
+  if (["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(current) &&
+      ["OBSERVING", "READY", "SHADOW_READY", "BLOCKED"].includes(decision.status)) return current;
   if (decision.rejectionCode === "CONFIDENCE_LOW") return "WATCHING";
   switch (decision.status) {
     case "ORDER_SUBMITTED": return "ORDER_SUBMITTED";
@@ -681,41 +753,190 @@ function stateDetail(status: AiTradePlanStatus, decision: ThreeHorizonStrategyDe
   return decision.rejectionReason || "等待价格和结构条件。";
 }
 
+
+function formalLockedStatus(status: string): boolean {
+  const value = status.toLowerCase();
+  return !value.includes("draft") && !value.includes("pending") &&
+    (value.includes("lock") || value.includes("publish") || value.includes("verif") || value.includes("正式"));
+}
+
+function resolveLockedForecastBinding(
+  forecastPlan: PredictionStrategyPlan | null | undefined,
+  strategyType: ThreeHorizonStrategyType,
+  decisionDirection: ThreeHorizonStrategyDecision["direction"]
+): LockedForecastBinding | null {
+  if (!forecastPlan || decisionDirection === "NEUTRAL") return null;
+  const horizon = forecastHorizonForStrategy(strategyType);
+  const leg = horizon === "DAY"
+    ? forecastPlan.dailyForecast
+    : horizon === "WEEK"
+      ? forecastPlan.weeklyForecast
+      : forecastPlan.monthlyForecast;
+  const direction = horizon === "DAY"
+    ? forecastPlan.dailyDirection
+    : horizon === "WEEK"
+      ? forecastPlan.weeklyDirection
+      : forecastPlan.monthlyDirection;
+  if (!leg || !leg.publishedAt || !leg.lockedAt || !formalLockedStatus(leg.status)) return null;
+  if (direction !== decisionDirection || (direction !== "LONG" && direction !== "SHORT")) return null;
+  return {
+    forecastId: leg.id,
+    forecastVersion: `${leg.id}:v${leg.version ?? 1}`,
+    horizon,
+    direction,
+    publishedAt: leg.publishedAt,
+    lockedAt: leg.lockedAt,
+    validFrom: `${leg.periodStart}T00:00:00+08:00`,
+    validUntil: `${leg.periodEnd}T23:59:59+08:00`,
+    source: leg.sourceLabel,
+  };
+}
+
+async function refreshForecastBoundPlan(input: {
+  current: PlanRow;
+  decision: ThreeHorizonStrategyDecision;
+  content: PlanContent;
+  binding: LockedForecastBinding;
+  readiness: ForecastPlanReadiness;
+  now: Date;
+}): Promise<PlanRow> {
+  if (!prisma) throw new Error("交易数据库未连接");
+  const desired = initialStatus(input.decision, input.readiness);
+  const distance = distancePct(input.decision.currentPrice, input.content.entryZoneLow, input.content.entryZoneHigh);
+  const changed = contentMateriallyChanged(input.current, input.content);
+  const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
+    `UPDATE trade_ai_plans SET
+      content_hash=$2, direction=$3, plan_tier=$4, status=$5, thesis_summary=$6,
+      planning_confidence=$7, execution_threshold=$8, entry_zone_low=$9, entry_zone_high=$10,
+      trigger_rule=$11, confirmation_timeframe=$12, order_type_if_triggered=$13,
+      protective_stop=$14, target_1=$15, target_2=$16, target_3=$17, risk_percent=$18,
+      max_leverage=$19, valid_from=$20, expires_at=$21, invalidation_rule=$22, cancel_if=$23,
+      conditions_met=$24, conditions_total=$25, current_price=$26, distance_to_entry_pct=$27,
+      last_checked_at=$28, source_decision_id=$29, forecast_id=$30, forecast_version=$31,
+      forecast_horizon=$32, forecast_published_at=$33, forecast_locked_at=$34, forecast_valid_from=$35,
+      forecast_valid_until=$36, forecast_source=$37, updated_at=NOW()
+     WHERE id=$1 RETURNING *`,
+    input.current.id, hashContent(input.content, input.binding), input.content.direction, input.content.tier, desired,
+    input.content.thesisSummary, input.content.planningConfidence, input.content.executionThreshold,
+    input.content.entryZoneLow, input.content.entryZoneHigh, input.content.triggerRule,
+    input.content.confirmationTimeframe, input.content.orderTypeIfTriggered, input.content.protectiveStop,
+    input.content.target1, input.content.target2, input.content.target3, input.content.riskPercent,
+    input.content.maxLeverage, new Date(input.content.validFrom), new Date(input.content.expiresAt),
+    input.content.invalidationRule, input.content.cancelIf, input.decision.conditionsMet,
+    input.decision.conditionsTotal, input.decision.currentPrice, distance, input.now, input.decision.id,
+    input.binding.forecastId, input.binding.forecastVersion, input.binding.horizon, new Date(input.binding.publishedAt),
+    new Date(input.binding.lockedAt), new Date(input.binding.validFrom), new Date(input.binding.validUntil),
+    input.binding.source
+  );
+  await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${input.current.id}, updated_at = NOW() WHERE id = ${input.decision.id}`;
+  if (changed) {
+    await appendEvent({
+      planId: input.current.id,
+      eventType: "PLAN_REFRESHED",
+      title: "同一预测版本技术条件已刷新",
+      detail: "预测版本未变化；仅刷新入场区、止损目标与触发状态，不创建重复计划。",
+      status: desired,
+      eventAt: input.now,
+      dedupe: `${input.binding.forecastVersion}:${input.decision.id}`,
+    });
+  }
+  const updated = rows[0];
+  if (!updated) throw new Error("预测绑定计划刷新后未返回记录");
+  return updated;
+}
+
 export async function prepareAiTradePlanBeforeExecution(input: {
   decision: ThreeHorizonStrategyDecision;
   profile: ThreeHorizonStrategyProfile;
   now: Date;
+  forecastPlan?: PredictionStrategyPlan | null;
 }): Promise<AiTradePlanExecutionGate> {
   if (!(await ensureAiTradePlanTables()) || !prisma) {
     return { plan: null, allowed: false, code: "PLAN_DB_UNAVAILABLE", reason: "AI事前计划数据库不可用，禁止提交订单。" };
   }
-  if (input.decision.confidence < input.profile.planningMinConfidence) {
+  const binding = resolveLockedForecastBinding(input.forecastPlan, input.profile.strategyType, input.decision.direction);
+  if (!binding) {
     return {
       plan: null,
       allowed: false,
-      code: "PLANNING_CONFIDENCE_LOW",
-      reason: `计划置信度${input.decision.confidence}%低于发布门槛${input.profile.planningMinConfidence}%，仅保留后台决策。`,
+      code: "LOCKED_FORECAST_UNAVAILABLE",
+      reason: "当前品种/周期没有与MOOX正式方向一致的已发布且已锁定预测版本；fail-closed，不生成或复活实盘计划。",
     };
   }
-  const content = buildContent(input.decision, input.profile, input.now);
+  const content = buildContent(input.decision, input.profile, binding);
   if (!content) {
     return { plan: null, allowed: false, code: "PLAN_CONTENT_INCOMPLETE", reason: "缺少方向、入场、止损或目标，不能发布结构化计划。" };
   }
-  let current = await findActivePlan(input.profile.strategyType, input.decision.symbol);
-  if (current && current.direction !== input.decision.direction) {
-    await supersedePlan(current, input.now, "预测或技术方向改变，原计划失效并创建新的计划组。" );
-    current = null;
+
+  type AdapterPlan = ForecastBoundStoredPlan & { row: PlanRow };
+  const wrap = (row: PlanRow): AdapterPlan => ({
+    id: row.id,
+    planGroupId: row.plan_group_id,
+    version: Number(row.version),
+    status: row.status,
+    forecastVersion: row.forecast_version,
+    forecastPublishedAt: iso(row.forecast_published_at),
+    forecastLockedAt: iso(row.forecast_locked_at),
+    clientOid: row.client_oid,
+    bitgetOrderId: row.bitget_order_id,
+    submittedAt: iso(row.submitted_at),
+    firstFillAt: iso(row.first_fill_at),
+    row,
+  });
+  const triggerable = input.decision.confidence >= input.profile.planningMinConfidence && (
+    input.decision.status === "READY" || input.decision.status === "SHADOW_READY" ||
+    (input.decision.conditionsTotal > 0 && input.decision.conditionsMet >= input.decision.conditionsTotal)
+  );
+  const reconciled = await reconcileForecastBoundPlan<AdapterPlan>({
+    binding,
+    now: input.now,
+    triggerable,
+    repository: {
+      findByForecastVersion: async (forecastVersion) => {
+        const row = await findPlanByForecastVersion(input.profile.strategyType, input.decision.symbol, forecastVersion);
+        return row ? wrap(row) : null;
+      },
+      findLatest: async () => {
+        const row = await findLatestPlan(input.profile.strategyType, input.decision.symbol);
+        return row ? wrap(row) : null;
+      },
+      create: async ({ planGroupId, version, readiness }) => wrap(await createPlan(
+        input.decision, input.profile, content, input.now, planGroupId, version, binding, readiness
+      )),
+      refresh: async ({ plan, readiness }) => wrap(await refreshForecastBoundPlan({
+        current: plan.row,
+        decision: input.decision,
+        content,
+        binding,
+        readiness,
+        now: input.now,
+      })),
+      supersede: async (plan, reason) => supersedePlan(plan.row, input.now, reason),
+    },
+  });
+  const plan = reconciled.plan ? mapPlan(reconciled.plan.row) : null;
+  if (reconciled.action === "FAIL_CLOSED" || reconciled.action === "ORDER_ALREADY_BOUND") {
+    return { plan, allowed: false, code: reconciled.code, reason: reconciled.reason };
   }
-  if (current && contentMateriallyChanged(current, content)) {
-    await supersedePlan(current, input.now, "入场区域、止损或主要目标发生实质变化，保留旧版本并发布新版本。" );
-    current = await createPlan(input.decision, input.profile, content, input.now, current.plan_group_id, Number(current.version) + 1);
-  } else if (!current) {
-    current = await createPlan(input.decision, input.profile, content, input.now, `grp_${randomUUID()}`, 1);
-  } else {
-    current = await updateDynamicPlan(current, input.decision, input.now);
+  if (input.decision.confidence < input.profile.planningMinConfidence) {
+    return {
+      plan,
+      allowed: false,
+      code: "PLANNING_CONFIDENCE_LOW",
+      reason: `锁定预测计划已幂等生成/刷新，但当前置信度${input.decision.confidence}%低于发布执行门槛${input.profile.planningMinConfidence}%，保持WAITING且禁止下单。`,
+    };
+  }
+  if (reconciled.readiness !== "TRIGGERABLE") {
+    return {
+      plan,
+      allowed: false,
+      code: new Date(binding.validFrom).getTime() > input.now.getTime() ? "FORECAST_NOT_ACTIVE" : "PLAN_WAITING_TECHNICAL",
+      reason: new Date(binding.validFrom).getTime() > input.now.getTime()
+        ? `预测版本已锁定，但有效期从${binding.validFrom}开始；已建立WAITING计划，开始前禁止下单。`
+        : "预测方向已锁定，计划保持WAITING；等待技术入场条件满足后再转TRIGGERABLE。",
+    };
   }
 
-  const plan = mapPlan(current);
   const acceleratedProbe = ["PROBE_ENTRY", "DAILY_ACTIVITY_PROBE", "DAILY_MINIMUM_EXECUTION"].includes(input.decision.rejectionCode);
   const executionConfidenceFloor = acceleratedProbe
     ? Math.max(input.profile.planningMinConfidence, input.profile.minConfidence - 8)
@@ -728,7 +949,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
       reason: `当前置信度${input.decision.confidence}%低于${acceleratedProbe ? "探路仓" : "确认仓"}执行门槛${executionConfidenceFloor}%，本轮禁止下单。`,
     };
   }
-  if (plan.tier !== "FORMAL") {
+  if (!plan || plan.tier !== "FORMAL") {
     return { plan, allowed: false, code: "CANDIDATE_PLAN_ONLY", reason: "候选计划尚未达到本次入场批次的执行门槛。" };
   }
   const leadMinutes = input.decision.rejectionCode === "LIVE_COMMISSIONING" || acceleratedProbe
@@ -743,14 +964,14 @@ export async function prepareAiTradePlanBeforeExecution(input: {
       reason: `${plan.strategyLabel}计划必须在可执行订单前至少发布${leadMinutes}分钟；目前已发布${round(ageMinutes, 1)}分钟，本轮不下单。`,
     };
   }
-  if (plan.status !== "ARMED" && plan.status !== "WATCHING") {
-    return { plan, allowed: false, code: "PLAN_STATE_NOT_EXECUTABLE", reason: `计划当前状态${plan.status}不允许创建新订单。` };
+  if (plan.status !== "ARMED") {
+    return { plan, allowed: false, code: "PLAN_STATE_NOT_EXECUTABLE", reason: `计划当前状态${plan.status}，尚未进入TRIGGERABLE/ARMED，不允许创建新订单。` };
   }
   return {
     plan,
     allowed: true,
     code: "PLAN_PUBLISHED_BEFORE_EXECUTION",
-    reason: `AI计划V${plan.version}已提前发布并锁定，满足${leadMinutes}分钟事前展示要求。`,
+    reason: `AI计划V${plan.version}绑定${binding.forecastVersion}，已提前发布并锁定，技术条件已触发。`,
   };
 }
 

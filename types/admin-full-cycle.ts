@@ -23,6 +23,8 @@ export type AdminCycleForecastRow = {
   sourceLabel: string;
   status: string;
   version: number | null;
+  publishedAt?: string | null;
+  lockedAt?: string | null;
 };
 
 export type AdminKeyDateRecord = {

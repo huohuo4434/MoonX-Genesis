@@ -1,0 +1,263 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  forecastHorizonForStrategy,
+  prioritizeAllowedCommissioningSymbols,
+  reconcileForecastBoundPlan,
+  type ForecastBoundStoredPlan,
+  type ForecastPlanReadiness,
+  type LockedForecastBinding,
+} from "../lib/trading-signals/ai-plan-renewal-core";
+
+type MemoryPlan = ForecastBoundStoredPlan & {
+  binding: LockedForecastBinding;
+  readiness: ForecastPlanReadiness;
+};
+
+function binding(version: string, overrides: Partial<LockedForecastBinding> = {}): LockedForecastBinding {
+  return {
+    forecastId: `forecast-${version}`,
+    forecastVersion: version,
+    horizon: "WEEK",
+    direction: "LONG",
+    publishedAt: "2026-08-09T01:00:00.000Z",
+    lockedAt: "2026-08-09T01:01:00.000Z",
+    validFrom: "2026-08-10T00:00:00+08:00",
+    validUntil: "2026-08-16T23:59:59+08:00",
+    source: "locked-weekly-test",
+    ...overrides,
+  };
+}
+
+function repository(seed: MemoryPlan[] = []) {
+  const plans = [...seed];
+  let sequence = seed.length;
+  return {
+    plans,
+    api: {
+      findByForecastVersion: async (forecastVersion: string) =>
+        plans.find((plan) => plan.forecastVersion === forecastVersion) ?? null,
+      findLatest: async () => [...plans].sort((a, b) => b.version - a.version)[0] ?? null,
+      create: async (input: {
+        binding: LockedForecastBinding;
+        planGroupId: string;
+        version: number;
+        readiness: ForecastPlanReadiness;
+      }) => {
+        sequence += 1;
+        const plan: MemoryPlan = {
+          id: `p${sequence}`,
+          planGroupId: input.planGroupId,
+          version: input.version,
+          status: input.readiness === "TRIGGERABLE" ? "ARMED" : "WATCHING",
+          forecastVersion: input.binding.forecastVersion,
+          forecastPublishedAt: input.binding.publishedAt,
+          forecastLockedAt: input.binding.lockedAt,
+          clientOid: null,
+          bitgetOrderId: null,
+          submittedAt: null,
+          firstFillAt: null,
+          binding: input.binding,
+          readiness: input.readiness,
+        };
+        plans.push(plan);
+        return plan;
+      },
+      refresh: async (input: { plan: MemoryPlan; binding: LockedForecastBinding; readiness: ForecastPlanReadiness }) => {
+        input.plan.binding = input.binding;
+        input.plan.forecastPublishedAt = input.binding.publishedAt;
+        input.plan.forecastLockedAt = input.binding.lockedAt;
+        input.plan.readiness = input.readiness;
+        input.plan.status = input.readiness === "TRIGGERABLE" ? "ARMED" : "WATCHING";
+        return input.plan;
+      },
+      supersede: async (plan: MemoryPlan) => {
+        plan.status = "SUPERSEDED";
+      },
+    },
+  };
+}
+
+const beforeStart = new Date("2026-08-09T04:00:00.000Z");
+const active = new Date("2026-08-10T02:00:00.000Z");
+
+test("expired old forecast remains audit-only and new locked version creates WAITING then TRIGGERABLE", async () => {
+  const old: MemoryPlan = {
+    id: "old",
+    planGroupId: "g1",
+    version: 1,
+    status: "EXPIRED",
+    forecastVersion: "v1",
+    forecastPublishedAt: "2026-08-08T01:00:00.000Z",
+    forecastLockedAt: "2026-08-08T01:01:00.000Z",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    binding: binding("v1"),
+    readiness: "WAITING",
+  };
+  const repo = repository([old]);
+  const waiting = await reconcileForecastBoundPlan({ binding: binding("v2"), now: beforeStart, triggerable: true, repository: repo.api });
+  assert.equal(waiting.action, "CREATED");
+  assert.equal(waiting.readiness, "WAITING");
+  assert.equal(repo.plans.length, 2);
+  assert.equal(old.status, "EXPIRED");
+  assert.equal(waiting.plan?.binding.forecastVersion, "v2");
+  assert.equal(waiting.plan?.binding.publishedAt, "2026-08-09T01:00:00.000Z");
+  assert.equal(waiting.plan?.binding.validFrom, "2026-08-10T00:00:00+08:00");
+  assert.equal(waiting.plan?.binding.validUntil, "2026-08-16T23:59:59+08:00");
+  assert.equal(waiting.plan?.binding.source, "locked-weekly-test");
+
+  const triggerable = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: true, repository: repo.api });
+  assert.equal(triggerable.action, "REFRESHED");
+  assert.equal(triggerable.readiness, "TRIGGERABLE");
+  assert.equal(repo.plans.length, 2);
+  assert.equal(triggerable.plan?.id, waiting.plan?.id);
+});
+
+test("new locked forecast increments immutable plan version inside the same plan group", async () => {
+  const prior: MemoryPlan = {
+    id: "prior-v4",
+    planGroupId: "g-version",
+    version: 4,
+    status: "WATCHING",
+    forecastVersion: "v1",
+    forecastPublishedAt: "2026-08-08T01:00:00.000Z",
+    forecastLockedAt: "2026-08-08T01:01:00.000Z",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    binding: binding("v1", { publishedAt: "2026-08-08T01:00:00.000Z", lockedAt: "2026-08-08T01:01:00.000Z" }),
+    readiness: "WAITING",
+  };
+  const repo = repository([prior]);
+  const result = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: false, repository: repo.api });
+  assert.equal(result.action, "CREATED");
+  assert.equal(result.plan?.planGroupId, "g-version");
+  assert.equal(result.plan?.version, 5);
+  assert.equal(prior.status, "SUPERSEDED");
+  assert.equal(repo.plans.length, 2);
+});
+
+test("repeated Cron is idempotent for same symbol period forecast version", async () => {
+  const repo = repository();
+  const first = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: false, repository: repo.api });
+  const second = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: false, repository: repo.api });
+  assert.equal(first.action, "CREATED");
+  assert.equal(second.action, "REFRESHED");
+  assert.equal(repo.plans.length, 1);
+  assert.equal(first.plan?.id, second.plan?.id);
+});
+
+test("no locked forecast is fail-closed and creates no plan", async () => {
+  const repo = repository();
+  const result = await reconcileForecastBoundPlan({ binding: null, now: active, triggerable: true, repository: repo.api });
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "LOCKED_FORECAST_UNAVAILABLE");
+  assert.equal(repo.plans.length, 0);
+});
+
+test("expired forecast version cannot revive its terminal plan", async () => {
+  const old: MemoryPlan = {
+    id: "old",
+    planGroupId: "g1",
+    version: 1,
+    status: "EXPIRED",
+    forecastVersion: "v1",
+    forecastPublishedAt: "2026-08-08T01:00:00.000Z",
+    forecastLockedAt: "2026-08-08T01:01:00.000Z",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    binding: binding("v1"),
+    readiness: "WAITING",
+  };
+  const repo = repository([old]);
+  const result = await reconcileForecastBoundPlan({ binding: binding("v1"), now: active, triggerable: true, repository: repo.api });
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "FORECAST_VERSION_TERMINAL");
+  assert.equal(repo.plans.length, 1);
+  assert.equal(old.status, "EXPIRED");
+});
+
+test("one forecast version cannot bind a second order", async () => {
+  const ordered: MemoryPlan = {
+    id: "ordered",
+    planGroupId: "g1",
+    version: 1,
+    status: "ORDER_SUBMITTED",
+    forecastVersion: "v2",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "client-1",
+    bitgetOrderId: "order-1",
+    submittedAt: active.toISOString(),
+    firstFillAt: null,
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([ordered]);
+  const result = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: true, repository: repo.api });
+  assert.equal(result.action, "ORDER_ALREADY_BOUND");
+  assert.equal(result.code, "FORECAST_VERSION_ORDER_ALREADY_BOUND");
+  assert.equal(repo.plans.length, 1);
+});
+
+test("expired locked forecast metadata is rejected rather than revived", async () => {
+  const repo = repository();
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("v-old", { validUntil: "2026-08-08T23:59:59+08:00" }),
+    now: active,
+    triggerable: true,
+    repository: repo.api,
+  });
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "LOCKED_FORECAST_EXPIRED");
+  assert.equal(repo.plans.length, 0);
+});
+
+test("commissioning preference never adds BTC or ETH unless liveAllowedSymbols contains them", () => {
+  assert.deepEqual(
+    prioritizeAllowedCommissioningSymbols(["XAUTUSDT", "MSFTUSDT"], ["BTCUSDT", "ETHUSDT"]),
+    ["XAUTUSDT", "MSFTUSDT"]
+  );
+  assert.deepEqual(
+    prioritizeAllowedCommissioningSymbols(["XAUTUSDT", "ETHUSDT", "BTCUSDT"], ["BTCUSDT", "ETHUSDT"]),
+    ["BTCUSDT", "ETHUSDT", "XAUTUSDT"]
+  );
+});
+
+
+test("strategy horizon binding is DAY/WEEK/MONTH for intraday/swing/position", () => {
+  assert.equal(forecastHorizonForStrategy("INTRADAY"), "DAY");
+  assert.equal(forecastHorizonForStrategy("SWING"), "WEEK");
+  assert.equal(forecastHorizonForStrategy("POSITION"), "MONTH");
+});
+
+test("an older locked version cannot roll back a newer non-terminal plan", async () => {
+  const newer: MemoryPlan = {
+    id: "newer",
+    planGroupId: "g1",
+    version: 2,
+    status: "WATCHING",
+    forecastVersion: "v2",
+    forecastPublishedAt: "2026-08-09T02:00:00.000Z",
+    forecastLockedAt: "2026-08-09T02:01:00.000Z",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    binding: binding("v2", { publishedAt: "2026-08-09T02:00:00.000Z", lockedAt: "2026-08-09T02:01:00.000Z" }),
+    readiness: "WAITING",
+  };
+  const repo = repository([newer]);
+  const stale = binding("v1", { publishedAt: "2026-08-09T01:00:00.000Z", lockedAt: "2026-08-09T01:01:00.000Z" });
+  const result = await reconcileForecastBoundPlan({ binding: stale, now: active, triggerable: true, repository: repo.api });
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "STALE_FORECAST_VERSION");
+  assert.equal(repo.plans.length, 1);
+  assert.equal(newer.status, "WATCHING");
+});
