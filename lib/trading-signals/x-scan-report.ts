@@ -15,6 +15,8 @@ export type XScanMatch = "MATCHING" | "DIVERGING" | "PENDING" | "NO_PRICE";
 
 export type XScanAssetReport = {
   symbol: string;
+  displaySymbol: string;
+  assetClassZh: string;
   baseCoin: string;
   whatIsItZh: string;
   whereToBuyZh: string[];
@@ -38,6 +40,9 @@ export type XScanAssetReport = {
   forecastMatch: XScanMatch;
   verdict: XScanVerdict;
   verdictZh: string;
+  finalConclusionZh: string;
+  actionZh: string;
+  planZh: string[];
   reasonsZh: string[];
   keyLevels: number[];
   timeWindows: string[];
@@ -54,6 +59,8 @@ export type XScanReport = {
   highValueCount: number;
   buyCandidateCount: number;
   hotspotSummaryZh: string;
+  marketConclusionZh: string;
+  topActionsZh: string[];
   assets: XScanAssetReport[];
   noteZh: string;
 };
@@ -87,6 +94,58 @@ const PROJECT_CATALOG: Record<string, string> = {
   PEPE: "PEPE：Meme类高波动资产，价格更依赖流动性与情绪。",
   WIF: "WIF：Solana生态Meme类高波动资产。",
 };
+
+const US_EQUITY_SYMBOLS = new Set(["MU","GOOGL","GOOG","AAOI","COHR","LITE","RKLB","ASTS","SNDK","SPCX","NVDA","AMD","TSLA","MSFT","AAPL","META","AMZN"]);
+const ETF_SYMBOLS = new Set(["SPY","QQQ"]);
+const COMMODITY_SYMBOLS = new Set(["CL","WTI","XAU","XAUT","XAG","GOLD","SILVER"]);
+
+function assetClassZh(baseCoin: string): string {
+  if (US_EQUITY_SYMBOLS.has(baseCoin)) return "美股 / 代币化市场映射";
+  if (ETF_SYMBOLS.has(baseCoin)) return "ETF / 指数映射";
+  if (baseCoin === "CL" || baseCoin === "WTI") return "原油 / 商品映射";
+  if (COMMODITY_SYMBOLS.has(baseCoin)) return "贵金属 / 商品映射";
+  return "加密资产";
+}
+
+function conclusionFor(verdict: XScanVerdict, direction: XIntelligenceDirection): { finalConclusionZh: string; actionZh: string; planZh: string[] } {
+  if (verdict === "BUY_CANDIDATE") {
+    return {
+      finalConclusionZh: "偏多，属于本轮可操作候选；方向明确，但不建议追着上涨买。",
+      actionZh: "等待回踩或右侧确认后买入",
+      planZh: ["优先等回踩关键支撑或突破后回踩确认", "若直接快速拉升则放弃追高，等下一次结构机会"],
+    };
+  }
+  if (verdict === "DO_NOT_CHASE") {
+    return {
+      finalConclusionZh: "方向可能仍偏多，但当前位置已经不适合追涨。",
+      actionZh: "不追；等待明显回撤后重新评估",
+      planZh: ["已经持有可继续观察止盈条件", "空仓不要因X热度直接追高"],
+    };
+  }
+  if (verdict === "AVOID") {
+    return {
+      finalConclusionZh: "当前风险明显大于机会。",
+      actionZh: "回避，不开新仓",
+      planZh: ["等待风险指标和价格结构恢复", "不要因为讨论热度逆着风险条件交易"],
+    };
+  }
+  if (verdict === "BEARISH_WATCH") {
+    return {
+      finalConclusionZh: "当前方向偏空；只适用于允许做空的市场观察。",
+      actionZh: "多头回避；可做空市场等待技术入场点",
+      planZh: ["不在下跌加速段盲目追空", "A股类资产不生成做空操作建议"],
+    };
+  }
+  return {
+    finalConclusionZh: direction === "LONG"
+      ? "偏多线索存在，但证据还不够形成交易机会。"
+      : direction === "SHORT"
+        ? "偏空线索存在，但目前不够形成高质量交易机会。"
+        : "目前没有明确交易机会。",
+    actionZh: "继续观察，暂不操作",
+    planZh: ["等方向共识、价格结构和关键位同时变清楚再行动"],
+  };
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -270,10 +329,13 @@ export async function generateAndStoreXScanReport(now = new Date()): Promise<XSc
     ].filter((value): value is string => Boolean(value));
     if (!whereToBuyZh.length) whereToBuyZh.push("Bitget当前未检测到在线交易市场；不据此推荐其他平台");
 
+    const decision = conclusionFor(verdict, summary.direction);
     assets.push({
       symbol: pair,
+      displaySymbol: baseCoin,
+      assetClassZh: assetClassZh(baseCoin),
       baseCoin,
-      whatIsItZh: PROJECT_CATALOG[baseCoin] ?? `${baseCoin}：X扫描识别出的加密资产符号；MOOX当前缺少可靠项目画像，先看资金与交易结构，不因热度单独买入。`,
+      whatIsItZh: PROJECT_CATALOG[baseCoin] ?? `${baseCoin}：X扫描识别出的市场资产符号；MOOX当前缺少可靠项目画像，先看资金与交易结构，不因热度单独买入。`,
       whereToBuyZh,
       spotAvailable,
       futuresAvailable,
@@ -295,6 +357,9 @@ export async function generateAndStoreXScanReport(now = new Date()): Promise<XSc
       forecastMatch: forecastMatch(summary.direction, returnSinceSignalPct),
       verdict,
       verdictZh: verdictZh(verdict),
+      finalConclusionZh: decision.finalConclusionZh,
+      actionZh: decision.actionZh,
+      planZh: decision.planZh,
       reasonsZh: reasons(summary, change24hPct, verdict),
       keyLevels: summary.keyLevels,
       timeWindows: summary.timeWindows,
@@ -303,7 +368,14 @@ export async function generateAndStoreXScanReport(now = new Date()): Promise<XSc
 
   const buyCandidateCount = assets.filter((row) => row.verdict === "BUY_CANDIDATE").length;
   const highValueCount = assets.filter((row) => row.verdict === "BUY_CANDIDATE" || (row.direction !== "NEUTRAL" && row.momentum !== "COOLING")).length;
-  const top = assets.slice(0, 3).map((row) => `${row.baseCoin}（${row.verdictZh}）`).join("、");
+  const actionable = assets.filter((row) => row.verdict === "BUY_CANDIDATE");
+  const top = assets.slice(0, 3).map((row) => `${row.displaySymbol}（${row.verdictZh}）`).join("、");
+  const marketConclusionZh = actionable.length > 0
+    ? `本轮发现${actionable.length}个值得继续执行的候选：${actionable.slice(0, 3).map((row) => row.displaySymbol).join("、")}。先等合适买点，不追涨。`
+    : "目前没有值得立即出手的机会。热点很多不代表可以买，继续等待更清晰的方向和买点。";
+  const topActionsZh = actionable.length > 0
+    ? actionable.slice(0, 5).map((row) => `${row.displaySymbol}：${row.actionZh}`)
+    : assets.slice(0, 5).map((row) => `${row.displaySymbol}：${row.actionZh}`);
   const report: XScanReport = {
     version: 1,
     generatedAt: now.toISOString(),
@@ -314,7 +386,9 @@ export async function generateAndStoreXScanReport(now = new Date()): Promise<XSc
     symbols24h: snapshot.aggregate.symbols24h,
     highValueCount,
     buyCandidateCount,
-    hotspotSummaryZh: top ? `本轮优先热点：${top}` : "本轮未发现达到展示门槛的新热点。",
+    hotspotSummaryZh: top ? `本轮讨论热点：${top}` : "本轮未发现达到展示门槛的新热点。",
+    marketConclusionZh,
+    topActionsZh,
     assets,
     noteZh: "X扫描只作为外部情报层：不会单独触发Bitget自动下单。买入候选也必须继续核对价格、流动性、失效位与MOOX主策略。",
   };

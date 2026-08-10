@@ -17,6 +17,7 @@ export type XSourceRegistryEntry = {
 
 // Private operating registry only. Member-facing pages must not expose handles.
 export const X_SOURCE_REGISTRY: readonly XSourceRegistryEntry[] = [
+  { handle: "jiujinshan2022", family: "ALTCOIN_RADAR" },
   { handle: "btckik", family: "ALTCOIN_RADAR" },
   { handle: "BTCTW0", family: "MARKET_STRUCTURE" },
   { handle: "haliluya8911", family: "MARKET_STRUCTURE" },

@@ -18,6 +18,7 @@ export const NAV_ROUTES = {
   tomorrowForecast: "/member/tomorrow",
   tradingSignals: "/member/signals",
   alphaFeed: "/member/alpha-feed",
+  earlyAltcoinRadar: "/member/early-altcoin-radar",
   aiTradingDesk: "/member/ai-trading",
   weeklyAnalysis: "/member/weekly",
   monthlyAnalysis: "/member/monthly",
@@ -79,7 +80,8 @@ export const PUBLIC_MORE_NAV: NavItem[] = [
 /** Member-only research products. Render only after SSR membership check. */
 export const MEMBER_RESEARCH_NAV: NavItem[] = [
   { key: "memberNav.weeklyAlpha", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周精选5", labelEn: "Weekly Alpha 5" },
-  { key: "memberNav.altcoinRadar", href: NAV_ROUTES.alphaFeed, labelZh: "山寨币雷达", labelEn: "Altcoin Radar" },
+  { key: "memberNav.altcoinRadar", href: NAV_ROUTES.alphaFeed, labelZh: "市场热点追踪", labelEn: "Market Hotspots" },
+  { key: "memberNav.earlyAltcoinRadar", href: NAV_ROUTES.earlyAltcoinRadar, labelZh: "早期山寨币雷达", labelEn: "Early Altcoin Radar" },
   { key: "memberNav.tradeSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号", labelEn: "AI Trade Signals" },
   { key: "memberNav.dossiers", href: NAV_ROUTES.featuredStocks, labelZh: "重点研究档案", labelEn: "Research Dossiers" },
 ];
