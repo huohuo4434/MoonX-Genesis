@@ -9,13 +9,13 @@ export function VerificationMethodDisclosure() {
   const items = en
     ? [
         ["Direction hit", "The actual closing direction matches the locked view."],
-        ["Path hit", "The intraday sequence and structure are scored separately."],
+        ["Path hit", "The intraday sequence and structure are scored separately; crypto uses the Beijing natural day (00:00–24:00)."],
         ["Partial hit", "Counts as 0.5 in the weighted hit rate."],
         ["Unverifiable", "Closed market, missing data or inapplicable rules; excluded from the denominator."],
       ]
     : [
         ["方向命中", "实际收盘方向符合锁定判断。"],
-        ["路径命中", "按日内结构与先后顺序单独判定。"],
+        ["路径命中", "按日内结构与先后顺序单独判定；加密资产统一使用北京时间自然日（00:00—24:00）。"],
         ["部分命中", "按0.5权重计入加权命中率。"],
         ["不可验证", "休市、数据缺失或规则不适用，不进入分母。"],
       ];

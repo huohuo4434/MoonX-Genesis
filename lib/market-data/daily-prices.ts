@@ -101,6 +101,10 @@ async function fetchYahooDailyBars(
   forecastDate: string,
   market: DailyAccuracyMarket
 ): Promise<DailyMarketBar[]> {
+  // V7.17.8 crypto Beijing dispatch: keep the decision at the full DailyAccuracyMarket boundary.
+  if (market === "CRYPTO") {
+    return fetchYahooCryptoBeijingDailyBars(quoteSymbol, forecastDate);
+  }
   const day = new Date(`${forecastDate}T12:00:00Z`);
   const period1 = Math.floor((day.getTime() - 14 * 24 * 60 * 60 * 1000) / 1000);
   const period2 = Math.floor((day.getTime() + 2 * 24 * 60 * 60 * 1000) / 1000);
@@ -305,6 +309,66 @@ export async function fetchIntradayBarsForVerification(input: {
   return bars.sort((a, b) => a.timestamp - b.timestamp);
 }
 
+
+async function fetchYahooCryptoBeijingDailyBars(
+  quoteSymbol: string,
+  forecastDate: string
+): Promise<DailyMarketBar[]> {
+  const center = new Date(`${forecastDate}T00:00:00+08:00`);
+  const period1 = Math.floor((center.getTime() - 18 * 24 * 60 * 60 * 1000) / 1000);
+  const period2 = Math.floor((center.getTime() + 2 * 24 * 60 * 60 * 1000) / 1000);
+  const encoded = encodeURIComponent(quoteSymbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1h&period1=${period1}&period2=${period2}&includePrePost=true`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; MOOX/1.0)",
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) throw new Error(`Yahoo crypto 1h HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    chart?: {
+      result?: Array<{
+        timestamp?: number[];
+        indicators?: {
+          quote?: Array<{
+            open?: (number | null)[];
+            high?: (number | null)[];
+            low?: (number | null)[];
+            close?: (number | null)[];
+          }>;
+        };
+      }>;
+    };
+  };
+  const result = json.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  if (!result?.timestamp?.length || !quote) return [];
+
+  const byDay = new Map<string, DailyMarketBar>();
+  for (let i = 0; i < result.timestamp.length; i++) {
+    const ts = result.timestamp[i]!;
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+    if (open == null || high == null || low == null || close == null) continue;
+    if (![open, high, low, close].every(Number.isFinite)) continue;
+    const date = toDateKeyInTz(ts, "Asia/Shanghai");
+    const current = byDay.get(date);
+    if (!current) {
+      byDay.set(date, { date, open, high, low, close });
+    } else {
+      current.high = Math.max(current.high, high);
+      current.low = Math.min(current.low, low);
+      current.close = close;
+    }
+  }
+  return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 /** Recent daily bars for forecast generation (not verification). */
 export async function fetchRecentDailyBarsForForecast(input: {
   quoteSymbol: string;
@@ -396,10 +460,11 @@ export async function getDailyMarketResult(input: {
   forecastDate: string;
 }): Promise<DailyMarketResult | { error: string; marketClosed?: boolean }> {
   const quoteSymbol = resolveCanonicalQuoteSymbol(input.symbol, input.quoteSymbol);
+  const isCryptoBeijingMarket = String(input.market) === "CRYPTO";
   const { market, forecastDate } = input;
 
   let bars: DailyMarketBar[] = [];
-  let dataSource = `yahoo-finance:${quoteSymbol}`;
+  let dataSource = isCryptoBeijingMarket ? `yahoo-finance-1h-BJ:${quoteSymbol}; crypto-beijing-v2` : `yahoo-finance:${quoteSymbol}`;
 
   if (market === "CRYPTO") {
     try {

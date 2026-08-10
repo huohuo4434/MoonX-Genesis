@@ -134,6 +134,14 @@ export function classifyIntradayPattern(input: {
   const recoveryFromLowPct = ((close - low) / previousClose) * 100;
   const sessionRangePct = (range / previousClose) * 100;
   const t = input.thresholds;
+  // V7.17.8: path verification is about sequence, not only end-of-day color.
+  // Cap path thresholds by the realized session range so a real dip/recovery on a quiet
+  // crypto day is not erased by a much larger trailing ATR from prior sessions.
+  const sessionAwareMovePct = Math.max(0.25, sessionRangePct * 0.3);
+  const sessionAwareSurgePct = Math.max(0.45, sessionRangePct * 0.55);
+  const meaningfulMovePct = Math.min(t.meaningfulMovePct, sessionAwareMovePct);
+  const reversalPct = Math.min(t.reversalPct, sessionAwareMovePct);
+  const surgePct = Math.min(t.surgePct, sessionAwareSurgePct);
   const highEarlyEnough = highIndex < bars.length - 1;
   const lowEarlyEnough = lowIndex < bars.length - 1;
   const turns = zigzagCount(bars, Math.max(0.02, t.neutralPct / 4), previousClose);
@@ -144,8 +152,8 @@ export function classifyIntradayPattern(input: {
   if (
     highEarlyEnough &&
     highIndex < lowIndex &&
-    highExcursionPct >= t.surgePct &&
-    pullbackFromHighPct >= t.reversalPct &&
+    highExcursionPct >= surgePct &&
+    pullbackFromHighPct >= reversalPct &&
     closeLocation <= 0.58
   ) {
     pattern = "SURGE_THEN_PULLBACK";
@@ -153,8 +161,8 @@ export function classifyIntradayPattern(input: {
   } else if (
     lowEarlyEnough &&
     lowIndex < highIndex &&
-    Math.abs(Math.min(0, lowExcursionPct)) >= t.surgePct &&
-    recoveryFromLowPct >= t.reversalPct &&
+    Math.abs(Math.min(0, lowExcursionPct)) >= surgePct &&
+    recoveryFromLowPct >= reversalPct &&
     closeLocation >= 0.42
   ) {
     pattern = "DIP_THEN_RECOVERY";
@@ -162,16 +170,16 @@ export function classifyIntradayPattern(input: {
   } else if (
     highEarlyEnough &&
     highIndex < lowIndex &&
-    highExcursionPct >= t.meaningfulMovePct &&
-    pullbackFromHighPct >= t.reversalPct
+    highExcursionPct >= meaningfulMovePct &&
+    pullbackFromHighPct >= reversalPct
   ) {
     pattern = "UP_THEN_DOWN";
     explanation = "主要高位先出现，后半段回落幅度达到反转阈值。";
   } else if (
     lowEarlyEnough &&
     lowIndex < highIndex &&
-    Math.abs(Math.min(0, lowExcursionPct)) >= t.meaningfulMovePct &&
-    recoveryFromLowPct >= t.reversalPct
+    Math.abs(Math.min(0, lowExcursionPct)) >= meaningfulMovePct &&
+    recoveryFromLowPct >= reversalPct
   ) {
     pattern = "DOWN_THEN_UP";
     explanation = "主要低位先出现，后半段反弹幅度达到反转阈值。";
