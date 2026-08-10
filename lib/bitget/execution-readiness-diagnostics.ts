@@ -83,7 +83,7 @@ export async function runExecutionReadinessDiagnostics(): Promise<ExecutionReadi
     const leveragePreview = await previewBitgetUtaLeverage({ symbol: sampleSymbol, leverage: env.leverage });
     checks.push({ key: "leveragePreview", ok: true, label: "Bitget官方杠杆预检查", detail: `只读pre-set-leverage通过 · ${sampleSymbol} · ${JSON.stringify(leveragePreview).slice(0, 180)}` });
   } catch (error) {
-    checks.push({ key: "leveragePreview", ok: false, label: "Bitget官方杠杆预检查", detail: error instanceof Error ? error.message : "预检查失败" });
+    checks.push({ key: "leveragePreview", ok: false, label: "Bitget官方杠杆预检查（只读告警）", detail: `V7.17.9: leverage preview is advisory，不阻断真实执行；${error instanceof Error ? error.message : "预检查失败"}` });
   }
 
   try {
@@ -99,6 +99,7 @@ export async function runExecutionReadinessDiagnostics(): Promise<ExecutionReadi
   notes.push("真正自动开仓仍需通过AUTO_ORDER恢复闸门、策略方向、技术触发和风险预算。 ");
   notes.push("设置杠杆后，V7.17.0会重新读取account/settings并验证2倍是否真的生效；验证失败则在下单前停止。 ");
 
-  const overall = checks.every((row) => row.ok) ? "PASS" : "BLOCKED";
+  const advisoryKeys = new Set(["leveragePreview"]); // V7.17.9: read-only preview incompatibility is visible but non-blocking.
+  const overall = checks.filter((row) => !advisoryKeys.has(row.key)).every((row) => row.ok) ? "PASS" : "BLOCKED";
   return { generatedAt: new Date().toISOString(), mode: env.mode, overall, checks, plannedLeverageRequests, notes };
 }

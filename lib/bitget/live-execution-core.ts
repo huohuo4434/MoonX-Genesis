@@ -206,17 +206,25 @@ export async function runIdempotentOrderDispatch<T>(input: {
   try {
     existing = await input.queryExisting();
   } catch (error) {
-    return {
-      kind: "FAILED",
-      error: liveExecutionErrorFrom(error, {
-        stage: "STATUS_QUERY",
-        remoteSubmissionAttempted: false,
-        clientOid: input.clientOid,
-        symbol: input.symbol,
-        action: input.action,
-        describe: input.describeError,
-      }),
-    };
+    const descriptor = input.describeError(error);
+    const expectedAbsent = descriptor.bitgetCode === "25204" ||
+      /\b25204\b.*(?:订单不存在|order\s+does\s+not\s+exist)/i.test(descriptor.message);
+    if (expectedAbsent) {
+      // V7.17.9_PRECHECK_25204_IS_ABSENCE: a brand-new clientOid is supposed to be absent.
+      existing = null;
+    } else {
+      return {
+        kind: "FAILED",
+        error: liveExecutionErrorFrom(error, {
+          stage: "STATUS_QUERY",
+          remoteSubmissionAttempted: false,
+          clientOid: input.clientOid,
+          symbol: input.symbol,
+          action: input.action,
+          describe: input.describeError,
+        }),
+      };
+    }
   }
   if (existing) {
     return { kind: "ACKNOWLEDGED", order: existing, recovered: true, remoteSubmissionAttempted: false };
@@ -317,6 +325,24 @@ export async function runIdempotentOrderDispatch<T>(input: {
       };
     } catch (queryError) {
       const queryDescriptor = input.describeError(queryError);
+      const expectedAbsent = queryDescriptor.bitgetCode === "25204" ||
+        /\b25204\b.*(?:订单不存在|order\s+does\s+not\s+exist)/i.test(queryDescriptor.message);
+      if (expectedAbsent) {
+        return {
+          kind: "FAILED",
+          error: new LiveTradeExecutionError({
+            // V7.17.9_POSTWRITE_25204_IS_AMBIGUOUS_NOT_QUERY_FAILURE
+            message: `${descriptor.message}; order is not visible yet after clientOid lookup`,
+            stage: "AMBIGUOUS_WRITE",
+            bitgetCode: descriptor.bitgetCode ?? null,
+            httpStatus: descriptor.httpStatus ?? null,
+            remoteSubmissionAttempted: true,
+            clientOid: input.clientOid,
+            symbol: input.symbol,
+            action: input.action,
+          }),
+        };
+      }
       return {
         kind: "FAILED",
         error: new LiveTradeExecutionError({

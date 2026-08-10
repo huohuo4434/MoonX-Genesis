@@ -90,7 +90,11 @@ class BitgetApiError extends Error {
 }
 
 function isOrderNotFoundError(error: unknown): boolean {
-  return error instanceof BitgetApiError && ["25204", "43001", "45057"].includes(error.code);
+  if (error instanceof BitgetApiError && ["25204", "43001", "45057"].includes(error.code)) return true;
+  // V7.17.9: tolerate a preserved or legacy-wrapped 25204 so an idempotency
+  // preflight lookup of a brand-new clientOid is treated as expected absence.
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /(?:BITGET\s*)?25204\b.*(?:订单不存在|order\s+does\s+not\s+exist)/i.test(message);
 }
 
 function isAmbiguousBitgetWriteError(error: unknown): boolean {
@@ -506,9 +510,21 @@ async function withReadRetry<T>(label: string, operation: () => Promise<T>, atte
       return await operation();
     } catch (error) {
       lastError = error;
-      if (attempt >= attempts || !retryableReadError(error)) break;
+      const retryable = retryableReadError(error);
+      // V7.17.9 preserve non-retryable typed API errors. In particular,
+      // 25204 from order-info is a valid "not found" result for a fresh clientOid.
+      if (!retryable) throw error;
+      if (attempt >= attempts) break;
       await sleep(250 * 2 ** (attempt - 1) + Math.floor(Math.random() * 120));
     }
+  }
+  if (lastError instanceof BitgetApiError) {
+    throw new BitgetApiError({
+      message: `${label}连续重试失败：${lastError.message}`,
+      code: lastError.code,
+      httpStatus: lastError.httpStatus,
+      ambiguousWrite: lastError.ambiguousWrite,
+    });
   }
   const message = lastError instanceof Error ? lastError.message : String(lastError ?? "未知错误");
   throw new Error(`${label}连续重试失败：${message}`);
