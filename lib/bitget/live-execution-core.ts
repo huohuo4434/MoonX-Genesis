@@ -96,6 +96,11 @@ export function isDefiniteRemoteOrderWrite(error: unknown): boolean {
   return error instanceof LiveTradeExecutionError && error.stage === "REMOTE_ORDER_WRITE";
 }
 
+export function isUtaHedgeMode(value: unknown): boolean {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/-/g, "_");
+  return normalized === "hedge_mode" || normalized === "double_side_hold" || normalized === "double_side_mode";
+}
+
 export type UtaHoldMode = "one_way_mode" | "hedge_mode" | string;
 
 export type UtaSymbolConfig = {
@@ -150,7 +155,7 @@ export function planUtaLeverageConfiguration(input: {
   const currentMode = String(current?.marginMode ?? "").toLowerCase();
   const desiredLeverage = Number(input.leverage);
   const hedgeIsolated =
-    String(input.settings.holdMode ?? "").toLowerCase() === "hedge_mode" &&
+    isUtaHedgeMode(input.settings.holdMode) &&
     input.marginMode === "isolated";
   const alreadyConfigured =
     currentMode === input.marginMode &&

@@ -12,11 +12,13 @@ import type { NavItem } from "@/lib/navigation";
 
 export function Navbar({
   primaryNav,
+  memberNav,
   moreNav,
   adminEnabled = true,
   publicSignupEnabled = true,
 }: {
   primaryNav: NavItem[];
+  memberNav: NavItem[];
   moreNav: NavItem[];
   adminEnabled?: boolean;
   publicSignupEnabled?: boolean;
@@ -27,7 +29,7 @@ export function Navbar({
   const { locale, href } = useLocale();
 
   const label = (link: NavItem) =>
-    locale === "zh-CN" ? link.labelZh : t(link.key);
+    locale === "zh-CN" ? link.labelZh : (link.labelEn ?? t(link.key));
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/[0.08] bg-background/90 backdrop-blur-md">
@@ -54,6 +56,20 @@ export function Navbar({
                 {label(link)}
               </Link>
             ))}
+            {memberNav.length > 0 && (
+              <Dropdown>
+                <DropdownTrigger data-testid="member-research-dropdown" className="whitespace-nowrap rounded-md border border-violet-300/15 bg-violet-300/[.04] px-2.5 py-2 text-[12px] leading-5 text-violet-100 transition-colors hover:bg-violet-300/[.08] focus-ring xl:text-[13px]">
+                  {locale === "zh-CN" ? "会员研究" : "Member Research"}
+                </DropdownTrigger>
+                <DropdownContent align="end">
+                  {memberNav.map((link) => (
+                    <DropdownItem key={link.key} onSelect={() => { window.location.href = link.href; }}>
+                      {label(link)}
+                    </DropdownItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+            )}
             {moreNav.length > 0 && (
               <Dropdown>
                 <DropdownTrigger className="whitespace-nowrap rounded-md px-2 py-2 text-[12px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring xl:px-2.5 xl:text-[13px]">
@@ -92,7 +108,7 @@ export function Navbar({
         <div id="mobile-nav" className="border-t border-border/[0.08] bg-background xl:hidden">
           <Container size="full" className="px-4 sm:px-5">
             <nav aria-label="Mobile" className="grid grid-cols-2 gap-1 py-4 sm:grid-cols-3">
-              {[...primaryNav, ...moreNav].map((link) => (
+              {[...primaryNav, ...memberNav, ...moreNav].map((link) => (
                 <Link
                   key={link.key}
                   href={href(link.href)}

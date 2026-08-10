@@ -295,6 +295,16 @@ export function WeeklyAlphaFive({ issue }: { issue: WeeklyAlphaIssue }) {
         </div>
       </div>
 
+      {issue.riskNotes?.length ? (
+        <div className="mb-5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.035] p-4 sm:p-5">
+          <div className="text-body-sm font-semibold text-emerald-300">{en ? "A-share extreme bearish risk notes · not Top 5" : "A股极强看跌风险备注 · 不占Top 5"}</div>
+          <div className="mt-1 text-caption text-foreground-tertiary">{en ? "A-shares are not used as short ideas in this product. Bearish consensus is shown only for avoidance / risk reduction." : "A股不按本产品做空；即使看跌共识很强，也只用于回避/减仓提示，不作为可交易Top 5。"}</div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {issue.riskNotes.map((item) => <div key={item.slug} className="rounded-lg border border-border/50 bg-background/45 p-3"><div className="flex items-center justify-between gap-2"><span className="font-semibold">{t(item.assetName, en)}</span><span className="font-mono text-caption text-foreground-tertiary">{item.symbol}</span></div><div className="mt-1 text-caption font-medium text-emerald-300">{t(item.label, en)}</div><div className="mt-1 text-caption text-foreground-secondary">{t(item.note, en)}</div></div>)}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-5 grid gap-3 lg:grid-cols-3">
         {issue.methodology.map((item, index) => (
           <div key={index} className="rounded-lg border border-border/60 p-3 text-body-sm text-foreground-secondary">{t(item, en)}</div>

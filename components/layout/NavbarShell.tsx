@@ -1,4 +1,6 @@
-import { getPublicMoreNav, getPublicPrimaryNav } from "@/lib/navigation-server";
+import { getPublicMoreNav, getPublicPrimaryNav,
+  getMemberResearchNavForCurrentUser,
+} from "@/lib/navigation-server";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { Navbar } from "./Navbar";
 
@@ -15,9 +17,10 @@ export async function NavbarShell() {
     Promise.resolve(getPublicMoreNav()),
   ]);
 
+  const memberNav = await getMemberResearchNavForCurrentUser();
   return (
     <Navbar
-      primaryNav={primaryNav}
+      primaryNav={primaryNav} memberNav={memberNav}
       moreNav={moreNav}
       adminEnabled={flags.adminEnabled}
       publicSignupEnabled={flags.publicSignupEnabled}

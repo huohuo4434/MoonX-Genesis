@@ -518,6 +518,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={testConnection} isLoading={loading}>检查账户与API权限（不下单）</Button>
+            <a href="/admin/bitget-demo/diagnostics" className="inline-flex min-h-10 items-center rounded-md border border-cyan-300/20 px-3 text-body-sm text-cyan-100 hover:bg-cyan-300/[.06]">完整下单链路自检（只读）</a>
             <Button type="button" variant="outline" onClick={() => void refreshRuntimeHealth()} isLoading={loading}>刷新健康快照（只读、不下单）</Button>
             {autoOrderPaused ? <Button type="button" variant="outline" onClick={auditLegacyErrors} isLoading={loading}>核对旧版订单错误（只读、不下单）</Button> : null}
             {dashboard.runtime.paused ? <Button type="button" variant="outline" onClick={checkResumeReadiness} isLoading={loading}>检查恢复条件（只读）</Button> : null}

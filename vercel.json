@@ -55,6 +55,10 @@
     {
       "path": "/api/cron/bitget-runtime-health",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/x-intelligence-report",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

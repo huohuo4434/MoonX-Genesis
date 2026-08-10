@@ -53,6 +53,10 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "kingsoft-office", nameZh: "金山办公", symbol: "688111", displaySymbol: "688111", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688111.SS", "WPS"] },
   { assetId: "hype", nameZh: "HYPE", symbol: "HYPE", displaySymbol: "HYPE", venue: "Hyperliquid", marketLabel: "加密资产", aliases: ["HYPEUSDT"] },
   { assetId: "asteroid", nameZh: "Asteroid（太空狗）", symbol: "ASTEROID", displaySymbol: "ASTEROID", venue: "以太坊链上市场", marketLabel: "加密资产", aliases: ["太空狗", "Asteroid"] },
+  { assetId: "lexin-medical", nameZh: "乐心医疗", symbol: "300562", displaySymbol: "300562", venue: "深圳证券交易所创业板", marketLabel: "股票", aliases: ["300562.SZ"] },
+  { assetId: "lian-tech", nameZh: "利安科技", symbol: "300784", displaySymbol: "300784", venue: "深圳证券交易所创业板", marketLabel: "股票", aliases: ["300784.SZ"] },
+  { assetId: "ganfeng-lithium", nameZh: "赣锋锂业", symbol: "002460", displaySymbol: "002460", venue: "深圳证券交易所主板", marketLabel: "股票", aliases: ["002460", "002460.SZ", "赣锋锂业", "赣南锂业"] },
+
 ];
 
 function normalized(value: string): string {

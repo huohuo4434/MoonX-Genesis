@@ -1,4 +1,5 @@
 import "server-only";
+import { listASharePeriodForecasts20260810 } from "@/lib/data/conviction/a-share-liuyao-20260810";
 
 import { listAsteroidPeriodForecasts, type ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
@@ -119,6 +120,9 @@ function spcxSignal(asOfDate: string): WatchlistResonanceSignal {
 
 export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistResonanceSignal[] {
   const signals = [
+    regularSignal("lexin-medical", listASharePeriodForecasts20260810("lexin-medical"), asOfDate),
+    regularSignal("lian-tech", listASharePeriodForecasts20260810("lian-tech"), asOfDate),
+    regularSignal("ganfeng-lithium", listASharePeriodForecasts20260810("ganfeng-lithium"), asOfDate),
     spcxSignal(asOfDate),
     regularSignal("asteroid", listAsteroidPeriodForecasts(), asOfDate),
     regularSignal("googl", listGooglePeriodForecasts(), asOfDate),

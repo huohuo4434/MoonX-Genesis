@@ -4,7 +4,7 @@
  */
 import type { ConvictionAsset } from "@/types/conviction-asset";
 
-export const CONVICTION_ASSETS_MAX = 12;
+export const CONVICTION_ASSETS_MAX = 15;
 
 export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
   {
@@ -644,6 +644,46 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     isPublished: true,
     memberForecastStockId: null,
   },
+  {
+    id: "lexin-medical", slug: "lexin-medical", assetType: "STOCK",
+    nameZh: "乐心医疗", nameEn: "Lifesense Medical Electronics", aliases: ["300562", "300562.SZ", "乐心医疗"],
+    symbol: "300562", exchange: "深圳证券交易所创业板", network: null, contractAddress: null, contractPendingAdminConfirm: false,
+    status: "published", riskLevel: "高", rating: "A-", tags: ["医疗健康电子", "智能健康", "A股", "六爻研究"],
+    summaryZh: "乐心医疗A股重点研究档案。当前录入2026年8月、9月、10月与近3个月两位老师六爻研究；交易方向以六亲旺衰为主，卦名只辅助解释路径。",
+    summaryEn: "A-share Liu Yao research dossier for Lifesense Medical Electronics, covering Aug–Oct 2026 and the combined three-month path.",
+    thesisZh: ["8月偏弱，不宜追涨。", "9月弱中有修复。", "10月是当前研究中最明确的强势窗口。", "技术分析只负责执行点位，不改变六爻方向。"],
+    thesisEn: ["August is weaker and not a chase window.", "September allows repair but lacks strong trend consensus.", "October is the clearest bullish window in the current research set.", "Technicals are for execution only."],
+    catalystsZh: ["10月子孙生财结构", "戌月土旺", "调整后的资金修复"], catalystsEn: ["October wealth-support structure", "Xu-month support", "Post-pullback recovery"],
+    risksZh: ["8—9月磨底", "10月六冲放大波动", "创业板波动"], risksEn: ["Aug–Sep weakness", "October Six-Clash volatility", "ChiNext volatility"],
+    marketCap: null, marketCapCurrency: "CNY", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-10", displayOrder: 11, isPublished: true, memberForecastStockId: null,
+  },
+  {
+    id: "lian-tech", slug: "lian-tech", assetType: "STOCK",
+    nameZh: "利安科技", nameEn: "Ningbo Lian Technology", aliases: ["300784", "300784.SZ", "利安科技"],
+    symbol: "300784", exchange: "深圳证券交易所创业板", network: null, contractAddress: null, contractPendingAdminConfirm: false,
+    status: "published", riskLevel: "高", rating: "B+", tags: ["精密制造", "注塑", "A股", "六爻研究"],
+    summaryZh: "利安科技A股重点研究档案。当前8—10月结构整体偏弱，9月出现两位老师极强看跌共识；A股不能做空，因此此类信号只作为回避/减仓风险提示。",
+    summaryEn: "A-share Liu Yao dossier for Ningbo Lian Technology. The Aug–Oct structure is weak, with especially strong bearish consensus in September.",
+    thesisZh: ["8月冲高后更易转弱。", "9月是当前三个月最明显风险窗口。", "10月偏筑底而非主升。", "极强看跌只能进入周报风险备注，不占Top 5。"],
+    thesisEn: ["August is vulnerable after rallies.", "September is the clearest risk window.", "October looks more like basing than a main advance.", "Extreme bearish A-share consensus is a risk note, not a Top-5 opportunity."],
+    catalystsZh: ["超跌反弹", "10月筑底"], catalystsEn: ["Oversold rebound", "October basing"],
+    risksZh: ["财化兄弟", "9月六冲", "高波动回撤"], risksEn: ["Wealth-to-sibling pressure", "September Six-Clash", "High-volatility drawdown"],
+    marketCap: null, marketCapCurrency: "CNY", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-10", displayOrder: 12, isPublished: true, memberForecastStockId: null,
+  },
+  {
+    id: "ganfeng-lithium", slug: "ganfeng-lithium", assetType: "STOCK",
+    nameZh: "赣锋锂业", nameEn: "Ganfeng Lithium", aliases: ["002460", "002460.SZ", "赣锋锂业", "赣南锂业"],
+    symbol: "002460", exchange: "深圳证券交易所主板", network: null, contractAddress: null, contractPendingAdminConfirm: false,
+    status: "published", riskLevel: "高", rating: "A-", tags: ["锂产业", "A股", "六爻研究", "赣锋锂业"],
+    summaryZh: "原始卦题曾误写为“赣南锂业”；用户现已确认实际占问对象为赣锋锂业002460。本研究正式归档至赣锋锂业，并保留原题误写作为审计备注。",
+    summaryEn: "The original divination prompt misspelled the stock name as “Gannan Lithium”; the user has confirmed the intended listed security is Ganfeng Lithium 002460. The research is therefore attached to 002460 with the correction retained in the audit note.",
+    thesisZh: ["8月震荡洗盘，可能突然拉升。", "9月财酉金值月，逐步转强。", "10月财戌土持世值月，是三只里最强结构。", "原卦题曾误写‘赣南锂业’，用户已确认实际对象为赣锋锂业002460。"],
+    thesisEn: ["August is a volatile washout phase.", "September improves as the wealth line is seasonally supported.", "October is the strongest structure among the three studies.", "The original prompt name was corrected by the user to Ganfeng Lithium 002460."],
+    catalystsZh: ["9月财爻值月", "10月财持世值月"], catalystsEn: ["September wealth-line support", "October wealth line at self and month"],
+    risksZh: ["原卦题名称曾误写，已由用户确认对象为赣锋锂业002460", "8月高波动", "10月底后需重新起卦"], risksEn: ["Original prompt name corrected by user", "August volatility", "Re-read required after October"],
+    marketCap: null, marketCapCurrency: "CNY", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-10", displayOrder: 13, isPublished: true, memberForecastStockId: null,
+  },
+
 
 ];
 

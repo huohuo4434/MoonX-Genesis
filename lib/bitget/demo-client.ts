@@ -9,6 +9,7 @@ import {
   serializeLiveExecutionError,
   type LiveExecutionStage,
   type RemoteFailureDescriptor,
+  isUtaHedgeMode,
 } from "@/lib/bitget/live-execution-core";
 
 import { createHash, createHmac, randomUUID } from "crypto";
@@ -148,7 +149,7 @@ type BitgetFundingAssetRow = {
   frozen?: string;
 };
 
-type BitgetUtaSettings = {
+export type BitgetUtaSettings = {
   accountMode?: string;
   accountLevel?: string;
   assetMode?: string;
@@ -739,6 +740,20 @@ async function getUtaSettings(): Promise<BitgetUtaSettings> {
   return signedRequest<BitgetUtaSettings>({
     method: "GET",
     path: "/api/v3/account/settings",
+  });
+}
+
+/** Read-only UTA settings snapshot for execution diagnostics. */
+export async function getBitgetUtaSettingsSnapshot(): Promise<BitgetUtaSettings> {
+  return getUtaSettings();
+}
+
+/** Official read-only leverage preview. It never changes leverage. */
+export async function previewBitgetUtaLeverage(input: { symbol: BitgetSupportedSymbol; leverage: number }): Promise<Record<string, unknown>> {
+  return signedRequest<Record<string, unknown>>({
+    method: "GET",
+    path: "/api/v3/account/pre-set-leverage",
+    query: { category: PRODUCT_TYPE, symbol: input.symbol, marginMode: "isolated", leverage: String(input.leverage) },
   });
 }
 
@@ -1399,8 +1414,22 @@ async function configureUtaSymbol(
       path: "/api/v3/account/set-leverage",
       body: plan.body,
     });
+    // Never assume an account-config write succeeded just because HTTP returned success.
+    // Re-read UTA settings and fail before place-order if isolated 2x is not actually reflected.
+    const verifiedSettings = await getUtaSettings();
+    const verifiedPlan = planUtaLeverageConfiguration({
+      settings: verifiedSettings,
+      symbol,
+      leverage: env.leverage,
+      marginMode: "isolated",
+      posSide,
+      category: PRODUCT_TYPE,
+    });
+    if (verifiedPlan.required) {
+      throw new Error(`杠杆写入后二次核验失败：${verifiedPlan.reason}`);
+    }
     return [
-      String(settings.holdMode ?? "").toLowerCase() === "hedge_mode"
+      isUtaHedgeMode(settings.holdMode)
         ? `UTA V3已设置${posSide === "long" ? "多头" : "空头"}逐仓${env.leverage}倍`
         : `UTA V3已设置逐仓${env.leverage}倍`,
     ];
@@ -1708,7 +1737,7 @@ async function submitMarketOrderDirect(
     body.tpTriggerBy = "mark";
     body.tpOrderType = "market";
   }
-  if (settings.holdMode === "hedge_mode") body.posSide = inferHedgePositionSide(payload);
+  if (isUtaHedgeMode(settings.holdMode)) body.posSide = inferHedgePositionSide(payload);
   return signedRequest<BitgetOrderResponse>({
     method: "POST",
     path: "/api/v3/trade/place-order",

@@ -5,6 +5,8 @@ import { WEEKLY_ALPHA_20260810_BASE } from "@/lib/data/weekly-alpha-20260810";
 import { fetchRecentDailyBarsForForecast, type DailyMarketBar } from "@/lib/market-data/daily-prices";
 import type { DailyAccuracyMarket } from "@/types/daily-accuracy";
 import type { WeeklyAlphaEntry, WeeklyAlphaIssue, WeeklyAlphaTechnical } from "@/types/weekly-alpha";
+import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-ranking";
+import { isAShareExtremeBearishRiskNote, isAShareTop5Eligible, isAShareWeeklyAlphaSlug } from "@/lib/data/weekly-alpha-policy";
 
 const DATA_MAP: Record<string, { quoteSymbol: string; market: DailyAccuracyMarket; priceStyle: "USD" | "POINTS" }> = {
   btc: { quoteSymbol: "BTC-USD", market: "CRYPTO", priceStyle: "USD" },
@@ -167,5 +169,29 @@ export async function buildWeeklyAlphaIssue(weekStart: string): Promise<WeeklyAl
     return null;
   }
   const entries = await Promise.all(WEEKLY_ALPHA_20260810_BASE.entries.map((entry) => enrichEntry(entry as WeeklyAlphaEntry)));
-  return { ...WEEKLY_ALPHA_20260810_BASE, entries } as WeeklyAlphaIssue;
+  const resonance = buildWatchlistResonanceRanking(weekStart);
+  const bySlug = new Map(resonance.map((signal) => [signal.slug, signal]));
+  // A-share Top 5 policy: because the product cannot short A-shares, only bullish cross-horizon consensus is actionable.
+  for (const entry of entries) {
+    if (!isAShareWeeklyAlphaSlug(entry.slug)) continue;
+    if (!isAShareTop5Eligible(bySlug.get(entry.slug))) {
+      throw new Error(`WEEKLY_ALPHA_A_SHARE_NOT_ACTIONABLE:${entry.slug}`);
+    }
+  }
+  const riskName: Record<string, { zh: string; en: string; symbol: string }> = {
+    cxmt: { zh: "长鑫科技", en: "Changxin Memory", symbol: "688825" },
+    "kingsoft-office": { zh: "金山办公", en: "Kingsoft Office", symbol: "688111" },
+    "lexin-medical": { zh: "乐心医疗", en: "Lifesense Medical", symbol: "300562" },
+    "lian-tech": { zh: "利安科技", en: "Ningbo Lian Technology", symbol: "300784" },
+    "ganfeng-lithium": { zh: "赣锋锂业", en: "Ganfeng Lithium", symbol: "002460" },
+  };
+  const riskNotes = resonance.filter(isAShareExtremeBearishRiskNote).map((signal) => {
+    const meta = riskName[signal.slug] ?? { zh: signal.slug, en: signal.slug, symbol: signal.slug.toUpperCase() };
+    return {
+      slug: signal.slug, assetName: { zh: meta.zh, en: meta.en }, symbol: meta.symbol,
+      label: { zh: "A股极强看跌共识 · 仅风险备注", en: "Extreme bearish A-share consensus · risk note only" },
+      note: { zh: `目标周看跌且至少3个周期同向。A股不能按本产品规则做空，因此不占Top 5名额，只提示回避/减仓风险。`, en: "The target week is bearish with at least three aligned horizons. It cannot occupy an actionable Top-5 slot because this A-share workflow does not short; it is shown only as an avoidance/risk note." },
+    };
+  });
+  return { ...WEEKLY_ALPHA_20260810_BASE, entries, riskNotes } as WeeklyAlphaIssue;
 }

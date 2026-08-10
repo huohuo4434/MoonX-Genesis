@@ -7,6 +7,7 @@ export interface NavItem {
   key: string;
   href: string;
   labelZh: string;
+  labelEn?: string;
 }
 
 export const NAV_ROUTES = {
@@ -73,6 +74,14 @@ export const PUBLIC_MORE_NAV: NavItem[] = [
   { key: "nav.alphaFeed", href: NAV_ROUTES.alphaFeed, labelZh: "山寨币雷达" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.support", href: NAV_ROUTES.support, labelZh: "客服与帮助" },
+];
+
+/** Member-only research products. Render only after SSR membership check. */
+export const MEMBER_RESEARCH_NAV: NavItem[] = [
+  { key: "memberNav.weeklyAlpha", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周精选5", labelEn: "Weekly Alpha 5" },
+  { key: "memberNav.altcoinRadar", href: NAV_ROUTES.alphaFeed, labelZh: "山寨币雷达", labelEn: "Altcoin Radar" },
+  { key: "memberNav.tradeSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号", labelEn: "AI Trade Signals" },
+  { key: "memberNav.dossiers", href: NAV_ROUTES.featuredStocks, labelZh: "重点研究档案", labelEn: "Research Dossiers" },
 ];
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [

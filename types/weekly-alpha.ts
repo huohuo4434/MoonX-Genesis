@@ -66,5 +66,6 @@ export type WeeklyAlphaIssue = {
   calendarRows: Array<{ date: string; ganzhi: string; xunKong: string }>;
   methodology: BilingualText[];
   selectionNote: BilingualText;
+  riskNotes?: Array<{ slug: string; assetName: BilingualText; symbol: string; label: BilingualText; note: BilingualText }>;
   entries: WeeklyAlphaEntry[];
 };

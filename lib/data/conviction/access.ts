@@ -24,6 +24,15 @@ import {
   listSandiskPeriodForecasts,
   sandiskPeriodMeta,
 } from "@/lib/data/conviction/sandisk-forecasts";
+import {
+  A_SHARE_PERIOD_ORDER,
+  A_SHARE_VISIBLE_PERIOD_ORDER,
+  aSharePeriodLabel20260810,
+  aSharePeriodMeta20260810,
+  isAShareResearchAssetId,
+  listASharePeriodForecasts20260810,
+  type AShareResearchAssetId,
+} from "@/lib/data/conviction/a-share-liuyao-20260810";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
   LONGXIN_FULL_PERIOD_ORDER,
@@ -122,7 +131,7 @@ export type ConvictionListPagePayload = {
   locks: typeof CONVICTION_MEMBER_LOCKS;
   vibeEvidence: Partial<Record<string, VibeEvidencePublicView>>;
   deviceAccessRequired: boolean;
-  /** Server-ranked by current-week multi-horizon metaphysical resonance. Public users receive order only, not direction. */
+  /** Deprecated list-order field. Always empty; weekly hot ranking is member-only. */
   rankOrder: string[];
   /** Member/admin only; never sent to public users. */
   resonanceSignals: WatchlistResonanceSignal[] | null;
@@ -156,7 +165,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     locks: CONVICTION_MEMBER_LOCKS,
     vibeEvidence,
     deviceAccessRequired: Boolean(membershipAllows && !access.isAdmin && !fullAccess),
-    rankOrder: resonanceSignals.map((item) => item.slug),
+    rankOrder: [], // V7.17: weekly ranking is member-only; never leak through the public dossier index.
     resonanceSignals: fullAccess ? resonanceSignals : null,
     resonanceWindow,
   };
@@ -221,9 +230,15 @@ type StaticPeriodAssetId =
   | "sol"
   | "eth"
   | "btc"
-  | VibeFocusAssetId;
+  | VibeFocusAssetId
+  | AShareResearchAssetId;
+// V7.17.3 A-share static dossiers
+
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
+  "ganfeng-lithium",
+  "lian-tech",
+  "lexin-medical",
   "cxmt",
   "asteroid",
   "sandisk",
@@ -243,6 +258,7 @@ function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
 }
 
 function staticPublished(assetId: StaticPeriodAssetId) {
+  if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
   if (assetId === "cxmt") return listLongxinPeriodForecasts();
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "sandisk") return listSandiskPeriodForecasts();
@@ -260,6 +276,7 @@ function staticPublished(assetId: StaticPeriodAssetId) {
 }
 
 function fullOrder(assetId: StaticPeriodAssetId) {
+  if (isAShareResearchAssetId(assetId)) return A_SHARE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
@@ -277,6 +294,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
 }
 
 function visibleOrder(assetId: StaticPeriodAssetId) {
+  if (isAShareResearchAssetId(assetId)) return A_SHARE_VISIBLE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
@@ -294,6 +312,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
 }
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
+  if (isAShareResearchAssetId(assetId)) return aSharePeriodLabel20260810(type);
   if (assetId === "hype") return periodLabelForHype20260809(type);
   if (assetId === "sol") return periodLabelForSol20260809(type);
   if (assetId === "tencent" && TENCENT_PERIOD_LABELS[type]) {
@@ -423,6 +442,7 @@ async function attachAdminKeyDates(
 }
 
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
+  if (isAShareResearchAssetId(assetId)) return aSharePeriodMeta20260810(assetId);
   if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "hype") return hypePeriodMeta20260809();
@@ -618,6 +638,9 @@ export type ConvictionWeeklyFreshnessOverview = {
 };
 
 const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
+  "ganfeng-lithium": "赣锋锂业",
+  "lian-tech": "利安科技",
+  "lexin-medical": "乐心医疗",
   cxmt: "长鑫科技",
   asteroid: "太空狗",
   sandisk: "闪迪",
