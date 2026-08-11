@@ -14,6 +14,7 @@ const liveMigration = read("prisma/migrations/20260807010000_trade_reliability_l
 const commissioningPlans = read("lib/trading-signals/ai-trade-plans.ts");
 const commissioningRecovery = read("lib/bitget/live-commissioning-recovery-core.ts");
 const commissioningRetryMigration = read("prisma/migrations/20260811143000_live_commissioning_safe_retry/migration.sql");
+const xIntelligenceOverlay = read("lib/trading-signals/x-intelligence-overlay.ts");
 const watchdog = read("app/api/cron/trading-watchdog/route.ts");
 const adminRoute = read("app/api/admin/bitget-demo/reliability/route.ts");
 const adminClient = read("components/admin/TradingReliabilityClient.tsx");
@@ -36,6 +37,18 @@ test("failed live commissioning retry keeps one active forecast plan and require
   assert.match(commissioningRetryMigration, /trade_ai_plans_active_forecast_version_unique/);
   assert.match(commissioningRetryMigration, /status IN \([\s\S]*'ORDER_SUBMITTED'[\s\S]*'OPEN'/);
   assert.doesNotMatch(commissioningRetryMigration, /'EXECUTION_ERROR'/);
+});
+
+test("X intelligence public evidence localizes internal lifecycle states without changing trading authority", () => {
+  all(xIntelligenceOverlay, [
+    'OVERHEATED: "热度过高"',
+    'COOLING: "热度降温"',
+    "PUBLIC_STAGE_LABEL[summary.dominantStage]",
+    "PUBLIC_MOMENTUM_LABEL[summary.momentum]",
+    "canTriggerTradeAlone: false",
+  ]);
+  assert.doesNotMatch(xIntelligenceOverlay, /阶段\$\{summary\.dominantStage\}/);
+  assert.doesNotMatch(xIntelligenceOverlay, /热度\$\{summary\.momentum\}/);
 });
 
 function all(text: string, values: string[]) {

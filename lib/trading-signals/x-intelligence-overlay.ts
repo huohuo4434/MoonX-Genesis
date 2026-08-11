@@ -37,6 +37,20 @@ const MARKET_ALIASES: Record<string, string[]> = {
   WTI: ["WTI", "CL", "CLF", "OIL", "CRUDE"],
 };
 
+const PUBLIC_STAGE_LABEL: Record<XIntelligenceStage, string> = {
+  EARLY_WATCH: "早期观察",
+  CONFIRMATION: "交叉确认",
+  OVERHEATED: "热度过高",
+  OBSERVE: "持续观察",
+};
+
+const PUBLIC_MOMENTUM_LABEL: Record<XIntelligenceMomentum, string> = {
+  NEW: "新近出现",
+  ACCELERATING: "热度加速",
+  STABLE: "热度平稳",
+  COOLING: "热度降温",
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -83,7 +97,7 @@ export function buildXIntelligenceAutoWeight(
     forecastAction = "REDUCE";
   }
 
-  const explanation = `匿名X情报自动权重${weight}%：24小时${summary.mentions24h}条，账号${summary.uniqueAccounts24h}个，方法组${summary.methodFamilies24h}类，有效独立源${sources}组，方向一致度${Math.round(agreement * 100)}%，方向分${summary.directionScore >= 0 ? "+" : ""}${summary.directionScore}，阶段${summary.dominantStage}，热度${summary.momentum}。`;
+  const explanation = `匿名X情报自动权重${weight}%：24小时${summary.mentions24h}条，账号${summary.uniqueAccounts24h}个，方法组${summary.methodFamilies24h}类，有效独立源${sources}组，方向一致度${Math.round(agreement * 100)}%，方向分${summary.directionScore >= 0 ? "+" : ""}${summary.directionScore}，阶段${PUBLIC_STAGE_LABEL[summary.dominantStage]}，热度${PUBLIC_MOMENTUM_LABEL[summary.momentum]}。`;
 
   return {
     symbol: summary.symbol,
