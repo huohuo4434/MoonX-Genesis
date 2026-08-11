@@ -2589,6 +2589,46 @@ export type BitgetFailedOrderAuditReport = {
   summary: string;
 };
 
+export async function auditBitgetLiveCommissioningRecovery(input: {
+  decisionId: string;
+  clientOid: string;
+  symbol: string;
+}) {
+  const db = prisma;
+  if (!db) return null;
+  const { auditLiveCommissioningRecoveryCore } = await import("@/lib/bitget/live-commissioning-recovery-core");
+  return auditLiveCommissioningRecoveryCore(input, {
+    loadStoredFailures: async () => {
+      const rows = await db.$queryRawUnsafe<ExecutionOutboxRow[]>(
+        `SELECT * FROM trade_execution_outbox
+         WHERE environment_mode='LIVE_EXPERIMENT'
+           AND decision_id=$1 AND client_oid=$2 AND symbol=$3 AND action_type='OPEN_MARKET'
+         ORDER BY updated_at DESC LIMIT 2`,
+        input.decisionId,
+        input.clientOid,
+        input.symbol
+      );
+      return rows.map((row) => {
+        const failure = executionErrorFromOutbox(row);
+        return {
+          outboxId: row.id,
+          decisionId: row.decision_id,
+          symbol: row.symbol,
+          action: row.action_type,
+          status: row.status,
+          clientOid: row.client_oid,
+          failureStage: failure?.stage ?? "LEGACY_UNKNOWN",
+          remoteSubmissionAttempted: failure?.remoteSubmissionAttempted ?? null,
+        };
+      });
+    },
+    getPositions: getBitgetDemoCurrentPositions,
+    getOpenOrders: getBitgetDemoOpenOrders,
+    getPendingStrategyOrders: getBitgetDemoPendingStrategyOrders,
+    lookupExactOrder: () => getBitgetDemoOrderDetailsStrict({ clientOid: input.clientOid }),
+  });
+}
+
 export async function auditRecentBitgetLiveOrderFailures(limit = 50): Promise<BitgetFailedOrderAuditReport> {
   if (!prisma) throw new Error("数据库不可用，无法核对历史失败订单");
   const bounded = Math.max(1, Math.min(100, Math.floor(limit)));

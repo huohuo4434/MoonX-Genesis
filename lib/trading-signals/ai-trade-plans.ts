@@ -3,8 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
-  auditRecentBitgetLiveOrderFailures,
-  getBitgetDemoOpenOrders,
+  auditBitgetLiveCommissioningRecovery,
 } from "@/lib/bitget/demo-client";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
 import {
@@ -855,22 +854,9 @@ async function refreshForecastBoundPlan(input: {
   return updated;
 }
 
-type CommissioningRecoveryEvidence = {
-  checkedAt: string;
-  outboxId: string;
-  decisionId: string;
-  clientOid: string;
-  failureStage: string;
-  remoteSubmissionAttempted: false;
-  orderLookup: "ABSENT";
-  positionsCount: 0;
-  openOrdersCount: 0;
-  pendingStrategyOrdersCount: 0;
-};
-
 async function auditFailedLiveCommissioningPlan(
   failedPlan: PlanRow
-): Promise<CommissioningRecoveryEvidence | null> {
+) {
   if (
     failedPlan.execution_mode !== "BITGET_LIVE" ||
     failedPlan.status !== "EXECUTION_ERROR" ||
@@ -880,49 +866,11 @@ async function auditFailedLiveCommissioningPlan(
     return null;
   }
 
-  const [failureAudit, openOrders] = await Promise.all([
-    auditRecentBitgetLiveOrderFailures(100),
-    getBitgetDemoOpenOrders(),
-  ]);
-  if (
-    !failureAudit.safeToConsiderResume ||
-    failureAudit.positionsCount !== 0 ||
-    failureAudit.pendingStrategyOrdersCount !== 0 ||
-    openOrders.length !== 0
-  ) {
-    return null;
-  }
-
-  const item = failureAudit.items.find((candidate) =>
-    candidate.decisionId === failedPlan.source_decision_id &&
-    candidate.clientOid === failedPlan.client_oid &&
-    candidate.symbol === failedPlan.symbol &&
-    candidate.action === "OPEN_MARKET"
-  );
-  if (
-    !item ||
-    item.orderLookup !== "ABSENT" ||
-    item.positionPresent ||
-    item.strategyOrderPresent ||
-    item.queryError ||
-    item.remoteSubmissionAttempted !== false ||
-    item.failureStage === "AMBIGUOUS_WRITE"
-  ) {
-    return null;
-  }
-
-  return {
-    checkedAt: failureAudit.checkedAt,
-    outboxId: item.outboxId,
+  return auditBitgetLiveCommissioningRecovery({
     decisionId: failedPlan.source_decision_id,
     clientOid: failedPlan.client_oid,
-    failureStage: item.failureStage,
-    remoteSubmissionAttempted: false,
-    orderLookup: "ABSENT",
-    positionsCount: 0,
-    openOrdersCount: 0,
-    pendingStrategyOrdersCount: 0,
-  };
+    symbol: failedPlan.symbol,
+  });
 }
 
 export async function prepareAiTradePlanBeforeExecution(input: {

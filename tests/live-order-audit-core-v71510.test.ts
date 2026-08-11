@@ -5,19 +5,22 @@ import { auditFailureReferencesCore, type FailureAuditDecisionRow, type FailureA
 
 test("live commissioning retry is fail-closed on every authoritative reconciliation surface", () => {
   const source = fs.readFileSync("lib/trading-signals/ai-trade-plans.ts", "utf8");
+  const recovery = fs.readFileSync("lib/bitget/live-commissioning-recovery-core.ts", "utf8");
   for (const required of [
-    "failureAudit.safeToConsiderResume",
-    "failureAudit.positionsCount !== 0",
-    "failureAudit.pendingStrategyOrdersCount !== 0",
-    "openOrders.length !== 0",
-    'item.orderLookup !== "ABSENT"',
-    "item.remoteSubmissionAttempted !== false",
-    'item.failureStage === "AMBIGUOUS_WRITE"',
     'input.decision.rejectionCode === "LIVE_COMMISSIONING"',
     'input.profile.mode === "LIVE"',
   ]) {
     assert.ok(source.includes(required), required);
   }
+  for (const required of [
+    "storedFailures.length !== 1",
+    "stored.remoteSubmissionAttempted !== false",
+    'stored.failureStage === "AMBIGUOUS_WRITE"',
+    "exactOrder !== null",
+    "positions.some",
+    "openOrders.length !== 0",
+    "strategies.length !== 0",
+  ]) assert.ok(recovery.includes(required), required);
 });
 
 const now = "2026-08-09T10:00:00.000Z";

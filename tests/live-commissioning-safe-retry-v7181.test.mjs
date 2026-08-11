@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const plans = fs.readFileSync("lib/trading-signals/ai-trade-plans.ts", "utf8");
+const recovery = fs.readFileSync("lib/bitget/live-commissioning-recovery-core.ts", "utf8");
 const renewal = fs.readFileSync("lib/trading-signals/ai-plan-renewal-core.ts", "utf8");
 const migration = fs.readFileSync(
   "prisma/migrations/20260811143000_live_commissioning_safe_retry/migration.sql",
@@ -11,19 +12,17 @@ const migration = fs.readFileSync(
 
 test("commissioning retry requires authoritative zero-state and an absent non-dispatched order", () => {
   for (const guard of [
-    "failureAudit.safeToConsiderResume",
-    "failureAudit.positionsCount !== 0",
-    "failureAudit.pendingStrategyOrdersCount !== 0",
+    "storedFailures.length !== 1",
+    "stored.remoteSubmissionAttempted !== false",
+    'stored.failureStage === "AMBIGUOUS_WRITE"',
+    "exactOrder !== null",
+    "positions.some",
     "openOrders.length !== 0",
-    'item.orderLookup !== "ABSENT"',
-    "item.positionPresent",
-    "item.strategyOrderPresent",
-    "item.queryError",
-    "item.remoteSubmissionAttempted !== false",
-    'item.failureStage === "AMBIGUOUS_WRITE"',
+    "strategies.length !== 0",
   ]) {
-    assert.match(plans, new RegExp(guard.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(recovery, new RegExp(guard.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.match(plans, /auditBitgetLiveCommissioningRecovery/);
 });
 
 test("recovery is scoped to failed live commissioning and preserves old identifiers", () => {

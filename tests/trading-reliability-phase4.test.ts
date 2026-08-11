@@ -12,6 +12,7 @@ const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
 const migration = read("prisma/migrations/20260804050000_trade_reliability_phase4/migration.sql");
 const liveMigration = read("prisma/migrations/20260807010000_trade_reliability_live_mode/migration.sql");
 const commissioningPlans = read("lib/trading-signals/ai-trade-plans.ts");
+const commissioningRecovery = read("lib/bitget/live-commissioning-recovery-core.ts");
 const commissioningRetryMigration = read("prisma/migrations/20260811143000_live_commissioning_safe_retry/migration.sql");
 const watchdog = read("app/api/cron/trading-watchdog/route.ts");
 const adminRoute = read("app/api/admin/bitget-demo/reliability/route.ts");
@@ -22,15 +23,16 @@ const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string;
 
 test("failed live commissioning retry keeps one active forecast plan and requires zero-state evidence", () => {
   for (const guard of [
-    "failureAudit.safeToConsiderResume",
-    "failureAudit.positionsCount !== 0",
-    "failureAudit.pendingStrategyOrdersCount !== 0",
+    "storedFailures.length !== 1",
+    "stored.remoteSubmissionAttempted !== false",
+    "exactOrder !== null",
+    "positions.some",
     "openOrders.length !== 0",
-    'item.orderLookup !== "ABSENT"',
-    "item.remoteSubmissionAttempted !== false",
+    "strategies.length !== 0",
   ]) {
-    assert.ok(commissioningPlans.includes(guard), guard);
+    assert.ok(commissioningRecovery.includes(guard), guard);
   }
+  assert.ok(commissioningPlans.includes("auditBitgetLiveCommissioningRecovery"));
   assert.match(commissioningRetryMigration, /trade_ai_plans_active_forecast_version_unique/);
   assert.match(commissioningRetryMigration, /status IN \([\s\S]*'ORDER_SUBMITTED'[\s\S]*'OPEN'/);
   assert.doesNotMatch(commissioningRetryMigration, /'EXECUTION_ERROR'/);
