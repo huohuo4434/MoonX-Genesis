@@ -52,7 +52,7 @@ export function forecastHorizonForStrategy(
 
 export type ForecastPlanReconcileResult<TPlan extends ForecastBoundStoredPlan> = {
   plan: TPlan | null;
-  action: "CREATED" | "REFRESHED" | "FAIL_CLOSED" | "ORDER_ALREADY_BOUND";
+  action: "CREATED" | "REFRESHED" | "RECOVERED" | "FAIL_CLOSED" | "ORDER_ALREADY_BOUND";
   readiness: ForecastPlanReadiness;
   code: string;
   reason: string;
@@ -73,6 +73,11 @@ export type ForecastPlanRepository<TPlan extends ForecastBoundStoredPlan> = {
     readiness: ForecastPlanReadiness;
   }) => Promise<TPlan>;
   supersede: (plan: TPlan, reason: string) => Promise<void>;
+  recoverExecutionError?: (input: {
+    failedPlan: TPlan;
+    binding: LockedForecastBinding;
+    readiness: ForecastPlanReadiness;
+  }) => Promise<TPlan | null>;
 };
 
 const TERMINAL_NO_REVIVE = new Set<ForecastBoundPlanStatus>([
@@ -170,6 +175,22 @@ export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStor
   const sameVersion = await input.repository.findByForecastVersion(binding.forecastVersion);
   if (sameVersion) {
     if (orderAlreadyBound(sameVersion)) {
+      if (sameVersion.status === "EXECUTION_ERROR" && input.repository.recoverExecutionError) {
+        const recovered = await input.repository.recoverExecutionError({
+          failedPlan: sameVersion,
+          binding,
+          readiness,
+        });
+        if (recovered) {
+          return {
+            plan: recovered,
+            action: "RECOVERED",
+            readiness,
+            code: "FORECAST_VERSION_COMMISSIONING_RECOVERED",
+            reason: "服务器端已完成失败首单的权威只读核对：原订单不存在，且账户无持仓、普通订单或策略保护单；保留原失败计划并创建新的独立重试计划。",
+          };
+        }
+      }
       return {
         plan: sameVersion,
         action: "ORDER_ALREADY_BOUND",

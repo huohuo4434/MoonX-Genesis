@@ -36,7 +36,7 @@ function repository(seed: MemoryPlan[] = []) {
     plans,
     api: {
       findByForecastVersion: async (forecastVersion: string) =>
-        plans.find((plan) => plan.forecastVersion === forecastVersion) ?? null,
+        [...plans].sort((a, b) => b.version - a.version).find((plan) => plan.forecastVersion === forecastVersion) ?? null,
       findLatest: async () => [...plans].sort((a, b) => b.version - a.version)[0] ?? null,
       create: async (input: {
         binding: LockedForecastBinding;
@@ -203,6 +203,108 @@ test("one forecast version cannot bind a second order", async () => {
   const result = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: true, repository: repo.api });
   assert.equal(result.action, "ORDER_ALREADY_BOUND");
   assert.equal(result.code, "FORECAST_VERSION_ORDER_ALREADY_BOUND");
+  assert.equal(repo.plans.length, 1);
+});
+
+test("execution error stays bound when authoritative recovery is unavailable", async () => {
+  const failed: MemoryPlan = {
+    id: "failed",
+    planGroupId: "g-retry",
+    version: 1,
+    status: "EXECUTION_ERROR",
+    forecastVersion: "v2",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "old-client",
+    bitgetOrderId: null,
+    submittedAt: active.toISOString(),
+    firstFillAt: null,
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([failed]);
+  const result = await reconcileForecastBoundPlan({ binding: binding("v2"), now: active, triggerable: true, repository: repo.api });
+  assert.equal(result.action, "ORDER_ALREADY_BOUND");
+  assert.equal(repo.plans.length, 1);
+});
+
+test("verified execution error may create one independent retry plan without mutating history", async () => {
+  const failed: MemoryPlan = {
+    id: "failed",
+    planGroupId: "g-retry",
+    version: 3,
+    status: "EXECUTION_ERROR",
+    forecastVersion: "v2",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "old-client",
+    bitgetOrderId: null,
+    submittedAt: active.toISOString(),
+    firstFillAt: null,
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([failed]);
+  let recoveryChecks = 0;
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: active,
+    triggerable: true,
+    repository: {
+      ...repo.api,
+      recoverExecutionError: async ({ failedPlan, binding: locked, readiness }) => {
+        recoveryChecks += 1;
+        return repo.api.create({
+          binding: locked,
+          planGroupId: failedPlan.planGroupId,
+          version: failedPlan.version + 1,
+          readiness,
+        });
+      },
+    },
+  });
+  assert.equal(result.action, "RECOVERED");
+  assert.equal(result.code, "FORECAST_VERSION_COMMISSIONING_RECOVERED");
+  assert.equal(result.plan?.version, 4);
+  assert.equal(result.plan?.clientOid, null);
+  assert.equal(recoveryChecks, 1);
+  assert.equal(failed.status, "EXECUTION_ERROR");
+  assert.equal(failed.clientOid, "old-client");
+  assert.equal(repo.plans.length, 2);
+});
+
+test("authoritative recovery callback cannot revive a submitted or filled lifecycle", async () => {
+  const ordered: MemoryPlan = {
+    id: "ordered-no-recovery",
+    planGroupId: "g-retry",
+    version: 1,
+    status: "ORDER_SUBMITTED",
+    forecastVersion: "v2",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "live-client",
+    bitgetOrderId: "live-order",
+    submittedAt: active.toISOString(),
+    firstFillAt: null,
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([ordered]);
+  let called = false;
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: active,
+    triggerable: true,
+    repository: {
+      ...repo.api,
+      recoverExecutionError: async () => {
+        called = true;
+        return null;
+      },
+    },
+  });
+  assert.equal(result.action, "ORDER_ALREADY_BOUND");
+  assert.equal(called, false);
   assert.equal(repo.plans.length, 1);
 });
 

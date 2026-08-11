@@ -1,6 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { auditFailureReferencesCore, type FailureAuditDecisionRow, type FailureAuditOutboxRow } from "../lib/bitget/live-order-audit-core";
+
+test("live commissioning retry is fail-closed on every authoritative reconciliation surface", () => {
+  const source = fs.readFileSync("lib/trading-signals/ai-trade-plans.ts", "utf8");
+  for (const required of [
+    "failureAudit.safeToConsiderResume",
+    "failureAudit.positionsCount !== 0",
+    "failureAudit.pendingStrategyOrdersCount !== 0",
+    "openOrders.length !== 0",
+    'item.orderLookup !== "ABSENT"',
+    "item.remoteSubmissionAttempted !== false",
+    'item.failureStage === "AMBIGUOUS_WRITE"',
+    'input.decision.rejectionCode === "LIVE_COMMISSIONING"',
+    'input.profile.mode === "LIVE"',
+  ]) {
+    assert.ok(source.includes(required), required);
+  }
+});
 
 const now = "2026-08-09T10:00:00.000Z";
 function decision(overrides: Partial<FailureAuditDecisionRow> = {}): FailureAuditDecisionRow {

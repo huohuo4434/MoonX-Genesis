@@ -2,6 +2,10 @@ import "server-only";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import {
+  auditRecentBitgetLiveOrderFailures,
+  getBitgetDemoOpenOrders,
+} from "@/lib/bitget/demo-client";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
 import {
   forecastHorizonForStrategy,
@@ -480,7 +484,13 @@ export async function ensureAiTradePlanTables(): Promise<boolean> {
         ADD COLUMN IF NOT EXISTS forecast_valid_until TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS forecast_source TEXT
     `);
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS trade_ai_plans_forecast_version_unique ON trade_ai_plans(strategy_type, symbol, forecast_version) WHERE forecast_version IS NOT NULL`);
+    await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS trade_ai_plans_forecast_version_unique`);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS trade_ai_plans_active_forecast_version_unique
+      ON trade_ai_plans(strategy_type, symbol, forecast_version)
+      WHERE forecast_version IS NOT NULL
+        AND status IN ('PUBLISHED','WATCHING','ARMED','ORDER_SUBMITTED','PARTIALLY_FILLED','OPEN','REDUCED')
+    `);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS trade_ai_plans_active_idx ON trade_ai_plans(strategy_type, symbol, status, updated_at DESC)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS trade_ai_plan_events_plan_time_idx ON trade_ai_plan_events(plan_id, event_at ASC)`);
     ensured = true;
@@ -845,6 +855,76 @@ async function refreshForecastBoundPlan(input: {
   return updated;
 }
 
+type CommissioningRecoveryEvidence = {
+  checkedAt: string;
+  outboxId: string;
+  decisionId: string;
+  clientOid: string;
+  failureStage: string;
+  remoteSubmissionAttempted: false;
+  orderLookup: "ABSENT";
+  positionsCount: 0;
+  openOrdersCount: 0;
+  pendingStrategyOrdersCount: 0;
+};
+
+async function auditFailedLiveCommissioningPlan(
+  failedPlan: PlanRow
+): Promise<CommissioningRecoveryEvidence | null> {
+  if (
+    failedPlan.execution_mode !== "BITGET_LIVE" ||
+    failedPlan.status !== "EXECUTION_ERROR" ||
+    !failedPlan.source_decision_id ||
+    !failedPlan.client_oid
+  ) {
+    return null;
+  }
+
+  const [failureAudit, openOrders] = await Promise.all([
+    auditRecentBitgetLiveOrderFailures(100),
+    getBitgetDemoOpenOrders(),
+  ]);
+  if (
+    !failureAudit.safeToConsiderResume ||
+    failureAudit.positionsCount !== 0 ||
+    failureAudit.pendingStrategyOrdersCount !== 0 ||
+    openOrders.length !== 0
+  ) {
+    return null;
+  }
+
+  const item = failureAudit.items.find((candidate) =>
+    candidate.decisionId === failedPlan.source_decision_id &&
+    candidate.clientOid === failedPlan.client_oid &&
+    candidate.symbol === failedPlan.symbol &&
+    candidate.action === "OPEN_MARKET"
+  );
+  if (
+    !item ||
+    item.orderLookup !== "ABSENT" ||
+    item.positionPresent ||
+    item.strategyOrderPresent ||
+    item.queryError ||
+    item.remoteSubmissionAttempted !== false ||
+    item.failureStage === "AMBIGUOUS_WRITE"
+  ) {
+    return null;
+  }
+
+  return {
+    checkedAt: failureAudit.checkedAt,
+    outboxId: item.outboxId,
+    decisionId: failedPlan.source_decision_id,
+    clientOid: failedPlan.client_oid,
+    failureStage: item.failureStage,
+    remoteSubmissionAttempted: false,
+    orderLookup: "ABSENT",
+    positionsCount: 0,
+    openOrdersCount: 0,
+    pendingStrategyOrdersCount: 0,
+  };
+}
+
 export async function prepareAiTradePlanBeforeExecution(input: {
   decision: ThreeHorizonStrategyDecision;
   profile: ThreeHorizonStrategyProfile;
@@ -912,6 +992,44 @@ export async function prepareAiTradePlanBeforeExecution(input: {
         now: input.now,
       })),
       supersede: async (plan, reason) => supersedePlan(plan.row, input.now, reason),
+      recoverExecutionError: input.decision.rejectionCode === "LIVE_COMMISSIONING" && input.profile.mode === "LIVE"
+        ? async ({ failedPlan, readiness }) => {
+          const evidence = await auditFailedLiveCommissioningPlan(failedPlan.row);
+          if (!evidence) return null;
+          const recovered = await createPlan(
+            input.decision,
+            input.profile,
+            content,
+            input.now,
+            failedPlan.planGroupId,
+            failedPlan.version + 1,
+            binding,
+            readiness
+          );
+          await appendEvent({
+            planId: failedPlan.id,
+            eventType: "LIVE_COMMISSIONING_RECOVERY_VERIFIED",
+            title: "首笔实盘失败生命周期已权威核对",
+            detail: "原订单引用已确认不存在，且账户无持仓、普通订单和策略保护单；原失败计划保留审计，不再复用旧clientOid。",
+            status: failedPlan.status,
+            clientOid: failedPlan.clientOid,
+            eventAt: input.now,
+            dedupe: evidence.outboxId,
+            payload: evidence,
+          });
+          await appendEvent({
+            planId: recovered.id,
+            eventType: "LIVE_COMMISSIONING_RECOVERY_CREATED",
+            title: "已创建独立的首笔实盘安全重试计划",
+            detail: `重试计划V${recovered.version}沿用同一锁定预测方向；下单时必须生成新的clientOid，并重新通过全部风控与保护单门禁。`,
+            status: recovered.status,
+            eventAt: input.now,
+            dedupe: evidence.outboxId,
+            payload: { failedPlanId: failedPlan.id, evidence },
+          });
+          return wrap(recovered);
+        }
+        : undefined,
     },
   });
   const plan = reconciled.plan ? mapPlan(reconciled.plan.row) : null;
