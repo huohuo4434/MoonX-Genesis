@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 const client = read("lib/bitget/demo-client.ts");
+const liveExecutionCore = read("lib/bitget/live-execution-core.ts");
 const reliability = read("lib/trading-signals/trading-reliability.ts");
 const reliabilityTypes = read("types/trading-reliability.ts");
 const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
@@ -37,6 +38,14 @@ test("failed live commissioning retry keeps one active forecast plan and require
   assert.match(commissioningRetryMigration, /trade_ai_plans_active_forecast_version_unique/);
   assert.match(commissioningRetryMigration, /status IN \([\s\S]*'ORDER_SUBMITTED'[\s\S]*'OPEN'/);
   assert.doesNotMatch(commissioningRetryMigration, /'EXECUTION_ERROR'/);
+});
+
+test("UTA hedge market orders never assign posSide and reduceOnly together", () => {
+  all(liveExecutionCore, [
+    "if (input.hedgeMode) body.posSide = input.posSide",
+    'else body.reduceOnly = input.reduceOnly ? "yes" : "no"',
+  ]);
+  assert.match(client, /buildUtaMarketOrderBody/);
 });
 
 test("X intelligence public evidence localizes internal lifecycle states without changing trading authority", () => {

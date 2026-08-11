@@ -2,6 +2,7 @@ import "server-only";
 
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
 import {
+  buildUtaMarketOrderBody,
   LiveTradeExecutionError,
   liveExecutionErrorFrom,
   planUtaLeverageConfiguration,
@@ -1733,27 +1734,19 @@ async function submitMarketOrderDirect(
   settings: BitgetUtaSettings,
   onDispatch?: () => void
 ): Promise<BitgetOrderResponse> {
-  const body: Record<string, unknown> = {
+  const hedgeMode = isUtaHedgeMode(settings.holdMode);
+  const body = buildUtaMarketOrderBody({
     category: PRODUCT_TYPE,
     symbol: payload.symbol,
     qty: payload.size,
     side: payload.side,
-    orderType: "market",
     clientOid: oid,
-    reduceOnly: payload.reduceOnly ? "yes" : "no",
-    marginMode: "isolated",
-  };
-  if (!payload.reduceOnly && payload.stopLoss && payload.stopLoss > 0) {
-    body.stopLoss = payload.stopLoss.toFixed(8).replace(/\.?0+$/, "");
-    body.slTriggerBy = "mark";
-    body.slOrderType = "market";
-  }
-  if (!payload.reduceOnly && payload.takeProfit && payload.takeProfit > 0) {
-    body.takeProfit = payload.takeProfit.toFixed(8).replace(/\.?0+$/, "");
-    body.tpTriggerBy = "mark";
-    body.tpOrderType = "market";
-  }
-  if (isUtaHedgeMode(settings.holdMode)) body.posSide = inferHedgePositionSide(payload);
+    reduceOnly: payload.reduceOnly,
+    hedgeMode,
+    posSide: inferHedgePositionSide(payload),
+    stopLoss: payload.stopLoss,
+    takeProfit: payload.takeProfit,
+  });
   return signedRequest<BitgetOrderResponse>({
     method: "POST",
     path: "/api/v3/trade/place-order",

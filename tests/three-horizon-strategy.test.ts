@@ -51,10 +51,12 @@ test("risk engine enforces daily weekly open and correlated crypto limits", () =
 
 test("Bitget orders use idempotent clientOid and exchange-side preset protection", () => {
   const client = read("lib/bitget/demo-client.ts");
+  const executionCore = read("lib/bitget/live-execution-core.ts");
   assert.match(client, /clientOid\(paperOrderId/);
   assert.match(client, /getBitgetDemoOrderByClientOid\(oid\)/);
-  assert.match(client, /body\.stopLoss/);
-  assert.match(client, /body\.takeProfit/);
+  assert.match(client, /buildUtaMarketOrderBody/);
+  assert.match(executionCore, /body\.stopLoss/);
+  assert.match(executionCore, /body\.takeProfit/);
   assert.match(client, /headers\.paptrading\s*=\s*"1"/);
 });
 

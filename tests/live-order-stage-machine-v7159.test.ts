@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildUtaMarketOrderBody,
   LiveTradeExecutionError,
   planUtaLeverageConfiguration,
   runIdempotentOrderDispatch,
@@ -26,6 +27,67 @@ function describe(error: unknown): RemoteFailureDescriptor {
     ambiguous: Boolean(record?.ambiguous),
   };
 }
+
+test("UTA hedge close identifies the position leg without assigning reduceOnly", () => {
+  const closeLong = buildUtaMarketOrderBody({
+    category: "USDT-FUTURES",
+    symbol: "ETHUSDT",
+    qty: "0.01",
+    side: "sell",
+    clientOid: "close-long",
+    reduceOnly: true,
+    hedgeMode: true,
+    posSide: "long",
+  });
+  const closeShort = buildUtaMarketOrderBody({
+    category: "USDT-FUTURES",
+    symbol: "ETHUSDT",
+    qty: "0.01",
+    side: "buy",
+    clientOid: "close-short",
+    reduceOnly: true,
+    hedgeMode: true,
+    posSide: "short",
+  });
+  assert.equal(closeLong.posSide, "long");
+  assert.equal(closeShort.posSide, "short");
+  assert.equal("reduceOnly" in closeLong, false);
+  assert.equal("reduceOnly" in closeShort, false);
+});
+
+test("one-way close keeps reduceOnly while hedge open keeps exchange-side protection", () => {
+  const oneWayClose = buildUtaMarketOrderBody({
+    category: "USDT-FUTURES",
+    symbol: "ETHUSDT",
+    qty: "0.01",
+    side: "sell",
+    clientOid: "one-way-close",
+    reduceOnly: true,
+    hedgeMode: false,
+    posSide: "long",
+  });
+  assert.equal(oneWayClose.reduceOnly, "yes");
+  assert.equal("posSide" in oneWayClose, false);
+
+  const hedgeOpen = buildUtaMarketOrderBody({
+    category: "USDT-FUTURES",
+    symbol: "ETHUSDT",
+    qty: "0.01",
+    side: "buy",
+    clientOid: "hedge-open",
+    reduceOnly: false,
+    hedgeMode: true,
+    posSide: "long",
+    stopLoss: 4200,
+    takeProfit: 4400,
+  });
+  assert.equal(hedgeOpen.posSide, "long");
+  assert.equal("reduceOnly" in hedgeOpen, false);
+  assert.equal(hedgeOpen.stopLoss, "4200");
+  assert.equal(hedgeOpen.takeProfit, "4400");
+  assert.equal(hedgeOpen.slOrderType, "market");
+  assert.equal(hedgeOpen.tpOrderType, "market");
+});
 
 test("hedge isolated leverage writes both directions and keeps documented posSide", () => {
   const plan = planUtaLeverageConfiguration({

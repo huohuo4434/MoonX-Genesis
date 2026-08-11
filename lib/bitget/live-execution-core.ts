@@ -12,6 +12,47 @@ export type RemoteFailureDescriptor = {
   ambiguous?: boolean;
 };
 
+export function buildUtaMarketOrderBody(input: {
+  category: string;
+  symbol: string;
+  qty: string;
+  side: "buy" | "sell";
+  clientOid: string;
+  reduceOnly: boolean;
+  hedgeMode: boolean;
+  posSide: "long" | "short";
+  stopLoss?: number;
+  takeProfit?: number;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    category: input.category,
+    symbol: input.symbol,
+    qty: input.qty,
+    side: input.side,
+    orderType: "market",
+    clientOid: input.clientOid,
+    marginMode: "isolated",
+  };
+
+  // Bitget UTA rejects requests that assign both posSide and reduceOnly.
+  // In hedge mode posSide unambiguously identifies the opening/closing leg;
+  // one-way mode continues to use reduceOnly as before.
+  if (input.hedgeMode) body.posSide = input.posSide;
+  else body.reduceOnly = input.reduceOnly ? "yes" : "no";
+
+  if (!input.reduceOnly && input.stopLoss && input.stopLoss > 0) {
+    body.stopLoss = input.stopLoss.toFixed(8).replace(/\.?0+$/, "");
+    body.slTriggerBy = "mark";
+    body.slOrderType = "market";
+  }
+  if (!input.reduceOnly && input.takeProfit && input.takeProfit > 0) {
+    body.takeProfit = input.takeProfit.toFixed(8).replace(/\.?0+$/, "");
+    body.tpTriggerBy = "mark";
+    body.tpOrderType = "market";
+  }
+  return body;
+}
+
 export class LiveTradeExecutionError extends Error {
   readonly stage: LiveExecutionStage;
   readonly bitgetCode: string | null;
