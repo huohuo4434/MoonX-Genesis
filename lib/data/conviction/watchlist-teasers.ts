@@ -35,7 +35,7 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     nameZh: "SPCX",
     nameEn: "SPCX",
     symbol: "SPCX",
-    detailHref: "/markets/watchlist/spcx",
+    detailHref: "/featured-stocks/spcx",
     rating: "A",
     riskZh: "高",
     eyebrowZh: "关键阶段更新 · V2",

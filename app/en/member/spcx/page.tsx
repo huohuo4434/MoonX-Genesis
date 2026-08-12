@@ -4,5 +4,5 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default function SpcxCompatibilityRedirect() {
-  redirect("/en/markets/watchlist/spcx");
+  redirect("/en/featured-stocks/spcx");
 }

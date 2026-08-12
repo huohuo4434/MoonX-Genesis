@@ -324,7 +324,7 @@ function MemberResearch({ english, data }: { english: boolean; data: MemberRespo
         ) : (
           <div className={styles.card}>
             <h3>{english ? "Live quote temporarily unavailable" : "实时行情暂时不可用"}</h3>
-            <p>{english ? "Live quotes are temporarily unavailable. Use the locked V2 research logic; exact anchors are not embedded in the public client bundle and will return when server-side quote data resumes." : "实时行情暂不可用。方向继续按上方多周期卦象的看涨结论；具体技术锚点暂时不显示，服务器行情恢复后只补充位置参考。"}</p>
+            <p>{english ? "Live quotes are temporarily unavailable. Use the locked V2 research logic; exact anchors are not embedded in the public client bundle and will return when server-side quote data resumes." : "实时行情暂不可用。方向继续按上方多周期卦象的看涨结论；具体技术锚点不再内置到公共客户端，服务器行情恢复后由会员接口只补充位置参考。"}</p>
           </div>
         )}
       </section>

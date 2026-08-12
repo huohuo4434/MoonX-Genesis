@@ -35,6 +35,16 @@ export async function middleware(request: NextRequest) {
   const englishUrl = originalPath === "/en" || originalPath.startsWith("/en/");
   const internalPath = stripEnglishPrefix(originalPath);
 
+  // SPCX used to live below the admin-only /markets/watchlist tree. Members
+  // were rewritten to a real 404 before either the page or member API ran.
+  // Rescue this historical URL before the admin-only gate and move it to the
+  // public-shell/member-data canonical page; the API remains member-protected.
+  if (request.method === "GET" && internalPath === "/markets/watchlist/spcx") {
+    const target = request.nextUrl.clone();
+    target.pathname = englishUrl ? "/en/featured-stocks/spcx" : "/featured-stocks/spcx";
+    return NextResponse.redirect(target, 308);
+  }
+
   // Admin and API surfaces are locale-neutral and never live under /en.
   if (englishUrl && isLocaleNeutral(internalPath)) {
     const target = request.nextUrl.clone();

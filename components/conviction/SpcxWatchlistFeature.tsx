@@ -8,7 +8,7 @@ import styles from "./SpcxWatchlist.module.css";
 export default function SpcxWatchlistFeature() {
   const pathname = usePathname();
   const english = pathname === "/en" || pathname.startsWith("/en/");
-  const detailHref = english ? "/en/markets/watchlist/spcx" : "/markets/watchlist/spcx";
+  const detailHref = english ? "/en/featured-stocks/spcx" : "/featured-stocks/spcx";
   const pricingHref = english ? "/en/pricing" : "/pricing";
 
   return (

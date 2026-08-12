@@ -5,9 +5,9 @@ import { join } from "node:path";
 
 const read = (p) => readFileSync(join(process.cwd(), p), "utf8");
 
-test("SPCX legacy featured-stock routes redirect to the canonical research page", () => {
-  assert.match(read("app/featured-stocks/spcx/page.tsx"), /permanentRedirect\("\/markets\/watchlist\/spcx"\)/);
-  assert.match(read("app/en/featured-stocks/spcx/page.tsx"), /permanentRedirect\("\/en\/markets\/watchlist\/spcx"\)/);
+test("SPCX featured-stock routes are the canonical research pages", () => {
+  assert.match(read("app/featured-stocks/spcx/page.tsx"), /SpcxResearchPage language="zh"/);
+  assert.match(read("app/en/featured-stocks/spcx/page.tsx"), /SpcxResearchPage language="en"/);
 });
 
 test("SPCX member API enforces membership and provides live technical context", () => {
