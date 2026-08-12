@@ -114,7 +114,7 @@ import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-ranking";
 import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
-import { forecastFreshnessStatus, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
+import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
 import type {
   MemberStockDailyMemberView,
   MemberStockVerificationResult,
@@ -481,7 +481,12 @@ export async function getConvictionDetailPayload(
   const vibeSnapshot = full ? await getVibeEvidence(asset.id) : null;
   const vibeEvidence = vibeSnapshot ? toVibePublicView(vibeSnapshot) : null;
 
-  const visiblePeriodMeta = staticPeriodAsset ? publicPeriodMeta(staticPeriodAsset) : [];
+  const staticPeriodSlots = staticPeriodAsset
+    ? buildStaticPeriodSlots(staticPeriodAsset, false, asOfDate)
+    : [];
+  const visiblePeriodMeta = staticPeriodAsset
+    ? prioritizeCurrentPeriods(publicPeriodMeta(staticPeriodAsset), staticPeriodSlots)
+    : [];
 
   if (!full) {
     return {
@@ -502,7 +507,7 @@ export async function getConvictionDetailPayload(
       asOfDate,
       freshness: summarizeForecastFreshness(
         staticPeriodAsset
-          ? buildStaticPeriodSlots(staticPeriodAsset, false, asOfDate).map((slot) => slot.freshnessStatus)
+          ? staticPeriodSlots.map((slot) => slot.freshnessStatus)
           : [],
         asOfDate
       ),

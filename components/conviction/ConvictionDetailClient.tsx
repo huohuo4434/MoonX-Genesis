@@ -7,6 +7,7 @@ import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePa
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
+import { dailyPathTemporalStatus, prioritizeDailyPath } from "@/lib/data/conviction/freshness";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
 import { mooxDirectionLabelZh, mooxPrimaryDirection, mooxTechnicalReferenceZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
@@ -119,7 +120,7 @@ function tradeToneClass(tone: "emerald" | "rose" | "amber" | "slate") {
   return "border-white/10 bg-white/[0.025] text-white";
 }
 
-function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
+function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate: string }) {
   if (!slot.forecast) {
     return (
       <Card padding="md" className="border-white/[0.08] bg-[#0c0e12]">
@@ -136,6 +137,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
     : (f.consensusLabel || "卦象决定本周期正式方向。");
   const ended = slot.freshnessStatus === "EXPIRED";
   const upcoming = slot.freshnessStatus === "UPCOMING";
+  const current = slot.freshnessStatus === "CURRENT";
   return (
     <Card padding="md" className="min-w-0 space-y-5 overflow-hidden border-white/[0.08] bg-[#0c0e12]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -146,7 +148,7 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
             </Text>
             <Badge variant="outline">{mooxDirectionLabelZh(f.direction)}</Badge>
             <Badge variant="outline">风险 {f.riskLevel}</Badge>
-            {ended ? <Badge variant="outline">历史周期 · 已结束</Badge> : null}{upcoming ? <Badge variant="outline">即将开始</Badge> : null}
+            {current ? <Badge variant="outline">当前周期 · 自动定位 {asOfDate}</Badge> : null}{ended ? <Badge variant="outline">历史周期 · 已结束</Badge> : null}{upcoming ? <Badge variant="outline">即将开始</Badge> : null}
           </div>
           <Text variant="caption" className="block text-white/45">
             周期：{f.periodStart} 至 {f.periodEnd}
@@ -267,23 +269,26 @@ function PeriodPanel({ slot }: { slot: ConvictionPeriodSlot }) {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="font-mono text-caption uppercase tracking-[0.14em] text-rose-200/80">逐日路径</p>
-              <p className="mt-1 text-caption text-white/40">已验证、进行中与预测分开显示；星级代表方法共识，不代表涨跌幅。</p>
+              <p className="mt-1 text-caption text-white/40">页面按北京时间自动定位今天；历史路径、今日进行和后续预测分开显示。星级代表方法共识，不代表涨跌幅。</p>
             </div>
             <Badge variant="outline">日级时间容差 ±1天</Badge>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {f.dailyPath.map((day) => {
+            {prioritizeDailyPath(f.dailyPath, asOfDate).map((day) => {
+              const temporalStatus = dailyPathTemporalStatus(day.date, asOfDate);
+              const displayStatus =
+                temporalStatus === "TODAY" ? "今日进行" : temporalStatus === "FUTURE" ? "后续预测" : "历史路径";
               const statusClass =
-                day.status === "已验证"
+                temporalStatus === "PAST"
                   ? "border-emerald-400/20 bg-emerald-400/[0.035] text-emerald-200"
-                  : day.status === "进行中"
+                  : temporalStatus === "TODAY"
                     ? "border-sky-400/20 bg-sky-400/[0.035] text-sky-200"
                     : "border-white/10 bg-black/10 text-white/65";
               return (
                 <div key={`${f.id}-${day.date}`} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-body-sm font-semibold text-white">{day.date}{day.ganzhi ? ` · ${day.ganzhi}` : ""}</p>
-                    <span className={`rounded-full border px-2 py-0.5 text-caption ${statusClass}`}>{day.status}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-caption ${statusClass}`}>{displayStatus}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{mooxDirectionLabelZh(day.direction)}</Badge>
@@ -681,6 +686,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             {isStaticPeriodAsset && payload.forecast?.periods ? (
               <>
                 <PeriodPanel
+                  asOfDate={payload.asOfDate}
                   slot={
                     payload.forecast.periods.find((p) => p.type === tab) ?? {
                       type: tab,

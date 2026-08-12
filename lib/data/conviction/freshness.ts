@@ -1,5 +1,49 @@
 export type ForecastFreshnessStatus = "CURRENT" | "UPCOMING" | "EXPIRED" | "MISSING";
 
+const PERIOD_PRIORITY: Record<ForecastFreshnessStatus, number> = {
+  CURRENT: 0,
+  UPCOMING: 1,
+  MISSING: 2,
+  EXPIRED: 3,
+};
+
+/**
+ * Put the period that contains the Beijing calendar date first. This only
+ * changes presentation order; it never edits or replaces a locked forecast.
+ */
+export function prioritizeCurrentPeriods<
+  T extends { type: string },
+  S extends { type: string; freshnessStatus: ForecastFreshnessStatus },
+>(items: readonly T[], slots: readonly S[]): T[] {
+  const statusByType = new Map(slots.map((slot) => [slot.type, slot.freshnessStatus]));
+  return items
+    .map((item, index) => ({ item, index, status: statusByType.get(item.type) ?? "MISSING" }))
+    .sort((a, b) => PERIOD_PRIORITY[a.status] - PERIOD_PRIORITY[b.status] || a.index - b.index)
+    .map(({ item }) => item);
+}
+
+export type DailyPathTemporalStatus = "TODAY" | "FUTURE" | "PAST";
+
+export function dailyPathTemporalStatus(date: string, asOfDate: string): DailyPathTemporalStatus {
+  if (date === asOfDate) return "TODAY";
+  return date > asOfDate ? "FUTURE" : "PAST";
+}
+
+/** Current day first, then future days, then the most recent historical day. */
+export function prioritizeDailyPath<T extends { date: string }>(
+  days: readonly T[],
+  asOfDate: string
+): T[] {
+  const priority: Record<DailyPathTemporalStatus, number> = { TODAY: 0, FUTURE: 1, PAST: 2 };
+  return days.slice().sort((a, b) => {
+    const aStatus = dailyPathTemporalStatus(a.date, asOfDate);
+    const bStatus = dailyPathTemporalStatus(b.date, asOfDate);
+    const bucket = priority[aStatus] - priority[bStatus];
+    if (bucket) return bucket;
+    return aStatus === "PAST" ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+  });
+}
+
 export type ForecastFreshnessSummary = {
   asOfDate: string;
   currentCount: number;
