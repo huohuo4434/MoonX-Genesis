@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { resolveWeeklyAuthoritySetup } from "../lib/trading-signals/authoritative-market-structure-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -46,6 +47,27 @@ test("UTA hedge market orders never assign posSide and reduceOnly together", () 
     'else body.reduceOnly = input.reduceOnly ? "yes" : "no"',
   ]);
   assert.match(client, /buildUtaMarketOrderBody/);
+});
+
+test("prediction auto trader keeps formal weekly authority without a daily forecast", () => {
+  assert.equal(resolveWeeklyAuthoritySetup({
+    weeklyAvailable: true,
+    weeklyDirection: "LONG",
+    weeklyConfidence: 72,
+    minimumConfidence: 50,
+  }), "BUY_DIP");
+  assert.equal(resolveWeeklyAuthoritySetup({
+    weeklyAvailable: true,
+    weeklyDirection: "SHORT",
+    weeklyConfidence: 72,
+    minimumConfidence: 50,
+  }), "SELL_RALLY");
+  assert.equal(resolveWeeklyAuthoritySetup({
+    weeklyAvailable: false,
+    weeklyDirection: "NEUTRAL",
+    weeklyConfidence: 0,
+    minimumConfidence: 50,
+  }), "MISSING_FORECAST");
 });
 
 test("X intelligence public evidence localizes internal lifecycle states without changing trading authority", () => {

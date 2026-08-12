@@ -63,6 +63,10 @@ import type {
   ThreeHorizonStrategyStats,
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
+import {
+  classifyDirectionalMarketStructure,
+  resolveAuthoritativeForecastDirection,
+} from "@/lib/trading-signals/authoritative-market-structure-core";
 
 // V7.9: profiles are no longer code-limited to one fixed group of ten.
 // The live allow-list in demo-client remains authoritative; V7.9.1 adds the explicitly approved SNDK/MSFT stock perps, then dynamically selects only currently available contracts.
@@ -473,14 +477,19 @@ function resolveOfficialMooxDirection(input: {
   strategyType: ThreeHorizonStrategyType;
   focusDirection?: ThreeHorizonDirection;
 }): { direction: ThreeHorizonDirection; strength: number; label: string } {
+  const planDirection = forecastDirectionForStrategy(input.plan, input.strategyType);
+  if (planDirection !== "NEUTRAL") {
+    const confidence = clamp(input.plan?.confidence ?? 55, 35, 85);
+    return {
+      direction: planDirection,
+      strength: confidence * directionValue(planDirection),
+      label: `${planDirection === "LONG" ? "看涨" : "看跌"}；正式周预测锁定方向，日线与技术只负责路径和位置`,
+    };
+  }
   const candidates: Array<{ source: string; direction: ThreeHorizonDirection; confidence: number }> = [];
   const focusDirection = input.focusDirection ?? "NEUTRAL";
   if (focusDirection !== "NEUTRAL") {
     candidates.push({ source: "研究总控", direction: focusDirection, confidence: 68 });
-  }
-  const planDirection = forecastDirectionForStrategy(input.plan, input.strategyType);
-  if (planDirection !== "NEUTRAL") {
-    candidates.push({ source: "正式预测", direction: planDirection, confidence: clamp(input.plan?.confidence ?? 55, 35, 85) });
   }
   if (input.prior) {
     candidates.push({ source: "六爻先验", direction: input.prior.direction, confidence: clamp(input.prior.confidence, 40, 85) });
@@ -612,11 +621,10 @@ function completedAggregateCandles(
 
 function forecastDirection(plan: PredictionStrategyPlan | undefined): ThreeHorizonDirection {
   if (!plan) return "NEUTRAL";
-  if (plan.setup === "BUY_DIP") return "LONG";
-  if (plan.setup === "SELL_RALLY") return "SHORT";
-  if (plan.weeklyDirection === "LONG" && plan.dailyDirection !== "SHORT") return "LONG";
-  if (plan.weeklyDirection === "SHORT" && plan.dailyDirection !== "LONG") return "SHORT";
-  return "NEUTRAL";
+  return resolveAuthoritativeForecastDirection({
+    weeklyDirection: plan.weeklyDirection,
+    fallbackDirection: plan.setup === "BUY_DIP" ? "LONG" : plan.setup === "SELL_RALLY" ? "SHORT" : "NEUTRAL",
+  });
 }
 
 function forecastDirectionForStrategy(
@@ -624,9 +632,12 @@ function forecastDirectionForStrategy(
   strategyType: ThreeHorizonStrategyType
 ): ThreeHorizonDirection {
   if (!plan) return "NEUTRAL";
-  if (strategyType === "INTRADAY") return plan.dailyDirection;
-  if (strategyType === "SWING") return plan.weeklyDirection;
-  return plan.monthlyDirection;
+  // Formal weekly research owns trade direction across execution horizons.
+  // Daily is path/timing only; position may fall back to monthly when no weekly side exists.
+  return resolveAuthoritativeForecastDirection({
+    weeklyDirection: plan.weeklyDirection,
+    fallbackDirection: strategyType === "POSITION" ? plan.monthlyDirection : "NEUTRAL",
+  });
 }
 
 function forecastCompatibility(
@@ -720,6 +731,7 @@ function evaluateIntraday(
   const focusMainDirection = executionFocus?.day?.mainDirection ?? executionFocus?.weeklyDirection ?? "NEUTRAL";
   const focusTacticalDirection = executionFocus?.day?.tacticalDirection ?? "NEUTRAL";
   const strongCountertrend = Boolean(
+    forecastDirection(plan) === "NEUTRAL" &&
     profile.strategyType === "INTRADAY" &&
     executionFocus?.countertrendPolicy === "STRONG_ONLY" &&
     executionFocus.countertrendConfluence >= 70 &&
@@ -898,17 +910,11 @@ function evaluateSwing(
   });
   const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
   const direction = officialDirection.direction;
-  const latest4h = last(h4);
-  const ema4h = last(ema(h4.map((row) => row.close), 20)) ?? 0;
-  const rsi4h = rsi(h4);
+  const marketStructure = classifyDirectionalMarketStructure(h1, direction);
   const latest1h = last(h1);
   const previous1h = h1[h1.length - 2];
   const ema1h = last(ema(h1.map((row) => row.close), 12)) ?? 0;
-  const structureMet = direction === "LONG"
-    ? Boolean(latest4h && latest4h.close >= ema4h * 0.992 && rsi4h >= 38 && h4Signal.score >= -8)
-    : direction === "SHORT"
-      ? Boolean(latest4h && latest4h.close <= ema4h * 1.008 && rsi4h <= 62 && h4Signal.score <= 8)
-      : false;
+  const structureMet = direction !== "NEUTRAL" && !marketStructure.currentEntryInvalidated;
   const breakoutTrigger = direction === "LONG"
     ? Boolean(latest1h && previous1h && latest1h.close > ema1h && latest1h.close > previous1h.high)
     : direction === "SHORT"
@@ -919,16 +925,18 @@ function evaluateSwing(
     : direction === "SHORT"
       ? Boolean(latest1h && latest1h.close < ema1h && h4Signal.score <= -10)
       : false;
-  const triggerMet = breakoutTrigger || continuationTrigger;
+  const confirmationTrigger = breakoutTrigger || continuationTrigger || marketStructure.falseBreakReclaimed || marketStructure.breakoutConfirmed;
+  const directionalEdgeProbe = marketStructure.atDirectionalEdge && !marketStructure.currentEntryInvalidated;
+  const triggerMet = confirmationTrigger || directionalEdgeProbe;
   const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atr4h = atr(h4);
   const volatility = volatilityCondition(h4, atr4h, 8);
   const priorCompatible = !prior || prior.direction === direction;
   const conditions: ThreeHorizonCondition[] = [
-    { key: "weekly", label: "周线环境", met: weeklySignal.direction !== "NEUTRAL" || Math.abs(primaryScore) >= 7, value: weeklySignal.label, weight: 15 },
-    { key: "daily", label: "日线执行环境", met: direction !== "NEUTRAL" && (activeDirection.direction === direction || activeDirection.direction === "NEUTRAL"), value: `${officialDirection.label}；技术环境：${activeDirection.label}`, weight: 20 },
-    { key: "structure", label: "4小时结构", met: structureMet, value: `收盘${latest4h?.close ?? 0}，EMA20 ${round(ema4h, 2)}，RSI ${round(rsi4h, 1)}，趋势分${h4Signal.score}`, weight: 20 },
-    { key: "entry", label: "1小时入场", met: triggerMet, value: breakoutTrigger ? "突破确认" : continuationTrigger ? "趋势延续，可先开探路仓" : "未突破，等待或分批探路", weight: 15 },
+    { key: "weekly", label: "正式周方向", met: direction !== "NEUTRAL", value: `${officialDirection.label}；周线技术仅作路径备注：${weeklySignal.label}`, weight: 15 },
+    { key: "daily", label: "日线路径", met: direction !== "NEUTRAL", value: `${activeDirection.label}；日内反向只描述回撤路径，不否决或翻转周方向`, weight: 20 },
+    { key: "structure", label: "关键结构边沿", met: structureMet, value: `${marketStructure.label}；边沿${marketStructure.lowerEdge ?? "—"}-${marketStructure.upperEdge ?? "—"}`, weight: 20 },
+    { key: "entry", label: "1小时入场", met: triggerMet, value: confirmationTrigger ? "收回/突破确认" : directionalEdgeProbe ? "到达周方向对应边沿，仅允许小风险左侧探路" : "结构中部，等待关键边沿", weight: 15 },
     { key: "forecast", label: "周日预测加权", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前无锁定六爻时序", weight: 10 },
     { key: "risk", label: "4小时波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
@@ -936,6 +944,8 @@ function evaluateSwing(
   return finalizeEvaluation(profile, direction, conditions, forecast.score, h4, atr4h, plan, livePrice, {
     directionStrength: officialDirection.strength,
     prior,
+    probeOnly: directionalEdgeProbe && !confirmationTrigger,
+    currentEntryInvalidated: marketStructure.currentEntryInvalidated,
   });
 }
 
@@ -964,30 +974,28 @@ function evaluatePosition(
   const dailySignal = technicalDirectionSignal(d1, 10, 30, 8);
   const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
   const direction = officialDirection.direction;
-  const latestDaily = last(d1);
-  const dailyEma = last(ema(d1.map((row) => row.close), 20)) ?? 0;
+  const marketStructure = classifyDirectionalMarketStructure(h4, direction);
   const latest4h = last(h4);
   const previous4h = h4[h4.length - 2];
   const ema4h = last(ema(h4.map((row) => row.close), 20)) ?? 0;
-  const directionMet = direction === "LONG"
-    ? Boolean(latestDaily && latestDaily.close >= dailyEma * 0.985)
-    : direction === "SHORT"
-      ? Boolean(latestDaily && latestDaily.close <= dailyEma * 1.015)
-      : false;
-  const triggerMet = direction === "LONG"
+  const directionMet = direction !== "NEUTRAL" && !marketStructure.currentEntryInvalidated;
+  const continuationTrigger = direction === "LONG"
     ? Boolean(latest4h && previous4h && latest4h.close > ema4h && latest4h.close > previous4h.close)
     : direction === "SHORT"
       ? Boolean(latest4h && previous4h && latest4h.close < ema4h && latest4h.close < previous4h.close)
       : false;
+  const confirmationTrigger = continuationTrigger || marketStructure.falseBreakReclaimed || marketStructure.breakoutConfirmed;
+  const directionalEdgeProbe = marketStructure.atDirectionalEdge && !marketStructure.currentEntryInvalidated;
+  const triggerMet = confirmationTrigger || directionalEdgeProbe;
   const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atrDaily = atr(d1);
   const volatility = volatilityCondition(d1, atrDaily, 12);
   const priorCompatible = !prior || prior.direction === direction;
   const conditions: ThreeHorizonCondition[] = [
     { key: "monthly", label: "月度环境", met: monthlySignal.direction !== "NEUTRAL", value: monthlySignal.label, weight: 15 },
-    { key: "weekly", label: "周度技术环境", met: weeklySignal.direction === direction || weeklySignal.direction === "NEUTRAL", value: `${officialDirection.label}；技术环境：${weeklySignal.label}`, weight: 20 },
-    { key: "daily", label: "日线结构", met: directionMet, value: `日线收盘${latestDaily?.close ?? 0}，EMA20 ${round(dailyEma, 2)}，趋势分${dailySignal.score}`, weight: 20 },
-    { key: "entry", label: "4小时入场", met: triggerMet, value: triggerMet ? "4小时延续确认" : "等待4小时结构确认", weight: 15 },
+    { key: "weekly", label: "正式周方向", met: direction !== "NEUTRAL", value: `${officialDirection.label}；周度技术仅作路径备注：${weeklySignal.label}`, weight: 20 },
+    { key: "daily", label: "日线路径与入场有效性", met: directionMet, value: `${marketStructure.label}；日线技术分${dailySignal.score}不参与方向投票`, weight: 20 },
+    { key: "entry", label: "4小时入场", met: triggerMet, value: confirmationTrigger ? "收回/突破确认" : directionalEdgeProbe ? "到达周方向对应边沿，仅允许小风险探路" : "等待关键边沿或确认", weight: 15 },
     { key: "forecast", label: "长期预测加权", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻周期先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前无锁定六爻周期", weight: 10 },
     { key: "risk", label: "日线波动过滤", met: volatility.met, value: volatility.value, weight: 10 },
@@ -995,6 +1003,8 @@ function evaluatePosition(
   return finalizeEvaluation(profile, direction, conditions, forecast.score, d1, atrDaily, plan, livePrice, {
     directionStrength: officialDirection.strength,
     prior,
+    probeOnly: directionalEdgeProbe && !confirmationTrigger,
+    currentEntryInvalidated: marketStructure.currentEntryInvalidated,
   });
 }
 
@@ -1007,7 +1017,7 @@ function finalizeEvaluation(
   atrValue: number,
   plan: PredictionStrategyPlan | undefined,
   livePrice?: number,
-  context: { directionStrength: number; prior: HexagramDirectionPrior | null } = {
+  context: { directionStrength: number; prior: HexagramDirectionPrior | null; probeOnly?: boolean; currentEntryInvalidated?: boolean } = {
     directionStrength: 0,
     prior: null,
   }
@@ -1058,7 +1068,7 @@ function finalizeEvaluation(
     (row) => directionEvidenceKeys.includes(row.key) && row.met
   ).length;
   const minimumEvidence = profile.strategyType === "INTRADAY" ? 1 : 2;
-  const baseValid = Boolean(direction !== "NEUTRAL" && currentPrice && prices && riskMet);
+  const baseValid = Boolean(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context.currentEntryInvalidated);
   // V7.7: live execution uses MOOX for side selection and the market for timing.
   // The old 48/38 technical floors were calibrated like a confirmation-only system;
   // with a directional prior they rejected too many otherwise valid probe entries.
@@ -1067,6 +1077,7 @@ function finalizeEvaluation(
   const probeTechnicalFloor = profile.mode === "LIVE" ? 34 : 38;
   const fullReady = Boolean(
     baseValid &&
+    !context.probeOnly &&
     entryMet &&
     directionEvidenceMet >= minimumEvidence &&
     technicalScore >= fullTechnicalFloor &&
@@ -1105,6 +1116,9 @@ function finalizeEvaluation(
   } else if (!prices) {
     rejectionCode = "RISK_PLAN_INVALID";
     rejectionReason = "无法根据结构和ATR生成有效宽止损。";
+  } else if (context.currentEntryInvalidated) {
+    rejectionCode = "ENTRY_STRUCTURE_INVALID";
+    rejectionReason = "价格已连续有效越过当前入场边沿；仅取消本次入场并等待新位置，不自动反手。";
   } else if (directionEvidenceMet < minimumEvidence) {
     rejectionCode = "DIRECTION_EVIDENCE_LOW";
     rejectionReason = `执行结构证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;

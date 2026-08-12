@@ -49,6 +49,24 @@ test("risk engine enforces daily weekly open and correlated crypto limits", () =
   }
 });
 
+test("weekly forecast owns direction while technical structure only controls entry state", () => {
+  const source = engine();
+  const autoTrader = read("lib/trading-signals/prediction-auto-trader.ts");
+  assert.match(source, /resolveAuthoritativeForecastDirection/);
+  assert.match(source, /weeklyDirection: plan\.weeklyDirection/);
+  assert.match(source, /日内反向只描述回撤路径，不否决或翻转周方向/);
+  assert.match(source, /probeOnly: directionalEdgeProbe && !confirmationTrigger/);
+  assert.match(source, /currentEntryInvalidated: marketStructure\.currentEntryInvalidated/);
+  assert.match(source, /rejectionCode = "ENTRY_STRUCTURE_INVALID"/);
+  assert.match(source, /仅取消本次入场并等待新位置，不自动反手/);
+  assert.doesNotMatch(source, /strategyType === "INTRADAY"\) return plan\.dailyDirection/);
+  assert.match(source, /const strongCountertrend = Boolean\([\s\S]{0,120}forecastDirection\(plan\) === "NEUTRAL" &&/);
+  assert.match(autoTrader, /resolveWeeklyAuthoritySetup/);
+  assert.doesNotMatch(autoTrader, /if \(!weekly \|\| !daily\)/);
+  assert.doesNotMatch(autoTrader, /daily\.confidence < settings\.minForecastConfidence/);
+  assert.equal(/supportsLong|supportsShort/.test(autoTrader), false);
+});
+
 test("Bitget orders use idempotent clientOid and exchange-side preset protection", () => {
   const client = read("lib/bitget/demo-client.ts");
   const executionCore = read("lib/bitget/live-execution-core.ts");
@@ -100,7 +118,7 @@ test("active execution supports a smaller probe before exact entry confirmation 
   assert.match(source, /executionTier: "FULL" \| "PROBE" \| "OBSERVE"/);
   assert.match(source, /const fullReady = Boolean\([\s\S]*entryMet/);
   assert.match(source, /const probeReady = Boolean\([\s\S]*profile\.strategyType !== "POSITION"/);
-  assert.match(source, /baseValid = Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet\)/);
+  assert.match(source, /baseValid = Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context\.currentEntryInvalidated\)/);
   assert.match(source, /PROBE_RISK_SCALE/);
 });
 

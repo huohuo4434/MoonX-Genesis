@@ -44,6 +44,7 @@ import type {
   PredictionMarketContext,
   PredictionStrategyPlan,
 } from "@/types/prediction-auto-trader";
+import { resolveWeeklyAuthoritySetup } from "@/lib/trading-signals/authoritative-market-structure-core";
 
 type DbSettings = {
   enabled: boolean;
@@ -837,39 +838,28 @@ function buildPlan(
   const weekly = forecastLeg(weeklyRow, weeklyDirection);
   const daily = forecastLeg(dailyRow, dailyDirection);
 
-  let setup: PredictionAutoSetup = "HOLD";
-  let reason = "日周方向没有形成可执行共振，暂不下单。";
-  if (!weekly || !daily) {
-    setup = "MISSING_FORECAST";
-    reason = !weekly
-      ? "缺少覆盖今天的周预测，禁止自动下单。"
-      : "缺少覆盖今天的日预测，禁止自动下单。";
-  } else if (
-    weekly.confidence < settings.minForecastConfidence ||
-    daily.confidence < settings.minForecastConfidence
-  ) {
-    reason = `预测置信度不足${settings.minForecastConfidence}%，只观察不下单。`;
+  const setup: PredictionAutoSetup = resolveWeeklyAuthoritySetup({
+    weeklyAvailable: Boolean(weekly),
+    weeklyDirection,
+    weeklyConfidence: weekly?.confidence ?? 0,
+    minimumConfidence: settings.minForecastConfidence,
+  });
+  let reason = "正式周预测没有形成可执行方向，暂不下单。";
+  if (!weekly) {
+    reason = "缺少覆盖今天的正式周预测，禁止自动下单。";
+  } else if (weekly.confidence < settings.minForecastConfidence) {
+    reason = `正式周预测置信度不足${settings.minForecastConfidence}%，只观察不下单。`;
   } else if (weeklyDirection === "LONG") {
-    const supportsLong = dailyPattern === "DOWN_THEN_UP" || dailyPattern === "UP";
-    if (supportsLong || !settings.requireDailyWeeklyAlignment) {
-      setup = "BUY_DIP";
-      reason =
-        dailyPattern === "DOWN_THEN_UP"
-          ? "周趋势当前处于上涨阶段，日预测先跌后涨，等待下探止跌后逢低做多。"
-          : "周趋势当前偏多，日预测不反对多头，等待回落确认后做多。";
-    }
+    reason = daily
+      ? `正式周预测锁定看涨；日预测仅描述${dailyPattern}路径，不得否决或翻转周方向。`
+      : "正式周预测锁定看涨；日预测缺失时仍保留周方向，等待技术边沿决定探路或确认。";
   } else if (weeklyDirection === "SHORT") {
-    const supportsShort = dailyPattern === "UP_THEN_DOWN" || dailyPattern === "DOWN";
-    if (supportsShort || !settings.requireDailyWeeklyAlignment) {
-      setup = "SELL_RALLY";
-      reason =
-        dailyPattern === "UP_THEN_DOWN"
-          ? "周趋势当前处于下跌阶段，日预测先涨后跌，等待冲高转弱后逢高做空。"
-          : "周趋势当前偏空，日预测不反对空头，等待反弹确认后做空。";
-    }
+    reason = daily
+      ? `正式周预测锁定看跌；日预测仅描述${dailyPattern}路径，不得否决或翻转周方向。`
+      : "正式周预测锁定看跌；日预测缺失时仍保留周方向，等待技术边沿决定探路或确认。";
   }
 
-  const confidence = weekly && daily ? Math.round((weekly.confidence + daily.confidence) / 2) : 0;
+  const confidence = weekly?.confidence ?? 0;
   const activePoint = getCryptoPointGuidance(normalizedSymbol, now);
   return {
     symbol: normalizedSymbol,
