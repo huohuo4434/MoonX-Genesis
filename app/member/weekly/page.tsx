@@ -11,6 +11,7 @@ import {
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
 import { buildWeeklyAlphaIssue } from "@/lib/data/weekly-alpha";
+import { getMemberMarketBranchOutlook20260813 } from "@/lib/data/member-market-branches-20260813";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,5 +43,6 @@ export default async function MemberWeeklyRoute() {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
   const alphaIssue = await buildWeeklyAlphaIssue(payload.summary.weekStart);
-  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} /></>;
+  const branchOutlook = getMemberMarketBranchOutlook20260813();
+  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} branchOutlook={branchOutlook} /></>;
 }

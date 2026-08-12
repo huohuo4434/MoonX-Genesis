@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { WeeklyAlphaFive } from "@/components/member/WeeklyAlphaFive";
+import { MemberMarketBranchOutlookSection } from "@/components/member/MemberMarketBranchOutlook";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { LockIcon } from "@/components/icons";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
@@ -16,6 +17,7 @@ import type {
   WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
 import type { WeeklyAlphaIssue } from "@/types/weekly-alpha";
+import type { MemberMarketBranchOutlook } from "@/types/member-market-branch";
 
 function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO", en: boolean): string {
   const zh = { LIUYAO: "六爻", QIMEN: "奇门", BAZI: "八字", TECHNICAL: "技术", MACRO: "宏观" } as const;
@@ -146,7 +148,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
   </div></Section></main>;
 }
 
-export function MemberWeeklyFullPage({ slots, summary, alphaIssue }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary; alphaIssue: WeeklyAlphaIssue | null; analyses?: WeeklyAnalysisMemberView[] }) {
+export function MemberWeeklyFullPage({ slots, summary, alphaIssue, branchOutlook }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary; alphaIssue: WeeklyAlphaIssue | null; branchOutlook: MemberMarketBranchOutlook; analyses?: WeeklyAnalysisMemberView[] }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const rows = slots?.length > 0 ? slots : (summary.teasers.map((item) => item.isReady ? null : ({ kind: "unpublished" as const, assetId: item.assetId, assetName: item.assetName, symbol: item.symbol, displaySymbol: item.displaySymbol ?? item.symbol })).filter(Boolean) as WeeklyMarketSlot[]);
@@ -156,6 +158,7 @@ export function MemberWeeklyFullPage({ slots, summary, alphaIssue }: { slots: We
     <Text variant="body" color="secondary" className="mb-6 max-w-3xl">{en ? "Start with the five highest-conviction weekly opportunities, then use the nine core markets as the broader context appendix." : "先看本周证据最干净、最值得盯的5个标的，再用九大核心市场作为大盘与跨市场背景附录。"}</Text>
     <MetaHeader summary={summary} />
     {alphaIssue ? <WeeklyAlphaFive issue={alphaIssue} /> : <Card padding="lg" className="mb-8 border-amber-400/20 bg-amber-400/[0.025]"><Text variant="body" weight="semibold">{en ? "Weekly Alpha 5 is under editorial review" : "本期精选5正在编辑审核"}</Text><Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "MOOX does not auto-fill five names when calendar or Liu Yao evidence has not passed publication review." : "万年历或六爻证据未完成发布审核时，MOOX不会为了凑满5个自动塞入低质量标的。"}</Text></Card>}
+    <MemberMarketBranchOutlookSection outlook={branchOutlook} />
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
         <Heading as="h2" size="h3">{en ? "Nine core markets · context appendix" : "九大核心市场 · 背景附录"}</Heading>
