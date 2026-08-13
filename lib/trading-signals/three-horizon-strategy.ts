@@ -1,7 +1,12 @@
 import "server-only";
 
 import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
-import { selectRotatingScanBatch } from "@/lib/trading-signals/live-scan-rotation-core";
+import {
+  beginLiveScanRound,
+  LiveScanReadDeadlineError,
+  readWithinLiveScanDeadline,
+  runLiveScanSymbolStep,
+} from "@/lib/trading-signals/live-scan-rotation-core";
 import { isRecoverableLegacyTimeExit } from "@/lib/trading-signals/legacy-time-exit-recovery-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -2112,6 +2117,8 @@ async function runLiveCommissioning(input: {
   protections: BitgetDemoStrategyOrder[];
   reservedSymbols: Set<string>;
   forecastBySymbol: ReadonlyMap<string, PredictionStrategyPlan>;
+  eligibleSymbols: readonly BitgetSupportedSymbol[];
+  readDeadlineMs: number;
 }): Promise<{
   state: "COMPLETE" | "ACTIVE" | "WAITING" | "ATTEMPTED" | "ERROR";
   decision: ThreeHorizonStrategyDecision | null;
@@ -2136,15 +2143,26 @@ async function runLiveCommissioning(input: {
   }
   const quoteMap = new Map(input.quotes.map((quote) => [quote.symbol, quote] as const));
   const requestedCommissioningSymbols = prioritizeAllowedCommissioningSymbols(
-    environment.liveAllowedSymbols,
+    input.eligibleSymbols,
     LIVE_COMMISSIONING_PREFERRED_SYMBOLS
   );
-  const contractRows = await Promise.all(
-    requestedCommissioningSymbols.map(async (symbol) => ({
-      symbol,
-      contract: await getContractConfig(symbol).catch(() => null),
-    }))
-  );
+  let contractRows: Array<{ symbol: BitgetSupportedSymbol; contract: Awaited<ReturnType<typeof getContractConfig>> | null }>;
+  try {
+    contractRows = await readWithinLiveScanDeadline(
+      () => Promise.all(
+        requestedCommissioningSymbols.map(async (symbol) => ({
+          symbol,
+          contract: await getContractConfig(symbol).catch(() => null),
+        }))
+      ),
+      input.readDeadlineMs
+    );
+  } catch (error) {
+    if (error instanceof LiveScanReadDeadlineError) {
+      return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "实盘扫描读取时间预算已用尽，本轮未写入决策且禁止下单。" };
+    }
+    throw error;
+  }
   const commissioningUniverse = contractRows
     .filter((row) => row.contract?.available)
     .map((row) => row.symbol);
@@ -2182,7 +2200,10 @@ async function runLiveCommissioning(input: {
       const prior = getHexagramDirectionPrior(quote.symbol, "INTRADAY", input.now);
       const official = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType });
       if (official.direction === "NEUTRAL") continue;
-      const candles = await loadCommissioningCandleSet(quote.symbol);
+      const candles = await readWithinLiveScanDeadline(
+        () => loadCommissioningCandleSet(quote.symbol),
+        input.readDeadlineMs
+      );
       scored.push({
         quote,
         candles,
@@ -2278,6 +2299,16 @@ async function runLiveCommissioning(input: {
         : decision.rejectionReason || "首笔实盘闭环尚未达到执行闸门。",
     };
   } catch (error) {
+    if (error instanceof LiveScanReadDeadlineError) {
+      return {
+        state: "WAITING",
+        decision: null,
+        attempted: false,
+        success: false,
+        error: false,
+        message: "实盘扫描读取时间预算已用尽，本轮未写入决策且禁止下单。",
+      };
+    }
     return {
       state: "ERROR",
       decision: null,
@@ -2955,10 +2986,24 @@ export async function runThreeHorizonStrategyEngine(
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) {
     throw new Error("三周期策略数据库未连接");
   }
+  const environment = getBitgetDemoEnvironment();
+  const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
+  const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
+  const eligibleLiveSymbols = environment.liveAllowedSymbols
+    .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
+  const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
+    ? Math.max(1, Math.floor(options.maxNewSymbols))
+    : Number.POSITIVE_INFINITY;
   const runId = `thr_${randomUUID()}`;
   const startedAt = now.toISOString();
   let managementReadError = "";
-  const management = await manageActiveDecisions(now).catch((error) => {
+  const liveScanRound = await beginLiveScanRound({
+    symbols: eligibleLiveSymbols,
+    maxItems: liveExperimentMode && Number.isFinite(maxNewSymbols)
+      ? maxNewSymbols
+      : Math.max(1, eligibleLiveSymbols.length),
+    nowMs: now.getTime(),
+  }, { manage: () => manageActiveDecisions(now).catch((error) => {
     managementReadError = error instanceof Error ? error.message : "持仓管理读取失败";
     return {
       managed: 0,
@@ -2966,7 +3011,9 @@ export async function runThreeHorizonStrategyEngine(
       orderSuccess: 0,
       orderErrors: 0,
     };
-  });
+  }) });
+  const management = liveScanRound.management;
+  const liveSymbolsForThisRun = liveScanRound.selected;
   await syncAiTradePlansFromRecentDecisions(now).catch(() => 0);
   if (managementReadError) {
     return {
@@ -3001,8 +3048,10 @@ export async function runThreeHorizonStrategyEngine(
     };
   }
   const profiles = await getThreeHorizonProfiles();
-  const environment = getBitgetDemoEnvironment();
-  const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
+  const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
+  // Apply the rotating bound before any live contract/candle discovery. Previously
+  // the final loop selected one symbol only after commissioning had read every
+  // allowed symbol, so sequential read timeouts could consume the 300-second route.
   // Live mode evaluates all three horizons on every server pass. The runtime supplies a
   // small rotating symbol batch so each pass stays bounded while candle data is still
   // shared across profiles. Demo/shadow mode keeps the original cadence.
@@ -3011,7 +3060,7 @@ export async function runThreeHorizonStrategyEngine(
   );
   const settings = await getPredictionAutoTraderSettings();
   const forecastSymbols = liveExperimentMode
-    ? environment.liveAllowedSymbols.map((symbol) => symbol.replace(/USDT$/, ""))
+    ? liveSymbolsForThisRun.map((symbol) => symbol.replace(/USDT$/, ""))
     : undefined;
   const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => []);
   const canonicalForecastBySymbol = new Map<string, PredictionStrategyPlan>();
@@ -3022,7 +3071,7 @@ export async function runThreeHorizonStrategyEngine(
   // Evaluation may use curated focus playbooks, but real plan identity is always bound to
   // canonical locked forecast metadata from canonicalForecastBySymbol.
   const forecastBySymbol = new Map(canonicalForecastBySymbol);
-  for (const symbol of environment.liveAllowedSymbols) {
+  for (const symbol of liveSymbolsForThisRun) {
     const focusPlan = buildAiTradingFocusPredictionPlan(symbol, now);
     if (focusPlan) forecastBySymbol.set(symbol, focusPlan);
   }
@@ -3071,6 +3120,8 @@ export async function runThreeHorizonStrategyEngine(
       protections,
       reservedSymbols,
       forecastBySymbol: canonicalForecastBySymbol,
+      eligibleSymbols: liveSymbolsForThisRun,
+      readDeadlineMs: deadlineMs,
     });
     commissioningMessage = commissioning.message;
     commissioningAttempted = commissioning.attempted;
@@ -3108,36 +3159,40 @@ export async function runThreeHorizonStrategyEngine(
   let entryTriggers = 0;
   let leadTimeBlocks = 0;
   let riskBlocks = 0;
-  const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
-  const liveAllowedForThisRun = environment.liveAllowedSymbols
-    .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
-  const dynamicLiveSymbols = liveExperimentMode
-    ? await selectDynamicTradeUniverse(liveAllowedForThisRun, forecastBySymbol, now)
-    : [];
-  const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
-    ? Math.max(1, Math.floor(options.maxNewSymbols))
-    : Number.POSITIVE_INFINITY;
-  const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let timeBudgetReached = false;
+  let dynamicLiveSymbols: BitgetSupportedSymbol[] = [];
+  if (liveExperimentMode) {
+    try {
+      dynamicLiveSymbols = await readWithinLiveScanDeadline(
+        () => selectDynamicTradeUniverse(liveSymbolsForThisRun, forecastBySymbol, now),
+        deadlineMs
+      );
+    } catch (error) {
+      if (error instanceof LiveScanReadDeadlineError) {
+        timeBudgetReached = true;
+      } else {
+        dynamicLiveSymbols = [];
+      }
+    }
+  }
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
+    if (timeBudgetReached) break;
     let tradesToday = await todayTradeCount(profile, now);
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
     for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
-    const selectedSymbols = Number.isFinite(maxNewSymbols)
-      ? selectRotatingScanBatch(freshProfileSymbols, maxNewSymbols, now.getTime())
-      : freshProfileSymbols;
+    const selectedSymbols = freshProfileSymbols;
     for (const symbol of selectedSymbols) {
       if (Date.now() >= deadlineMs) {
         timeBudgetReached = true;
         break;
       }
-      try {
+      const scanStep = await runLiveScanSymbolStep(async () => {
         let candleSet = candleCache.get(symbol);
         if (!candleSet) {
-          candleSet = await loadCandleSet(symbol);
+          candleSet = await readWithinLiveScanDeadline(() => loadCandleSet(symbol), deadlineMs);
           candleCache.set(symbol, candleSet);
         }
         const forecastPlan = forecastBySymbol.get(symbol);
@@ -3145,6 +3200,8 @@ export async function runThreeHorizonStrategyEngine(
         // MOOX_EXTERNAL_ANALYST_OVERLAY_V1
         // Liuyao weekly/monthly direction remains primary. External analysts may only
         // refine technical levels when aligned; they cannot flip direction or create readiness.
+        // This accessor may run ensureExternalAnalystTables DDL. It must remain
+        // fully awaited under the owner lease and must never outlive a read race.
         const analystOverlay = await getExternalAnalystOverlay(symbol, profile.strategyType, now)
           .catch(() => null);
         evaluation = applyExternalAnalystOverlay({
@@ -3242,7 +3299,7 @@ export async function runThreeHorizonStrategyEngine(
         }
         await syncAiTradePlanFromDecision(decision, now).catch(() => undefined);
         decisions.push(decision);
-      } catch (error) {
+      }, async (error) => {
         const fallback: EvaluationResult = {
           direction: "NEUTRAL",
           confidence: 0,
@@ -3271,13 +3328,18 @@ export async function runThreeHorizonStrategyEngine(
           now,
         }));
         scanErrors += 1;
+      });
+      if (scanStep.timedOut) {
+        timeBudgetReached = true;
+        break;
       }
     }
-    await markProfileScanned(profile, now);
     if (timeBudgetReached) break;
+    await markProfileScanned(profile, now);
   }
   let dailyMinimumMessage = "";
   if (
+    !timeBudgetReached &&
     liveExperimentMode &&
     LIVE_ACTIVITY_ENABLED &&
     LIVE_ACTIVITY_TARGET > 0 &&

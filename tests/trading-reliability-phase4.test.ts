@@ -165,7 +165,16 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   ]);
   assert.match(strategy, /const maxNewSymbols = options\.maxNewSymbols != null && Number\.isFinite\(options\.maxNewSymbols\)/);
   assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);
-  assert.match(strategy, /selectRotatingScanBatch\(freshProfileSymbols, maxNewSymbols, now\.getTime\(\)\)/);
+  assert.match(strategy, /const liveScanRound = await beginLiveScanRound\([\s\S]{0,500}manage: \(\) => manageActiveDecisions\(now\)/);
+  assert.match(strategy, /const liveSymbolsForThisRun = liveScanRound\.selected/);
+  assert.match(strategy, /runLiveCommissioning\([\s\S]{0,500}eligibleSymbols: liveSymbolsForThisRun/);
+  assert.match(strategy, /selectDynamicTradeUniverse\(liveSymbolsForThisRun, forecastBySymbol, now\)/);
+  assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
+  assert.match(strategy, /runLiveScanSymbolStep\(async \(\) =>[\s\S]{0,1000}readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
+  assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);
+  assert.match(strategy, /if \(timeBudgetReached\) break;\s*await markProfileScanned/);
+  assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*liveExperimentMode &&\s*LIVE_ACTIVITY_ENABLED/);
+  assert.doesNotMatch(strategy, /readWithinLiveScanDeadline\([\s\S]{0,120}getExternalAnalystOverlay/);
   all(runtime, [
     "run_lock_owner = $1",
     "WHERE id = 'default' AND run_lock_owner = $1",
