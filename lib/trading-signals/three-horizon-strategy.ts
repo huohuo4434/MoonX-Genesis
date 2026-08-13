@@ -1,6 +1,7 @@
 import "server-only";
 
 import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
+import { selectRotatingScanBatch } from "@/lib/trading-signals/live-scan-rotation-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -2959,9 +2960,9 @@ export async function runThreeHorizonStrategyEngine(
   const profiles = await getThreeHorizonProfiles();
   const environment = getBitgetDemoEnvironment();
   const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
-  // Live mode evaluates all three horizons on every server pass. Candle data is shared
-  // across the profiles, so this produces 30 transparent decisions without tripling the
-  // market-data universe. Demo/shadow mode keeps the original cadence.
+  // Live mode evaluates all three horizons on every server pass. The runtime supplies a
+  // small rotating symbol batch so each pass stays bounded while candle data is still
+  // shared across profiles. Demo/shadow mode keeps the original cadence.
   const dueProfiles = profiles.filter((profile) =>
     profile.enabled && (liveExperimentMode || profileDue(profile, now))
   );
@@ -3070,11 +3071,9 @@ export async function runThreeHorizonStrategyEngine(
   const dynamicLiveSymbols = liveExperimentMode
     ? await selectDynamicTradeUniverse(liveAllowedForThisRun, forecastBySymbol, now)
     : [];
-  const maxNewSymbols = liveExperimentMode
-    ? Number.POSITIVE_INFINITY
-    : options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
-      ? Math.max(1, Math.floor(options.maxNewSymbols))
-      : Number.POSITIVE_INFINITY;
+  const maxNewSymbols = options.maxNewSymbols != null && Number.isFinite(options.maxNewSymbols)
+    ? Math.max(1, Math.floor(options.maxNewSymbols))
+    : Number.POSITIVE_INFINITY;
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let timeBudgetReached = false;
   const eligibleUniverseSymbols = new Set<string>();
@@ -3084,12 +3083,8 @@ export async function runThreeHorizonStrategyEngine(
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
     for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
-    const batchSize = Math.min(maxNewSymbols, freshProfileSymbols.length || 1);
-    const batchCount = Math.max(1, Math.ceil(freshProfileSymbols.length / batchSize));
-    const rotationSlot = Math.floor(now.getTime() / 60_000) % batchCount;
-    const startIndex = rotationSlot * batchSize;
     const selectedSymbols = Number.isFinite(maxNewSymbols)
-      ? freshProfileSymbols.slice(startIndex, startIndex + batchSize)
+      ? selectRotatingScanBatch(freshProfileSymbols, maxNewSymbols, now.getTime())
       : freshProfileSymbols;
     for (const symbol of selectedSymbols) {
       if (Date.now() >= deadlineMs) {

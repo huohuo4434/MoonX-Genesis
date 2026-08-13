@@ -48,6 +48,11 @@ import type {
   BitgetRuntimeState,
   BitgetSmokeTestReport,
 } from "@/types/bitget-demo-runtime";
+import {
+  acquireRuntimeLease,
+  releaseRuntimeLease,
+  type RuntimeLeaseStore,
+} from "@/lib/bitget/runtime-lease-core";
 
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
@@ -55,10 +60,14 @@ const QUOTE_HEALTH_SECONDS = 180;
 const API_FAILURE_PAUSE_THRESHOLD = 5;
 const ORDER_FAILURE_PAUSE_THRESHOLD = 2;
 const AUTO_RECOVERY_HEALTHY_RUNS = 2;
-const LOCK_SECONDS = 270;
+// Longer than the longest 300-second server route. Owner fencing below prevents
+// a stale invocation from releasing a newer invocation's lease.
+const LOCK_SECONDS = 330;
 const EVENT_RETENTION_DAYS = 14;
-const LIVE_STRATEGY_SYMBOLS_PER_RUN = 10;
-const LIVE_STRATEGY_BUDGET_MS = 250_000;
+// Keep every live pass bounded so the one-minute cron can rotate through the
+// universe instead of timing out after repeatedly evaluating only its first symbol.
+const LIVE_STRATEGY_SYMBOLS_PER_RUN = 1;
+const LIVE_STRATEGY_BUDGET_MS = 70_000;
 
 interface RuntimeStateRow {
   paused: boolean;
@@ -177,6 +186,7 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
         paused BOOLEAN NOT NULL DEFAULT FALSE,
         pause_reason TEXT NOT NULL DEFAULT '',
         run_lock_until TIMESTAMPTZ,
+        run_lock_owner TEXT,
         last_heartbeat_at TIMESTAMPTZ,
         last_market_at TIMESTAMPTZ,
         last_strategy_at TIMESTAMPTZ,
@@ -205,6 +215,7 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS pause_source TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_market_error TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_account_error TEXT NOT NULL DEFAULT ''`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS run_lock_owner TEXT`);
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_bitget_runtime_events (
         id TEXT PRIMARY KEY,
@@ -273,28 +284,44 @@ async function recordEvent(input: {
   `;
 }
 
-async function acquireRuntimeLock(now: Date): Promise<boolean> {
-  if (!(await ensureBitgetRuntimeTables()) || !prisma) return false;
-  const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-    `UPDATE trade_bitget_runtime_state
-     SET run_lock_until = $1::timestamptz + INTERVAL '${LOCK_SECONDS} seconds',
-         last_heartbeat_at = $1::timestamptz,
-         updated_at = NOW()
-     WHERE id = 'default'
-       AND (run_lock_until IS NULL OR run_lock_until < NOW())
-     RETURNING id`,
-    now.toISOString()
-  );
-  return rows.length > 0;
+const runtimeLeaseStore: RuntimeLeaseStore = {
+  async tryAcquire(owner, leaseSeconds) {
+    if (!(await ensureBitgetRuntimeTables()) || !prisma) return false;
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `UPDATE trade_bitget_runtime_state
+       SET run_lock_until = NOW() + make_interval(secs => $2::int),
+           run_lock_owner = $1,
+           last_heartbeat_at = NOW(),
+           updated_at = NOW()
+       WHERE id = 'default'
+         AND (run_lock_until IS NULL OR run_lock_until < NOW())
+       RETURNING id`,
+      owner,
+      leaseSeconds
+    );
+    return rows.length > 0;
+  },
+  async release(owner) {
+    if (!prisma) return false;
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `UPDATE trade_bitget_runtime_state
+       SET run_lock_until = NULL,
+           run_lock_owner = NULL,
+           updated_at = NOW()
+       WHERE id = 'default' AND run_lock_owner = $1
+       RETURNING id`,
+      owner
+    );
+    return rows.length > 0;
+  },
+};
+
+async function acquireRuntimeLock(owner: string): Promise<boolean> {
+  return acquireRuntimeLease(runtimeLeaseStore, owner, LOCK_SECONDS);
 }
 
-async function releaseRuntimeLock(): Promise<void> {
-  if (!prisma) return;
-  await prisma.$executeRawUnsafe(`
-    UPDATE trade_bitget_runtime_state
-    SET run_lock_until = NULL, updated_at = NOW()
-    WHERE id = 'default'
-  `);
+async function releaseRuntimeLock(owner: string): Promise<void> {
+  await releaseRuntimeLease(runtimeLeaseStore, owner);
 }
 
 async function readStateRow(): Promise<RuntimeStateRow | undefined> {
@@ -846,7 +873,7 @@ export async function runBitgetDemoServerRuntime(
   }
   const runId = `bgr_${randomUUID()}`;
   const startedAt = now.toISOString();
-  const locked = await acquireRuntimeLock(now);
+  const locked = await acquireRuntimeLock(runId);
   if (!locked) {
     return {
       ok: true,
@@ -1374,7 +1401,7 @@ export async function runBitgetDemoServerRuntime(
     }).catch(() => undefined);
     throw error;
   } finally {
-    await releaseRuntimeLock().catch(() => undefined);
+    await releaseRuntimeLock(runId).catch(() => undefined);
   }
 }
 

@@ -11,6 +11,7 @@ const liveExecutionCore = read("lib/bitget/live-execution-core.ts");
 const reliability = read("lib/trading-signals/trading-reliability.ts");
 const reliabilityTypes = read("types/trading-reliability.ts");
 const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
+const runtime = read("lib/bitget/demo-runtime.ts");
 const migration = read("prisma/migrations/20260804050000_trade_reliability_phase4/migration.sql");
 const liveMigration = read("prisma/migrations/20260807010000_trade_reliability_live_mode/migration.sql");
 const commissioningPlans = read("lib/trading-signals/ai-trade-plans.ts");
@@ -154,6 +155,27 @@ test("被交易所取消或拒绝的任务不会无限自动重开", () => {
 
 test("三周期新开仓进入可靠性闸门", () => {
   all(strategy, ["getTradingReliabilityOpeningGate", "reliabilityGate.allowed", "reliabilityGate.code", "reliabilityGate.reason"]);
+});
+
+test("live cron bounds each pass to one rotating symbol while preserving its one-minute cadence", () => {
+  all(runtime, [
+    "LIVE_STRATEGY_SYMBOLS_PER_RUN = 1",
+    "LIVE_STRATEGY_BUDGET_MS = 70_000",
+    'maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined',
+  ]);
+  assert.match(strategy, /const maxNewSymbols = options\.maxNewSymbols != null && Number\.isFinite\(options\.maxNewSymbols\)/);
+  assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);
+  assert.match(strategy, /selectRotatingScanBatch\(freshProfileSymbols, maxNewSymbols, now\.getTime\(\)\)/);
+  all(runtime, [
+    "run_lock_owner = $1",
+    "WHERE id = 'default' AND run_lock_owner = $1",
+    "acquireRuntimeLock(runId)",
+    "releaseRuntimeLock(runId)",
+  ]);
+  assert.deepEqual(
+    vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader"),
+    { path: "/api/cron/prediction-auto-trader", schedule: "* * * * *" }
+  );
 });
 
 test("看门狗覆盖关键失效场景", () => {
