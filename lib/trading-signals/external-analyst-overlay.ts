@@ -61,6 +61,19 @@ function aligned(
   return technical !== "NEUTRAL" && external === technical;
 }
 
+function directionFromObservations(
+  overlay: ExternalAnalystOverlay,
+  source: "MAT78704"
+): ThreeHorizonDirection {
+  const observations = (overlay.observations ?? []).filter((row) => row.source === source);
+  if (!observations.length) return "NEUTRAL";
+  const score = observations.reduce(
+    (sum, row) => sum + (row.direction === "LONG" ? row.confidence : row.direction === "SHORT" ? -row.confidence : 0),
+    0
+  );
+  return score > 35 ? "LONG" : score < -35 ? "SHORT" : "NEUTRAL";
+}
+
 export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   evaluation: T;
   overlay: ExternalAnalystOverlay | null;
@@ -70,7 +83,18 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   const { evaluation, overlay, strategyType, primaryForecastDirection } = input;
   if (!overlay || !evaluation.entryPrice || evaluation.direction === "NEUTRAL") return evaluation;
 
-  const isAligned = aligned(primaryForecastDirection, evaluation.direction, overlay.direction);
+  const matResonance = overlay.sources?.includes("MAT78704") ?? false;
+  const gannReference = overlay.sources?.includes("BTCTW0")
+    ?? Boolean(overlay.roles?.some((role) => role === "GANN_LEVEL_CYCLE" || role === "GANN_SWING")
+      || overlay.sourceLabels.some((value) => /BTCTW0/i.test(value)));
+  const hasFormalDirection = primaryForecastDirection !== "NEUTRAL";
+  const matDirection = matResonance ? directionFromObservations(overlay, "MAT78704") : "NEUTRAL";
+  const matAligned = matResonance
+    ? hasFormalDirection && matDirection !== "NEUTRAL" && matDirection === primaryForecastDirection
+    : true;
+  const isAligned = matResonance
+    ? matAligned
+    : aligned(primaryForecastDirection, evaluation.direction, overlay.direction);
   const directionText = overlay.direction === "LONG" ? "偏多" : overlay.direction === "SHORT" ? "偏空" : "条件式/中性";
   const policyText = primaryForecastDirection === "NEUTRAL"
     ? "当前卦象未给出单边方向，辅助线索只能提供点位，不能单独触发交易。"
@@ -96,15 +120,22 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
       timeWindows: overlay.timeWindows,
       newestPostedAt: overlay.newestPostedAt,
       primaryForecastDirection,
+      sources: overlay.sources ?? [],
+      roles: overlay.roles ?? [],
+      matDirection,
+      alignment: isAligned ? "ALIGNED" : "CONFLICT",
+      authority: "RESEARCH_ONLY",
+      consensusEligible: false,
       applied: false,
       rule: "六爻周度/月度方向优先；公开市场资金线索仅辅助入场、止盈、止损和时间窗口，不得独立反转方向。",
     },
   };
 
   if (!isAligned) {
+    const confidencePenalty = matResonance && matDirection === "NEUTRAL" ? 0 : 3;
     return {
       ...evaluation,
-      confidence: clamp(evaluation.confidence - 3, 0, 100),
+      confidence: clamp(evaluation.confidence - confidencePenalty, 0, 100),
       conditions: [...evaluation.conditions.filter((row) => row.key !== "external_analyst"), condition],
       raw: baseRaw,
     };
@@ -121,7 +152,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   let target2 = evaluation.target2;
   const original = { stopLoss, target1, target2 };
 
-  if (evaluation.direction === "LONG") {
+  if (gannReference && evaluation.direction === "LONG") {
     const support = nearestBelow(supports, entry);
     if (support) {
       const candidate = support * (1 - bufferPct / 100);
@@ -135,7 +166,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
     if (first) target1 = target1 == null ? first : Math.min(target1, first);
     if (second) target2 = target2 == null ? second : Math.max(target1 ?? entry, Math.min(target2, second));
     else if (first && target2 == null) target2 = first;
-  } else {
+  } else if (gannReference) {
     const resistance = nearestAbove(resistances, entry);
     if (resistance) {
       const candidate = resistance * (1 + bufferPct / 100);
@@ -155,7 +186,13 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   const validTarget1 = target1 != null && (evaluation.direction === "LONG" ? target1 > entry : target1 < entry);
   const validTarget2 = target2 != null && (evaluation.direction === "LONG" ? target2 > entry : target2 < entry);
   const rewardRisk = validStop && validTarget2 ? rr(evaluation.direction, entry, stopLoss as number, target2 as number) : 0;
-  const applied = Boolean(validStop && validTarget1 && validTarget2 && rewardRisk >= 1.2);
+  const originalStopValid = original.stopLoss != null && (evaluation.direction === "LONG" ? original.stopLoss < entry : original.stopLoss > entry);
+  const originalTarget2Valid = original.target2 != null && (evaluation.direction === "LONG" ? original.target2 > entry : original.target2 < entry);
+  const originalRewardRisk = originalStopValid && originalTarget2Valid
+    ? rr(evaluation.direction, entry, original.stopLoss as number, original.target2 as number)
+    : 0;
+  const levelsChanged = stopLoss !== original.stopLoss || target1 !== original.target1 || target2 !== original.target2;
+  const applied = Boolean(gannReference && levelsChanged && validStop && validTarget1 && validTarget2 && rewardRisk >= 1.2 && (originalRewardRisk <= 0 || rewardRisk >= originalRewardRisk));
 
   const externalRaw = baseRaw.externalAnalyst as Record<string, unknown>;
   const raw = {
@@ -165,13 +202,13 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
       applied,
       originalLevels: original,
       adjustedLevels: applied ? { stopLoss, target1, target2, rewardRisk } : original,
-      rejection: applied ? null : "辅助点位会导致结构无效或TP2盈亏比低于1:1.2，已保留系统原计划。",
+      rejection: applied ? null : "辅助点位会导致结构无效、TP2盈亏比低于1:1.2或低于原计划，已保留系统原计划。",
     },
   };
 
   return {
     ...evaluation,
-    confidence: clamp(evaluation.confidence + (overlay.direction === "NEUTRAL" ? 1 : 4), 0, 100),
+    confidence: clamp(evaluation.confidence + (matResonance ? 3 : overlay.direction === "NEUTRAL" ? 1 : 4), 0, 100),
     stopLoss: applied ? stopLoss : evaluation.stopLoss,
     target1: applied ? target1 : evaluation.target1,
     target2: applied ? target2 : evaluation.target2,

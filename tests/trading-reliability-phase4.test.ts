@@ -705,3 +705,14 @@ test("V4实盘容量授权确定性覆盖旧三仓配置且仍封顶十仓", () 
   assert.equal(resolveLiveCapacityV4({ v4: "100", v3: "3", legacy: "3" }), 10);
   all(client, ["liveMaxGrossNotionalPct", "liveMaxPositionNotionalUsdt", "liveDailyLossUsdt", "liveMaxDrawdownUsdt"]);
 });
+
+test("三位X博主研究角色不能绕过正式方向和交易硬门禁", () => {
+  const parser = read("lib/trading-signals/external-analyst-parser.ts");
+  const overlay = read("lib/trading-signals/external-analyst-overlay.ts");
+  const aggregation = read("lib/trading-signals/external-analyst-aggregation-core.ts");
+  all(parser, ["DIRECTION_CYCLE_RESONANCE", "GANN_LEVEL_CYCLE", "ALTCOIN_DISCOVERY", "researchEligible"]);
+  all(overlay, ['authority: "RESEARCH_ONLY"', "consensusEligible: false", "primaryForecastDirection"]);
+  assert.match(aggregation, /if \(source === "BTCKIK"\) return false/);
+  assert.doesNotMatch(overlay, /return\s*\{[\s\S]{0,160}ready:\s*true/);
+  assert.doesNotMatch(overlay, /return\s*\{[\s\S]{0,160}direction:\s*overlay\.direction/);
+});

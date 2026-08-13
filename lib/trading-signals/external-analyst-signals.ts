@@ -6,6 +6,8 @@ import {
   analystSourceFromUsername,
   parseExternalAnalystPost,
 } from "@/lib/trading-signals/external-analyst-parser";
+import { prepareExternalAnalystCollectorPosts, type PreparedCollectorPost } from "@/lib/trading-signals/external-analyst-collector-core";
+import { buildExternalAnalystOverlayFromRows } from "@/lib/trading-signals/external-analyst-aggregation-core";
 import type {
   ExternalAnalystOverlay,
   ExternalAnalystParsedPost,
@@ -13,22 +15,14 @@ import type {
   ExternalAnalystSource,
 } from "@/types/external-analyst";
 import { configuredXWatchHandles } from "@/lib/trading-signals/x-source-registry.server";
-import type {
-  ThreeHorizonDirection,
-  ThreeHorizonStrategyType,
-} from "@/types/three-horizon-strategy";
+import type { ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
 
 const ANALYSTS: Array<{ username: string; source: ExternalAnalystSource; label: string }> = [
   { username: "haliluya8911", source: "HALILUYA", label: "短线恐慌反弹观察" },
   { username: "BTCTW0", source: "BTCTW0", label: "彼得兔江恩波段点位" },
   { username: "btckik", source: "BTCKIK", label: "山寨币轮动与早期叙事观察" },
+  { username: "mat78704", source: "MAT78704", label: "方向与周期共振观察" },
 ];
-
-const SOURCE_LABELS: Record<ExternalAnalystSource, string> = {
-  HALILUYA: "haliluya8911·短线反弹",
-  BTCTW0: "彼得兔BTCTW0·江恩波段",
-  BTCKIK: "btckik·山寨币轮动",
-};
 
 interface StoredRow {
   source: ExternalAnalystSource;
@@ -65,15 +59,6 @@ function parseJson<T>(value: unknown, fallback: T): T {
     }
   }
   return value as T;
-}
-
-function uniqueNumbers(values: number[]): number[] {
-  return Array.from(new Set(values.filter((value) => Number.isFinite(value) && value > 0)))
-    .sort((a, b) => a - b);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean)));
 }
 
 async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
@@ -268,22 +253,13 @@ async function storePost(
 
 
 async function storeCollectorPostsBatch(
-  posts: ExternalAnalystFeedPostInput[],
-  source: ExternalAnalystSource
+  posts: PreparedCollectorPost[]
 ): Promise<{ storedPosts: number; parsedSignals: number }> {
   if (!prisma || posts.length === 0) return { storedPosts: 0, parsedSignals: 0 };
 
   const prepared = posts.flatMap((post) => {
-    const postedAt = new Date(post.createdAt);
-    if (Number.isNaN(postedAt.getTime())) return [];
-    const parsed = parseExternalAnalystPost({
-      source,
-      username: post.username,
-      postId: post.id,
-      postUrl: post.url ?? `https://x.com/${post.username}/status/${post.id}`,
-      postedAt: postedAt.toISOString(),
-      text: post.text,
-    });
+    const parsed = post.parsed;
+    const source = post.source;
     return [{
       id: `${source}:${post.id}`,
       source,
@@ -366,6 +342,8 @@ export type ExternalAnalystCollectorIngestReport = {
   errorCount: number;
   durationMs: number | null;
   errors: string[];
+  duplicatePosts: number;
+  truncatedPosts: number;
 };
 
 function configuredCollectorAccounts(): Set<string> {
@@ -421,6 +399,8 @@ export async function ingestExternalAnalystCollectorPosts(input: {
     errorCount: boundedCount(meta.errorCount, 500),
     durationMs,
     errors: [],
+    duplicatePosts: 0,
+    truncatedPosts: 0,
   };
 
   if (!(await ensureExternalAnalystTables())) {
@@ -429,39 +409,18 @@ export async function ingestExternalAnalystCollectorPosts(input: {
   }
 
   const allowedAccounts = configuredCollectorAccounts();
-  const unique = Array.from(new Map(
-    input.posts
-      .slice(0, 120)
-      .map((post) => ({
-        username: String(post.username ?? "").replace(/^@/, "").trim(),
-        id: String(post.id ?? "").trim(),
-        text: String(post.text ?? "").replace(/\u0000/g, "").trim().slice(0, 20_000),
-        createdAt: String(post.createdAt ?? "").trim(),
-        url: post.url ? String(post.url).trim() : undefined,
-      }))
-      .filter((post) => post.username && post.id && post.text && post.createdAt)
-      .map((post) => [`${post.username.toLowerCase()}:${post.id}`, post] as const)
-  ).values());
+  const prepared = prepareExternalAnalystCollectorPosts({ posts: input.posts, allowedAccounts });
+  for (const rejected of prepared.rejected) report.errors.push(`${rejected.username}/${rejected.id}: ${rejected.reason}`);
+  report.rejectedPosts = prepared.rejected.length;
+  report.duplicatePosts = prepared.duplicateCount;
+  report.truncatedPosts = prepared.truncatedCount;
 
-  const accepted: ExternalAnalystFeedPostInput[] = [];
-  for (const post of unique) {
-    const normalizedUsername = post.username.toLowerCase();
-    if (!allowedAccounts.has(normalizedUsername)) {
-      report.rejectedPosts += 1;
-      report.errors.push(`${post.username}/${post.id}: ACCOUNT_NOT_ALLOWED`);
-      continue;
-    }
-    accepted.push(post);
-  }
-
-  // Local collector data is always observation-only. It may enrich the member
-  // radar, but it must never enter the automated trading overlay. Batch the DB
-  // upsert into one round-trip so a normal 30-120 post payload does not spend
-  // the whole serverless invocation doing one INSERT per post.
-  const forcedSource: ExternalAnalystSource = "BTCKIK";
+  // Every post keeps the source authorized by its username. Roles remain
+  // RESEARCH_ONLY; downstream policy decides whether a structured observation
+  // is eligible for a bounded overlay. Batch into one idempotent DB round-trip.
   try {
-    const stored = await storeCollectorPostsBatch(accepted, forcedSource);
-    report.acceptedPosts = accepted.length;
+    const stored = await storeCollectorPostsBatch(prepared.accepted);
+    report.acceptedPosts = prepared.accepted.length;
     report.storedPosts = stored.storedPosts;
     report.parsedSignals = stored.parsedSignals;
   } catch (error) {
@@ -585,20 +544,6 @@ export async function refreshExternalAnalystSignals(
   return report;
 }
 
-function sourceRelevant(source: ExternalAnalystSource, strategyType: ThreeHorizonStrategyType): boolean {
-  // BTCKIK is an observation-only KOL feed. It must never alter the automated
-  // trading overlay or place orders. The member radar presents it separately.
-  if (source === "BTCKIK") return false;
-  if (strategyType === "INTRADAY") return source === "HALILUYA";
-  return source === "BTCTW0";
-}
-
-function freshnessHours(source: ExternalAnalystSource, strategyType: ThreeHorizonStrategyType): number {
-  if (source === "HALILUYA") return strategyType === "INTRADAY" ? 72 : 120;
-  if (source === "BTCKIK") return strategyType === "POSITION" ? 21 * 24 : 7 * 24;
-  return strategyType === "POSITION" ? 45 * 24 : 14 * 24;
-}
-
 export async function getExternalAnalystOverlay(
   symbol: string,
   strategyType: ThreeHorizonStrategyType,
@@ -609,47 +554,12 @@ export async function getExternalAnalystOverlay(
   const rows = await prisma.$queryRawUnsafe<StoredRow[]>(`
     SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
     FROM trade_external_analyst_posts
-    WHERE posted_at >= NOW() - INTERVAL '45 days'
+    WHERE posted_at >= $1::timestamptz - INTERVAL '45 days'
+      AND posted_at <= $1::timestamptz
     ORDER BY posted_at DESC
     LIMIT 160
-  `);
-  const relevant = rows.flatMap((row): ExternalAnalystParsedPost[] => {
-    const parsed = parseJson<ExternalAnalystParsedPost | null>(row.parsed, null);
-    if (!parsed) return [];
-    if (!sourceRelevant(parsed.source, strategyType)) return [];
-    if (parsed.symbols.length !== 1 || parsed.symbols[0] !== symbol) return [];
-    const postedAt = Date.parse(parsed.postedAt);
-    if (!Number.isFinite(postedAt)) return [];
-    const ageHours = (now.getTime() - postedAt) / 3_600_000;
-    if (ageHours < -1 || ageHours > freshnessHours(parsed.source, strategyType)) return [];
-    return [parsed];
-  }).slice(0, 6);
-  if (!relevant.length) return null;
-
-  let directionScore = 0;
-  for (const post of relevant) {
-    if (post.direction === "LONG") directionScore += post.confidence;
-    else if (post.direction === "SHORT") directionScore -= post.confidence;
-  }
-  const direction: ThreeHorizonDirection = directionScore > 35 ? "LONG" : directionScore < -35 ? "SHORT" : "NEUTRAL";
-  const newestPostedAt = relevant
-    .map((post) => post.postedAt)
-    .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? now.toISOString();
-  return {
-    symbol,
-    strategyType,
-    direction,
-    confidence: Math.min(80, Math.max(35, Math.round(relevant.reduce((sum, post) => sum + post.confidence, 0) / relevant.length))),
-    supportLevels: uniqueNumbers(relevant.flatMap((post) => post.supportLevels)),
-    resistanceLevels: uniqueNumbers(relevant.flatMap((post) => post.resistanceLevels)),
-    targetLevels: uniqueNumbers(relevant.flatMap((post) => post.targetLevels)),
-    invalidationLevels: uniqueNumbers(relevant.flatMap((post) => post.invalidationLevels)),
-    timeWindows: uniqueStrings(relevant.flatMap((post) => post.timeWindows)).slice(0, 8),
-    sourceLabels: uniqueStrings(relevant.map((post) => SOURCE_LABELS[post.source])),
-    sourceUrls: uniqueStrings(relevant.map((post) => post.postUrl)).slice(0, 6),
-    summaries: uniqueStrings(relevant.map((post) => post.summary)).slice(0, 4),
-    newestPostedAt,
-  };
+  `, now.toISOString());
+  return buildExternalAnalystOverlayFromRows({ rows, symbol, strategyType, nowMs: now.getTime() });
 }
 
 export async function getLatestExternalAnalystPosts(input: {

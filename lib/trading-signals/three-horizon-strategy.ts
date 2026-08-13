@@ -24,6 +24,7 @@ import {
   applyWeeklyTimingToEntryEligibility,
   evaluateWeeklyLongEntryTiming,
 } from "@/lib/trading-signals/weekly-long-entry-timing-core";
+import { resolveFormalExternalOverlayDirection } from "@/lib/trading-signals/external-analyst-aggregation-core";
 import { prisma } from "@/lib/prisma";
 import {
   cancelBitgetDemoStrategyOrder,
@@ -661,6 +662,18 @@ function forecastDirectionForStrategy(
     weeklyDirection: plan.weeklyDirection,
     fallbackDirection: strategyType === "POSITION" ? plan.monthlyDirection : "NEUTRAL",
   });
+}
+
+function formalForecastDirectionForExternalOverlay(
+  plan: PredictionStrategyPlan | undefined,
+  strategyType: ThreeHorizonStrategyType,
+  nowMs: number
+): ThreeHorizonDirection {
+  if (!plan) return "NEUTRAL";
+  const leg = (forecast: typeof plan.weeklyForecast, direction: ThreeHorizonDirection) => forecast
+    ? { status: forecast.status, publishedAt: forecast.publishedAt, lockedAt: forecast.lockedAt, direction }
+    : null;
+  return resolveFormalExternalOverlayDirection({ strategyType, nowMs, weekly: leg(plan.weeklyForecast, plan.weeklyDirection), monthly: leg(plan.monthlyForecast, plan.monthlyDirection) });
 }
 
 function forecastCompatibility(
@@ -3410,7 +3423,7 @@ export async function runThreeHorizonStrategyEngine(
           evaluation,
           overlay: analystOverlay,
           strategyType: profile.strategyType,
-          primaryForecastDirection: forecastDirection(forecastPlan),
+          primaryForecastDirection: formalForecastDirectionForExternalOverlay(forecastPlan, profile.strategyType, now.getTime()),
         });
         let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;

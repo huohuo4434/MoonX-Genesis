@@ -75,8 +75,10 @@ function aliasMatches(text: string, alias: string): boolean {
 function detectSymbols(text: string, source: ExternalAnalystSource): string[] {
   const normalized = text.toLowerCase();
   const symbols = new Set<string>();
-  for (const [symbol, aliases] of SYMBOL_ALIASES) {
-    if (aliases.some((alias) => aliasMatches(normalized, alias))) symbols.add(symbol);
+  if (source !== "BTCKIK") {
+    for (const [symbol, aliases] of SYMBOL_ALIASES) {
+      if (aliases.some((alias) => aliasMatches(normalized, alias))) symbols.add(symbol);
+    }
   }
   if (source === "BTCKIK") {
     const blocked = new Set([
@@ -183,8 +185,9 @@ function classifyLevels(text: string): {
 
 function sourceRole(source: ExternalAnalystSource): ExternalAnalystRole {
   if (source === "HALILUYA") return "PANIC_REVERSAL";
-  if (source === "BTCKIK") return "ALTCOIN_ROTATION";
-  return "GANN_SWING";
+  if (source === "BTCKIK") return "ALTCOIN_DISCOVERY";
+  if (source === "MAT78704") return "DIRECTION_CYCLE_RESONANCE";
+  return "GANN_LEVEL_CYCLE";
 }
 
 export function parseExternalAnalystPost(input: {
@@ -201,6 +204,20 @@ export function parseExternalAnalystPost(input: {
   const direction = inferDirection(text);
   const horizon = inferHorizon(input.source, text);
   const explicitLevelCount = levels.supportLevels.length + levels.resistanceLevels.length + levels.targetLevels.length;
+  const timeWindows = extractTimeWindows(text);
+  const gannContext = /江恩|角度线|周期|时间窗|支撑|压力|阻力|突破|跌破|站稳|失守/i.test(text);
+  const researchEligible = input.source === "BTCTW0"
+    ? symbols.length === 1 && gannContext && (explicitLevelCount > 0 || timeWindows.length > 0)
+    : input.source === "MAT78704"
+      ? symbols.length === 1 && direction !== "NEUTRAL"
+      : input.source !== "BTCKIK";
+  const researchRejection = researchEligible
+    ? null
+    : input.source === "BTCTW0"
+      ? "缺少明确标的及江恩点位/周期上下文，仅留档不进入结构参考。"
+      : input.source === "MAT78704"
+        ? "缺少明确标的或明确方向，仅留档不进入共振参考。"
+        : "山寨发现源仅进入雷达，不进入交易overlay。";
   const confidence = Math.max(35, Math.min(80,
     42 + explicitLevelCount * 4 + (direction === "NEUTRAL" ? 0 : 8) + (symbols.length === 1 ? 4 : 0)
   ));
@@ -216,9 +233,11 @@ export function parseExternalAnalystPost(input: {
     direction,
     horizon,
     ...levels,
-    timeWindows: extractTimeWindows(text),
+    timeWindows,
     confidence,
     summary: text.length > 220 ? `${text.slice(0, 217)}...` : text,
+    researchEligible,
+    researchRejection,
   };
 }
 
@@ -227,5 +246,6 @@ export function analystSourceFromUsername(username: string): ExternalAnalystSour
   if (normalized === "haliluya8911") return "HALILUYA";
   if (normalized === "btctw0") return "BTCTW0";
   if (normalized === "btckik") return "BTCKIK";
+  if (normalized === "mat78704") return "MAT78704";
   return null;
 }

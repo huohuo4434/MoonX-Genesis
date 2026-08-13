@@ -16,9 +16,11 @@ test("collector ingest route is secret protected and size limited", () => {
 
 test("collector ingestion is observation only for custom accounts", () => {
   const source = read("lib/trading-signals/external-analyst-signals.ts");
+  const aggregation = read("lib/trading-signals/external-analyst-aggregation-core.ts");
   assert.match(source, /MOOX_X_WATCH_ACCOUNTS/);
-  assert.match(source, /const forcedSource: ExternalAnalystSource = "BTCKIK"/);
-  assert.match(source, /if \(source === "BTCKIK"\) return false/);
+  assert.match(source, /prepareExternalAnalystCollectorPosts/);
+  assert.doesNotMatch(source, /forcedSource: ExternalAnalystSource = "BTCKIK"/);
+  assert.match(aggregation, /if \(source === "BTCKIK"\) return false/);
 });
 
 test("collector is read only and never calls twitter write commands", () => {

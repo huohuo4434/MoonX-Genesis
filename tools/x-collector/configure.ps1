@@ -49,12 +49,16 @@ $config = if (Test-Path -LiteralPath $ConfigPath) {
 } else {
   [pscustomobject]@{
     site_url = "https://mooxintel.com"
-    accounts = @("btckik", "BTCTW0", "haliluya8911")
+    accounts = @("btckik", "BTCTW0", "haliluya8911", "mat78704")
     max_posts_per_account = 15
     lookback_hours = 168
     timeout_seconds = 60
   }
 }
+
+$requiredAccounts = @("btckik", "BTCTW0", "haliluya8911", "mat78704")
+$existingAccounts = @($config.accounts | ForEach-Object { [string]$_ })
+$config.accounts = @($existingAccounts + $requiredAccounts | Sort-Object -Unique)
 
 $siteUrl = Read-Host "MOOX site URL (press Enter for $($config.site_url))"
 if (-not $siteUrl.Trim()) { $siteUrl = [string]$config.site_url }

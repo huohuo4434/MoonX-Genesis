@@ -4,8 +4,8 @@ import type {
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
 
-export type ExternalAnalystSource = "HALILUYA" | "BTCTW0" | "BTCKIK";
-export type ExternalAnalystRole = "PANIC_REVERSAL" | "GANN_SWING" | "ALTCOIN_ROTATION";
+export type ExternalAnalystSource = "HALILUYA" | "BTCTW0" | "BTCKIK" | "MAT78704";
+export type ExternalAnalystRole = "PANIC_REVERSAL" | "GANN_LEVEL_CYCLE" | "ALTCOIN_DISCOVERY" | "DIRECTION_CYCLE_RESONANCE" | "GANN_SWING" | "ALTCOIN_ROTATION";
 
 export type ExternalAnalystParsedPost = {
   source: ExternalAnalystSource;
@@ -26,6 +26,8 @@ export type ExternalAnalystParsedPost = {
   timeWindows: string[];
   confidence: number;
   summary: string;
+  researchEligible: boolean;
+  researchRejection: string | null;
 };
 
 export type ExternalAnalystOverlay = {
@@ -42,6 +44,15 @@ export type ExternalAnalystOverlay = {
   sourceUrls: string[];
   summaries: string[];
   newestPostedAt: string;
+  sources?: ExternalAnalystSource[];
+  roles?: ExternalAnalystRole[];
+  observations?: Array<{
+    source: ExternalAnalystSource;
+    role: ExternalAnalystRole;
+    direction: ThreeHorizonDirection;
+    confidence: number;
+    postedAt: string;
+  }>;
 };
 
 export type ExternalAnalystRefreshReport = {
