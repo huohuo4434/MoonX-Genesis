@@ -33,6 +33,10 @@ import {
 } from "@/lib/trading-signals/v2-store";
 import type { AdminCycleForecastRow } from "@/types/admin-full-cycle";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
+import {
+  isFormallyLockedForecast,
+  selectFormallyLockedForecast,
+} from "@/lib/trading-signals/formal-forecast-lock-core";
 import type {
   PredictionAutoDecision,
   PredictionAutoDirection,
@@ -760,50 +764,35 @@ async function loadPredictionForecastRows(
         row.periodEnd >= today
     );
     if (hasDaily) continue;
-    const weekly = selectForecast(rows, assetId, "WEEK", today);
+    const weekly = selectForecast(rows, assetId, "WEEK", today, now.getTime());
     if (weekly) rows.push(runtimeDailyRow(weekly, symbol, today));
   }
 
   return rows;
 }
 
-function rowIsFormallyLocked(row: AdminCycleForecastRow): boolean {
-  const status = String(row.status ?? "").toLowerCase();
-  return Boolean(
-    row.publishedAt &&
-    row.lockedAt &&
-    !status.includes("draft") &&
-    !status.includes("pending") &&
-    (status.includes("lock") || status.includes("publish") || status.includes("verif") || status.includes("正式"))
-  );
+function rowIsFormallyLocked(row: AdminCycleForecastRow, nowMs: number): boolean {
+  return isFormallyLockedForecast({
+    status: row.status,
+    publishedAt: row.publishedAt ?? null,
+    lockedAt: row.lockedAt ?? null,
+    nowMs,
+  });
 }
 
 function selectForecast(
   rows: AdminCycleForecastRow[],
   assetId: string,
   horizon: "DAY" | "WEEK" | "MONTH",
-  today: string
+  today: string,
+  nowMs: number
 ): AdminCycleForecastRow | null {
-  const eligible = rows.filter(
-    (row) =>
-      row.assetId === assetId &&
-      row.horizon === horizon &&
-      row.periodEnd >= today
+  const candidates = rows.filter((row) =>
+    row.assetId === assetId &&
+    row.horizon === horizon &&
+    rowIsFormallyLocked(row, nowMs)
   );
-  return eligible.sort((a, b) => {
-    const aLocked = rowIsFormallyLocked(a) ? 1 : 0;
-    const bLocked = rowIsFormallyLocked(b) ? 1 : 0;
-    if (aLocked !== bLocked) return bLocked - aLocked;
-    const aCurrent = a.periodStart <= today && a.periodEnd >= today ? 1 : 0;
-    const bCurrent = b.periodStart <= today && b.periodEnd >= today ? 1 : 0;
-    if (aCurrent !== bCurrent) return bCurrent - aCurrent;
-    if (a.periodStart !== b.periodStart) return a.periodStart.localeCompare(b.periodStart);
-    const versionDelta = Number(b.version ?? 0) - Number(a.version ?? 0);
-    if (versionDelta !== 0) return versionDelta;
-    const publishedDelta = Date.parse(b.publishedAt ?? "") - Date.parse(a.publishedAt ?? "");
-    if (Number.isFinite(publishedDelta) && publishedDelta !== 0) return publishedDelta;
-    return forecastScore(b) - forecastScore(a);
-  })[0] ?? null;
+  return selectFormallyLockedForecast({ rows: candidates, today, nowMs, score: forecastScore });
 }
 
 function forecastLeg(
@@ -851,9 +840,10 @@ function buildPlan(
   const normalizedSymbol = normalizeSymbol(symbol);
   const meta = symbolMeta(normalizedSymbol);
   const today = getChinaDateKey(now);
-  const monthlyRow = selectForecast(rows, meta.assetId, "MONTH", today);
-  const weeklyRow = selectForecast(rows, meta.assetId, "WEEK", today);
-  const dailyRow = selectForecast(rows, meta.assetId, "DAY", today);
+  const nowMs = now.getTime();
+  const monthlyRow = selectForecast(rows, meta.assetId, "MONTH", today, nowMs);
+  const weeklyRow = selectForecast(rows, meta.assetId, "WEEK", today, nowMs);
+  const dailyRow = selectForecast(rows, meta.assetId, "DAY", today, nowMs);
   const monthlyDirection = weeklyPhaseDirection(monthlyRow, now);
   const weeklyDirection = weeklyPhaseDirection(weeklyRow, now);
   const dailyPattern = dailyRow

@@ -20,6 +20,10 @@ import {
 } from "@/lib/trading-signals/tp1-protection-transition-core";
 import { randomUUID } from "crypto";
 import { runNewEntryBeforeCutoff } from "@/lib/bitget/runtime-deadline-core";
+import {
+  applyWeeklyTimingToEntryEligibility,
+  evaluateWeeklyLongEntryTiming,
+} from "@/lib/trading-signals/weekly-long-entry-timing-core";
 import { prisma } from "@/lib/prisma";
 import {
   cancelBitgetDemoStrategyOrder,
@@ -946,6 +950,19 @@ function evaluateSwing(
       : false;
   const confirmationTrigger = breakoutTrigger || continuationTrigger || marketStructure.falseBreakReclaimed || marketStructure.breakoutConfirmed;
   const directionalEdgeProbe = marketStructure.atDirectionalEdge && !marketStructure.currentEntryInvalidated;
+  const weeklyLongTiming = evaluateWeeklyLongEntryTiming({
+    strategyType: profile.strategyType,
+    direction,
+    weeklyPath: plan?.weeklyForecast?.path ?? null,
+    weeklyStatus: plan?.weeklyForecast?.status ?? null,
+    weeklyPublishedAt: plan?.weeklyForecast?.publishedAt ?? null,
+    weeklyLockedAt: plan?.weeklyForecast?.lockedAt ?? null,
+    weeklyPeriodStart: plan?.weeklyForecast?.periodStart ?? null,
+    weeklyPeriodEnd: plan?.weeklyForecast?.periodEnd ?? null,
+    nowMs: now.getTime(),
+    atDirectionalEdge: marketStructure.atDirectionalEdge,
+    falseBreakReclaimed: marketStructure.falseBreakReclaimed,
+  });
   const triggerMet = confirmationTrigger || directionalEdgeProbe;
   const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atr4h = atr(h4);
@@ -965,6 +982,7 @@ function evaluateSwing(
     prior,
     probeOnly: directionalEdgeProbe && !confirmationTrigger,
     currentEntryInvalidated: marketStructure.currentEntryInvalidated,
+    timingBlockReason: weeklyLongTiming.blocked ? weeklyLongTiming.reason : null,
   });
 }
 
@@ -1036,7 +1054,7 @@ function finalizeEvaluation(
   atrValue: number,
   plan: PredictionStrategyPlan | undefined,
   livePrice?: number,
-  context: { directionStrength: number; prior: HexagramDirectionPrior | null; probeOnly?: boolean; currentEntryInvalidated?: boolean } = {
+  context: { directionStrength: number; prior: HexagramDirectionPrior | null; probeOnly?: boolean; currentEntryInvalidated?: boolean; timingBlockReason?: string | null } = {
     directionStrength: 0,
     prior: null,
   }
@@ -1087,7 +1105,15 @@ function finalizeEvaluation(
     (row) => directionEvidenceKeys.includes(row.key) && row.met
   ).length;
   const minimumEvidence = profile.strategyType === "INTRADAY" ? 1 : 2;
-  const baseValid = Boolean(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context.currentEntryInvalidated);
+  const entryEligibility = applyWeeklyTimingToEntryEligibility({
+    otherwiseEligible: Boolean(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context.currentEntryInvalidated),
+    timing: {
+      blocked: Boolean(context.timingBlockReason),
+      riskMatched: null,
+      reason: context.timingBlockReason ?? "",
+    },
+  });
+  const baseValid = entryEligibility.eligible;
   // V7.7: live execution uses MOOX for side selection and the market for timing.
   // The old 48/38 technical floors were calibrated like a confirmation-only system;
   // with a directional prior they rejected too many otherwise valid probe entries.
@@ -1138,6 +1164,9 @@ function finalizeEvaluation(
   } else if (context.currentEntryInvalidated) {
     rejectionCode = "ENTRY_STRUCTURE_INVALID";
     rejectionReason = "价格已连续有效越过当前入场边沿；仅取消本次入场并等待新位置，不自动反手。";
+  } else if (entryEligibility.rejectionCode) {
+    rejectionCode = entryEligibility.rejectionCode;
+    rejectionReason = context.timingBlockReason ?? "正式锁定周预测的时序门禁禁止本次新波段多仓。";
   } else if (directionEvidenceMet < minimumEvidence) {
     rejectionCode = "DIRECTION_EVIDENCE_LOW";
     rejectionReason = `执行结构证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;

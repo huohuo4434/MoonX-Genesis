@@ -24,6 +24,7 @@ import {
 } from "../lib/trading-signals/member-desk-persisted-plan-core";
 import type { AiTradePlan } from "../types/ai-trade-plan";
 import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
+import { resolveLiveCapacityV4 } from "../lib/bitget/live-capacity-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -694,4 +695,13 @@ test("项目完整测试已包含Phase 4回归", () => {
 
 test("原数据库迁移仍保持非破坏性", () => {
   assert.doesNotMatch(migration, /DROP\s+TABLE|TRUNCATE|DELETE\s+FROM/i);
+});
+
+test("V4实盘容量授权确定性覆盖旧三仓配置且仍封顶十仓", () => {
+  assert.equal(resolveLiveCapacityV4({ v4: undefined, v3: "3", legacy: undefined }), 10);
+  assert.equal(resolveLiveCapacityV4({ v4: undefined, v3: undefined, legacy: "3" }), 10);
+  assert.equal(resolveLiveCapacityV4({ v4: undefined, v3: "3", legacy: "3" }), 10);
+  assert.equal(resolveLiveCapacityV4({ v4: "6", v3: "3", legacy: "3" }), 6);
+  assert.equal(resolveLiveCapacityV4({ v4: "100", v3: "3", legacy: "3" }), 10);
+  all(client, ["liveMaxGrossNotionalPct", "liveMaxPositionNotionalUsdt", "liveDailyLossUsdt", "liveMaxDrawdownUsdt"]);
 });

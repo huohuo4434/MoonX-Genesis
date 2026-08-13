@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
+
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
 import {
   buildUtaMarketOrderBody,
@@ -359,14 +361,16 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     ),
     liveMaxPositionNotionalUsdt: numericEnv("BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT", 300, 10, 100000),
     liveMaxGrossNotionalPct: numericEnv("BITGET_LIVE_MAX_GROSS_NOTIONAL_PCT", 100, 20, 200),
-    liveMaxConcurrentPositions: Math.floor(numericEnvAliases(
-      ["MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3", "BITGET_LIVE_MAX_CONCURRENT_POSITIONS"],
-      10, 1, 10
-    )),
-    liveMaxTradesPerDay: Math.floor(numericEnvAliases(
-      ["MOOX_LIVE_MAX_TRADES_PER_DAY_V3", "BITGET_LIVE_MAX_TRADES_PER_DAY"],
-      10, 1, 10
-    )),
+    liveMaxConcurrentPositions: resolveLiveCapacityV4({
+      v4: process.env.MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V4,
+      v3: process.env.MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3,
+      legacy: process.env.BITGET_LIVE_MAX_CONCURRENT_POSITIONS,
+    }),
+    liveMaxTradesPerDay: resolveLiveCapacityV4({
+      v4: process.env.MOOX_LIVE_MAX_TRADES_PER_DAY_V4,
+      v3: process.env.MOOX_LIVE_MAX_TRADES_PER_DAY_V3,
+      legacy: process.env.BITGET_LIVE_MAX_TRADES_PER_DAY,
+    }),
     liveAllowedSymbols: liveAllowedSymbols(),
     requireIpWhitelist,
     allowNoIpWhitelist,

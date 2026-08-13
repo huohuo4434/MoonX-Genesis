@@ -16,14 +16,19 @@ V6.4保留了原有实盘下单通道，但新增的“每日活动目标、主�
 
 ## 现有Vercel变量兼容
 
-本补丁直接识别已有变量：
+以下旧容量变量仅用于历史说明，V4起已弃用并被忽略：
 
-- `BITGET_LIVE_MAX_DRAWDOWN_USDT`
-- `BITGET_LIVE_DAILY_LOSS_USDT`
 - `BITGET_LIVE_MAX_CONCURRENT_POSITIONS`
 - `BITGET_LIVE_MAX_TRADES_PER_DAY`
 
-不再要求为了同一含义另建一套V3变量。
+当前有效的生产容量控制变量为：
+
+- `MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V4`（1至10，默认10）
+- `MOOX_LIVE_MAX_TRADES_PER_DAY_V4`（1至10，默认10）
+
+V4值优先；未配置V4时确定性使用新授权默认值10。V3及无版本容量变量已弃用，不再让旧值3静默覆盖V4政策；若仍需要比10更低的人工容量，必须显式设置V4变量。该容量变更不改变总名义敞口、单仓名义上限、杠杆、止损止盈、日亏、回撤或总风险门禁。
+
+`BITGET_LIVE_MAX_DRAWDOWN_USDT`、`BITGET_LIVE_DAILY_LOSS_USDT`及其V3别名继续有效；它们不是容量变量，也未被V4弃用。
 
 ## 必须保持的实盘授权
 
@@ -39,6 +44,6 @@ V6.4保留了原有实盘下单通道，但新增的“每日活动目标、主�
 - 活动检查开始：北京时间9点
 - 活动探路风险：账户权益0.10%
 - 单品种每日上限：2笔
-- 全局上限：沿用`BITGET_LIVE_MAX_TRADES_PER_DAY`
+- 全局上限：使用`MOOX_LIVE_MAX_TRADES_PER_DAY_V4`（未配置时默认10）
 
 可选覆盖变量见部署说明。

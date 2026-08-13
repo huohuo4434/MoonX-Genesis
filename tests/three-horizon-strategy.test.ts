@@ -157,7 +157,8 @@ test("active execution supports a smaller probe before exact entry confirmation 
   assert.match(source, /executionTier: "FULL" \| "PROBE" \| "OBSERVE"/);
   assert.match(source, /const fullReady = Boolean\([\s\S]*entryMet/);
   assert.match(source, /const probeReady = Boolean\([\s\S]*profile\.strategyType !== "POSITION"/);
-  assert.match(source, /baseValid = Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context\.currentEntryInvalidated\)/);
+  assert.match(source, /otherwiseEligible: Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context\.currentEntryInvalidated\)/);
+  assert.match(source, /const baseValid = entryEligibility\.eligible/);
   assert.match(source, /PROBE_RISK_SCALE/);
 });
 
