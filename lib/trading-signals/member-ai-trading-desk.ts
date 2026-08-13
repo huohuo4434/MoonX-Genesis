@@ -10,27 +10,26 @@ import {
   type BitgetDemoStrategyOrder,
 } from "@/lib/bitget/demo-client";
 import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
+import { getBitgetDemoDashboard } from "@/lib/bitget/demo-connector";
 import { prisma } from "@/lib/prisma";
 import {
   ensurePredictionAutoTraderTables,
-  getPredictionAutoTraderDashboard,
+  getPredictionAutoTraderSettings,
 } from "@/lib/trading-signals/prediction-auto-trader";
 import { getThreeHorizonPublicStrategies } from "@/lib/trading-signals/three-horizon-strategy";
 import { getAiTradePlanDashboard } from "@/lib/trading-signals/ai-trade-plans";
-import { applyAiDeskOperationalState, sanitizePlanHorizonText } from "@/lib/trading-signals/ai-desk-status";
+import { applyAiDeskOperationalState } from "@/lib/trading-signals/ai-desk-status";
+import {
+  buildMemberDeskPlansFromPersistedAudit,
+  summarizePersistedPlans,
+} from "@/lib/trading-signals/member-desk-persisted-plan-core";
 import type {
-  AiTradingDeskPlan,
-  AiTradingDeskPlanStatus,
   AiTradingDeskPosition,
   AiTradingDeskSettings,
   AiTradingDeskSnapshot,
   AiTradingDeskStats,
   AiTradingDeskTrade,
 } from "@/types/ai-trading-desk";
-import type {
-  PredictionAutoRunLog,
-  PredictionStrategyPlan,
-} from "@/types/prediction-auto-trader";
 
 type DbDeskSettings = {
   enabled: boolean;
@@ -197,114 +196,6 @@ export async function updateMemberAiTradingDeskSettings(
     WHERE id = 'default'
   `;
   return getMemberAiTradingDeskSettings();
-}
-
-function latestRunsBySymbol(runs: PredictionAutoRunLog[]): Map<string, PredictionAutoRunLog> {
-  const result = new Map<string, PredictionAutoRunLog>();
-  for (const run of runs) {
-    const key = run.symbol.toUpperCase();
-    if (!result.has(key)) result.set(key, run);
-  }
-  return result;
-}
-
-function marketFromRun(run: PredictionAutoRunLog | undefined): {
-  currentPrice: number | null;
-  capturedAt: string | null;
-} {
-  const payload = run?.payload;
-  if (!payload || typeof payload !== "object") {
-    return { currentPrice: run?.price ?? null, capturedAt: run?.createdAt ?? null };
-  }
-  const market = (payload as { market?: unknown }).market;
-  if (!market || typeof market !== "object") {
-    return { currentPrice: run?.price ?? null, capturedAt: run?.createdAt ?? null };
-  }
-  const row = market as { currentPrice?: unknown; capturedAt?: unknown };
-  const currentPrice = Number(row.currentPrice);
-  return {
-    currentPrice: Number.isFinite(currentPrice) ? currentPrice : run?.price ?? null,
-    capturedAt: typeof row.capturedAt === "string" ? row.capturedAt : run?.createdAt ?? null,
-  };
-}
-
-function planStatus(
-  plan: PredictionStrategyPlan,
-  run: PredictionAutoRunLog | undefined,
-  market: { currentPrice: number | null; capturedAt: string | null },
-  hasPosition: boolean
-): { status: AiTradingDeskPlanStatus; label: string } {
-  if (hasPosition) return { status: "POSITION_OPEN", label: "持仓中" };
-  if (market.currentPrice == null || market.capturedAt == null) {
-    return { status: "PLAN_ONLY", label: "仅有计划" };
-  }
-  if (run?.status === "ERROR") return { status: "ERROR", label: "检查异常" };
-  if (run?.status === "BLOCKED") return { status: "BLOCKED", label: "风控拦截" };
-  if (run?.status === "EXECUTED") return { status: "READY", label: "已触发开仓" };
-  if (plan.setup === "BUY_DIP") return { status: "WAIT_LONG", label: "等待低吸" };
-  if (plan.setup === "SELL_RALLY") return { status: "WAIT_SHORT", label: "等待高空" };
-  return { status: "OBSERVE", label: "暂不交易" };
-}
-
-function directionText(direction: string): string {
-  if (direction === "LONG") return "偏多";
-  if (direction === "SHORT") return "偏空";
-  return "中性";
-}
-
-function buildPlanRows(
-  plans: PredictionStrategyPlan[],
-  runs: PredictionAutoRunLog[],
-  positions: BitgetDemoPosition[],
-  runtimeQuotes: Map<string, { price: number; capturedAt: string }>
-): AiTradingDeskPlan[] {
-  const latest = latestRunsBySymbol(runs);
-  const openSymbols = new Set(positions.map((row) => row.symbol.replace(/USDT$/i, "")));
-  return plans.map((plan) => {
-    const run = latest.get(plan.symbol.toUpperCase());
-    const runMarket = marketFromRun(run);
-    const quote = runtimeQuotes.get(`${plan.symbol}USDT`.toUpperCase());
-    const market = runMarket.currentPrice != null && runMarket.capturedAt
-      ? runMarket
-      : {
-          currentPrice: quote?.price ?? null,
-          capturedAt: quote?.capturedAt ?? null,
-        };
-    const state = planStatus(
-      plan,
-      run,
-      market,
-      openSymbols.has(plan.symbol.toUpperCase())
-    );
-    const point = plan.pointGuidance;
-    const triggerText = [
-      plan.reason,
-      point ? `关键点位 ${point.threshold.toLocaleString("en-US")}，${point.closeInterval}收盘确认。` : "",
-      run?.reason ?? "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return {
-      symbol: `${plan.symbol}USDT`,
-      assetName: plan.assetName,
-      status: state.status,
-      statusLabel: state.label,
-      direction: plan.setup === "BUY_DIP" ? "LONG" : plan.setup === "SELL_RALLY" ? "SHORT" : "NEUTRAL",
-      confidence: plan.confidence,
-      weeklyText: plan.weeklyForecast
-        ? sanitizePlanHorizonText(`${directionText(plan.weeklyDirection)} · ${plan.weeklyForecast.path}`, "WEEKLY")
-        : "缺少周预测",
-      dailyText: plan.dailyForecast
-        ? sanitizePlanHorizonText(`${directionText(plan.dailyDirection)} · ${plan.dailyForecast.path}`, "DAILY")
-        : "缺少日预测",
-      actionText: run?.reason || plan.reason,
-      triggerText,
-      invalidationText: point?.invalidationRule ?? "预测失效或止损触发时退出。",
-      keyLevel: point?.threshold ?? null,
-      currentPrice: market.currentPrice,
-      lastCheckedAt: market.capturedAt,
-    };
-  });
 }
 
 function strategyOrderMap(rows: BitgetDemoStrategyOrder[]): Map<string, BitgetDemoStrategyOrder> {
@@ -497,11 +388,12 @@ export async function buildMemberAiTradingDeskSnapshot(
   const settings = live ? { ...storedSettings, showAbsolutePnl: true } : storedSettings;
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
-  const [dashboard, runtime, strategies, planDashboard] = await Promise.all([
-    getPredictionAutoTraderDashboard(now),
+  const [predictionSettings, legacyBitget, runtime, strategies, planDashboard] = await Promise.all([
+    getPredictionAutoTraderSettings({ readOnly: true }),
+    getBitgetDemoDashboard(),
     getBitgetRuntimeState(now),
     getThreeHorizonPublicStrategies(now),
-    getAiTradePlanDashboard(now),
+    getAiTradePlanDashboard(now, { readOnly: true }),
   ]);
   const liveResults = await Promise.allSettled([
     getBitgetDemoCurrentPositions(),
@@ -511,7 +403,9 @@ export async function buildMemberAiTradingDeskSnapshot(
   const allPositions = liveResults[0].status === "fulfilled" ? liveResults[0].value : [];
   const bitgetClosed = liveResults[1].status === "fulfilled" ? liveResults[1].value : [];
   const strategyOrders = liveResults[2].status === "fulfilled" ? liveResults[2].value : [];
-  const planSymbols = new Set(dashboard.plans.map((plan) => `${plan.symbol}USDT`.toUpperCase()));
+  const executionMode = live ? "BITGET_LIVE" : "BITGET_DEMO";
+  const persistedPlans = planDashboard.plans.filter((plan) => plan.executionMode === executionMode);
+  const planSymbols = new Set(persistedPlans.map((plan) => plan.symbol.toUpperCase()));
   const allowedSymbols: Set<string> = live ? new Set<string>(environment.liveAllowedSymbols) : planSymbols;
   const experimentStartMs = runtime.liveExperiment?.startedAt
     ? Date.parse(runtime.liveExperiment.startedAt)
@@ -523,12 +417,6 @@ export async function buildMemberAiTradingDeskSnapshot(
     const closedAt = Date.parse(row.updatedAt ?? row.createdAt ?? "");
     return Number.isFinite(closedAt) && closedAt >= experimentStartMs;
   });
-  const runtimeQuotes = new Map(
-    runtime.latestQuotes.map((row) => [
-      row.symbol.toUpperCase(),
-      { price: row.price, capturedAt: row.capturedAt },
-    ] as const)
-  );
   const errors = liveResults
     .filter((result): result is PromiseRejectedResult => result.status === "rejected")
     .map((result) => result.reason instanceof Error ? result.reason.message : "Bitget读取失败");
@@ -541,8 +429,8 @@ export async function buildMemberAiTradingDeskSnapshot(
     ledgerNotice: live
       ? "本页只统计独立Bitget实盘实验账户。API不含提币权限；系统最多同时持有3个仓位，单仓风险、风险组敞口、日止损与总回撤均受约束。"
       : "会员端只展示Bitget Demo实际模拟持仓和成交；管理员站内模拟盘不会混入本页统计。",
-    strategyEnabled: live ? strategies.some((row) => row.enabled) : dashboard.settings.enabled,
-    mirrorEnabled: live ? false : dashboard.mirrorEnabled,
+    strategyEnabled: live ? strategies.some((row) => row.enabled) : predictionSettings.enabled,
+    mirrorEnabled: live ? false : legacyBitget.settings.enabled,
     executionConfigured: runtime.executionAllowed,
     executionAllowed: runtime.executionAllowed,
     serverHealthy: runtime.serverHealthy,
@@ -582,19 +470,18 @@ export async function buildMemberAiTradingDeskSnapshot(
     },
     settings,
     strategies,
-    planSummary: planDashboard.summary,
+    planSummary: summarizePersistedPlans(persistedPlans, now),
     intentDecisions: planDashboard.decisions,
     marketQuotes: planDashboard.quotes,
-    publishedPlans: planDashboard.plans,
-    plans: buildPlanRows(
-      dashboard.plans,
-      dashboard.recentRuns,
-      positions,
-      runtimeQuotes
-    ),
+    publishedPlans: persistedPlans,
+    plans: buildMemberDeskPlansFromPersistedAudit({
+      plans: persistedPlans,
+      openPositions: positions.map((row) => ({ symbol: row.symbol, posSide: row.posSide })),
+      executionMode,
+    }),
     positions: buildPositions(positions, strategyOrders, settings, {
-      stopLossPct: dashboard.settings.stopLossPct,
-      target1Pct: dashboard.settings.target1Pct,
+      stopLossPct: predictionSettings.stopLossPct,
+      target1Pct: predictionSettings.target1Pct,
     }),
     recentTrades: buildTrades(closed, settings),
     stats: buildStats(closed, settings),
@@ -745,4 +632,3 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     return emptySnapshot(settings, `${message}；页面保持可用并将在后台自动重试。`);
   }
 }
-

@@ -17,6 +17,12 @@ import {
   reliabilityDecisionModeForEnvironment,
   shouldRepairConfirmedMissingProtection,
 } from "../lib/trading-signals/reliability-position-classification-core";
+import {
+  aiTradePlanDashboardReadPolicy,
+  buildMemberDeskPlansFromPersistedAudit,
+  summarizePersistedPlans,
+} from "../lib/trading-signals/member-desk-persisted-plan-core";
+import type { AiTradePlan } from "../types/ai-trade-plan";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -40,6 +46,208 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+
+test("member desk builds display rows from persisted locked plans without broad forecast resolution", () => {
+  const persisted = {
+    symbol: "HYPEUSDT",
+    direction: "LONG",
+    status: "OPEN",
+    planningConfidence: 72,
+    forecastHorizon: "WEEK",
+    forecastVersion: "weekly-hype:v1",
+    forecastLockedAt: "2026-08-11T00:00:00.000Z",
+    thesisSummary: "周预测方向保持偏多",
+    triggerRule: "价格回到周线结构边沿",
+    conditionsMet: 4,
+    conditionsTotal: 5,
+    invalidationRule: "周预测失效",
+    cancelIf: "硬风险门禁触发",
+    entryZoneLow: 44,
+    entryZoneHigh: 45,
+    currentPrice: 46,
+    lastCheckedAt: "2026-08-13T17:40:00.000Z",
+    updatedAt: "2026-08-13T17:40:00.000Z",
+    closeReason: null,
+    executionMode: "BITGET_LIVE",
+    publishedAt: "2026-08-13T17:39:00.000Z",
+    version: 1,
+    id: "persisted-live-hype",
+  } as AiTradePlan;
+  const rows = buildMemberDeskPlansFromPersistedAudit({
+    plans: [persisted],
+    openPositions: [{ symbol: "HYPEUSDT", posSide: "long" }],
+    executionMode: "BITGET_LIVE",
+  });
+  assert.equal(rows[0]?.status, "POSITION_OPEN");
+  assert.equal(rows[0]?.direction, "LONG");
+  assert.match(rows[0]?.weeklyText ?? "", /weekly-hype:v1/);
+  assert.match(rows[0]?.triggerText ?? "", /4\/5/);
+  assert.doesNotMatch(read("lib/trading-signals/member-ai-trading-desk.ts"), /getPredictionAutoTraderDashboard/);
+});
+
+test("member desk isolates execution environments, trusts Bitget positions, and selects deterministic latest plan", () => {
+  const base = {
+    symbol: "HYPEUSDT",
+    direction: "LONG",
+    status: "OPEN",
+    planningConfidence: 70,
+    forecastHorizon: "WEEK",
+    forecastVersion: "week:v1",
+    forecastLockedAt: "2026-08-11T00:00:00.000Z",
+    thesisSummary: "weekly",
+    triggerRule: "trigger",
+    conditionsMet: 4,
+    conditionsTotal: 5,
+    invalidationRule: "invalid",
+    cancelIf: "cancel",
+    entryZoneLow: 44,
+    entryZoneHigh: 45,
+    currentPrice: 46,
+    lastCheckedAt: "2026-08-13T17:40:00.000Z",
+    updatedAt: "2026-08-13T17:40:00.000Z",
+    publishedAt: "2026-08-13T17:39:00.000Z",
+    closeReason: null,
+    version: 1,
+    id: "live-v1",
+    executionMode: "BITGET_LIVE",
+  } as AiTradePlan;
+  const liveV2 = { ...base, id: "live-v2", version: 2, planningConfidence: 71 };
+  const demoV9 = { ...base, id: "demo-v9", version: 9, executionMode: "BITGET_DEMO" as const };
+  const rows = buildMemberDeskPlansFromPersistedAudit({
+    plans: [demoV9, base, liveV2],
+    openPositions: [],
+    executionMode: "BITGET_LIVE",
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.status, "ERROR", "stale OPEN ledger is not an authoritative exchange position");
+  assert.equal(rows[0]?.statusLabel, "计划账本待对账");
+  assert.equal(rows[0]?.confidence, liveV2.planningConfidence);
+
+  const withPosition = buildMemberDeskPlansFromPersistedAudit({
+    plans: [liveV2],
+    openPositions: [{ symbol: "HYPEUSDT", posSide: "long" }],
+    executionMode: "BITGET_LIVE",
+  });
+  assert.equal(withPosition[0]?.status, "POSITION_OPEN");
+});
+
+test("member desk exposes MONTH locks, terminal CLOSED, opposite-side positions, and versioned summaries correctly", () => {
+  const base = {
+    id: "month-v1",
+    planGroupId: "POSITION:GOOGLUSDT",
+    version: 1,
+    symbol: "GOOGLUSDT",
+    direction: "LONG",
+    status: "CLOSED",
+    executionMode: "BITGET_LIVE",
+    planningConfidence: 68,
+    forecastHorizon: "MONTH",
+    forecastVersion: "month-googl:v1",
+    forecastLockedAt: "2026-08-01T00:00:00.000Z",
+    thesisSummary: "monthly thesis",
+    triggerRule: "monthly trigger",
+    conditionsMet: 5,
+    conditionsTotal: 5,
+    invalidationRule: "invalid",
+    cancelIf: "cancel",
+    entryZoneLow: 190,
+    entryZoneHigh: 195,
+    currentPrice: 198,
+    lastCheckedAt: "2026-08-13T17:40:00.000Z",
+    updatedAt: "2026-08-13T17:40:00.000Z",
+    publishedAt: "2026-08-13T17:39:00.000Z",
+    closedAt: "2026-08-13T17:41:00.000Z",
+    closeReason: "closed",
+  } as AiTradePlan;
+  const rows = buildMemberDeskPlansFromPersistedAudit({
+    plans: [base],
+    openPositions: [{ symbol: "GOOGLUSDT", posSide: "short" }],
+    executionMode: "BITGET_LIVE",
+  });
+  assert.equal(rows[0]?.status, "BLOCKED", "opposite-side position cannot make a LONG plan look open");
+  assert.equal(rows[0]?.statusLabel, "计划已结束");
+  assert.match(rows[0]?.weeklyText ?? "", /MONTH锁定预测 month-googl:v1/);
+
+  const newer = {
+    ...base,
+    id: "month-v2",
+    version: 2,
+    status: "OPEN" as const,
+    closedAt: null,
+    publishedAt: "2026-08-13T17:42:00.000Z",
+  };
+  const summary = summarizePersistedPlans([base, newer], new Date("2026-08-13T18:00:00.000Z"));
+  assert.equal(summary.publishedToday, 1);
+  assert.equal(summary.submittedOrOpen, 1);
+  assert.equal(summary.closedToday, 0);
+});
+
+test("publishedToday counts first publication per group and NEUTRAL never matches an exchange side", () => {
+  const yesterday = {
+    id: "old-v1",
+    planGroupId: "old-group",
+    version: 1,
+    symbol: "QQQUSDT",
+    direction: "LONG",
+    status: "WATCHING",
+    executionMode: "BITGET_LIVE",
+    planningConfidence: 60,
+    forecastHorizon: "WEEK",
+    forecastVersion: "week-old:v1",
+    forecastLockedAt: "2026-08-12T00:00:00.000Z",
+    thesisSummary: "old",
+    triggerRule: "trigger",
+    conditionsMet: 1,
+    conditionsTotal: 5,
+    invalidationRule: "invalid",
+    cancelIf: "cancel",
+    entryZoneLow: 1,
+    entryZoneHigh: 2,
+    currentPrice: 2,
+    lastCheckedAt: "2026-08-13T18:00:00.000Z",
+    updatedAt: "2026-08-13T18:00:00.000Z",
+    publishedAt: "2026-08-12T10:00:00.000Z",
+    closedAt: null,
+    closeReason: null,
+  } as AiTradePlan;
+  const renewedToday = {
+    ...yesterday,
+    id: "old-v2",
+    version: 2,
+    publishedAt: "2026-08-13T10:00:00.000Z",
+    updatedAt: "2026-08-13T18:01:00.000Z",
+  };
+  const newToday = {
+    ...renewedToday,
+    id: "new-v1",
+    planGroupId: "new-group",
+    version: 1,
+    symbol: "MUUSDT",
+  };
+  const summary = summarizePersistedPlans(
+    [yesterday, renewedToday, newToday],
+    new Date("2026-08-13T12:30:00.000Z")
+  );
+  assert.equal(summary.publishedToday, 1, "yesterday group renewed today is not a new group publication");
+
+  const neutral = buildMemberDeskPlansFromPersistedAudit({
+    plans: [{ ...newToday, direction: "NEUTRAL", status: "WATCHING" }],
+    openPositions: [{ symbol: "MUUSDT", posSide: "long" }],
+    executionMode: "BITGET_LIVE",
+  });
+  assert.notEqual(neutral[0]?.status, "POSITION_OPEN");
+});
+
+test("strict member dashboard read policy permits no schema, expiry, or event writes", () => {
+  assert.deepEqual(aiTradePlanDashboardReadPolicy(true), { ensureSchema: false, expirePlans: false });
+  assert.deepEqual(aiTradePlanDashboardReadPolicy(false), { ensureSchema: true, expirePlans: true });
+  const memberSource = read("lib/trading-signals/member-ai-trading-desk.ts");
+  const planSource = read("lib/trading-signals/ai-trade-plans.ts");
+  assert.match(memberSource, /getAiTradePlanDashboard\(now, \{ readOnly: true \}\)/);
+  assert.match(memberSource, /persistedPlans = planDashboard\.plans\.filter\(\(plan\) => plan\.executionMode === executionMode\)/);
+  assert.match(planSource, /policy\.ensureSchema \? await ensureAiTradePlanTables\(\) : Boolean\(prisma\)/);
+  assert.match(planSource, /databaseReady && policy\.expirePlans/);
+});
 
 test("watchdog isolates Demo and Live decisions while classifying a live naked position for confirmed repair", () => {
   assert.equal(reliabilityDecisionModeForEnvironment("DEMO"), "DEMO");

@@ -2,6 +2,7 @@ import "server-only";
 
 import { runBoundedSerialMaintenance } from "@/lib/trading-signals/strategy-runtime-progress-core";
 import { writeDynamicPlanAuditIfRequired } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
+import { aiTradePlanDashboardReadPolicy } from "@/lib/trading-signals/member-desk-persisted-plan-core";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -1363,23 +1364,30 @@ async function getRuntimeMarketQuotes(now: Date): Promise<AiTradeMarketQuote[]> 
     .filter((row) => row.symbol && Number.isFinite(row.price) && row.price > 0 && row.capturedAt);
 }
 
-export async function getPublishedAiTradePlans(limit = 30): Promise<AiTradePlan[]> {
-  if (!(await ensureAiTradePlanTables()) || !prisma) return [];
+export async function getPublishedAiTradePlans(
+  limit = 30,
+  options: { readOnly?: boolean } = {}
+): Promise<AiTradePlan[]> {
+  if (!prisma || (!options.readOnly && !(await ensureAiTradePlanTables()))) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
     `SELECT * FROM trade_ai_plans
      ORDER BY published_at DESC, version DESC
      LIMIT ${safeLimit}`
-  );
-  const events = await loadEvents(rows.map((row: PlanRow) => row.id));
+  ).catch(() => [] as PlanRow[]);
+  const events = await loadEvents(rows.map((row: PlanRow) => row.id)).catch(() => new Map<string, AiTradePlanEvent[]>());
   return rows.map((row: PlanRow) => mapPlan(row, events.get(row.id) ?? []));
 }
 
-export async function getAiTradePlanDashboard(now = new Date()): Promise<AiTradePlanDashboard> {
-  const databaseReady = await ensureAiTradePlanTables();
-  if (databaseReady) await expireStaleAiTradePlans(now).catch(() => 0);
+export async function getAiTradePlanDashboard(
+  now = new Date(),
+  options: { readOnly?: boolean } = {}
+): Promise<AiTradePlanDashboard> {
+  const policy = aiTradePlanDashboardReadPolicy(Boolean(options.readOnly));
+  const databaseReady = policy.ensureSchema ? await ensureAiTradePlanTables() : Boolean(prisma);
+  if (databaseReady && policy.expirePlans) await expireStaleAiTradePlans(now).catch(() => 0);
   const [storedPlans, decisions, quotes]: [AiTradePlan[], AiTradeIntentDecision[], AiTradeMarketQuote[]] = databaseReady
-    ? await Promise.all([getPublishedAiTradePlans(60), getLatestIntentDecisions(), getRuntimeMarketQuotes(now)])
+    ? await Promise.all([getPublishedAiTradePlans(60, options), getLatestIntentDecisions().catch(() => []), getRuntimeMarketQuotes(now)])
     : [[], [], []];
   const quoteBySymbol = new Map(quotes.map((quote) => [quote.symbol.toUpperCase(), quote] as const));
   const plans = storedPlans.map((plan) => {
