@@ -213,7 +213,7 @@ async function loadSnapshot(now: Date): Promise<XIntelligenceSnapshot> {
     prisma.$queryRawUnsafe<StoredRow[]>(`
       SELECT username, posted_at, parsed
       FROM trade_external_analyst_posts
-      WHERE source = 'BTCKIK'
+      WHERE source IN ('BTCKIK', 'GENERAL_X_RESEARCH')
         AND posted_at >= NOW() - INTERVAL '7 days'
       ORDER BY posted_at DESC
       LIMIT 600

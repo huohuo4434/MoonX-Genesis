@@ -15,7 +15,7 @@ export type ExternalAnalystStoredObservation = {
 
 const uniqueNumbers = (values: number[]) => Array.from(new Set(values.filter((v) => Number.isFinite(v) && v > 0))).sort((a, b) => a - b);
 const uniqueStrings = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
-const label: Record<ExternalAnalystSource, string> = { HALILUYA: "haliluya8911·短线反弹", BTCTW0: "彼得兔BTCTW0·江恩点位周期", BTCKIK: "btckik·山寨发现", MAT78704: "mat78704·方向周期共振" };
+const label: Record<ExternalAnalystSource, string> = { HALILUYA: "haliluya8911·短线反弹", BTCTW0: "彼得兔BTCTW0·江恩点位周期", BTCKIK: "btckik·山寨发现", MAT78704: "mat78704·方向周期共振", GENERAL_X_RESEARCH: "通用X研究" };
 
 export function resolveFormalExternalOverlayDirection(input: {
   strategyType: ThreeHorizonStrategyType;
@@ -32,6 +32,7 @@ export function resolveFormalExternalOverlayDirection(input: {
 }
 
 function relevant(source: ExternalAnalystSource, strategyType: ThreeHorizonStrategyType): boolean {
+  if (source === "GENERAL_X_RESEARCH") return false;
   if (source === "BTCKIK") return false;
   if (strategyType === "INTRADAY") return source === "HALILUYA";
   return source === "BTCTW0" || source === "MAT78704";

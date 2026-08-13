@@ -7,6 +7,7 @@ export type PreparedCollectorPost = CollectorPost & { source: ExternalAnalystSou
 export function prepareExternalAnalystCollectorPosts(input: {
   posts: CollectorPost[];
   allowedAccounts: ReadonlySet<string>;
+  generalRegistryAccounts: ReadonlyMap<string, string>;
 }): { accepted: PreparedCollectorPost[]; rejected: Array<{ username: string; id: string; reason: string }>; duplicateCount: number; truncatedCount: number } {
   const unique = new Map<string, CollectorPost>();
   const rejected: Array<{ username: string; id: string; reason: string }> = [];
@@ -32,7 +33,9 @@ export function prepareExternalAnalystCollectorPosts(input: {
   const accepted: PreparedCollectorPost[] = [];
   for (const post of unique.values()) {
     const normalized = post.username.toLowerCase();
-    const source = analystSourceFromUsername(post.username);
+    const dedicatedSource = analystSourceFromUsername(post.username);
+    const sourceFamily = input.generalRegistryAccounts.get(normalized);
+    const source: ExternalAnalystSource | null = dedicatedSource ?? (sourceFamily ? "GENERAL_X_RESEARCH" : null);
     if (!input.allowedAccounts.has(normalized)) {
       rejected.push({ username: post.username, id: post.id, reason: "ACCOUNT_NOT_ALLOWED" });
       continue;
@@ -46,7 +49,7 @@ export function prepareExternalAnalystCollectorPosts(input: {
       rejected.push({ username: post.username, id: post.id, reason: "INVALID_POSTED_AT" });
       continue;
     }
-    accepted.push({ ...post, source, parsed: parseExternalAnalystPost({ source, username: post.username, postId: post.id, postUrl: post.url ?? `https://x.com/${post.username}/status/${post.id}`, postedAt: postedAt.toISOString(), text: post.text }) });
+    accepted.push({ ...post, source, parsed: parseExternalAnalystPost({ source, sourceFamily, username: post.username, postId: post.id, postUrl: post.url ?? `https://x.com/${post.username}/status/${post.id}`, postedAt: postedAt.toISOString(), text: post.text }) });
   }
   return { accepted, rejected, duplicateCount, truncatedCount };
 }

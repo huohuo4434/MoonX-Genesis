@@ -14,7 +14,7 @@ import type {
   ExternalAnalystRefreshReport,
   ExternalAnalystSource,
 } from "@/types/external-analyst";
-import { configuredXWatchHandles } from "@/lib/trading-signals/x-source-registry.server";
+import { configuredXWatchHandles, normalizeXSourceHandle, X_SOURCE_REGISTRY } from "@/lib/trading-signals/x-source-registry.server";
 import type { ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
 
 const ANALYSTS: Array<{ username: string; source: ExternalAnalystSource; label: string }> = [
@@ -409,7 +409,10 @@ export async function ingestExternalAnalystCollectorPosts(input: {
   }
 
   const allowedAccounts = configuredCollectorAccounts();
-  const prepared = prepareExternalAnalystCollectorPosts({ posts: input.posts, allowedAccounts });
+  const generalRegistryAccounts = new Map(
+    X_SOURCE_REGISTRY.map((entry) => [normalizeXSourceHandle(entry.handle), entry.family] as const)
+  );
+  const prepared = prepareExternalAnalystCollectorPosts({ posts: input.posts, allowedAccounts, generalRegistryAccounts });
   for (const rejected of prepared.rejected) report.errors.push(`${rejected.username}/${rejected.id}: ${rejected.reason}`);
   report.rejectedPosts = prepared.rejected.length;
   report.duplicatePosts = prepared.duplicateCount;

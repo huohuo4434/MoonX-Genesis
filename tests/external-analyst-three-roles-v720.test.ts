@@ -10,15 +10,17 @@ import {
   buildExternalAnalystOverlayFromRows,
   resolveFormalExternalOverlayDirection,
 } from "../lib/trading-signals/external-analyst-aggregation-core";
+import { aggregateXIntelligence } from "../lib/trading-signals/x-intelligence-core";
 
 const allowed = new Set(["mat78704", "btctw0", "btckik"]);
+const noGeneralAccounts = new Map<string, string>();
 const post = (username: string, id: string, text: string) => ({ username, id, text, createdAt: "2026-08-14T00:00:00.000Z" });
 
 test("three accounts map authoritatively and a mixed batch preserves per-post source", () => {
   assert.equal(analystSourceFromUsername("mat78704"), "MAT78704");
   assert.equal(analystSourceFromUsername("BTCTW0"), "BTCTW0");
   assert.equal(analystSourceFromUsername("btckik"), "BTCKIK");
-  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: allowed, posts: [
+  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: allowed, generalRegistryAccounts: noGeneralAccounts, posts: [
     post("mat78704", "1", "BTC 看多，周线周期共振。"),
     post("BTCTW0", "2", "BTC 江恩周期窗口，本周守住63000支撑。"),
     post("btckik", "3", "$PENGU 低位关注。"),
@@ -27,7 +29,7 @@ test("three accounts map authoritatively and a mixed batch preserves per-post so
 });
 
 test("unknown account is rejected and duplicate source/id is idempotently collapsed", () => {
-  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: new Set([...allowed, "unknown"]), posts: [
+  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: new Set([...allowed, "unknown"]), generalRegistryAccounts: noGeneralAccounts, posts: [
     post("unknown", "x", "BTC看多"),
     post("mat78704", "same", "BTC看多"),
     post("mat78704", "same", "BTC看多"),
@@ -40,10 +42,74 @@ test("unknown account is rejected and duplicate source/id is idempotently collap
 test("collector accounting classifies malformed and truncated inputs", () => {
   const posts = Array.from({ length: 121 }, (_, index) => post("mat78704", String(index), "BTC看多"));
   posts[0] = { ...posts[0], text: "" };
-  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: allowed, posts });
+  const result = prepareExternalAnalystCollectorPosts({ allowedAccounts: allowed, generalRegistryAccounts: noGeneralAccounts, posts });
   assert.equal(result.accepted.length + result.rejected.length + result.duplicateCount + result.truncatedCount, posts.length);
   assert.equal(result.truncatedCount, 1);
   assert.equal(result.rejected[0]?.reason, "MALFORMED_POST");
+});
+
+test("registered general X accounts persist independently while env-only unknown remains rejected", () => {
+  const generalRegistryAccounts = new Map([
+    ["deltaking888", "CYCLE_TIMING"],
+    ["jiujinshan2022", "ALTCOIN_RADAR"],
+  ]);
+  const result = prepareExternalAnalystCollectorPosts({
+    allowedAccounts: new Set([...allowed, "deltaking888", "jiujinshan2022", "envonlyunknown"]),
+    generalRegistryAccounts,
+    posts: [
+      post("Deltaking888", "general-1", "BTC 看多，周期窗口与 63000 支撑。"),
+      post("jiujinshan2022", "general-2", "$PENGU 看多，关注 0.03 支撑。"),
+      post("mat78704", "dedicated", "BTC 看多，周线周期共振。"),
+      post("envOnlyUnknown", "unknown", "BTC 看多。"),
+    ],
+  });
+  assert.deepEqual(result.accepted.map((row) => row.source), ["GENERAL_X_RESEARCH", "GENERAL_X_RESEARCH", "MAT78704"]);
+  assert.equal(result.accepted[0]?.parsed.sourceFamily, "CYCLE_TIMING");
+  assert.equal(result.accepted[1]?.parsed.sourceFamily, "ALTCOIN_RADAR");
+  assert.equal(result.accepted[0]?.parsed.sourceRelevant, false);
+  assert.equal(result.accepted[0]?.parsed.researchEligible, false);
+  assert.deepEqual(result.accepted[0]?.parsed.symbols, ["BTCUSDT"]);
+  assert.deepEqual(result.accepted[1]?.parsed.symbols, ["PENGUUSDT"]);
+  const penguParsed = result.accepted[1]!.parsed;
+  const intelligence = aggregateXIntelligence([{
+    postedAt: penguParsed.postedAt,
+    sourceKey: penguParsed.username,
+    sourceFamily: penguParsed.sourceFamily,
+    symbols: penguParsed.symbols,
+    direction: penguParsed.direction,
+    confidence: penguParsed.confidence,
+    stage: "EARLY_WATCH",
+    risk: "MEDIUM",
+    levels: penguParsed.keyLevels,
+    timeWindows: penguParsed.timeWindows,
+  }], new Date("2026-08-14T01:00:00Z"));
+  const pengu = intelligence.summaries.find((row) => row.symbol === "PENGUUSDT");
+  assert.ok(pengu);
+  assert.equal(pengu.mentions24h, 1);
+  assert.equal(pengu.methodFamilies24h, 1);
+  assert.equal(pengu.uniqueAccounts24h, 1);
+  assert.deepEqual(result.rejected.map((row) => row.reason), ["SOURCE_NOT_REGISTERED"]);
+  assert.equal(result.accepted.length + result.rejected.length + result.duplicateCount + result.truncatedCount, 4);
+
+  const overlay = buildExternalAnalystOverlayFromRows({
+    rows: result.accepted.filter((row) => row.source === "GENERAL_X_RESEARCH").map((row) => ({ source: row.source, username: row.username, post_id: row.id, post_url: row.url ?? "x", posted_at: row.createdAt, text: row.text, parsed: row.parsed })),
+    symbol: "BTCUSDT",
+    strategyType: "SWING",
+    nowMs: Date.parse("2026-08-14T12:00:00Z"),
+  });
+  assert.equal(overlay, null);
+});
+
+test("general altcoin radar blocks mainstream and traditional cashtags", () => {
+  const generalRegistryAccounts = new Map([["jiujinshan2022", "ALTCOIN_RADAR"]]);
+  const result = prepareExternalAnalystCollectorPosts({
+    allowedAccounts: new Set(["jiujinshan2022"]),
+    generalRegistryAccounts,
+    posts: [post("jiujinshan2022", "blocked", "$BTC $ETH $QQQ $NVDA $PENGU 看多")],
+  });
+  assert.deepEqual(result.accepted[0]?.parsed.symbols, ["PENGUUSDT"]);
+  assert.equal(result.accepted[0]?.parsed.researchEligible, false);
+  assert.equal(result.accepted[0]?.parsed.sourceRelevant, false);
 });
 
 test("formal overlay direction never falls back from neutral weekly to BUY_DIP setup", () => {
@@ -160,4 +226,12 @@ test("production overlay query uses one captured now as both freshness and futur
   assert.match(signals, /posted_at >= \$1::timestamptz - INTERVAL '45 days'/);
   assert.match(signals, /posted_at <= \$1::timestamptz/);
   assert.match(signals, /`, now\.toISOString\(\)\)/);
+});
+
+test("production batch stores each row source and X summary includes generic research", () => {
+  const signals = readFileSync(resolve(process.cwd(), "lib/trading-signals/external-analyst-signals.ts"), "utf8");
+  const summary = readFileSync(resolve(process.cwd(), "lib/trading-signals/x-intelligence-summary.ts"), "utf8");
+  assert.match(signals, /row\.source/);
+  assert.match(signals, /SELECT\s+id, source, username, post_id/);
+  assert.match(summary, /source IN \('BTCKIK', 'GENERAL_X_RESEARCH'\)/);
 });

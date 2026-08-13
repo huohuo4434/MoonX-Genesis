@@ -72,22 +72,25 @@ function aliasMatches(text: string, alias: string): boolean {
   return pattern.test(text);
 }
 
-function detectSymbols(text: string, source: ExternalAnalystSource): string[] {
+const ALTCOIN_CASHTAG_BLOCKED = new Set([
+  "USD", "USDT", "USDC", "BTC", "ETH", "SPX", "NDX", "QQQ", "SPY",
+  "MU", "AMD", "NVDA", "GOOG", "GOOGL", "MSFT", "XAU", "XAG", "WTI", "DXY",
+]);
+
+function detectSymbols(text: string, source: ExternalAnalystSource, sourceFamily?: string): string[] {
   const normalized = text.toLowerCase();
   const symbols = new Set<string>();
-  if (source !== "BTCKIK") {
+  const altcoinCashtagSource = source === "BTCKIK"
+    || (source === "GENERAL_X_RESEARCH" && sourceFamily === "ALTCOIN_RADAR");
+  if (!altcoinCashtagSource) {
     for (const [symbol, aliases] of SYMBOL_ALIASES) {
       if (aliases.some((alias) => aliasMatches(normalized, alias))) symbols.add(symbol);
     }
   }
-  if (source === "BTCKIK") {
-    const blocked = new Set([
-      "USD", "USDT", "USDC", "BTC", "ETH", "SPX", "NDX", "QQQ", "SPY",
-      "MU", "AMD", "NVDA", "GOOG", "GOOGL", "MSFT", "XAU", "XAG", "WTI", "DXY",
-    ]);
+  if (altcoinCashtagSource) {
     for (const match of text.matchAll(/\$([A-Za-z][A-Za-z0-9]{1,9})\b/g)) {
       const ticker = (match[1] ?? "").toUpperCase();
-      if (!ticker || blocked.has(ticker)) continue;
+      if (!ticker || ALTCOIN_CASHTAG_BLOCKED.has(ticker)) continue;
       symbols.add(`${ticker}USDT`);
     }
   }
@@ -187,6 +190,7 @@ function sourceRole(source: ExternalAnalystSource): ExternalAnalystRole {
   if (source === "HALILUYA") return "PANIC_REVERSAL";
   if (source === "BTCKIK") return "ALTCOIN_DISCOVERY";
   if (source === "MAT78704") return "DIRECTION_CYCLE_RESONANCE";
+  if (source === "GENERAL_X_RESEARCH") return "GENERAL_X_RESEARCH";
   return "GANN_LEVEL_CYCLE";
 }
 
@@ -197,23 +201,28 @@ export function parseExternalAnalystPost(input: {
   postUrl: string;
   postedAt: string;
   text: string;
+  sourceFamily?: string;
 }): ExternalAnalystParsedPost {
   const text = input.text.replace(/\s+/g, " ").trim();
   const levels = classifyLevels(text);
-  const symbols = detectSymbols(text, input.source);
+  const symbols = detectSymbols(text, input.source, input.sourceFamily);
   const direction = inferDirection(text);
   const horizon = inferHorizon(input.source, text);
   const explicitLevelCount = levels.supportLevels.length + levels.resistanceLevels.length + levels.targetLevels.length;
   const timeWindows = extractTimeWindows(text);
   const gannContext = /江恩|角度线|周期|时间窗|支撑|压力|阻力|突破|跌破|站稳|失守/i.test(text);
-  const researchEligible = input.source === "BTCTW0"
+  const researchEligible = input.source === "GENERAL_X_RESEARCH"
+    ? false
+    : input.source === "BTCTW0"
     ? symbols.length === 1 && gannContext && (explicitLevelCount > 0 || timeWindows.length > 0)
     : input.source === "MAT78704"
       ? symbols.length === 1 && direction !== "NEUTRAL"
       : input.source !== "BTCKIK";
   const researchRejection = researchEligible
     ? null
-    : input.source === "BTCTW0"
+    : input.source === "GENERAL_X_RESEARCH"
+      ? "通用X研究源仅供情报汇总，不进入外部分析师交易overlay。"
+      : input.source === "BTCTW0"
       ? "缺少明确标的及江恩点位/周期上下文，仅留档不进入结构参考。"
       : input.source === "MAT78704"
         ? "缺少明确标的或明确方向，仅留档不进入共振参考。"
@@ -238,6 +247,8 @@ export function parseExternalAnalystPost(input: {
     summary: text.length > 220 ? `${text.slice(0, 217)}...` : text,
     researchEligible,
     researchRejection,
+    sourceRelevant: input.source !== "GENERAL_X_RESEARCH",
+    sourceFamily: input.sourceFamily,
   };
 }
 
