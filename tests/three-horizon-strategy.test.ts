@@ -78,6 +78,21 @@ test("Bitget orders use idempotent clientOid and exchange-side preset protection
   assert.match(client, /headers\.paptrading\s*=\s*"1"/);
 });
 
+test("legacy 25238 hedge close recovery is narrow, versioned and preserves normal open idempotency", () => {
+  const client = read("lib/bitget/demo-client.ts");
+  const executionCore = read("lib/bitget/live-execution-core.ts");
+  assert.match(client, /input\.reduceOnly && shouldRetryLegacyHedgeClose/);
+  assert.match(client, /uta-hedge-close-v2/);
+  assert.match(client, /actionType: "CLOSE_MARKET"/);
+  assert.match(client, /idempotencyKey: `close:\$\{recoveryOid\}`/);
+  assert.match(executionCore, /input\.actionType !== "CLOSE_MARKET"/);
+  assert.match(executionCore, /input\.status !== "FAILED"/);
+  assert.match(executionCore, /input\.failureStage === "AMBIGUOUS_WRITE"/);
+  assert.match(executionCore, /input\.bitgetCode === "25238"/);
+  assert.match(executionCore, /input\.remoteSubmissionAttempted !== false/);
+  assert.match(client, /idempotencyKey: `\$\{input\.reduceOnly \? "close" : "open"\}:\$\{oid\}`/);
+});
+
 test("long horizon is aggregated from closed daily candles and current endpoint supports adequate history", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");

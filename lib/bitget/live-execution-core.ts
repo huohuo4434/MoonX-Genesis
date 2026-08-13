@@ -53,6 +53,28 @@ export function buildUtaMarketOrderBody(input: {
   return body;
 }
 
+export function shouldRetryLegacyHedgeClose(input: {
+  actionType: string;
+  status: string;
+  lastError: string;
+  failureStage?: string | null;
+  bitgetCode?: string | null;
+  remoteSubmissionAttempted?: boolean | null;
+}): boolean {
+  if (input.actionType !== "CLOSE_MARKET" || input.status !== "FAILED") return false;
+  if (input.failureStage === "AMBIGUOUS_WRITE" || input.failureStage === "STATUS_QUERY") return false;
+
+  const explicitlyRejected =
+    input.bitgetCode === "25238" ||
+    /(?:Bitget\s*)?25238\b/i.test(input.lastError);
+  const conflictingFields = /posSide/i.test(input.lastError) && /reduceOnly/i.test(input.lastError);
+
+  // 25238 is a deterministic request-shape rejection: the exchange did not accept an
+  // order. It is therefore safe to preserve the failed audit row and create one new,
+  // versioned close intent after the corrected hedge-mode body builder is deployed.
+  return explicitlyRejected && conflictingFields && input.remoteSubmissionAttempted !== false;
+}
+
 export class LiveTradeExecutionError extends Error {
   readonly stage: LiveExecutionStage;
   readonly bitgetCode: string | null;

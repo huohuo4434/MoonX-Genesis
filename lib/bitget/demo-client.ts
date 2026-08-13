@@ -8,6 +8,7 @@ import {
   planUtaLeverageConfiguration,
   runIdempotentOrderDispatch,
   serializeLiveExecutionError,
+  shouldRetryLegacyHedgeClose,
   type LiveExecutionStage,
   type RemoteFailureDescriptor,
   isUtaHedgeMode,
@@ -1633,8 +1634,8 @@ async function createOutboxIntent(input: {
       (id,idempotency_key,decision_id,action_type,symbol,direction,payload,status,client_oid,created_at,updated_at,environment_mode)
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'PENDING',$8,NOW(),NOW(),$9)
      ON CONFLICT (idempotency_key) DO UPDATE SET
-       payload=CASE WHEN trade_execution_outbox.status IN ('PENDING','FAILED') AND trade_execution_outbox.environment_mode=EXCLUDED.environment_mode THEN EXCLUDED.payload ELSE trade_execution_outbox.payload END,
-       updated_at=NOW()
+       payload=CASE WHEN trade_execution_outbox.status = 'PENDING' AND trade_execution_outbox.environment_mode=EXCLUDED.environment_mode THEN EXCLUDED.payload ELSE trade_execution_outbox.payload END,
+       updated_at=CASE WHEN trade_execution_outbox.status = 'PENDING' AND trade_execution_outbox.environment_mode=EXCLUDED.environment_mode THEN NOW() ELSE trade_execution_outbox.updated_at END
      RETURNING *`,
     `outbox_${randomUUID()}`,
     `${getBitgetDemoEnvironment().mode}:${input.idempotencyKey}`,
@@ -2105,7 +2106,7 @@ export async function placeBitgetDemoMarketOrder(input: {
   if (takeProfit && takeProfit !== input.takeProfit) warnings.push(`止盈已按Bitget价格步长归一化为${takeProfit}`);
   const oid = clientOid(input.paperOrderId);
   const payload: MarketExecutionPayload = { ...input, stopLoss, takeProfit, size, warnings };
-  const task = await createOutboxIntent({
+  let task = await createOutboxIntent({
     idempotencyKey: `${input.reduceOnly ? "close" : "open"}:${oid}`,
     decisionId: input.paperOrderId.split(":")[0] || null,
     actionType: input.reduceOnly ? "CLOSE_MARKET" : "OPEN_MARKET",
@@ -2114,6 +2115,32 @@ export async function placeBitgetDemoMarketOrder(input: {
     clientOid: oid,
     payload: payload as unknown as Record<string, unknown>,
   });
+  const legacyFailure = executionErrorFromOutbox(task);
+  if (input.reduceOnly && shouldRetryLegacyHedgeClose({
+    actionType: task.action_type,
+    status: task.status,
+    lastError: task.last_error,
+    failureStage: legacyFailure?.stage,
+    bitgetCode: legacyFailure?.bitgetCode,
+    remoteSubmissionAttempted: legacyFailure?.remoteSubmissionAttempted,
+  })) {
+    const recoveryPaperOrderId = `${input.paperOrderId}:uta-hedge-close-v2`;
+    const recoveryOid = clientOid(recoveryPaperOrderId);
+    const recoveryPayload: MarketExecutionPayload = {
+      ...payload,
+      paperOrderId: recoveryPaperOrderId,
+    };
+    task = await createOutboxIntent({
+      idempotencyKey: `close:${recoveryOid}`,
+      decisionId: input.paperOrderId.split(":")[0] || null,
+      actionType: "CLOSE_MARKET",
+      symbol: input.symbol,
+      direction: input.side,
+      clientOid: recoveryOid,
+      payload: recoveryPayload as unknown as Record<string, unknown>,
+    });
+    warnings.push("已为交易所明确拒绝的旧版双向平仓请求创建修正版幂等重试；旧失败记录保留。");
+  }
   const result = await processSingleOutboxTask(task.id);
   if (!result.bitget_order_id || !result.client_oid || result.status === "FAILED") {
     const typed = executionErrorFromOutbox(result);

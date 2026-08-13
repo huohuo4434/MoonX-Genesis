@@ -6,6 +6,7 @@ import {
   LiveTradeExecutionError,
   planUtaLeverageConfiguration,
   runIdempotentOrderDispatch,
+  shouldRetryLegacyHedgeClose,
   type RemoteFailureDescriptor,
 } from "../lib/bitget/live-execution-core";
 import { classifyLiveOrderFailure } from "../lib/trading-signals/live-order-preflight-core";
@@ -53,6 +54,41 @@ test("UTA hedge close identifies the position leg without assigning reduceOnly",
   assert.equal(closeShort.posSide, "short");
   assert.equal("reduceOnly" in closeLong, false);
   assert.equal("reduceOnly" in closeShort, false);
+});
+
+test("only the deterministic legacy 25238 hedge-close rejection gets a versioned retry", () => {
+  assert.equal(shouldRetryLegacyHedgeClose({
+    actionType: "CLOSE_MARKET",
+    status: "FAILED",
+    lastError: "Bitget 25238: posSide and reduceOnly请不要同时赋值",
+    failureStage: "REMOTE_ORDER_WRITE",
+    bitgetCode: "25238",
+    remoteSubmissionAttempted: true,
+  }), true);
+  assert.equal(shouldRetryLegacyHedgeClose({
+    actionType: "OPEN_MARKET",
+    status: "FAILED",
+    lastError: "Bitget 25238: posSide and reduceOnly请不要同时赋值",
+    failureStage: "REMOTE_ORDER_WRITE",
+    bitgetCode: "25238",
+    remoteSubmissionAttempted: true,
+  }), false);
+  assert.equal(shouldRetryLegacyHedgeClose({
+    actionType: "CLOSE_MARKET",
+    status: "FAILED",
+    lastError: "ORDER_STATUS_UNKNOWN: timeout",
+    failureStage: "AMBIGUOUS_WRITE",
+    bitgetCode: null,
+    remoteSubmissionAttempted: true,
+  }), false);
+  assert.equal(shouldRetryLegacyHedgeClose({
+    actionType: "CLOSE_MARKET",
+    status: "FAILED",
+    lastError: "Bitget 25238: posSide and reduceOnly请不要同时赋值",
+    failureStage: "REMOTE_ORDER_WRITE",
+    bitgetCode: "25238",
+    remoteSubmissionAttempted: false,
+  }), false);
 });
 
 test("one-way close keeps reduceOnly while hedge open keeps exchange-side protection", () => {

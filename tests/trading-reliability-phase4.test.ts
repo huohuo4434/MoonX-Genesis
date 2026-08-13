@@ -108,6 +108,16 @@ test("旧Demo专用数据库约束通过独立迁移安全升级为双环境约�
     "api_mode='UTA_V3_LIVE' AND real_trading_locked=FALSE",
   ]);
   assert.doesNotMatch(liveMigration, /DROP\s+TABLE|TRUNCATE|DELETE\s+FROM/i);
+  all(reliability, [
+    "DO $reliability_constraint_upgrade$",
+    "pg_get_constraintdef",
+    "position('UTA_V3_LIVE' IN api_constraint) = 0",
+    "position('UTA_V3_LIVE' IN paper_constraint) = 0",
+    "position('UTA_V3_LIVE' IN real_lock_constraint) = 0",
+    "DROP CONSTRAINT IF EXISTS trade_reliability_api_mode_check",
+    "api_mode IN ('UTA_V3_DEMO','UTA_V3_LIVE')",
+  ]);
+  assert.match(reliability, /CREATE TABLE IF NOT EXISTS trade_reliability_state[\s\S]*DO \$reliability_constraint_upgrade\$[\s\S]*INSERT INTO trade_reliability_state/);
 });
 
 test("服务器时间同步和写操作时钟闸门已安装", () => {
@@ -117,6 +127,9 @@ test("服务器时间同步和写操作时钟闸门已安装", () => {
 test("数据库发件箱具有唯一幂等键和状态机", () => {
   all(migration, ["CREATE TABLE IF NOT EXISTS trade_execution_outbox", "idempotency_key TEXT NOT NULL UNIQUE", "PENDING", "PROCESSING", "ACKNOWLEDGED", "CONFIRMED", "FAILED", "RECONCILED"]);
   all(client, ["ON CONFLICT (idempotency_key)", "acquireOutboxTask", "processBitgetDemoExecutionOutbox", "locked_until"]);
+  assert.match(client, /trade_execution_outbox\.status = 'PENDING'[\s\S]{0,180}ELSE trade_execution_outbox\.payload END/);
+  assert.match(client, /updated_at=CASE WHEN trade_execution_outbox\.status = 'PENDING'[\s\S]{0,220}ELSE trade_execution_outbox\.updated_at END/);
+  assert.doesNotMatch(client, /trade_execution_outbox\.status IN \('PENDING','FAILED'\)/);
 });
 
 test("订单必须按orderId或clientOid回查最终状态", () => {

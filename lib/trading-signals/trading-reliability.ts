@@ -247,6 +247,56 @@ export async function ensureTradingReliabilityTables(): Promise<boolean> {
         CONSTRAINT trade_reliability_admin_override_check CHECK (admin_override IS NULL OR admin_override IN ('MANAGE_ONLY','PAUSED'))
       )
     `);
+    await prisma.$executeRawUnsafe(`
+      DO $reliability_constraint_upgrade$
+      DECLARE
+        api_constraint TEXT;
+        paper_constraint TEXT;
+        real_lock_constraint TEXT;
+      BEGIN
+        SELECT pg_get_constraintdef(oid)
+          INTO api_constraint
+        FROM pg_constraint
+        WHERE conrelid = 'trade_reliability_state'::regclass
+          AND conname = 'trade_reliability_api_mode_check';
+
+        SELECT pg_get_constraintdef(oid)
+          INTO paper_constraint
+        FROM pg_constraint
+        WHERE conrelid = 'trade_reliability_state'::regclass
+          AND conname = 'trade_reliability_paper_check';
+
+        SELECT pg_get_constraintdef(oid)
+          INTO real_lock_constraint
+        FROM pg_constraint
+        WHERE conrelid = 'trade_reliability_state'::regclass
+          AND conname = 'trade_reliability_real_lock_check';
+
+        IF api_constraint IS NULL OR position('UTA_V3_LIVE' IN api_constraint) = 0
+          OR paper_constraint IS NULL OR position('UTA_V3_LIVE' IN paper_constraint) = 0
+          OR real_lock_constraint IS NULL OR position('UTA_V3_LIVE' IN real_lock_constraint) = 0 THEN
+          ALTER TABLE trade_reliability_state
+            DROP CONSTRAINT IF EXISTS trade_reliability_api_mode_check,
+            DROP CONSTRAINT IF EXISTS trade_reliability_paper_check,
+            DROP CONSTRAINT IF EXISTS trade_reliability_real_lock_check;
+
+          ALTER TABLE trade_reliability_state
+            ADD CONSTRAINT trade_reliability_api_mode_check
+              CHECK (api_mode IN ('UTA_V3_DEMO','UTA_V3_LIVE')),
+            ADD CONSTRAINT trade_reliability_paper_check
+              CHECK (
+                (api_mode='UTA_V3_DEMO' AND paptrading_required=TRUE) OR
+                (api_mode='UTA_V3_LIVE' AND paptrading_required=FALSE)
+              ),
+            ADD CONSTRAINT trade_reliability_real_lock_check
+              CHECK (
+                (api_mode='UTA_V3_DEMO' AND real_trading_locked=TRUE) OR
+                (api_mode='UTA_V3_LIVE' AND real_trading_locked=FALSE)
+              );
+        END IF;
+      END
+      $reliability_constraint_upgrade$;
+    `);
     await prisma.$executeRawUnsafe(
       `INSERT INTO trade_reliability_state (
         id, api_mode, paptrading_required, real_trading_locked, mode, mode_reason
