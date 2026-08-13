@@ -105,11 +105,19 @@ export async function ensureCanonicalWeeklySourcesInDb(): Promise<{
   }
 }
 
-export async function listWeeklyForecastSources(): Promise<WeeklyForecastSourceRecord[]> {
+export async function listWeeklyForecastSources(
+  marketCodes?: readonly string[]
+): Promise<WeeklyForecastSourceRecord[]> {
+  const markets = marketCodes?.length
+    ? Array.from(new Set(marketCodes.map((code) => code.toUpperCase())))
+    : null;
   if (hasPrisma() && prisma) {
     try {
       const rows = await prisma.weeklyForecastSource.findMany({
-        where: { status: { in: ["LOCKED", "PUBLISHED"] } },
+        where: {
+          status: { in: ["LOCKED", "PUBLISHED"] },
+          ...(markets ? { marketCode: { in: markets } } : {}),
+        },
         orderBy: [{ periodStart: "asc" }, { marketCode: "asc" }],
       });
       if (rows.length > 0) return rows.map(mapWeeklyRow);
@@ -117,7 +125,9 @@ export async function listWeeklyForecastSources(): Promise<WeeklyForecastSourceR
       /* fall through to canonical */
     }
   }
-  return CANONICAL_WEEKLY_LIUYAO_SOURCES;
+  return markets
+    ? CANONICAL_WEEKLY_LIUYAO_SOURCES.filter((row) => markets.includes(row.marketCode.toUpperCase()))
+    : CANONICAL_WEEKLY_LIUYAO_SOURCES;
 }
 
 export async function getWeeklySourceForMarketDate(
@@ -250,16 +260,23 @@ export async function upsertGeneratedDaily(
 }
 
 export async function listGeneratedDailiesForDate(
-  forecastDate: string
+  forecastDate: string,
+  options: { marketCodes?: readonly string[]; readOnly?: boolean } = {}
 ): Promise<GeneratedDailyForecastRecord[]> {
   if (!hasPrisma() || !prisma) return [];
-  const schema = await ensureGeneratedForecastSourceSchema();
-  if (!schema.ready) return [];
+  if (!options.readOnly) {
+    const schema = await ensureGeneratedForecastSourceSchema();
+    if (!schema.ready) return [];
+  }
+  const markets = options.marketCodes?.length
+    ? Array.from(new Set(options.marketCodes.map((code) => code.toUpperCase())))
+    : null;
   try {
     const rows = await prisma.generatedDailyForecast.findMany({
       where: {
         forecastDate,
         status: { in: ["PUBLISHED", "LOCKED"] },
+        ...(markets ? { marketCode: { in: markets } } : {}),
       },
       orderBy: [{ marketCode: "asc" }, { version: "desc" }],
     });

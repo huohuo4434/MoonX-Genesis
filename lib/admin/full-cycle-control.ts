@@ -192,6 +192,15 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
   return rows;
 }
 
+/** Code-backed forecast rows only; suitable for a bounded single-asset live read. */
+export function listCodeBackedForecastRowsForAssets(
+  assetIds: readonly string[],
+  now = new Date()
+): AdminCycleForecastRow[] {
+  const requested = new Set(assetIds.map(canonicalAssetId));
+  return staticForecastRows(now).filter((row) => requested.has(canonicalAssetId(row.assetId)));
+}
+
 type OverrideNote = Record<string, unknown>;
 
 function parseNote(note: string | null): OverrideNote {

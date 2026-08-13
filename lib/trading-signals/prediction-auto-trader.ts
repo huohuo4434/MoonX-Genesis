@@ -1,7 +1,10 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
-import { buildAdminFullCycleSnapshot } from "@/lib/admin/full-cycle-control";
+import {
+  buildAdminFullCycleSnapshot,
+  listCodeBackedForecastRowsForAssets,
+} from "@/lib/admin/full-cycle-control";
 import {
   getBitgetDemoDashboard,
   getBitgetMirrorSettings,
@@ -44,6 +47,7 @@ import type {
   PredictionMarketContext,
   PredictionStrategyPlan,
 } from "@/types/prediction-auto-trader";
+import { loadForecastSourcesForScope } from "@/lib/trading-signals/forecast-read-scope-core";
 import { resolveWeeklyAuthoritySetup } from "@/lib/trading-signals/authoritative-market-structure-core";
 
 type DbSettings = {
@@ -681,14 +685,28 @@ function runtimeDailyRow(
   };
 }
 
-async function loadPredictionForecastRows(now: Date): Promise<AdminCycleForecastRow[]> {
+async function loadPredictionForecastRows(
+  now: Date,
+  requestedSymbols?: readonly PredictionAutoSymbol[]
+): Promise<AdminCycleForecastRow[]> {
   const today = getChinaDateKey(now);
-  const [snapshot, generatedDaily, weeklySources] = await Promise.all([
-    buildAdminFullCycleSnapshot(now),
-    listGeneratedDailiesForDate(today),
-    listWeeklyForecastSources(),
-  ]);
-  const rows = [...snapshot.forecasts, ...currentCryptoResearchWeeklyRows(today, now)];
+  const requested = requestedSymbols?.length
+    ? Array.from(new Set(requestedSymbols.map((symbol) => normalizeSymbol(symbol)))
+    ) : null;
+  const requestedAssetIds = requested?.map((symbol) => symbolMeta(symbol).assetId);
+  const scoped = await loadForecastSourcesForScope({ requestedSymbols: requested ?? undefined }, {
+    loadBroadBase: () => buildAdminFullCycleSnapshot(now).then((snapshot) => snapshot.forecasts),
+    loadBoundedBase: () => Promise.resolve(listCodeBackedForecastRowsForAssets(requestedAssetIds ?? [], now)),
+    loadDaily: (symbols) => listGeneratedDailiesForDate(today, symbols
+      ? { marketCodes: symbols, readOnly: true }
+      : undefined),
+    loadWeekly: (symbols) => listWeeklyForecastSources(symbols),
+  });
+  const baseRows = scoped.base;
+  const generatedDaily = scoped.daily;
+  const weeklySources = scoped.weekly;
+  const rows = [...baseRows, ...currentCryptoResearchWeeklyRows(today, now)]
+    .filter((row) => !requestedAssetIds || requestedAssetIds.includes(row.assetId));
 
   for (const item of generatedDaily) {
     const assetId = marketCodeAssetId(item.marketCode);
@@ -903,7 +921,7 @@ export async function resolvePredictionStrategyPlans(
   now = new Date(),
   requestedSymbols?: readonly PredictionAutoSymbol[]
 ): Promise<PredictionStrategyPlan[]> {
-  const rows = await loadPredictionForecastRows(now);
+  const rows = await loadPredictionForecastRows(now, requestedSymbols);
   const symbols = requestedSymbols?.length
     ? Array.from(new Set(requestedSymbols.map((symbol) => normalizeSymbol(symbol))))
     : normalizeWatchSymbols(settings.watchSymbols);

@@ -16,6 +16,7 @@ const migration = read("prisma/migrations/20260804050000_trade_reliability_phase
 const liveMigration = read("prisma/migrations/20260807010000_trade_reliability_live_mode/migration.sql");
 const commissioningPlans = read("lib/trading-signals/ai-trade-plans.ts");
 const predictionAutoTrader = read("lib/trading-signals/prediction-auto-trader.ts");
+const weeklySourceStore = read("lib/weekly-source/store.ts");
 const commissioningRecovery = read("lib/bitget/live-commissioning-recovery-core.ts");
 const commissioningRetryMigration = read("prisma/migrations/20260811143000_live_commissioning_safe_retry/migration.sql");
 const xIntelligenceOverlay = read("lib/trading-signals/x-intelligence-overlay.ts");
@@ -179,6 +180,10 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(strategy, /Promise\.all\(\[\s*getThreeHorizonProfiles\(\),\s*getPredictionAutoTraderSettings\(\{ readOnly: liveExperimentMode \}\)/);
   assert.match(predictionAutoTrader, /if \(!options\.readOnly && !\(await ensurePredictionAutoTraderTables\(\)\)\)/);
   assert.match(predictionAutoTrader, /if \(options\.readOnly && !rows\[0\]\)[\s\S]*实盘扫描禁止使用默认值/);
+  assert.match(predictionAutoTrader, /loadForecastSourcesForScope\(\{ requestedSymbols: requested \?\? undefined \}/);
+  assert.match(predictionAutoTrader, /listCodeBackedForecastRowsForAssets\(requestedAssetIds \?\? \[\], now\)/);
+  assert.match(weeklySourceStore, /marketCode: \{ in: markets \}/);
+  assert.match(weeklySourceStore, /if \(!options\.readOnly\)[\s\S]*ensureGeneratedForecastSourceSchema/);
   assert.match(strategy, /to_regclass\('trade_three_horizon_profiles'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(commissioningPlans, /to_regclass\('trade_ai_plans'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ symbols: liveSymbolsForThisRun, limit: 3 \} : \{\}/);
@@ -190,6 +195,7 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(strategy, /runLiveScanSymbolStep\(async \(\) =>[\s\S]{0,1000}readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);
   assert.match(strategy, /if \(timeBudgetReached\) break;\s*await markProfileScanned/);
+  assert.match(strategy, /reportProgress\("PROFILE_DATA_COMPLETE"[\s\S]*dataDurationMs[\s\S]*candleCacheHit/);
   assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*liveExperimentMode &&\s*LIVE_ACTIVITY_ENABLED/);
   assert.doesNotMatch(strategy, /readWithinLiveScanDeadline\([\s\S]{0,120}getExternalAnalystOverlay/);
   all(runtime, [

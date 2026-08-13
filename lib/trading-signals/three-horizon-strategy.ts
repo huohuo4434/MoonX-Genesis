@@ -3240,6 +3240,7 @@ export async function runThreeHorizonStrategyEngine(
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
     if (timeBudgetReached) break;
+    const profileStartedAt = Date.now();
     let tradesToday = await todayTradeCount(profile, now);
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
@@ -3252,7 +3253,9 @@ export async function runThreeHorizonStrategyEngine(
         break;
       }
       const scanStep = await runLiveScanSymbolStep(async () => {
+        const dataStartedAt = Date.now();
         let candleSet = candleCache.get(symbol);
+        const candleCacheHit = Boolean(candleSet);
         if (!candleSet) {
           candleSet = await readWithinLiveScanDeadline(() => loadCandleSet(symbol), deadlineMs);
           candleCache.set(symbol, candleSet);
@@ -3266,6 +3269,13 @@ export async function runThreeHorizonStrategyEngine(
         // fully awaited under the owner lease and must never outlive a read race.
         const analystOverlay = await getExternalAnalystOverlay(symbol, profile.strategyType, now)
           .catch(() => null);
+        await reportProgress("PROFILE_DATA_COMPLETE", {
+          profile: profile.strategyType,
+          symbol,
+          dataDurationMs: Date.now() - dataStartedAt,
+          candleCacheHit,
+          analystOverlay: Boolean(analystOverlay),
+        });
         evaluation = applyExternalAnalystOverlay({
           evaluation,
           overlay: analystOverlay,
@@ -3401,6 +3411,7 @@ export async function runThreeHorizonStrategyEngine(
     await reportProgress("PROFILE_COMPLETE", {
       profile: profile.strategyType,
       decisions: decisions.length,
+      profileDurationMs: Date.now() - profileStartedAt,
     });
   }
   let dailyMinimumMessage = "";

@@ -16,6 +16,7 @@ import {
   createStrategyProgressReporter,
   runBoundedSerialMaintenance,
 } from "../lib/trading-signals/strategy-runtime-progress-core";
+import { loadForecastSourcesForScope } from "../lib/trading-signals/forecast-read-scope-core";
 
 class MemoryLeaseStore implements RuntimeLeaseStore {
   owner: string | null = null;
@@ -187,4 +188,33 @@ test("production progress reporter preserves the last completed stage and elapse
     publish: async () => { throw new Error("audit unavailable"); },
   });
   await assert.doesNotReject(telemetryFailure("ENGINE_START"));
+});
+
+test("single-symbol live forecast read skips the broad admin snapshot and runs bounded reads together", async () => {
+  const calls: string[] = [];
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const resultPromise = loadForecastSourcesForScope({ requestedSymbols: ["mu", "MU"] }, {
+    loadBroadBase: async () => { calls.push("broad"); return ["broad"]; },
+    loadBoundedBase: async (symbols) => { calls.push(`base:${symbols.join(",")}`); await gate; return ["base"]; },
+    loadDaily: async (symbols) => { calls.push(`daily:${symbols?.join(",")}`); await gate; return ["daily"]; },
+    loadWeekly: async (symbols) => { calls.push(`weekly:${symbols?.join(",")}`); await gate; return ["weekly"]; },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ["base:MU", "daily:MU", "weekly:MU"]);
+  release?.();
+  assert.deepEqual(await resultPromise, {
+    base: ["base"], daily: ["daily"], weekly: ["weekly"], bounded: true,
+  });
+});
+
+test("unscoped forecast consumers retain the broad snapshot path", async () => {
+  const calls: string[] = [];
+  await loadForecastSourcesForScope({}, {
+    loadBroadBase: async () => { calls.push("broad"); return []; },
+    loadBoundedBase: async () => { calls.push("bounded"); return []; },
+    loadDaily: async () => [],
+    loadWeekly: async () => [],
+  });
+  assert.deepEqual(calls, ["broad"]);
 });

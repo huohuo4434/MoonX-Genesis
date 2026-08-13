@@ -8,6 +8,7 @@ export type ThreeHorizonProgressStage =
   | "RISK_ACCOUNT_COMPLETE"
   | "COMMISSIONING_COMPLETE"
   | "UNIVERSE_COMPLETE"
+  | "PROFILE_DATA_COMPLETE"
   | "PROFILE_COMPLETE";
 
 export type ThreeHorizonProgress = {
