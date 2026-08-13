@@ -716,3 +716,10 @@ test("三位X博主研究角色不能绕过正式方向和交易硬门禁", () =
   assert.doesNotMatch(overlay, /return\s*\{[\s\S]{0,160}ready:\s*true/);
   assert.doesNotMatch(overlay, /return\s*\{[\s\S]{0,160}direction:\s*overlay\.direction/);
 });
+
+test("registered general X sources remain outside the trading overlay", () => {
+  const parser = read("lib/trading-signals/external-analyst-parser.ts");
+  const aggregation = read("lib/trading-signals/external-analyst-aggregation-core.ts");
+  all(parser, ['input.source === "GENERAL_X_RESEARCH"', 'sourceRelevant: input.source !== "GENERAL_X_RESEARCH"']);
+  assert.match(aggregation, /if \(source === "GENERAL_X_RESEARCH"\) return false/);
+});
