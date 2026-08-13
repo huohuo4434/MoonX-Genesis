@@ -8,6 +8,10 @@ import {
   shouldWriteDynamicPlanAudit,
   writeDynamicPlanAuditIfRequired,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
+import {
+  runTp1ProtectionTransition,
+  shouldRunTp1ProtectionTransition,
+} from "../lib/trading-signals/tp1-protection-transition-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -31,6 +35,64 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+
+test("TP1 persists the confirmed reduction before protection replacement and never reduces twice", async () => {
+  const calls: string[] = [];
+  let reduced = false;
+  const result = await runTp1ProtectionTransition({
+    reducePosition: async () => { assert.equal(reduced, false); reduced = true; calls.push("reduce"); },
+    persistPartialClose: async () => { calls.push("persist-partial"); },
+    cancelExistingProtection: async () => { calls.push("cancel"); },
+    readProtection: async () => null,
+    readRemainingPosition: async () => ({ total: 0.5 }),
+    placeReplacementProtection: async () => { calls.push("replace"); return { orderId: "protect-new" }; },
+    persistProtection: async () => { calls.push("persist-protection"); },
+    emergencyCloseRemaining: async () => { calls.push("emergency-close"); },
+    persistEmergencyClose: async () => { calls.push("persist-close"); },
+  });
+  assert.deepEqual(calls, ["reduce", "persist-partial", "cancel", "replace", "persist-protection"]);
+  assert.deepEqual(result, { state: "PROTECTED", protectionOrderId: "protect-new" });
+  assert.equal(shouldRunTp1ProtectionTransition({ tp1Done: true, targetReached: true }), false);
+  assert.equal(shouldRunTp1ProtectionTransition({ tp1Done: false, targetReached: true }), true);
+});
+
+test("TP1 ambiguous cancel retains an authoritative old protection and creates no duplicate", async () => {
+  let replacementCalls = 0;
+  const result = await runTp1ProtectionTransition({
+    reducePosition: async () => undefined,
+    persistPartialClose: async () => undefined,
+    cancelExistingProtection: async () => { throw new Error("timeout"); },
+    readProtection: async () => ({ orderId: "protect-old" }),
+    readRemainingPosition: async () => ({ total: 0.5 }),
+    placeReplacementProtection: async () => { replacementCalls += 1; return { orderId: "duplicate" }; },
+    persistProtection: async () => undefined,
+    emergencyCloseRemaining: async () => undefined,
+    persistEmergencyClose: async () => undefined,
+  });
+  assert.equal(replacementCalls, 0);
+  assert.deepEqual(result, { state: "PROTECTED", protectionOrderId: "protect-old" });
+});
+
+test("TP1 replacement failure re-reads authority, retries one stable intent, then closes exact remaining position", async () => {
+  let replacementCalls = 0;
+  const closed: number[] = [];
+  const calls: string[] = [];
+  const result = await runTp1ProtectionTransition({
+    reducePosition: async () => { calls.push("reduce"); },
+    persistPartialClose: async () => { calls.push("persist-partial"); },
+    cancelExistingProtection: async () => { calls.push("cancel"); },
+    readProtection: async () => null,
+    readRemainingPosition: async () => ({ total: 0.37 }),
+    placeReplacementProtection: async () => { replacementCalls += 1; throw new Error("ambiguous"); },
+    persistProtection: async () => { throw new Error("unexpected"); },
+    emergencyCloseRemaining: async (position) => { closed.push(position.total); calls.push("emergency-close"); },
+    persistEmergencyClose: async () => { calls.push("persist-close"); },
+  });
+  assert.equal(replacementCalls, 2, "the production adapter reuses one stable replacement outbox key");
+  assert.deepEqual(closed, [0.37]);
+  assert.deepEqual(calls, ["reduce", "persist-partial", "cancel", "emergency-close", "persist-close"]);
+  assert.deepEqual(result, { state: "EMERGENCY_CLOSE_SUBMITTED" });
+});
 
 test("unchanged active plans avoid per-minute writes but retain lifecycle and periodic audit writes", () => {
   const now = new Date("2026-08-14T17:00:00.000Z");

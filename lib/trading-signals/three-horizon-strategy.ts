@@ -13,6 +13,10 @@ import {
   type ThreeHorizonProgress,
 } from "@/lib/trading-signals/strategy-runtime-progress-core";
 import { postPlanDecisionRequiresSync } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
+import {
+  runTp1ProtectionTransition,
+  shouldRunTp1ProtectionTransition,
+} from "@/lib/trading-signals/tp1-protection-transition-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -2644,37 +2648,87 @@ async function manageActiveDecisions(now: Date): Promise<{
       }
       continue;
     }
-    if (!rows.find((row) => row.id === current.id)?.tp1_done && targetReached(current.direction, position.markPrice, current.target1)) {
+    if (shouldRunTp1ProtectionTransition({
+      tp1Done: Boolean(rows.find((row) => row.id === current.id)?.tp1_done),
+      targetReached: targetReached(current.direction, position.markPrice, current.target1),
+    })) {
       orderAttempts += 1;
       try {
         const contract = await getContractConfig(current.symbol as BitgetSupportedSymbol);
         const half = position.total * 0.5;
         const halfSize = Number(normalizeOrderSize(half, contract));
         if (halfSize > 0 && halfSize < position.total) {
-          await placeBitgetDemoMarketOrder({
-            paperOrderId: `${current.id}:tp1`,
-            symbol: current.symbol as BitgetSupportedSymbol,
-            quantity: halfSize,
-            side: orderSide(current.direction, true),
-            reduceOnly: true,
+          const transition = await runTp1ProtectionTransition({
+            reducePosition: async () => {
+              await placeBitgetDemoMarketOrder({
+                paperOrderId: `${current.id}:tp1`,
+                symbol: current.symbol as BitgetSupportedSymbol,
+                quantity: halfSize,
+                side: orderSide(current.direction, true),
+                reduceOnly: true,
+              });
+            },
+            persistPartialClose: async () => {
+              current = await updateDecision(current.id, {
+                status: "PARTIAL",
+                tp1Done: true,
+                rejectionCode: "TP1_PROTECTION_TRANSITION",
+                rejectionReason: "第一目标减仓已确认；正在以权威账户状态切换剩余仓位保护，后续轮次不得再次减仓。",
+              });
+            },
+            cancelExistingProtection: async () => {
+              if (protection?.orderId) {
+                await cancelBitgetDemoStrategyOrder({
+                  orderId: protection.orderId,
+                  symbol: current.symbol,
+                });
+              }
+            },
+            readProtection: async () => matchingProtection(
+              await getBitgetDemoPendingStrategyOrders(),
+              current
+            ) ?? null,
+            readRemainingPosition: async () => matchingPosition(
+              await getBitgetDemoCurrentPositions(),
+              current
+            ) ?? null,
+            placeReplacementProtection: async () => placeBitgetDemoProtectionOrder({
+              paperOrderId: `${current.id}:breakeven-protection`,
+              symbol: current.symbol as BitgetSupportedSymbol,
+              posSide: current.direction === "SHORT" ? "short" : "long",
+              stopLoss: current.entryPrice ?? position.avgPrice,
+              takeProfit: current.target2 ?? position.markPrice,
+            }),
+            persistProtection: async (confirmed) => {
+              current = await updateDecision(current.id, {
+                status: "PARTIAL",
+                tp1Done: true,
+                protectionOrderId: confirmed.orderId,
+                rejectionCode: "",
+                rejectionReason: "达到第一目标，减仓已确认，剩余仓位已有交易所侧保护。",
+              });
+            },
+            emergencyCloseRemaining: async (remaining) => {
+              await placeBitgetDemoMarketOrder({
+                paperOrderId: `${current.id}:tp1-protection-failure-close`,
+                symbol: current.symbol as BitgetSupportedSymbol,
+                quantity: remaining.total,
+                side: orderSide(current.direction, true),
+                reduceOnly: true,
+              });
+            },
+            persistEmergencyClose: async () => {
+              current = await updateDecision(current.id, {
+                status: "CLOSING",
+                tp1Done: true,
+                rejectionCode: "TP1_PROTECTION_EMERGENCY_CLOSE",
+                rejectionReason: "第一目标减仓后无法确认任何交易所保护；已按权威剩余仓位提交幂等紧急平仓。",
+              });
+            },
           });
-          if (protection?.orderId) {
-            await cancelBitgetDemoStrategyOrder({ orderId: protection.orderId }).catch(() => undefined);
+          if (transition.state === "RECOVERY_UNCONFIRMED") {
+            throw new Error(transition.error);
           }
-          const replacement = await placeBitgetDemoProtectionOrder({
-            paperOrderId: `${current.id}:breakeven-protection`,
-            symbol: current.symbol as BitgetSupportedSymbol,
-            posSide: current.direction === "SHORT" ? "short" : "long",
-            stopLoss: current.entryPrice ?? position.avgPrice,
-            takeProfit: current.target2 ?? position.markPrice,
-          });
-          await updateDecision(current.id, {
-            status: "PARTIAL",
-            tp1Done: true,
-            protectionOrderId: replacement.orderId,
-            rejectionCode: "",
-            rejectionReason: "达到第一目标，已减仓约50%，剩余仓位止损移动至保本。",
-          });
           orderSuccess += 1;
         } else {
           await updateDecision(current.id, {
