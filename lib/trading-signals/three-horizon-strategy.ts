@@ -2,6 +2,7 @@ import "server-only";
 
 import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
 import { selectRotatingScanBatch } from "@/lib/trading-signals/live-scan-rotation-core";
+import { isRecoverableLegacyTimeExit } from "@/lib/trading-signals/legacy-time-exit-recovery-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -1494,11 +1495,53 @@ async function listDecisionRows(limit = 60): Promise<DecisionRow[]> {
 
 async function listActiveDecisionRows(): Promise<DecisionRow[]> {
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) return [];
-  return prisma.$queryRawUnsafe<DecisionRow[]>(`
-    SELECT * FROM trade_three_horizon_decisions
-    WHERE status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
-    ORDER BY created_at ASC
-  `);
+  const [active, legacy] = await Promise.all([
+    prisma.$queryRawUnsafe<DecisionRow[]>(`
+      SELECT * FROM trade_three_horizon_decisions
+      WHERE status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+      ORDER BY created_at ASC
+    `),
+    prisma.$queryRawUnsafe<Array<DecisionRow & {
+      outbox_decision_id: string | null;
+      outbox_symbol: string | null;
+      outbox_action: string | null;
+      outbox_status: string | null;
+      outbox_last_error: string | null;
+      failure_stage: string | null;
+      remote_submission_attempted: string | null;
+    }>>(`
+      SELECT d.*,
+             o.decision_id AS outbox_decision_id,
+             o.symbol AS outbox_symbol,
+             o.action_type AS outbox_action,
+             o.status AS outbox_status,
+             o.last_error AS outbox_last_error,
+             o.payload->'executionFailure'->>'stage' AS failure_stage,
+             o.payload->'executionFailure'->>'remoteSubmissionAttempted' AS remote_submission_attempted
+      FROM trade_three_horizon_decisions d
+      JOIN LATERAL (
+        SELECT * FROM trade_execution_outbox
+        WHERE decision_id=d.id AND action_type='CLOSE_MARKET'
+        ORDER BY created_at DESC LIMIT 1
+      ) o ON TRUE
+      WHERE d.status='ERROR' AND d.rejection_code='TIME_EXIT_FAILED'
+      ORDER BY d.created_at ASC
+    `),
+  ]);
+  const recoverable = legacy.filter((row) => isRecoverableLegacyTimeExit({
+    decisionId: row.id,
+    decisionSymbol: row.symbol,
+    decisionStatus: row.status,
+    rejectionCode: row.rejection_code,
+    outboxDecisionId: row.outbox_decision_id,
+    outboxSymbol: row.outbox_symbol,
+    outboxAction: row.outbox_action,
+    outboxStatus: row.outbox_status,
+    outboxLastError: row.outbox_last_error,
+    failureStage: row.failure_stage,
+    remoteSubmissionAttempted: row.remote_submission_attempted,
+  }));
+  return [...active, ...recoverable];
 }
 
 function beijingStartOfDay(now: Date): Date {
