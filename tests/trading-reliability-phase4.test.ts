@@ -12,6 +12,11 @@ import {
   runTp1ProtectionTransition,
   shouldRunTp1ProtectionTransition,
 } from "../lib/trading-signals/tp1-protection-transition-core";
+import {
+  classifyReliabilityPosition,
+  reliabilityDecisionModeForEnvironment,
+  shouldRepairConfirmedMissingProtection,
+} from "../lib/trading-signals/reliability-position-classification-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -35,6 +40,29 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+
+test("watchdog isolates Demo and Live decisions while classifying a live naked position for confirmed repair", () => {
+  assert.equal(reliabilityDecisionModeForEnvironment("DEMO"), "DEMO");
+  assert.equal(reliabilityDecisionModeForEnvironment("LIVE_EXPERIMENT"), "LIVE");
+  const position = { symbol: "HYPEUSDT", posSide: "long" as const };
+  const liveDecision = { id: "live-hype", symbol: "HYPEUSDT", direction: "LONG" };
+  const demoDecision = { id: "demo-hype", symbol: "HYPEUSDT", direction: "LONG" };
+
+  const live = classifyReliabilityPosition({ position, decisions: [liveDecision], protections: [] });
+  assert.deepEqual(live, { kind: "UNPROTECTED", decision: liveDecision });
+  assert.equal(shouldRepairConfirmedMissingProtection({ occurrenceCount: 1, requiredOccurrences: 2 }), false);
+  assert.equal(shouldRepairConfirmedMissingProtection({ occurrenceCount: 2, requiredOccurrences: 2 }), true);
+
+  const noLiveDecision = classifyReliabilityPosition({ position, decisions: [], protections: [] });
+  assert.deepEqual(noLiveDecision, { kind: "ORPHAN", decision: null });
+  const protectedLive = classifyReliabilityPosition({
+    position,
+    decisions: [liveDecision],
+    protections: [{ symbol: "HYPEUSDT", posSide: "long" }],
+  });
+  assert.deepEqual(protectedLive, { kind: "PROTECTED", decision: liveDecision });
+  assert.notEqual(liveDecision.id, demoDecision.id, "the SQL mode filter selects only the environment-authoritative row set");
+});
 
 test("TP1 persists the confirmed reduction before protection replacement and never reduces twice", async () => {
   const calls: string[] = [];

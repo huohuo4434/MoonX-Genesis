@@ -1,5 +1,11 @@
 import "server-only";
 
+import {
+  classifyReliabilityPosition,
+  reliabilityDecisionModeForEnvironment,
+  shouldRepairConfirmedMissingProtection,
+} from "@/lib/trading-signals/reliability-position-classification-core";
+
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { paymentNotifyTo, sendRawEmail } from "@/lib/email/notifications";
@@ -160,10 +166,6 @@ function directionSide(direction: ActiveDecisionRow["direction"]): "long" | "sho
   if (direction === "LONG") return "long";
   if (direction === "SHORT") return "short";
   return null;
-}
-
-function decisionMatchesPosition(decision: ActiveDecisionRow, position: BitgetDemoPosition): boolean {
-  return decision.symbol === position.symbol && directionSide(decision.direction) === position.posSide;
 }
 
 function decisionMatchesProtection(decision: ActiveDecisionRow, order: BitgetDemoStrategyOrder): boolean {
@@ -373,12 +375,13 @@ async function readRuntimeState(): Promise<RuntimeStateRow | null> {
 
 async function readActiveDecisions(): Promise<ActiveDecisionRow[]> {
   if (!prisma) return [];
+  const decisionMode = reliabilityDecisionModeForEnvironment(getBitgetDemoEnvironment().mode);
   return prisma.$queryRawUnsafe<ActiveDecisionRow[]>(`
     SELECT id,symbol,direction,status,stop_loss,target_2,protection_order_id
     FROM trade_three_horizon_decisions
-    WHERE mode='DEMO' AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','ERROR')
+    WHERE mode=$1 AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','ERROR')
     ORDER BY updated_at DESC
-  `).catch(() => [] as ActiveDecisionRow[]);
+  `, decisionMode).catch(() => [] as ActiveDecisionRow[]);
 }
 
 async function persistIssues(issues: ReliabilityIssue[]): Promise<Map<string, IncidentRow>> {
@@ -526,7 +529,10 @@ async function repairMissingProtections(input: {
   for (const issue of input.issues) {
     if (issue.code !== "UNPROTECTED_POSITION" || !issue.decisionId) continue;
     const persisted = input.persisted.get(issueFingerprint(issue));
-    if (!persisted || persisted.occurrence_count < AUTO_REPAIR_AFTER_OCCURRENCES) continue;
+    if (!persisted || !shouldRepairConfirmedMissingProtection({
+      occurrenceCount: persisted.occurrence_count,
+      requiredOccurrences: AUTO_REPAIR_AFTER_OCCURRENCES,
+    })) continue;
     const decision = input.decisions.find((row) => row.id === issue.decisionId);
     if (!decision || !decision.stop_loss || !decision.target_2) continue;
     if (input.protections.some((order) => decisionMatchesProtection(decision, order))) continue;
@@ -721,8 +727,8 @@ export async function runTradingReliabilityWatchdog(input: {
 
   const decisions = await readActiveDecisions();
   for (const position of positions) {
-    const decision = decisions.find((row) => decisionMatchesPosition(row, position));
-    if (!decision) {
+    const classification = classifyReliabilityPosition({ position, decisions, protections });
+    if (classification.kind === "ORPHAN") {
       issues.push({
         severity: "CRITICAL",
         code: "ORPHAN_EXCHANGE_POSITION",
@@ -732,7 +738,8 @@ export async function runTradingReliabilityWatchdog(input: {
       });
       continue;
     }
-    if (!protections.some((order) => decisionMatchesProtection(decision, order))) {
+    if (classification.kind === "UNPROTECTED") {
+      const decision = classification.decision;
       issues.push({
         severity: "CRITICAL",
         code: "UNPROTECTED_POSITION",
