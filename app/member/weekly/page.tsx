@@ -44,5 +44,7 @@ export default async function MemberWeeklyRoute() {
   }
   const alphaIssue = await buildWeeklyAlphaIssue(payload.summary.weekStart);
   const branchOutlook = getMemberMarketBranchOutlook20260813();
-  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} branchOutlook={branchOutlook} /></>;
+  const { getMemberQimenStoneRadar20260814 } = await import("@/lib/data/member-qimen-stone-radar-20260814");
+  const researchRadar = getMemberQimenStoneRadar20260814();
+  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} branchOutlook={branchOutlook} researchRadar={researchRadar} /></>;
 }

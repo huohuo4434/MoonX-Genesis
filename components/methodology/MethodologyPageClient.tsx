@@ -111,6 +111,11 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         </Text>
       </header>
 
+      <Card padding="md" className="border-sky-400/20 bg-sky-400/[0.025]">
+        <Text variant="body-sm" weight="semibold">{zh ? "研究分工边界" : "Research role boundaries"}</Text>
+        <Text variant="body-sm" color="secondary" className="mt-2 block">{zh ? "六爻负责正式方向；奇门只辅助环境与择时；宏观流动性框架只用于风险观察。后二者不直接触发交易，也不覆盖已锁定预测。" : "Liu Yao owns the formal direction. Qimen assists environment and timing, while macro-liquidity frameworks are for risk observation. Neither directly triggers trades nor overwrites locked forecasts."}</Text>
+      </Card>
+
       {/* 4-core diagram */}
       <section className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
