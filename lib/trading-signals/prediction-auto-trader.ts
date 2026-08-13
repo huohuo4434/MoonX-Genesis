@@ -345,13 +345,21 @@ export async function ensurePredictionAutoTraderTables(): Promise<boolean> {
   }
 }
 
-export async function getPredictionAutoTraderSettings(): Promise<PredictionAutoTraderSettings> {
-  if (!(await ensurePredictionAutoTraderTables()) || !prisma) {
+export async function getPredictionAutoTraderSettings(
+  options: { readOnly?: boolean } = {}
+): Promise<PredictionAutoTraderSettings> {
+  if (!prisma) {
+    return { ...DEFAULT_SETTINGS, watchSymbols: [...DEFAULT_WATCH_SYMBOLS] };
+  }
+  if (!options.readOnly && !(await ensurePredictionAutoTraderTables())) {
     return { ...DEFAULT_SETTINGS, watchSymbols: [...DEFAULT_WATCH_SYMBOLS] };
   }
   const rows = await prisma.$queryRawUnsafe<DbSettings[]>(
     `SELECT * FROM trade_prediction_auto_settings WHERE id = 'default' LIMIT 1`
   );
+  if (options.readOnly && !rows[0]) {
+    throw new Error("预测自动交易设置缺失，实盘扫描禁止使用默认值");
+  }
   return mapSettings(rows[0]);
 }
 

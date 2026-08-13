@@ -1176,6 +1176,31 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
   if (!prisma) return false;
   if (ensured) return true;
   try {
+    const catalogReady = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(`
+        SELECT to_regclass('trade_three_horizon_profiles') IS NOT NULL
+          AND to_regclass('trade_three_horizon_decisions') IS NOT NULL
+          AND to_regclass('trade_three_horizon_decisions_strategy_time_idx') IS NOT NULL
+          AND to_regclass('trade_three_horizon_decisions_active_idx') IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema() AND table_name='trade_three_horizon_profiles'
+              AND column_name='planning_min_confidence'
+          )
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema() AND table_name='trade_three_horizon_decisions'
+              AND column_name='plan_id'
+          )
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema() AND table_name='trade_three_horizon_decisions'
+              AND column_name='scale_in_order_id'
+          ) AS ready
+      `).then((rows) => rows[0]?.ready === true).catch(() => false);
+    if (catalogReady) {
+      ensured = true;
+      return true;
+    }
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_three_horizon_profiles (
         strategy_type TEXT PRIMARY KEY,
@@ -2996,6 +3021,7 @@ export async function runThreeHorizonStrategyEngine(
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) {
     throw new Error("三周期策略数据库未连接");
   }
+  await reportProgress("SCHEMA_COMPLETE");
   const environment = getBitgetDemoEnvironment();
   const liveExperimentMode = environment.mode === "LIVE_EXPERIMENT";
   const eligibleSymbols = options.eligibleSymbols ? new Set(options.eligibleSymbols) : null;
@@ -3030,7 +3056,7 @@ export async function runThreeHorizonStrategyEngine(
   });
   const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
     now,
-    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 6 } : {}
+    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
   ).catch(() => 0);
   await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
   if (managementReadError) {
@@ -3065,7 +3091,6 @@ export async function runThreeHorizonStrategyEngine(
       message: `服务器处于暂停状态，仅管理${management.managed}笔已有三周期仓位，不扫描新入场。`,
     };
   }
-  const profiles = await getThreeHorizonProfiles();
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   // Apply the rotating bound before any live contract/candle discovery. Previously
   // the final loop selected one symbol only after commissioning had read every
@@ -3073,10 +3098,14 @@ export async function runThreeHorizonStrategyEngine(
   // Live mode evaluates all three horizons on every server pass. The runtime supplies a
   // small rotating symbol batch so each pass stays bounded while candle data is still
   // shared across profiles. Demo/shadow mode keeps the original cadence.
+  const [profiles, settings] = await Promise.all([
+    getThreeHorizonProfiles(),
+    getPredictionAutoTraderSettings({ readOnly: liveExperimentMode }),
+  ]);
+  await reportProgress("SETTINGS_PROFILES_COMPLETE", { profiles: profiles.length });
   const dueProfiles = profiles.filter((profile) =>
     profile.enabled && (liveExperimentMode || profileDue(profile, now))
   );
-  const settings = await getPredictionAutoTraderSettings();
   const forecastSymbols = liveExperimentMode
     ? liveSymbolsForThisRun.map((symbol) => symbol.replace(/USDT$/, ""))
     : undefined;

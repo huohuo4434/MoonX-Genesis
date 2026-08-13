@@ -391,6 +391,27 @@ export async function ensureAiTradePlanTables(): Promise<boolean> {
   if (!prisma) return false;
   if (ensured) return true;
   try {
+    const catalogReady = await prisma.$queryRawUnsafe<Array<{ ready: boolean }>>(`
+        SELECT to_regclass('trade_ai_plans') IS NOT NULL
+          AND to_regclass('trade_ai_plan_events') IS NOT NULL
+          AND to_regclass('trade_ai_plans_active_forecast_version_unique') IS NOT NULL
+          AND to_regclass('trade_ai_plans_active_idx') IS NOT NULL
+          AND to_regclass('trade_ai_plan_events_plan_time_idx') IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema() AND table_name='trade_ai_plans'
+              AND column_name='forecast_version'
+          )
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema() AND table_name='trade_three_horizon_decisions'
+              AND column_name='plan_id'
+          ) AS ready
+      `).then((rows) => rows[0]?.ready === true).catch(() => false);
+    if (catalogReady) {
+      ensured = true;
+      return true;
+    }
     await prisma.$executeRawUnsafe(`
       ALTER TABLE trade_three_horizon_profiles
         ADD COLUMN IF NOT EXISTS planning_min_confidence INTEGER NOT NULL DEFAULT 45
@@ -1111,10 +1132,14 @@ export async function syncAiTradePlansFromRecentDecisions(
       WHERE d.plan_id IS NOT NULL
         AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
     ), recent_increment AS (
-      SELECT d.* FROM trade_three_horizon_decisions d
-      WHERE d.plan_id IS NOT NULL
-        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
-      ORDER BY d.updated_at DESC
+      SELECT scoped.* FROM (
+        SELECT DISTINCT ON (d.symbol, d.strategy_type) d.*
+        FROM trade_three_horizon_decisions d
+        WHERE d.plan_id IS NOT NULL
+          AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+        ORDER BY d.symbol, d.strategy_type, d.updated_at DESC
+      ) scoped
+      ORDER BY scoped.updated_at DESC
       LIMIT $1
     )
     SELECT * FROM active_audit

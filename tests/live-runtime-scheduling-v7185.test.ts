@@ -156,11 +156,11 @@ test("live plan maintenance turns an 80-row serial backlog into a bounded increm
   const calls: number[] = [];
   const completed = await runBoundedSerialMaintenance({
     rows: Array.from({ length: 80 }, (_, index) => index),
-    maxRows: 6,
+    maxRows: 3,
     maintain: async (row) => { calls.push(row); },
   });
-  assert.equal(completed, 6);
-  assert.deepEqual(calls, [0, 1, 2, 3, 4, 5]);
+  assert.equal(completed, 3);
+  assert.deepEqual(calls, [0, 1, 2]);
 });
 
 test("production progress reporter preserves the last completed stage and elapsed time", async () => {
