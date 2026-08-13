@@ -6,6 +6,7 @@ import {
   LiveScanReadDeadlineError,
   readWithinLiveScanDeadline,
   runLiveScanSymbolStep,
+  selectOpportunityBatchWithinDeadline,
 } from "@/lib/trading-signals/live-scan-rotation-core";
 import { isRecoverableLegacyTimeExit } from "@/lib/trading-signals/legacy-time-exit-recovery-core";
 import {
@@ -46,6 +47,7 @@ import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-
 import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-preflight-core";
 import { LiveTradeExecutionError } from "@/lib/bitget/live-execution-core";
 import {
+  getLiveScanOpportunityHints,
   prepareAiTradePlanBeforeExecution,
   syncAiTradePlanFromDecision,
   syncAiTradePlansFromRecentDecisions,
@@ -3087,6 +3089,7 @@ export async function runThreeHorizonStrategyEngine(
     : Number.POSITIVE_INFINITY;
   const runId = `thr_${randomUUID()}`;
   const startedAt = now.toISOString();
+  const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let managementReadError = "";
   const liveScanRound = await beginLiveScanRound({
     symbols: eligibleLiveSymbols,
@@ -3094,7 +3097,8 @@ export async function runThreeHorizonStrategyEngine(
       ? maxNewSymbols
       : Math.max(1, eligibleLiveSymbols.length),
     nowMs: now.getTime(),
-  }, { manage: () => manageActiveDecisions(now).catch((error) => {
+  }, {
+    manage: () => manageActiveDecisions(now).catch((error) => {
     managementReadError = error instanceof Error ? error.message : "持仓管理读取失败";
     return {
       managed: 0,
@@ -3102,18 +3106,26 @@ export async function runThreeHorizonStrategyEngine(
       orderSuccess: 0,
       orderErrors: 0,
     };
-  }) });
+    }),
+    canSelect: () => !managementReadError,
+    select: async (fallback) => {
+      if (!liveExperimentMode || fallback.length !== 1) return fallback;
+      return selectOpportunityBatchWithinDeadline({
+        symbols: eligibleLiveSymbols,
+        maxItems: maxNewSymbols,
+        nowMs: now.getTime(),
+        quotes: options.quotes ?? [],
+        deadlineMs: Math.min(deadlineMs, Date.now() + 2_000),
+        loadHints: () => getLiveScanOpportunityHints(),
+      });
+    },
+  });
   const management = liveScanRound.management;
   const liveSymbolsForThisRun = liveScanRound.selected;
   await reportProgress("MANAGEMENT_COMPLETE", {
     managed: management.managed,
     selectedSymbols: liveSymbolsForThisRun,
   });
-  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
-    now,
-    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
-  ).catch(() => 0);
-  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
   if (managementReadError) {
     return {
       ok: false,
@@ -3130,6 +3142,11 @@ export async function runThreeHorizonStrategyEngine(
       message: `持仓管理关键读取失败，本轮禁止扫描和开新仓：${managementReadError}`,
     };
   }
+  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
+    now,
+    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
+  ).catch(() => 0);
+  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
   if (options.manageOnly) {
     return {
       ok: management.orderErrors === 0,
@@ -3146,7 +3163,6 @@ export async function runThreeHorizonStrategyEngine(
       message: `服务器处于暂停状态，仅管理${management.managed}笔已有三周期仓位，不扫描新入场。`,
     };
   }
-  const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   // Apply the rotating bound before any live contract/candle discovery. Previously
   // the final loop selected one symbol only after commissioning had read every
   // allowed symbol, so sequential read timeouts could consume the 300-second route.

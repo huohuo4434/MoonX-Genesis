@@ -10,6 +10,8 @@ import {
   LiveScanReadDeadlineError,
   readWithinLiveScanDeadline,
   runLiveScanSymbolStep,
+  selectOpportunityAwareScanBatch,
+  selectOpportunityBatchWithinDeadline,
   selectRotatingScanBatch,
 } from "../lib/trading-signals/live-scan-rotation-core";
 import {
@@ -17,6 +19,117 @@ import {
   runBoundedSerialMaintenance,
 } from "../lib/trading-signals/strategy-runtime-progress-core";
 import { loadForecastSourcesForScope } from "../lib/trading-signals/forecast-read-scope-core";
+
+const opportunityNowMs = 0;
+const opportunityHint = (symbol: string, low: number, high: number, direction: "LONG" | "SHORT" | "NEUTRAL" = "LONG") => ({
+  id: `${symbol}-${direction}`,
+  symbol,
+  direction,
+  entryZoneLow: low,
+  entryZoneHigh: high,
+  forecastLockedAt: new Date(opportunityNowMs - 60_000).toISOString(),
+  forecastValidFrom: new Date(opportunityNowMs - 60_000).toISOString(),
+  forecastValidUntil: new Date(opportunityNowMs + 3_600_000).toISOString(),
+  lastCheckedAt: new Date(opportunityNowMs - 30_000).toISOString(),
+  updatedAt: new Date(opportunityNowMs - 30_000).toISOString(),
+});
+const opportunityQuote = (symbol: string, price: number) => ({
+  symbol,
+  price,
+  capturedAt: new Date(opportunityNowMs - 10_000).toISOString(),
+});
+
+test("a fresh symbol nearest its locked weekly entry zone is scanned first", () => {
+  assert.deepEqual(selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "XAU"], maxItems: 1, nowMs: opportunityNowMs,
+    hints: [opportunityHint("BTC", 90, 91), opportunityHint("ETH", 99.8, 100.2)],
+    quotes: [opportunityQuote("BTC", 100), opportunityQuote("ETH", 100)],
+  }), ["ETH"]);
+});
+
+test("equal opportunity scores retain minute rotation", () => {
+  const hints = [opportunityHint("BTC", 99, 101), opportunityHint("ETH", 99, 101), opportunityHint("XAU", 99, 101)];
+  const quotes = [opportunityQuote("BTC", 100), opportunityQuote("ETH", 100), opportunityQuote("XAU", 100)];
+  assert.deepEqual([0, 1, 2].map((offset) => selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "XAU"], maxItems: 1, nowMs: opportunityNowMs + offset * 60_000, hints, quotes,
+  })), [["BTC"], ["ETH"], ["XAU"]]);
+});
+
+test("a mandatory fair cycle prevents a permanent near-zone winner", () => {
+  const symbols = ["BTC", "ETH", "XAU"];
+  const hints = [opportunityHint("BTC", 99, 101), opportunityHint("ETH", 90, 91), opportunityHint("XAU", 80, 81)];
+  const quotes = symbols.map((symbol) => opportunityQuote(symbol, 100));
+  const fairCycle = [6, 7, 8].map((offset) => selectOpportunityAwareScanBatch({
+    symbols, maxItems: 1, nowMs: opportunityNowMs + offset * 60_000, hints, quotes,
+  })[0]);
+  assert.deepEqual(fairCycle, symbols);
+});
+
+test("missing locks, stale quotes and conflicting weekly directions cannot promote a symbol", () => {
+  const unlocked = { ...opportunityHint("ETH", 99, 101), forecastLockedAt: null };
+  const stale = { ...opportunityQuote("XAU", 100), capturedAt: new Date(opportunityNowMs - 181_000).toISOString() };
+  assert.deepEqual(selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "XAU"], maxItems: 1, nowMs: opportunityNowMs,
+    hints: [unlocked, opportunityHint("XAU", 99, 101)],
+    quotes: [opportunityQuote("BTC", 100), opportunityQuote("ETH", 100), stale],
+  }), ["BTC"]);
+  assert.deepEqual(selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "XAU"], maxItems: 1, nowMs: opportunityNowMs,
+    hints: [{ ...opportunityHint("ETH", 99, 101), lastCheckedAt: new Date(opportunityNowMs - 31 * 60_000).toISOString() }],
+    quotes: [opportunityQuote("ETH", 100)],
+  }), ["BTC"]);
+  assert.deepEqual(selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "XAU"], maxItems: 1, nowMs: opportunityNowMs,
+    hints: [opportunityHint("ETH", 99, 101), opportunityHint("ETH", 99, 101, "SHORT")],
+    quotes: [opportunityQuote("ETH", 100)],
+  }), ["BTC"]);
+});
+
+test("a never-resolving opportunity hint read falls back quickly and the scan continues", async () => {
+  const started = Date.now();
+  const selected = await selectOpportunityBatchWithinDeadline({
+    symbols: ["BTC", "ETH"],
+    maxItems: 1,
+    nowMs: 0,
+    quotes: [opportunityQuote("ETH", 100)],
+    deadlineMs: started + 20,
+    loadHints: () => new Promise(() => undefined),
+  });
+  assert.deepEqual(selected, ["BTC"]);
+  assert.ok(Date.now() - started < 500);
+  const events = [`scan:${selected[0]}`];
+  assert.deepEqual(events, ["scan:BTC"]);
+});
+
+test("a failed management read starts no hint selection, maintenance write or order", async () => {
+  let managementFailed = false;
+  let hintCalls = 0;
+  let writes = 0;
+  let orders = 0;
+  const round = await beginLiveScanRound({ symbols: ["BTC", "ETH"], maxItems: 1, nowMs: 0 }, {
+    manage: async () => {
+      try {
+        throw new Error("authoritative position read failed");
+      } catch {
+        managementFailed = true;
+        return { managed: 0 };
+      }
+    },
+    canSelect: () => !managementFailed,
+    select: async (fallback) => {
+      hintCalls += 1;
+      return fallback;
+    },
+  });
+  if (!managementFailed) {
+    writes += 1;
+    orders += 1;
+  }
+  assert.deepEqual(round.selected, ["BTC"]);
+  assert.equal(hintCalls, 0);
+  assert.equal(writes, 0);
+  assert.equal(orders, 0);
+});
 
 class MemoryLeaseStore implements RuntimeLeaseStore {
   owner: string | null = null;
@@ -122,6 +235,7 @@ test("production scheduling cores manage first, rotate one symbol and suppress w
     nowMs: 60_000,
   }, {
     manage: async () => { events.push("manage"); return { managed: 1 }; },
+    select: async (fallback) => { events.push("select"); return fallback; },
   });
   const symbol = round.selected[0];
   events.push(`commissioning:${symbol}`);
@@ -143,6 +257,7 @@ test("production scheduling cores manage first, rotate one symbol and suppress w
   assert.deepEqual(round.selected, ["ETH"]);
   assert.deepEqual(events, [
     "manage",
+    "select",
     "commissioning:ETH",
     "dynamic:ETH",
     "INTRADAY:ETH",

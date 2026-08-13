@@ -2,11 +2,35 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
 
 const engine = () => read("lib/trading-signals/three-horizon-strategy.ts");
+
+test("live scheduling prioritizes a fresh locked weekly entry zone without changing the one-symbol cap", () => {
+  const selected = selectOpportunityAwareScanBatch({
+    symbols: ["BTCUSDT", "ETHUSDT", "XAUTUSDT"],
+    maxItems: 1,
+    nowMs: 0,
+    hints: [{
+      id: "eth-week-v1",
+      symbol: "ETHUSDT",
+      direction: "LONG",
+      entryZoneLow: 99.8,
+      entryZoneHigh: 100.2,
+      forecastLockedAt: new Date(-60_000).toISOString(),
+      forecastValidFrom: new Date(-60_000).toISOString(),
+      forecastValidUntil: new Date(3_600_000).toISOString(),
+      lastCheckedAt: new Date(-30_000).toISOString(),
+      updatedAt: new Date(-30_000).toISOString(),
+    }],
+    quotes: [{ symbol: "ETHUSDT", price: 100, capturedAt: new Date(-10_000).toISOString() }],
+  });
+  assert.deepEqual(selected, ["ETHUSDT"]);
+  assert.equal(selected.length, 1);
+});
 
 test("three independent strategy profiles use different horizons and holding periods", () => {
   const source = engine();

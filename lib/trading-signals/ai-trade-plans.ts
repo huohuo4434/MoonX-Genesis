@@ -3,6 +3,7 @@ import "server-only";
 import { runBoundedSerialMaintenance } from "@/lib/trading-signals/strategy-runtime-progress-core";
 import { writeDynamicPlanAuditIfRequired } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import { aiTradePlanDashboardReadPolicy } from "@/lib/trading-signals/member-desk-persisted-plan-core";
+import type { LiveScanOpportunityHint } from "@/lib/trading-signals/live-scan-rotation-core";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -1377,6 +1378,37 @@ export async function getPublishedAiTradePlans(
   ).catch(() => [] as PlanRow[]);
   const events = await loadEvents(rows.map((row: PlanRow) => row.id)).catch(() => new Map<string, AiTradePlanEvent[]>());
   return rows.map((row: PlanRow) => mapPlan(row, events.get(row.id) ?? []));
+}
+
+/** Strictly read-only scheduler hint; no schema ensure, expiry, event or plan write. */
+export async function getLiveScanOpportunityHints(): Promise<LiveScanOpportunityHint[]> {
+  if (!prisma) return [];
+  const rows = await prisma.$queryRawUnsafe<Array<Pick<PlanRow,
+    "id" | "symbol" | "direction" | "entry_zone_low" | "entry_zone_high"
+    | "forecast_locked_at" | "forecast_valid_from" | "forecast_valid_until" | "last_checked_at" | "updated_at"
+  >>>(`
+    SELECT id, symbol, direction, entry_zone_low, entry_zone_high,
+           forecast_locked_at, forecast_valid_from, forecast_valid_until, last_checked_at, updated_at
+    FROM trade_ai_plans
+    WHERE execution_mode = 'BITGET_LIVE'
+      AND strategy_type = 'SWING'
+      AND forecast_horizon = 'WEEK'
+      AND status IN ('PUBLISHED', 'WATCHING', 'ARMED')
+    ORDER BY updated_at DESC, published_at DESC, version DESC, id ASC
+    LIMIT 100
+  `).catch(() => []);
+  return rows.map((row) => ({
+    id: row.id,
+    symbol: row.symbol,
+    direction: row.direction,
+    entryZoneLow: Number(row.entry_zone_low),
+    entryZoneHigh: Number(row.entry_zone_high),
+    forecastLockedAt: iso(row.forecast_locked_at),
+    forecastValidFrom: iso(row.forecast_valid_from),
+    forecastValidUntil: iso(row.forecast_valid_until),
+    lastCheckedAt: iso(row.last_checked_at),
+    updatedAt: row.updated_at.toISOString(),
+  }));
 }
 
 export async function getAiTradePlanDashboard(

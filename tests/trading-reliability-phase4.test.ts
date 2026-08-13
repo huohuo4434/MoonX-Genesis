@@ -23,6 +23,7 @@ import {
   summarizePersistedPlans,
 } from "../lib/trading-signals/member-desk-persisted-plan-core";
 import type { AiTradePlan } from "../types/ai-trade-plan";
+import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -46,6 +47,30 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+
+test("opportunity scheduling stays read-only and fails closed to fair rotation without authoritative fresh evidence", () => {
+  const selected = selectOpportunityAwareScanBatch({
+    symbols: ["BTCUSDT", "ETHUSDT"],
+    maxItems: 1,
+    nowMs: 0,
+    hints: [{
+      id: "unlocked-eth",
+      symbol: "ETHUSDT",
+      direction: "LONG",
+      entryZoneLow: 99,
+      entryZoneHigh: 101,
+      forecastLockedAt: null,
+      forecastValidFrom: new Date(-60_000).toISOString(),
+      forecastValidUntil: new Date(3_600_000).toISOString(),
+      lastCheckedAt: new Date(-30_000).toISOString(),
+      updatedAt: new Date(-30_000).toISOString(),
+    }],
+    quotes: [{ symbol: "ETHUSDT", price: 100, capturedAt: new Date(-10_000).toISOString() }],
+  });
+  assert.deepEqual(selected, ["BTCUSDT"]);
+  assert.match(commissioningPlans, /Strictly read-only scheduler hint/);
+  assert.match(commissioningPlans, /execution_mode = 'BITGET_LIVE'[\s\S]{0,160}strategy_type = 'SWING'[\s\S]{0,160}forecast_horizon = 'WEEK'/);
+});
 
 test("member desk builds display rows from persisted locked plans without broad forecast resolution", () => {
   const persisted = {
