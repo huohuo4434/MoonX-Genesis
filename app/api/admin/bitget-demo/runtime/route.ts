@@ -12,9 +12,10 @@ import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai
 import { auditBitgetLiveResumeReadiness } from "@/lib/bitget/live-resume-readiness";
 import { auditRecentBitgetLiveOrderFailures } from "@/lib/bitget/demo-client";
 import { guardRuntimeAdminAction } from "@/lib/bitget/runtime-admin-action-core";
+import { canStartMemberDeskSync } from "@/lib/bitget/runtime-deadline-core";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
@@ -66,10 +67,15 @@ export async function POST(request: NextRequest) {
 
     // RUN_NOW reaches this branch only while not paused. RESUME itself never runs a trading cycle.
     const now = new Date();
-    const report = await runBitgetDemoServerRuntime(now, "ADMIN");
+    const absoluteDeadlineAt = new Date(Date.now() + 285_000);
+    const report = await runBitgetDemoServerRuntime(now, "ADMIN", { absoluteDeadlineAt });
     let memberDeskSync: { ok: true } | { ok: false; error: string } = { ok: true };
     try {
-      await syncMemberAiTradingDeskSnapshot(now);
+      if (!canStartMemberDeskSync(absoluteDeadlineAt.getTime())) {
+        memberDeskSync = { ok: false, error: "deferred: insufficient runtime deadline remaining" };
+      } else {
+        await syncMemberAiTradingDeskSnapshot(now);
+      }
     } catch (error) {
       memberDeskSync = { ok: false, error: error instanceof Error ? error.message : "会员台同步失败" };
     }

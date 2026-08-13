@@ -19,6 +19,7 @@ import {
   shouldRunTp1ProtectionTransition,
 } from "@/lib/trading-signals/tp1-protection-transition-core";
 import { randomUUID } from "crypto";
+import { runNewEntryBeforeCutoff } from "@/lib/bitget/runtime-deadline-core";
 import { prisma } from "@/lib/prisma";
 import {
   cancelBitgetDemoStrategyOrder,
@@ -2155,6 +2156,7 @@ async function runLiveCommissioning(input: {
   forecastBySymbol: ReadonlyMap<string, PredictionStrategyPlan>;
   eligibleSymbols: readonly BitgetSupportedSymbol[];
   readDeadlineMs: number;
+  newEntryCutoffMs: number;
 }): Promise<{
   state: "COMPLETE" | "ACTIVE" | "WAITING" | "ATTEMPTED" | "ERROR";
   decision: ThreeHorizonStrategyDecision | null;
@@ -2311,17 +2313,24 @@ async function runLiveCommissioning(input: {
         message: `${evaluation.rejectionReason} ${planGate.reason}`,
       };
     }
-    const executed = await executeReadyDecision({
-      decision,
-      profile,
-      evaluation,
-      risk: input.risk,
-      positions: input.positions,
-      protections: input.protections,
-      now: input.now,
-      reservedSymbols: input.reservedSymbols,
-      reservedRiskPct: 0,
+    const lifecycle = await runNewEntryBeforeCutoff({
+      cutoffMs: input.newEntryCutoffMs,
+      now: Date.now,
+      run: () => executeReadyDecision({
+        decision, profile, evaluation, risk: input.risk, positions: input.positions,
+        protections: input.protections, now: input.now, reservedSymbols: input.reservedSymbols, reservedRiskPct: 0,
+      }),
     });
+    if (!lifecycle.started) {
+      decision = await updateDecision(decision.id, {
+        status: "BLOCKED",
+        rejectionCode: "TIME_BUDGET_REACHED",
+        rejectionReason: "请求已进入收尾保留时间，本轮未启动首笔闭环订单。",
+      });
+      await syncAiTradePlanFromDecision(decision, input.now, { force: true }).catch(() => undefined);
+      return { state: "WAITING", decision, attempted: false, success: false, error: false, message: decision.rejectionReason };
+    }
+    const executed = lifecycle.value;
     decision = executed.decision;
     await syncAiTradePlanFromDecision(decision, input.now, { force: true }).catch(() => undefined);
     return {
@@ -3067,6 +3076,7 @@ export async function runThreeHorizonStrategyEngine(
     quotes?: BitgetDemoMarketQuote[];
     maxNewSymbols?: number;
     deadlineAt?: Date;
+    newEntryCutoffAt?: Date;
     onProgress?: (progress: ThreeHorizonProgress) => Promise<void> | void;
   } = {}
 ): Promise<ThreeHorizonRunReport> {
@@ -3090,6 +3100,7 @@ export async function runThreeHorizonStrategyEngine(
   const runId = `thr_${randomUUID()}`;
   const startedAt = now.toISOString();
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
+  const newEntryCutoffMs = options.newEntryCutoffAt?.getTime() ?? Number.POSITIVE_INFINITY;
   let managementReadError = "";
   const liveScanRound = await beginLiveScanRound({
     symbols: eligibleLiveSymbols,
@@ -3142,12 +3153,7 @@ export async function runThreeHorizonStrategyEngine(
       message: `持仓管理关键读取失败，本轮禁止扫描和开新仓：${managementReadError}`,
     };
   }
-  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
-    now,
-    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
-  ).catch(() => 0);
-  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
-  if (options.manageOnly) {
+  if (options.manageOnly || Date.now() >= newEntryCutoffMs) {
     return {
       ok: management.orderErrors === 0,
       runId,
@@ -3160,7 +3166,30 @@ export async function runThreeHorizonStrategyEngine(
       orderAttempts: management.orderAttempts,
       orderSuccess: management.orderSuccess,
       orderErrors: management.orderErrors,
-      message: `服务器处于暂停状态，仅管理${management.managed}笔已有三周期仓位，不扫描新入场。`,
+      message: options.manageOnly
+        ? `服务器处于暂停状态，仅管理${management.managed}笔已有三周期仓位，不扫描新入场。`
+        : `持仓管理已完成；请求已进入收尾保留时间，不启动计划维护、新标的扫描或新订单。`,
+    };
+  }
+  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
+    now,
+    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
+  ).catch(() => 0);
+  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
+  if (Date.now() >= newEntryCutoffMs) {
+    return {
+      ok: management.orderErrors === 0,
+      runId,
+      source,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      scannedStrategies: [],
+      decisions: [],
+      managedOpenDecisions: management.managed,
+      orderAttempts: management.orderAttempts,
+      orderSuccess: management.orderSuccess,
+      orderErrors: management.orderErrors,
+      message: `持仓管理和本轮计划维护已完成；请求已进入收尾保留时间，不启动新标的扫描或新订单。`,
     };
   }
   // Apply the rotating bound before any live contract/candle discovery. Previously
@@ -3234,7 +3263,7 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
-  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED) {
+  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && Date.now() < newEntryCutoffMs) {
     const commissioning = await runLiveCommissioning({
       runId,
       now,
@@ -3246,6 +3275,7 @@ export async function runThreeHorizonStrategyEngine(
       forecastBySymbol: canonicalForecastBySymbol,
       eligibleSymbols: liveSymbolsForThisRun,
       readDeadlineMs: deadlineMs,
+      newEntryCutoffMs,
     });
     commissioningMessage = commissioning.message;
     commissioningAttempted = commissioning.attempted;
@@ -3319,7 +3349,7 @@ export async function runThreeHorizonStrategyEngine(
     for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
     const selectedSymbols = freshProfileSymbols;
     for (const symbol of selectedSymbols) {
-      if (Date.now() >= deadlineMs) {
+      if (Date.now() >= deadlineMs || Date.now() >= newEntryCutoffMs) {
         timeBudgetReached = true;
         break;
       }
@@ -3422,17 +3452,19 @@ export async function runThreeHorizonStrategyEngine(
               rejectionReason: planGate.reason,
             });
           } else {
-            const executed = await executeReadyDecision({
-              decision,
-              profile,
-              evaluation,
-              risk,
-              positions,
-              protections,
-              now,
-              reservedSymbols,
-              reservedRiskPct,
+            const lifecycle = await runNewEntryBeforeCutoff({
+              cutoffMs: newEntryCutoffMs,
+              now: Date.now,
+              run: () => executeReadyDecision({ decision, profile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
             });
+            if (!lifecycle.started) {
+              decision = await updateDecision(decision.id, {
+                status: "BLOCKED",
+                rejectionCode: "TIME_BUDGET_REACHED",
+                rejectionReason: "请求已进入收尾保留时间，本轮未启动新订单。",
+              });
+            } else {
+            const executed = lifecycle.value;
             decision = executed.decision;
             if (executed.attempted) orderAttempts += 1;
             if (executed.success) {
@@ -3443,6 +3475,7 @@ export async function runThreeHorizonStrategyEngine(
               reservedRiskPct += executed.riskReservedPct;
             }
             if (executed.error) orderErrors += 1;
+            }
           }
         }
         const postGateDurationMs = Date.now() - postGateStartedAt;
@@ -3517,6 +3550,7 @@ export async function runThreeHorizonStrategyEngine(
     !timeBudgetReached &&
     liveExperimentMode &&
     LIVE_ACTIVITY_ENABLED &&
+    Date.now() < newEntryCutoffMs &&
     LIVE_ACTIVITY_TARGET > 0 &&
     beijingHour(now) >= LIVE_ACTIVITY_START_HOUR_BJ &&
     !risk.blocked &&
@@ -3547,6 +3581,7 @@ export async function runThreeHorizonStrategyEngine(
     const messages: string[] = [];
     let promotedCount = 0;
     for (const candidate of candidates) {
+      if (Date.now() >= newEntryCutoffMs) break;
       if (
         promotedCount >= needed ||
         executedToday >= environment.liveMaxTradesPerDay
@@ -3613,17 +3648,13 @@ export async function runThreeHorizonStrategyEngine(
         });
         messages.push(`${candidate.symbol}等待计划闸门：${planGate.reason}`);
       } else {
-        const executed = await executeReadyDecision({
-          decision: promoted,
-          profile: activityProfile,
-          evaluation,
-          risk,
-          positions,
-          protections,
-          now,
-          reservedSymbols,
-          reservedRiskPct,
+        const lifecycle = await runNewEntryBeforeCutoff({
+          cutoffMs: newEntryCutoffMs,
+          now: Date.now,
+          run: () => executeReadyDecision({ decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
         });
+        if (!lifecycle.started) break;
+        const executed = lifecycle.value;
         promoted = executed.decision;
         if (executed.attempted) orderAttempts += 1;
         if (executed.success) {
@@ -3650,6 +3681,7 @@ export async function runThreeHorizonStrategyEngine(
   }
   let demoActivityMessage = "";
   if (
+    Date.now() < newEntryCutoffMs &&
     environment.mode === "DEMO" &&
     DEMO_ACTIVE_EXECUTION_ENABLED &&
     DEMO_ACTIVITY_TARGET > 0 &&
@@ -3682,6 +3714,7 @@ export async function runThreeHorizonStrategyEngine(
     const messages: string[] = [];
     let promotedCount = 0;
     for (const candidate of candidates) {
+      if (Date.now() >= newEntryCutoffMs) break;
       if (promotedCount >= needed || executedToday >= DEMO_GLOBAL_TRADE_CAP) break;
       if (await symbolExecutedOrderCountToday(candidate.symbol, now) >= DEMO_SYMBOL_TRADE_CAP) continue;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
@@ -3745,17 +3778,13 @@ export async function runThreeHorizonStrategyEngine(
         });
         messages.push(`${candidate.symbol}等待计划闸门：${planGate.reason}`);
       } else {
-        const executed = await executeReadyDecision({
-          decision: promoted,
-          profile: activityProfile,
-          evaluation,
-          risk,
-          positions,
-          protections,
-          now,
-          reservedSymbols,
-          reservedRiskPct,
+        const lifecycle = await runNewEntryBeforeCutoff({
+          cutoffMs: newEntryCutoffMs,
+          now: Date.now,
+          run: () => executeReadyDecision({ decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
         });
+        if (!lifecycle.started) break;
+        const executed = lifecycle.value;
         promoted = executed.decision;
         if (executed.attempted) orderAttempts += 1;
         if (executed.success) {

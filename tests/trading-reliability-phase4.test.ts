@@ -47,6 +47,8 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+const predictionCron = read("app/api/cron/prediction-auto-trader/route.ts");
+const adminRuntimeRoute = read("app/api/admin/bitget-demo/runtime/route.ts");
 
 test("opportunity scheduling stays read-only and fails closed to fair rotation without authoritative fresh evidence", () => {
   const selected = selectOpportunityAwareScanBatch({
@@ -70,6 +72,17 @@ test("opportunity scheduling stays read-only and fails closed to fair rotation w
   assert.deepEqual(selected, ["BTCUSDT"]);
   assert.match(commissioningPlans, /Strictly read-only scheduler hint/);
   assert.match(commissioningPlans, /execution_mode = 'BITGET_LIVE'[\s\S]{0,160}strategy_type = 'SWING'[\s\S]{0,160}forecast_horizon = 'WEEK'/);
+});
+
+test("runtime routes reserve finalization time, delegate analysts, and give admin the 300-second ceiling", () => {
+  assert.doesNotMatch(predictionCron, /refreshExternalAnalystSignals/);
+  assert.match(predictionCron, /delegated: true, independentCron: "\/api\/cron\/external-analysts"/);
+  assert.match(predictionCron, /Date\.now\(\) \+ 285_000/);
+  assert.match(predictionCron, /canStartMemberDeskSync/);
+  assert.match(adminRuntimeRoute, /export const maxDuration = 300/);
+  assert.match(adminRuntimeRoute, /Date\.now\(\) \+ 285_000/);
+  assert.match(strategy, /newEntryCutoffAt/);
+  assert.match(runtime, /finalizeRuntimeOwner/);
 });
 
 test("member desk builds display rows from persisted locked plans without broad forecast resolution", () => {

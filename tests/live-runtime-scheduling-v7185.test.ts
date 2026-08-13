@@ -19,6 +19,14 @@ import {
   runBoundedSerialMaintenance,
 } from "../lib/trading-signals/strategy-runtime-progress-core";
 import { loadForecastSourcesForScope } from "../lib/trading-signals/forecast-read-scope-core";
+import {
+  buildRuntimeDeadlinePolicy,
+  canStartMemberDeskSync,
+  canStartNewEntry,
+  finalizeRuntimeOwner,
+  releaseOwnerOrThrow,
+  runNewEntryBeforeCutoff,
+} from "../lib/bitget/runtime-deadline-core";
 
 const opportunityNowMs = 0;
 const opportunityHint = (symbol: string, low: number, high: number, direction: "LONG" | "SHORT" | "NEUTRAL" = "LONG") => ({
@@ -129,6 +137,139 @@ test("a failed management read starts no hint selection, maintenance write or or
   assert.equal(hintCalls, 0);
   assert.equal(writes, 0);
   assert.equal(orders, 0);
+});
+
+test("runtime deadline uses fake time to stop new entries while leaving a finalization reserve", () => {
+  const policy = buildRuntimeDeadlinePolicy(new Date(285_000));
+  assert.equal(policy.newEntryCutoffMs, 265_000);
+  assert.equal(canStartNewEntry(policy, 264_999), true);
+  assert.equal(canStartNewEntry(policy, 265_000), false);
+  assert.equal(canStartMemberDeskSync(policy.absoluteDeadlineMs, 254_999), true);
+  assert.equal(canStartMemberDeskSync(policy.absoluteDeadlineMs, 255_001), false);
+});
+
+test("a new order lifecycle started before cutoff is fully awaited but no later order starts", async () => {
+  let now = 99;
+  const events: string[] = [];
+  let finishOrder: (() => void) | undefined;
+  const first = runNewEntryBeforeCutoff({
+    cutoffMs: 100,
+    now: () => now,
+    run: async () => {
+      events.push("order:start");
+      await new Promise<void>((resolve) => { finishOrder = resolve; });
+      events.push("order:audit-complete");
+      return "confirmed";
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  now = 101;
+  finishOrder?.();
+  assert.deepEqual(await first, { started: true, value: "confirmed" });
+  assert.deepEqual(await runNewEntryBeforeCutoff({ cutoffMs: 100, now: () => now, run: async () => "second" }), { started: false });
+  assert.deepEqual(events, ["order:start", "order:audit-complete"]);
+});
+
+test("reserve finalization persists state and FINISH, skips cleanup, then releases owner", async () => {
+  const events: string[] = [];
+  const result = await finalizeRuntimeOwner({
+    allowCleanup: false,
+    persistState: async () => { events.push("state"); },
+    persistFinish: async () => { events.push("FINISH"); },
+    cleanup: async () => { events.push("cleanup"); },
+    releaseOwner: async () => { events.push("release"); },
+  });
+  assert.deepEqual(events, ["state", "FINISH", "release"]);
+  assert.deepEqual(result, { cleanupRan: false, finalizationPersisted: true });
+});
+
+test("optional cleanup failure cannot reopen a finished runtime or prevent owner release", async () => {
+  const events: string[] = [];
+  const result = await finalizeRuntimeOwner({
+    allowCleanup: true,
+    persistState: async () => { events.push("state"); },
+    persistFinish: async () => { events.push("FINISH"); },
+    cleanup: async () => { events.push("cleanup"); throw new Error("retention unavailable"); },
+    releaseOwner: async () => { events.push("release"); },
+  });
+  assert.deepEqual(events, ["state", "FINISH", "cleanup", "release"]);
+  assert.deepEqual(result, { cleanupRan: false, finalizationPersisted: true });
+});
+
+test("a first owner-release failure propagates and an outer finally retries exactly once", async () => {
+  const events: string[] = [];
+  let ownerReleased = false;
+  let releaseCalls = 0;
+  const releaseOwner = async () => {
+    releaseCalls += 1;
+    events.push(`release:${releaseCalls}`);
+    if (releaseCalls === 1) throw new Error("temporary release failure");
+    ownerReleased = true;
+  };
+  await assert.rejects(async () => {
+    try {
+      await finalizeRuntimeOwner({
+        allowCleanup: false,
+        persistState: async () => { events.push("state"); },
+        persistFinish: async () => { events.push("FINISH"); },
+        cleanup: async () => undefined,
+        releaseOwner,
+      });
+    } finally {
+      if (!ownerReleased) await releaseOwner();
+    }
+  }, /temporary release failure/);
+  assert.equal(ownerReleased, true);
+  assert.equal(releaseCalls, 2);
+  assert.deepEqual(events, ["state", "FINISH", "release:1", "release:2"]);
+});
+
+test("successful finalization releases once, while FINISH failure is audited before release", async () => {
+  let releases = 0;
+  await finalizeRuntimeOwner({
+    allowCleanup: false,
+    persistState: async () => undefined,
+    persistFinish: async () => undefined,
+    cleanup: async () => undefined,
+    releaseOwner: async () => { releases += 1; },
+  });
+  assert.equal(releases, 1);
+
+  const events: string[] = [];
+  await assert.rejects(finalizeRuntimeOwner({
+    allowCleanup: false,
+    persistState: async () => { events.push("state"); },
+    persistFinish: async () => { events.push("FINISH:failed"); throw new Error("finish unavailable"); },
+    cleanup: async () => undefined,
+    onFinalizeErrorBeforeRelease: async () => { events.push("failure-audit"); events.push("failure-state"); },
+    releaseOwner: async () => { events.push("release"); },
+  }), /finish unavailable/);
+  assert.deepEqual(events, ["state", "FINISH:failed", "failure-audit", "failure-state", "release"]);
+});
+
+test("two owner-release failures remain a route error and leave the lease to expire", async () => {
+  let releaseCalls = 0;
+  await assert.rejects(async () => {
+    const releaseOwner = async () => { releaseCalls += 1; throw new Error(`release failed ${releaseCalls}`); };
+    let ownerReleased = false;
+    try {
+      await finalizeRuntimeOwner({
+        allowCleanup: false,
+        persistState: async () => undefined,
+        persistFinish: async () => undefined,
+        cleanup: async () => undefined,
+        releaseOwner: async () => { await releaseOwner(); ownerReleased = true; },
+      });
+    } finally {
+      if (!ownerReleased) await releaseOwner();
+    }
+  }, /release failed 2/);
+  assert.equal(releaseCalls, 2);
+});
+
+test("an owner-fenced release returning false is a failure, not a successful release", async () => {
+  await assert.rejects(releaseOwnerOrThrow(async () => false), /RUNTIME_OWNER_RELEASE_NOT_CONFIRMED/);
+  await assert.doesNotReject(releaseOwnerOrThrow(async () => true));
 });
 
 class MemoryLeaseStore implements RuntimeLeaseStore {

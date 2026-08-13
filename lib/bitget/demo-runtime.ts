@@ -53,6 +53,12 @@ import {
   releaseRuntimeLease,
   type RuntimeLeaseStore,
 } from "@/lib/bitget/runtime-lease-core";
+import {
+  buildRuntimeDeadlinePolicy,
+  canStartNewEntry,
+  finalizeRuntimeOwner,
+  releaseOwnerOrThrow,
+} from "@/lib/bitget/runtime-deadline-core";
 
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
@@ -320,8 +326,8 @@ async function acquireRuntimeLock(owner: string): Promise<boolean> {
   return acquireRuntimeLease(runtimeLeaseStore, owner, LOCK_SECONDS);
 }
 
-async function releaseRuntimeLock(owner: string): Promise<void> {
-  await releaseRuntimeLease(runtimeLeaseStore, owner);
+async function releaseRuntimeLock(owner: string): Promise<boolean> {
+  return releaseRuntimeLease(runtimeLeaseStore, owner);
 }
 
 async function readStateRow(): Promise<RuntimeStateRow | undefined> {
@@ -866,13 +872,15 @@ export async function refreshBitgetRuntimeHealthOnly(
 
 export async function runBitgetDemoServerRuntime(
   now = new Date(),
-  source: BitgetRuntimeSource = "CRON"
+  source: BitgetRuntimeSource = "CRON",
+  options: { absoluteDeadlineAt?: Date } = {}
 ): Promise<BitgetRuntimeRunReport> {
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
     throw new Error("交易数据库未连接");
   }
   const runId = `bgr_${randomUUID()}`;
   const startedAt = now.toISOString();
+  const deadlinePolicy = buildRuntimeDeadlinePolicy(options.absoluteDeadlineAt);
   const locked = await acquireRuntimeLock(runId);
   if (!locked) {
     return {
@@ -915,6 +923,9 @@ export async function runBitgetDemoServerRuntime(
   let finalMessage = "";
   let liveExperiment: BitgetLiveExperimentStatus | null = null;
   let liveExit: LiveExperimentExitResult = { attempted: 0, success: 0, errors: 0, messages: [] };
+  let ownerReleased = false;
+  let finalizationPersisted = false;
+  let finalizationFailureAudited = false;
 
   try {
     const before = await getBitgetRuntimeState(now);
@@ -1078,8 +1089,12 @@ export async function runBitgetDemoServerRuntime(
             quotes,
             maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined,
             deadlineAt: environment.mode === "LIVE_EXPERIMENT"
-              ? new Date(Date.now() + LIVE_STRATEGY_BUDGET_MS)
+              ? new Date(Math.min(Date.now() + LIVE_STRATEGY_BUDGET_MS, deadlinePolicy.newEntryCutoffMs))
               : undefined,
+            newEntryCutoffAt: Number.isFinite(deadlinePolicy.newEntryCutoffMs)
+              ? new Date(deadlinePolicy.newEntryCutoffMs)
+              : undefined,
+            manageOnly: !canStartNewEntry(deadlinePolicy),
             onProgress: async (progress) => {
               await recordEvent({
                 runId,
@@ -1345,7 +1360,7 @@ export async function runBitgetDemoServerRuntime(
       liveExperimentExit: liveExit,
       message: finalMessage,
     };
-    await updateRuntimeState({
+    const persistFinalState = () => updateRuntimeState({
       now,
       quotes: quotes.map((row) => ({ ...row })),
       marketEndpointOk,
@@ -1368,7 +1383,7 @@ export async function runBitgetDemoServerRuntime(
       orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
       report: report as unknown as Record<string, unknown>,
     });
-    await recordEvent({
+    const persistFinish = () => recordEvent({
       runId,
       stage: "HEARTBEAT",
       level: report.ok ? "SUCCESS" : "WARNING",
@@ -1379,18 +1394,57 @@ export async function runBitgetDemoServerRuntime(
         paused: executionPaused,
       },
     });
-    await cleanupEvents();
+    const finalized = await finalizeRuntimeOwner({
+      allowCleanup: canStartNewEntry(deadlinePolicy),
+      persistState: persistFinalState,
+      persistFinish,
+      cleanup: cleanupEvents,
+      releaseOwner: async () => {
+        await releaseOwnerOrThrow(() => releaseRuntimeLock(runId));
+        ownerReleased = true;
+      },
+      onFinalizeErrorBeforeRelease: async (error) => {
+        finalizationFailureAudited = true;
+        const finalizeMessage = error instanceof Error ? error.message : "runtime finalization failed";
+        await recordEvent({
+          runId,
+          stage: "SYSTEM",
+          level: "ERROR",
+          action: "RUNTIME_ERROR",
+          message: `FINALIZATION_FAILED: ${finalizeMessage}`,
+        }).catch(() => undefined);
+        await updateRuntimeState({
+          now,
+          quotes: quotes.map((row) => ({ ...row })),
+          marketEndpointOk,
+          strategyRan,
+          account,
+          orderAttempted: Boolean((threeHorizon?.orderAttempts ?? 0) > 0 || liveExit.attempted > 0),
+          orderSuccess: Boolean((threeHorizon?.orderSuccess ?? 0) > 0 || liveExit.success > 0),
+          criticalApiError: finalizeMessage,
+          marketError,
+          accountError,
+          diagnosticError: finalizeMessage,
+          orderErrors: (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
+          report: { error: finalizeMessage, runId, stage: "FINALIZATION" },
+        }).catch(() => undefined);
+      },
+      onFinalizationPersisted: () => {
+        finalizationPersisted = true;
+      },
+    });
+    finalizationPersisted = finalized.finalizationPersisted;
     return report;
   } catch (error) {
     const message = error instanceof Error ? error.message : "服务器交易链路失败";
-    await recordEvent({
+    if (!ownerReleased && (finalizationPersisted || !finalizationFailureAudited)) await recordEvent({
       runId,
       stage: "SYSTEM",
       level: "ERROR",
       action: "RUNTIME_ERROR",
       message,
     }).catch(() => undefined);
-    await updateRuntimeState({
+    if (!ownerReleased && (finalizationPersisted || !finalizationFailureAudited)) await updateRuntimeState({
       now,
       quotes: quotes.map((row) => ({ ...row })),
       marketEndpointOk,
@@ -1415,7 +1469,10 @@ export async function runBitgetDemoServerRuntime(
     }).catch(() => undefined);
     throw error;
   } finally {
-    await releaseRuntimeLock(runId).catch(() => undefined);
+    if (!ownerReleased) {
+      await releaseOwnerOrThrow(() => releaseRuntimeLock(runId));
+      ownerReleased = true;
+    }
   }
 }
 
