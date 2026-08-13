@@ -1,6 +1,7 @@
 import "server-only";
 
 import { runBoundedSerialMaintenance } from "@/lib/trading-signals/strategy-runtime-progress-core";
+import { writeDynamicPlanAuditIfRequired } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -1074,7 +1075,11 @@ export async function prepareAiTradePlanBeforeExecution(input: {
   };
 }
 
-export async function syncAiTradePlanFromDecision(decision: ThreeHorizonStrategyDecision, now = new Date()): Promise<void> {
+export async function syncAiTradePlanFromDecision(
+  decision: ThreeHorizonStrategyDecision,
+  now = new Date(),
+  options: { force?: boolean } = {}
+): Promise<void> {
   if (!(await ensureAiTradePlanTables()) || !prisma) return;
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
     `SELECT p.* FROM trade_ai_plans p
@@ -1085,7 +1090,24 @@ export async function syncAiTradePlanFromDecision(decision: ThreeHorizonStrategy
   );
   const current = rows[0];
   if (!current) return;
-  await updateDynamicPlan(current, decision, now);
+  const desiredStatus = statusFromDecision(decision, current.status);
+  await writeDynamicPlanAuditIfRequired({
+    current: {
+      id: current.id,
+      status: current.status,
+      conditionsMet: Number(current.conditions_met),
+      conditionsTotal: Number(current.conditions_total),
+      lastCheckedAt: current.last_checked_at,
+      clientOid: current.client_oid,
+      bitgetOrderId: current.bitget_order_id,
+      closeReason: current.close_reason,
+    },
+    decision,
+    desiredStatus,
+    now,
+    force: options.force,
+    write: async () => { await updateDynamicPlan(current, decision, now); },
+  });
 }
 
 export async function syncAiTradePlansFromRecentDecisions(

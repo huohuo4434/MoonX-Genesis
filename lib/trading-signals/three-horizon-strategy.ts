@@ -12,6 +12,7 @@ import {
   createStrategyProgressReporter,
   type ThreeHorizonProgress,
 } from "@/lib/trading-signals/strategy-runtime-progress-core";
+import { postPlanDecisionRequiresSync } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -2294,7 +2295,7 @@ async function runLiveCommissioning(input: {
         rejectionCode: planGate.code,
         rejectionReason: planGate.reason,
       });
-      await syncAiTradePlanFromDecision(decision, input.now).catch(() => undefined);
+      await syncAiTradePlanFromDecision(decision, input.now, { force: true }).catch(() => undefined);
       return {
         state: "WAITING",
         decision,
@@ -2316,7 +2317,7 @@ async function runLiveCommissioning(input: {
       reservedRiskPct: 0,
     });
     decision = executed.decision;
-    await syncAiTradePlanFromDecision(decision, input.now).catch(() => undefined);
+    await syncAiTradePlanFromDecision(decision, input.now, { force: true }).catch(() => undefined);
     return {
       state: executed.error ? "ERROR" : executed.success ? "ATTEMPTED" : "WAITING",
       decision,
@@ -3313,6 +3314,7 @@ export async function runThreeHorizonStrategyEngine(
             rejectionReason = `${symbol}今日已完成${symbolTradesToday}笔，达到单品种${symbolTradeCap}笔硬上限。`;
           }
         }
+        const decisionStartedAt = Date.now();
         let decision = await insertDecision({
           runId,
           profile,
@@ -3323,6 +3325,8 @@ export async function runThreeHorizonStrategyEngine(
           rejectionCode,
           rejectionReason,
         });
+        const decisionDurationMs = Date.now() - decisionStartedAt;
+        const planStartedAt = Date.now();
         const planGate = await prepareAiTradePlanBeforeExecution({
           decision,
           profile,
@@ -3334,10 +3338,12 @@ export async function runThreeHorizonStrategyEngine(
           code: "PLAN_PUBLISH_ERROR",
           reason: error instanceof Error ? error.message : "AI事前计划发布失败",
         }));
+        const planGateDurationMs = Date.now() - planStartedAt;
         if (decision.direction !== "NEUTRAL") directionalDecisions += 1;
         if (evaluation.conditions.some((condition) => condition.key === "entry" && condition.met)) entryTriggers += 1;
         if (planGate.code === "PLAN_LEAD_TIME") leadTimeBlocks += 1;
         if (planGate.code.includes("RISK") || decision.rejectionCode.includes("RISK")) riskBlocks += 1;
+        const postGateStartedAt = Date.now();
         if (evaluation.ready && status === "READY") {
           if (!planGate.allowed) {
             decision = await updateDecision(decision.id, {
@@ -3369,7 +3375,29 @@ export async function runThreeHorizonStrategyEngine(
             if (executed.error) orderErrors += 1;
           }
         }
-        await syncAiTradePlanFromDecision(decision, now).catch(() => undefined);
+        const postGateDurationMs = Date.now() - postGateStartedAt;
+        const postGateSyncRequired = postPlanDecisionRequiresSync({
+          evaluationReady: evaluation.ready,
+          initialDecisionStatus: status,
+        });
+        const syncStartedAt = Date.now();
+        if (postGateSyncRequired) {
+          // A gate block or execution attempt changed lifecycle state after the
+          // pre-published plan was refreshed; synchronize those changes now.
+          await syncAiTradePlanFromDecision(decision, now, { force: true }).catch(() => undefined);
+        }
+        const postGateSyncDurationMs = Date.now() - syncStartedAt;
+        await reportProgress("PROFILE_PLAN_COMPLETE", {
+          profile: profile.strategyType,
+          symbol,
+          decisionDurationMs,
+          planDurationMs: Date.now() - planStartedAt,
+          planGateDurationMs,
+          postGateDurationMs,
+          postGateSyncDurationMs,
+          planGateCode: planGate.code,
+          postGateSyncRequired,
+        });
         decisions.push(decision);
       }, async (error) => {
         const fallback: EvaluationResult = {
@@ -3542,7 +3570,7 @@ export async function runThreeHorizonStrategyEngine(
           messages.push(`${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`);
         }
       }
-      await syncAiTradePlanFromDecision(promoted, now).catch(() => undefined);
+      await syncAiTradePlanFromDecision(promoted, now, { force: true }).catch(() => undefined);
       const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
       if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
     }
@@ -3674,7 +3702,7 @@ export async function runThreeHorizonStrategyEngine(
           messages.push(`${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`);
         }
       }
-      await syncAiTradePlanFromDecision(promoted, now).catch(() => undefined);
+      await syncAiTradePlanFromDecision(promoted, now, { force: true }).catch(() => undefined);
       const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
       if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
     }

@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveWeeklyAuthoritySetup } from "../lib/trading-signals/authoritative-market-structure-core";
+import {
+  postPlanDecisionRequiresSync,
+  shouldWriteDynamicPlanAudit,
+  writeDynamicPlanAuditIfRequired,
+} from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -26,6 +31,105 @@ const adminClient = read("components/admin/TradingReliabilityClient.tsx");
 const page = read("app/admin/bitget-demo/page.tsx");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 const vercel = JSON.parse(read("vercel.json")) as { crons: Array<{ path: string; schedule: string }> };
+
+test("unchanged active plans avoid per-minute writes but retain lifecycle and periodic audit writes", () => {
+  const now = new Date("2026-08-14T17:00:00.000Z");
+  const current = {
+    id: "plan-1",
+    status: "OPEN" as const,
+    conditionsMet: 4,
+    conditionsTotal: 5,
+    lastCheckedAt: new Date(now.getTime() - 60_000),
+    clientOid: "client-1",
+    bitgetOrderId: "order-1",
+    closeReason: null,
+  };
+  const decision = {
+    id: "decision-1",
+    planId: "plan-1",
+    conditionsMet: 4,
+    conditionsTotal: 5,
+    clientOid: "client-1",
+    bitgetOrderId: "order-1",
+    rejectionReason: "",
+  };
+  assert.equal(shouldWriteDynamicPlanAudit({ current, decision, desiredStatus: "OPEN", now }), false);
+  assert.equal(shouldWriteDynamicPlanAudit({
+    current: { ...current, status: "ARMED" },
+    decision: { ...decision, rejectionReason: "PLAN_LEAD_TIME" },
+    desiredStatus: "ARMED",
+    now,
+    force: true,
+  }), true, "READY to gate-block must write its same-status audit immediately");
+  assert.equal(shouldWriteDynamicPlanAudit({
+    current: { ...current, status: "ARMED" },
+    decision: { ...decision, rejectionReason: "remote order response ambiguous" },
+    desiredStatus: "ARMED",
+    now,
+    force: true,
+  }), true, "every post-gate execution attempt must write its result immediately");
+  assert.equal(shouldWriteDynamicPlanAudit({ current, decision, desiredStatus: "CLOSED", now }), true);
+  assert.equal(shouldWriteDynamicPlanAudit({
+    current,
+    decision: { ...decision, bitgetOrderId: "order-2" },
+    desiredStatus: "OPEN",
+    now,
+  }), true);
+  assert.equal(shouldWriteDynamicPlanAudit({
+    current,
+    decision: { ...decision, conditionsMet: 5 },
+    desiredStatus: "OPEN",
+    now,
+  }), true);
+  assert.equal(shouldWriteDynamicPlanAudit({
+    current: { ...current, lastCheckedAt: new Date(now.getTime() - 5 * 60_000) },
+    decision,
+    desiredStatus: "OPEN",
+    now,
+  }), true);
+});
+
+test("normal profile post-plan synchronization is reserved for gate or execution mutations", () => {
+  assert.equal(postPlanDecisionRequiresSync({ evaluationReady: false, initialDecisionStatus: "OBSERVING" }), false);
+  assert.equal(postPlanDecisionRequiresSync({ evaluationReady: true, initialDecisionStatus: "BLOCKED" }), false);
+  assert.equal(postPlanDecisionRequiresSync({ evaluationReady: true, initialDecisionStatus: "READY" }), true);
+});
+
+test("forced post-gate block, submission, and error write their update and event audit in the same turn", async () => {
+  const now = new Date("2026-08-14T17:00:00.000Z");
+  const current = {
+    id: "plan-armed",
+    status: "ARMED" as const,
+    conditionsMet: 5,
+    conditionsTotal: 5,
+    lastCheckedAt: new Date(now.getTime() - 30_000),
+    clientOid: null,
+    bitgetOrderId: null,
+    closeReason: null,
+  };
+  const baseDecision = {
+    id: "decision-ready",
+    planId: "plan-armed",
+    conditionsMet: 5,
+    conditionsTotal: 5,
+    clientOid: null,
+    bitgetOrderId: null,
+    rejectionReason: "",
+  };
+  for (const rejectionReason of ["PLAN_LEAD_TIME", "ORDER_SUBMITTED", "ORDER_ERROR"]) {
+    const auditWrites: string[] = [];
+    const written = await writeDynamicPlanAuditIfRequired({
+      current,
+      decision: { ...baseDecision, rejectionReason },
+      desiredStatus: "ARMED",
+      now,
+      force: true,
+      write: async () => { auditWrites.push("UPDATE", "CONDITION_PROGRESS"); },
+    });
+    assert.equal(written, true);
+    assert.deepEqual(auditWrites, ["UPDATE", "CONDITION_PROGRESS"]);
+  }
+});
 
 test("failed live commissioning retry keeps one active forecast plan and requires zero-state evidence", () => {
   for (const guard of [
