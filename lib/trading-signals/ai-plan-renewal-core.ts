@@ -73,12 +73,23 @@ export type ForecastPlanRepository<TPlan extends ForecastBoundStoredPlan> = {
     readiness: ForecastPlanReadiness;
   }) => Promise<TPlan>;
   supersede: (plan: TPlan, reason: string) => Promise<void>;
+  isCreateConflict: (error: unknown) => boolean;
   recoverExecutionError?: (input: {
     failedPlan: TPlan;
     binding: LockedForecastBinding;
     readiness: ForecastPlanReadiness;
   }) => Promise<TPlan | null>;
 };
+
+export function forecastPlanGroupIdentity(input: {
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  symbol: string;
+  horizon: LockedForecastBinding["horizon"];
+}): string {
+  const symbol = input.symbol.trim().toUpperCase();
+  if (!symbol) throw new Error("FORECAST_PLAN_GROUP_SYMBOL_REQUIRED");
+  return `forecast:${input.strategyType}:${symbol}:${input.horizon}`;
+}
 
 const TERMINAL_NO_REVIVE = new Set<ForecastBoundPlanStatus>([
   "CLOSED",
@@ -156,6 +167,8 @@ export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStor
   binding: LockedForecastBinding | null;
   now: Date;
   triggerable: boolean;
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  symbol: string;
   repository: ForecastPlanRepository<TPlan>;
 }): Promise<ForecastPlanReconcileResult<TPlan>> {
   const validation = validateLockedForecastBinding(input.binding, input.now);
@@ -239,12 +252,31 @@ export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStor
       await input.repository.supersede(latest, `新的锁定预测版本${binding.forecastVersion}已生效，旧计划保留审计但不再用于新开仓。`);
     }
   }
-  const created = await input.repository.create({
-    binding,
-    planGroupId: latest?.planGroupId ?? `forecast:${binding.horizon}`,
-    version: latest ? latest.version + 1 : 1,
-    readiness,
-  });
+  let created: TPlan;
+  try {
+    created = await input.repository.create({
+      binding,
+      planGroupId: latest?.planGroupId ?? forecastPlanGroupIdentity({
+        strategyType: input.strategyType,
+        symbol: input.symbol,
+        horizon: binding.horizon,
+      }),
+      version: latest ? latest.version + 1 : 1,
+      readiness,
+    });
+  } catch (error) {
+    if (!input.repository.isCreateConflict(error)) throw error;
+    const authoritative = await input.repository.findByForecastVersion(binding.forecastVersion);
+    return {
+      plan: authoritative,
+      action: "FAIL_CLOSED",
+      readiness: "WAITING",
+      code: authoritative ? "CONCURRENT_PLAN_CREATE_RECONCILED" : "PLAN_CREATE_CONFLICT_UNRESOLVED",
+      reason: authoritative
+        ? "并发任务已创建同一预测版本计划；本次仅权威重读并停止执行，下一轮再刷新技术状态，禁止重复下单。"
+        : "计划创建发生唯一键冲突，但权威重读未找到同一预测版本；本轮fail-closed，禁止下单。",
+    };
+  }
   return {
     plan: created,
     action: "CREATED",

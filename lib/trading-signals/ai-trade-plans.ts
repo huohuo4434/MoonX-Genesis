@@ -896,6 +896,13 @@ async function auditFailedLiveCommissioningPlan(
   });
 }
 
+function isPlanCreateUniqueConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; meta?: { code?: unknown; message?: unknown }; message?: unknown };
+  return record.code === "P2002" || record.meta?.code === "23505" ||
+    String(record.meta?.message ?? record.message ?? "").includes("23505");
+}
+
 export async function prepareAiTradePlanBeforeExecution(input: {
   decision: ThreeHorizonStrategyDecision;
   profile: ThreeHorizonStrategyProfile;
@@ -942,6 +949,8 @@ export async function prepareAiTradePlanBeforeExecution(input: {
     binding,
     now: input.now,
     triggerable,
+    strategyType: input.profile.strategyType,
+    symbol: input.decision.symbol,
     repository: {
       findByForecastVersion: async (forecastVersion) => {
         const row = await findPlanByForecastVersion(input.profile.strategyType, input.decision.symbol, forecastVersion);
@@ -963,6 +972,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
         now: input.now,
       })),
       supersede: async (plan, reason) => supersedePlan(plan.row, input.now, reason),
+      isCreateConflict: isPlanCreateUniqueConflict,
       recoverExecutionError: input.decision.rejectionCode === "LIVE_COMMISSIONING" && input.profile.mode === "LIVE"
         ? async ({ failedPlan, readiness }) => {
           const evidence = await auditFailedLiveCommissioningPlan(failedPlan.row);

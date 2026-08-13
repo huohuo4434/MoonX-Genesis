@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   forecastHorizonForStrategy,
+  forecastPlanGroupIdentity,
   prioritizeAllowedCommissioningSymbols,
-  reconcileForecastBoundPlan,
+  reconcileForecastBoundPlan as reconcileForecastBoundPlanCore,
   type ForecastBoundStoredPlan,
   type ForecastPlanReadiness,
   type LockedForecastBinding,
@@ -13,6 +14,17 @@ type MemoryPlan = ForecastBoundStoredPlan & {
   binding: LockedForecastBinding;
   readiness: ForecastPlanReadiness;
 };
+
+function reconcileForecastBoundPlan(input: Omit<
+  Parameters<typeof reconcileForecastBoundPlanCore<MemoryPlan>>[0],
+  "strategyType" | "symbol"
+> & { strategyType?: "INTRADAY" | "SWING" | "POSITION"; symbol?: string }) {
+  return reconcileForecastBoundPlanCore<MemoryPlan>({
+    strategyType: input.strategyType ?? "SWING",
+    symbol: input.symbol ?? "HYPEUSDT",
+    ...input,
+  });
+}
 
 function binding(version: string, overrides: Partial<LockedForecastBinding> = {}): LockedForecastBinding {
   return {
@@ -74,6 +86,7 @@ function repository(seed: MemoryPlan[] = []) {
       supersede: async (plan: MemoryPlan) => {
         plan.status = "SUPERSEDED";
       },
+      isCreateConflict: () => false,
     },
   };
 }
@@ -337,6 +350,105 @@ test("strategy horizon binding is DAY/WEEK/MONTH for intraday/swing/position", (
   assert.equal(forecastHorizonForStrategy("INTRADAY"), "DAY");
   assert.equal(forecastHorizonForStrategy("SWING"), "WEEK");
   assert.equal(forecastHorizonForStrategy("POSITION"), "MONTH");
+});
+
+test("new plan group identity is isolated by strategy and symbol for all three horizons", () => {
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "INTRADAY", symbol: "HYPEUSDT", horizon: "DAY" }), "forecast:INTRADAY:HYPEUSDT:DAY");
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "INTRADAY", symbol: "QQQUSDT", horizon: "DAY" }), "forecast:INTRADAY:QQQUSDT:DAY");
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "SWING", symbol: "HYPEUSDT", horizon: "WEEK" }), "forecast:SWING:HYPEUSDT:WEEK");
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "SWING", symbol: "QQQUSDT", horizon: "WEEK" }), "forecast:SWING:QQQUSDT:WEEK");
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "POSITION", symbol: "GOOGLUSDT", horizon: "MONTH" }), "forecast:POSITION:GOOGLUSDT:MONTH");
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "POSITION", symbol: "QQQUSDT", horizon: "MONTH" }), "forecast:POSITION:QQQUSDT:MONTH");
+});
+
+test("DAY WEEK and MONTH first plans for different symbols each create independent V1 chains", async () => {
+  for (const scenario of [
+    { strategyType: "INTRADAY" as const, horizon: "DAY" as const },
+    { strategyType: "SWING" as const, horizon: "WEEK" as const },
+    { strategyType: "POSITION" as const, horizon: "MONTH" as const },
+  ]) {
+    const left = repository();
+    const right = repository();
+    const leftResult = await reconcileForecastBoundPlan({
+      binding: binding(`${scenario.horizon}-left`, { horizon: scenario.horizon }),
+      now: active, triggerable: false, repository: left.api,
+      strategyType: scenario.strategyType, symbol: "HYPEUSDT",
+    });
+    const rightResult = await reconcileForecastBoundPlan({
+      binding: binding(`${scenario.horizon}-right`, { horizon: scenario.horizon }),
+      now: active, triggerable: false, repository: right.api,
+      strategyType: scenario.strategyType, symbol: "QQQUSDT",
+    });
+    assert.equal(leftResult.plan?.version, 1);
+    assert.equal(rightResult.plan?.version, 1);
+    assert.notEqual(leftResult.plan?.planGroupId, rightResult.plan?.planGroupId);
+  }
+});
+
+test("HYPE and QQQ same-horizon V1 plans use independent groups while legacy chains continue", async () => {
+  const hype = repository();
+  const qqq = repository();
+  const hypeResult = await reconcileForecastBoundPlan({
+    binding: binding("hype-v1"), now: active, triggerable: false, repository: hype.api,
+    strategyType: "SWING", symbol: "HYPEUSDT",
+  });
+  const qqqResult = await reconcileForecastBoundPlan({
+    binding: binding("qqq-v1"), now: active, triggerable: false, repository: qqq.api,
+    strategyType: "SWING", symbol: "QQQUSDT",
+  });
+  assert.equal(hypeResult.plan?.planGroupId, "forecast:SWING:HYPEUSDT:WEEK");
+  assert.equal(qqqResult.plan?.planGroupId, "forecast:SWING:QQQUSDT:WEEK");
+  assert.equal(hypeResult.plan?.version, 1);
+  assert.equal(qqqResult.plan?.version, 1);
+
+  const legacy: MemoryPlan = {
+    ...hypeResult.plan!, id: "legacy-hype", planGroupId: "forecast:WEEK", version: 4,
+    forecastVersion: "legacy-v4", forecastPublishedAt: "2026-08-08T01:00:00.000Z",
+    forecastLockedAt: "2026-08-08T01:01:00.000Z", binding: binding("legacy-v4"),
+  };
+  const legacyRepo = repository([legacy]);
+  const continued = await reconcileForecastBoundPlan({
+    binding: binding("legacy-v5"), now: active, triggerable: false, repository: legacyRepo.api,
+    strategyType: "SWING", symbol: "HYPEUSDT",
+  });
+  assert.equal(continued.plan?.planGroupId, "forecast:WEEK");
+  assert.equal(continued.plan?.version, 5);
+});
+
+test("concurrent first creation re-reads authority and the losing invocation fails closed", async () => {
+  const shared = repository();
+  let releaseCreate: (() => void) | undefined;
+  let createCalls = 0;
+  const gate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  const concurrentApi = {
+    ...shared.api,
+    create: async (input: Parameters<typeof shared.api.create>[0]) => {
+      createCalls += 1;
+      if (createCalls === 1) await gate;
+      if (shared.plans.some((plan) => plan.planGroupId === input.planGroupId && plan.version === input.version)) {
+        throw { meta: { code: "23505" } };
+      }
+      return shared.api.create(input);
+    },
+    isCreateConflict: (error: unknown) => Boolean(
+      error && typeof error === "object" && (error as { meta?: { code?: string } }).meta?.code === "23505"
+    ),
+  };
+  const first = reconcileForecastBoundPlan({
+    binding: binding("concurrent-v1"), now: active, triggerable: true, repository: concurrentApi,
+  });
+  const second = reconcileForecastBoundPlan({
+    binding: binding("concurrent-v1"), now: active, triggerable: true, repository: concurrentApi,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  releaseCreate?.();
+  const results = await Promise.all([first, second]);
+  assert.equal(shared.plans.length, 1);
+  assert.equal(results.filter((result) => result.action === "CREATED").length, 1);
+  const loser = results.find((result) => result.action === "FAIL_CLOSED");
+  assert.equal(loser?.code, "CONCURRENT_PLAN_CREATE_RECONCILED");
+  assert.equal(loser?.readiness, "WAITING");
+  assert.equal(loser?.plan?.id, shared.plans[0]?.id);
 });
 
 test("an older locked version cannot roll back a newer non-terminal plan", async () => {

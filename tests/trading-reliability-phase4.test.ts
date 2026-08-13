@@ -38,6 +38,13 @@ test("failed live commissioning retry keeps one active forecast plan and require
     assert.ok(commissioningRecovery.includes(guard), guard);
   }
   assert.ok(commissioningPlans.includes("auditBitgetLiveCommissioningRecovery"));
+  all(commissioningPlans, [
+    "strategyType: input.profile.strategyType",
+    "symbol: input.decision.symbol",
+    "isCreateConflict: isPlanCreateUniqueConflict",
+    'record.code === "P2002"',
+    'record.meta?.code === "23505"',
+  ]);
   assert.match(commissioningRetryMigration, /trade_ai_plans_active_forecast_version_unique/);
   assert.match(commissioningRetryMigration, /status IN \([\s\S]*'ORDER_SUBMITTED'[\s\S]*'OPEN'/);
   assert.doesNotMatch(commissioningRetryMigration, /'EXECUTION_ERROR'/);
