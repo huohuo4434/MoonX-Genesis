@@ -1,5 +1,7 @@
 import "server-only";
 
+import { runBoundedSerialMaintenance } from "@/lib/trading-signals/strategy-runtime-progress-core";
+
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -1055,8 +1057,18 @@ export async function syncAiTradePlanFromDecision(decision: ThreeHorizonStrategy
   await updateDynamicPlan(current, decision, now);
 }
 
-export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Promise<number> {
+export async function syncAiTradePlansFromRecentDecisions(
+  now = new Date(),
+  options: { symbols?: readonly string[]; limit?: number } = {}
+): Promise<number> {
   if (!(await ensureAiTradePlanTables()) || !prisma) return 0;
+  const symbols = Array.from(new Set((options.symbols ?? [])
+    .map((symbol) => String(symbol).trim().toUpperCase())
+    .filter(Boolean)));
+  const limit = Math.max(1, Math.min(80, Math.floor(options.limit ?? 80)));
+  const symbolClause = symbols.length
+    ? ` AND d.symbol IN (${symbols.map((_, index) => `$${index + 2}`).join(",")})`
+    : "";
   const rows = await prisma.$queryRawUnsafe<Array<{
     id: string;
     strategy_type: ThreeHorizonStrategyType;
@@ -1094,12 +1106,23 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
     updated_at: Date;
     plan_id: string | null;
   }>>(`
-    SELECT * FROM trade_three_horizon_decisions
-    WHERE plan_id IS NOT NULL
-    ORDER BY updated_at DESC LIMIT 80
-  `);
-  let count = 0;
-  for (const row of rows) {
+    WITH active_audit AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NOT NULL
+        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+    ), recent_increment AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NOT NULL
+        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+      ORDER BY d.updated_at DESC
+      LIMIT $1
+    )
+    SELECT * FROM active_audit
+    UNION ALL
+    SELECT * FROM recent_increment
+    ORDER BY updated_at DESC
+  `, limit, ...symbols);
+  return runBoundedSerialMaintenance({ rows, maxRows: rows.length, maintain: async (row) => {
     const conditions = Array.isArray(row.conditions)
       ? row.conditions
       : typeof row.conditions === "string"
@@ -1147,9 +1170,7 @@ export async function syncAiTradePlansFromRecentDecisions(now = new Date()): Pro
       updatedAt: row.updated_at.toISOString(),
     };
     await syncAiTradePlanFromDecision(decision, now);
-    count += 1;
-  }
-  return count;
+  } });
 }
 
 async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEvent[]>> {

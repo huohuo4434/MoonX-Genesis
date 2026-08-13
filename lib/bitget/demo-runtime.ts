@@ -1080,6 +1080,20 @@ export async function runBitgetDemoServerRuntime(
             deadlineAt: environment.mode === "LIVE_EXPERIMENT"
               ? new Date(Date.now() + LIVE_STRATEGY_BUDGET_MS)
               : undefined,
+            onProgress: async (progress) => {
+              await recordEvent({
+                runId,
+                stage: "STRATEGY",
+                level: "INFO",
+                action: "THREE_HORIZON_PROGRESS",
+                message: `三周期策略阶段${progress.stage}，累计${progress.elapsedMs}ms。`,
+                payload: {
+                  strategyStage: progress.stage,
+                  elapsedMs: progress.elapsedMs,
+                  ...progress.detail,
+                },
+              });
+            },
           }
         );
         strategyRan = true;

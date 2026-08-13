@@ -12,6 +12,10 @@ import {
   runLiveScanSymbolStep,
   selectRotatingScanBatch,
 } from "../lib/trading-signals/live-scan-rotation-core";
+import {
+  createStrategyProgressReporter,
+  runBoundedSerialMaintenance,
+} from "../lib/trading-signals/strategy-runtime-progress-core";
 
 class MemoryLeaseStore implements RuntimeLeaseStore {
   owner: string | null = null;
@@ -146,4 +150,41 @@ test("production scheduling cores manage first, rotate one symbol and suppress w
   assert.equal(writes, 0);
   assert.equal(orders, 0);
   assert.equal(marks, 0);
+});
+
+test("live plan maintenance turns an 80-row serial backlog into a bounded increment", async () => {
+  const calls: number[] = [];
+  const completed = await runBoundedSerialMaintenance({
+    rows: Array.from({ length: 80 }, (_, index) => index),
+    maxRows: 6,
+    maintain: async (row) => { calls.push(row); },
+  });
+  assert.equal(completed, 6);
+  assert.deepEqual(calls, [0, 1, 2, 3, 4, 5]);
+});
+
+test("production progress reporter preserves the last completed stage and elapsed time", async () => {
+  const events: Array<{ stage: string; elapsedMs: number }> = [];
+  let clock = 1_000;
+  const report = createStrategyProgressReporter({
+    startedAtMs: clock,
+    now: () => clock,
+    publish: async (progress) => { events.push(progress); },
+  });
+  await report("ENGINE_START");
+  clock = 1_125;
+  await report("MANAGEMENT_COMPLETE");
+  clock = 1_410;
+  await report("PLAN_MAINTENANCE_COMPLETE");
+  assert.deepEqual(events, [
+    { stage: "ENGINE_START", elapsedMs: 0 },
+    { stage: "MANAGEMENT_COMPLETE", elapsedMs: 125 },
+    { stage: "PLAN_MAINTENANCE_COMPLETE", elapsedMs: 410 },
+  ]);
+
+  const telemetryFailure = createStrategyProgressReporter({
+    startedAtMs: 0,
+    publish: async () => { throw new Error("audit unavailable"); },
+  });
+  await assert.doesNotReject(telemetryFailure("ENGINE_START"));
 });

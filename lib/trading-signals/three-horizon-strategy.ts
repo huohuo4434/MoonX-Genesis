@@ -8,6 +8,10 @@ import {
   runLiveScanSymbolStep,
 } from "@/lib/trading-signals/live-scan-rotation-core";
 import { isRecoverableLegacyTimeExit } from "@/lib/trading-signals/legacy-time-exit-recovery-core";
+import {
+  createStrategyProgressReporter,
+  type ThreeHorizonProgress,
+} from "@/lib/trading-signals/strategy-runtime-progress-core";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
@@ -2981,8 +2985,14 @@ export async function runThreeHorizonStrategyEngine(
     quotes?: BitgetDemoMarketQuote[];
     maxNewSymbols?: number;
     deadlineAt?: Date;
+    onProgress?: (progress: ThreeHorizonProgress) => Promise<void> | void;
   } = {}
 ): Promise<ThreeHorizonRunReport> {
+  const reportProgress = createStrategyProgressReporter({
+    startedAtMs: Date.now(),
+    publish: options.onProgress,
+  });
+  await reportProgress("ENGINE_START");
   if (!(await ensureThreeHorizonStrategyTables()) || !prisma) {
     throw new Error("三周期策略数据库未连接");
   }
@@ -3014,7 +3024,15 @@ export async function runThreeHorizonStrategyEngine(
   }) });
   const management = liveScanRound.management;
   const liveSymbolsForThisRun = liveScanRound.selected;
-  await syncAiTradePlansFromRecentDecisions(now).catch(() => 0);
+  await reportProgress("MANAGEMENT_COMPLETE", {
+    managed: management.managed,
+    selectedSymbols: liveSymbolsForThisRun,
+  });
+  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
+    now,
+    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 6 } : {}
+  ).catch(() => 0);
+  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
   if (managementReadError) {
     return {
       ok: false,
@@ -3063,6 +3081,7 @@ export async function runThreeHorizonStrategyEngine(
     ? liveSymbolsForThisRun.map((symbol) => symbol.replace(/USDT$/, ""))
     : undefined;
   const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => []);
+  await reportProgress("FORECAST_COMPLETE", { forecastPlans: forecastPlans.length });
   const canonicalForecastBySymbol = new Map<string, PredictionStrategyPlan>();
   for (const plan of forecastPlans) {
     const symbol = String(plan.symbol).toUpperCase();
@@ -3100,6 +3119,11 @@ export async function runThreeHorizonStrategyEngine(
       message: `Bitget持仓或保护单读取失败，为防止重复开仓，本轮禁止新入场：${error instanceof Error ? error.message : "未知错误"}`,
     };
   }
+  await reportProgress("RISK_ACCOUNT_COMPLETE", {
+    positions: positions.length,
+    protections: protections.length,
+    riskBlocked: risk.blocked,
+  });
   const candleCache = new Map<string, CandleSet>();
   const reservedSymbols = new Set(
     positions.filter((row) => row.total > 0).map((row) => row.symbol)
@@ -3134,6 +3158,11 @@ export async function runThreeHorizonStrategyEngine(
       if (commissioning.state !== "COMPLETE") reservedSymbols.add(commissioning.decision.symbol);
     }
   }
+  await reportProgress("COMMISSIONING_COMPLETE", {
+    attempted: commissioningAttempted,
+    success: commissioningSuccess,
+    error: commissioningError,
+  });
   if (!dueProfiles.length) {
     return {
       ok: !commissioningError && management.orderErrors === 0,
@@ -3175,6 +3204,10 @@ export async function runThreeHorizonStrategyEngine(
       }
     }
   }
+  await reportProgress("UNIVERSE_COMPLETE", {
+    symbols: dynamicLiveSymbols,
+    timeBudgetReached,
+  });
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
     if (timeBudgetReached) break;
@@ -3336,6 +3369,10 @@ export async function runThreeHorizonStrategyEngine(
     }
     if (timeBudgetReached) break;
     await markProfileScanned(profile, now);
+    await reportProgress("PROFILE_COMPLETE", {
+      profile: profile.strategyType,
+      decisions: decisions.length,
+    });
   }
   let dailyMinimumMessage = "";
   if (

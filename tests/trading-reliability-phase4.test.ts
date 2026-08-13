@@ -167,6 +167,9 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);
   assert.match(strategy, /const liveScanRound = await beginLiveScanRound\([\s\S]{0,500}manage: \(\) => manageActiveDecisions\(now\)/);
   assert.match(strategy, /const liveSymbolsForThisRun = liveScanRound\.selected/);
+  assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ symbols: liveSymbolsForThisRun, limit: 6 \} : \{\}/);
+  assert.match(commissioningPlans, /WITH active_audit AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*recent_increment AS[\s\S]*LIMIT \$1/);
+  assert.match(commissioningPlans, /runBoundedSerialMaintenance\(\{ rows, maxRows: rows\.length/);
   assert.match(strategy, /runLiveCommissioning\([\s\S]{0,500}eligibleSymbols: liveSymbolsForThisRun/);
   assert.match(strategy, /selectDynamicTradeUniverse\(liveSymbolsForThisRun, forecastBySymbol, now\)/);
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
@@ -180,6 +183,9 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
     "WHERE id = 'default' AND run_lock_owner = $1",
     "acquireRuntimeLock(runId)",
     "releaseRuntimeLock(runId)",
+    'action: "THREE_HORIZON_PROGRESS"',
+    "strategyStage: progress.stage",
+    "elapsedMs: progress.elapsedMs",
   ]);
   assert.deepEqual(
     vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader"),
