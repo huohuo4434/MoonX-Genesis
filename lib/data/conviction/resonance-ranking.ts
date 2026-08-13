@@ -10,6 +10,7 @@ import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
+import { listNbisPeriodForecasts } from "@/lib/data/conviction/nbis-liuyao-20260811";
 import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
 import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-forecasts";
 import { SPCX_MEMBER_RESEARCH } from "@/lib/data/spcx-member-20260808";
@@ -127,6 +128,7 @@ export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistReson
     regularSignal("asteroid", listAsteroidPeriodForecasts(), asOfDate),
     regularSignal("googl", listGooglePeriodForecasts(), asOfDate),
     regularSignal("sandisk", listSandiskPeriodForecasts(), asOfDate),
+    regularSignal("nbis", listNbisPeriodForecasts(), asOfDate),
     regularSignal("msft", listMsftPeriodForecasts(), asOfDate),
     regularSignal("cxmt", listLongxinPeriodForecasts(), asOfDate),
     regularSignal("mu", listMuHypePeriodForecasts("mu"), asOfDate),

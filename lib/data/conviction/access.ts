@@ -25,6 +25,13 @@ import {
   sandiskPeriodMeta,
 } from "@/lib/data/conviction/sandisk-forecasts";
 import {
+  NBIS_PERIOD_LABELS,
+  NBIS_PERIOD_ORDER,
+  NBIS_VISIBLE_PERIOD_ORDER,
+  listNbisPeriodForecasts,
+  nbisPeriodMeta,
+} from "@/lib/data/conviction/nbis-liuyao-20260811";
+import {
   A_SHARE_PERIOD_ORDER,
   A_SHARE_VISIBLE_PERIOD_ORDER,
   aSharePeriodLabel20260810,
@@ -225,6 +232,7 @@ type StaticPeriodAssetId =
   | "cxmt"
   | "asteroid"
   | "sandisk"
+  | "nbis"
   | "mu"
   | "hype"
   | "sol"
@@ -242,6 +250,7 @@ const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
   "cxmt",
   "asteroid",
   "sandisk",
+  "nbis",
   "mu",
   "hype",
   "sol",
@@ -262,6 +271,7 @@ function staticPublished(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return listLongxinPeriodForecasts();
   if (assetId === "asteroid") return listAsteroidPeriodForecasts();
   if (assetId === "sandisk") return listSandiskPeriodForecasts();
+  if (assetId === "nbis") return listNbisPeriodForecasts();
   if (assetId === "hype") return listHypePeriodForecasts20260809();
   if (assetId === "sol") return listSolPeriodForecasts20260809();
   if (assetId === "eth") return listEthPeriodForecasts();
@@ -280,6 +290,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
+  if (assetId === "nbis") return NBIS_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_PERIOD_ORDER;
   if (assetId === "sol") return SOL_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
@@ -298,6 +309,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
+  if (assetId === "nbis") return NBIS_VISIBLE_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_VISIBLE_PERIOD_ORDER;
   if (assetId === "sol") return SOL_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
@@ -333,6 +345,9 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
   }
   if (assetId === "sandisk") {
     return SANDISK_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
+  }
+  if (assetId === "nbis") {
+    return NBIS_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
   }
   if (assetId === "asteroid" && type === "WEEK") {
     return { ...ASTEROID_PERIOD_LABELS[type], zh: "本周逐日" };
@@ -444,6 +459,7 @@ async function attachAdminKeyDates(
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (isAShareResearchAssetId(assetId)) return aSharePeriodMeta20260810(assetId);
   if (assetId === "sandisk") return sandiskPeriodMeta();
+  if (assetId === "nbis") return nbisPeriodMeta();
   if (assetId === "eth") return ethPeriodMeta();
   if (assetId === "hype") return hypePeriodMeta20260809();
   if (assetId === "sol") return solPeriodMeta20260809();
@@ -649,6 +665,7 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   cxmt: "长鑫科技",
   asteroid: "太空狗",
   sandisk: "闪迪",
+  nbis: "Nebius",
   mu: "美光",
   hype: "HYPE",
   sol: "SOL",

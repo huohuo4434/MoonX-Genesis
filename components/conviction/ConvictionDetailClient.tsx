@@ -480,6 +480,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     "cxmt",
     "asteroid",
     "sandisk",
+    "nbis",
     "mu",
     "hype",
     "sol",

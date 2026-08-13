@@ -47,6 +47,7 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "changxin-memory", nameZh: "长鑫科技", symbol: "688825", displaySymbol: "688825", venue: "上海证券交易所科创板", marketLabel: "股票", aliases: ["688825.SS"] },
   { assetId: "micron", nameZh: "美光科技", symbol: "MU", displaySymbol: "MU", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["MUUSDT"] },
   { assetId: "sandisk", nameZh: "闪迪", symbol: "SNDK", displaySymbol: "SNDK", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["SanDisk", "Sandisk", "闪迪", "闪迪科技"] },
+  { assetId: "nbis", nameZh: "Nebius", symbol: "NBIS", displaySymbol: "NBIS", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["Nebius", "Nebius Group"] },
   { assetId: "alphabet", nameZh: "Alphabet · 谷歌母公司", symbol: "GOOGL", displaySymbol: "GOOGL", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["GOOG", "GOOGLUSDT", "Google", "谷歌", "Alphabet Inc."] },
   { assetId: "microsoft", nameZh: "微软", symbol: "MSFT", displaySymbol: "MSFT", venue: "纳斯达克证券交易所", marketLabel: "股票", aliases: ["Microsoft"] },
   { assetId: "tencent", nameZh: "腾讯控股", symbol: "00700", displaySymbol: "00700", venue: "香港交易所", marketLabel: "股票", aliases: ["0700.HK", "700.HK", "Tencent", "腾讯"] },

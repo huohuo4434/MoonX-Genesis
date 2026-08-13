@@ -4,7 +4,7 @@
  */
 import type { ConvictionAsset } from "@/types/conviction-asset";
 
-export const CONVICTION_ASSETS_MAX = 15;
+export const CONVICTION_ASSETS_MAX = 16;
 
 export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
   {
@@ -232,6 +232,52 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCapUpdatedAt: null,
     researchUpdatedAt: "2026-08-08",
     displayOrder: 3,
+    isPublished: true,
+    memberForecastStockId: null,
+  },
+  {
+    id: "nbis",
+    slug: "nbis",
+    assetType: "STOCK",
+    nameZh: "Nebius",
+    nameEn: "Nebius Group",
+    aliases: ["NBIS", "Nebius", "Nebius Group"],
+    symbol: "NBIS",
+    exchange: "NASDAQ",
+    network: null,
+    contractAddress: null,
+    contractPendingAdminConfirm: false,
+    status: "published",
+    riskLevel: "高",
+    rating: "A",
+    tags: ["AI Cloud", "GPU Infrastructure", "Data Center", "NVIDIA", "High Volatility"],
+    summaryZh:
+      "Nebius 是面向人工智能开发者与企业的 AI 云基础设施公司，业务覆盖 GPU 集群、训练、调优与生产部署。MOOX 将其作为高波动 AI 基础设施重点研究资产。",
+    summaryEn:
+      "Nebius is an AI cloud infrastructure company spanning GPU clusters, model training, tuning and production deployment. MOOX tracks it as a high-volatility AI infrastructure research asset.",
+    thesisZh: [
+      "AI 训练与推理需求可能持续推动 GPU 云基础设施扩张。",
+      "大规模数据中心与算力部署为收入增长提供弹性。",
+      "高资本开支与扩容速度会同时放大增长机会和执行风险。",
+      "股价波动较大，需要把多周期方向与技术确认结合使用。",
+      "MOOX 已锁定 2026年8月至10月底的六个会员研究周期。",
+    ],
+    thesisEn: [
+      "AI training and inference demand can support continued GPU-cloud expansion.",
+      "Large-scale data-center deployments create revenue-growth sensitivity.",
+      "Capital intensity and execution speed amplify both opportunity and risk.",
+      "High volatility requires multi-horizon direction plus technical confirmation.",
+      "MOOX maintains six locked member-research periods through October 2026.",
+    ],
+    catalystsZh: ["AI 算力需求", "GPU 集群扩容", "大客户合同", "数据中心投产", "产品与平台采用"],
+    catalystsEn: ["AI compute demand", "GPU cluster expansion", "Large customer contracts", "Data-center launches", "Platform adoption"],
+    risksZh: ["高资本开支", "扩容执行风险", "客户集中度", "估值波动", "行业竞争", "高波动回撤"],
+    risksEn: ["High capital expenditure", "Expansion execution", "Customer concentration", "Valuation volatility", "Competition", "Sharp drawdowns"],
+    marketCap: null,
+    marketCapCurrency: "USD",
+    marketCapUpdatedAt: null,
+    researchUpdatedAt: "2026-08-11",
+    displayOrder: 3.5,
     isPublished: true,
     memberForecastStockId: null,
   },
