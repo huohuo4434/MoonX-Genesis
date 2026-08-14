@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { HomeTodaySection } from "@/components/home/HomeTodaySection";
 import { HomeRecentVerification } from "@/components/home/HomeRecentVerification";
-import { HomeTomorrowSection } from "@/components/home/HomeTomorrowSection";
 import { HomeFeaturedAssets } from "@/components/home/HomeFeaturedAssets";
 import { HomePricingEntry } from "@/components/home/HomePricingEntry";
-import { HomeMembershipComparison } from "@/components/home/HomeMembershipComparison";
 import { HomeQuickStart } from "@/components/home/HomeQuickStart";
 import { HeroSection } from "@/components/sections";
 
@@ -28,18 +26,17 @@ export const revalidate = 0;
 
 /**
  * Single official homepage — no alternate research/timeline landing.
- * Hero → Today gate (server ACL) → Recent verification → Featured assets → Membership CTA.
+ * One clear product path: promise → today's decision → member workflow → focused research → proof → CTA.
+ * Detailed tomorrow, access-comparison and pricing content stay on their dedicated pages.
  */
 export default async function HomePage() {
   return (
     <main className="mx-auto w-full max-w-[1200px]">
       <HeroSection />
-      <HomeQuickStart />
       <HomeTodaySection />
-      <HomeTomorrowSection />
+      <HomeQuickStart />
       <HomeFeaturedAssets />
       <HomeRecentVerification />
-      <HomeMembershipComparison />
       <HomePricingEntry />
     </main>
   );

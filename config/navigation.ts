@@ -63,14 +63,14 @@ export const INTERNAL_LEGACY_ROUTES = [
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
   { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度" },
-  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度" },
-  { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
+  { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI策略台" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
+  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "公开验证" },
 ];
 
 /** Secondary destinations live under “更多”, preventing header crowding. */
 export const PUBLIC_MORE_NAV: NavItem[] = [
+  { key: "nav.monthlyAnalysis", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
   { key: "nav.guide", href: NAV_ROUTES.guide, labelZh: "新手指南" },
   { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
