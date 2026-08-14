@@ -1,5 +1,6 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import type { FocusDossierDay, FocusDossierView, FocusWeekPreparation } from "@/types/focus-dossier";
+import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 
 const DAY_MS = 86_400_000;
 
@@ -86,6 +87,7 @@ export function buildFocusDossier(input: {
   forecasts: readonly ConvictionPeriodForecast[];
   asOfDate: string;
   nowMs: number;
+  generatedDailies?: readonly GeneratedDailyForecastRecord[];
 }): FocusDossierView {
   const weekly = weeklyForecasts(input.forecasts, input.nowMs);
   const current = latest(weekly.filter((item) => item.periodStart <= input.asOfDate && item.periodEnd >= input.asOfDate));
@@ -101,9 +103,23 @@ export function buildFocusDossier(input: {
     };
   }
   const sourceDays = new Map((current.dailyPath ?? []).map((day) => [day.date, day]));
+  const generatedDays = new Map((input.generatedDailies ?? []).filter((day) => {
+    const publishedAt = day.publishedAt ? Date.parse(day.publishedAt) : Number.NaN;
+    return day.sourceWeeklyForecastId === current.id && ["PUBLISHED", "LOCKED"].includes(day.status) &&
+      Number.isFinite(publishedAt) && publishedAt <= input.nowMs;
+  }).map((day) => [day.forecastDate, day]));
   const requiredDates = dateRange(current.periodStart, current.periodEnd);
   const dailyPath: FocusDossierDay[] = requiredDates.map((date) => {
     const day = sourceDays.get(date);
+    const generated = day?.status === "已验证" ? null : generatedDays.get(date);
+    if (generated) return {
+      date,
+      state: date === input.asOfDate ? "TODAY" as const : "PENDING" as const,
+      direction: generated.direction === "NEUTRAL" ? "观察" : generated.direction,
+      summary: generated.expectedPath,
+      confirmation: generated.confirmationLevel,
+      invalidation: generated.invalidationLevel,
+    };
     if (!day) return { date, state: "MISSING" as const, direction: null, summary: "该日正式证据待更新，不生成占位预测。", confirmation: null, invalidation: null };
     const state: FocusDossierDay["state"] = day.status === "已验证" ? "OCCURRED" : date === input.asOfDate ? "TODAY" : "PENDING";
     return { date, state, direction: day.direction, summary: day.summary, confirmation: day.confirmation ?? null, invalidation: day.riskNote ?? null };
@@ -112,7 +128,9 @@ export function buildFocusDossier(input: {
   return {
     executionAuthority: "RESEARCH_ONLY", tradingEligible: false,
     assetId: input.assetId, asOfDate: input.asOfDate, evidenceStatus: complete ? "READY" : "INCOMPLETE",
-    statusLabel: complete ? "本周资料完整并已锁定" : "本周结论已锁定；逐日资料待补齐",
+    statusLabel: complete
+      ? generatedDays.size > 0 ? "本周结论已锁定；逐日研究已发布" : "本周资料完整并已锁定"
+      : "本周结论已锁定；逐日资料待补齐",
     conclusion: current.summary, periodStart: current.periodStart, periodEnd: current.periodEnd, dailyPath,
     supportLevels: current.supportLevels, resistanceLevels: current.resistanceLevels,
     confirmation: current.confirmationLevel ?? null, invalidation: current.invalidationLevel ?? null,

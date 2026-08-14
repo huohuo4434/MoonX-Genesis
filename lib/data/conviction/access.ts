@@ -72,6 +72,7 @@ import {
 } from "@/lib/data/conviction/eth-forecasts";
 import {
   getConvictionAssetBySlug,
+  listConvictionAssets,
   listPublicConvictionCards,
   toPublicCard,
 } from "@/lib/data/conviction/store";
@@ -123,7 +124,9 @@ import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
 import { buildFocusDossier, buildMemberFocusDossier } from "@/lib/data/conviction/focus-dossier-core";
+import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { FocusDossierView } from "@/types/focus-dossier";
+import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type {
   MemberStockDailyMemberView,
   MemberStockVerificationResult,
@@ -289,14 +292,20 @@ function staticPublished(assetId: StaticPeriodAssetId) {
   return listMuHypePeriodForecasts(assetId);
 }
 
-export function listStaticFocusEvidence(): Array<{
+export async function listStaticFocusEvidence(): Promise<Array<{
   assetId: string;
+  symbol: string;
+  assetType: string;
+  exchange: string | null;
   forecasts: ConvictionPeriodForecast[];
-}> {
-  return [...STATIC_PERIOD_ASSET_IDS].map((assetId) => ({
-    assetId,
-    forecasts: staticPublished(assetId),
-  }));
+}>> {
+  const publishedAssets = await listConvictionAssets();
+  return [...STATIC_PERIOD_ASSET_IDS].flatMap((assetId) => {
+    const asset = publishedAssets.find((item) => item.slug === assetId || item.id === assetId);
+    if (!asset) return [];
+    if (!asset.isPublished || asset.status !== "published") throw new Error(`focus-asset-metadata-unavailable:${assetId}`);
+    return [{ assetId, symbol: asset.symbol, assetType: asset.assetType, exchange: asset.exchange ?? null, forecasts: staticPublished(assetId) }];
+  });
 }
 
 function fullOrder(assetId: StaticPeriodAssetId) {
@@ -553,6 +562,19 @@ export async function getConvictionDetailPayload(
       staticPeriodAsset,
       buildStaticPeriodSlots(staticPeriodAsset, true, asOfDate)
     );
+    const baseDossier = buildFocusDossier({ assetId: staticPeriodAsset, forecasts: staticPublished(staticPeriodAsset), asOfDate, nowMs: capturedNow.getTime() });
+    let generatedDailies: GeneratedDailyForecastRecord[] = [];
+    if (baseDossier.periodStart && baseDossier.periodEnd) {
+      try {
+        const { listLatestGeneratedDailiesForMarketDates } = await import("@/lib/weekly-source/store");
+        const start = Date.parse(`${baseDossier.periodStart}T00:00:00Z`);
+        const dates = Array.from({ length: 7 }, (_, index) => new Date(start + index * 86_400_000).toISOString().slice(0, 10));
+        generatedDailies = await listLatestGeneratedDailiesForMarketDates(focusDailyMarketCode(staticPeriodAsset), dates, { readOnly: true });
+      } catch {
+        // Display remains available from immutable static evidence when the optional
+        // persisted daily research reader is unavailable.
+      }
+    }
     return {
       mode: "fullAccess",
       isAdmin: access.isAdmin,
@@ -570,6 +592,7 @@ export async function getConvictionDetailPayload(
         forecasts: staticPublished(staticPeriodAsset),
         asOfDate,
         nowMs: capturedNow.getTime(),
+        generatedDailies,
       }),
       forecast: {
         today: null,

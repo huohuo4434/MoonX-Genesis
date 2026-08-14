@@ -229,6 +229,7 @@ async function queryGeneratedDailyRows(
 ): Promise<GeneratedDailyLike[]> {
   if (!prisma) return [];
   const where = {
+    marketCode: { not: { startsWith: "FOCUS:" } },
     forecastDate: {
       gte: OFFICIAL_GENERATED_DAILY_SYNC_START,
       lte: futureDateKey,

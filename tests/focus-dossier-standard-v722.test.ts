@@ -6,7 +6,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ASTEROID_PERIOD_FORECASTS, type ConvictionPeriodForecast } from "../lib/data/conviction/asteroid-forecasts";
 import { buildFocusDossier, buildMemberFocusDossier, prepareNextFocusWeek } from "../lib/data/conviction/focus-dossier-core";
 import { runFocusWeekPreparation } from "../lib/data/conviction/focus-week-preparation-core";
+import { buildFocusDailyPublicationBatch, executeAtomicFocusDailyAppend, filterClosedFocusDailyBars, focusDailyMarketCode, selectFormalNextFocusWeek } from "../lib/data/conviction/focus-daily-generation-core";
 import { UnifiedDossierDisclosure } from "../components/conviction/UnifiedDossierDisclosure";
+import { filterPublicGeneratedDailyRows, isPublicGeneratedDailyMarketCode } from "../lib/weekly-source/generated-daily-namespace-core";
 
 const NOW = Date.parse("2026-08-14T08:00:00+08:00");
 
@@ -120,7 +122,8 @@ test("read-only Saturday orchestration gates before reading and reports all evid
   if (prepared.kind !== "PREPARED") assert.fail("Saturday preparation must run");
   assert.deepEqual({ ready: prepared.ready, incomplete: prepared.incomplete, awaiting: prepared.awaitingEvidence }, { ready: 1, incomplete: 1, awaiting: 1 });
   assert.deepEqual(prepared.items.map((item) => item.status), ["READY", "EVIDENCE_INCOMPLETE", "AWAITING_FORMAL_EVIDENCE"]);
-  assert.equal(prepared.immutable, true);
+  assert.equal(prepared.preservesHistoricalVersions, true);
+  assert.equal(prepared.writeMode, "APPEND_ONLY");
 });
 
 test("Saturday evidence reader failure propagates and cannot become a successful report", async () => {
@@ -132,11 +135,145 @@ test("Saturday evidence reader failure propagates and cannot become a successful
   assert.equal(readerCalls, 1);
 });
 
-test("Saturday cron is authenticated, read-only and scheduled as Saturday 10:00 Beijing", () => {
+test("formal locked next week publishes seven isolated append-only research days without mechanically splitting missing daily evidence", () => {
+  const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  assert.equal(selectFormalNextFocusWeek({ forecasts: [base], asOfDate: "2026-08-15", nowMs: NOW })?.id, base.id);
+  assert.equal(selectFormalNextFocusWeek({ forecasts: [{ ...base, status: "draft" }], asOfDate: "2026-08-15", nowMs: NOW }), null);
+  assert.equal(selectFormalNextFocusWeek({ forecasts: [{ ...base, lockedAt: "2026-08-16T00:00:00+08:00" }], asOfDate: "2026-08-15", nowMs: NOW }), null);
+  const auxiliary = { evidenceKey: "closed-bars+x-v1", supportLevels: ["10"], resistanceLevels: ["12"], technicalEvidence: "closed bars", newsEvidence: "X research only" };
+  const first = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [] });
+  assert.equal(first.all.length, 7);
+  assert.equal(first.append.length, 7);
+  assert.ok(first.all.every((row) => row.marketCode === "FOCUS:ASTEROID" && row.status === "PUBLISHED" && row.lockedAt === null));
+  assert.ok(first.all.every((row) => row.direction === "NEUTRAL" && /不从周卦机械拆分/.test(row.expectedPath)));
+  assert.ok(first.all.every((row) => row.previousVersionId === null && row.version === 1));
+
+  const repeated = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW + 60_000, auxiliary, latest: first.all });
+  assert.equal(repeated.append.length, 0);
+  const revised = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW + 60_000, auxiliary: { ...auxiliary, evidenceKey: "closed-bars+x-v2" }, latest: first.all });
+  assert.equal(revised.append.length, 7);
+  assert.ok(revised.append.every((row, index) => row.version === 2 && row.previousVersionId === first.all[index]!.id));
+  assert.equal(focusDailyMarketCode("btc"), "FOCUS:BTC");
+});
+
+test("original formal dailyPath wins while auxiliary evidence cannot change its direction", () => {
+  const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  const weekly: ConvictionPeriodForecast = { ...base, dailyPath: [{ date: "2026-08-17", status: "预测", direction: "探底回升", consensusStars: 3, summary: "原始正式逐日证据" }] };
+  const result = buildFocusDailyPublicationBatch({
+    assetId: "asteroid", weekly, asOfDate: "2026-08-15", nowMs: NOW,
+    auxiliary: { evidenceKey: "bearish-x", supportLevels: [], resistanceLevels: [], technicalEvidence: "technical bearish", newsEvidence: "X bearish" }, latest: [],
+  });
+  assert.equal(result.all[0]?.direction, "探底回升");
+  assert.equal(result.all[0]?.expectedPath, "原始正式逐日证据");
+  assert.equal(result.all[1]?.direction, "NEUTRAL");
+});
+
+test("member dossier prefers authoritative persisted focus versions only for the matching locked weekly source", () => {
+  const weekly = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  const batch = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly, asOfDate: "2026-08-15", nowMs: NOW, auxiliary: { evidenceKey: "v1", supportLevels: [], resistanceLevels: [], technicalEvidence: "closed", newsEvidence: null }, latest: [] });
+  const dossier = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-18", nowMs: NOW + 4 * 86_400_000, generatedDailies: batch.all });
+  assert.equal(dossier.dailyPath.length, 7);
+  assert.ok(dossier.dailyPath.every((day) => day.state !== "MISSING"));
+  assert.ok(dossier.dailyPath.every((day) => day.direction === "观察"));
+  const stale = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-18", nowMs: NOW + 4 * 86_400_000, generatedDailies: batch.all.map((row) => ({ ...row, sourceWeeklyForecastId: "other-week" })) });
+  assert.ok(stale.dailyPath.some((day) => day.state === "MISSING"));
+});
+
+test("public forecast and prediction-auto default namespace filter cannot observe FOCUS rows", () => {
+  const rows = [
+    { marketCode: "BTC", id: "public-btc" },
+    { marketCode: "FOCUS:BTC", id: "member-focus" },
+    { marketCode: "FOCUS:ASTEROID", id: "member-asteroid" },
+  ];
+  assert.deepEqual(filterPublicGeneratedDailyRows(rows).map((row) => row.id), ["public-btc"]);
+  assert.equal(isPublicGeneratedDailyMarketCode("FOCUS:BTC"), false);
+  assert.equal(isPublicGeneratedDailyMarketCode("BTC"), true);
+  const store = readFileSync("lib/weekly-source/store.ts", "utf8");
+  const publicAccess = readFileSync("lib/prediction-access-server.ts", "utf8");
+  const autoTrader = readFileSync("lib/trading-signals/prediction-auto-trader.ts", "utf8");
+  assert.match(store, /not: \{ startsWith: "FOCUS:" \}/);
+  assert.match(store, /filterPublicGeneratedDailyRows\(rows\)/);
+  assert.match(publicAccess, /listGeneratedDailiesForDate/);
+  assert.match(autoTrader, /listGeneratedDailiesForDate/);
+});
+
+test("Saturday evidence excludes the current calendar day candle and keeps only prior closed bars", () => {
+  const closed = filterClosedFocusDailyBars([
+    { date: "2026-08-13", open: 10, high: 12, low: 9, close: 11 },
+    { date: "2026-08-14", open: 11, high: 13, low: 10, close: 12 },
+    { date: "2026-08-15", open: 12, high: 999, low: 1, close: 500 },
+    { date: "2026-08-12", open: 10, high: 11, low: 9, close: 10, synthetic: true },
+  ], "2026-08-15");
+  assert.deepEqual(closed.map((bar) => bar.date), ["2026-08-13", "2026-08-14"]);
+  assert.equal(Math.max(...closed.map((bar) => bar.high)), 13);
+  assert.equal(Math.min(...closed.map((bar) => bar.low)), 9);
+});
+
+test("atomic focus append uses one all-row transaction, rolls back failures and authoritatively rereads P2002 winners", async () => {
+  const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  const rows = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW, auxiliary: { evidenceKey: "v1", supportLevels: [], resistanceLevels: [], technicalEvidence: "none", newsEvidence: null }, latest: [] }).append;
+  let transactionCalls = 0;
+  const success = await executeAtomicFocusDailyAppend({ records: rows, writeAll: async (batch) => { transactionCalls += 1; assert.equal(batch.length, 7); return [...batch]; }, isUniqueConflict: () => false, readWinners: async () => [] });
+  assert.equal(transactionCalls, 1);
+  assert.equal(success.created, 7);
+
+  let persisted = 0;
+  await assert.rejects(executeAtomicFocusDailyAppend({ records: rows, writeAll: async () => { const staged = 7; assert.equal(staged, 7); throw new Error("transaction rollback"); }, isUniqueConflict: () => false, readWinners: async () => [] }), /transaction rollback/);
+  assert.equal(persisted, 0);
+
+  const p2002 = Object.assign(new Error("unique"), { code: "P2002" });
+  const winner = await executeAtomicFocusDailyAppend({ records: rows, writeAll: async () => { throw p2002; }, isUniqueConflict: (error) => (error as { code?: string }).code === "P2002", readWinners: async () => [...rows] });
+  assert.equal(winner.created, 0);
+  assert.equal(winner.records.length, 7);
+});
+
+test("Saturday publication fails one asset closed before persistence when market or X evidence fails", async () => {
+  const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  let latestCalls = 0;
+  let auxiliaryCalls = 0;
+  let persistCalls = 0;
+  const result = await runFocusWeekPreparation({
+    authorized: true, asOfDate: "2026-08-15", nowMs: NOW,
+    readEvidence: async () => [{ assetId: "asteroid", symbol: "ASTEROID", assetType: "CRYPTO", forecasts: [base] }],
+    loadLatest: async () => { latestCalls += 1; return []; },
+    loadAuxiliary: async () => { auxiliaryCalls += 1; throw new Error("provider unavailable"); },
+    persistBatch: async () => { persistCalls += 1; return { created: 0, records: [] }; },
+  });
+  assert.equal(result.kind, "PREPARED");
+  if (result.kind !== "PREPARED") assert.fail("expected preparation report");
+  assert.equal(result.ok, false);
+  assert.equal(result.failedAssets, 1);
+  assert.deepEqual({ latestCalls, auxiliaryCalls, persistCalls }, { latestCalls: 1, auxiliaryCalls: 1, persistCalls: 0 });
+});
+
+test("Saturday publication persists one seven-row batch and skips all dependencies without formal next-week evidence", async () => {
+  const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
+  let latestCalls = 0;
+  let auxiliaryCalls = 0;
+  let persistCalls = 0;
+  const result = await runFocusWeekPreparation({
+    authorized: true, asOfDate: "2026-08-15", nowMs: NOW,
+    readEvidence: async () => [
+      { assetId: "asteroid", symbol: "ASTEROID", assetType: "CRYPTO", forecasts: [base] },
+      { assetId: "awaiting", symbol: "NONE", assetType: "STOCK", forecasts: [] },
+    ],
+    loadLatest: async () => { latestCalls += 1; return []; },
+    loadAuxiliary: async () => { auxiliaryCalls += 1; return { evidenceKey: "v1", supportLevels: [], resistanceLevels: [], technicalEvidence: "no mapping", newsEvidence: null }; },
+    persistBatch: async (records) => { persistCalls += 1; assert.equal(records.length, 7); return { created: 7, records: [...records] }; },
+  });
+  assert.equal(result.kind, "PREPARED");
+  if (result.kind !== "PREPARED") assert.fail("expected prepared result");
+  assert.equal(result.ok, true);
+  assert.equal(result.publishedRows, 7);
+  assert.deepEqual({ latestCalls, auxiliaryCalls, persistCalls }, { latestCalls: 1, auxiliaryCalls: 1, persistCalls: 1 });
+});
+
+test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:00 Beijing", () => {
   const route = readFileSync("app/api/cron/prepare-focus-week/route.ts", "utf8");
   const orchestration = readFileSync("lib/data/conviction/focus-week-preparation-core.ts", "utf8");
   const access = readFileSync("lib/data/conviction/access.ts", "utf8");
   const page = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
+  const verificationSync = readFileSync("lib/verification/sync-generated-dailies.ts", "utf8");
   const vercel = JSON.parse(readFileSync("vercel.json", "utf8")) as { crons: Array<{ path: string; schedule: string }> };
   assert.match(route, /CRON_SECRET/);
   assert.match(orchestration, /SATURDAY_ONLY/);
@@ -146,7 +283,12 @@ test("Saturday cron is authenticated, read-only and scheduled as Saturday 10:00 
   assert.match(route, /PREPARATION_EVIDENCE_UNAVAILABLE/);
   assert.doesNotMatch(route, /INSERT|UPDATE|DELETE|upsert|create\(/i);
   assert.match(access, /focusDossier: null/);
+  const publicReturn = access.indexOf('mode: "publicOnly"');
+  const persistedReader = access.indexOf('await import("@\/lib\/weekly-source\/store")');
+  assert.ok(publicReturn >= 0 && persistedReader > publicReturn, "persisted focus reader must stay after the public/device gate return");
+  assert.match(access, /readOnly: true/);
   assert.match(page, /payload\.mode === "fullAccess" && payload\.focusDossier/);
+  assert.match(verificationSync, /startsWith: "FOCUS:"/);
   assert.deepEqual(vercel.crons.find((item) => item.path === "/api/cron/prepare-focus-week"), { path: "/api/cron/prepare-focus-week", schedule: "0 2 * * 6" });
 });
 
