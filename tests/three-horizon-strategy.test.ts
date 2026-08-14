@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
+import { runClassifiedPlanMaintenance } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
@@ -30,6 +31,37 @@ test("live scheduling prioritizes a fresh locked weekly entry zone without chang
   });
   assert.deepEqual(selected, ["ETHUSDT"]);
   assert.equal(selected.length, 1);
+});
+
+test("live plan maintenance reports bounded phase timings without changing serial lifecycle writes", async () => {
+  const writes: string[] = [];
+  const clock = [0, 3, 3, 8, 8, 10];
+  const telemetry = await runClassifiedPlanMaintenance({
+    rows: [
+      { id: "material", audit: "MATERIAL" as const },
+      { id: "checkpoint", audit: "CHECKPOINT" as const },
+      { id: "none", audit: "NONE" as const },
+    ],
+    classify: (row) => row.audit,
+    writeMaterial: async (row) => { writes.push(`material:${row.id}`); },
+    writeCheckpoints: async (rows) => { writes.push(`checkpoint:${rows.map((row) => row.id).join(",")}`); },
+    queryMs: 12,
+    monotonicNowMs: () => clock.shift() ?? 10,
+  });
+  assert.deepEqual(writes, ["material:material", "checkpoint:checkpoint"]);
+  assert.deepEqual(telemetry, {
+    selected: 3,
+    none: 1,
+    material: 1,
+    duplicateFresh: 0,
+    checkpointRows: 1,
+    checkpointBatchCalls: 1,
+    queryMs: 12,
+    materialMs: 3,
+    duplicateFreshMs: 0,
+    checkpointBatchMs: 5,
+  });
+  assert.match(engine(), /PLAN_MAINTENANCE_COMPLETE[\s\S]*queryMs: planMaintenance\.queryMs[\s\S]*duplicateFreshMs: planMaintenance\.duplicateFreshMs/);
 });
 
 test("three independent strategy profiles use different horizons and holding periods", () => {

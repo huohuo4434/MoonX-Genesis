@@ -5,6 +5,51 @@ const PERIODIC_AUDIT_REFRESH_MS = 5 * 60 * 1000;
 
 export type DynamicPlanAuditDecision = "NONE" | "CHECKPOINT" | "MATERIAL";
 
+export type PlanSnapshotCandidate = {
+  id: string;
+  sourceDecisionId: string | null;
+  version: number;
+};
+
+/**
+ * A persisted decision.planId is authoritative. A dangling authoritative id
+ * fails closed instead of silently selecting another plan. The legacy source
+ * decision lookup is only available when no plan id was ever persisted.
+ */
+export function selectAuthoritativePlanSnapshot<T extends PlanSnapshotCandidate>(input: {
+  decisionId: string;
+  planId: string | null;
+  plans: readonly T[];
+}): T | null {
+  if (input.planId !== null) {
+    return input.plans.find((plan) => plan.id === input.planId) ?? null;
+  }
+  return input.plans
+    .filter((plan) => plan.sourceDecisionId === input.decisionId)
+    .sort((left, right) => right.version - left.version || left.id.localeCompare(right.id))[0] ?? null;
+}
+
+export function requireAuthoritativePlanMaintenanceSnapshots<T extends {
+  id: string;
+  planId: string | null;
+  snapshotPlanId: string | null;
+}>(rows: readonly T[]): readonly T[] {
+  for (const row of rows) {
+    if (row.planId !== null && row.snapshotPlanId === null) {
+      throw new Error(`AI plan maintenance authoritative plan missing for decision ${row.id}`);
+    }
+  }
+  return rows;
+}
+
+export async function readAuthoritativePlanMaintenanceRows<T extends {
+  id: string;
+  planId: string | null;
+  snapshotPlanId: string | null;
+}>(query: () => Promise<readonly T[]>): Promise<readonly T[]> {
+  return requireAuthoritativePlanMaintenanceSnapshots(await query());
+}
+
 export type DynamicPlanMaintenanceTelemetry = {
   selected: number;
   none: number;
@@ -12,6 +57,10 @@ export type DynamicPlanMaintenanceTelemetry = {
   duplicateFresh: number;
   checkpointRows: number;
   checkpointBatchCalls: number;
+  queryMs: number;
+  materialMs: number;
+  duplicateFreshMs: number;
+  checkpointBatchMs: number;
 };
 
 export function requireDynamicPlanMaintenanceStore(input: {
@@ -180,7 +229,15 @@ export async function runClassifiedPlanMaintenance<T>(input: {
   writeMaterial: (row: T) => Promise<void>;
   writeDuplicateFresh?: (row: T) => Promise<void>;
   writeCheckpoints: (rows: readonly T[]) => Promise<void>;
+  queryMs?: number;
+  monotonicNowMs?: () => number;
 }): Promise<DynamicPlanMaintenanceTelemetry> {
+  const monotonicNowMs = input.monotonicNowMs ?? (() => performance.now());
+  const measured = async (write: () => Promise<void>): Promise<number> => {
+    const startedAt = monotonicNowMs();
+    await write();
+    return Math.max(0, monotonicNowMs() - startedAt);
+  };
   const checkpoints: T[] = [];
   const identityCounts = new Map<string, number>();
   if (input.checkpointIdentity) {
@@ -192,6 +249,8 @@ export async function runClassifiedPlanMaintenance<T>(input: {
   let none = 0;
   let material = 0;
   let duplicateFresh = 0;
+  let materialMs = 0;
+  let duplicateFreshMs = 0;
   for (const row of input.rows) {
     const duplicateIdentity = input.checkpointIdentity
       ? (identityCounts.get(input.checkpointIdentity(row)) ?? 0) > 1
@@ -200,7 +259,7 @@ export async function runClassifiedPlanMaintenance<T>(input: {
     // path. This prevents an older prefetched payload from entering a batch or
     // suppressing any per-decision link/event audit.
     if (duplicateIdentity) {
-      await (input.writeDuplicateFresh ?? input.writeMaterial)(row);
+      duplicateFreshMs += await measured(() => (input.writeDuplicateFresh ?? input.writeMaterial)(row));
       duplicateFresh += 1;
       continue;
     }
@@ -215,12 +274,13 @@ export async function runClassifiedPlanMaintenance<T>(input: {
     }
     // Material lifecycle transitions remain immediate and serial. No checkpoint
     // batch is started until every material row in this prefetched round settles.
-    await input.writeMaterial(row);
+    materialMs += await measured(() => input.writeMaterial(row));
     material += 1;
   }
   let checkpointBatchCalls = 0;
+  let checkpointBatchMs = 0;
   if (checkpoints.length) {
-    await input.writeCheckpoints(checkpoints);
+    checkpointBatchMs = await measured(() => input.writeCheckpoints(checkpoints));
     checkpointBatchCalls = 1;
   }
   return {
@@ -230,6 +290,10 @@ export async function runClassifiedPlanMaintenance<T>(input: {
     duplicateFresh,
     checkpointRows: checkpoints.length,
     checkpointBatchCalls,
+    queryMs: Math.max(0, input.queryMs ?? 0),
+    materialMs,
+    duplicateFreshMs,
+    checkpointBatchMs,
   };
 }
 

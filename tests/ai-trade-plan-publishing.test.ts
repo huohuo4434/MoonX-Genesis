@@ -4,8 +4,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   requireDynamicPlanMaintenanceStore,
+  requireAuthoritativePlanMaintenanceSnapshots,
   resolveDynamicPlanStatus,
+  readAuthoritativePlanMaintenanceRows,
   runClassifiedPlanMaintenance,
+  selectAuthoritativePlanSnapshot,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
@@ -31,6 +34,7 @@ test("mixed maintenance writes material rows immediately and batches eight check
   let concurrent = 0;
   let maximumConcurrent = 0;
   let checkpointDatabaseCalls = 0;
+  const clock = [0, 4, 4, 9, 9, 15];
   const result = await runClassifiedPlanMaintenance({
     rows,
     classify: (row) => row.kind,
@@ -48,6 +52,8 @@ test("mixed maintenance writes material rows immediately and batches eight check
       calls.push(`batch:${checkpoints.map((row) => row.id).join(",")}`);
       concurrent -= 1;
     },
+    queryMs: 11,
+    monotonicNowMs: () => clock.shift() ?? 15,
   });
 
   assert.deepEqual(result, {
@@ -57,12 +63,17 @@ test("mixed maintenance writes material rows immediately and batches eight check
     duplicateFresh: 0,
     checkpointRows: 8,
     checkpointBatchCalls: 1,
+    queryMs: 11,
+    materialMs: 9,
+    duplicateFreshMs: 0,
+    checkpointBatchMs: 6,
   });
   assert.equal(checkpointDatabaseCalls, 1);
   assert.deepEqual(calls.slice(0, 2), ["material:material-status", "material:material-order"]);
   assert.match(calls[2] ?? "", /^batch:checkpoint-1,checkpoint-2,[\s\S]*checkpoint-8$/);
   assert.equal(maximumConcurrent, 1);
-  assert.match(plans, /LEFT JOIN LATERAL[\s\S]*p\.id = selected\.plan_id OR p\.source_decision_id = selected\.id/);
+  assert.match(plans, /selected\.plan_id IS NOT NULL AND p\.id = selected\.plan_id[\s\S]*UNION ALL[\s\S]*selected\.plan_id IS NULL AND p\.source_decision_id = selected\.id/);
+  assert.doesNotMatch(plans, /p\.id = selected\.plan_id OR p\.source_decision_id = selected\.id/);
   const maintenanceBody = plans.slice(
     plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
     plans.indexOf("async function loadEvents")
@@ -70,7 +81,10 @@ test("mixed maintenance writes material rows immediately and batches eight check
   assert.match(maintenanceBody, /runClassifiedPlanMaintenance/);
   assert.match(engine, /const planMaintenance = await syncAiTradePlansFromRecentDecisions[\s\S]*await reportProgress\("PLAN_MAINTENANCE_COMPLETE"/);
   assert.doesNotMatch(engine, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
-  for (const field of ["selected", "none", "material", "duplicateFresh", "checkpointRows", "checkpointBatchCalls"]) {
+  for (const field of [
+    "selected", "none", "material", "duplicateFresh", "checkpointRows", "checkpointBatchCalls",
+    "queryMs", "materialMs", "duplicateFreshMs", "checkpointBatchMs",
+  ]) {
     assert.match(engine, new RegExp(`${field}: planMaintenance\\.${field}`));
   }
   assert.match(maintenanceBody, /checkpointIdentity: \(\{ current \}\) => current\.id/);
@@ -107,6 +121,75 @@ test("mixed maintenance writes material rows immediately and batches eight check
   assert.match(materialWriter, /first_fill_at = CASE WHEN \$2 IN \('PARTIALLY_FILLED','OPEN','REDUCED','CLOSED'\) THEN COALESCE\(first_fill_at, \$7\)/);
   assert.match(materialWriter, /average_fill_price = CASE WHEN \$2 IN \('PARTIALLY_FILLED','OPEN','REDUCED','CLOSED'\) THEN COALESCE\(average_fill_price, \$5\)/);
   assert.match(materialWriter, /closed_at = CASE WHEN \$2 IN \('CLOSED','EXPIRED','INVALIDATED','EXECUTION_ERROR'\) THEN COALESCE\(closed_at, \$7\)/);
+});
+
+test("authoritative plan id wins and legacy source lookup only runs for a null plan id", () => {
+  const plansForDecision = [
+    { id: "source-v1", sourceDecisionId: "decision-1", version: 1 },
+    { id: "source-v3", sourceDecisionId: "decision-1", version: 3 },
+    { id: "source-v3-a", sourceDecisionId: "decision-1", version: 3 },
+    { id: "authoritative", sourceDecisionId: "other-decision", version: 1 },
+  ];
+  assert.equal(selectAuthoritativePlanSnapshot({
+    decisionId: "decision-1",
+    planId: "authoritative",
+    plans: plansForDecision,
+  })?.id, "authoritative");
+  assert.equal(selectAuthoritativePlanSnapshot({
+    decisionId: "decision-1",
+    planId: null,
+    plans: plansForDecision,
+  })?.id, "source-v3");
+  assert.equal(selectAuthoritativePlanSnapshot({
+    decisionId: "decision-1",
+    planId: "dangling-authoritative-id",
+    plans: plansForDecision,
+  }), null, "a dangling authoritative id must not fall back to a source-linked plan");
+
+  const maintenanceBody = plans.slice(
+    plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
+    plans.indexOf("async function loadEvents")
+  );
+  assert.match(maintenanceBody, /active_direct[\s\S]*d\.plan_id IS NOT NULL[\s\S]*active_legacy[\s\S]*d\.plan_id IS NULL[\s\S]*EXISTS \([\s\S]*source_plan\.source_decision_id = d\.id/);
+  assert.match(maintenanceBody, /nonactive_direct[\s\S]*nonactive_legacy[\s\S]*EXISTS \([\s\S]*source_plan\.source_decision_id = d\.id[\s\S]*nonactive_eligible[\s\S]*recent_increment/);
+  assert.ok(maintenanceBody.indexOf("nonactive_eligible AS") < maintenanceBody.indexOf("LIMIT $1"),
+    "plan eligibility must be established before the recent increment limit");
+  assert.match(maintenanceBody, /ORDER BY candidate\.selection_priority ASC, candidate\.version DESC, candidate\.id ASC/);
+  assert.match(maintenanceBody, /selectAuthoritativePlanSnapshot\(\{/,
+    "the production adapter must enforce the same authoritative/fallback contract tested above");
+});
+
+test("production maintenance query adapter rejects a dangling authoritative plan before completion", async () => {
+  assert.throws(() => requireAuthoritativePlanMaintenanceSnapshots([{
+    id: "active-open-decision",
+    planId: "missing-plan",
+    snapshotPlanId: null,
+  }]), /authoritative plan missing/);
+  assert.doesNotThrow(() => requireAuthoritativePlanMaintenanceSnapshots([{
+    id: "legacy-source-decision",
+    planId: null,
+    snapshotPlanId: "legacy-plan-v2",
+  }]));
+  let queryCalls = 0;
+  await assert.rejects(readAuthoritativePlanMaintenanceRows(async () => {
+    queryCalls += 1;
+    return [{ id: "active-open-decision", planId: "missing-plan", snapshotPlanId: null }];
+  }), /authoritative plan missing/);
+  assert.equal(queryCalls, 1);
+  const legacyRows = await readAuthoritativePlanMaintenanceRows(async () => [{
+    id: "legacy-source-decision",
+    planId: null,
+    snapshotPlanId: "legacy-plan-v2",
+  }]);
+  assert.equal(legacyRows[0]?.snapshotPlanId, "legacy-plan-v2");
+  const maintenanceBody = plans.slice(
+    plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
+    plans.indexOf("async function loadEvents")
+  );
+  const validationIndex = maintenanceBody.indexOf("readAuthoritativePlanMaintenanceRows");
+  const classificationIndex = maintenanceBody.indexOf("runClassifiedPlanMaintenance");
+  assert.ok(validationIndex >= 0 && validationIndex < classificationIndex,
+    "the production query result must fail closed before any maintenance write or complete telemetry");
 });
 
 test("checkpoint batch failure propagates after serial material writes and cannot report success", async () => {
@@ -192,6 +275,11 @@ test("duplicate plan bindings fresh-read every row and terminal state cannot be 
         concurrent -= 1;
       },
       writeCheckpoints: async () => { throw new Error("duplicate must never enter checkpoint batch"); },
+      queryMs: 7,
+      monotonicNowMs: (() => {
+        const values = [0, 2, 2, 5];
+        return () => values.shift() ?? 5;
+      })(),
     });
     assert.deepEqual(result, {
       selected: 2,
@@ -200,6 +288,10 @@ test("duplicate plan bindings fresh-read every row and terminal state cannot be 
       duplicateFresh: 2,
       checkpointRows: 0,
       checkpointBatchCalls: 0,
+      queryMs: 7,
+      materialMs: 0,
+      duplicateFreshMs: 5,
+      checkpointBatchMs: 0,
     });
     assert.equal(freshReads, 2);
     assert.equal(persistedStatus, "CLOSED");

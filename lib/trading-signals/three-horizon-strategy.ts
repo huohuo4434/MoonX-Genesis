@@ -3228,6 +3228,10 @@ export async function runThreeHorizonStrategyEngine(
     duplicateFresh: planMaintenance.duplicateFresh,
     checkpointRows: planMaintenance.checkpointRows,
     checkpointBatchCalls: planMaintenance.checkpointBatchCalls,
+    queryMs: planMaintenance.queryMs,
+    materialMs: planMaintenance.materialMs,
+    duplicateFreshMs: planMaintenance.duplicateFreshMs,
+    checkpointBatchMs: planMaintenance.checkpointBatchMs,
   });
   if (Date.now() >= newEntryCutoffMs) {
     return {

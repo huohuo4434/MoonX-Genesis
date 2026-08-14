@@ -6,6 +6,7 @@ import { resolveWeeklyAuthoritySetup } from "../lib/trading-signals/authoritativ
 import {
   classifyDynamicPlanAudit,
   postPlanDecisionRequiresSync,
+  selectAuthoritativePlanSnapshot,
   shouldWriteDynamicPlanAudit,
   writeDynamicPlanAuditIfRequired,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
@@ -33,6 +34,23 @@ const client = read("lib/bitget/demo-client.ts");
 const liveExecutionCore = read("lib/bitget/live-execution-core.ts");
 const reliability = read("lib/trading-signals/trading-reliability.ts");
 const reliabilityTypes = read("types/trading-reliability.ts");
+
+test("live plan maintenance never substitutes a source-linked plan for an authoritative plan id", () => {
+  const candidates = [
+    { id: "active-plan", sourceDecisionId: "older-decision", version: 1 },
+    { id: "legacy-v2", sourceDecisionId: "current-decision", version: 2 },
+  ];
+  assert.equal(selectAuthoritativePlanSnapshot({
+    decisionId: "current-decision",
+    planId: "active-plan",
+    plans: candidates,
+  })?.id, "active-plan");
+  assert.equal(selectAuthoritativePlanSnapshot({
+    decisionId: "current-decision",
+    planId: null,
+    plans: candidates,
+  })?.id, "legacy-v2");
+});
 const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
 const runtime = read("lib/bitget/demo-runtime.ts");
 const migration = read("prisma/migrations/20260804050000_trade_reliability_phase4/migration.sql");
@@ -721,7 +739,8 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(runtime, /durationMs: wallFinish\.durationMs/);
   assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,500}checkpointBatchCalls: planMaintenance\.checkpointBatchCalls/);
   assert.doesNotMatch(strategy, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
-  assert.match(commissioningPlans, /WITH active_audit AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);
+  assert.match(commissioningPlans, /WITH active_direct AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*active_legacy AS[\s\S]*active_audit AS/);
+  assert.match(commissioningPlans, /nonactive_eligible AS[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);
   assert.match(commissioningPlans, /runClassifiedPlanMaintenance\(\{/);
   assert.match(commissioningPlans, /LEFT JOIN LATERAL[\s\S]*plan_snapshot ON TRUE/);
   assert.match(strategy, /runLiveCommissioning\([\s\S]{0,500}eligibleSymbols: liveSymbolsForThisRun/);

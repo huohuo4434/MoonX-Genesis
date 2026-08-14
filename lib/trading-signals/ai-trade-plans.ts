@@ -2,9 +2,11 @@ import "server-only";
 
 import {
   requireDynamicPlanMaintenanceStore,
+  readAuthoritativePlanMaintenanceRows,
   classifyDynamicPlanAudit,
   resolveDynamicPlanStatus,
   runClassifiedPlanMaintenance,
+  selectAuthoritativePlanSnapshot,
   writeDynamicPlanAuditIfRequired,
 } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import type { DynamicPlanMaintenanceTelemetry } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
@@ -1255,6 +1257,7 @@ export async function syncAiTradePlansFromRecentDecisions(
   const symbolClause = symbols.length
     ? ` AND d.symbol IN (${symbols.map((_, index) => `$${index + 2}`).join(",")})`
     : "";
+  const queryStartedAt = performance.now();
   const rows = await prisma.$queryRawUnsafe<Array<{
     id: string;
     strategy_type: ThreeHorizonStrategyType;
@@ -1292,6 +1295,8 @@ export async function syncAiTradePlansFromRecentDecisions(
     updated_at: Date;
     plan_id: string | null;
     audit_plan_id: string | null;
+    audit_plan_version: number | null;
+    audit_plan_source_decision_id: string | null;
     audit_plan_status: AiTradePlanStatus | null;
     audit_entry_zone_low: number | null;
     audit_entry_zone_high: number | null;
@@ -1306,19 +1311,45 @@ export async function syncAiTradePlansFromRecentDecisions(
     audit_bitget_order_id: string | null;
     audit_close_reason: string | null;
   }>>(`
-    WITH active_audit AS (
+    WITH active_direct AS (
       SELECT d.* FROM trade_three_horizon_decisions d
       WHERE d.plan_id IS NOT NULL
         AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+    ), active_legacy AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NULL
+        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+        AND EXISTS (
+          SELECT 1 FROM trade_ai_plans source_plan
+          WHERE source_plan.source_decision_id = d.id
+        )
+    ), active_audit AS (
+      SELECT * FROM active_direct
+      UNION ALL
+      SELECT * FROM active_legacy
+    ), nonactive_direct AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NOT NULL
+        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+    ), nonactive_legacy AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NULL
+        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+        AND EXISTS (
+          SELECT 1 FROM trade_ai_plans source_plan
+          WHERE source_plan.source_decision_id = d.id
+        )
+    ), nonactive_eligible AS (
+      SELECT * FROM nonactive_direct
+      UNION ALL
+      SELECT * FROM nonactive_legacy
     ), recent_increment AS (
       SELECT scoped.* FROM (
         SELECT DISTINCT ON (d.symbol, d.strategy_type) d.*
-        FROM trade_three_horizon_decisions d
-        WHERE d.plan_id IS NOT NULL
-          AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
-        ORDER BY d.symbol, d.strategy_type, d.updated_at DESC
+        FROM nonactive_eligible d
+        ORDER BY d.symbol, d.strategy_type, d.updated_at DESC, d.id ASC
       ) scoped
-      ORDER BY scoped.updated_at DESC
+      ORDER BY scoped.updated_at DESC, scoped.id ASC
       LIMIT $1
     ), selected AS (
       SELECT * FROM active_audit
@@ -1327,6 +1358,8 @@ export async function syncAiTradePlansFromRecentDecisions(
     )
     SELECT selected.*,
       plan_snapshot.id AS audit_plan_id,
+      plan_snapshot.version AS audit_plan_version,
+      plan_snapshot.source_decision_id AS audit_plan_source_decision_id,
       plan_snapshot.status AS audit_plan_status,
       plan_snapshot.entry_zone_low AS audit_entry_zone_low,
       plan_snapshot.entry_zone_high AS audit_entry_zone_high,
@@ -1342,19 +1375,51 @@ export async function syncAiTradePlansFromRecentDecisions(
       plan_snapshot.close_reason AS audit_close_reason
     FROM selected
     LEFT JOIN LATERAL (
-      SELECT p.id, p.status, p.entry_zone_low, p.entry_zone_high,
-        p.conditions_met, p.conditions_total, p.last_checked_at,
-        p.submitted_at, p.first_fill_at, p.average_fill_price, p.closed_at,
-        p.client_oid, p.bitget_order_id, p.close_reason
-      FROM trade_ai_plans p
-      WHERE p.id = selected.plan_id OR p.source_decision_id = selected.id
-      ORDER BY p.version DESC
+      SELECT candidate.id, candidate.version, candidate.source_decision_id,
+        candidate.status, candidate.entry_zone_low, candidate.entry_zone_high,
+        candidate.conditions_met, candidate.conditions_total, candidate.last_checked_at,
+        candidate.submitted_at, candidate.first_fill_at, candidate.average_fill_price, candidate.closed_at,
+        candidate.client_oid, candidate.bitget_order_id, candidate.close_reason
+      FROM (
+        SELECT p.id, p.status, p.entry_zone_low, p.entry_zone_high,
+          p.conditions_met, p.conditions_total, p.last_checked_at,
+          p.submitted_at, p.first_fill_at, p.average_fill_price, p.closed_at,
+          p.client_oid, p.bitget_order_id, p.close_reason, p.version, p.source_decision_id,
+          0 AS selection_priority
+        FROM trade_ai_plans p
+        WHERE selected.plan_id IS NOT NULL AND p.id = selected.plan_id
+        UNION ALL
+        SELECT p.id, p.status, p.entry_zone_low, p.entry_zone_high,
+          p.conditions_met, p.conditions_total, p.last_checked_at,
+          p.submitted_at, p.first_fill_at, p.average_fill_price, p.closed_at,
+          p.client_oid, p.bitget_order_id, p.close_reason, p.version, p.source_decision_id,
+          1 AS selection_priority
+        FROM trade_ai_plans p
+        WHERE selected.plan_id IS NULL AND p.source_decision_id = selected.id
+      ) candidate
+      ORDER BY candidate.selection_priority ASC, candidate.version DESC, candidate.id ASC
       LIMIT 1
     ) plan_snapshot ON TRUE
     ORDER BY selected.updated_at DESC
   `, limit, ...symbols);
-  const prepared = rows
-    .filter((row) => Boolean(row.audit_plan_id && row.audit_plan_status))
+  const queryMs = Math.max(0, performance.now() - queryStartedAt);
+  const authoritativeRows = await readAuthoritativePlanMaintenanceRows(async () => rows.map((row) => ({
+    row,
+    id: row.id,
+    planId: row.plan_id,
+    snapshotPlanId: row.audit_plan_id,
+  })));
+  const prepared = authoritativeRows
+    .map(({ row }) => row)
+    .filter((row) => Boolean(row.audit_plan_id && row.audit_plan_status) && Boolean(selectAuthoritativePlanSnapshot({
+      decisionId: row.id,
+      planId: row.plan_id,
+      plans: [{
+        id: row.audit_plan_id!,
+        sourceDecisionId: row.audit_plan_source_decision_id,
+        version: Number(row.audit_plan_version),
+      }],
+    })))
     .map((row) => {
       const conditions = Array.isArray(row.conditions)
         ? row.conditions
@@ -1458,6 +1523,7 @@ export async function syncAiTradePlansFromRecentDecisions(
     writeCheckpoints: async (checkpoints) => {
       await batchCheckpointDynamicPlans(checkpoints, now);
     },
+    queryMs,
   });
   return maintenance;
 }
