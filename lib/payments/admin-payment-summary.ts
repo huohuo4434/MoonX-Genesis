@@ -1,9 +1,11 @@
 import "server-only";
 
-import { listAllAutoPaymentOrders, type AutoPaymentOrder } from "@/lib/payments/auto-payment-orders";
+import { isAutoPaymentMembershipActivated, isCompletedManualGoodwill, listAllAutoPaymentOrders, type AutoPaymentOrder } from "@/lib/payments/auto-payment-orders";
 import { listPaymentOrders, type PaymentOrderRecord } from "@/lib/payments/payment-orders-store";
 
 export function autoPaymentNeedsAdminAttention(order: AutoPaymentOrder): boolean {
+  if (isCompletedManualGoodwill(order) || ["paid", "overpaid"].includes(order.status)) return false;
+  if (order.metadata.membershipGranted) return true;
   return Boolean(order.txHash) && ["underpaid", "manual_review", "rejected", "expired"].includes(order.status);
 }
 
@@ -32,7 +34,7 @@ export async function getAdminPaymentQueueSummary(limit = 200): Promise<AdminPay
 
   const autoAttention = autoOrders.filter(autoPaymentNeedsAdminAttention);
   const autoProcessing = autoOrders.filter((order) => order.status === "pending" || order.status === "verifying");
-  const autoPaid = autoOrders.filter((order) => order.status === "paid" || order.status === "overpaid");
+  const autoPaid = autoOrders.filter(isAutoPaymentMembershipActivated);
   const production = legacyOrders.filter((order) => !order.isTest);
   const legacyPending = production.filter((order) => order.status === "pending");
   const legacyApproved = production.filter((order) => order.status === "approved");

@@ -4,19 +4,29 @@ import { requireAdmin } from "@/lib/auth/permissions";
 import { notifyAdminAutoPayment } from "@/lib/payments/admin-payment-notifications";
 import {
   getAutoPaymentOrderById,
+  ensureManualFullPaymentAudit,
+  isAutoPaymentMembershipActivated,
   markOrderManuallyActivated,
   requeueAutoPaymentOrder,
 } from "@/lib/payments/auto-payment-orders";
 import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-payment";
 import { processAutoPaymentOrder } from "@/lib/payments/process-auto-payment";
+import { activateGoodwillUnderpayment } from "@/lib/payments/manual-goodwill-underpayment";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const schema = z.object({
   orderId: z.string().uuid(),
-  action: z.enum(["retry", "activate", "resend_admin_email"]),
+  action: z.enum(["retry", "activate", "activate_goodwill_underpayment", "resend_admin_email"]),
   confirm: z.literal(true),
+  txHash: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
+  claimedActualAmount: z.number().positive().optional(),
+  reason: z.string().trim().min(10).max(500).optional(),
+}).superRefine((value, ctx) => {
+  if (value.action === "activate_goodwill_underpayment" && (!value.txHash || !value.reason)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "人工特批必须提供交易哈希和审计原因" });
+  }
 });
 
 export async function POST(request: NextRequest) {
@@ -29,6 +39,23 @@ export async function POST(request: NextRequest) {
   if (!order) return NextResponse.json({ error: "自动付款订单不存在" }, { status: 404 });
 
   try {
+    if (parsed.data.action === "activate_goodwill_underpayment") {
+      const result = await activateGoodwillUnderpayment({
+        orderId: order.id,
+        txHash: parsed.data.txHash!,
+        claimedActualAmount: parsed.data.claimedActualAmount,
+        reason: parsed.data.reason!,
+        operatorId: adminUser.id,
+      });
+      await notifyAdminAutoPayment({
+        order,
+        kind: "manual_activated",
+        message: `管理员${adminUser.email}按已确认链上实际到账执行一次性少付特批；系统未将少付金额记为全额。`,
+        paidAmount: result.actualReceivedAmount,
+        membershipExpiresAt: result.membershipExpiresAt,
+      }).catch(() => undefined);
+      return NextResponse.json({ ok: true, ...result });
+    }
     if (parsed.data.action === "retry") {
       const queued = await requeueAutoPaymentOrder(order.id, `管理员 ${adminUser.email} 发起重新核验`);
       if (!queued) return NextResponse.json({ error: "该订单无法重新核验" }, { status: 409 });
@@ -50,8 +77,12 @@ export async function POST(request: NextRequest) {
     if (!order.txHash) {
       return NextResponse.json({ error: "订单没有交易哈希，不能手动开通" }, { status: 409 });
     }
-    if (order.status === "paid" || order.status === "overpaid") {
+    if (isAutoPaymentMembershipActivated(order)) {
+      await ensureManualFullPaymentAudit(order);
       return NextResponse.json({ ok: true, alreadyActivated: true, membershipExpiresAt: order.membershipExpiresAt });
+    }
+    if (order.paidAmount == null || order.paidAmount + 0.0000001 < order.expectedAmount) {
+      return NextResponse.json({ error: "到账金额不足或尚未权威记录；请使用明确的少付人工特批流程" }, { status: 409 });
     }
 
     const grant = await finalizeAutoPaymentMembership({ order, verifiedAt: new Date() });
@@ -59,6 +90,8 @@ export async function POST(request: NextRequest) {
       order,
       membershipExpiresAt: grant.membershipExpiresAt,
       operatorId: adminUser.id,
+      paidAmount: order.paidAmount,
+      reason: `管理员${adminUser.email}核对全额链上到账后手动开通`,
     });
     await notifyAdminAutoPayment({
       order,

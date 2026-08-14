@@ -31,13 +31,14 @@ test("failed automatic payments remain recoverable from the admin dashboard", ()
   const pageSource = read("app/admin/payments/page.tsx");
   const actionsSource = read("components/admin/AdminAutoPaymentActions.tsx");
   const cronSource = read("app/api/cron/reconcile-payments/route.ts");
-  assert.match(routeSource, /"retry",\s*"activate",\s*"resend_admin_email"/);
+  assert.match(routeSource, /"retry",\s*"activate",\s*"activate_goodwill_underpayment",\s*"resend_admin_email"/);
   assert.match(actionsSource, /确认到账并手动开通/);
   assert.match(pageSource, /交易哈希/);
   assert.match(pageSource, /管理员邮件/);
   assert.match(cronSource, /recoverLegacyAmountMismatchOrders/);
   assert.match(cronSource, /retryFailedAdminPaymentNotifications/);
-  assert.match(read("lib/payments/auto-payment-orders.ts"), /paidAmount \?\? discountedPrice\(input\.order\.plan, input\.order\.discountPercent\)/);
+  assert.match(read("lib/payments/auto-payment-orders.ts"), /paid_amount:\s*paidAmount/);
+  assert.match(read("lib/payments/auto-payment-orders.ts"), /actualReceivedAmount:\s*paidAmount/);
 });
 
 test("btckik remains observation-only and cannot influence automated trade overlays", () => {

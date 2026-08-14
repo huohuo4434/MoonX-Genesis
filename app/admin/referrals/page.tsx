@@ -2,6 +2,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { requireAdminOrRedirect } from "@/lib/auth/permissions";
 import { getAdminReferralRows } from "@/lib/referral/service";
+import { REFERRAL_INVITEE_REWARD_DAYS } from "@/lib/referral/reward-policy";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function AdminReferralsPage() {
           邀请管理
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6">
-          查看邀请关系、付款状态与奖励天数。成功邀请双方各增加 7 天会员时间。
+          查看邀请关系、付款状态与奖励天数。新规则：邀请人增加 30 天，被邀请人增加 7 天。
         </Text>
 
         <div className="space-y-3">
@@ -30,7 +31,7 @@ export default async function AdminReferralsPage() {
                 <Badge variant="outline">{row.status}</Badge>
                 <Badge variant="outline">{row.paymentStatus}</Badge>
                 <Text variant="caption" color="tertiary">
-                  +{row.rewardDays} 天
+                  邀请人 +{row.rewardDays} 天 · 被邀请人 +{REFERRAL_INVITEE_REWARD_DAYS} 天
                 </Text>
               </div>
               <Text variant="body-sm">

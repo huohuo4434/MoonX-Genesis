@@ -103,13 +103,21 @@ export async function finalizeAutoPaymentMembership(input: {
       ? "manual_activation_event_already_applied"
       : "manual_activation_metadata_already_applied";
   } else {
+    const manualGoodwill = Boolean(
+      order.metadata.manualGoodwillReason &&
+      order.metadata.chainEvidenceStatus === "confirmed_success" &&
+      order.paidAmount != null &&
+      order.paidAmount + 0.000001 < order.expectedAmount
+    );
     const grant = await grantMembershipFromPlan({
       userId: order.userId,
       plan: order.plan,
       eventType: "PAYMENT_APPROVED",
-      source: "auto_chain_payment",
+      source: manualGoodwill ? "manual_goodwill_underpayment" : "auto_chain_payment",
       sourceId: order.id,
-      note: `auto=true; chain=${order.chain}; tx=${order.txHash ?? ""}; founder=${order.discountPercent}%`,
+      note: manualGoodwill
+        ? `manual_goodwill=true; actual=${order.paidAmount ?? "unknown"}; expected=${order.expectedAmount}; chain=${order.chain}; tx=${order.txHash ?? ""}`
+        : `auto=true; chain=${order.chain}; tx=${order.txHash ?? ""}; founder=${order.discountPercent}%`,
       now: grantReferenceTime,
     });
     membershipExpiresAt = grant.newExpiresAt ?? meta.membership_expires_at ?? null;
@@ -124,7 +132,7 @@ export async function finalizeAutoPaymentMembership(input: {
     plan: order.plan,
     network: order.network,
     tx_hash: order.txHash ?? "",
-    amount: order.expectedAmount,
+    amount: order.paidAmount ?? order.expectedAmount,
     list_price: order.listPrice,
     discount_percent: order.discountPercent,
     founder_rank: order.founderRank,

@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   applyWeeklyTimingToEntryEligibility,
+  evaluateNewExposureSafety,
   evaluateWeeklyLongEntryTiming,
+  isExposureLedgerConsistent,
 } from "../lib/trading-signals/weekly-long-entry-timing-core";
 import { resolveLiveCapacityV4 } from "../lib/bitget/live-capacity-core";
 import {
@@ -27,37 +29,30 @@ const base = {
   falseBreakReclaimed: false,
 };
 
-test("locked late-week risk blocks a new swing long and cannot be offset by momentum", () => {
+test("locked late-week risk blocks a new long and cannot be offset by technical location", () => {
   const result = evaluateWeeklyLongEntryTiming(base);
   assert.equal(result.blocked, true);
   assert.equal(result.riskMatched, "冲高回落");
-  assert.match(result.reason, /禁止新波段多仓/);
-  assert.doesNotMatch(result.reason, /SHORT|翻空/);
+  assert.match(result.reason, /禁止新增或追加多头敞口/);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, atDirectionalEdge: true }).blocked, true);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, falseBreakReclaimed: true }).blocked, true);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyPath: "SURGE_THEN_PULLBACK" }).blocked, true);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyPath: "先涨后跌" }).blocked, true);
 });
 
-test("a pullback to the directional lower edge or false-break reclaim can clear only the timing gate", () => {
-  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, atDirectionalEdge: true }).blocked, false);
-  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, falseBreakReclaimed: true }).blocked, false);
-});
-
-test("timing language never blocks shorts, existing-position management, or other horizons", () => {
+test("timing language never flips shorts but covers every horizon that could add a long", () => {
   assert.equal(evaluateWeeklyLongEntryTiming({ ...base, direction: "SHORT" }).blocked, false);
-  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, strategyType: "INTRADAY" }).blocked, false);
-  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, strategyType: "POSITION" }).blocked, false);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, strategyType: "INTRADAY" }).blocked, true);
+  assert.equal(evaluateWeeklyLongEntryTiming({ ...base, strategyType: "POSITION" }).blocked, true);
 });
 
-test("unlocked, expired, or ordinary bullish paths cannot invent a timing block", () => {
+test("unlocked, expired, early-period, or ordinary paths cannot invent a timing block", () => {
   assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyLockedAt: null }).blocked, false);
   assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyPeriodEnd: "2026-08-13" }).blocked, false);
   assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyPeriodStart: null }).blocked, false);
   assert.equal(evaluateWeeklyLongEntryTiming({ ...base, weeklyPath: "回踩后逐步走强" }).blocked, false);
-});
-
-test("a late-week narrative does not block early in its locked Hong Kong week", () => {
   const monday = Date.parse("2026-08-10T12:00:00+08:00");
-  const result = evaluateWeeklyLongEntryTiming({ ...base, nowMs: monday });
-  assert.equal(result.blocked, false);
-  assert.match(result.reason, /尚未进入.*周后段/);
+  assert.match(evaluateWeeklyLongEntryTiming({ ...base, nowMs: monday }).reason, /尚未进入.*后半段/);
 });
 
 test("draft pending and non-mature publication metadata never enable the timing gate", () => {
@@ -82,24 +77,8 @@ test("forecast selection uses captured now and cannot mature against a later wal
     nowMs: capturedNowMs,
     score: (row) => row.version ?? 0,
     rows: [
-      {
-        id: "future-v9",
-        status: "LOCKED",
-        publishedAt: "2026-08-14T12:00:01+08:00",
-        lockedAt: "2026-08-14T12:00:01+08:00",
-        periodStart: "2026-08-10",
-        periodEnd: "2026-08-16",
-        version: 9,
-      },
-      {
-        id: "captured-v1",
-        status: "PUBLISHED",
-        publishedAt: "2026-08-14T11:59:59+08:00",
-        lockedAt: "2026-08-14T11:59:59+08:00",
-        periodStart: "2026-08-10",
-        periodEnd: "2026-08-16",
-        version: 1,
-      },
+      { id: "future-v9", status: "LOCKED", publishedAt: "2026-08-14T12:00:01+08:00", lockedAt: "2026-08-14T12:00:01+08:00", periodStart: "2026-08-10", periodEnd: "2026-08-16", version: 9 },
+      { id: "captured-v1", status: "PUBLISHED", publishedAt: "2026-08-14T11:59:59+08:00", lockedAt: "2026-08-14T11:59:59+08:00", periodStart: "2026-08-10", periodEnd: "2026-08-16", version: 1 },
     ],
   });
   assert.equal(selected?.id, "captured-v1");
@@ -114,30 +93,66 @@ test("production forecast selection threads one captured now without Date.now dr
   assert.match(selectionSection, /rowIsFormallyLocked\(row, nowMs\)/);
   assert.match(source, /selectForecast\(rows, assetId, "WEEK", today, now\.getTime\(\)\)/);
   assert.match(source, /selectForecast\(rows, meta\.assetId, "MONTH", today, nowMs\)/);
-  assert.match(source, /selectForecast\(rows, meta\.assetId, "WEEK", today, nowMs\)/);
-  assert.match(source, /selectForecast\(rows, meta\.assetId, "DAY", today, nowMs\)/);
 });
 
-test("production eligibility composition blocks a high-score candidate but never bypasses other risk", () => {
-  const blockedTiming = evaluateWeeklyLongEntryTiming(base);
-  const highTechnicalCandidate = applyWeeklyTimingToEntryEligibility({ otherwiseEligible: true, timing: blockedTiming });
-  assert.deepEqual(highTechnicalCandidate, { eligible: false, rejectionCode: "WEEKLY_LONG_TIMING_BLOCK" });
-
-  const timingClearedAtEdge = evaluateWeeklyLongEntryTiming({ ...base, atDirectionalEdge: true });
-  const separateRiskFailed = applyWeeklyTimingToEntryEligibility({ otherwiseEligible: false, timing: timingClearedAtEdge });
-  assert.deepEqual(separateRiskFailed, { eligible: false, rejectionCode: null });
+test("production eligibility composition blocks a high-score candidate but never bypasses another risk", () => {
+  const timing = evaluateWeeklyLongEntryTiming(base);
+  assert.deepEqual(applyWeeklyTimingToEntryEligibility({ otherwiseEligible: true, timing }), {
+    eligible: false,
+    rejectionCode: "TIMING_RISK",
+  });
+  const ordinary = evaluateWeeklyLongEntryTiming({ ...base, weeklyPath: "回踩后逐步走强" });
+  assert.deepEqual(applyWeeklyTimingToEntryEligibility({ otherwiseEligible: false, timing: ordinary }), {
+    eligible: false,
+    rejectionCode: null,
+  });
 });
 
-test("production swing evaluation applies timing after weekly direction but before readiness", () => {
+test("all four real entry routes and scale-in share the same fail-closed timing gate", () => {
+  const timing = evaluateWeeklyLongEntryTiming(base);
+  for (const action of ["COMMISSIONING_ENTRY", "NORMAL_PROFILE_ENTRY", "DAILY_MINIMUM_ENTRY", "ACTIVITY_FALLBACK_ENTRY", "SCALE_IN"] as const) {
+    const result = evaluateNewExposureSafety({ action, direction: "LONG", authorityReadsOk: true, ledgerConsistent: true, timing });
+    assert.equal(result.allowed, false, action);
+    assert.equal(result.rejectionCode, "TIMING_RISK", action);
+  }
+});
+
+test("authority failure or ledger mismatch blocks adds while risk reduction remains available", () => {
+  const timing = evaluateWeeklyLongEntryTiming({ ...base, weeklyPath: "回踩后逐步走强" });
+  for (const fields of [{ authorityReadsOk: false, ledgerConsistent: true }, { authorityReadsOk: true, ledgerConsistent: false }]) {
+    const blocked = evaluateNewExposureSafety({ action: "SCALE_IN", direction: "LONG", timing, ...fields });
+    assert.equal(blocked.allowed, false);
+    assert.equal(blocked.rejectionCode, "RECONCILIATION_REQUIRED");
+  }
+  const reduction = evaluateNewExposureSafety({ action: "RISK_REDUCTION", direction: "LONG", authorityReadsOk: false, ledgerConsistent: false, timing: evaluateWeeklyLongEntryTiming(base) });
+  assert.equal(reduction.allowed, true);
+  assert.equal(reduction.rejectionCode, null);
+});
+
+test("ledger reconciliation requires exact position, protection and active-decision side matches", () => {
+  const row = { symbol: "BTCUSDT", side: "long" as const };
+  assert.equal(isExposureLedgerConsistent({ positions: [row], protections: [row], activeDecisions: [row] }), true);
+  assert.equal(isExposureLedgerConsistent({ positions: [row], protections: [], activeDecisions: [row] }), false);
+  assert.equal(isExposureLedgerConsistent({ positions: [row], protections: [row], activeDecisions: [] }), false);
+  assert.equal(isExposureLedgerConsistent({ positions: [row], protections: [row], activeDecisions: [row, row] }), false);
+  assert.equal(isExposureLedgerConsistent({ positions: [row], protections: [row], activeDecisions: [{ symbol: "BTCUSDT", side: "short" }] }), false);
+});
+
+test("timing gate never creates a short or forces an existing long to close", () => {
+  const timing = evaluateWeeklyLongEntryTiming(base);
+  assert.equal(evaluateNewExposureSafety({ action: "NORMAL_PROFILE_ENTRY", direction: "SHORT", authorityReadsOk: true, ledgerConsistent: true, timing }).allowed, true);
+  assert.equal(evaluateNewExposureSafety({ action: "RISK_REDUCTION", direction: "LONG", authorityReadsOk: true, ledgerConsistent: true, timing }).allowed, true);
+});
+
+test("production wiring centralizes all entry routes and leaves risk-reducing management intact", () => {
   const source = readFileSync(resolve(process.cwd(), "lib/trading-signals/three-horizon-strategy.ts"), "utf8");
-  const evaluationAt = source.indexOf("const weeklyLongTiming = evaluateWeeklyLongEntryTiming(");
-  const contextAt = source.indexOf("timingBlockReason: weeklyLongTiming.blocked", evaluationAt);
-  const readinessAt = source.indexOf("const entryEligibility = applyWeeklyTimingToEntryEligibility(", contextAt);
-  assert.ok(evaluationAt >= 0);
-  assert.ok(contextAt > evaluationAt);
-  assert.ok(readinessAt > contextAt);
-  assert.match(source, /const baseValid = entryEligibility\.eligible/);
-  assert.match(source, /rejectionCode = entryEligibility\.rejectionCode/);
+  for (const action of ["COMMISSIONING_ENTRY", "NORMAL_PROFILE_ENTRY", "DAILY_MINIMUM_ENTRY", "ACTIVITY_FALLBACK_ENTRY"]) {
+    assert.match(source, new RegExp(`exposureAction: "${action}"`));
+  }
+  assert.match(source, /action: "SCALE_IN"/);
+  assert.match(source, /const newExposureGate = evaluateNewExposureSafety\(/);
+  assert.match(source, /closePosition\(/);
+  assert.match(source, /runTp1ProtectionTransition\(/);
 });
 
 test("authorized V4 capacity deterministically supersedes every legacy three configuration", () => {

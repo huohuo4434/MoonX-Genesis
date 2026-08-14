@@ -15,7 +15,7 @@ import { getPaymentConfig } from "@/lib/payments/config";
 import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-payment";
 import { minimumAcceptedPaymentAmount } from "@/lib/payments/payment-amount-policy";
 import {
-  discoverTronTransferHash,
+  discoverTronTransferCandidate,
   isTemporaryVerificationError,
   isUnderpaymentError,
   validateTxHash,
@@ -121,16 +121,18 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
     try {
       const cfg = getPaymentConfig();
       const window = verificationWindow(current);
-      const discoveredHash = await discoverTronTransferHash({
+      const discovered = await discoverTronTransferCandidate({
         recipientAddress: current.recipientAddress,
         tokenContract: current.tokenContract,
         expectedAmount: current.expectedAmount,
+        minimumAmount: minimumAmount(current),
+        uniqueSuffix: current.metadata.uniqueSuffix,
         ...window,
       }, cfg.tronGridApiKey);
-      if (!discoveredHash) {
+      if (!discovered) {
         return { orderId, status: "pending", activated: false, message: "等待链上自动识别到账，系统会每分钟继续扫描" };
       }
-      current = await attachTransactionHash({ orderId: current.id, userId: current.userId, txHash: discoveredHash });
+      current = await attachTransactionHash({ orderId: current.id, userId: current.userId, txHash: discovered.txHash });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/Multiple matching TRON transfers|already used|已被其他订单使用/i.test(message)) {

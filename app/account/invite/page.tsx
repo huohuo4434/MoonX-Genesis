@@ -19,7 +19,7 @@ export default async function AccountInvitePage() {
           我的邀请
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 max-w-lg">
-          邀请好友加入 MOOX，双方各赠送 7 天会员时间。
+          邀请好友成功开通会员后，邀请人获赠 30 天，被邀请人获赠 7 天会员时间。
         </Text>
         <AccountReferralPanel />
       </Section>

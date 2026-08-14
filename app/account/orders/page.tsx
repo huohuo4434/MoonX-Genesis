@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, PLAN_LABELS } from "@/lib/auth/permissions";
-import { listAutoPaymentOrdersForUser } from "@/lib/payments/auto-payment-orders";
+import { isAutoPaymentMembershipActivated, isCompletedManualGoodwill, listAutoPaymentOrdersForUser, type AutoPaymentOrder } from "@/lib/payments/auto-payment-orders";
 import { listPaymentOrdersForEmail } from "@/lib/payments/payment-orders-store";
 import { guardAccountRoute } from "@/lib/route-feature-guards";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
@@ -10,8 +10,11 @@ import { formatDateTimeChina } from "@/lib/utils/datetime";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function autoStatusLabel(status: string): string {
-  if (status === "paid" || status === "overpaid") return "已自动开通 · Activated";
+function autoStatusLabel(order: AutoPaymentOrder): string {
+  if (isCompletedManualGoodwill(order)) return "少付特批已开通 · Goodwill approved";
+  if (order.metadata.membershipGranted) return "会员已开通，特批审计待完成 · Active, audit pending";
+  const status = order.status;
+  if (isAutoPaymentMembershipActivated(order)) return "已全额开通 · Activated";
   if (status === "verifying") return "链上核验中 · Verifying";
   if (status === "pending") return "等待付款或确认 · Pending";
   if (status === "underpaid") return "金额不足 · Underpaid";
@@ -58,7 +61,7 @@ export default async function AccountOrdersPage() {
           {autoOrders.map((item) => (
             <Card key={item.id} padding="md" className="overflow-hidden">
               <Text variant="body" weight="semibold">
-                {item.planName || PLAN_LABELS[item.plan]} · {autoStatusLabel(item.status)}
+                {item.planName || PLAN_LABELS[item.plan]} · {autoStatusLabel(item)}
               </Text>
               <Text variant="caption" color="tertiary" className="mt-1 block">订单号：{item.orderNumber}</Text>
               <Text variant="caption" color="tertiary" className="mt-1 block">

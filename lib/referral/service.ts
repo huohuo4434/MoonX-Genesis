@@ -1,6 +1,10 @@
 import "server-only";
+import { randomUUID } from "crypto";
 
-import { grantMembershipDays } from "@/lib/auth/grant-membership";
+import {
+  applyFixedMembershipRewardPlan,
+  prepareFixedMembershipRewardPlan,
+} from "@/lib/auth/grant-membership";
 import {
   listAllAuthUsers,
   updateUserAppMetadata,
@@ -9,22 +13,34 @@ import {
 import {
   REFERRAL_REWARD_DAYS,
   bindReferralOnRegister,
+  claimReferralRewardDelivery,
+  completeReferralRewardDelivery,
   ensureReferralInvite,
-  finalizeReferralReward,
   findPendingReferralForInvitee,
   getInviteByCode,
   getReferralStats,
   listAllReferralRecordsAdmin,
   listReferralRecords,
   normalizeInviteCode,
+  persistReferralRewardDeliveryPlan,
   type ReferralRecord,
 } from "@/lib/referral/store";
+import {
+  REFERRAL_INVITEE_REWARD_DAYS,
+  REFERRAL_INVITER_REWARD_DAYS,
+  runReferralRewardDelivery,
+} from "@/lib/referral/reward-policy";
 import { siteBaseUrl } from "@/lib/referral/site-url";
 import { isActiveMembershipForPredictionAccess } from "@/lib/prediction-access";
 import { isAdminUser } from "@/lib/auth/is-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
 
-export { REFERRAL_REWARD_DAYS, siteBaseUrl };
+export {
+  REFERRAL_REWARD_DAYS,
+  REFERRAL_INVITER_REWARD_DAYS,
+  REFERRAL_INVITEE_REWARD_DAYS,
+  siteBaseUrl,
+};
 
 /** Production site URL — never fall back to localhost. */
 // siteBaseUrl imported from ./site-url
@@ -137,7 +153,7 @@ export async function getOrCreateMyInvite(
       successCount: stats.successCount,
       rewardDaysTotal: stats.rewardDaysTotal,
       pendingCount: stats.pendingCount,
-      rewardDaysPerSuccess: REFERRAL_REWARD_DAYS,
+      rewardDaysPerSuccess: REFERRAL_INVITER_REWARD_DAYS,
     };
   } catch (err) {
     console.error("[referral] invite creation failed", err);
@@ -199,7 +215,6 @@ export async function processReferralRewardAfterPayment(input: {
 }> {
   const pending = await findPendingReferralForInvitee(input.inviteeId);
   if (!pending) return { applied: false, skipped: "无邀请关系" };
-  if (pending.status === "success") return { applied: false, skipped: "已发放奖励", record: pending };
   if (pending.status === "flagged") {
     return {
       applied: false,
@@ -218,38 +233,51 @@ export async function processReferralRewardAfterPayment(input: {
     return { applied: false, skipped: "不能邀请自己", record: pending };
   }
 
-  // Finalize first so reward cannot double-apply if membership grant partially fails mid-way.
-  const gate = await finalizeReferralReward(input);
-  if (!gate.applied) {
-    return { applied: false, skipped: gate.skipped, record: gate.record };
+  const ownerToken = randomUUID();
+  const delivery = await runReferralRewardDelivery({
+    inviterId: inviter.id,
+    inviteeId: invitee.id,
+    paymentId: input.paymentId,
+    ownerToken,
+    claim: (token) => claimReferralRewardDelivery({
+      inviteeId: input.inviteeId,
+      paymentId: input.paymentId,
+      ownerToken: token,
+    }),
+    prepare: async () => {
+      const rewardPlanNow = new Date();
+      return {
+        inviter: await prepareFixedMembershipRewardPlan({
+          userId: inviter.id,
+          days: REFERRAL_INVITER_REWARD_DAYS,
+          now: rewardPlanNow,
+        }),
+        invitee: await prepareFixedMembershipRewardPlan({
+          userId: invitee.id,
+          days: REFERRAL_INVITEE_REWARD_DAYS,
+          now: rewardPlanNow,
+        }),
+      };
+    },
+    persistPlan: (recordId, token, plan) => persistReferralRewardDeliveryPlan({ recordId, ownerToken: token, plan }),
+    apply: ({ plan, sourceId, note }) => applyFixedMembershipRewardPlan({
+      plan,
+      sourceId,
+      note,
+      eventType: "REFERRAL_REWARD",
+      source: "referral",
+    }),
+    complete: (recordId, token) => completeReferralRewardDelivery({ recordId, ownerToken: token }),
+  });
+  if (!delivery.applied) {
+    return { applied: false, skipped: delivery.skipped, record: delivery.record };
   }
-
-  const days = pending.reward_days || REFERRAL_REWARD_DAYS;
-  const recordId = gate.record?.id ?? pending.id;
-
-  const inviterGrant = await grantMembershipDays({
-    userId: inviter.id,
-    days,
-    eventType: "REFERRAL_REWARD",
-    source: "referral",
-    sourceId: `referral_inviter_${recordId}`,
-    note: `invitee_payment=${input.paymentId}`,
-  });
-
-  const inviteeGrant = await grantMembershipDays({
-    userId: invitee.id,
-    days,
-    eventType: "REFERRAL_REWARD",
-    source: "referral",
-    sourceId: `referral_invitee_${recordId}`,
-    note: `invitee_payment=${input.paymentId}`,
-  });
 
   return {
     applied: true,
-    inviterExpiresAt: inviterGrant.newExpiresAt ?? undefined,
-    inviteeBonusExpiresAt: inviteeGrant.newExpiresAt ?? undefined,
-    record: gate.record,
+    inviterExpiresAt: delivery.inviter.newExpiresAt ?? undefined,
+    inviteeBonusExpiresAt: delivery.invitee.newExpiresAt ?? undefined,
+    record: delivery.record,
   };
 }
 

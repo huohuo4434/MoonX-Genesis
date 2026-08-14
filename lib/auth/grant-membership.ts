@@ -17,6 +17,10 @@ import {
 } from "@/lib/auth/membership-events";
 import { daysBetweenIso, laterExpiryIso } from "@/lib/payments/membership-dates";
 import { getAdminClient } from "@/lib/supabase/admin";
+import {
+  fixedMembershipExpiry,
+  type FixedMembershipRewardPlan,
+} from "@/lib/referral/reward-policy";
 
 export { laterExpiryIso, daysBetweenIso } from "@/lib/payments/membership-dates";
 
@@ -182,6 +186,131 @@ export async function grantMembershipDays(input: {
     previousExpiresAt,
     newExpiresAt,
     daysChanged: daysChanged || input.days,
+  };
+}
+
+export async function prepareFixedMembershipRewardPlan(input: {
+  userId: string;
+  days: number;
+  now?: Date;
+}): Promise<FixedMembershipRewardPlan> {
+  const now = input.now ?? new Date();
+  const admin = getAdminClient();
+  if (!admin) throw new Error("MEMBERSHIP_SERVICE_NOT_CONFIGURED");
+  const { data, error } = await admin.auth.admin.getUserById(input.userId);
+  if (error || !data.user) throw new Error("MEMBERSHIP_USER_NOT_FOUND");
+  const meta = (data.user.app_metadata ?? {}) as {
+    membership_expires_at?: string | null;
+    role?: string;
+  };
+  const previousExpiresAt = meta.membership_expires_at ?? null;
+  if (meta.role === "admin") {
+    return {
+      userId: input.userId,
+      days: input.days,
+      previousExpiresAt,
+      targetExpiresAt: previousExpiresAt,
+      skipReason: "admin_account",
+    };
+  }
+  return {
+    userId: input.userId,
+    days: input.days,
+    previousExpiresAt,
+    targetExpiresAt: computeNewExpiry(previousExpiresAt, input.days, now),
+  };
+}
+
+/**
+ * Applies a pre-persisted absolute expiry target. Retrying after an Auth write
+ * but before the event write can only restore the same target, never add days again.
+ */
+export async function applyFixedMembershipRewardPlan(input: {
+  plan: FixedMembershipRewardPlan;
+  eventType: MembershipEventType;
+  source: string;
+  sourceId: string;
+  note?: string | null;
+}): Promise<GrantMembershipResult> {
+  const admin = getAdminClient();
+  if (!admin) throw new Error("MEMBERSHIP_SERVICE_NOT_CONFIGURED");
+  if (input.plan.skipReason === "admin_account") {
+    return {
+      applied: false,
+      previousExpiresAt: input.plan.previousExpiresAt,
+      newExpiresAt: input.plan.targetExpiresAt,
+      daysChanged: 0,
+      skipped: "admin_account",
+    };
+  }
+  if (!input.plan.targetExpiresAt) throw new Error("REFERRAL_REWARD_TARGET_MISSING");
+  if (await hasMembershipEventForSource(input.eventType, input.sourceId)) {
+    const { data } = await admin.auth.admin.getUserById(input.plan.userId);
+    const current =
+      (data.user?.app_metadata as { membership_expires_at?: string | null } | undefined)
+        ?.membership_expires_at ?? null;
+    return {
+      applied: false,
+      previousExpiresAt: current,
+      newExpiresAt: current,
+      daysChanged: 0,
+      skipped: "already_applied",
+    };
+  }
+
+  const { data, error } = await admin.auth.admin.getUserById(input.plan.userId);
+  if (error || !data.user) throw new Error("MEMBERSHIP_USER_NOT_FOUND");
+  const email = (data.user.email ?? "").toLowerCase();
+  const meta = (data.user.app_metadata ?? {}) as {
+    membership_expires_at?: string | null;
+    membership_started_at?: string | null;
+    membership_plan?: MembershipPlan | null;
+    role?: string;
+  };
+  if (meta.role === "admin") {
+    return {
+      applied: false,
+      previousExpiresAt: meta.membership_expires_at ?? null,
+      newExpiresAt: meta.membership_expires_at ?? null,
+      daysChanged: 0,
+      skipped: "admin_account",
+    };
+  }
+
+  const fixedExpiresAt = fixedMembershipExpiry(
+    meta.membership_expires_at ?? null,
+    input.plan.targetExpiresAt,
+  );
+  await updateUserAppMetadata(input.plan.userId, {
+    membership_status: "active",
+    membership_plan: meta.membership_plan ?? null,
+    membership_started_at: meta.membership_started_at ?? new Date().toISOString(),
+    membership_expires_at: fixedExpiresAt,
+  });
+  await syncProfileMembership({
+    userId: input.plan.userId,
+    email,
+    membershipStatus: "active",
+    membershipExpiresAt: fixedExpiresAt,
+    membershipPlan: meta.membership_plan ?? null,
+  });
+  await appendMembershipEvent({
+    userId: input.plan.userId,
+    userEmail: email,
+    eventType: input.eventType,
+    source: input.source,
+    sourceId: input.sourceId,
+    previousExpiresAt: input.plan.previousExpiresAt,
+    newExpiresAt: fixedExpiresAt,
+    daysChanged: input.plan.days,
+    operatorId: null,
+    note: input.note ?? "fixed_expiry_referral_reward",
+  });
+  return {
+    applied: true,
+    previousExpiresAt: input.plan.previousExpiresAt,
+    newExpiresAt: fixedExpiresAt,
+    daysChanged: input.plan.days,
   };
 }
 

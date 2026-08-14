@@ -35,7 +35,7 @@ export default async function AccountMembershipPage() {
             <li>方向、情景权重与运行路径</li>
             <li>支撑、压力与技术风控参考</li>
             <li>盘中修正与历史验证</li>
-            <li>邀请好友加入 MOOX，双方各赠送 7 天会员时间</li>
+            <li>邀请好友成功开通会员：邀请人获赠 30 天，被邀请人获赠 7 天</li>
           </ul>
           <Link href="/account/invite" className="mt-4 mr-4 inline-block text-body-sm text-primary hover:underline">
             我的邀请

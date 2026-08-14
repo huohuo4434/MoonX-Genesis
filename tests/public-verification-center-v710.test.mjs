@@ -17,14 +17,17 @@ test("public verification page is track-record first", () => {
 test("track-record center exposes real stats, trend, asset and star views", () => {
   const ui = read("components/verification/PublicVerificationCenter.tsx");
   for (const marker of [
-    "已验证样本",
-    "综合加权命中率",
-    "方向命中率",
-    "完整路径命中率",
+    "已验证日样本",
+    "日度加权命中率",
+    "周度方向命中率",
+    "月度路径命中率",
     "战绩趋势",
     "按资产表现",
     "共识星级真实表现",
-    "最近逐笔验证",
+    "最近日验证",
+    "周验证档案",
+    "月验证档案",
+    "不按命中结果挑选",
     "失败记录永久保留",
   ]) assert.ok(ui.includes(marker), marker);
   assert.match(ui, /publicStarAccuracyBreakdown/);

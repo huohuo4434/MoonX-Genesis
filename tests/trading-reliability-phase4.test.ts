@@ -16,6 +16,10 @@ import {
   shouldRunTp1ProtectionTransition,
 } from "../lib/trading-signals/tp1-protection-transition-core";
 import {
+  evaluateNewExposureSafety,
+  evaluateWeeklyLongEntryTiming,
+} from "../lib/trading-signals/weekly-long-entry-timing-core";
+import {
   classifyReliabilityPosition,
   reliabilityDecisionModeForEnvironment,
   shouldRepairConfirmedMissingProtection,
@@ -874,4 +878,29 @@ test("Chan member console remains research-only and disconnected from order exec
   const page = read("app/member/technical-methods/page.tsx");
   all(decision, ['executionAuthority: "RESEARCH_ONLY"', "tradingEligible: false", 'action: "WAIT"']);
   assert.doesNotMatch(`${decision}\n${page}`, /submitOrder|executeReadyDecision|placeOrder|paptrading/);
+});
+
+test("live new-exposure safety blocks late-week longs and reconciliation gaps without blocking exits", () => {
+  const timing = evaluateWeeklyLongEntryTiming({
+    strategyType: "INTRADAY",
+    direction: "LONG",
+    weeklyPath: "先涨后跌，后段冲高回落",
+    weeklyStatus: "PUBLISHED",
+    weeklyPublishedAt: "2026-08-09T18:00:00+08:00",
+    weeklyLockedAt: "2026-08-09T19:00:00+08:00",
+    weeklyPeriodStart: "2026-08-10",
+    weeklyPeriodEnd: "2026-08-16",
+    nowMs: Date.parse("2026-08-14T12:00:00+08:00"),
+    atDirectionalEdge: true,
+    falseBreakReclaimed: true,
+  });
+  assert.equal(evaluateNewExposureSafety({
+    action: "COMMISSIONING_ENTRY", direction: "LONG", authorityReadsOk: true, ledgerConsistent: true, timing,
+  }).rejectionCode, "TIMING_RISK");
+  assert.equal(evaluateNewExposureSafety({
+    action: "SCALE_IN", direction: "SHORT", authorityReadsOk: true, ledgerConsistent: false, timing,
+  }).rejectionCode, "RECONCILIATION_REQUIRED");
+  assert.equal(evaluateNewExposureSafety({
+    action: "RISK_REDUCTION", direction: "LONG", authorityReadsOk: false, ledgerConsistent: false, timing,
+  }).allowed, true);
 });

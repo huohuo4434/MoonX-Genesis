@@ -1,10 +1,13 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminAutoPaymentActions } from "@/components/admin/AdminAutoPaymentActions";
+import { AdminGoodwillUnderpaymentTool } from "@/components/admin/AdminGoodwillUnderpaymentTool";
 import { AdminPaymentApproveActions } from "@/components/admin/AdminPaymentApproveActions";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady, paymentNotifyTo } from "@/lib/email/notifications";
 import {
   getAutoPaymentUserEmailMap,
+  isAutoPaymentMembershipActivated,
+  isCompletedManualGoodwill,
   type AutoPaymentOrder,
 } from "@/lib/payments/auto-payment-orders";
 import { getPaymentConfig } from "@/lib/payments/config";
@@ -20,8 +23,11 @@ function emailLabel(status?: string | null): string {
   return "未配置 / 未发送";
 }
 
-function automaticStatusBadge(status: AutoPaymentOrder["status"]) {
-  if (status === "paid" || status === "overpaid") return <Badge variant="success">已开通</Badge>;
+function automaticStatusBadge(order: AutoPaymentOrder) {
+  if (isCompletedManualGoodwill(order)) return <Badge variant="success">少付特批已开通</Badge>;
+  if (order.metadata.membershipGranted) return <Badge variant="warning">会员已开通，审计待补</Badge>;
+  const status = order.status;
+  if (status === "paid" || status === "overpaid") return <Badge variant="success">已全额开通</Badge>;
   if (status === "pending" || status === "verifying") return <Badge variant="warning">自动核验中</Badge>;
   if (status === "underpaid") return <Badge variant="danger">金额不足</Badge>;
   if (status === "manual_review") return <Badge variant="danger">人工复核</Badge>;
@@ -46,14 +52,14 @@ export default async function AdminPaymentsPage() {
 
   function renderAutoOrder(order: AutoPaymentOrder) {
     const buyerEmail = order.metadata.buyerEmail ?? emailMap.get(order.userId) ?? "未读取到邮箱";
-    const paid = order.status === "paid" || order.status === "overpaid";
+    const paid = isAutoPaymentMembershipActivated(order);
     const canRetry = Boolean(order.txHash) && !paid;
     const canActivate = Boolean(order.txHash) && !paid;
     return (
       <Card key={order.id} padding="md" className="overflow-hidden border border-white/[0.08]">
         <div className="flex flex-wrap items-center gap-2">
           <Text variant="body-sm" weight="semibold">{buyerEmail}</Text>
-          {automaticStatusBadge(order.status)}
+          {automaticStatusBadge(order)}
           {order.founderRank ? <Badge variant="outline">创始会员 #{order.founderRank} · {100 - order.discountPercent}%价格</Badge> : null}
         </div>
         <div className="mt-3 grid gap-1 text-caption text-foreground-tertiary md:grid-cols-2">
@@ -140,6 +146,14 @@ export default async function AdminPaymentsPage() {
         <Card padding="md" className="mt-4 mb-6 space-y-1">
           <Text variant="caption" color="tertiary" className="block break-all">TRC20：{cfg.trc20Address}</Text>
           <Text variant="caption" color="tertiary" className="block break-all">BEP20：{cfg.bep20Address}</Text>
+        </Card>
+
+        <Card padding="md" className="mb-8 space-y-3 border border-amber-400/25 bg-amber-400/[0.04]">
+          <Text variant="body" weight="semibold">少付手续费客服特批</Text>
+          <Text variant="caption" color="tertiary" className="block">
+            独立处理已过期、尚未绑定哈希或未出现在当前异常列表的订单。这里只提交复核请求；服务端仍会权威核验收款地址、USDT 合约、原订单时间窗、唯一尾号和真实到账金额。
+          </Text>
+          <AdminGoodwillUnderpaymentTool />
         </Card>
 
         <Heading as="h2" size="h3">自动订单·需要处理（{autoAttention.length}）</Heading>

@@ -4,6 +4,8 @@ import { chineseResendError, paymentNotifyTo, sendRawEmail, type EmailNotificati
 import { siteConfig } from "@/lib/site-config";
 import {
   getAutoPaymentUserEmail,
+  isAutoPaymentMembershipActivated,
+  isCompletedManualGoodwill,
   listAllAutoPaymentOrders,
   patchAutoPaymentOrderMetadata,
   writePaymentAudit,
@@ -94,7 +96,8 @@ export async function notifyAdminAutoPayment(input: {
 
 
 function desiredNotificationKind(order: AutoPaymentOrder): AdminPaymentNotificationKind {
-  if (order.status === "paid" || order.status === "overpaid") return "activated";
+  if (isCompletedManualGoodwill(order)) return "manual_activated";
+  if (isAutoPaymentMembershipActivated(order)) return order.metadata.membershipGranted ? "manual_review" : "activated";
   if (order.status === "underpaid") return "underpaid";
   if (order.status === "manual_review" || order.status === "rejected" || order.status === "expired") return "manual_review";
   return "hash_submitted";

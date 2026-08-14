@@ -8,13 +8,17 @@ import type {
   WeeklyAccuracyPublicStats,
 } from "@/lib/accuracy/get-weekly-history";
 import { publicStarAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
+import {
+  selectPublicVerificationDetails,
+  type PublicVerificationPeriod,
+} from "@/lib/accuracy/verification-display-policy";
 
 type RangeFilter = "30D" | "90D" | "ALL";
-type PeriodFilter = "ALL" | "DAILY" | "WEEKLY";
+type PeriodFilter = PublicVerificationPeriod;
 
 type UnifiedRow = {
   id: string;
-  period: "DAILY" | "WEEKLY";
+  period: PublicVerificationPeriod;
   date: string;
   symbol: string;
   assetName: string;
@@ -186,7 +190,7 @@ export function PublicVerificationCenter({
   en: boolean;
 }) {
   const [range, setRange] = useState<RangeFilter>("90D");
-  const [period, setPeriod] = useState<PeriodFilter>("ALL");
+  const [period, setPeriod] = useState<PeriodFilter>("DAILY");
   const [asset, setAsset] = useState("ALL");
 
   const allRows = useMemo<UnifiedRow[]>(() => {
@@ -233,18 +237,6 @@ export function PublicVerificationCenter({
     return [...daily, ...weekly].sort((a, b) => b.date.localeCompare(a.date));
   }, [dailyItems, weeklyItems, en]);
 
-  const countableFull = (dailyStats.fullHitCount ?? dailyStats.hitCount) + weeklyStats.full;
-  const countablePartial = (dailyStats.partialHitCount ?? 0) + weeklyStats.partial;
-  const countableMiss = dailyStats.missCount + weeklyStats.miss;
-  const verifiedTotal = countableFull + countablePartial + countableMiss;
-  const weightedRate = verifiedTotal ? (countableFull + countablePartial * 0.5) / verifiedTotal : null;
-  const dailyDirectionHits = dailyStats.directionHitRate == null ? 0 : dailyStats.directionHitRate * dailyStats.verifiedCount;
-  const weeklyDirectionHits = weeklyStats.directionAccuracyPct == null ? 0 : (weeklyStats.directionAccuracyPct / 100) * weeklyStats.sampleSize;
-  const directionDen = dailyStats.verifiedCount + weeklyStats.sampleSize;
-  const directionRate = directionDen ? (dailyDirectionHits + weeklyDirectionHits) / directionDen : null;
-  const totalPending = pendingCount + weeklyStats.pending;
-  const totalUnverifiable = (dailyStats.unverifiableCount ?? 0) + weeklyStats.unverifiable;
-
   const assetOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const row of allRows) map.set(row.symbol, assetLabel(row.symbol, row.assetName));
@@ -253,9 +245,14 @@ export function PublicVerificationCenter({
 
   const filteredRows = useMemo(
     () => allRows.filter((row) => inRange(row.date, range))
-      .filter((row) => period === "ALL" || row.period === period)
+      .filter((row) => row.period === period)
       .filter((row) => asset === "ALL" || row.symbol === asset),
     [allRows, range, period, asset]
+  );
+
+  const detailSelection = useMemo(
+    () => selectPublicVerificationDetails(filteredRows, period),
+    [filteredRows, period]
   );
 
   const assetPerformance = useMemo(() => {
@@ -280,14 +277,33 @@ export function PublicVerificationCenter({
   const starBuckets = useMemo(() => publicStarAccuracyBreakdown(dailyItems), [dailyItems]);
   const ratedSamples = starBuckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0);
 
-  const metricCards = [
-    [en ? "Verified samples" : "已验证样本", String(verifiedTotal), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
-    [en ? "Weighted accuracy" : "综合加权命中率", pct(weightedRate, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
-    [en ? "Direction accuracy" : "方向命中率", pct(directionRate, en), en ? "Daily + weekly" : "日度 + 周度统一口径"],
-    [en ? "Full-path accuracy" : "完整路径命中率", pct(dailyStats.pathHitRate, en), en ? `Daily n=${dailyStats.verifiedCount}` : `当前日度样本 n=${dailyStats.verifiedCount}`],
-    [en ? "Misses" : "未命中", String(countableMiss), en ? "Never deleted" : "失败记录永久保留"],
-    [en ? "Pending" : "待验证", String(totalPending), en ? "Processed automatically" : "周期结束后自动处理"],
+  const dailyFull = dailyStats.fullHitCount ?? dailyStats.hitCount;
+  const dailyPartial = dailyStats.partialHitCount ?? 0;
+  const dailyCountable = dailyFull + dailyPartial + dailyStats.missCount;
+  const dailyWeightedRate = dailyCountable ? (dailyFull + dailyPartial * 0.5) / dailyCountable : null;
+  const metricCards = period === "DAILY" ? [
+    [en ? "Verified daily samples" : "已验证日样本", String(dailyStats.verifiedCount), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
+    [en ? "Daily weighted accuracy" : "日度加权命中率", pct(dailyStats.weightedHitRate ?? dailyWeightedRate, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
+    [en ? "Daily direction accuracy" : "日度方向命中率", pct(dailyStats.directionHitRate, en), en ? "Locked direction only" : "只核对发布时锁定方向"],
+    [en ? "Daily full-path accuracy" : "日度完整路径命中率", pct(dailyStats.pathHitRate, en), en ? `Daily n=${dailyStats.verifiedCount}` : `当前日度样本 n=${dailyStats.verifiedCount}`],
+    [en ? "Daily misses" : "日度未命中", String(dailyStats.missCount), en ? "Never deleted" : "失败记录永久保留"],
+    [en ? "Daily pending" : "日度待验证", String(Math.max(dailyStats.pendingCount, pendingCount)), en ? "Processed after the session" : "交易时段结束后处理"],
+  ] : period === "WEEKLY" ? [
+    [en ? "Verified weekly samples" : "已验证周样本", String(weeklyStats.sampleSize), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
+    [en ? "Weekly weighted accuracy" : "周度加权命中率", pct(weeklyStats.weightedAccuracyPct, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
+    [en ? "Weekly direction accuracy" : "周度方向命中率", pct(weeklyStats.directionAccuracyPct, en), en ? "Locked weekly direction" : "核对锁定周方向"],
+    [en ? "Weekly full hits" : "周度完全命中", String(weeklyStats.full), en ? "Strict full-path result" : "严格完整路径结果"],
+    [en ? "Weekly misses" : "周度未命中", String(weeklyStats.miss), en ? "Never deleted" : "失败记录永久保留"],
+    [en ? "Weekly pending" : "周度待验证", String(weeklyStats.pending), en ? "Processed after week end" : "周线周期结束后处理"],
+  ] : [
+    [en ? "Completed monthly samples" : "已完成月样本", "0", en ? "No finished calendar month yet" : "尚无完整自然月结束"],
+    [en ? "Monthly weighted accuracy" : "月度加权命中率", en ? "Building" : "积累中", en ? "Published only after month end" : "只在月末后发布"],
+    [en ? "Monthly direction accuracy" : "月度方向命中率", en ? "Building" : "积累中", en ? "Current outlook is not a result" : "当月预测不冒充结果"],
+    [en ? "Monthly path accuracy" : "月度路径命中率", en ? "Building" : "积累中", en ? "Requires complete monthly evidence" : "需要整月行情证据"],
+    [en ? "Monthly misses" : "月度未命中", "0", en ? "Misses will remain visible" : "未来失败样本同样保留"],
+    [en ? "Monthly pending" : "月度待验证", "1", en ? "Current monthly cycle" : "当前自然月周期"],
   ];
+  const selectedUnverifiable = period === "DAILY" ? (dailyStats.unverifiableCount ?? 0) : period === "WEEKLY" ? weeklyStats.unverifiable : 0;
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-1 sm:px-2">
@@ -320,10 +336,10 @@ export function PublicVerificationCenter({
             </div>
           ))}
         </div>
-        {totalUnverifiable > 0 ? <div className="mt-3 text-xs text-foreground-tertiary">{en ? `${totalUnverifiable} unverifiable records are retained outside the accuracy denominator.` : `另有 ${totalUnverifiable} 条不可验证记录保留在档案中，但不进入命中率分母。`}</div> : null}
+        {selectedUnverifiable > 0 ? <div className="mt-3 text-xs text-foreground-tertiary">{en ? `${selectedUnverifiable} unverifiable records are retained outside the accuracy denominator.` : `另有 ${selectedUnverifiable} 条不可验证记录保留在本周期档案中，但不进入命中率分母。`}</div> : null}
       </section>
 
-      <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
+      {period === "DAILY" ? <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-foreground">{en ? "Track-record trend" : "战绩趋势"}</h2>
@@ -331,7 +347,7 @@ export function PublicVerificationCenter({
           </div>
           <div className="flex flex-wrap gap-2">
             {(["30D", "90D", "ALL"] as const).map((value) => <button key={value} type="button" onClick={() => setRange(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${range === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "ALL" ? (en ? "All" : "全部") : value}</button>)}
-            {(["ALL", "DAILY", "WEEKLY"] as const).map((value) => <button key={value} type="button" onClick={() => setPeriod(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${period === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "ALL" ? (en ? "All periods" : "全部周期") : value === "DAILY" ? (en ? "Daily" : "日度") : (en ? "Weekly" : "周度")}</button>)}
+            {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((value) => <button key={value} type="button" onClick={() => setPeriod(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${period === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "DAILY" ? (en ? "Daily verification" : "日验证") : value === "WEEKLY" ? (en ? "Weekly verification" : "周验证") : (en ? "Monthly verification" : "月验证")}</button>)}
             <select value={asset} onChange={(event) => setAsset(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary/50">
               <option value="ALL">{en ? "All assets" : "全部资产"}</option>
               {assetOptions.map(([symbol, label]) => <option key={symbol} value={symbol}>{label} · {symbol}</option>)}
@@ -345,7 +361,7 @@ export function PublicVerificationCenter({
             {assetPerformance.length ? <div className="space-y-3">{assetPerformance.map((item) => <div key={item.symbol}><div className="mb-1 flex items-center justify-between gap-3 text-xs"><span className="truncate text-foreground-secondary">{item.name} <span className="text-foreground-tertiary">{item.symbol}</span></span><span className="font-semibold tabular-nums text-foreground">{pct(item.rate, en)} · n={item.count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, Math.min(100, item.rate * 100))}%` }} /></div></div>)}</div> : <div className="py-12 text-center text-sm text-foreground-tertiary">{en ? "No countable samples yet." : "样本积累中，暂不排名。"}</div>}
           </div>
         </div>
-      </section>
+      </section> : null}
 
       <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -356,8 +372,9 @@ export function PublicVerificationCenter({
       </section>
 
       <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
-        <div className="mb-4"><h2 className="text-xl font-semibold text-foreground">{en ? "Recent verified records" : "最近逐笔验证"}</h2><p className="mt-1 text-sm text-foreground-tertiary">{en ? "Open any row to inspect the locked forecast, realized path and evidence." : "每一条都可展开查看原预测、实际走势、版本与验证证据。"}</p></div>
-        {filteredRows.length ? <div className="space-y-2">{filteredRows.slice(0, 16).map((row) => <details key={row.id} className="group rounded-xl border border-border/60 bg-background/20 open:border-primary/25 open:bg-background/40"><summary className="grid cursor-pointer list-none grid-cols-[78px_1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[90px_90px_1fr_1fr_110px_90px]"><span className="text-xs tabular-nums text-foreground-tertiary">{row.date}</span><span className="hidden text-xs font-semibold text-foreground-secondary sm:block">{row.period === "DAILY" ? (en ? "Daily" : "日度") : (en ? "Weekly" : "周度")}</span><span className="truncate text-sm font-semibold text-foreground">{assetLabel(row.symbol, row.assetName)} <span className="text-xs font-normal text-foreground-tertiary">{row.symbol}</span></span><span className="hidden truncate text-sm text-foreground-secondary sm:block">{row.predicted} → {row.actual}</span><span className={`justify-self-end rounded-full border px-2.5 py-1 text-[11px] font-semibold ${resultClass(row.result)}`}>{resultText(row.result, en)}</span><span className="hidden justify-self-end text-xs font-semibold tabular-nums text-foreground sm:block">{row.score == null ? "—" : `${Math.round(row.score * 100)}%`}</span></summary><div className="border-t border-border/50 px-4 py-4 text-sm"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked forecast" : "锁定预测"}</div><div className="mt-1 text-foreground">{row.predicted}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Realized" : "实际走势"}</div><div className="mt-1 text-foreground">{row.actual}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Version" : "版本"}</div><div className="mt-1 text-foreground">{row.version}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Verified at" : "验证时间"}</div><div className="mt-1 text-foreground">{formatTimestamp(row.verifiedAt, en)}</div></div></div>{row.supportLevels?.length || row.resistanceLevels?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked supports" : "发布时锁定支撑"}</div><div className="mt-1 text-foreground-secondary">{row.supportLevels?.join(" · ") || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Locked resistance" : "发布时锁定压力"}</div><div className="mt-1 text-foreground-secondary">{row.resistanceLevels?.join(" · ") || "—"}</div></div></div> : null}{row.confirmation || row.invalidation ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Confirmation" : "确认条件"}</div><div className="mt-1 text-foreground-secondary">{row.confirmation || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Invalidation" : "失效条件"}</div><div className="mt-1 text-foreground-secondary">{row.invalidation || "—"}</div></div></div> : null}<div className="mt-4 rounded-lg bg-muted/20 p-3 text-xs leading-5 text-foreground-secondary">{row.detail || (en ? "No additional explanation saved." : "本条暂无更多验证说明。")}{row.dataSource ? <span className="mt-1 block text-foreground-tertiary">{en ? "Data source" : "行情来源"}: {row.dataSource}</span> : null}</div></div></details>)}</div> : <div className="rounded-xl border border-dashed border-border/70 py-14 text-center"><div className="text-base font-semibold text-foreground">{en ? "Verified samples are building" : "首批真实样本正在积累"}</div><div className="mt-2 text-sm text-foreground-tertiary">{en ? "Locked forecasts are visible below while the automated verifier waits for each observation window to finish." : "已锁定预测会继续公开展示；观察窗口结束后由服务器自动验证，不需要人工补结果。"}</div></div>}
+        <div className="mb-4"><h2 className="text-xl font-semibold text-foreground">{period === "DAILY" ? (en ? "Recent daily verification" : "最近日验证") : period === "WEEKLY" ? (en ? "Weekly verification archive" : "周验证档案") : (en ? "Monthly verification archive" : "月验证档案")}</h2><p className="mt-1 text-sm text-foreground-tertiary">{period === "DAILY" ? (en ? "The compact view shows the 12 most recent daily records by date, regardless of outcome. The complete archive remains in CSV and JSON." : "紧凑视图按日期展示最近 12 条，不按命中结果挑选；完整日度档案仍可通过 CSV / JSON 下载。") : period === "WEEKLY" ? (en ? "All weekly results remain visible with their locked forecast and realized evidence." : "周验证正常展示全部结果，可展开查看锁定预测与实际证据。") : (en ? "Monthly records are published only after a complete calendar month can be verified. Current-month outlooks are not presented as finished results." : "月度验证样本将在完整月份结束、取得真实行情后发布；当月预测不会冒充已验证成绩。")}</p></div>
+        {detailSelection.visible.length ? <div className="space-y-2">{detailSelection.visible.map((row) => <details key={row.id} className="group rounded-xl border border-border/60 bg-background/20 open:border-primary/25 open:bg-background/40"><summary className="grid cursor-pointer list-none grid-cols-[78px_1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[90px_90px_1fr_1fr_110px_90px]"><span className="text-xs tabular-nums text-foreground-tertiary">{row.date}</span><span className="hidden text-xs font-semibold text-foreground-secondary sm:block">{row.period === "DAILY" ? (en ? "Daily" : "日度") : row.period === "WEEKLY" ? (en ? "Weekly" : "周度") : (en ? "Monthly" : "月度")}</span><span className="truncate text-sm font-semibold text-foreground">{assetLabel(row.symbol, row.assetName)} <span className="text-xs font-normal text-foreground-tertiary">{row.symbol}</span></span><span className="hidden truncate text-sm text-foreground-secondary sm:block">{row.predicted} → {row.actual}</span><span className={`justify-self-end rounded-full border px-2.5 py-1 text-[11px] font-semibold ${resultClass(row.result)}`}>{resultText(row.result, en)}</span><span className="hidden justify-self-end text-xs font-semibold tabular-nums text-foreground sm:block">{row.score == null ? "—" : `${Math.round(row.score * 100)}%`}</span></summary><div className="border-t border-border/50 px-4 py-4 text-sm"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked forecast" : "锁定预测"}</div><div className="mt-1 text-foreground">{row.predicted}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Realized" : "实际走势"}</div><div className="mt-1 text-foreground">{row.actual}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Version" : "版本"}</div><div className="mt-1 text-foreground">{row.version}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Verified at" : "验证时间"}</div><div className="mt-1 text-foreground">{formatTimestamp(row.verifiedAt, en)}</div></div></div>{row.supportLevels?.length || row.resistanceLevels?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked supports" : "发布时锁定支撑"}</div><div className="mt-1 text-foreground-secondary">{row.supportLevels?.join(" · ") || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Locked resistance" : "发布时锁定压力"}</div><div className="mt-1 text-foreground-secondary">{row.resistanceLevels?.join(" · ") || "—"}</div></div></div> : null}{row.confirmation || row.invalidation ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Confirmation" : "确认条件"}</div><div className="mt-1 text-foreground-secondary">{row.confirmation || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Invalidation" : "失效条件"}</div><div className="mt-1 text-foreground-secondary">{row.invalidation || "—"}</div></div></div> : null}<div className="mt-4 rounded-lg bg-muted/20 p-3 text-xs leading-5 text-foreground-secondary">{row.detail || (en ? "No additional explanation saved." : "本条暂无更多验证说明。")}{row.dataSource ? <span className="mt-1 block text-foreground-tertiary">{en ? "Data source" : "行情来源"}: {row.dataSource}</span> : null}</div></div></details>)}</div> : <div className="rounded-xl border border-dashed border-border/70 py-14 text-center"><div className="text-base font-semibold text-foreground">{period === "MONTHLY" ? (en ? "No completed monthly sample yet" : "月度完整样本尚未结束") : (en ? "Verified samples are building" : "首批真实样本正在积累")}</div><div className="mt-2 text-sm text-foreground-tertiary">{period === "MONTHLY" ? (en ? "The first monthly result will appear only after the locked month closes and market evidence is available." : "首条月验证只会在锁定月份结束并取得完整行情证据后出现。") : (en ? "Locked forecasts remain public while the verifier waits for each observation window to finish." : "已锁定预测会继续公开展示；观察窗口结束后由服务器自动验证。")}</div></div>}
+        {period === "DAILY" && detailSelection.archivedCount > 0 ? <div className="mt-4 rounded-lg border border-border/60 bg-muted/10 px-4 py-3 text-xs leading-5 text-foreground-tertiary">{en ? `${detailSelection.archivedCount} older daily records remain in the complete public export. This compact view is selected only by recency, never by hit or miss.` : `另有 ${detailSelection.archivedCount} 条较早日验证保留在完整公开下载中。紧凑展示只按时间，不按命中或未命中筛选。`}</div> : null}
       </section>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-foreground-tertiary">

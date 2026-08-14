@@ -8,12 +8,18 @@ import { createHash, randomBytes } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { prisma } from "@/lib/prisma";
+import {
+  REFERRAL_INVITER_REWARD_DAYS,
+  isReferralRewardDeliveryPlan,
+  type ReferralRewardDeliveryPlan,
+} from "@/lib/referral/reward-policy";
 
-export const REFERRAL_REWARD_DAYS = 7;
+/** @deprecated Use role-specific constants. This legacy alias is the inviter reward. */
+export const REFERRAL_REWARD_DAYS = REFERRAL_INVITER_REWARD_DAYS;
 export const REFERRAL_DEVICE_WINDOW_MS = 60 * 60 * 1000;
 export const REFERRAL_DEVICE_MAX_REGISTRATIONS = 3;
 
-export type ReferralRecordStatus = "pending" | "success" | "flagged";
+export type ReferralRecordStatus = "pending" | "rewarding" | "success" | "flagged";
 
 export type ReferralInvite = {
   id: string;
@@ -34,6 +40,9 @@ export type ReferralRecord = {
   created_at: string;
   inviter_email?: string | null;
   invitee_email?: string | null;
+  reward_delivery_token?: string | null;
+  reward_delivery_started_at?: string | null;
+  reward_delivery_plan?: ReferralRewardDeliveryPlan | null;
 };
 
 type ReferralStore = {
@@ -145,7 +154,8 @@ function mapRecord(row: {
   flaggedReason: string | null;
   createdAt: Date;
 }): ReferralRecord {
-  const status = (row.status === "success" || row.status === "flagged" ? row.status : "pending") as ReferralRecordStatus;
+  const rewarding = parseRewardingStatus(row.status);
+  const status = (rewarding ? "rewarding" : row.status === "success" || row.status === "flagged" ? row.status : "pending") as ReferralRecordStatus;
   return {
     id: row.id,
     inviter_id: row.inviterId,
@@ -156,7 +166,35 @@ function mapRecord(row: {
     device_id: row.deviceId,
     flagged_reason: row.flaggedReason,
     created_at: row.createdAt.toISOString(),
+    reward_delivery_token: rewarding?.token ?? null,
+    reward_delivery_started_at: rewarding ? new Date(rewarding.startedAtMs).toISOString() : null,
+    reward_delivery_plan: rewarding?.plan ?? null,
   };
+}
+
+export const REFERRAL_REWARD_RECOVERY_MS = 5 * 60 * 1000;
+
+function rewardingStatus(token: string, startedAtMs: number, plan?: ReferralRewardDeliveryPlan | null): string {
+  const encodedPlan = plan ? Buffer.from(JSON.stringify(plan), "utf8").toString("base64url") : "";
+  return `rewarding:${startedAtMs}:${token}${encodedPlan ? `:${encodedPlan}` : ""}`;
+}
+
+function parseRewardingStatus(status: string): { token: string; startedAtMs: number; plan: ReferralRewardDeliveryPlan | null } | null {
+  const match = /^rewarding:(\d+):([A-Za-z0-9_-]{8,})(?::([A-Za-z0-9_-]+))?$/.exec(status);
+  if (!match) return null;
+  const startedAtMs = Number(match[1]);
+  if (!Number.isFinite(startedAtMs)) return null;
+  let plan: ReferralRewardDeliveryPlan | null = null;
+  if (match[3]) {
+    try {
+      const decoded: unknown = JSON.parse(Buffer.from(match[3], "base64url").toString("utf8"));
+      if (!isReferralRewardDeliveryPlan(decoded)) return null;
+      plan = decoded;
+    } catch {
+      return null;
+    }
+  }
+  return { startedAtMs, token: match[2]!, plan };
 }
 
 export function normalizeInviteCode(code: string): string {
@@ -398,6 +436,140 @@ export async function findPendingReferralForInvitee(
   return rows[0] ?? null;
 }
 
+export async function claimReferralRewardDelivery(input: {
+  inviteeId: string;
+  paymentId: string;
+  ownerToken: string;
+  now?: Date;
+}): Promise<{ claimed: boolean; skipped?: string; record?: ReferralRecord }> {
+  const now = input.now ?? new Date();
+
+  if (shouldUsePrisma() && prisma) {
+    const row = await prisma.referralRecord.findUnique({ where: { inviteeId: input.inviteeId } });
+    if (!row) return { claimed: false, skipped: "无邀请关系" };
+    if (row.status === "success") return { claimed: false, skipped: "已发放奖励", record: mapRecord(row) };
+    if (row.status === "flagged") return { claimed: false, skipped: row.flaggedReason ?? "邀请关系已标记异常", record: mapRecord(row) };
+    if (row.inviterId === input.inviteeId) return { claimed: false, skipped: "不能邀请自己", record: mapRecord(row) };
+    if (row.paymentId && row.paymentId !== input.paymentId) {
+      return { claimed: false, skipped: "邀请关系已绑定其他付款", record: mapRecord(row) };
+    }
+
+    const delivering = parseRewardingStatus(row.status);
+    if (delivering && now.getTime() - delivering.startedAtMs < REFERRAL_REWARD_RECOVERY_MS) {
+      return { claimed: false, skipped: "奖励发放处理中", record: mapRecord(row) };
+    }
+    if (row.status !== "pending" && !delivering) {
+      return { claimed: false, skipped: "邀请奖励状态不可处理", record: mapRecord(row) };
+    }
+
+    const claimed = await prisma.referralRecord.updateMany({
+      where: { id: row.id, status: row.status },
+      data: {
+        paymentId: row.paymentId ?? input.paymentId,
+        status: rewardingStatus(input.ownerToken, now.getTime(), delivering?.plan),
+        rewardDays: REFERRAL_INVITER_REWARD_DAYS,
+      },
+    });
+    const authoritative = await prisma.referralRecord.findUnique({ where: { id: row.id } });
+    if (!authoritative) return { claimed: false, skipped: "无邀请关系" };
+    return claimed.count === 1
+      ? { claimed: true, record: mapRecord(authoritative) }
+      : { claimed: false, skipped: "奖励发放处理中", record: mapRecord(authoritative) };
+  }
+
+  const store = getMemoryStore();
+  const record = store.records.find((item) => item.invitee_id === input.inviteeId);
+  if (!record) return { claimed: false, skipped: "无邀请关系" };
+  if (record.status === "success") return { claimed: false, skipped: "已发放奖励", record };
+  if (record.status === "flagged") return { claimed: false, skipped: record.flagged_reason ?? "邀请关系已标记异常", record };
+  if (record.inviter_id === input.inviteeId) return { claimed: false, skipped: "不能邀请自己", record };
+  if (record.payment_id && record.payment_id !== input.paymentId) {
+    return { claimed: false, skipped: "邀请关系已绑定其他付款", record };
+  }
+  const startedAtMs = record.reward_delivery_started_at ? new Date(record.reward_delivery_started_at).getTime() : 0;
+  if (record.status === "rewarding" && now.getTime() - startedAtMs < REFERRAL_REWARD_RECOVERY_MS) {
+    return { claimed: false, skipped: "奖励发放处理中", record };
+  }
+  if (record.status !== "pending" && record.status !== "rewarding") {
+    return { claimed: false, skipped: "邀请奖励状态不可处理", record };
+  }
+  record.status = "rewarding";
+  record.payment_id = record.payment_id ?? input.paymentId;
+  record.reward_days = REFERRAL_INVITER_REWARD_DAYS;
+  record.reward_delivery_token = input.ownerToken;
+  record.reward_delivery_started_at = now.toISOString();
+  saveMemoryStore(store);
+  return { claimed: true, record };
+}
+
+export async function persistReferralRewardDeliveryPlan(input: {
+  recordId: string;
+  ownerToken: string;
+  plan: ReferralRewardDeliveryPlan;
+}): Promise<ReferralRecord> {
+  if (shouldUsePrisma() && prisma) {
+    const row = await prisma.referralRecord.findUnique({ where: { id: input.recordId } });
+    if (!row) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+    const delivering = parseRewardingStatus(row.status);
+    if (!delivering || delivering.token !== input.ownerToken) throw new Error("REFERRAL_REWARD_OWNER_MISMATCH");
+    if (delivering.plan) return mapRecord(row);
+    const plannedStatus = rewardingStatus(delivering.token, delivering.startedAtMs, input.plan);
+    const planned = await prisma.referralRecord.updateMany({
+      where: { id: row.id, status: row.status },
+      data: { status: plannedStatus },
+    });
+    if (planned.count !== 1) throw new Error("REFERRAL_REWARD_PLAN_CONFLICT");
+    const authoritative = await prisma.referralRecord.findUnique({ where: { id: row.id } });
+    if (!authoritative) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+    return mapRecord(authoritative);
+  }
+
+  const store = getMemoryStore();
+  const record = store.records.find((item) => item.id === input.recordId);
+  if (!record) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+  if (record.status !== "rewarding" || record.reward_delivery_token !== input.ownerToken) {
+    throw new Error("REFERRAL_REWARD_OWNER_MISMATCH");
+  }
+  if (!record.reward_delivery_plan) record.reward_delivery_plan = input.plan;
+  saveMemoryStore(store);
+  return record;
+}
+
+export async function completeReferralRewardDelivery(input: {
+  recordId: string;
+  ownerToken: string;
+}): Promise<ReferralRecord> {
+  if (shouldUsePrisma() && prisma) {
+    const row = await prisma.referralRecord.findUnique({ where: { id: input.recordId } });
+    if (!row) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+    const delivering = parseRewardingStatus(row.status);
+    if (!delivering || delivering.token !== input.ownerToken) {
+      throw new Error("REFERRAL_REWARD_OWNER_MISMATCH");
+    }
+    const completed = await prisma.referralRecord.updateMany({
+      where: { id: row.id, status: row.status },
+      data: { status: "success" },
+    });
+    if (completed.count !== 1) throw new Error("REFERRAL_REWARD_COMPLETE_CONFLICT");
+    const authoritative = await prisma.referralRecord.findUnique({ where: { id: row.id } });
+    if (!authoritative) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+    return mapRecord(authoritative);
+  }
+
+  const store = getMemoryStore();
+  const record = store.records.find((item) => item.id === input.recordId);
+  if (!record) throw new Error("REFERRAL_RECORD_NOT_FOUND");
+  if (record.status !== "rewarding" || record.reward_delivery_token !== input.ownerToken) {
+    throw new Error("REFERRAL_REWARD_OWNER_MISMATCH");
+  }
+  record.status = "success";
+  record.reward_delivery_token = null;
+  record.reward_delivery_started_at = null;
+  record.reward_delivery_plan = null;
+  saveMemoryStore(store);
+  return record;
+}
+
 export async function finalizeReferralReward(input: {
   inviteeId: string;
   paymentId: string;
@@ -426,15 +598,20 @@ export async function finalizeReferralReward(input: {
       return { applied: false, skipped: "不能邀请自己", record: mapRecord(row) };
     }
 
-    const updated = await prisma.referralRecord.update({
-      where: { id: row.id },
+    const claimed = await prisma.referralRecord.updateMany({
+      where: { id: row.id, status: "pending" },
       data: {
         paymentId: input.paymentId,
         status: "success",
         rewardDays: REFERRAL_REWARD_DAYS,
       },
     });
-    return { applied: true, record: mapRecord(updated) };
+    const authoritative = await prisma.referralRecord.findUnique({ where: { id: row.id } });
+    if (!authoritative) return { applied: false, skipped: "无邀请关系" };
+    if (claimed.count !== 1) {
+      return { applied: false, skipped: "已发放奖励", record: mapRecord(authoritative) };
+    }
+    return { applied: true, record: mapRecord(authoritative) };
   }
 
   const store = getMemoryStore();

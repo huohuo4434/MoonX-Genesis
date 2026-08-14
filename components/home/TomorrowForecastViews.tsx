@@ -12,6 +12,7 @@ import { assetNameEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/l
 import { formatForecastDateEn, formatForecastDateZh } from "@/lib/calendar/next-trading-day";
 import { displayDirection } from "@/lib/data/daily-forecasts";
 import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { dailyDirectionHeadline, dailyPathLabelEn, dailyPathLabelZh } from "@/lib/forecasts/daily-direction-presentation";
 import { displayMarketCode } from "@/lib/forecasts/formal-direction";
 import type { DailyForecast, TomorrowForecastPublicSummary } from "@/types/daily-forecast";
 
@@ -183,7 +184,7 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
           </Text>
         </div>
         <Badge variant={pending ? "neutral" : "default"}>
-          {pending ? t("home.tomorrowResearchPending") : `${mooxDirectionArrow(displayDirection(forecast))} ${en ? mooxDirectionLabelEn(displayDirection(forecast)) : mooxDirectionLabelZh(displayDirection(forecast))}`}
+          {pending ? t("home.tomorrowResearchPending") : `${mooxDirectionArrow(displayDirection(forecast))} ${dailyDirectionHeadline(displayDirection(forecast), en ? "en" : "zh")}`}
         </Badge>
       </div>
 
@@ -200,7 +201,9 @@ function MemberAssetCard({ forecast }: { forecast: DailyForecast }) {
       ) : (
         <>
           <Text variant="body-sm" weight="semibold" className="mt-3">
-            {en ? "MOOX official direction: " : "MOOX唯一方向："}{en ? mooxDirectionLabelEn(displayDirection(forecast)) : mooxDirectionLabelZh(displayDirection(forecast))}
+            {en ? "Overall direction: " : "总体方向："}{en ? mooxDirectionLabelEn(displayDirection(forecast)) : mooxDirectionLabelZh(displayDirection(forecast))}
+            <span className="text-foreground-tertiary"> · </span>
+            {en ? "Intraday path: " : "日内路径："}{en ? dailyPathLabelEn(displayDirection(forecast)) : dailyPathLabelZh(displayDirection(forecast))}
           </Text>
           <Text variant="caption" color="secondary" className="mt-1 block">
             {en ? "Research note: " : "研究说明："}{summary}

@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/permissions";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
-import { getAutoPaymentOrderById } from "@/lib/payments/auto-payment-orders";
+import { getAutoPaymentOrderById, isAutoPaymentMembershipActivated } from "@/lib/payments/auto-payment-orders";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
+  // Authorization requires an authenticated user plus strict order.userId ownership below.
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const limited = checkRateLimit(`auto-payment:status:${user.id}`, 200, 15 * 60 * 1000);
@@ -32,6 +33,9 @@ export async function GET(request: NextRequest) {
     verificationError: order.status === "manual_review" || order.status === "underpaid" || order.status === "rejected"
       ? order.verificationError
       : null,
-    activated: order.status === "paid" || order.status === "overpaid",
+    activated: isAutoPaymentMembershipActivated(order),
+    activationKind: order.metadata.membershipGranted ? "MANUAL_GOODWILL_UNDERPAYMENT" : "FULL_PAYMENT",
+    goodwillState: order.metadata.manualGoodwillState ?? null,
+    auditComplete: order.metadata.manualGoodwillAuditComplete === true,
   });
 }

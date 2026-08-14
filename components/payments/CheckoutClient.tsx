@@ -75,6 +75,11 @@ export function CheckoutClient({
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<OrderStatus | null>(null);
   const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(null);
+  const [paidAmount, setPaidAmount] = useState<number | null>(null);
+  const [membershipActivated, setMembershipActivated] = useState(false);
+  const [activationKind, setActivationKind] = useState<"FULL_PAYMENT" | "MANUAL_GOODWILL_UNDERPAYMENT" | null>(null);
+  const [goodwillState, setGoodwillState] = useState<"EVIDENCE_RECORDED" | "PROCESSING" | "AUDIT_PENDING" | "COMPLETED" | null>(null);
+  const [goodwillAuditComplete, setGoodwillAuditComplete] = useState(false);
   const [remaining, setRemaining] = useState(0);
 
   const labels = en ? PLAN_LABELS_EN : PLAN_LABELS_ZH;
@@ -89,6 +94,10 @@ export function CheckoutClient({
     setStatus(null);
     setTxHash("");
     setMessage(null);
+    setMembershipActivated(false);
+    setActivationKind(null);
+    setGoodwillState(null);
+    setGoodwillAuditComplete(false);
   }, [network, plan]);
 
   useEffect(() => {
@@ -110,14 +119,31 @@ export function CheckoutClient({
           activated?: boolean;
           membershipExpiresAt?: string | null;
           verificationError?: string | null;
+          paidAmount?: number | null;
+          activationKind?: "FULL_PAYMENT" | "MANUAL_GOODWILL_UNDERPAYMENT";
+          goodwillState?: "EVIDENCE_RECORDED" | "PROCESSING" | "AUDIT_PENDING" | "COMPLETED" | null;
+          auditComplete?: boolean;
         };
         if (!response.ok || !json.status) return;
         setStatus(json.status);
+        setPaidAmount(json.paidAmount == null ? null : Number(json.paidAmount));
+        setMembershipActivated(json.activated === true);
+        setActivationKind(json.activationKind ?? null);
+        setGoodwillState(json.goodwillState ?? null);
+        setGoodwillAuditComplete(json.auditComplete === true);
         if (json.activated) {
           setMembershipExpiresAt(json.membershipExpiresAt ?? null);
-          setMessage(en ? "Payment confirmed. Membership activated automatically." : "链上付款已确认，会员已自动开通。 ");
-        } else if (["underpaid", "manual_review", "rejected", "expired"].includes(json.status)) {
-          setMessage(json.verificationError ?? (en ? "The payment could not be activated automatically." : "该付款未能自动开通。"));
+          setMessage(json.activationKind === "MANUAL_GOODWILL_UNDERPAYMENT"
+            ? (json.goodwillState === "COMPLETED" && json.auditComplete === true
+              ? (en ? "Support approved the underpayment exception. Membership is active; the ledger retains the actual amount received." : "少付客服特批已完成，会员已开通；账本仍保留真实到账金额。")
+              : (en ? "Membership is active, but the support-exception audit is still pending." : "会员已开通，特批审计待完成。"))
+            : (en ? "Payment confirmed. Membership activated automatically." : "链上付款已确认，会员已自动开通。"));
+        } else if (json.status === "underpaid") {
+          setMessage(json.verificationError ?? (en
+            ? "The confirmed amount received is below the order amount. Membership was not activated; please contact support to pay the shortfall."
+            : "链上确认的实际到账金额不足，会员未自动开通；请联系客服补足差额或申请人工复核。"));
+        } else if (["manual_review", "rejected", "expired"].includes(json.status)) {
+          setMessage(json.verificationError ?? (en ? "The payment could not be activated automatically." : "该付款未能自动开通，正在等待人工处理。"));
         }
       } catch {
         // The next poll will retry.
@@ -192,6 +218,10 @@ export function CheckoutClient({
         activated?: boolean;
         message?: string;
         membershipExpiresAt?: string | null;
+        paidAmount?: number | null;
+        activationKind?: "FULL_PAYMENT" | "MANUAL_GOODWILL_UNDERPAYMENT";
+        goodwillState?: "EVIDENCE_RECORDED" | "PROCESSING" | "AUDIT_PENDING" | "COMPLETED" | null;
+        auditComplete?: boolean;
       };
       if (!response.ok) {
         setMessage(json.error ?? (en ? "Verification request failed." : "核验请求失败。"));
@@ -199,6 +229,11 @@ export function CheckoutClient({
       }
       setStatus(json.status ?? "pending");
       setMembershipExpiresAt(json.membershipExpiresAt ?? null);
+      setPaidAmount(json.paidAmount == null ? null : Number(json.paidAmount));
+      setMembershipActivated(json.activated === true);
+      setActivationKind(json.activationKind ?? null);
+      setGoodwillState(json.goodwillState ?? null);
+      setGoodwillAuditComplete(json.auditComplete === true);
       setMessage(json.message ?? (en ? "Automatic verification has started." : "已开始自动核验。"));
     } catch {
       setMessage(en ? "Network error. The system will retry after you resubmit." : "网络异常，请稍后重新提交。 ");
@@ -207,15 +242,19 @@ export function CheckoutClient({
     }
   }
 
-  const activated = status === "paid" || status === "overpaid";
+  const activated = membershipActivated || status === "paid" || status === "overpaid";
   if (activated) {
     return (
       <Card padding="lg" className="mx-auto max-w-lg space-y-3">
         <Text variant="body" weight="semibold" className="text-emerald-400">
-          {en ? "Membership activated automatically" : "会员已自动开通"}
+          {activationKind === "MANUAL_GOODWILL_UNDERPAYMENT"
+            ? (goodwillState === "COMPLETED" && goodwillAuditComplete
+              ? (en ? "Membership active by support exception" : "少付客服特批已开通")
+              : (en ? "Membership active, exception audit pending" : "会员已开通，特批审计待完成"))
+            : (en ? "Membership activated automatically" : "会员已自动开通")}
         </Text>
         <Text variant="body-sm" className="block">{en ? "Order" : "订单号"}：{order?.orderNumber}</Text>
-        <Text variant="body-sm" className="block">{en ? "Paid amount" : "付款金额"}：{order?.exactAmount} USDT</Text>
+        <Text variant="body-sm" className="block">{en ? "Amount actually received" : "实际到账金额"}：{paidAmount ?? order?.exactAmount} USDT</Text>
         <Text variant="body-sm" className="block">
           {en ? "Membership expiry" : "会员到期时间"}：{membershipExpiresAt ? new Date(membershipExpiresAt).toLocaleString(en ? "en-US" : "zh-CN", { timeZone: "Asia/Shanghai" }) : "—"}
         </Text>
@@ -279,7 +318,9 @@ export function CheckoutClient({
               <Button type="button" size="sm" variant="outline" onClick={() => copy(order.exactAmount.toFixed(5), en ? "Amount copied" : "金额已复制")}>{en ? "Copy" : "复制"}</Button>
             </div>
             <Text variant="caption" color="tertiary" className="mt-2 block">
-              {en ? "Do not round the amount. The decimal suffix is the automatic order identifier." : "请勿四舍五入；小数尾数是系统自动识别订单的凭证。"}
+              {en
+                ? "MOOX must actually receive the full amount shown. Do not round it. If an exchange charges a withdrawal fee (Binance commonly shows 1.5 USDT for some TRC20 withdrawals), add the fee to the withdrawal amount and rely on the exchange's final 'amount received' preview."
+                : "网站必须实际到账页面显示的完整金额，请勿四舍五入。若交易所另扣提现手续费（例如 Binance 的部分 TRC20 提现界面常见显示 1.5 USDT），请把当次界面显示的手续费加到提现额，并以交易所最终“实际到账”预览为准。"}
             </Text>
           </div>
 

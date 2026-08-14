@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { chainTokenMeta, getPaymentConfig } from "@/lib/payments/config";
 import {
@@ -12,6 +12,14 @@ import {
 } from "@/lib/payments/founder-discount-shared";
 import type { AuthUserView, MembershipPlan, PaymentNetwork } from "@/lib/auth/permissions";
 import type { PaymentChain } from "@/types/membership";
+import type { VerifiedTransfer } from "@/types/membership";
+import {
+  isPaymentMembershipActivatedSnapshot,
+  matchesExistingManualReviewEvidence,
+  runAuditInsertWithRecovery,
+  runRequiredGoodwillAuditFinalization,
+} from "@/lib/payments/manual-goodwill-core";
+import { hasMembershipEventForSource } from "@/lib/auth/membership-events";
 
 export type AutoPaymentOrderStatus =
   | "pending"
@@ -48,6 +56,16 @@ export interface AutoPaymentMetadata {
   recoveryVersion?: string | null;
   manualActivatedAt?: string | null;
   manualActivatedBy?: string | null;
+  manualGoodwillReason?: string | null;
+  actualReceivedAmount?: number | null;
+  paymentShortfall?: number | null;
+  chainEvidenceStatus?: string | null;
+  membershipGranted?: boolean;
+  manualGoodwillState?: "EVIDENCE_RECORDED" | "PROCESSING" | "AUDIT_PENDING" | "COMPLETED" | null;
+  manualGoodwillOwner?: string | null;
+  manualGoodwillStartedAt?: string | null;
+  manualGoodwillCompletedAt?: string | null;
+  manualGoodwillAuditComplete?: boolean;
 }
 
 export interface AutoPaymentOrder {
@@ -77,6 +95,16 @@ export interface AutoPaymentOrder {
   membershipExpiresAt: string | null;
   verificationError: string | null;
   metadata: AutoPaymentMetadata;
+}
+
+export function isAutoPaymentMembershipActivated(order: Pick<AutoPaymentOrder, "status" | "metadata">): boolean {
+  return isPaymentMembershipActivatedSnapshot({ status: order.status, membershipGranted: order.metadata.membershipGranted });
+}
+
+export function isCompletedManualGoodwill(order: Pick<AutoPaymentOrder, "metadata">): boolean {
+  return order.metadata.membershipGranted === true &&
+    order.metadata.manualGoodwillState === "COMPLETED" &&
+    order.metadata.manualGoodwillAuditComplete === true;
 }
 
 const ACTIVE_STATUSES: AutoPaymentOrderStatus[] = ["pending", "verifying"];
@@ -142,6 +170,18 @@ function parseMetadata(raw: unknown, fallback: {
     recoveryVersion: typeof m.recoveryVersion === "string" ? m.recoveryVersion : null,
     manualActivatedAt: typeof m.manualActivatedAt === "string" ? m.manualActivatedAt : null,
     manualActivatedBy: typeof m.manualActivatedBy === "string" ? m.manualActivatedBy : null,
+    manualGoodwillReason: typeof m.manualGoodwillReason === "string" ? m.manualGoodwillReason : null,
+    actualReceivedAmount: m.actualReceivedAmount == null ? null : asNumber(m.actualReceivedAmount),
+    paymentShortfall: m.paymentShortfall == null ? null : asNumber(m.paymentShortfall),
+    chainEvidenceStatus: typeof m.chainEvidenceStatus === "string" ? m.chainEvidenceStatus : null,
+    membershipGranted: m.membershipGranted === true,
+    manualGoodwillState: ["EVIDENCE_RECORDED", "PROCESSING", "AUDIT_PENDING", "COMPLETED"].includes(String(m.manualGoodwillState))
+      ? m.manualGoodwillState as AutoPaymentMetadata["manualGoodwillState"]
+      : null,
+    manualGoodwillOwner: typeof m.manualGoodwillOwner === "string" ? m.manualGoodwillOwner : null,
+    manualGoodwillStartedAt: typeof m.manualGoodwillStartedAt === "string" ? m.manualGoodwillStartedAt : null,
+    manualGoodwillCompletedAt: typeof m.manualGoodwillCompletedAt === "string" ? m.manualGoodwillCompletedAt : null,
+    manualGoodwillAuditComplete: m.manualGoodwillAuditComplete === true,
   };
 }
 
@@ -426,13 +466,28 @@ export async function markOrderException(order: AutoPaymentOrder, status: "under
     processingStartedAt: null,
     verificationState: status,
   };
-  await admin.from("payment_orders").update({
+  const { error } = await admin.from("payment_orders").update({
     status,
     paid_amount: paidAmount ?? null,
     verified_at: new Date().toISOString(),
     verification_error: message.slice(0, 500),
     metadata,
   }).eq("id", order.id);
+  if (error) throw new Error(`付款异常状态保存失败：${error.message}`);
+  await writePaymentAudit({
+    orderId: order.id,
+    action: status === "underpaid" ? "underpayment_detected" : "payment_exception",
+    result: status,
+    message,
+    serverMetadata: {
+      txHash: order.txHash,
+      expectedAmount: order.expectedAmount,
+      actualReceivedAmount: paidAmount ?? null,
+      shortfall: paidAmount == null ? null : Number(Math.max(0, order.expectedAmount - paidAmount).toFixed(6)),
+      automaticActivation: false,
+    },
+    required: status === "underpaid",
+  });
 }
 
 export async function markOrderPaid(input: {
@@ -543,18 +598,46 @@ export async function writePaymentAudit(input: {
   result: string;
   message?: string | null;
   serverMetadata?: Record<string, unknown>;
+  required?: boolean;
+  idempotencyKey?: string;
 }): Promise<void> {
   const admin = getAdminClient();
-  if (!admin) return;
+  if (!admin) {
+    if (input.required) throw new Error("付款审计服务未配置");
+    return;
+  }
+  const serverMetadata = {
+    ...(input.serverMetadata ?? {}),
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+  };
   try {
-    await admin.from("payment_audit_logs").insert({
-      order_id: input.orderId,
-      action: input.action,
-      result: input.result,
-      message: input.message?.slice(0, 1000) ?? null,
-      server_metadata: input.serverMetadata ?? {},
+    const lookupExisting = async () => {
+      if (!input.idempotencyKey) return false;
+      const { data: existing, error: lookupError } = await admin.from("payment_audit_logs")
+        .select("id")
+        .eq("order_id", input.orderId)
+        .eq("action", input.action)
+        .contains("server_metadata", { idempotencyKey: input.idempotencyKey })
+        .limit(1);
+      if (lookupError) throw new Error(`付款审计幂等查询失败：${lookupError.message}`);
+      return Boolean(existing?.length);
+    };
+    await runAuditInsertWithRecovery({
+      idempotencyKey: input.idempotencyKey,
+      lookupExisting,
+      insert: async () => {
+        const { error } = await admin.from("payment_audit_logs").insert({
+          order_id: input.orderId,
+          action: input.action,
+          result: input.result,
+          message: input.message?.slice(0, 1000) ?? null,
+          server_metadata: serverMetadata,
+        });
+        return { error: error?.message ?? null };
+      },
     });
-  } catch {
+  } catch (error) {
+    if (input.required) throw error;
     // Audit storage must never block payment activation.
   }
 }
@@ -643,15 +726,307 @@ export async function recoverLegacyAmountMismatchOrders(limit = 50): Promise<num
   return recovered;
 }
 
+export async function ensureManualUnderpaymentEvidenceAudit(
+  order: AutoPaymentOrder,
+  fallback?: { operatorId?: string; reason?: string }
+): Promise<void> {
+  if (!order.txHash || order.paidAmount == null) throw new Error("少付特批缺少权威链上证据，不能写审计");
+  const reason = order.metadata.manualGoodwillReason ?? fallback?.reason ?? order.verificationError ?? "少付人工复核链上证据";
+  await writePaymentAudit({
+    orderId: order.id,
+    action: "manual_underpayment_evidence",
+    result: "manual_review",
+    message: reason,
+    serverMetadata: {
+      txHash: order.txHash,
+      expectedAmount: order.expectedAmount,
+      actualReceivedAmount: order.paidAmount,
+      shortfall: Number(Math.max(0, order.expectedAmount - order.paidAmount).toFixed(6)),
+      operatorId: order.metadata.manualActivatedBy ?? fallback?.operatorId ?? null,
+    },
+    idempotencyKey: `manual-underpayment-evidence:${order.id}`,
+    required: true,
+  });
+}
+
+export async function ensureManualFullPaymentAudit(order: AutoPaymentOrder): Promise<void> {
+  if (order.metadata.verificationState !== "manual_admin_activated") return;
+  if (!order.txHash || order.paidAmount == null || order.paidAmount + 0.000001 < order.expectedAmount) {
+    throw new Error("普通人工开通缺少权威全额到账证据");
+  }
+  await writePaymentAudit({
+    orderId: order.id,
+    action: "manual_activate",
+    result: order.status,
+    message: order.metadata.manualGoodwillReason ?? order.verificationError ?? "管理员核对全额到账后开通",
+    serverMetadata: {
+      operatorId: order.metadata.manualActivatedBy ?? null,
+      txHash: order.txHash,
+      expectedAmount: order.expectedAmount,
+      actualReceivedAmount: order.paidAmount,
+      shortfall: 0,
+      approvalType: "manual_full_payment",
+    },
+    idempotencyKey: `manual-full-payment:${order.id}`,
+    required: true,
+  });
+}
+
+export async function recordManualReviewTransferEvidence(input: {
+  order: AutoPaymentOrder;
+  transfer: VerifiedTransfer;
+  operatorId: string;
+  reason: string;
+}): Promise<AutoPaymentOrder> {
+  const admin = getAdminClient();
+  if (!admin) throw new Error("自动付款服务未配置");
+  const txHash = input.transfer.txHash.trim().toLowerCase();
+  const { data: duplicate, error: duplicateError } = await admin.from("payment_orders")
+    .select("id").eq("tx_hash", txHash).neq("id", input.order.id).maybeSingle();
+  if (duplicateError) throw new Error(`交易哈希唯一性检查失败：${duplicateError.message}`);
+  if (duplicate) throw new Error("该交易哈希已绑定其他订单");
+
+  const now = new Date().toISOString();
+  const shortfall = Number(Math.max(0, input.order.expectedAmount - input.transfer.amountNormalized).toFixed(6));
+  const metadata: AutoPaymentMetadata = {
+    ...input.order.metadata,
+    processingStartedAt: null,
+    verificationState: "manual_review_underpaid",
+    actualReceivedAmount: input.transfer.amountNormalized,
+    paymentShortfall: shortfall,
+    chainEvidenceStatus: "confirmed_success",
+    manualGoodwillReason: input.reason,
+    manualActivatedBy: input.operatorId,
+    membershipGranted: false,
+    manualGoodwillState: "EVIDENCE_RECORDED",
+    manualGoodwillOwner: null,
+    manualGoodwillStartedAt: null,
+    manualGoodwillCompletedAt: null,
+    manualGoodwillAuditComplete: false,
+  };
+  const transactionEvidence = {
+    chain: input.order.chain,
+    tx_hash: txHash,
+    block_number: input.transfer.blockNumber,
+    sender_address: input.transfer.senderAddress,
+    recipient_address: input.order.recipientAddress,
+    token_contract: input.order.tokenContract,
+    amount_raw: input.transfer.amountRaw,
+    amount_normalized: input.transfer.amountNormalized,
+    block_timestamp: input.transfer.blockTimestamp.toISOString(),
+    confirmation_status: "confirmed",
+    matched_order_id: input.order.id,
+    processed_at: now,
+    raw_payload: input.transfer.rawPayload,
+  };
+  const { error: transactionError } = await admin.from("crypto_transactions").insert(transactionEvidence);
+  if (transactionError) {
+    if (transactionError.code !== "23505") throw new Error(`链上证据保存失败：${transactionError.message}`);
+    const { data: existingEvidence, error: existingEvidenceError } = await admin.from("crypto_transactions")
+      .select("matched_order_id,amount_normalized,recipient_address,token_contract")
+      .eq("tx_hash", txHash)
+      .maybeSingle();
+    if (existingEvidenceError) throw new Error(`链上证据幂等核对失败：${existingEvidenceError.message}`);
+    if (!matchesExistingManualReviewEvidence({
+      existing: existingEvidence ? {
+        matchedOrderId: existingEvidence.matched_order_id == null ? null : String(existingEvidence.matched_order_id),
+        amountNormalized: Number(existingEvidence.amount_normalized),
+        recipientAddress: String(existingEvidence.recipient_address ?? ""),
+        tokenContract: String(existingEvidence.token_contract ?? ""),
+      } : null,
+      orderId: input.order.id,
+      amountNormalized: input.transfer.amountNormalized,
+      recipientAddress: input.order.recipientAddress,
+      tokenContract: input.order.tokenContract,
+    })) throw new Error("该交易哈希已存在不一致的链上证据，禁止覆盖");
+  }
+
+  let evidenceUpdate = admin.from("payment_orders").update({
+    tx_hash: txHash,
+    status: "manual_review",
+    paid_amount: input.transfer.amountNormalized,
+    paid_at: input.transfer.blockTimestamp.toISOString(),
+    verified_at: now,
+    verification_error: input.reason.slice(0, 500),
+    metadata,
+  }).eq("id", input.order.id)
+    .eq("status", input.order.status);
+  if (input.order.status === "manual_review" && input.order.metadata.verificationState) {
+    evidenceUpdate = evidenceUpdate.eq("metadata->>verificationState", input.order.metadata.verificationState);
+  }
+  const { data, error } = await evidenceUpdate
+    .select("*, membership_plans(code,name,duration_days)").maybeSingle();
+  if (error) throw new Error(`人工复核证据保存失败：${error.message}`);
+  if (!data) {
+    const current = await getAutoPaymentOrderById(input.order.id);
+    if (
+      current?.txHash?.toLowerCase() === txHash &&
+      (["paid", "overpaid"].includes(current.status) || Boolean(current.metadata.manualGoodwillState))
+    ) return current;
+    throw new Error("订单状态已变化，人工复核未写入");
+  }
+  const evidencedOrder = mapRow(data as Record<string, unknown> & { membership_plans?: { code?: string; name?: string; duration_days?: number } | null });
+  await ensureManualUnderpaymentEvidenceAudit(evidencedOrder, {
+    operatorId: input.operatorId,
+    reason: input.reason,
+  });
+  return evidencedOrder;
+}
+
+export type ManualGoodwillClaimResult =
+  | { kind: "ACQUIRED"; ownerToken: string; order: AutoPaymentOrder; membershipAlreadyGranted: boolean }
+  | { kind: "COMPLETED"; order: AutoPaymentOrder }
+  | { kind: "BUSY"; order: AutoPaymentOrder };
+
+export async function claimManualGoodwillActivation(order: AutoPaymentOrder): Promise<ManualGoodwillClaimResult> {
+  const admin = getAdminClient();
+  if (!admin) throw new Error("自动付款服务未配置");
+  if (order.metadata.membershipGranted && order.metadata.manualGoodwillState === "COMPLETED") {
+    return { kind: "COMPLETED", order };
+  }
+  const eventAlreadyApplied = order.metadata.membershipGranted ||
+    await hasMembershipEventForSource("PAYMENT_APPROVED", order.id);
+  if (order.metadata.manualGoodwillState === "PROCESSING" && !eventAlreadyApplied) {
+    return { kind: "BUSY", order };
+  }
+  if (
+    !["EVIDENCE_RECORDED", "PROCESSING", "AUDIT_PENDING"].includes(order.metadata.manualGoodwillState ?? "")
+  ) throw new Error("订单没有可恢复的少付人工特批证据");
+
+  const ownerToken = randomUUID();
+  const now = new Date().toISOString();
+  const metadata: AutoPaymentMetadata = {
+    ...order.metadata,
+    verificationState: "manual_goodwill_processing",
+    manualGoodwillState: "PROCESSING",
+    manualGoodwillOwner: ownerToken,
+    manualGoodwillStartedAt: now,
+    membershipGranted: eventAlreadyApplied,
+  };
+  let claimUpdate = admin.from("payment_orders")
+    .update({ metadata, verification_error: order.verificationError })
+    .eq("id", order.id)
+    .eq("status", "manual_review")
+    .eq("metadata->>manualGoodwillState", order.metadata.manualGoodwillState);
+  if (order.metadata.manualGoodwillOwner) {
+    claimUpdate = claimUpdate.eq("metadata->>manualGoodwillOwner", order.metadata.manualGoodwillOwner);
+  }
+  const { data, error } = await claimUpdate
+    .select("*, membership_plans(code,name,duration_days)").maybeSingle();
+  if (error) throw new Error(`人工特批原子认领失败：${error.message}`);
+  if (data) {
+    return {
+      kind: "ACQUIRED",
+      ownerToken,
+      membershipAlreadyGranted: eventAlreadyApplied,
+      order: mapRow(data as Record<string, unknown> & { membership_plans?: { code?: string; name?: string; duration_days?: number } | null }),
+    };
+  }
+  const current = await getAutoPaymentOrderById(order.id);
+  if (!current) throw new Error("付款订单不存在");
+  if (current.metadata.membershipGranted && current.metadata.manualGoodwillState === "COMPLETED") {
+    return { kind: "COMPLETED", order: current };
+  }
+  return { kind: "BUSY", order: current };
+}
+
+export async function completeManualGoodwillActivation(input: {
+  order: AutoPaymentOrder;
+  ownerToken: string;
+  membershipExpiresAt: string | null;
+  operatorId: string;
+  paidAmount: number;
+  reason: string;
+}): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) throw new Error("自动付款服务未配置");
+  const pendingAuditMetadata: AutoPaymentMetadata = {
+    ...input.order.metadata,
+    verificationState: "manual_goodwill_membership_granted",
+    membershipGranted: true,
+    manualGoodwillState: "AUDIT_PENDING",
+    manualGoodwillOwner: input.ownerToken,
+    manualGoodwillReason: input.reason,
+    actualReceivedAmount: input.paidAmount,
+    paymentShortfall: Number(Math.max(0, input.order.expectedAmount - input.paidAmount).toFixed(6)),
+    manualGoodwillAuditComplete: false,
+  };
+  const completedMetadata: AutoPaymentMetadata = {
+    ...pendingAuditMetadata,
+    verificationState: "manual_goodwill_completed",
+    manualGoodwillState: "COMPLETED",
+    manualGoodwillCompletedAt: new Date().toISOString(),
+    manualGoodwillAuditComplete: true,
+  };
+  await runRequiredGoodwillAuditFinalization({
+    persistAuditPending: async () => {
+      const { data: pending, error: pendingError } = await admin.from("payment_orders")
+        .update({
+          status: "manual_review",
+          paid_amount: input.paidAmount,
+          membership_expires_at: input.membershipExpiresAt,
+          verification_error: input.reason.slice(0, 500),
+          metadata: pendingAuditMetadata,
+        })
+        .eq("id", input.order.id)
+        .eq("status", "manual_review")
+        .eq("metadata->>manualGoodwillOwner", input.ownerToken)
+        .eq("metadata->>manualGoodwillState", "PROCESSING")
+        .select("id")
+        .maybeSingle();
+      if (pendingError) throw new Error(`人工特批会员状态保存失败：${pendingError.message}`);
+      if (!pending) {
+        const current = await getAutoPaymentOrderById(input.order.id);
+        if (current?.metadata.membershipGranted && current.metadata.manualGoodwillState === "COMPLETED") return;
+        throw new Error("人工特批所有权已变化，禁止写入终态");
+      }
+    },
+    writeRequiredAudit: () => writePaymentAudit({
+      orderId: input.order.id,
+      action: "manual_goodwill_underpayment",
+      result: "manual_approved_underpaid",
+      message: input.reason,
+      serverMetadata: {
+        operatorId: input.operatorId,
+        txHash: input.order.txHash,
+        expectedAmount: input.order.expectedAmount,
+        actualReceivedAmount: input.paidAmount,
+        shortfall: Number(Math.max(0, input.order.expectedAmount - input.paidAmount).toFixed(6)),
+        membershipGranted: true,
+      },
+      idempotencyKey: `manual-goodwill-underpayment:${input.order.id}`,
+      required: true,
+    }),
+    persistCompleted: async () => {
+      const { data: completed, error: completedError } = await admin.from("payment_orders")
+        .update({ metadata: completedMetadata })
+        .eq("id", input.order.id)
+        .eq("status", "manual_review")
+        .eq("metadata->>manualGoodwillOwner", input.ownerToken)
+        .eq("metadata->>manualGoodwillState", "AUDIT_PENDING")
+        .select("id")
+        .maybeSingle();
+      if (completedError) throw new Error(`人工特批审计终态保存失败：${completedError.message}`);
+      if (!completed) throw new Error("人工特批审计终态未保存，可安全重试");
+    },
+  });
+}
+
 export async function markOrderManuallyActivated(input: {
   order: AutoPaymentOrder;
   membershipExpiresAt: string | null;
   operatorId: string;
+  paidAmount: number;
+  reason: string;
 }): Promise<void> {
   const admin = getAdminClient();
   if (!admin) throw new Error("自动支付服务未配置");
+  if (!Number.isFinite(input.paidAmount) || input.paidAmount <= 0) throw new Error("缺少权威实际到账金额");
+  if (input.paidAmount + 0.000001 < input.order.expectedAmount) {
+    throw new Error("普通人工开通只接受全额到账；少付必须走专用特批流程");
+  }
   const now = new Date().toISOString();
-  const paidAmount = input.order.paidAmount ?? discountedPrice(input.order.plan, input.order.discountPercent);
+  const paidAmount = input.paidAmount;
   const finalStatus: AutoPaymentOrderStatus = paidAmount > input.order.expectedAmount + 0.000001 ? "overpaid" : "paid";
   const metadata: AutoPaymentMetadata = {
     ...input.order.metadata,
@@ -659,8 +1034,12 @@ export async function markOrderManuallyActivated(input: {
     verificationState: "manual_admin_activated",
     manualActivatedAt: now,
     manualActivatedBy: input.operatorId,
+    manualGoodwillReason: input.reason,
+    actualReceivedAmount: paidAmount,
+    paymentShortfall: Number(Math.max(0, input.order.expectedAmount - paidAmount).toFixed(6)),
+    chainEvidenceStatus: "confirmed_success",
   };
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from("payment_orders")
     .update({
       status: finalStatus,
@@ -668,16 +1047,37 @@ export async function markOrderManuallyActivated(input: {
       paid_at: input.order.paidAt ?? now,
       verified_at: now,
       membership_expires_at: input.membershipExpiresAt,
-      verification_error: null,
+      verification_error: input.reason.slice(0, 500),
       metadata,
     })
-    .eq("id", input.order.id);
+    .eq("id", input.order.id)
+    .in("status", ["expired", "underpaid", "manual_review", "pending", "verifying", "rejected"])
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(`手动开通状态保存失败：${error.message}`);
-  await writePaymentAudit({
-    orderId: input.order.id,
-    action: "manual_activate",
-    result: finalStatus,
-    message: `operator=${input.operatorId}`,
+  if (!updated) {
+    const current = await getAutoPaymentOrderById(input.order.id);
+    if (
+      current &&
+      ["paid", "overpaid"].includes(current.status) &&
+      current.txHash?.toLowerCase() === input.order.txHash?.toLowerCase() &&
+      current.paidAmount != null &&
+      Math.abs(current.paidAmount - paidAmount) <= 0.000001
+    ) {
+      await ensureManualFullPaymentAudit(current);
+      return;
+    }
+    throw new Error("订单状态已变化，人工开通未写入");
+  }
+  await ensureManualFullPaymentAudit({
+    ...input.order,
+    status: finalStatus,
+    paidAmount,
+    paidAt: input.order.paidAt ?? now,
+    verifiedAt: now,
+    membershipExpiresAt: input.membershipExpiresAt,
+    verificationError: input.reason,
+    metadata,
   });
 }
 

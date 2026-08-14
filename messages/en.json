@@ -648,7 +648,7 @@
   },
   "referral": {
     "title": "Invite friends to MOOX",
-    "subtitle": "Both of you receive 7 extra membership days after a successful paid signup.",
+    "subtitle": "After a successful paid signup, the inviter receives 30 days and the invitee receives 7 days.",
     "loading": "Loading invite details…",
     "myCode": "My invite code",
     "myLink": "My invite link",

@@ -47,7 +47,7 @@ export function AccountReferralPanel() {
           inviteLink: json.inviteLink ?? json.referralUrl,
           successCount: json.successCount ?? json.successfulInvites ?? 0,
           rewardDaysTotal: json.rewardDaysTotal ?? json.rewardDays ?? 0,
-          rewardDaysPerSuccess: json.rewardDaysPerSuccess ?? 7,
+          rewardDaysPerSuccess: json.rewardDaysPerSuccess ?? 30,
         });
       })
       .catch(() => {

@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import type { PaymentChain, VerifiedTransfer } from "@/types/membership";
+import {
+  classifyTransferForOrderDiscovery,
+  paymentUniqueSuffix,
+} from "@/lib/payments/payment-amount-policy";
 
 const TRANSFER_TOPIC =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -189,11 +193,40 @@ export async function discoverTronTransferHash(
     recipientAddress: string;
     tokenContract: string;
     expectedAmount: number;
+    minimumAmount?: number;
+    uniqueSuffix?: number;
     notBefore: Date;
     notAfter: Date;
   },
   apiKey?: string
 ): Promise<string | null> {
+  const candidate = await discoverTronTransferCandidate({
+    ...expected,
+    minimumAmount: expected.minimumAmount ?? expected.expectedAmount,
+    uniqueSuffix: expected.uniqueSuffix ?? paymentUniqueSuffix(expected.expectedAmount),
+  }, apiKey);
+  return candidate?.classification === "FULL_AMOUNT" ? candidate.txHash : null;
+}
+
+export type TronTransferDiscoveryCandidate = {
+  txHash: string;
+  amountNormalized: number;
+  blockTimestamp: Date;
+  classification: "FULL_AMOUNT" | "UNDERPAID_MANUAL_REVIEW";
+};
+
+export async function discoverTronTransferCandidate(
+  expected: {
+    recipientAddress: string;
+    tokenContract: string;
+    expectedAmount: number;
+    minimumAmount: number;
+    uniqueSuffix: number;
+    notBefore: Date;
+    notAfter: Date;
+  },
+  apiKey?: string
+): Promise<TronTransferDiscoveryCandidate | null> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
   const minTimestamp = Math.max(0, expected.notBefore.getTime());
@@ -213,27 +246,38 @@ export async function discoverTronTransferHash(
   const json = (await response.json()) as { data?: TronGridAccountTrc20Transfer[] };
   const recipient = normalizeTronAddress(expected.recipientAddress);
   const contract = normalizeTronAddress(expected.tokenContract);
-  const matches = (json.data ?? []).filter((item) => {
-    if (item.type && item.type !== "Transfer") return false;
-    if (!item.transaction_id || !validateTxHash("TRON", item.transaction_id)) return false;
-    if (normalizeTronAddress(item.to ?? "") !== recipient) return false;
+  const matches = (json.data ?? []).flatMap((item): TronTransferDiscoveryCandidate[] => {
+    if (item.type && item.type !== "Transfer") return [];
+    if (!item.transaction_id || !validateTxHash("TRON", item.transaction_id)) return [];
+    if (normalizeTronAddress(item.to ?? "") !== recipient) return [];
     const tokenAddress = item.token_info?.address;
-    if (tokenAddress && normalizeTronAddress(tokenAddress) !== contract) return false;
+    if (!tokenAddress || normalizeTronAddress(tokenAddress) !== contract) return [];
     const decimalsRaw = Number(item.token_info?.decimals ?? 6);
     const decimals = Number.isFinite(decimalsRaw) && decimalsRaw >= 0 ? decimalsRaw : 6;
-    if (item.value == null) return false;
+    if (item.value == null) return [];
     let amount: number;
-    try { amount = parseTokenAmount(item.value, decimals); } catch { return false; }
+    try { amount = parseTokenAmount(item.value, decimals); } catch { return []; }
     const ts = Number(item.block_timestamp ?? 0);
-    if (!Number.isFinite(ts) || ts < minTimestamp || ts > maxTimestamp) return false;
-    return Math.abs(amount - expected.expectedAmount) <= 0.0000001;
+    if (!Number.isFinite(ts) || ts < minTimestamp || ts > maxTimestamp) return [];
+    const classification = classifyTransferForOrderDiscovery({
+      expectedAmount: expected.expectedAmount,
+      minimumAmount: expected.minimumAmount,
+      actualAmount: amount,
+      uniqueSuffix: expected.uniqueSuffix,
+    });
+    if (classification === "REJECT") return [];
+    return [{
+      txHash: String(item.transaction_id).toLowerCase(),
+      amountNormalized: amount,
+      blockTimestamp: new Date(ts),
+      classification,
+    }];
   });
-  const unique = [...new Map(matches.map((item) => [String(item.transaction_id).toLowerCase(), item])).values()];
+  const unique = [...new Map(matches.map((item) => [item.txHash, item])).values()];
   if (unique.length === 0) return null;
   if (unique.length > 1) throw new Error("Multiple matching TRON transfers found; manual review required");
   const match = unique[0];
-  if (!match?.transaction_id) return null;
-  return String(match.transaction_id).toLowerCase();
+  return match ?? null;
 }
 
 export async function verifyBscTransfer(

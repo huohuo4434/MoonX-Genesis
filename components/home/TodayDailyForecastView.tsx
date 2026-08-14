@@ -12,6 +12,7 @@ import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-for
 import { assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import { normalizeDailyLanguage, normalizeDailyPath } from "@/lib/forecasts/daily-language";
 import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { dailyDirectionHeadline, dailyPathLabelEn, dailyPathLabelZh } from "@/lib/forecasts/daily-direction-presentation";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { assetNameEn, safeEnglish, safeEnglishList, signalStrengthEn } from "@/lib/i18n/english-content";
 import type { DailyForecast } from "@/types/daily-forecast";
@@ -167,7 +168,7 @@ export function TodayDailyForecastView({
     readyForecasts.length === 0
       ? ""
       : `${en ? "Today’s combined view: " : "今日综合判断："}${readyForecasts
-          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} ${en ? mooxDirectionLabelEn(displayDirection(f)) : mooxDirectionLabelZh(displayDirection(f))}`)
+          .map((f) => `${en ? EN_ASSET_NAMES[assetDisplaySymbol(f.symbol)] ?? assetNameEn(f.assetName) : f.assetName} ${dailyDirectionHeadline(displayDirection(f), en ? "en" : "zh")}`)
           .join(en ? ", " : "、")}${en ? "." : "。"}`;
 
   return (
@@ -258,13 +259,18 @@ export function TodayDailyForecastView({
                         </Text>
                         <Text variant="caption" color="tertiary" className="mt-1 block">{en ? EN_VENUES[assetDisplaySymbol(f.symbol)] ?? assetVenue(f.symbol) : assetVenue(f.symbol)}</Text>
                       </div>
-                      <Badge variant="outline">{mooxDirectionArrow(displayDirection(f))} {en ? mooxDirectionLabelEn(displayDirection(f)) : mooxDirectionLabelZh(displayDirection(f))}</Badge>
+                      <Badge variant="outline">{mooxDirectionArrow(displayDirection(f))} {dailyDirectionHeadline(displayDirection(f), en ? "en" : "zh")}</Badge>
                     </div>
                     <div className="grid gap-2 text-caption text-foreground-tertiary sm:grid-cols-2">
                       <p>{en ? safeEnglish(f.targetSessionLabel ?? f.tradingSessionLabel, "Next market session") : f.targetSessionLabel ?? f.tradingSessionLabel}</p><p>{en ? "Version" : "版本"} V{f.version} · {en ? "Locked" : "已锁定"}</p>
                       <p>{en ? "Updated" : "更新"}：{formatDateTimeForLocale(f.publishedAt, en)}</p>
                     </div>
                     <Text variant="caption" color="tertiary" className="block">{en ? "MOOX OFFICIAL DIRECTION" : "MOOX 唯一方向"}</Text>
+                    <p className="text-body-sm font-semibold text-foreground">
+                      {en ? "Overall: " : "总体："}{en ? mooxDirectionLabelEn(displayDirection(f)) : mooxDirectionLabelZh(displayDirection(f))}
+                      <span className="text-foreground-tertiary"> · </span>
+                      {en ? "Intraday path: " : "日内路径："}{en ? dailyPathLabelEn(displayDirection(f)) : dailyPathLabelZh(displayDirection(f))}
+                    </p>
                     <PlainLanguageSummary
                       direction={displayDirection(f)}
                       path={pathBias}

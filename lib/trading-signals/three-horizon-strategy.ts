@@ -22,7 +22,10 @@ import { randomUUID } from "crypto";
 import { runNewEntryBeforeCutoff } from "@/lib/bitget/runtime-deadline-core";
 import {
   applyWeeklyTimingToEntryEligibility,
+  evaluateNewExposureSafety,
   evaluateWeeklyLongEntryTiming,
+  isExposureLedgerConsistent,
+  type NewExposureAction,
 } from "@/lib/trading-signals/weekly-long-entry-timing-core";
 import { resolveFormalExternalOverlayDirection } from "@/lib/trading-signals/external-analyst-aggregation-core";
 import { prisma } from "@/lib/prisma";
@@ -914,6 +917,26 @@ function evaluateIntraday(
   };
 }
 
+function weeklyTimingForNewExposure(input: {
+  direction: ThreeHorizonDirection;
+  plan: PredictionStrategyPlan | null | undefined;
+  now: Date;
+}) {
+  return evaluateWeeklyLongEntryTiming({
+    strategyType: "SWING",
+    direction: input.direction,
+    weeklyPath: input.plan?.weeklyForecast?.path ?? null,
+    weeklyStatus: input.plan?.weeklyForecast?.status ?? null,
+    weeklyPublishedAt: input.plan?.weeklyForecast?.publishedAt ?? null,
+    weeklyLockedAt: input.plan?.weeklyForecast?.lockedAt ?? null,
+    weeklyPeriodStart: input.plan?.weeklyForecast?.periodStart ?? null,
+    weeklyPeriodEnd: input.plan?.weeklyForecast?.periodEnd ?? null,
+    nowMs: input.now.getTime(),
+    atDirectionalEdge: false,
+    falseBreakReclaimed: false,
+  });
+}
+
 function evaluateSwing(
   profile: ThreeHorizonStrategyProfile,
   symbol: BitgetSupportedSymbol,
@@ -963,19 +986,7 @@ function evaluateSwing(
       : false;
   const confirmationTrigger = breakoutTrigger || continuationTrigger || marketStructure.falseBreakReclaimed || marketStructure.breakoutConfirmed;
   const directionalEdgeProbe = marketStructure.atDirectionalEdge && !marketStructure.currentEntryInvalidated;
-  const weeklyLongTiming = evaluateWeeklyLongEntryTiming({
-    strategyType: profile.strategyType,
-    direction,
-    weeklyPath: plan?.weeklyForecast?.path ?? null,
-    weeklyStatus: plan?.weeklyForecast?.status ?? null,
-    weeklyPublishedAt: plan?.weeklyForecast?.publishedAt ?? null,
-    weeklyLockedAt: plan?.weeklyForecast?.lockedAt ?? null,
-    weeklyPeriodStart: plan?.weeklyForecast?.periodStart ?? null,
-    weeklyPeriodEnd: plan?.weeklyForecast?.periodEnd ?? null,
-    nowMs: now.getTime(),
-    atDirectionalEdge: marketStructure.atDirectionalEdge,
-    falseBreakReclaimed: marketStructure.falseBreakReclaimed,
-  });
+  const weeklyLongTiming = weeklyTimingForNewExposure({ direction, plan, now });
   const triggerMet = confirmationTrigger || directionalEdgeProbe;
   const forecast = forecastCompatibility(direction, plan, profile.strategyType);
   const atr4h = atr(h4);
@@ -2199,6 +2210,8 @@ async function runLiveCommissioning(input: {
   eligibleSymbols: readonly BitgetSupportedSymbol[];
   readDeadlineMs: number;
   newEntryCutoffMs: number;
+  ledgerConsistent: boolean;
+  authorityReadsOk: boolean;
 }): Promise<{
   state: "COMPLETE" | "ACTIVE" | "WAITING" | "ATTEMPTED" | "ERROR";
   decision: ThreeHorizonStrategyDecision | null;
@@ -2361,6 +2374,10 @@ async function runLiveCommissioning(input: {
       run: () => executeReadyDecision({
         decision, profile, evaluation, risk: input.risk, positions: input.positions,
         protections: input.protections, now: input.now, reservedSymbols: input.reservedSymbols, reservedRiskPct: 0,
+        exposureAction: "COMMISSIONING_ENTRY",
+        forecastPlan: input.forecastBySymbol.get(selected.quote.symbol),
+        authorityReadsOk: input.authorityReadsOk,
+        ledgerConsistent: input.ledgerConsistent,
       }),
     });
     if (!lifecycle.started) {
@@ -2444,6 +2461,19 @@ function targetReached(
   return direction === "LONG" ? price >= target : direction === "SHORT" ? price <= target : false;
 }
 
+async function readScopedForecastPlanForScaleIn(
+  symbol: string,
+  now: Date
+): Promise<PredictionStrategyPlan | null> {
+  const settings = await getPredictionAutoTraderSettings({ readOnly: true });
+  const baseSymbol = symbol.toUpperCase().replace(/USDT$/, "");
+  const plans = await resolvePredictionStrategyPlans(settings, now, [baseSymbol]);
+  return plans.find((plan) => {
+    const normalized = String(plan.symbol).toUpperCase().replace(/USDT$/, "");
+    return normalized === baseSymbol;
+  }) ?? null;
+}
+
 function hardIntradayExit(decision: ThreeHorizonStrategyDecision, now: Date): boolean {
   if (decision.strategyType !== "INTRADAY" || !decision.openedAt) return false;
   const opened = new Date(new Date(decision.openedAt).getTime() + 8 * 60 * 60_000);
@@ -2495,16 +2525,29 @@ async function manageActiveDecisions(now: Date): Promise<{
   orderAttempts: number;
   orderSuccess: number;
   orderErrors: number;
+  activeLedger: Array<{ symbol: string; side: "long" | "short" }>;
 }> {
   const rows = await listActiveDecisionRows();
-  if (!rows.length) return { managed: 0, orderAttempts: 0, orderSuccess: 0, orderErrors: 0 };
+  if (!rows.length) return { managed: 0, orderAttempts: 0, orderSuccess: 0, orderErrors: 0, activeLedger: [] };
   const decisions = rows.map(mapDecision);
+  const activeLedger = decisions.map((decision) => ({
+    symbol: decision.symbol,
+    side: decision.direction === "SHORT" ? "short" as const : "long" as const,
+  }));
   const [positions, protections, closed, profiles] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoPendingStrategyOrders(),
     getBitgetDemoClosedPositions(100),
     getThreeHorizonProfiles(),
   ]);
+  const managementLedgerConsistent = isExposureLedgerConsistent({
+    positions: positions.filter((row) => row.total > 0).map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    protections: protections.map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    activeDecisions: decisions.map((decision) => ({
+      symbol: decision.symbol,
+      side: decision.direction === "SHORT" ? "short" as const : "long" as const,
+    })),
+  });
   const profileByType = new Map(profiles.map((profile) => [profile.strategyType, profile] as const));
   const environment = getBitgetDemoEnvironment();
   let projectedOpenRiskPct = decisions.reduce((sum, row) => sum + Number(row.riskPct ?? 0), 0);
@@ -2602,6 +2645,20 @@ async function manageActiveDecisions(now: Date): Promise<{
       const cryptoRoom = !crypto || projectedCryptoRiskPct + remainingRiskPct <= CRYPTO_GROUP_RISK_LIMIT_PCT + 1e-9;
       if (profile && remainingRiskPct >= 0.04 && riskRoom && cryptoRoom) {
         try {
+          const forecastPlan = await readScopedForecastPlanForScaleIn(current.symbol, now);
+          const scaleInGate = evaluateNewExposureSafety({
+            action: "SCALE_IN",
+            direction: current.direction,
+            authorityReadsOk: true,
+            ledgerConsistent: managementLedgerConsistent,
+            timing: weeklyTimingForNewExposure({ direction: current.direction, plan: forecastPlan, now }),
+          });
+          if (!scaleInGate.allowed) {
+            current = await updateDecision(current.id, {
+              rejectionCode: scaleInGate.rejectionCode ?? "RECONCILIATION_REQUIRED",
+              rejectionReason: scaleInGate.reason,
+            });
+          } else {
           const candles = await loadCandleSet(current.symbol as BitgetSupportedSymbol);
           const confirmation = evaluate(
             profile,
@@ -2666,6 +2723,7 @@ async function manageActiveDecisions(now: Date): Promise<{
               if (crypto) projectedCryptoRiskPct += sizing.riskPct;
               orderSuccess += 1;
             }
+          }
           }
         } catch (error) {
           // The first batch already has exchange-side protection. A failed add-on check is
@@ -2798,7 +2856,7 @@ async function manageActiveDecisions(now: Date): Promise<{
       }
     }
   }
-  return { managed: decisions.length, orderAttempts, orderSuccess, orderErrors };
+  return { managed: decisions.length, orderAttempts, orderSuccess, orderErrors, activeLedger };
 }
 
 async function calculatePositionSize(input: {
@@ -2867,6 +2925,10 @@ async function executeReadyDecision(input: {
   now: Date;
   reservedSymbols: ReadonlySet<string>;
   reservedRiskPct: number;
+  exposureAction: Exclude<NewExposureAction, "SCALE_IN" | "RISK_REDUCTION">;
+  forecastPlan: PredictionStrategyPlan | null | undefined;
+  authorityReadsOk: boolean;
+  ledgerConsistent: boolean;
 }): Promise<{
   decision: ThreeHorizonStrategyDecision;
   attempted: boolean;
@@ -2880,6 +2942,30 @@ async function executeReadyDecision(input: {
         status: "SHADOW_READY",
         rejectionCode: "",
         rejectionReason: "影子模式已记录本来会提交的订单，但没有向Bitget发送。",
+      }),
+      attempted: false,
+      success: false,
+      error: false,
+      riskReservedPct: 0,
+    };
+  }
+  const newExposureGate = evaluateNewExposureSafety({
+    action: input.exposureAction,
+    direction: input.decision.direction,
+    authorityReadsOk: input.authorityReadsOk,
+    ledgerConsistent: input.ledgerConsistent,
+    timing: weeklyTimingForNewExposure({
+      direction: input.decision.direction,
+      plan: input.forecastPlan,
+      now: input.now,
+    }),
+  });
+  if (!newExposureGate.allowed) {
+    return {
+      decision: await updateDecision(input.decision.id, {
+        status: "BLOCKED",
+        rejectionCode: newExposureGate.rejectionCode ?? "RECONCILIATION_REQUIRED",
+        rejectionReason: newExposureGate.reason,
       }),
       attempted: false,
       success: false,
@@ -3161,6 +3247,7 @@ export async function runThreeHorizonStrategyEngine(
       orderAttempts: 0,
       orderSuccess: 0,
       orderErrors: 0,
+      activeLedger: [],
     };
     }),
     canSelect: () => !managementReadError,
@@ -3181,6 +3268,8 @@ export async function runThreeHorizonStrategyEngine(
   await reportProgress("MANAGEMENT_COMPLETE", {
     managed: management.managed,
     selectedSymbols: liveSymbolsForThisRun,
+    authorityReadsOk: !managementReadError,
+    rejectionCode: managementReadError ? "RECONCILIATION_REQUIRED" : null,
   });
   if (managementReadError) {
     return {
@@ -3266,7 +3355,11 @@ export async function runThreeHorizonStrategyEngine(
   const forecastSymbols = liveExperimentMode
     ? liveSymbolsForThisRun.map((symbol) => symbol.replace(/USDT$/, ""))
     : undefined;
-  const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => []);
+  let forecastAuthorityReadsOk = true;
+  const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => {
+    forecastAuthorityReadsOk = false;
+    return [];
+  });
   await reportProgress("FORECAST_COMPLETE", { forecastPlans: forecastPlans.length });
   const canonicalForecastBySymbol = new Map<string, PredictionStrategyPlan>();
   for (const plan of forecastPlans) {
@@ -3290,6 +3383,12 @@ export async function runThreeHorizonStrategyEngine(
       getBitgetDemoPendingStrategyOrders(),
     ]);
   } catch (error) {
+    await reportProgress("RISK_ACCOUNT_COMPLETE", {
+      positions: 0,
+      protections: 0,
+      authorityReadsOk: false,
+      rejectionCode: "RECONCILIATION_REQUIRED",
+    });
     return {
       ok: false,
       runId,
@@ -3309,6 +3408,13 @@ export async function runThreeHorizonStrategyEngine(
     positions: positions.length,
     protections: protections.length,
     riskBlocked: risk.blocked,
+  });
+  const newExposureLedgerConsistent = isExposureLedgerConsistent({
+    positions: positions
+      .filter((row) => row.total > 0)
+      .map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    protections: protections.map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    activeDecisions: management.activeLedger,
   });
   const candleCache = new Map<string, CandleSet>();
   const reservedSymbols = new Set(
@@ -3333,6 +3439,8 @@ export async function runThreeHorizonStrategyEngine(
       eligibleSymbols: liveSymbolsForThisRun,
       readDeadlineMs: deadlineMs,
       newEntryCutoffMs,
+      ledgerConsistent: newExposureLedgerConsistent,
+      authorityReadsOk: forecastAuthorityReadsOk,
     });
     commissioningMessage = commissioning.message;
     commissioningAttempted = commissioning.attempted;
@@ -3512,7 +3620,13 @@ export async function runThreeHorizonStrategyEngine(
             const lifecycle = await runNewEntryBeforeCutoff({
               cutoffMs: newEntryCutoffMs,
               now: Date.now,
-              run: () => executeReadyDecision({ decision, profile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
+              run: () => executeReadyDecision({
+                decision, profile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
+                exposureAction: "NORMAL_PROFILE_ENTRY",
+                forecastPlan: canonicalForecastBySymbol.get(symbol),
+                authorityReadsOk: forecastAuthorityReadsOk,
+                ledgerConsistent: newExposureLedgerConsistent,
+              }),
             });
             if (!lifecycle.started) {
               decision = await updateDecision(decision.id, {
@@ -3708,7 +3822,13 @@ export async function runThreeHorizonStrategyEngine(
         const lifecycle = await runNewEntryBeforeCutoff({
           cutoffMs: newEntryCutoffMs,
           now: Date.now,
-          run: () => executeReadyDecision({ decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
+          run: () => executeReadyDecision({
+            decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
+            exposureAction: "DAILY_MINIMUM_ENTRY",
+            forecastPlan: canonicalForecastBySymbol.get(candidate.symbol),
+            authorityReadsOk: forecastAuthorityReadsOk,
+            ledgerConsistent: newExposureLedgerConsistent,
+          }),
         });
         if (!lifecycle.started) break;
         const executed = lifecycle.value;
@@ -3838,7 +3958,13 @@ export async function runThreeHorizonStrategyEngine(
         const lifecycle = await runNewEntryBeforeCutoff({
           cutoffMs: newEntryCutoffMs,
           now: Date.now,
-          run: () => executeReadyDecision({ decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct }),
+          run: () => executeReadyDecision({
+            decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
+            exposureAction: "ACTIVITY_FALLBACK_ENTRY",
+            forecastPlan: canonicalForecastBySymbol.get(candidate.symbol),
+            authorityReadsOk: forecastAuthorityReadsOk,
+            ledgerConsistent: newExposureLedgerConsistent,
+          }),
         });
         if (!lifecycle.started) break;
         const executed = lifecycle.value;

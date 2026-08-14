@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
 import { runClassifiedPlanMaintenance } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
+import {
+  evaluateNewExposureSafety,
+  evaluateWeeklyLongEntryTiming,
+} from "../lib/trading-signals/weekly-long-entry-timing-core";
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
@@ -274,4 +278,41 @@ test("live and demo plans are labeled separately while Demo paptrading remains i
   assert.match(plans, /profile\.mode === "LIVE" \? "BITGET_LIVE" : "BITGET_DEMO"/);
   assert.match(planTypes, /"BITGET_LIVE"/);
   assert.match(client, /if \(env\.mode === "DEMO"\) headers\.paptrading = "1"/);
+});
+
+test("production new-exposure routes share the formal late-week timing and reconciliation gate", () => {
+  const timing = evaluateWeeklyLongEntryTiming({
+    strategyType: "SWING",
+    direction: "LONG",
+    weeklyPath: "SURGE_THEN_PULLBACK / 冲高回落",
+    weeklyStatus: "LOCKED",
+    weeklyPublishedAt: "2026-08-09T20:00:00+08:00",
+    weeklyLockedAt: "2026-08-10T00:00:00+08:00",
+    weeklyPeriodStart: "2026-08-10",
+    weeklyPeriodEnd: "2026-08-16",
+    nowMs: Date.parse("2026-08-14T12:00:00+08:00"),
+    atDirectionalEdge: true,
+    falseBreakReclaimed: true,
+  });
+  assert.equal(timing.blocked, true);
+  for (const action of ["COMMISSIONING_ENTRY", "NORMAL_PROFILE_ENTRY", "DAILY_MINIMUM_ENTRY", "ACTIVITY_FALLBACK_ENTRY", "SCALE_IN"] as const) {
+    const blocked = evaluateNewExposureSafety({ action, direction: "LONG", authorityReadsOk: true, ledgerConsistent: true, timing });
+    assert.equal(blocked.rejectionCode, "TIMING_RISK", action);
+  }
+  const reconciliation = evaluateNewExposureSafety({
+    action: "NORMAL_PROFILE_ENTRY",
+    direction: "SHORT",
+    authorityReadsOk: false,
+    ledgerConsistent: false,
+    timing,
+  });
+  assert.equal(reconciliation.rejectionCode, "RECONCILIATION_REQUIRED");
+  const reduction = evaluateNewExposureSafety({
+    action: "RISK_REDUCTION",
+    direction: "LONG",
+    authorityReadsOk: false,
+    ledgerConsistent: false,
+    timing,
+  });
+  assert.equal(reduction.allowed, true);
 });
