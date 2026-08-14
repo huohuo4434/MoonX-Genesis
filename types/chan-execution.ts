@@ -49,4 +49,29 @@ export type ChanExecutionDecision = {
   tradingEligible: false;
 };
 
+export type ChanMultiTimeframeFrame = {
+  timeframe: Extract<ChanTimeframe, "30m" | "1H" | "4H" | "1D">;
+  structure: ChanStructure;
+  error: string | null;
+};
+
+export type ChanMultiTimeframeDecision = {
+  action: "BUY_CANDIDATE" | "SELL_CANDIDATE" | "WAIT";
+  authoritativeDirection: ChanDirection;
+  reasons: string[];
+  technicalBias: "BULL" | "BEAR" | "MIXED" | "NONE";
+  chanWeight: 35;
+  chanContribution: number;
+  confirmation: number | null;
+  invalidation: number | null;
+  timeframeSignals: Array<{
+    timeframe: ChanMultiTimeframeFrame["timeframe"];
+    signal: "BULL" | "BEAR" | "NONE";
+    complete: boolean;
+    available: boolean;
+  }>;
+  executionAuthority: "RESEARCH_ONLY";
+  tradingEligible: false;
+};
+
 export type ChanSourceEvidencePack = { version: "2026-08-14.v1"; sourceArtifacts: Array<{ id: "COURSE_ZIP" | "SPY_SCREENSHOT"; name: string; sourcePublishedAt: null }>; executionAuthority: "RESEARCH_ONLY"; tradingEligible: false; transcribedLessons: 12; transcriptRange: "2026-07-06..2026-08-13"; untranscribedAudioClaimedLearned: false; mooxPolicy: string; notes: Array<{ source: "WOLF" | "NANA" | "GAOSHAN"; sourceArtifact: "COURSE_ZIP" | "SPY_SCREENSHOT"; claim: string; status: "TEACHER_CLAIM_PENDING" }> };

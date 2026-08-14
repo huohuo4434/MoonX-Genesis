@@ -1,4 +1,21 @@
-import type { ChanCandle, ChanFractal, ChanSegment, ChanStroke, ChanStructure, ChanZone } from "@/types/chan-execution";
+import type { ChanCandle, ChanDirection, ChanFractal, ChanSegment, ChanStroke, ChanStructure, ChanZone } from "@/types/chan-execution";
+
+export function buildChanChartAnnotations(structure: ChanStructure, direction: ChanDirection): {
+  marker: { side: "BUY" | "SELL"; label: string } | null;
+  risk: ChanStructure["riskLevels"]["long"] | null;
+} {
+  const marker = structure.buyPoint !== "NONE"
+    ? { side: "BUY" as const, label: structure.buyPoint === "SECOND" ? "二买" : structure.buyPoint === "THIRD" ? "三买" : "一买研究" }
+    : structure.sellPoint !== "NONE"
+      ? { side: "SELL" as const, label: structure.sellPoint === "SECOND" ? "二卖" : structure.sellPoint === "THIRD" ? "三卖" : "一卖" }
+      : null;
+  const risk = direction === "BULL"
+    ? structure.riskLevels.long
+    : direction === "BEAR"
+      ? structure.riskLevels.short
+      : null;
+  return { marker, risk };
+}
 
 export function normalizeChanInclusions(candles: ChanCandle[]): ChanCandle[] {
   const result: ChanCandle[] = [];

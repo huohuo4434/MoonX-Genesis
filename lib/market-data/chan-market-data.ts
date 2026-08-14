@@ -5,8 +5,8 @@ import { filterClosedCandles, isValidChanCandle } from "@/lib/market-data/chan-m
 const symbols = new Set(["BTCUSDT", "ETHUSDT"]);
 const intervals = new Set<ChanTimeframe>(["30m", "1H", "4H", "1D"]);
 
-export async function loadChanCandles(input: { symbol: string; timeframe: string; timeoutMs?: number }): Promise<{ symbol: string; timeframe: ChanTimeframe; candles: ChanCandle[]; error: string | null }> {
-  const capturedNowMs = Date.now();
+export async function loadChanCandles(input: { symbol: string; timeframe: string; timeoutMs?: number; capturedNowMs?: number }): Promise<{ symbol: string; timeframe: ChanTimeframe; candles: ChanCandle[]; error: string | null }> {
+  const capturedNowMs = input.capturedNowMs ?? Date.now();
   const symbol = input.symbol.toUpperCase();
   const timeframe = input.timeframe as ChanTimeframe;
   if (!symbols.has(symbol) || !intervals.has(timeframe)) return { symbol, timeframe, candles: [], error: "UNSUPPORTED_MARKET" };
@@ -22,4 +22,16 @@ export async function loadChanCandles(input: { symbol: string; timeframe: string
     return candles.length ? { symbol, timeframe, candles, error: null } : { symbol, timeframe, candles: [], error: "EMPTY_MARKET_DATA" };
   } catch { return { symbol, timeframe, candles: [], error: "MARKET_DATA_TIMEOUT_OR_FAILURE" }; }
   finally { clearTimeout(timer); }
+}
+
+export async function loadChanTimeframes(input: {
+  symbol: string;
+  capturedNowMs: number;
+  timeoutMs?: number;
+}): Promise<Array<Awaited<ReturnType<typeof loadChanCandles>>>> {
+  return Promise.all(
+    (["30m", "1H", "4H", "1D"] as const).map((timeframe) =>
+      loadChanCandles({ ...input, timeframe })
+    )
+  );
 }

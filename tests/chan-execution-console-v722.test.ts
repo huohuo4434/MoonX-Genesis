@@ -160,9 +160,9 @@ test("source evidence is research-only and chart cannot draw future candles", ()
   assert.match(evidence, /untranscribedAudioClaimedLearned: false/);
   assert.match(evidence, /executionAuthority: "RESEARCH_ONLY"/);
   assert.match(evidence, /tradingEligible: false/);
-  assert.match(chart, /structure\.normalizedCandles/);
-  assert.match(chart, /结构合成 K/);
-  assert.match(chart, /不冒充逐根原始 K/);
+  assert.match(chart, /const rows = candles/);
+  assert.match(chart, /已闭合的原始 K 线/);
+  assert.match(chart, /包含关系归一后的结构计算/);
   assert.doesNotMatch(chart, /forecast|projection|future/i);
   assert.match(market, /AbortController/);
   assert.match(market, /filterClosedCandles\([^;]+timeframe, capturedNowMs\)/s);
