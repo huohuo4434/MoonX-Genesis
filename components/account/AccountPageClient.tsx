@@ -133,6 +133,7 @@ export function AccountPageClient({
                 <Button asChild size="sm"><Link href="/member/tomorrow">{en ? "Next-session forecast" : "查看明日预测"}</Link></Button>
                 <Button asChild size="sm" variant="outline"><Link href="/member/weekly">{en ? "Weekly Alpha 5" : "本周精选5"}</Link></Button>
                 <Button asChild size="sm" variant="outline"><Link href="/member/btc-eth-cycle">BTC / ETH {en ? "cycle" : "周期"}</Link></Button>
+                <Button asChild size="sm" variant="outline"><Link href="/member/founder-cycle">{en ? "Founder cycles" : "创始人周期"}</Link></Button>
               </>
             ) : (
               <Button asChild size="sm"><Link href="/pricing">{en ? "Buy membership" : "购买会员"}</Link></Button>
