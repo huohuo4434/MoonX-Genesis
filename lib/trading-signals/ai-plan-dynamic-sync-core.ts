@@ -5,6 +5,24 @@ const PERIODIC_AUDIT_REFRESH_MS = 5 * 60 * 1000;
 
 export type DynamicPlanAuditDecision = "NONE" | "CHECKPOINT" | "MATERIAL";
 
+export type DynamicPlanMaintenanceTelemetry = {
+  selected: number;
+  none: number;
+  material: number;
+  duplicateFresh: number;
+  checkpointRows: number;
+  checkpointBatchCalls: number;
+};
+
+export function requireDynamicPlanMaintenanceStore(input: {
+  schemaReady: boolean;
+  adapterReady: boolean;
+}): void {
+  if (!input.schemaReady || !input.adapterReady) {
+    throw new Error("AI plan maintenance store unavailable");
+  }
+}
+
 export function resolveDynamicPlanStatus(input: {
   currentStatus: AiTradePlanStatus;
   decisionStatus: ThreeHorizonDecisionStatus;
@@ -162,7 +180,7 @@ export async function runClassifiedPlanMaintenance<T>(input: {
   writeMaterial: (row: T) => Promise<void>;
   writeDuplicateFresh?: (row: T) => Promise<void>;
   writeCheckpoints: (rows: readonly T[]) => Promise<void>;
-}): Promise<{ processed: number; material: number; checkpoints: number }> {
+}): Promise<DynamicPlanMaintenanceTelemetry> {
   const checkpoints: T[] = [];
   const identityCounts = new Map<string, number>();
   if (input.checkpointIdentity) {
@@ -171,7 +189,9 @@ export async function runClassifiedPlanMaintenance<T>(input: {
       identityCounts.set(identity, (identityCounts.get(identity) ?? 0) + 1);
     }
   }
+  let none = 0;
   let material = 0;
+  let duplicateFresh = 0;
   for (const row of input.rows) {
     const duplicateIdentity = input.checkpointIdentity
       ? (identityCounts.get(input.checkpointIdentity(row)) ?? 0) > 1
@@ -181,11 +201,14 @@ export async function runClassifiedPlanMaintenance<T>(input: {
     // suppressing any per-decision link/event audit.
     if (duplicateIdentity) {
       await (input.writeDuplicateFresh ?? input.writeMaterial)(row);
-      material += 1;
+      duplicateFresh += 1;
       continue;
     }
     const decision = input.classify(row);
-    if (decision === "NONE") continue;
+    if (decision === "NONE") {
+      none += 1;
+      continue;
+    }
     if (decision === "CHECKPOINT") {
       checkpoints.push(row);
       continue;
@@ -195,11 +218,18 @@ export async function runClassifiedPlanMaintenance<T>(input: {
     await input.writeMaterial(row);
     material += 1;
   }
-  if (checkpoints.length) await input.writeCheckpoints(checkpoints);
+  let checkpointBatchCalls = 0;
+  if (checkpoints.length) {
+    await input.writeCheckpoints(checkpoints);
+    checkpointBatchCalls = 1;
+  }
   return {
-    processed: input.rows.length,
+    selected: input.rows.length,
+    none,
     material,
-    checkpoints: checkpoints.length,
+    duplicateFresh,
+    checkpointRows: checkpoints.length,
+    checkpointBatchCalls,
   };
 }
 

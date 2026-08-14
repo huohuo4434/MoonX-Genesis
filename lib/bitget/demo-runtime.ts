@@ -59,6 +59,10 @@ import {
   finalizeRuntimeOwner,
   releaseOwnerOrThrow,
 } from "@/lib/bitget/runtime-deadline-core";
+import {
+  captureWallClockRunTiming,
+  resolveRuntimeEngineFailureGate,
+} from "@/lib/trading-signals/strategy-runtime-progress-core";
 
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
@@ -875,11 +879,12 @@ export async function runBitgetDemoServerRuntime(
   source: BitgetRuntimeSource = "CRON",
   options: { absoluteDeadlineAt?: Date } = {}
 ): Promise<BitgetRuntimeRunReport> {
+  const runtimeTiming = captureWallClockRunTiming({ businessNow: now });
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
     throw new Error("交易数据库未连接");
   }
   const runId = `bgr_${randomUUID()}`;
-  const startedAt = now.toISOString();
+  const startedAt = runtimeTiming.startedAt;
   const deadlinePolicy = buildRuntimeDeadlinePolicy(options.absoluteDeadlineAt);
   const locked = await acquireRuntimeLock(runId);
   if (!locked) {
@@ -926,6 +931,7 @@ export async function runBitgetDemoServerRuntime(
   let ownerReleased = false;
   let finalizationPersisted = false;
   let finalizationFailureAudited = false;
+  let engineFailure = false;
 
   try {
     const before = await getBitgetRuntimeState(now);
@@ -1094,6 +1100,8 @@ export async function runBitgetDemoServerRuntime(
             newEntryCutoffAt: Number.isFinite(deadlinePolicy.newEntryCutoffMs)
               ? new Date(deadlinePolicy.newEntryCutoffMs)
               : undefined,
+            progressStartedAtMs: runtimeTiming.startedAtMs,
+            progressElapsedMs: runtimeTiming.elapsedMs,
             manageOnly: !canStartNewEntry(deadlinePolicy),
             onProgress: async (progress) => {
               await recordEvent({
@@ -1112,6 +1120,7 @@ export async function runBitgetDemoServerRuntime(
           }
         );
         strategyRan = true;
+        if (!threeHorizon.ok) engineFailure = true;
         await recordEvent({
           runId,
           stage: "STRATEGY",
@@ -1155,6 +1164,7 @@ export async function runBitgetDemoServerRuntime(
       } catch (error) {
         const message = error instanceof Error ? error.message : "三周期策略执行失败";
         diagnosticErrors.push(message);
+        engineFailure = true;
         threeHorizon = {
           ok: false,
           runId: `thr_error_${runId}`,
@@ -1178,7 +1188,23 @@ export async function runBitgetDemoServerRuntime(
         });
       }
 
-      try {
+      if (!resolveRuntimeEngineFailureGate({ engineFailure, engineOk: threeHorizon?.ok }).allowPostEngineOrders) {
+        mirrorResult = {
+          enabled: false,
+          processed: 0,
+          success: 0,
+          skipped: 0,
+          errors: 0,
+          messages: ["Three-horizon engine failed; post-engine order chain skipped."],
+        };
+        await recordEvent({
+          runId,
+          stage: "SYSTEM",
+          level: "WARNING",
+          action: "ENGINE_FAILURE_ORDER_SKIP",
+          message: "Three-horizon engine failed; mirror and later order chains were not started.",
+        });
+      } else try {
         mirrorResult = environment.mode === "LIVE_EXPERIMENT"
           ? { enabled: false, processed: 0, success: 0, skipped: 0, errors: 0, messages: ["实盘实验已禁用旧版镜像链路。"] }
           : await syncBitgetDemoOrders();
@@ -1261,9 +1287,14 @@ export async function runBitgetDemoServerRuntime(
           threeHorizon = await runThreeHorizonStrategyEngine(
             now,
             source === "ADMIN" ? "ADMIN" : "CRON",
-            { manageOnly: true }
+            {
+              ...{ manageOnly: true },
+              progressStartedAtMs: runtimeTiming.startedAtMs,
+              progressElapsedMs: runtimeTiming.elapsedMs,
+            }
           );
           strategyRan = true;
+          if (!threeHorizon.ok) engineFailure = true;
           await recordEvent({
             runId,
             stage: "STRATEGY",
@@ -1279,6 +1310,7 @@ export async function runBitgetDemoServerRuntime(
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : "暂停状态下的持仓管理失败";
+          engineFailure = true;
           diagnosticErrors.push(message);
           await recordEvent({
             runId,
@@ -1291,7 +1323,7 @@ export async function runBitgetDemoServerRuntime(
       }
     }
 
-    if (environment.mode !== "LIVE_EXPERIMENT") {
+    if (!engineFailure && environment.mode !== "LIVE_EXPERIMENT") {
       try {
         validation = await runStrategyValidationCycle({
           now,
@@ -1325,20 +1357,23 @@ export async function runBitgetDemoServerRuntime(
       }
     }
 
-    const finishedAt = new Date();
+    const wallFinish = runtimeTiming.finish();
+    const finishedAt = new Date(wallFinish.finishedAtMs);
     finalMessage = before.paused
       ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
         ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
         : !account.connected
           ? `服务器行情正常，但账户对账未通过，本轮禁止新开仓。原因：${account.message}`
+          : engineFailure
+            ? "Three-horizon engine failed; no post-engine order chain was started."
           : !liveAllowsNewEntries
             ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
             : threeHorizon?.message
               ? `${threeHorizon.message} ${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}订单成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`
               : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，本轮没有形成可执行订单。`;
     const report: BitgetRuntimeRunReport = {
-      ok: marketEndpointOk && account.connected && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
+      ok: resolveRuntimeEngineFailureGate({ engineFailure, engineOk: threeHorizon?.ok }).runtimeOk && marketEndpointOk && account.connected && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
       locked: false,
       paused: executionPaused,
       runId,
@@ -1390,7 +1425,7 @@ export async function runBitgetDemoServerRuntime(
       action: "FINISH",
       message: finalMessage,
       payload: {
-        durationMs: finishedAt.getTime() - now.getTime(),
+        durationMs: wallFinish.durationMs,
         paused: executionPaused,
       },
     });

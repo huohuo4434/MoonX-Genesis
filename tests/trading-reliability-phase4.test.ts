@@ -716,6 +716,11 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(strategy, /to_regclass\('trade_three_horizon_profiles'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(commissioningPlans, /to_regclass\('trade_ai_plans'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ symbols: liveSymbolsForThisRun, limit: 3 \} : \{\}/);
+  assert.match(runtime, /captureWallClockRunTiming\(\{ businessNow: now \}\)/);
+  assert.match(runtime, /progressStartedAtMs: runtimeTiming\.startedAtMs/);
+  assert.match(runtime, /durationMs: wallFinish\.durationMs/);
+  assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,500}checkpointBatchCalls: planMaintenance\.checkpointBatchCalls/);
+  assert.doesNotMatch(strategy, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
   assert.match(commissioningPlans, /WITH active_audit AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);
   assert.match(commissioningPlans, /runClassifiedPlanMaintenance\(\{/);
   assert.match(commissioningPlans, /LEFT JOIN LATERAL[\s\S]*plan_snapshot ON TRUE/);

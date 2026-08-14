@@ -15,9 +15,12 @@ import {
   selectRotatingScanBatch,
 } from "../lib/trading-signals/live-scan-rotation-core";
 import {
+  captureWallClockRunTiming,
   createStrategyProgressReporter,
+  resolveRuntimeEngineFailureGate,
   runBoundedSerialMaintenance,
 } from "../lib/trading-signals/strategy-runtime-progress-core";
+import { runClassifiedPlanMaintenance } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 import { loadForecastSourcesForScope } from "../lib/trading-signals/forecast-read-scope-core";
 import {
   buildRuntimeDeadlinePolicy,
@@ -444,6 +447,71 @@ test("production progress reporter preserves the last completed stage and elapse
     publish: async () => { throw new Error("audit unavailable"); },
   });
   await assert.doesNotReject(telemetryFailure("ENGINE_START"));
+});
+
+test("runtime wall timing is independent from business now and shares one elapsed origin", async () => {
+  const businessNow = new Date("2026-08-14T06:02:26.141Z");
+  let wallClock = Date.parse("2026-08-14T06:03:11.565Z");
+  const timing = captureWallClockRunTiming({ businessNow, wallNow: () => wallClock });
+  assert.strictEqual(timing.businessNow, businessNow);
+  assert.equal(timing.startedAt, "2026-08-14T06:03:11.565Z");
+
+  const stages: Array<{ stage: string; elapsedMs: number }> = [];
+  const report = createStrategyProgressReporter({
+    startedAtMs: timing.startedAtMs,
+    elapsedMs: timing.elapsedMs,
+    publish: (progress) => { stages.push(progress); },
+  });
+  wallClock += 22_000;
+  await report("MANAGEMENT_COMPLETE");
+  wallClock -= 5_000;
+  await report("PLAN_MAINTENANCE_COMPLETE");
+  wallClock += 65_641;
+  const finish = timing.finish();
+  assert.deepEqual(stages, [
+    { stage: "MANAGEMENT_COMPLETE", elapsedMs: 22_000 },
+    { stage: "PLAN_MAINTENANCE_COMPLETE", elapsedMs: 22_000 },
+  ]);
+  assert.deepEqual(finish, {
+    finishedAtMs: Date.parse("2026-08-14T06:04:34.206Z"),
+    finishedAt: "2026-08-14T06:04:34.206Z",
+    durationMs: 82_641,
+  });
+  assert.equal(businessNow.toISOString(), "2026-08-14T06:02:26.141Z");
+});
+
+test("maintenance failure blocks every post-engine order chain but still finalizes and releases owner", async () => {
+  const audit: string[] = [];
+  let planMaintenanceComplete = 0;
+  let mirrorOrders = 0;
+  let ownerReleases = 0;
+  let engineFailure = false;
+  try {
+    await runClassifiedPlanMaintenance({
+      rows: [{ id: "checkpoint", kind: "CHECKPOINT" as const }],
+      classify: (row) => row.kind,
+      writeMaterial: async () => undefined,
+      writeCheckpoints: async () => { throw new Error("maintenance store unavailable"); },
+    });
+    planMaintenanceComplete += 1;
+  } catch {
+    engineFailure = true;
+    audit.push("THREE_HORIZON_ERROR");
+  }
+  const gate = resolveRuntimeEngineFailureGate({ engineFailure, engineOk: null });
+  if (gate.allowPostEngineOrders) mirrorOrders += 1;
+  await finalizeRuntimeOwner({
+    allowCleanup: false,
+    persistState: async () => { audit.push("FAILED_STATE"); },
+    persistFinish: async () => { audit.push("FINISH"); },
+    cleanup: async () => undefined,
+    releaseOwner: async () => { ownerReleases += 1; return true; },
+  });
+  assert.equal(planMaintenanceComplete, 0);
+  assert.equal(mirrorOrders, 0);
+  assert.equal(gate.runtimeOk, false);
+  assert.deepEqual(audit, ["THREE_HORIZON_ERROR", "FAILED_STATE", "FINISH"]);
+  assert.equal(ownerReleases, 1);
 });
 
 test("single-symbol live forecast read skips the broad admin snapshot and runs bounded reads together", async () => {

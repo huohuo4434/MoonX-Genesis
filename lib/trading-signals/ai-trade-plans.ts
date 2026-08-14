@@ -1,11 +1,13 @@
 import "server-only";
 
 import {
+  requireDynamicPlanMaintenanceStore,
   classifyDynamicPlanAudit,
   resolveDynamicPlanStatus,
   runClassifiedPlanMaintenance,
   writeDynamicPlanAuditIfRequired,
 } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
+import type { DynamicPlanMaintenanceTelemetry } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import { aiTradePlanDashboardReadPolicy } from "@/lib/trading-signals/member-desk-persisted-plan-core";
 import type { LiveScanOpportunityHint } from "@/lib/trading-signals/live-scan-rotation-core";
 
@@ -1242,8 +1244,10 @@ async function syncAiTradePlanFromPrefetchedSnapshot(
 export async function syncAiTradePlansFromRecentDecisions(
   now = new Date(),
   options: { symbols?: readonly string[]; limit?: number } = {}
-): Promise<number> {
-  if (!(await ensureAiTradePlanTables()) || !prisma) return 0;
+): Promise<DynamicPlanMaintenanceTelemetry> {
+  const schemaReady = await ensureAiTradePlanTables();
+  requireDynamicPlanMaintenanceStore({ schemaReady, adapterReady: Boolean(prisma) });
+  if (!prisma) throw new Error("AI plan maintenance store unavailable");
   const symbols = Array.from(new Set((options.symbols ?? [])
     .map((symbol) => String(symbol).trim().toUpperCase())
     .filter(Boolean)));
@@ -1455,7 +1459,7 @@ export async function syncAiTradePlansFromRecentDecisions(
       await batchCheckpointDynamicPlans(checkpoints, now);
     },
   });
-  return maintenance.processed;
+  return maintenance;
 }
 
 async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEvent[]>> {

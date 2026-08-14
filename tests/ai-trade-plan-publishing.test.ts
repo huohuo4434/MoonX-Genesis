@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  requireDynamicPlanMaintenanceStore,
   resolveDynamicPlanStatus,
   runClassifiedPlanMaintenance,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
@@ -11,6 +12,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 const plans = read("lib/trading-signals/ai-trade-plans.ts");
 const engine = read("lib/trading-signals/three-horizon-strategy.ts");
+const runtime = read("lib/bitget/demo-runtime.ts");
 const migration = read("prisma/migrations/20260804070000_ai_trade_plan_publishing/migration.sql");
 const member = read("components/member/AiTradingDeskClient.tsx");
 const admin = read("components/admin/AiTradePlanAdminClient.tsx");
@@ -48,7 +50,14 @@ test("mixed maintenance writes material rows immediately and batches eight check
     },
   });
 
-  assert.deepEqual(result, { processed: 11, material: 2, checkpoints: 8 });
+  assert.deepEqual(result, {
+    selected: 11,
+    none: 1,
+    material: 2,
+    duplicateFresh: 0,
+    checkpointRows: 8,
+    checkpointBatchCalls: 1,
+  });
   assert.equal(checkpointDatabaseCalls, 1);
   assert.deepEqual(calls.slice(0, 2), ["material:material-status", "material:material-order"]);
   assert.match(calls[2] ?? "", /^batch:checkpoint-1,checkpoint-2,[\s\S]*checkpoint-8$/);
@@ -59,6 +68,11 @@ test("mixed maintenance writes material rows immediately and batches eight check
     plans.indexOf("async function loadEvents")
   );
   assert.match(maintenanceBody, /runClassifiedPlanMaintenance/);
+  assert.match(engine, /const planMaintenance = await syncAiTradePlansFromRecentDecisions[\s\S]*await reportProgress\("PLAN_MAINTENANCE_COMPLETE"/);
+  assert.doesNotMatch(engine, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
+  for (const field of ["selected", "none", "material", "duplicateFresh", "checkpointRows", "checkpointBatchCalls"]) {
+    assert.match(engine, new RegExp(`${field}: planMaintenance\\.${field}`));
+  }
   assert.match(maintenanceBody, /checkpointIdentity: \(\{ current \}\) => current\.id/);
   for (const field of [
     "audit_submitted_at",
@@ -115,6 +129,29 @@ test("checkpoint batch failure propagates after serial material writes and canno
   assert.deepEqual(calls, ["material:material", "batch:start"]);
 });
 
+test("runtime and engine progress use one wall-clock origin without replacing business now", () => {
+  assert.match(runtime, /captureWallClockRunTiming\(\{ businessNow: now \}\)/);
+  assert.match(runtime, /progressStartedAtMs: runtimeTiming\.startedAtMs/);
+  assert.match(runtime, /durationMs: wallFinish\.durationMs/);
+  assert.match(runtime, /updateRuntimeState\(\{[\s\S]*now,/);
+  assert.match(engine, /startedAtMs: options\.progressStartedAtMs \?\? Date\.now\(\)/);
+  assert.match(runtime, /resolveRuntimeEngineFailureGate\([\s\S]*allowPostEngineOrders/);
+  assert.match(runtime, /!engineFailure && environment\.mode !== "LIVE_EXPERIMENT"/);
+  assert.match(runtime, /ok: resolveRuntimeEngineFailureGate\([\s\S]*runtimeOk/);
+});
+
+test("plan maintenance store unavailability throws instead of reporting an empty successful maintenance", () => {
+  const maintenanceBody = plans.slice(
+    plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
+    plans.indexOf("async function loadEvents")
+  );
+  assert.throws(() => requireDynamicPlanMaintenanceStore({ schemaReady: false, adapterReady: true }), /store unavailable/);
+  assert.throws(() => requireDynamicPlanMaintenanceStore({ schemaReady: true, adapterReady: false }), /store unavailable/);
+  assert.doesNotThrow(() => requireDynamicPlanMaintenanceStore({ schemaReady: true, adapterReady: true }));
+  assert.match(maintenanceBody, /requireDynamicPlanMaintenanceStore\(\{ schemaReady, adapterReady: Boolean\(prisma\) \}\)/);
+  assert.doesNotMatch(maintenanceBody, /emptyDynamicPlanMaintenanceTelemetry/);
+});
+
 test("duplicate plan bindings fresh-read every row and terminal state cannot be reopened", async () => {
   for (const statuses of [
     ["CLOSED", "OPEN"] as const,
@@ -156,7 +193,14 @@ test("duplicate plan bindings fresh-read every row and terminal state cannot be 
       },
       writeCheckpoints: async () => { throw new Error("duplicate must never enter checkpoint batch"); },
     });
-    assert.deepEqual(result, { processed: 2, material: 2, checkpoints: 0 });
+    assert.deepEqual(result, {
+      selected: 2,
+      none: 0,
+      material: 0,
+      duplicateFresh: 2,
+      checkpointRows: 0,
+      checkpointBatchCalls: 0,
+    });
     assert.equal(freshReads, 2);
     assert.equal(persistedStatus, "CLOSED");
     assert.deepEqual(linkedDecisions, ["decision-0", "decision-1"]);

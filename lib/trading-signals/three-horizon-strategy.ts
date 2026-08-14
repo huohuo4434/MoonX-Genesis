@@ -3119,11 +3119,14 @@ export async function runThreeHorizonStrategyEngine(
     maxNewSymbols?: number;
     deadlineAt?: Date;
     newEntryCutoffAt?: Date;
+    progressStartedAtMs?: number;
+    progressElapsedMs?: () => number;
     onProgress?: (progress: ThreeHorizonProgress) => Promise<void> | void;
   } = {}
 ): Promise<ThreeHorizonRunReport> {
   const reportProgress = createStrategyProgressReporter({
-    startedAtMs: Date.now(),
+    startedAtMs: options.progressStartedAtMs ?? Date.now(),
+    elapsedMs: options.progressElapsedMs,
     publish: options.onProgress,
   });
   await reportProgress("ENGINE_START");
@@ -3213,11 +3216,19 @@ export async function runThreeHorizonStrategyEngine(
         : `持仓管理已完成；请求已进入收尾保留时间，不启动计划维护、新标的扫描或新订单。`,
     };
   }
-  const maintainedPlans = await syncAiTradePlansFromRecentDecisions(
+  const planMaintenance = await syncAiTradePlansFromRecentDecisions(
     now,
     liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
-  ).catch(() => 0);
-  await reportProgress("PLAN_MAINTENANCE_COMPLETE", { maintainedPlans });
+  );
+  await reportProgress("PLAN_MAINTENANCE_COMPLETE", {
+    maintainedPlans: planMaintenance.selected,
+    selected: planMaintenance.selected,
+    none: planMaintenance.none,
+    material: planMaintenance.material,
+    duplicateFresh: planMaintenance.duplicateFresh,
+    checkpointRows: planMaintenance.checkpointRows,
+    checkpointBatchCalls: planMaintenance.checkpointBatchCalls,
+  });
   if (Date.now() >= newEntryCutoffMs) {
     return {
       ok: management.orderErrors === 0,
