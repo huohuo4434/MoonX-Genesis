@@ -4,7 +4,6 @@ import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { getCurrentUser, isActiveMember, isAdmin } from "@/lib/auth/permissions";
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
 import { getWeeklySectionPayload } from "@/lib/data/weekly-analysis-access";
-import { getAiTradePlanDashboard } from "@/lib/trading-signals/ai-trade-plans";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import { englishPath } from "@/lib/i18n/config";
 import { getRequestLocale } from "@/lib/i18n/server";
@@ -57,10 +56,9 @@ export async function HomeQuickStart() {
   }
 
   const now = new Date();
-  const [todayResult, weeklyResult, aiResult] = await Promise.allSettled([
+  const [todayResult, weeklyResult] = await Promise.allSettled([
     getTodayForecastAccessPayload(now),
     getWeeklySectionPayload(now),
-    getAiTradePlanDashboard(now),
   ]);
 
   let todayCard: QuickCard = {
@@ -124,39 +122,15 @@ export async function HomeQuickStart() {
     }
   }
 
-  let aiCard: QuickCard = {
-    label: en ? "AI trading status" : "AI当前是否准备交易",
-    title: en ? "No confirmed entry yet" : "暂未确认入场",
-    body: en ? "The system will keep watching instead of forcing an order." : "系统继续观察，不会为了有单而强行下单。",
+  const aiCard: QuickCard = {
+    label: en ? "AI execution check" : "AI执行确认",
+    title: en ? "Use reconciled positions only" : "只认真仓与保护单",
+    body: en
+      ? "Open the desk for the latest reconciled status. Missing quotes or an unavailable server always means wait."
+      : "进入交易台看最新对账状态；行情为空或服务器待检查时一律视为等待，不把计划账本冒充真实持仓。",
     href: "/member/ai-trading",
-    badge: en ? "Watching" : "观察中",
+    badge: en ? "No forced trades" : "不强制下单",
   };
-
-  if (aiResult.status === "fulfilled") {
-    const priority = ["OPEN", "PARTIALLY_FILLED", "ORDER_SUBMITTED", "ARMED", "WATCHING", "PUBLISHED"];
-    const plan = aiResult.value.plans
-      .filter((item) => priority.includes(item.status))
-      .sort((a, b) => priority.indexOf(a.status) - priority.indexOf(b.status))[0];
-    if (plan) {
-      const statusMap: Record<string, [string, string]> = {
-        OPEN: ["持仓中", "Open"],
-        PARTIALLY_FILLED: ["部分成交", "Partially filled"],
-        ORDER_SUBMITTED: ["已提交订单", "Order submitted"],
-        ARMED: ["条件接近", "Armed"],
-        WATCHING: ["等待确认", "Watching"],
-        PUBLISHED: ["计划已发布", "Published"],
-      };
-      aiCard = {
-        label: en ? "AI trading status" : "AI当前是否准备交易",
-        title: `${plan.symbol} · ${plan.direction === "LONG" ? (en ? "Long" : "做多") : plan.direction === "SHORT" ? (en ? "Short" : "做空") : (en ? "Wait" : "观望")}`,
-        body: en
-          ? safeEnglish(firstText([plan.thesisSummary, plan.triggerRule], "Open the Strategy Desk for entry, stop and targets."), "Open the Strategy Desk for entry, stop and targets.")
-          : firstText([plan.thesisSummary, plan.triggerRule], "进入交易台查看入场、止损和止盈条件。"),
-        href: "/member/ai-trading",
-        badge: statusMap[plan.status]?.[en ? 1 : 0] ?? plan.status,
-      };
-    }
-  }
 
   return (
     <section className="border-t border-border/[0.06] py-8">

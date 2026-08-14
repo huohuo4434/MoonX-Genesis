@@ -5,7 +5,6 @@ import { HomeRecentVerification } from "@/components/home/HomeRecentVerification
 import { HomeTomorrowSection } from "@/components/home/HomeTomorrowSection";
 import { HomeFeaturedAssets } from "@/components/home/HomeFeaturedAssets";
 import { HomePricingEntry } from "@/components/home/HomePricingEntry";
-import { HomeValueOverview } from "@/components/home/HomeValueOverview";
 import { HomeMembershipComparison } from "@/components/home/HomeMembershipComparison";
 import { HomeQuickStart } from "@/components/home/HomeQuickStart";
 import { HeroSection } from "@/components/sections";
@@ -36,12 +35,11 @@ export default async function HomePage() {
     <main className="mx-auto w-full max-w-[1200px]">
       <HeroSection />
       <HomeQuickStart />
-      <HomeValueOverview />
-      <HomeMembershipComparison />
       <HomeTodaySection />
       <HomeTomorrowSection />
-      <HomeRecentVerification />
       <HomeFeaturedAssets />
+      <HomeRecentVerification />
+      <HomeMembershipComparison />
       <HomePricingEntry />
     </main>
   );

@@ -30,6 +30,22 @@ export function Navbar({
 
   const label = (link: NavItem) =>
     locale === "zh-CN" ? link.labelZh : (link.labelEn ?? t(link.key));
+  const mobilePrimaryNav = primaryNav;
+  const mobileMemberNav = memberNav.filter((link) => !primaryNav.some((candidate) => candidate.href === link.href));
+  const mobileMoreNav = moreNav.filter(
+    (link) => !primaryNav.some((candidate) => candidate.href === link.href) && !memberNav.some((candidate) => candidate.href === link.href)
+  );
+  const mobileLinks = (links: NavItem[]) => links.map((link) => (
+    <Link
+      key={link.key}
+      href={href(link.href)}
+      prefetch={false}
+      onClick={() => setIsMenuOpen(false)}
+      className="rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
+    >
+      {label(link)}
+    </Link>
+  ));
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/[0.08] bg-background/90 backdrop-blur-md">
@@ -107,19 +123,29 @@ export function Navbar({
       {isMenuOpen && (
         <div id="mobile-nav" className="border-t border-border/[0.08] bg-background xl:hidden">
           <Container size="full" className="px-4 sm:px-5">
-            <nav aria-label="Mobile" className="grid grid-cols-2 gap-1 py-4 sm:grid-cols-3">
-              {[...primaryNav, ...memberNav, ...moreNav].map((link) => (
-                <Link
-                  key={link.key}
-                  href={href(link.href)}
-                  prefetch={false}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
-                >
-                  {label(link)}
-                </Link>
-              ))}
-            </nav>
+            <div className="space-y-4 py-4">
+              <nav aria-label="Mobile" className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+                {mobileLinks(mobilePrimaryNav)}
+              </nav>
+              {mobileMemberNav.length ? (
+                <div className="border-t border-border/[0.08] pt-4">
+                  <p className="px-3 text-caption font-semibold uppercase tracking-[0.16em] text-violet-200/70">
+                    {locale === "zh-CN" ? "会员工具" : "Member tools"}
+                  </p>
+                  <nav aria-label={locale === "zh-CN" ? "会员工具" : "Member tools"} className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
+                    {mobileLinks(mobileMemberNav)}
+                  </nav>
+                </div>
+              ) : null}
+              <div className="border-t border-border/[0.08] pt-4">
+                <p className="px-3 text-caption font-semibold uppercase tracking-[0.16em] text-foreground-tertiary">
+                  {locale === "zh-CN" ? "帮助与账户" : "Help and account"}
+                </p>
+                <nav aria-label={locale === "zh-CN" ? "帮助与账户" : "Help and account"} className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
+                  {mobileLinks(mobileMoreNav)}
+                </nav>
+              </div>
+            </div>
             <div className="flex flex-col gap-4 border-t border-border/[0.08] py-4">
               <MobileLanguageSwitcher />
               <div className="flex flex-col gap-2 px-0">

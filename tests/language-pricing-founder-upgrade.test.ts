@@ -81,7 +81,6 @@ test("a renewal submitted before expiry stays eligible during automatic verifica
 test("core public conversion and account entry pages contain English copy", () => {
   const files = [
     "components/sections/HeroSection.tsx",
-    "components/home/HomeValueOverview.tsx",
     "components/home/HomeMembershipComparison.tsx",
     "components/home/HomePricingEntryClient.tsx",
     "components/payments/PricingPageContent.tsx",

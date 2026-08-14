@@ -20,6 +20,8 @@ export const NAV_ROUTES = {
   alphaFeed: "/member/alpha-feed",
   earlyAltcoinRadar: "/member/early-altcoin-radar",
   aiTradingDesk: "/member/ai-trading",
+  technicalMethods: "/member/technical-methods",
+  founderCycle: "/member/founder-cycle",
   weeklyAnalysis: "/member/weekly",
   monthlyAnalysis: "/member/monthly",
   featuredStocks: "/featured-stocks",
@@ -71,19 +73,16 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 export const PUBLIC_MORE_NAV: NavItem[] = [
   { key: "nav.guide", href: NAV_ROUTES.guide, labelZh: "新手指南" },
   { key: "nav.methodology", href: NAV_ROUTES.methodology, labelZh: "方法论" },
-  { key: "nav.tradingSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号" },
-  { key: "nav.alphaFeed", href: NAV_ROUTES.alphaFeed, labelZh: "山寨币雷达" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格" },
   { key: "nav.support", href: NAV_ROUTES.support, labelZh: "客服与帮助" },
 ];
 
 /** Member-only research products. Render only after SSR membership check. */
 export const MEMBER_RESEARCH_NAV: NavItem[] = [
-  { key: "memberNav.weeklyAlpha", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周精选5", labelEn: "Weekly Alpha 5" },
-  { key: "memberNav.altcoinRadar", href: NAV_ROUTES.alphaFeed, labelZh: "市场热点追踪", labelEn: "Market Hotspots" },
   { key: "memberNav.earlyAltcoinRadar", href: NAV_ROUTES.earlyAltcoinRadar, labelZh: "早期山寨币雷达", labelEn: "Early Altcoin Radar" },
   { key: "memberNav.tradeSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号", labelEn: "AI Trade Signals" },
-  { key: "memberNav.dossiers", href: NAV_ROUTES.featuredStocks, labelZh: "重点研究档案", labelEn: "Research Dossiers" },
+  { key: "memberNav.technicalMethods", href: NAV_ROUTES.technicalMethods, labelZh: "缠论执行台", labelEn: "Chan Execution Console" },
+  { key: "memberNav.founderCycle", href: NAV_ROUTES.founderCycle, labelZh: "创始人周期", labelEn: "Founder Cycles" },
 ];
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [

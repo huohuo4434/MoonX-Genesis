@@ -96,7 +96,42 @@ export function AccountPageClient({
     <main>
       <Section spacing="lg">
         <Heading as="h1" size="h2">{en ? "My account" : "我的账户"}</Heading>
-        <Card padding="lg" className="mt-6 max-w-lg">
+        {isActiveMember || isAdmin ? (
+          <section className="mt-6">
+            <Text variant="caption" className="uppercase tracking-[0.18em] text-primary">
+              {en ? "Member essentials" : "会员最重要的四个入口"}
+            </Text>
+            <Heading as="h2" size="h3" className="mt-2">
+              {en ? "Direction first, execution second" : "先看方向，再看能不能执行"}
+            </Heading>
+            <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl">
+              {en
+                ? "Weekly sets the stage, Next Session shows the upcoming path, the AI Desk verifies real execution state, and the Chan Console explains structure and levels."
+                : "周度判断所处阶段，下一交易日给出即将运行的路径，AI交易台核对真实执行状态，缠论执行台解释结构和关键位置。"}
+            </Text>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { href: "/member/weekly", zh: "本周精选5", en: "Weekly Alpha 5", zhBody: "本周先看什么、处在哪个阶段。", enBody: "What matters this week and the current stage." },
+                { href: "/member/tomorrow", zh: "下一交易日", en: "Next Session", zhBody: "提前看方向、运行路径与风险窗口。", enBody: "Direction, path and risk window before the session." },
+                { href: "/member/ai-trading", zh: "AI执行确认", en: "AI Execution", zhBody: "只认真实持仓、保护单与有效点位；无数据就是等待。", enBody: "Reconciled positions, protection and valid levels only." },
+                { href: "/member/technical-methods", zh: "缠论执行台", en: "Chan Console", zhBody: "看结构是否完成，以及二买、三买和失效位。", enBody: "Structure completion, entries and invalidation." },
+              ].map((item) => (
+                <Link key={item.href} href={item.href} className="group">
+                  <Card padding="lg" className="h-full transition-colors group-hover:border-primary/30 group-hover:bg-primary/[0.02]">
+                    <Text variant="body" weight="semibold">{en ? item.en : item.zh}</Text>
+                    <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? item.enBody : item.zhBody}</Text>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <details className="mt-6 max-w-2xl rounded-xl border border-border/[0.1] p-4" open={!isActiveMember && !isAdmin}>
+          <summary className="cursor-pointer text-body font-semibold text-foreground">
+            {en ? "Account and membership details" : "账户与会员信息"}
+          </summary>
+        <Card padding="lg" className="mt-4">
           <Text variant="body-sm" color="secondary">{en ? "Email" : "登录邮箱"}：{email}</Text>
           <Text variant="body-sm" color="secondary" className="mt-2">{en ? "User ID" : "用户 ID"}：{userId}</Text>
           <Text variant="body-sm" color="secondary" className="mt-2">{en ? "Membership status" : "会员状态"}：{memberStatus}</Text>
@@ -129,12 +164,7 @@ export function AccountPageClient({
             {isAdmin ? (
               <Button asChild size="sm"><Link href="/admin">{en ? "Open admin" : "进入管理后台"}</Link></Button>
             ) : isActiveMember ? (
-              <>
-                <Button asChild size="sm"><Link href="/member/tomorrow">{en ? "Next-session forecast" : "查看明日预测"}</Link></Button>
-                <Button asChild size="sm" variant="outline"><Link href="/member/weekly">{en ? "Weekly Alpha 5" : "本周精选5"}</Link></Button>
-                <Button asChild size="sm" variant="outline"><Link href="/member/btc-eth-cycle">BTC / ETH {en ? "cycle" : "周期"}</Link></Button>
-                <Button asChild size="sm" variant="outline"><Link href="/member/founder-cycle">{en ? "Founder cycles" : "创始人周期"}</Link></Button>
-              </>
+              <Button asChild size="sm"><Link href="/member/weekly">{en ? "Open member home" : "进入会员核心周报"}</Link></Button>
             ) : (
               <Button asChild size="sm"><Link href="/pricing">{en ? "Buy membership" : "购买会员"}</Link></Button>
             )}
@@ -144,6 +174,26 @@ export function AccountPageClient({
           </div>
           <Text variant="caption" color="tertiary" className="mt-4 block">{en ? "Support" : "客服"}：{supportEmail}</Text>
         </Card>
+        </details>
+
+        {isActiveMember || isAdmin ? (
+          <details className="mt-5 max-w-3xl rounded-xl border border-border/[0.1] p-4">
+            <summary className="cursor-pointer text-body font-semibold text-foreground">
+              {en ? "More specialist research" : "更多专项研究（需要时再看）"}
+            </summary>
+            <Text variant="body-sm" color="secondary" className="mt-3 block">
+              {en ? "These tools support specific questions. They are not required for the daily reading flow." : "这些工具用于回答专项问题，不是每天必须逐页查看的主流程。"}
+            </Text>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button asChild size="sm" variant="outline"><Link href="/member/monthly">{en ? "Monthly outlook" : "月度走势"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/featured-stocks">{en ? "Focused assets" : "重点关注"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/member/early-altcoin-radar">{en ? "Early altcoin radar" : "早期山寨币雷达"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/member/signals">{en ? "AI trade signals" : "AI交易信号"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/member/btc-eth-cycle">BTC / ETH {en ? "cycle" : "周期"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/member/founder-cycle">{en ? "Founder cycles" : "创始人周期"}</Link></Button>
+            </div>
+          </details>
+        ) : null}
 
         <AccountSecurityPanel memberEligible={isActiveMember || isAdmin} />
         <AccountReferralPanel />
