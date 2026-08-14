@@ -723,3 +723,10 @@ test("registered general X sources remain outside the trading overlay", () => {
   all(parser, ['input.source === "GENERAL_X_RESEARCH"', 'sourceRelevant: input.source !== "GENERAL_X_RESEARCH"']);
   assert.match(aggregation, /if \(source === "GENERAL_X_RESEARCH"\) return false/);
 });
+
+test("Chan member console remains research-only and disconnected from order execution", () => {
+  const decision = read("lib/trading-signals/chan-execution-decision-core.ts");
+  const page = read("app/member/technical-methods/page.tsx");
+  all(decision, ['executionAuthority: "RESEARCH_ONLY"', "tradingEligible: false", 'action: "WAIT"']);
+  assert.doesNotMatch(`${decision}\n${page}`, /submitOrder|executeReadyDecision|placeOrder|paptrading/);
+});
