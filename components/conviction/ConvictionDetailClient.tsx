@@ -5,6 +5,7 @@ import { useState } from "react";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
+import { FocusDossierPanel } from "@/components/conviction/FocusDossierPanel";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { dailyPathTemporalStatus, prioritizeDailyPath } from "@/lib/data/conviction/freshness";
@@ -528,6 +529,10 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             最近更新：{formatDateChina(a.researchUpdatedAt)}
           </p>
         </div>
+
+        {payload.mode === "fullAccess" && payload.focusDossier ? (
+          <FocusDossierPanel dossier={payload.focusDossier} />
+        ) : null}
 
         <section className="space-y-3">
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">基本面介绍</h2>

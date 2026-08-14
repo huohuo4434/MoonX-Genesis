@@ -122,6 +122,8 @@ import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-
 import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
+import { buildFocusDossier, buildMemberFocusDossier } from "@/lib/data/conviction/focus-dossier-core";
+import type { FocusDossierView } from "@/types/focus-dossier";
 import type {
   MemberStockDailyMemberView,
   MemberStockVerificationResult,
@@ -200,6 +202,8 @@ export type ConvictionDetailPayload = {
   freshness: ForecastFreshnessSummary;
   /** Member/admin only: current-week multi-horizon metaphysical resonance. */
   resonanceSignal: WatchlistResonanceSignal | null;
+  /** Uniform member-only weekly dossier. Never serialized to public-only clients. */
+  focusDossier: FocusDossierView | null;
   /** Only present when fullAccess — never sent to unauthorized clients via API. */
   forecast: null | {
     today: MemberStockDailyMemberView | null;
@@ -283,6 +287,16 @@ function staticPublished(assetId: StaticPeriodAssetId) {
     return listVibeFocusPeriodForecasts(assetId);
   }
   return listMuHypePeriodForecasts(assetId);
+}
+
+export function listStaticFocusEvidence(): Array<{
+  assetId: string;
+  forecasts: ConvictionPeriodForecast[];
+}> {
+  return [...STATIC_PERIOD_ASSET_IDS].map((assetId) => ({
+    assetId,
+    forecasts: staticPublished(assetId),
+  }));
 }
 
 function fullOrder(assetId: StaticPeriodAssetId) {
@@ -485,7 +499,8 @@ export async function getConvictionDetailPayload(
   noStore();
   const asset = await getConvictionAssetBySlug(slug);
   if (!asset) return null;
-  const asOfDate = getChinaDateKey(new Date());
+  const capturedNow = new Date();
+  const asOfDate = getChinaDateKey(capturedNow);
   const resonanceSignal = buildWatchlistResonanceRanking(asOfDate).find((item) => item.slug === slug) ?? null;
   const access = await getAccessUser();
   const membershipAllows = hasConvictionFullAccess(access);
@@ -528,6 +543,7 @@ export async function getConvictionDetailPayload(
         asOfDate
       ),
       resonanceSignal: null,
+      focusDossier: null,
       forecast: null,
     };
   }
@@ -549,6 +565,12 @@ export async function getConvictionDetailPayload(
       asOfDate,
       freshness: summarizeForecastFreshness(periods.map((slot) => slot.freshnessStatus), asOfDate),
       resonanceSignal,
+      focusDossier: buildFocusDossier({
+        assetId: staticPeriodAsset,
+        forecasts: staticPublished(staticPeriodAsset),
+        asOfDate,
+        nowMs: capturedNow.getTime(),
+      }),
       forecast: {
         today: null,
         tomorrow: null,
@@ -576,6 +598,7 @@ export async function getConvictionDetailPayload(
       asOfDate,
       freshness: summarizeForecastFreshness([], asOfDate),
       resonanceSignal,
+      focusDossier: buildFocusDossier({ assetId: asset.id, forecasts: [], asOfDate, nowMs: capturedNow.getTime() }),
       forecast: {
         today: null,
         tomorrow: null,
@@ -636,6 +659,13 @@ export async function getConvictionDetailPayload(
       asOfDate
     ),
     resonanceSignal,
+    focusDossier: buildMemberFocusDossier({
+      assetId: asset.id,
+      asOfDate,
+      nowMs: capturedNow.getTime(),
+      weekly,
+      daily: [today, tomorrow],
+    }),
     forecast: {
       today: today ? toDailyMemberView(today) : null,
       tomorrow: tomorrow ? toDailyMemberView(tomorrow) : null,
