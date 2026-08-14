@@ -11,6 +11,9 @@ export type DailyMarketBar = {
   low: number;
   close: number;
   volume?: number;
+  /** Compatibility-only row synthesized from provider metadata, never realized-path evidence. */
+  synthetic?: boolean;
+  provenance?: "YAHOO_META_PREVIOUS_CLOSE";
 };
 
 export type DailyMarketResult = {
@@ -89,6 +92,8 @@ function parseYahooChart(json: unknown, timeZone = "UTC"): DailyMarketBar[] {
         high: prevClose,
         low: prevClose,
         close: prevClose,
+        synthetic: true,
+        provenance: "YAHOO_META_PREVIOUS_CLOSE",
       });
     }
   }

@@ -5,13 +5,15 @@
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { getCurrentSessionDate, getNextForecastDate } from "@/lib/calendar/next-trading-day";
 import { buildLockedLevelsForAsset, validatePublishedPriceLevels } from "@/lib/market-data/price-levels";
-import { generateDailyFromWeekly, marketMeta, reviseAsNewVersion } from "@/lib/forecasts/weekly-to-daily";
-import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
+import { generateDailyFromWeekly, marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import {
-  ensureCanonicalWeeklySourcesInDb,
-  getWeeklySourceForMarketDate,
-  upsertGeneratedDaily,
-} from "@/lib/weekly-source/store";
+  buildClosedMarketProgressSnapshot,
+  dailyTechnicalInputPolicy,
+  decideDailyPipelineEvidenceGate,
+  persistDailyRevision,
+  withAuthoritativeDailyLatest,
+} from "@/lib/forecasts/daily-rolling-core";
+import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
@@ -20,8 +22,6 @@ import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guid
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
-import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
-import { syncGeneratedDailyForecastsToVerificationStore } from "@/lib/verification/sync-generated-dailies";
 import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
 import {
   applyXIntelligenceToGeneratedDaily,
@@ -82,7 +82,7 @@ function analysisAsWeeklySource(
     primaryHexagram: null,
     changedHexagram: null,
     movingLines: [],
-    specialPatterns: [],
+    specialPatterns: continuity ? ["CONTINUITY_LOW_CONFIDENCE_RESEARCH_ONLY"] : [],
     weeklyDirection: hit.overallDirection,
     weeklyPath: continuity
       ? `新周正式研究尚未生成，暂沿用最近周度背景：${hit.weeklyPath}`
@@ -96,9 +96,9 @@ function analysisAsWeeklySource(
     ].filter(Boolean).join("；"),
     sourceType: "WEEKLY_ANALYSIS",
     version: hit.version,
-    status: "LOCKED",
+    status: continuity ? "PUBLISHED" : "LOCKED",
     publishedAt: hit.publishedAt,
-    lockedAt: hit.publishedAt,
+    lockedAt: continuity ? null : hit.publishedAt,
     createdAt: hit.publishedAt,
     updatedAt: hit.updatedAt,
   };
@@ -196,6 +196,7 @@ async function resolveWeekly(
   marketCode: string,
   forecastDate: string
 ): Promise<WeeklyForecastSourceRecord | null> {
+  const { getWeeklySourceForMarketDate } = await import("@/lib/weekly-source/store");
   const normalized = marketCode.toUpperCase();
   // BTC/ETH use the current locked research files first. This avoids stale database
   // rows and keeps the auto trader aligned with the user's latest weekly hexagrams.
@@ -226,10 +227,25 @@ function emptySnapshot(): MarketSnapshot {
   };
 }
 
-/** Best-effort quote pull — never fabricates levels when unavailable. */
-async function loadSnapshot(): Promise<MarketSnapshot> {
-  // Live quote wiring is optional; revision rules still apply when snapshot fields are present.
-  return emptySnapshot();
+/** Only bars strictly before the forecast date are treated as closed evidence. */
+async function loadSnapshot(
+  marketCode: string,
+  forecastDate: string,
+  weekly: WeeklyForecastSourceRecord
+): Promise<MarketSnapshot | null> {
+  // Keep this server-only adapter out of the module's pure export import graph.
+  const { fetchRecentDailyBarsForForecast } = await import("@/lib/market-data/daily-prices");
+  const meta = marketMeta(marketCode);
+  const bars = await fetchRecentDailyBarsForForecast({
+    quoteSymbol: meta.quoteSymbol,
+    market: verificationMarket(meta.legacyMarket),
+    asOfDate: forecastDate,
+  });
+  return buildClosedMarketProgressSnapshot({
+    bars,
+    forecastDate,
+    weeklyPeriodStart: weekly.periodStart,
+  });
 }
 
 
@@ -324,6 +340,12 @@ export async function runDailyForecastPipeline(input?: {
   markets?: readonly string[];
   technicalAttempts?: number;
 }): Promise<PipelineReport> {
+  const {
+    ensureCanonicalWeeklySourcesInDb,
+    getLatestGeneratedDailyForMarketDate,
+    upsertGeneratedDaily,
+  } = await import("@/lib/weekly-source/store");
+  const { getXIntelligenceSnapshot } = await import("@/lib/trading-signals/x-intelligence-summary");
   const now = input?.now ?? new Date();
   const phase = input?.forcePhase ?? resolvePipelinePhase();
   const beijingDate = getBeijingTodayKey(now);
@@ -363,9 +385,40 @@ export async function runDailyForecastPipeline(input?: {
           report.skipped.push(`${market}:${target}:no-weekly-source`);
           continue;
         }
+        const weeklyGate = decideDailyPipelineEvidenceGate({
+          hasLatest: false,
+          weeklySpecialPatterns: weekly.specialPatterns,
+        });
+        if (weeklyGate.action === "SKIP_RESEARCH_ONLY") {
+          report.skipped.push(`${market}:${target}:${weeklyGate.reason}`);
+          continue;
+        }
 
-        const snapshot =
-          phase === "revise" || phase === "lock" ? await loadSnapshot() : emptySnapshot();
+        await withAuthoritativeDailyLatest({
+          loadLatest: () => getLatestGeneratedDailyForMarketDate(market, target),
+          runAfterAuthority: async (latest) => {
+        let snapshot: MarketSnapshot | null = null;
+        try {
+          snapshot = phase === "revise" || phase === "lock"
+            ? await loadSnapshot(market, target, weekly)
+            : null;
+        } catch (error) {
+          report.warnings.push({
+            market,
+            date: target,
+            error: `market-progress:${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+        const evidenceGate = decideDailyPipelineEvidenceGate({
+          hasLatest: Boolean(latest),
+          marketProgressAvailable: Boolean(snapshot),
+          xSnapshotAvailable: Boolean(xIntelligence),
+        });
+        if (latest && evidenceGate.action === "PRESERVE_LATEST") {
+          report.records.push(latest);
+          report.skipped.push(`${market}:${target}:${evidenceGate.reason}`);
+          return;
+        }
 
         let status: GeneratedDailyForecastRecord["status"] = "DRAFT";
         if (phase === "lock") status = "LOCKED";
@@ -373,27 +426,22 @@ export async function runDailyForecastPipeline(input?: {
         let record = generateDailyFromWeekly({
           weekly,
           forecastDate: target,
-          version: 1,
+          version: latest ? latest.version + 1 : 1,
           status,
-          snapshot,
+          snapshot: snapshot ?? emptySnapshot(),
+          previousVersionId: latest?.id ?? null,
         });
-
         const xSummary = findXIntelligenceSummaryForMarket(
           xIntelligence?.aggregate.summaries ?? [],
           market
         );
         const xOverlay = buildXIntelligenceAutoWeight(xSummary);
         record = applyXIntelligenceToGeneratedDaily(record, xOverlay);
-
-        if (phase === "revise" && record.marketProgressStatus === "INVALIDATED") {
-          record = reviseAsNewVersion(record, weekly, snapshot);
-        }
-
-        // Technical levels are best-effort. Direction/path must still publish when the
-        // market-data provider is temporarily unavailable; empty level fields are hidden
-        // by the UI and may later be filled by the automatic retry or admin override.
+        // Initial publication may state that technical levels are unavailable. Once a
+        // locked version exists, a provider failure preserves that complete version;
+        // new path text must never be combined with stale levels from another version.
         // The legacy crypto level builder is BTC-specific, so ETH must not reuse BTC prices.
-        if (market === "ETH") {
+        if (dailyTechnicalInputPolicy(market) === "ETH_NO_BTC_LEVEL_REUSE") {
           record = {
             ...record,
             resistanceLevels: [],
@@ -427,6 +475,15 @@ export async function runDailyForecastPipeline(input?: {
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             report.warnings.push({ market, date: target, error: message });
+            const technicalGate = decideDailyPipelineEvidenceGate({
+              hasLatest: Boolean(latest),
+              technicalReadFailed: true,
+            });
+            if (latest && technicalGate.action === "PRESERVE_LATEST") {
+              report.records.push(latest);
+              report.skipped.push(`${market}:${target}:${technicalGate.reason}`);
+              return;
+            }
             record = {
               ...record,
               supportLevels: [],
@@ -447,7 +504,7 @@ export async function runDailyForecastPipeline(input?: {
               error: `publication-quality-gate:${quality.issues.map((issue) => `${issue.code}:${issue.message}`).join(" | ")}`,
             });
             report.skipped.push(`${market}:${target}:publication-quality-gate`);
-            continue;
+            return;
           }
           record = {
             ...record,
@@ -457,9 +514,21 @@ export async function runDailyForecastPipeline(input?: {
           };
         }
 
-        const saved = await upsertGeneratedDaily(record);
+        const saved = await persistDailyRevision({
+          latest,
+          candidate: record,
+          verifiedMarketProgress: Boolean(snapshot),
+          persist: upsertGeneratedDaily,
+        });
+        if (latest && !saved.decision.shouldCreate) {
+          report.records.push(saved.record);
+          report.skipped.push(`${market}:${target}:unchanged`);
+          return;
+        }
         report.records.push(saved.record);
-        report.upserted.push(saved.record.id);
+        if (saved.created) report.upserted.push(saved.record.id);
+          },
+        });
       } catch (err) {
         report.errors.push({
           market,
@@ -478,6 +547,7 @@ export async function runDailyForecastPipeline(input?: {
   // retry without blocking publication.
   if (phase === "lock" && report.upserted.length > 0) {
     try {
+      const { syncGeneratedDailyForecastsToVerificationStore } = await import("@/lib/verification/sync-generated-dailies");
       const sync = await syncGeneratedDailyForecastsToVerificationStore({ now });
       if (sync.errors.length > 0) {
         report.warnings.push({

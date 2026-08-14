@@ -3,6 +3,7 @@
  * Curated canonical six are always available; Prisma upsert is best-effort.
  */
 import { prisma, hasPrisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { ensureGeneratedForecastSourceSchema } from "@/lib/weekly-source/generated-source-schema";
 import {
   CANONICAL_WEEKLY_LIUYAO_SOURCES,
@@ -54,6 +55,44 @@ function mapWeeklyRow(row: {
     lockedAt: row.lockedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function mapGeneratedRow(
+  row: Prisma.GeneratedDailyForecastGetPayload<Record<string, never>>
+): GeneratedDailyForecastRecord {
+  return {
+    id: row.id,
+    marketCode: row.marketCode,
+    forecastDate: row.forecastDate,
+    sourceWeeklyForecastId: row.sourceWeeklyForecastId,
+    direction: row.direction,
+    upProbability: row.upProbability,
+    sidewaysProbability: row.sidewaysProbability,
+    downProbability: row.downProbability,
+    expectedPath: row.expectedPath,
+    supportLevels: Array.isArray(row.supportLevels) ? row.supportLevels as string[] : [],
+    resistanceLevels: Array.isArray(row.resistanceLevels) ? row.resistanceLevels as string[] : [],
+    confirmationLevel: row.confirmationLevel,
+    invalidationLevel: row.invalidationLevel,
+    riskLevel: row.riskLevel,
+    catalysts: Array.isArray(row.catalysts) ? row.catalysts as string[] : [],
+    risks: Array.isArray(row.risks) ? row.risks as string[] : [],
+    liuyaoEvidence: row.liuyaoEvidence,
+    qimenEvidence: row.qimenEvidence,
+    calendarEvidence: (row.calendarEvidence as GeneratedDailyForecastRecord["calendarEvidence"]) ?? null,
+    technicalEvidence: row.technicalEvidence,
+    newsEvidence: row.newsEvidence,
+    marketProgressStatus: row.marketProgressStatus as GeneratedDailyForecastRecord["marketProgressStatus"],
+    revisionReason: row.revisionReason,
+    previousVersionId: row.previousVersionId,
+    version: row.version,
+    status: row.status as GeneratedDailyForecastRecord["status"],
+    generatedAt: row.generatedAt.toISOString(),
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    lockedAt: row.lockedAt?.toISOString() ?? null,
+    validatedAt: row.validatedAt?.toISOString() ?? null,
+    validationStatus: row.validationStatus,
   };
 }
 
@@ -154,16 +193,37 @@ export async function getWeeklySourceForMarketDate(
   return findCanonicalWeeklySource(code, forecastDate);
 }
 
+export async function getLatestGeneratedDailyForMarketDate(
+  marketCode: string,
+  forecastDate: string
+): Promise<GeneratedDailyForecastRecord | null> {
+  if (!hasPrisma() || !prisma) {
+    throw new Error("generated-daily-authoritative-store-unavailable");
+  }
+  const schema = await ensureGeneratedForecastSourceSchema();
+  if (!schema.ready) {
+    throw new Error(`generated-daily-authoritative-schema-unavailable:${schema.error ?? "unknown"}`);
+  }
+  const row = await prisma.generatedDailyForecast.findFirst({
+    where: {
+      marketCode: marketCode.toUpperCase(),
+      forecastDate,
+      status: { in: ["LOCKED", "PUBLISHED"] },
+    },
+    orderBy: [{ version: "desc" }, { generatedAt: "desc" }, { id: "desc" }],
+  });
+  return row ? mapGeneratedRow(row) : null;
+}
+
 export async function upsertGeneratedDaily(
   record: GeneratedDailyForecastRecord
 ): Promise<{ created: boolean; record: GeneratedDailyForecastRecord }> {
   if (!hasPrisma() || !prisma) {
-    return { created: true, record };
+    throw new Error("generated-daily-authoritative-store-unavailable");
   }
   const schema = await ensureGeneratedForecastSourceSchema();
   if (!schema.ready) {
-    console.warn("[weekly-source] GeneratedDailyForecast schema unavailable; generated record remains runtime-only", schema.error);
-    return { created: true, record };
+    throw new Error(`generated-daily-authoritative-schema-unavailable:${schema.error ?? "unknown"}`);
   }
   try {
     const existing = await prisma.generatedDailyForecast.findUnique({
@@ -177,16 +237,7 @@ export async function upsertGeneratedDaily(
     });
     if (existing && (existing.status === "LOCKED" || existing.status === "PUBLISHED")) {
       // Never overwrite locked / published content in place
-      return {
-        created: false,
-        record: {
-          ...record,
-          id: existing.id,
-          status: existing.status as GeneratedDailyForecastRecord["status"],
-          publishedAt: existing.publishedAt?.toISOString() ?? record.publishedAt,
-          lockedAt: existing.lockedAt?.toISOString() ?? record.lockedAt,
-        },
-      };
+      return { created: false, record: mapGeneratedRow(existing) };
     }
     if (existing && existing.status === "DRAFT") {
       await prisma.generatedDailyForecast.update({
@@ -254,8 +305,20 @@ export async function upsertGeneratedDaily(
     });
     return { created: true, record };
   } catch (err) {
+    if ((err as { code?: string } | null)?.code === "P2002" && prisma) {
+      const winner = await prisma.generatedDailyForecast.findUnique({
+        where: {
+          marketCode_forecastDate_version: {
+            marketCode: record.marketCode,
+            forecastDate: record.forecastDate,
+            version: record.version,
+          },
+        },
+      }).catch(() => null);
+      if (winner) return { created: false, record: mapGeneratedRow(winner) };
+    }
     console.error("[weekly-source] upsertGeneratedDaily failed", err);
-    return { created: false, record };
+    throw err;
   }
 }
 
@@ -285,39 +348,7 @@ export async function listGeneratedDailiesForDate(
     for (const r of rows) {
       if (!byMarket.has(r.marketCode)) byMarket.set(r.marketCode, r);
     }
-    return [...byMarket.values()].map((r) => ({
-      id: r.id,
-      marketCode: r.marketCode,
-      forecastDate: r.forecastDate,
-      sourceWeeklyForecastId: r.sourceWeeklyForecastId,
-      direction: r.direction,
-      upProbability: r.upProbability,
-      sidewaysProbability: r.sidewaysProbability,
-      downProbability: r.downProbability,
-      expectedPath: r.expectedPath,
-      supportLevels: Array.isArray(r.supportLevels) ? (r.supportLevels as string[]) : [],
-      resistanceLevels: Array.isArray(r.resistanceLevels) ? (r.resistanceLevels as string[]) : [],
-      confirmationLevel: r.confirmationLevel,
-      invalidationLevel: r.invalidationLevel,
-      riskLevel: r.riskLevel,
-      catalysts: Array.isArray(r.catalysts) ? (r.catalysts as string[]) : [],
-      risks: Array.isArray(r.risks) ? (r.risks as string[]) : [],
-      liuyaoEvidence: r.liuyaoEvidence,
-      qimenEvidence: r.qimenEvidence,
-      calendarEvidence: (r.calendarEvidence as GeneratedDailyForecastRecord["calendarEvidence"]) ?? null,
-      technicalEvidence: r.technicalEvidence,
-      newsEvidence: r.newsEvidence,
-      marketProgressStatus: r.marketProgressStatus as GeneratedDailyForecastRecord["marketProgressStatus"],
-      revisionReason: r.revisionReason,
-      previousVersionId: r.previousVersionId,
-      version: r.version,
-      status: r.status as GeneratedDailyForecastRecord["status"],
-      generatedAt: r.generatedAt.toISOString(),
-      publishedAt: r.publishedAt?.toISOString() ?? null,
-      lockedAt: r.lockedAt?.toISOString() ?? null,
-      validatedAt: r.validatedAt?.toISOString() ?? null,
-      validationStatus: r.validationStatus,
-    }));
+    return [...byMarket.values()].map(mapGeneratedRow);
   } catch {
     return [];
   }

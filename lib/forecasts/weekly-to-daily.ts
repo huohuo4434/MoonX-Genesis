@@ -139,7 +139,7 @@ export function generateDailyFromWeekly(input: {
     forecastDate,
   });
 
-  const direction = directionForDay(weekly, progress, moving.active);
+  let direction = directionForDay(weekly, progress, moving.active);
   let path = pathForDay(weekly, progress);
   let probs = baseProbabilities(direction);
   const calendarEvidence = buildCalendarEvidence(forecastDate, weekly.weeklyDirection);
@@ -177,8 +177,10 @@ export function generateDailyFromWeekly(input: {
     invalidationTriggered: input.invalidationTriggered,
   });
 
-  // Market progress is a technical/execution layer. It may revise path and scenario
-  // weights, but must never overwrite the metaphysical daily direction derived above.
+  // This is the public daily horizon, not the live execution authority. Verified
+  // completed path may revise today's label (for example, an early rally becoming
+  // consolidation/pullback) while the locked weekly source remains immutable.
+  direction = assessed.direction;
   path = assessed.expectedPath;
   probs = {
     up: assessed.upProbability,

@@ -12,9 +12,12 @@ test("会员AI交易台先开页面再异步读取快照", () => {
   const api = read("app/api/member/ai-trading-desk/route.ts");
   assert.match(page, /createMemberAiTradingDeskPlaceholder/);
   assert.doesNotMatch(page, /await getMemberAiTradingDeskSnapshot/);
-  assert.match(client, /void refresh\(\)/);
-  assert.match(client, /60_000/);
-  assert.match(client, /AbortController/);
+  assert.match(client, /startMemberDeskPolling/);
+  assert.match(client, /30_000/);
+  const polling = read("lib/member-ai-desk-polling-core.ts");
+  assert.match(polling, /AbortController/);
+  assert.match(polling, /refresh\(\);/);
+  assert.match(polling, /currentGeneration !== generation/);
   assert.match(api, /getCachedMemberAiTradingDeskSnapshot/);
   assert.match(api, /snapshot-only/);
 });

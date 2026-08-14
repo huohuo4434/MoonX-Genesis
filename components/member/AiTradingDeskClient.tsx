@@ -5,6 +5,7 @@ import { Badge, Card, Heading, Text } from "@/components/ui";
 import { AiTradeIntentBoard } from "@/components/trading/AiTradeIntentBoard";
 import { aiTradingAssetName } from "@/lib/trading-signals/ai-trading-focus";
 import { assetDisplaySymbol } from "@/lib/presentation/asset-catalog";
+import { memberDeskRefreshPresentation, startMemberDeskPolling } from "@/lib/member-ai-desk-polling-core";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import type { AiTradingDeskPosition, AiTradingDeskSnapshot, AiTradingDeskTrade } from "@/types/ai-trading-desk";
 
@@ -32,9 +33,10 @@ function time(value: string | null, en: boolean): string {
   }).format(date);
 }
 
-async function readSnapshot(): Promise<AiTradingDeskSnapshot> {
+async function readSnapshot(signal?: AbortSignal): Promise<AiTradingDeskSnapshot> {
   const response = await fetch("/api/member/ai-trading-desk", {
     cache: "no-store",
+    signal,
     headers: { Accept: "application/json" },
   });
   const json = (await response.json()) as AiTradingDeskSnapshot & { error?: string };
@@ -42,7 +44,8 @@ async function readSnapshot(): Promise<AiTradingDeskSnapshot> {
   return json;
 }
 
-function statusVariant(snapshot: AiTradingDeskSnapshot) {
+function statusVariant(snapshot: AiTradingDeskSnapshot, refreshFailed = false) {
+  if (refreshFailed) return "danger" as const;
   if (["LIVE_POSITION", "SIMULATION_POSITION", "WAITING_ENTRY"].includes(snapshot.operationalState)) return "success" as const;
   if (["CONNECTING", "DATA_DELAYED", "PLAN_ONLY"].includes(snapshot.operationalState)) return "warning" as const;
   if (snapshot.operationalState === "PAUSED") return "outline" as const;
@@ -54,6 +57,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const en = locale === "en";
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState("");
+  const refreshPresentation = memberDeskRefreshPresentation(error, en);
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
   const dailyRows = snapshot.experiment.dailyHistory ?? [];
   const todayTrades = dailyRows.length
@@ -73,15 +77,14 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   };
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void readSnapshot()
-        .then((next) => {
-          setSnapshot(next);
-          setError("");
-        })
-        .catch((reason) => setError(reason instanceof Error ? reason.message : "刷新失败"));
-    }, 30_000);
-    return () => window.clearInterval(timer);
+    return startMemberDeskPolling({
+      read: readSnapshot,
+      onSnapshot: (next) => { setSnapshot(next); setError(""); },
+      onError: (reason) => setError(reason instanceof Error ? reason.message : "刷新失败"),
+      intervalMs: 30_000,
+      setIntervalFn: window.setInterval.bind(window),
+      clearIntervalFn: window.clearInterval.bind(window),
+    });
   }, []);
 
   return (
@@ -101,7 +104,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             </Text>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusVariant(snapshot)}>{snapshot.operationalStateLabel}</Badge>
+            <Badge variant={statusVariant(snapshot, refreshPresentation.stale)}>
+              {refreshPresentation.statusLabel ?? snapshot.operationalStateLabel}
+            </Badge>
             <Badge variant="outline">{en ? "Daily target: ≥1 qualified activation" : "每日目标：≥1个合格激活机会"}</Badge>
           </div>
         </div>
@@ -123,7 +128,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">
             <span>{en ? "Latest market" : "最新行情"}：{time(snapshot.latestQuoteAt, en)}</span>
-            <span>{en ? "Server" : "服务器"}：{snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}</span>
+            <span className={refreshPresentation.stale ? "text-red-300" : ""}>
+              {en ? "Server" : "服务器"}：{refreshPresentation.serverLabel
+                ? refreshPresentation.serverLabel
+                : snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}
+            </span>
             <span className={snapshot.syncStatus === "ERROR" || error ? "text-red-300" : ""}>{error || snapshot.syncMessage}</span>
           </div>
         </div>
