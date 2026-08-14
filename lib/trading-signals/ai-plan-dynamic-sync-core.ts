@@ -5,6 +5,10 @@ const PERIODIC_AUDIT_REFRESH_MS = 5 * 60 * 1000;
 
 export type DynamicPlanAuditDecision = "NONE" | "CHECKPOINT" | "MATERIAL";
 
+export function shouldPersistPlanDecisionLink(status: ThreeHorizonDecisionStatus): boolean {
+  return ["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSING", "CLOSED", "ERROR"].includes(status);
+}
+
 export type PlanSnapshotCandidate = {
   id: string;
   sourceDecisionId: string | null;
@@ -118,6 +122,7 @@ export type StoredPlanDynamicAudit = {
 export type DecisionDynamicAudit = {
   id: string;
   planId: string | null;
+  status?: ThreeHorizonDecisionStatus;
   conditionsMet: number;
   conditionsTotal: number;
   clientOid: string | null;
@@ -158,7 +163,9 @@ export function classifyDynamicPlanAudit(input: {
   if (input.force) return "MATERIAL";
   if (current.status !== desiredStatus) return "MATERIAL";
   if (current.conditionsMet !== decision.conditionsMet || current.conditionsTotal !== decision.conditionsTotal) return "MATERIAL";
-  if (decision.planId !== current.id) return "MATERIAL";
+  // Pre-entry research decisions deliberately remain source-linked only. Only
+  // order lifecycle decisions must own a durable decision.plan_id binding.
+  if (shouldPersistPlanDecisionLink(decision.status ?? "OPEN") && decision.planId !== current.id) return "MATERIAL";
   // updateDynamicPlan uses COALESCE for remote identities: an absent value in
   // the decision never clears an already-audited identity.
   if (decision.clientOid != null && decision.clientOid !== current.clientOid) return "MATERIAL";

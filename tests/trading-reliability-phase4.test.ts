@@ -7,6 +7,7 @@ import {
   classifyDynamicPlanAudit,
   postPlanDecisionRequiresSync,
   selectAuthoritativePlanSnapshot,
+  shouldPersistPlanDecisionLink,
   shouldWriteDynamicPlanAudit,
   writeDynamicPlanAuditIfRequired,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
@@ -34,6 +35,23 @@ const client = read("lib/bitget/demo-client.ts");
 const liveExecutionCore = read("lib/bitget/live-execution-core.ts");
 const reliability = read("lib/trading-signals/trading-reliability.ts");
 const reliabilityTypes = read("types/trading-reliability.ts");
+
+test("post-gate blocks retain audit without becoming duplicate active-plan bindings", () => {
+  assert.equal(shouldPersistPlanDecisionLink("BLOCKED"), false);
+  assert.equal(shouldPersistPlanDecisionLink("ORDER_SUBMITTED"), true);
+  assert.equal(shouldPersistPlanDecisionLink("OPEN"), true);
+  assert.equal(shouldPersistPlanDecisionLink("PARTIAL"), true);
+  assert.equal(shouldPersistPlanDecisionLink("CLOSING"), true);
+  assert.equal(shouldPersistPlanDecisionLink("CLOSED"), true);
+
+  const plans = read("lib/trading-signals/ai-trade-plans.ts");
+  const updateBody = plans.slice(
+    plans.indexOf("async function updateDynamicPlan"),
+    plans.indexOf("async function batchCheckpointDynamicPlans")
+  );
+  assert.match(updateBody, /if \(options\.linkDecision \?\? shouldPersistPlanDecisionLink\(decision\.status\)\)/);
+  assert.match(updateBody, /eventType: "CONDITION_PROGRESS"[\s\S]*decisionId: decision\.id/);
+});
 
 test("live plan maintenance never substitutes a source-linked plan for an authoritative plan id", () => {
   const candidates = [

@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  classifyDynamicPlanAudit,
   requireDynamicPlanMaintenanceStore,
   requireAuthoritativePlanMaintenanceSnapshots,
   resolveDynamicPlanStatus,
   readAuthoritativePlanMaintenanceRows,
   runClassifiedPlanMaintenance,
   selectAuthoritativePlanSnapshot,
+  shouldPersistPlanDecisionLink,
 } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
@@ -21,6 +23,83 @@ const member = read("components/member/AiTradingDeskClient.tsx");
 const admin = read("components/admin/AiTradePlanAdminClient.tsx");
 const memberTypes = read("types/ai-trading-desk.ts");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
+
+test("pre-entry blocks stay audit-only while order lifecycle decisions own the plan link", () => {
+  for (const status of ["OBSERVING", "READY", "SHADOW_READY", "BLOCKED", "EXPIRED"] as const) {
+    assert.equal(shouldPersistPlanDecisionLink(status), false, `${status} must not create a durable plan binding`);
+  }
+  for (const status of ["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSING", "CLOSED", "ERROR"] as const) {
+    assert.equal(shouldPersistPlanDecisionLink(status), true, `${status} must preserve order lifecycle linkage`);
+  }
+
+  const auditEvents: Array<{ decisionId: string; status: string; rejection: string }> = [];
+  const linkedDecisions = new Map<string, string>();
+  const persistAudit = (decision: { id: string; status: "BLOCKED" | "OPEN"; rejectionReason: string }) => {
+    auditEvents.push({
+      decisionId: decision.id,
+      status: decision.status,
+      rejection: decision.rejectionReason,
+    });
+    if (shouldPersistPlanDecisionLink(decision.status)) linkedDecisions.set(decision.id, "plan-1");
+  };
+
+  persistAudit({ id: "lead-time-block", status: "BLOCKED", rejectionReason: "PLAN_LEAD_TIME" });
+  assert.deepEqual(auditEvents, [{
+    decisionId: "lead-time-block",
+    status: "BLOCKED",
+    rejection: "PLAN_LEAD_TIME",
+  }], "the post-gate block remains auditable in the same turn");
+  assert.equal(linkedDecisions.size, 0, "the audit-only block must not become a second maintenance binding");
+
+  persistAudit({ id: "confirmed-open", status: "OPEN", rejectionReason: "" });
+  assert.deepEqual([...linkedDecisions.entries()], [["confirmed-open", "plan-1"]]);
+  assert.equal(new Set(linkedDecisions.values()).size, 1, "one lifecycle decision produces one plan identity");
+
+  const createBody = plans.slice(plans.indexOf("async function createPlan"), plans.indexOf("async function supersedePlan"));
+  const refreshBody = plans.slice(plans.indexOf("async function refreshForecastBoundPlan"), plans.indexOf("async function auditFailedLiveCommissioningPlan"));
+  const updateBody = plans.slice(plans.indexOf("async function updateDynamicPlan"), plans.indexOf("async function batchCheckpointDynamicPlans"));
+  assert.match(createBody, /source_decision_id/);
+  assert.doesNotMatch(createBody, /UPDATE trade_three_horizon_decisions SET plan_id/);
+  assert.match(refreshBody, /source_decision_id=\$29/);
+  assert.doesNotMatch(refreshBody, /UPDATE trade_three_horizon_decisions SET plan_id/);
+  assert.match(updateBody, /shouldPersistPlanDecisionLink\(decision\.status\)/);
+  assert.match(updateBody, /decisionId: decision\.id[\s\S]*rejectionCode: decision\.rejectionCode/);
+  assert.match(plans, /link_decision: shouldPersistPlanDecisionLink\(decision\.status\)/);
+  assert.match(plans, /plan_id = CASE WHEN input\.link_decision THEN input\.plan_id ELSE d\.plan_id END/);
+});
+
+test("an unlinked blocked checkpoint remains unlinked and cannot manufacture a duplicate", () => {
+  const classification = classifyDynamicPlanAudit({
+    current: {
+      id: "plan-1",
+      status: "ARMED",
+      conditionsMet: 5,
+      conditionsTotal: 5,
+      lastCheckedAt: new Date("2026-08-14T00:00:00.000Z"),
+      clientOid: null,
+      bitgetOrderId: null,
+      submittedAt: null,
+      firstFillAt: null,
+      averageFillPrice: null,
+      closedAt: null,
+      closeReason: null,
+    },
+    decision: {
+      id: "lead-time-block",
+      planId: null,
+      status: "BLOCKED",
+      conditionsMet: 5,
+      conditionsTotal: 5,
+      clientOid: null,
+      bitgetOrderId: null,
+      rejectionReason: "PLAN_LEAD_TIME",
+    },
+    desiredStatus: "ARMED",
+    now: new Date("2026-08-14T00:06:00.000Z"),
+  });
+  assert.equal(classification, "CHECKPOINT");
+  assert.equal(shouldPersistPlanDecisionLink("BLOCKED"), false);
+});
 
 test("mixed maintenance writes material rows immediately and batches eight checkpoints in one call", async () => {
   const rows = [

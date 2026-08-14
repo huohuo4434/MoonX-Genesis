@@ -7,6 +7,7 @@ import {
   resolveDynamicPlanStatus,
   runClassifiedPlanMaintenance,
   selectAuthoritativePlanSnapshot,
+  shouldPersistPlanDecisionLink,
   writeDynamicPlanAuditIfRequired,
 } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import type { DynamicPlanMaintenanceTelemetry } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
@@ -678,7 +679,6 @@ async function createPlan(
     new Date(binding.publishedAt), new Date(binding.lockedAt), new Date(binding.validFrom),
     new Date(binding.validUntil), binding.source
   );
-  await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${id}, updated_at = NOW() WHERE id = ${decision.id}`;
   await appendEvent({
     planId: id,
     eventType: "PLAN_PUBLISHED",
@@ -722,7 +722,12 @@ async function supersedePlan(current: PlanRow, now: Date, reason: string): Promi
   });
 }
 
-async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHorizonStrategyDecision, now: Date): Promise<PlanRow> {
+async function updateDynamicPlan(
+  current: DynamicPlanSnapshot,
+  decision: ThreeHorizonStrategyDecision,
+  now: Date,
+  options: { linkDecision?: boolean } = {}
+): Promise<PlanRow> {
   if (!prisma) throw new Error("交易数据库未连接");
   const desired = statusFromDecision(decision, current.status);
   const distance = distancePct(decision.currentPrice, Number(current.entry_zone_low), Number(current.entry_zone_high));
@@ -748,7 +753,9 @@ async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHo
     decision.currentPrice, distance, now, decision.id, decision.clientOid,
     decision.bitgetOrderId, decision.rejectionReason || null
   );
-  await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${current.id}, updated_at = NOW() WHERE id = ${decision.id}`;
+  if (options.linkDecision ?? shouldPersistPlanDecisionLink(decision.status)) {
+    await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${current.id}, updated_at = NOW() WHERE id = ${decision.id}`;
+  }
   if (desired !== current.status) {
     await appendEvent({
       planId: current.id,
@@ -762,7 +769,11 @@ async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHo
       quantity: decision.quantity,
       eventAt: now,
       dedupe: `${desired}:${decision.bitgetOrderId ?? decision.id}`,
-      payload: { rejectionCode: decision.rejectionCode, rejectionReason: decision.rejectionReason },
+      payload: {
+        decisionId: decision.id,
+        rejectionCode: decision.rejectionCode,
+        rejectionReason: decision.rejectionReason,
+      },
     });
   }
   await appendEvent({
@@ -774,6 +785,11 @@ async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHo
     price: decision.currentPrice,
     eventAt: now,
     dedupe: `${decision.id}:${decision.conditionsMet}`,
+    payload: {
+      decisionId: decision.id,
+      rejectionCode: decision.rejectionCode,
+      rejectionReason: decision.rejectionReason,
+    },
   });
   const updatedPlan = rows[0];
   if (!updatedPlan) {
@@ -794,6 +810,7 @@ async function batchCheckpointDynamicPlans(
   const payload = rows.map(({ current, decision, desiredStatus }) => ({
     plan_id: current.id,
     decision_id: decision.id,
+    link_decision: shouldPersistPlanDecisionLink(decision.status),
     current_price: decision.currentPrice,
     distance_to_entry_pct: distancePct(
       decision.currentPrice,
@@ -818,6 +835,7 @@ async function batchCheckpointDynamicPlans(
       SELECT * FROM jsonb_to_recordset($1::jsonb) AS input(
         plan_id TEXT,
         decision_id TEXT,
+        link_decision BOOLEAN,
         current_price DOUBLE PRECISION,
         distance_to_entry_pct DOUBLE PRECISION,
         event_id TEXT,
@@ -839,7 +857,7 @@ async function batchCheckpointDynamicPlans(
       RETURNING p.id
     ), updated_decisions AS (
       UPDATE trade_three_horizon_decisions d SET
-        plan_id = input.plan_id,
+        plan_id = CASE WHEN input.link_decision THEN input.plan_id ELSE d.plan_id END,
         updated_at = NOW()
       FROM checkpoint_input input
       JOIN updated_plans updated_plan ON updated_plan.id = input.plan_id
@@ -981,7 +999,6 @@ async function refreshForecastBoundPlan(input: {
     new Date(input.binding.lockedAt), new Date(input.binding.validFrom), new Date(input.binding.validUntil),
     input.binding.source
   );
-  await prisma.$executeRaw`UPDATE trade_three_horizon_decisions SET plan_id = ${input.current.id}, updated_at = NOW() WHERE id = ${input.decision.id}`;
   if (changed) {
     await appendEvent({
       planId: input.current.id,
@@ -1198,7 +1215,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
 export async function syncAiTradePlanFromDecision(
   decision: ThreeHorizonStrategyDecision,
   now = new Date(),
-  options: { force?: boolean } = {}
+  options: { force?: boolean; linkDecision?: boolean } = {}
 ): Promise<void> {
   if (!(await ensureAiTradePlanTables()) || !prisma) return;
   const rows = await prisma.$queryRawUnsafe<PlanRow[]>(
@@ -1217,7 +1234,7 @@ async function syncAiTradePlanFromPrefetchedSnapshot(
   decision: ThreeHorizonStrategyDecision,
   current: DynamicPlanSnapshot,
   now: Date,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; linkDecision?: boolean } = {}
 ): Promise<void> {
   const desiredStatus = statusFromDecision(decision, current.status);
   await writeDynamicPlanAuditIfRequired({
@@ -1239,7 +1256,9 @@ async function syncAiTradePlanFromPrefetchedSnapshot(
     desiredStatus,
     now,
     force: options.force,
-    write: async () => { await updateDynamicPlan(current, decision, now); },
+    write: async () => {
+      await updateDynamicPlan(current, decision, now, { linkDecision: options.linkDecision });
+    },
   });
 }
 
