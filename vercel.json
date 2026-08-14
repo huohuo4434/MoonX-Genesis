@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/generate-daily-forecasts",
-      "schedule": "0 10 * * *"
+      "schedule": "0 */3 * * *"
     },
     {
       "path": "/api/cron/moonx-cycle",

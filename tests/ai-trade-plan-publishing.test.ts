@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runPrefetchedPlanMaintenance } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -12,6 +13,41 @@ const member = read("components/member/AiTradingDeskClient.tsx");
 const admin = read("components/admin/AiTradePlanAdminClient.tsx");
 const memberTypes = read("types/ai-trading-desk.ts");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
+
+test("prefetched maintenance synchronizes every available active snapshot once and remains serial", async () => {
+  const rows = [
+    { id: "active-open", planId: "plan-open" },
+    { id: "active-partial", planId: "plan-partial" },
+    { id: "active-missing-plan", planId: null },
+    { id: "recent-observing", planId: "plan-recent" },
+  ];
+  const calls: string[] = [];
+  let concurrent = 0;
+  let maximumConcurrent = 0;
+  const synchronized = await runPrefetchedPlanMaintenance({
+    rows,
+    hasPlanSnapshot: (row) => Boolean(row.planId),
+    sync: async (row) => {
+      concurrent += 1;
+      maximumConcurrent = Math.max(maximumConcurrent, concurrent);
+      await Promise.resolve();
+      calls.push(row.id);
+      concurrent -= 1;
+    },
+  });
+
+  assert.equal(synchronized, 3);
+  assert.deepEqual(calls, ["active-open", "active-partial", "recent-observing"]);
+  assert.equal(maximumConcurrent, 1);
+  assert.match(plans, /LEFT JOIN LATERAL[\s\S]*p\.id = selected\.plan_id OR p\.source_decision_id = selected\.id/);
+  const maintenanceBody = plans.slice(
+    plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
+    plans.indexOf("async function loadEvents")
+  );
+  assert.match(maintenanceBody, /runPrefetchedPlanMaintenance/);
+  assert.doesNotMatch(maintenanceBody, /syncAiTradePlanFromDecision\(decision/);
+  assert.equal([...maintenanceBody.matchAll(/\$queryRawUnsafe/g)].length, 1);
+});
 
 test("AI计划在Bitget可执行订单前发布并锁定", () => {
   assert.match(engine, /prepareAiTradePlanBeforeExecution/);

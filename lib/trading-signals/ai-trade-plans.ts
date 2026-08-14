@@ -1,7 +1,9 @@
 import "server-only";
 
-import { runBoundedSerialMaintenance } from "@/lib/trading-signals/strategy-runtime-progress-core";
-import { writeDynamicPlanAuditIfRequired } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
+import {
+  runPrefetchedPlanMaintenance,
+  writeDynamicPlanAuditIfRequired,
+} from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import { aiTradePlanDashboardReadPolicy } from "@/lib/trading-signals/member-desk-persisted-plan-core";
 import type { LiveScanOpportunityHint } from "@/lib/trading-signals/live-scan-rotation-core";
 
@@ -131,6 +133,19 @@ type PlanRow = {
   created_at: Date;
   updated_at: Date;
 };
+
+type DynamicPlanSnapshot = Pick<PlanRow,
+  | "id"
+  | "status"
+  | "entry_zone_low"
+  | "entry_zone_high"
+  | "conditions_met"
+  | "conditions_total"
+  | "last_checked_at"
+  | "client_oid"
+  | "bitget_order_id"
+  | "close_reason"
+>;
 
 type EventRow = {
   id: string;
@@ -697,7 +712,7 @@ async function supersedePlan(current: PlanRow, now: Date, reason: string): Promi
   });
 }
 
-async function updateDynamicPlan(current: PlanRow, decision: ThreeHorizonStrategyDecision, now: Date): Promise<PlanRow> {
+async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHorizonStrategyDecision, now: Date): Promise<PlanRow> {
   if (!prisma) throw new Error("交易数据库未连接");
   const desired = statusFromDecision(decision, current.status);
   const distance = distancePct(decision.currentPrice, Number(current.entry_zone_low), Number(current.entry_zone_high));
@@ -1092,6 +1107,15 @@ export async function syncAiTradePlanFromDecision(
   );
   const current = rows[0];
   if (!current) return;
+  await syncAiTradePlanFromPrefetchedSnapshot(decision, current, now, options);
+}
+
+async function syncAiTradePlanFromPrefetchedSnapshot(
+  decision: ThreeHorizonStrategyDecision,
+  current: DynamicPlanSnapshot,
+  now: Date,
+  options: { force?: boolean } = {}
+): Promise<void> {
   const desiredStatus = statusFromDecision(decision, current.status);
   await writeDynamicPlanAuditIfRequired({
     current: {
@@ -1160,6 +1184,16 @@ export async function syncAiTradePlansFromRecentDecisions(
     created_at: Date;
     updated_at: Date;
     plan_id: string | null;
+    audit_plan_id: string | null;
+    audit_plan_status: AiTradePlanStatus | null;
+    audit_entry_zone_low: number | null;
+    audit_entry_zone_high: number | null;
+    audit_conditions_met: number | null;
+    audit_conditions_total: number | null;
+    audit_last_checked_at: Date | null;
+    audit_client_oid: string | null;
+    audit_bitget_order_id: string | null;
+    audit_close_reason: string | null;
   }>>(`
     WITH active_audit AS (
       SELECT d.* FROM trade_three_horizon_decisions d
@@ -1175,19 +1209,44 @@ export async function syncAiTradePlansFromRecentDecisions(
       ) scoped
       ORDER BY scoped.updated_at DESC
       LIMIT $1
+    ), selected AS (
+      SELECT * FROM active_audit
+      UNION ALL
+      SELECT * FROM recent_increment
     )
-    SELECT * FROM active_audit
-    UNION ALL
-    SELECT * FROM recent_increment
-    ORDER BY updated_at DESC
+    SELECT selected.*,
+      plan_snapshot.id AS audit_plan_id,
+      plan_snapshot.status AS audit_plan_status,
+      plan_snapshot.entry_zone_low AS audit_entry_zone_low,
+      plan_snapshot.entry_zone_high AS audit_entry_zone_high,
+      plan_snapshot.conditions_met AS audit_conditions_met,
+      plan_snapshot.conditions_total AS audit_conditions_total,
+      plan_snapshot.last_checked_at AS audit_last_checked_at,
+      plan_snapshot.client_oid AS audit_client_oid,
+      plan_snapshot.bitget_order_id AS audit_bitget_order_id,
+      plan_snapshot.close_reason AS audit_close_reason
+    FROM selected
+    LEFT JOIN LATERAL (
+      SELECT p.id, p.status, p.entry_zone_low, p.entry_zone_high,
+        p.conditions_met, p.conditions_total, p.last_checked_at,
+        p.client_oid, p.bitget_order_id, p.close_reason
+      FROM trade_ai_plans p
+      WHERE p.id = selected.plan_id OR p.source_decision_id = selected.id
+      ORDER BY p.version DESC
+      LIMIT 1
+    ) plan_snapshot ON TRUE
+    ORDER BY selected.updated_at DESC
   `, limit, ...symbols);
-  return runBoundedSerialMaintenance({ rows, maxRows: rows.length, maintain: async (row) => {
-    const conditions = Array.isArray(row.conditions)
-      ? row.conditions
-      : typeof row.conditions === "string"
-        ? JSON.parse(row.conditions)
-        : [];
-    const decision: ThreeHorizonStrategyDecision = {
+  return runPrefetchedPlanMaintenance({
+    rows,
+    hasPlanSnapshot: (row) => Boolean(row.audit_plan_id && row.audit_plan_status),
+    sync: async (row) => {
+      const conditions = Array.isArray(row.conditions)
+        ? row.conditions
+        : typeof row.conditions === "string"
+          ? JSON.parse(row.conditions)
+          : [];
+      const decision: ThreeHorizonStrategyDecision = {
       id: row.id,
       runId: "reconcile",
       planId: row.plan_id,
@@ -1227,9 +1286,21 @@ export async function syncAiTradePlansFromRecentDecisions(
       realizedPnlUsdt: row.realized_pnl_usdt,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
-    };
-    await syncAiTradePlanFromDecision(decision, now);
-  } });
+      };
+      await syncAiTradePlanFromPrefetchedSnapshot(decision, {
+        id: row.audit_plan_id!,
+        status: row.audit_plan_status!,
+        entry_zone_low: Number(row.audit_entry_zone_low),
+        entry_zone_high: Number(row.audit_entry_zone_high),
+        conditions_met: Number(row.audit_conditions_met),
+        conditions_total: Number(row.audit_conditions_total),
+        last_checked_at: row.audit_last_checked_at,
+        client_oid: row.audit_client_oid,
+        bitget_order_id: row.audit_bitget_order_id,
+        close_reason: row.audit_close_reason,
+      }, now);
+    },
+  });
 }
 
 async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEvent[]>> {

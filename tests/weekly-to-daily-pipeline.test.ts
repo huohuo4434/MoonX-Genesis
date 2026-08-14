@@ -25,6 +25,26 @@ import { formatMarketCapDisplay } from "../lib/data/conviction/format-market-cap
 import { getPublicTodayForecasts } from "../lib/data/daily-forecasts.ts";
 import { checkTodayPredictionAccess } from "../lib/prediction-access.ts";
 
+test("daily revision cron checks every three UTC hours without changing its authenticated API path", () => {
+  const config = JSON.parse(readFileSync(resolve("vercel.json"), "utf8")) as {
+    crons: Array<{ path: string; schedule: string }>;
+  };
+  const cron = config.crons.find((item) => item.path === "/api/cron/generate-daily-forecasts");
+  assert.deepEqual(cron, {
+    path: "/api/cron/generate-daily-forecasts",
+    schedule: "0 */3 * * *",
+  });
+  // Vercel cron expressions are UTC: 00/03/.../21 UTC correspond to
+  // 08/11/14/17/20/23/02/05 in Beijing and Hong Kong time.
+  assert.deepEqual(
+    Array.from({ length: 24 }, (_, hour) => hour).filter((hour) => hour % 3 === 0),
+    [0, 3, 6, 9, 12, 15, 18, 21]
+  );
+  const route = readFileSync(resolve("app/api/cron/generate-daily-forecasts/route.ts"), "utf8");
+  assert.match(route, /authorizeCron\(request\)/);
+  assert.match(route, /runDailyForecastPipeline/);
+});
+
 describe("weekly liuyao six sources", () => {
   test("1) six sources present with stable ids", () => {
     assert.equal(CANONICAL_WEEKLY_LIUYAO_SOURCES.length, 6);

@@ -73,6 +73,26 @@ export async function writeDynamicPlanAuditIfRequired(input: {
   return true;
 }
 
+/**
+ * Serially synchronizes an already-prefetched maintenance batch. The database
+ * adapter must load both decisions and their plan audit snapshot in one read;
+ * this core deliberately has no per-row loader, so lifecycle writes remain
+ * ordered while the former decision-by-decision SELECT cannot reappear here.
+ */
+export async function runPrefetchedPlanMaintenance<T>(input: {
+  rows: readonly T[];
+  hasPlanSnapshot: (row: T) => boolean;
+  sync: (row: T) => Promise<void>;
+}): Promise<number> {
+  let synchronized = 0;
+  for (const row of input.rows) {
+    if (!input.hasPlanSnapshot(row)) continue;
+    await input.sync(row);
+    synchronized += 1;
+  }
+  return synchronized;
+}
+
 export function postPlanDecisionRequiresSync(input: {
   evaluationReady: boolean;
   initialDecisionStatus: string;
