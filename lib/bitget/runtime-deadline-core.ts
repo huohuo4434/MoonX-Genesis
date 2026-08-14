@@ -6,6 +6,74 @@ export type RuntimeDeadlinePolicy = {
   newEntryCutoffMs: number;
 };
 
+export type RuntimeExecutionControl = {
+  paused: boolean;
+  pauseReason: string;
+};
+
+export type RuntimeStartupSafetyPolicy = {
+  controlKnown: boolean;
+  allowExperimentStart: boolean;
+  allowNewEntries: boolean;
+  allowManageOnly: boolean;
+  allowRiskReducingExit: true;
+};
+
+export async function readAuthoritativeRuntimeExecutionControl(
+  readRows: () => Promise<ReadonlyArray<{ paused: boolean; pause_reason: string | null }>>
+): Promise<RuntimeExecutionControl> {
+  const row = (await readRows())[0];
+  if (!row) throw new Error("RUNTIME_EXECUTION_CONTROL_NOT_FOUND");
+  if (typeof row.paused !== "boolean") throw new Error("RUNTIME_EXECUTION_CONTROL_INVALID_PAUSED");
+  return {
+    paused: row.paused,
+    pauseReason: String(row.pause_reason ?? ""),
+  };
+}
+
+export async function runRuntimeStartupSafetySequence<TLiveStatus, TRiskExit>(input: {
+  readControl: () => Promise<RuntimeExecutionControl>;
+  onControlResolved?: (result: {
+    control: RuntimeExecutionControl;
+    controlError: Error | null;
+    policy: RuntimeStartupSafetyPolicy;
+  }) => Promise<void> | void;
+  syncLiveStatus?: (options: { allowStart: boolean }) => Promise<TLiveStatus>;
+  onLiveStatus?: (status: TLiveStatus) => Promise<void> | void;
+  closeRiskExposure?: (status: TLiveStatus) => Promise<TRiskExit>;
+}): Promise<{
+  control: RuntimeExecutionControl;
+  controlError: Error | null;
+  policy: RuntimeStartupSafetyPolicy;
+  liveStatus: TLiveStatus | null;
+  riskExit: TRiskExit | null;
+}> {
+  let control: RuntimeExecutionControl;
+  let controlError: Error | null = null;
+  try {
+    control = await input.readControl();
+  } catch (error) {
+    controlError = error instanceof Error ? error : new Error("Runtime execution control read failed");
+    control = { paused: true, pauseReason: controlError.message };
+  }
+  const policy: RuntimeStartupSafetyPolicy = {
+    controlKnown: controlError == null,
+    allowExperimentStart: controlError == null && !control.paused,
+    allowNewEntries: controlError == null && !control.paused,
+    allowManageOnly: controlError == null,
+    allowRiskReducingExit: true,
+  };
+  await input.onControlResolved?.({ control, controlError, policy });
+  const liveStatus = input.syncLiveStatus
+    ? await input.syncLiveStatus({ allowStart: policy.allowExperimentStart })
+    : null;
+  if (liveStatus != null) await input.onLiveStatus?.(liveStatus);
+  const riskExit = liveStatus != null && input.closeRiskExposure
+    ? await input.closeRiskExposure(liveStatus)
+    : null;
+  return { control, controlError, policy, liveStatus, riskExit };
+}
+
 export function buildRuntimeDeadlinePolicy(absoluteDeadlineAt?: Date): RuntimeDeadlinePolicy {
   const absoluteDeadlineMs = absoluteDeadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   return {

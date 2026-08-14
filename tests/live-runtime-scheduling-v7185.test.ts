@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   acquireRuntimeLease,
   releaseRuntimeLease,
@@ -27,8 +29,10 @@ import {
   canStartMemberDeskSync,
   canStartNewEntry,
   finalizeRuntimeOwner,
+  readAuthoritativeRuntimeExecutionControl,
   releaseOwnerOrThrow,
   runNewEntryBeforeCutoff,
+  runRuntimeStartupSafetySequence,
 } from "../lib/bitget/runtime-deadline-core";
 
 const opportunityNowMs = 0;
@@ -512,6 +516,104 @@ test("maintenance failure blocks every post-engine order chain but still finaliz
   assert.equal(gate.runtimeOk, false);
   assert.deepEqual(audit, ["THREE_HORIZON_ERROR", "FAILED_STATE", "FINISH"]);
   assert.equal(ownerReleases, 1);
+});
+
+test("runtime startup reads only authoritative pause control and fails closed before engine or orders", async () => {
+  const runtimeSource = readFileSync(resolve(process.cwd(), "lib/bitget/demo-runtime.ts"), "utf8");
+  const startup = runtimeSource.slice(
+    runtimeSource.indexOf("export async function runBitgetDemoServerRuntime"),
+    runtimeSource.indexOf("export async function getBitgetLiveAdminDashboard")
+  );
+  assert.match(startup, /readControl: readRuntimeExecutionControl/);
+  assert.doesNotMatch(startup, /before = await getBitgetRuntimeState\(now\)/);
+  const preStart = startup.slice(0, startup.indexOf('action: "START"'));
+  assert.doesNotMatch(preStart, /getBitgetMirrorSettings|ensureTradingV2Tables|ensureTradeSignalTables|readBitgetLiveExperimentStatus|todayDecisionStats|listEvents/);
+  assert.match(runtimeSource, /adapter\.\$queryRaw<[\s\S]*SELECT paused, pause_reason[\s\S]*WHERE id = \$\{"default"\}/);
+  assert.doesNotMatch(runtimeSource, /readRuntimeExecutionControl[\s\S]{0,500}\$queryRawUnsafe/);
+  assert.match(startup, /RUNTIME_CONTROL_ERROR/);
+  type LiveStatus = { active: boolean; stopped: boolean; completed: boolean };
+  const runCase = async (readControl: () => Promise<{ paused: boolean; pauseReason: string }>) => {
+    const calls: string[] = [];
+    let newEntry = 0;
+    let manageOnly = 0;
+    let mirror = 0;
+    let validation = 0;
+    let riskReducingClose = 0;
+    let openingRemoteWrites = 0;
+    const result = await runRuntimeStartupSafetySequence<LiveStatus, { reduced: boolean }>({
+      readControl: async () => { calls.push("control"); return readControl(); },
+      onControlResolved: ({ controlError }) => { calls.push(controlError ? "control:error" : "control:ok"); },
+      syncLiveStatus: async ({ allowStart }) => {
+        calls.push(`sync:${allowStart}`);
+        return { active: allowStart, stopped: !allowStart, completed: false };
+      },
+      onLiveStatus: async () => { calls.push("status:audit"); },
+      closeRiskExposure: async (status) => {
+        calls.push("risk:close");
+        if (status.stopped || status.completed) riskReducingClose += 1;
+        return { reduced: true };
+      },
+    });
+    if (result.policy.allowNewEntries) {
+      newEntry += 1;
+      openingRemoteWrites += 1;
+      mirror += 1;
+      validation += 1;
+    } else if (result.policy.allowManageOnly) {
+      manageOnly += 1;
+    }
+    return {
+      result, calls, newEntry, manageOnly, mirror, validation,
+      riskReducingClose, openingRemoteWrites,
+    };
+  };
+
+  const active = await runCase(async () => ({ paused: false, pauseReason: "" }));
+  assert.deepEqual(active.calls, ["control", "control:ok", "sync:true", "status:audit", "risk:close"]);
+  assert.equal(active.newEntry, 1);
+  assert.equal(active.riskReducingClose, 0);
+
+  const paused = await runCase(async () => ({ paused: true, pauseReason: "manual pause" }));
+  assert.deepEqual(paused.calls, ["control", "control:ok", "sync:false", "status:audit", "risk:close"]);
+  assert.equal(paused.manageOnly, 1);
+  assert.equal(paused.newEntry, 0);
+  assert.equal(paused.mirror, 0);
+  assert.equal(paused.validation, 0);
+  assert.equal(paused.openingRemoteWrites, 0);
+  assert.equal(paused.riskReducingClose, 1, "risk-reducing close remains allowed while paused");
+
+  for (const readControl of [
+    async () => readAuthoritativeRuntimeExecutionControl(async () => []),
+    async () => { throw new Error("control query failed"); },
+  ]) {
+    const unknown = await runCase(readControl);
+    assert.deepEqual(unknown.calls, ["control", "control:error", "sync:false", "status:audit", "risk:close"]);
+    assert.equal(unknown.result.policy.controlKnown, false);
+    assert.equal(unknown.newEntry, 0);
+    assert.equal(unknown.manageOnly, 0);
+    assert.equal(unknown.mirror, 0);
+    assert.equal(unknown.validation, 0);
+    assert.equal(unknown.openingRemoteWrites, 0);
+    assert.equal(unknown.riskReducingClose, 1, "unknown control cannot suppress an existing-position risk exit");
+    const audit: string[] = [];
+    await finalizeRuntimeOwner({
+      allowCleanup: false,
+      persistState: async () => { audit.push("FAILED_STATE"); },
+      persistFinish: async () => { audit.push("FINISH"); },
+      cleanup: async () => undefined,
+      releaseOwner: async () => { audit.push("RELEASE"); return true; },
+    });
+    assert.deepEqual(audit, ["FAILED_STATE", "FINISH", "RELEASE"]);
+  }
+
+  for (const invalid of [null, "false", 0, 1]) {
+    await assert.rejects(
+      readAuthoritativeRuntimeExecutionControl(async () => [
+        { paused: invalid as unknown as boolean, pause_reason: "invalid" },
+      ]),
+      /RUNTIME_EXECUTION_CONTROL_INVALID_PAUSED/
+    );
+  }
 });
 
 test("single-symbol live forecast read skips the broad admin snapshot and runs bounded reads together", async () => {

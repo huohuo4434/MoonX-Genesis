@@ -57,7 +57,9 @@ import {
   buildRuntimeDeadlinePolicy,
   canStartNewEntry,
   finalizeRuntimeOwner,
+  readAuthoritativeRuntimeExecutionControl,
   releaseOwnerOrThrow,
+  runRuntimeStartupSafetySequence,
 } from "@/lib/bitget/runtime-deadline-core";
 import {
   captureWallClockRunTiming,
@@ -340,6 +342,20 @@ async function readStateRow(): Promise<RuntimeStateRow | undefined> {
     `SELECT * FROM trade_bitget_runtime_state WHERE id = 'default' LIMIT 1`
   );
   return rows[0];
+}
+
+async function readRuntimeExecutionControl(): Promise<{ paused: boolean; pauseReason: string }> {
+  const adapter = prisma;
+  if (!adapter) throw new Error("RUNTIME_EXECUTION_CONTROL_STORE_UNAVAILABLE");
+  return readAuthoritativeRuntimeExecutionControl(() => adapter.$queryRaw<Array<{
+    paused: boolean;
+    pause_reason: string | null;
+  }>>`
+    SELECT paused, pause_reason
+     FROM trade_bitget_runtime_state
+     WHERE id = ${"default"}
+     LIMIT 1
+  `);
 }
 
 async function listEvents(limit = 50): Promise<BitgetRuntimeEvent[]> {
@@ -934,29 +950,48 @@ export async function runBitgetDemoServerRuntime(
   let engineFailure = false;
 
   try {
-    const before = await getBitgetRuntimeState(now);
-    await recordEvent({
-      runId,
-      stage: "HEARTBEAT",
-      level: "INFO",
-      action: "START",
-      message: `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘实验" : "Bitget Demo"}服务器心跳开始，来源${source}。`,
+    const startup = await runRuntimeStartupSafetySequence<BitgetLiveExperimentStatus, LiveExperimentExitResult>({
+      readControl: readRuntimeExecutionControl,
+      onControlResolved: async ({ controlError }) => {
+        if (controlError) {
+          engineFailure = true;
+          diagnosticErrors.push(controlError.message);
+          await recordEvent({
+            runId,
+            stage: "SYSTEM",
+            level: "ERROR",
+            action: "RUNTIME_CONTROL_ERROR",
+            message: controlError.message,
+          });
+        }
+        await recordEvent({
+          runId,
+          stage: "HEARTBEAT",
+          level: "INFO",
+          action: "START",
+          message: `${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘实验" : "Bitget Demo"}服务器心跳开始，来源${source}。`,
+        });
+      },
+      syncLiveStatus: environment.mode === "LIVE_EXPERIMENT"
+        ? (syncOptions) => syncBitgetLiveExperimentStatus(now, syncOptions)
+        : undefined,
+      onLiveStatus: async (status) => {
+        await recordEvent({
+          runId,
+          stage: "SYSTEM",
+          level: status.active ? "SUCCESS" : status.status === "NOT_STARTED" ? "WARNING" : "ERROR",
+          action: "LIVE_EXPERIMENT_STATUS",
+          message: status.active
+            ? `实盘实验运行中，当前权益${(status.currentEquityUsdt ?? 0).toFixed(2)} USDT。`
+            : status.stopReason || `实盘实验状态：${status.status}。`,
+          payload: status as unknown as Record<string, unknown>,
+        });
+      },
+      closeRiskExposure: (status) => closeLiveExperimentExposure(runId, status),
     });
-
-    if (environment.mode === "LIVE_EXPERIMENT") {
-      liveExperiment = await syncBitgetLiveExperimentStatus(now, { allowStart: true });
-      await recordEvent({
-        runId,
-        stage: "SYSTEM",
-        level: liveExperiment.active ? "SUCCESS" : liveExperiment.status === "NOT_STARTED" ? "WARNING" : "ERROR",
-        action: "LIVE_EXPERIMENT_STATUS",
-        message: liveExperiment.active
-          ? `实盘实验运行中，当前权益${(liveExperiment.currentEquityUsdt ?? 0).toFixed(2)} USDT。`
-          : liveExperiment.stopReason || `实盘实验状态：${liveExperiment.status}。`,
-        payload: liveExperiment as unknown as Record<string, unknown>,
-      });
-      liveExit = await closeLiveExperimentExposure(runId, liveExperiment);
-    }
+    const before = startup.control;
+    liveExperiment = startup.liveStatus;
+    if (startup.riskExit) liveExit = startup.riskExit;
 
     const [marketResult, accountResult] = await Promise.allSettled([
       getBitgetDemoMarketQuotes(runtimeSymbols),
@@ -1045,7 +1080,7 @@ export async function runBitgetDemoServerRuntime(
 
     const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
     const executionPaused = before.paused || !marketOk || !account.connected || !liveAllowsNewEntries;
-    if (!before.paused && marketOk && account.connected && liveAllowsNewEntries) {
+    if (startup.policy.allowNewEntries && marketOk && account.connected && liveAllowsNewEntries) {
       if (environment.mode !== "LIVE_EXPERIMENT") {
         const [strategyResult, monitorResult] = await Promise.allSettled([
           runPredictionAutoTrader(now, {
@@ -1282,7 +1317,7 @@ export async function runBitgetDemoServerRuntime(
               ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
               : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
-      if (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active) {
+      if (startup.policy.allowManageOnly && !engineFailure && (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active)) {
         try {
           threeHorizon = await runThreeHorizonStrategyEngine(
             now,
@@ -1323,7 +1358,7 @@ export async function runBitgetDemoServerRuntime(
       }
     }
 
-    if (!engineFailure && environment.mode !== "LIVE_EXPERIMENT") {
+    if (!before.paused && (!engineFailure && environment.mode !== "LIVE_EXPERIMENT")) {
       try {
         validation = await runStrategyValidationCycle({
           now,
@@ -1359,14 +1394,14 @@ export async function runBitgetDemoServerRuntime(
 
     const wallFinish = runtimeTiming.finish();
     const finishedAt = new Date(wallFinish.finishedAtMs);
-    finalMessage = before.paused
+    finalMessage = engineFailure
+      ? "Three-horizon engine failed; no post-engine order chain was started."
+      : before.paused
       ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
         ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
         : !account.connected
           ? `服务器行情正常，但账户对账未通过，本轮禁止新开仓。原因：${account.message}`
-          : engineFailure
-            ? "Three-horizon engine failed; no post-engine order chain was started."
           : !liveAllowsNewEntries
             ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮没有新开仓。`
             : threeHorizon?.message

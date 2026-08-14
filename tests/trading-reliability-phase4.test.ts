@@ -818,6 +818,20 @@ test("registered general X sources remain outside the trading overlay", () => {
   assert.match(aggregation, /if \(source === "GENERAL_X_RESEARCH"\) return false/);
 });
 
+test("live runtime startup uses one fail-closed execution-control read instead of a broad dashboard", () => {
+  const runtime = read("lib/bitget/demo-runtime.ts");
+  const startup = runtime.slice(
+    runtime.indexOf("export async function runBitgetDemoServerRuntime"),
+    runtime.indexOf("export async function getBitgetLiveAdminDashboard")
+  );
+  assert.match(runtime, /adapter\.\$queryRaw<[\s\S]*SELECT paused, pause_reason[\s\S]*WHERE id = \$\{"default"\}/);
+  assert.match(startup, /readControl: readRuntimeExecutionControl/);
+  assert.doesNotMatch(startup, /before = await getBitgetRuntimeState\(now\)/);
+  assert.match(startup, /runRuntimeStartupSafetySequence/);
+  assert.match(startup, /engineFailure = true[\s\S]*RUNTIME_CONTROL_ERROR/);
+  assert.match(startup, /startup\.policy\.allowManageOnly && !engineFailure/);
+});
+
 test("Chan member console remains research-only and disconnected from order execution", () => {
   const decision = read("lib/trading-signals/chan-execution-decision-core.ts");
   const page = read("app/member/technical-methods/page.tsx");
