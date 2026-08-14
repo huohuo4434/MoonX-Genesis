@@ -1,7 +1,9 @@
 import "server-only";
 
 import {
-  runPrefetchedPlanMaintenance,
+  classifyDynamicPlanAudit,
+  resolveDynamicPlanStatus,
+  runClassifiedPlanMaintenance,
   writeDynamicPlanAuditIfRequired,
 } from "@/lib/trading-signals/ai-plan-dynamic-sync-core";
 import { aiTradePlanDashboardReadPolicy } from "@/lib/trading-signals/member-desk-persisted-plan-core";
@@ -142,6 +144,10 @@ type DynamicPlanSnapshot = Pick<PlanRow,
   | "conditions_met"
   | "conditions_total"
   | "last_checked_at"
+  | "submitted_at"
+  | "first_fill_at"
+  | "average_fill_price"
+  | "closed_at"
   | "client_oid"
   | "bitget_order_id"
   | "close_reason"
@@ -772,24 +778,117 @@ async function updateDynamicPlan(current: DynamicPlanSnapshot, decision: ThreeHo
   return updatedPlan;
 }
 
-function statusFromDecision(decision: ThreeHorizonStrategyDecision, current: AiTradePlanStatus): AiTradePlanStatus {
-  if (current === "SUPERSEDED" || current === "CLOSED" || current === "EXPIRED" || current === "INVALIDATED") return current;
-  if (["ORDER_SUBMITTED", "PARTIALLY_FILLED", "OPEN", "REDUCED"].includes(current) &&
-      ["OBSERVING", "READY", "SHADOW_READY", "BLOCKED"].includes(decision.status)) return current;
-  if (decision.rejectionCode === "CONFIDENCE_LOW") return "WATCHING";
-  switch (decision.status) {
-    case "ORDER_SUBMITTED": return "ORDER_SUBMITTED";
-    case "OPEN": return "OPEN";
-    case "PARTIAL": return "REDUCED";
-    case "CLOSING": return "REDUCED";
-    case "CLOSED": return "CLOSED";
-    case "EXPIRED": return "EXPIRED";
-    case "ERROR": return decision.bitgetOrderId || current === "ORDER_SUBMITTED" ? "EXECUTION_ERROR" : current;
-    case "READY":
-    case "SHADOW_READY": return "ARMED";
-    case "BLOCKED": return decision.conditionsMet === decision.conditionsTotal ? "ARMED" : "WATCHING";
-    default: return "WATCHING";
+async function batchCheckpointDynamicPlans(
+  rows: ReadonlyArray<{
+    current: DynamicPlanSnapshot;
+    decision: ThreeHorizonStrategyDecision;
+    desiredStatus: AiTradePlanStatus;
+  }>,
+  now: Date
+): Promise<void> {
+  if (!prisma || rows.length === 0) return;
+  const payload = rows.map(({ current, decision, desiredStatus }) => ({
+    plan_id: current.id,
+    decision_id: decision.id,
+    current_price: decision.currentPrice,
+    distance_to_entry_pct: distancePct(
+      decision.currentPrice,
+      Number(current.entry_zone_low),
+      Number(current.entry_zone_high)
+    ),
+    event_id: `evt_${randomUUID()}`,
+    event_key: `${current.id}:CONDITION_PROGRESS:${decision.id}:${decision.conditionsMet}`,
+    title: `条件进度 ${decision.conditionsMet}/${decision.conditionsTotal}`,
+    detail: decision.rejectionReason || "策略条件已完成本轮检查。",
+    status: desiredStatus,
+    event_at: now.toISOString(),
+  }));
+  const result = await prisma.$queryRawUnsafe<Array<{
+    expected_count: number;
+    updated_plan_count: number;
+    updated_decision_count: number;
+    inserted_event_count: number;
+    verified_count: number;
+  }>>(`
+    WITH checkpoint_input AS (
+      SELECT * FROM jsonb_to_recordset($1::jsonb) AS input(
+        plan_id TEXT,
+        decision_id TEXT,
+        current_price DOUBLE PRECISION,
+        distance_to_entry_pct DOUBLE PRECISION,
+        event_id TEXT,
+        event_key TEXT,
+        title TEXT,
+        detail TEXT,
+        status TEXT,
+        event_at TIMESTAMPTZ
+      )
+    ), updated_plans AS (
+      UPDATE trade_ai_plans p SET
+        current_price = input.current_price,
+        distance_to_entry_pct = input.distance_to_entry_pct,
+        last_checked_at = input.event_at,
+        source_decision_id = input.decision_id,
+        updated_at = NOW()
+      FROM checkpoint_input input
+      WHERE p.id = input.plan_id
+      RETURNING p.id
+    ), updated_decisions AS (
+      UPDATE trade_three_horizon_decisions d SET
+        plan_id = input.plan_id,
+        updated_at = NOW()
+      FROM checkpoint_input input
+      JOIN updated_plans updated_plan ON updated_plan.id = input.plan_id
+      WHERE d.id = input.decision_id
+      RETURNING d.id
+    ), inserted_events AS (
+      INSERT INTO trade_ai_plan_events (
+        id, event_key, plan_id, event_type, title, detail, status,
+        bitget_order_id, client_oid, price, quantity, payload, event_at
+      )
+      SELECT input.event_id, input.event_key, input.plan_id, 'CONDITION_PROGRESS',
+        input.title, input.detail, input.status, NULL, NULL,
+        input.current_price, NULL, NULL, input.event_at
+      FROM checkpoint_input input
+      JOIN updated_plans updated_plan ON updated_plan.id = input.plan_id
+      JOIN updated_decisions updated_decision ON updated_decision.id = input.decision_id
+      ON CONFLICT (event_key) DO NOTHING
+      RETURNING id
+    ), counts AS (
+      SELECT
+        (SELECT COUNT(*)::int FROM checkpoint_input) AS expected_count,
+        (SELECT COUNT(*)::int FROM updated_plans) AS updated_plan_count,
+        (SELECT COUNT(*)::int FROM updated_decisions) AS updated_decision_count,
+        (SELECT COUNT(*)::int FROM inserted_events) AS inserted_event_count
+    )
+    SELECT expected_count, updated_plan_count, updated_decision_count,
+      inserted_event_count,
+      expected_count / CASE
+        WHEN updated_plan_count = expected_count
+          AND updated_decision_count = expected_count
+        THEN 1 ELSE 0 END AS verified_count
+    FROM counts
+  `, JSON.stringify(payload));
+  const verified = result[0];
+  if (
+    !verified ||
+    Number(verified.verified_count) !== rows.length ||
+    Number(verified.updated_plan_count) !== rows.length ||
+    Number(verified.updated_decision_count) !== rows.length
+  ) {
+    throw new Error("AI plan checkpoint batch did not atomically update every plan and decision");
   }
+}
+
+function statusFromDecision(decision: ThreeHorizonStrategyDecision, current: AiTradePlanStatus): AiTradePlanStatus {
+  return resolveDynamicPlanStatus({
+    currentStatus: current,
+    decisionStatus: decision.status,
+    rejectionCode: decision.rejectionCode,
+    conditionsMet: decision.conditionsMet,
+    conditionsTotal: decision.conditionsTotal,
+    bitgetOrderId: decision.bitgetOrderId,
+  });
 }
 
 function stateDetail(status: AiTradePlanStatus, decision: ThreeHorizonStrategyDecision): string {
@@ -1126,6 +1225,10 @@ async function syncAiTradePlanFromPrefetchedSnapshot(
       lastCheckedAt: current.last_checked_at,
       clientOid: current.client_oid,
       bitgetOrderId: current.bitget_order_id,
+      submittedAt: current.submitted_at,
+      firstFillAt: current.first_fill_at,
+      averageFillPrice: current.average_fill_price,
+      closedAt: current.closed_at,
       closeReason: current.close_reason,
     },
     decision,
@@ -1191,6 +1294,10 @@ export async function syncAiTradePlansFromRecentDecisions(
     audit_conditions_met: number | null;
     audit_conditions_total: number | null;
     audit_last_checked_at: Date | null;
+    audit_submitted_at: Date | null;
+    audit_first_fill_at: Date | null;
+    audit_average_fill_price: number | null;
+    audit_closed_at: Date | null;
     audit_client_oid: string | null;
     audit_bitget_order_id: string | null;
     audit_close_reason: string | null;
@@ -1222,6 +1329,10 @@ export async function syncAiTradePlansFromRecentDecisions(
       plan_snapshot.conditions_met AS audit_conditions_met,
       plan_snapshot.conditions_total AS audit_conditions_total,
       plan_snapshot.last_checked_at AS audit_last_checked_at,
+      plan_snapshot.submitted_at AS audit_submitted_at,
+      plan_snapshot.first_fill_at AS audit_first_fill_at,
+      plan_snapshot.average_fill_price AS audit_average_fill_price,
+      plan_snapshot.closed_at AS audit_closed_at,
       plan_snapshot.client_oid AS audit_client_oid,
       plan_snapshot.bitget_order_id AS audit_bitget_order_id,
       plan_snapshot.close_reason AS audit_close_reason
@@ -1229,6 +1340,7 @@ export async function syncAiTradePlansFromRecentDecisions(
     LEFT JOIN LATERAL (
       SELECT p.id, p.status, p.entry_zone_low, p.entry_zone_high,
         p.conditions_met, p.conditions_total, p.last_checked_at,
+        p.submitted_at, p.first_fill_at, p.average_fill_price, p.closed_at,
         p.client_oid, p.bitget_order_id, p.close_reason
       FROM trade_ai_plans p
       WHERE p.id = selected.plan_id OR p.source_decision_id = selected.id
@@ -1237,10 +1349,9 @@ export async function syncAiTradePlansFromRecentDecisions(
     ) plan_snapshot ON TRUE
     ORDER BY selected.updated_at DESC
   `, limit, ...symbols);
-  return runPrefetchedPlanMaintenance({
-    rows,
-    hasPlanSnapshot: (row) => Boolean(row.audit_plan_id && row.audit_plan_status),
-    sync: async (row) => {
+  const prepared = rows
+    .filter((row) => Boolean(row.audit_plan_id && row.audit_plan_status))
+    .map((row) => {
       const conditions = Array.isArray(row.conditions)
         ? row.conditions
         : typeof row.conditions === "string"
@@ -1287,7 +1398,7 @@ export async function syncAiTradePlansFromRecentDecisions(
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       };
-      await syncAiTradePlanFromPrefetchedSnapshot(decision, {
+      const current: DynamicPlanSnapshot = {
         id: row.audit_plan_id!,
         status: row.audit_plan_status!,
         entry_zone_low: Number(row.audit_entry_zone_low),
@@ -1295,12 +1406,56 @@ export async function syncAiTradePlansFromRecentDecisions(
         conditions_met: Number(row.audit_conditions_met),
         conditions_total: Number(row.audit_conditions_total),
         last_checked_at: row.audit_last_checked_at,
+        submitted_at: row.audit_submitted_at,
+        first_fill_at: row.audit_first_fill_at,
+        average_fill_price: row.audit_average_fill_price == null ? null : Number(row.audit_average_fill_price),
+        closed_at: row.audit_closed_at,
         client_oid: row.audit_client_oid,
         bitget_order_id: row.audit_bitget_order_id,
         close_reason: row.audit_close_reason,
-      }, now);
+      };
+      return {
+        current,
+        decision,
+        desiredStatus: statusFromDecision(decision, current.status),
+      };
+    });
+  const maintenance = await runClassifiedPlanMaintenance({
+    rows: prepared,
+    classify: ({ current, decision, desiredStatus }) => classifyDynamicPlanAudit({
+      current: {
+        id: current.id,
+        status: current.status,
+        conditionsMet: Number(current.conditions_met),
+        conditionsTotal: Number(current.conditions_total),
+        lastCheckedAt: current.last_checked_at,
+        clientOid: current.client_oid,
+        bitgetOrderId: current.bitget_order_id,
+        submittedAt: current.submitted_at,
+        firstFillAt: current.first_fill_at,
+        averageFillPrice: current.average_fill_price,
+        closedAt: current.closed_at,
+        closeReason: current.close_reason,
+      },
+      decision,
+      desiredStatus,
+      now,
+    }),
+    checkpointIdentity: ({ current }) => current.id,
+    writeDuplicateFresh: async ({ decision }) => {
+      // Duplicate bindings are rare and unsafe to reconcile from one stale
+      // snapshot. Re-read after every prior row so terminal state cannot be
+      // reopened by an older decision; force preserves each link/event audit.
+      await syncAiTradePlanFromDecision(decision, now, { force: true });
+    },
+    writeMaterial: async ({ current, decision }) => {
+      await updateDynamicPlan(current, decision, now);
+    },
+    writeCheckpoints: async (checkpoints) => {
+      await batchCheckpointDynamicPlans(checkpoints, now);
     },
   });
+  return maintenance.processed;
 }
 
 async function loadEvents(planIds: string[]): Promise<Map<string, AiTradePlanEvent[]>> {

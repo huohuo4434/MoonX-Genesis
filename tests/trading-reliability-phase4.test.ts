@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveWeeklyAuthoritySetup } from "../lib/trading-signals/authoritative-market-structure-core";
 import {
+  classifyDynamicPlanAudit,
   postPlanDecisionRequiresSync,
   shouldWriteDynamicPlanAudit,
   writeDynamicPlanAuditIfRequired,
@@ -379,6 +380,10 @@ test("unchanged active plans avoid per-minute writes but retain lifecycle and pe
     lastCheckedAt: new Date(now.getTime() - 60_000),
     clientOid: "client-1",
     bitgetOrderId: "order-1",
+    submittedAt: new Date(now.getTime() - 180_000),
+    firstFillAt: new Date(now.getTime() - 120_000),
+    averageFillPrice: 100,
+    closedAt: null,
     closeReason: null,
   };
   const decision = {
@@ -391,6 +396,7 @@ test("unchanged active plans avoid per-minute writes but retain lifecycle and pe
     rejectionReason: "",
   };
   assert.equal(shouldWriteDynamicPlanAudit({ current, decision, desiredStatus: "OPEN", now }), false);
+  assert.equal(classifyDynamicPlanAudit({ current, decision, desiredStatus: "OPEN", now }), "NONE");
   assert.equal(shouldWriteDynamicPlanAudit({
     current: { ...current, status: "ARMED" },
     decision: { ...decision, rejectionReason: "PLAN_LEAD_TIME" },
@@ -412,6 +418,88 @@ test("unchanged active plans avoid per-minute writes but retain lifecycle and pe
     desiredStatus: "OPEN",
     now,
   }), true);
+  assert.equal(classifyDynamicPlanAudit({
+    current: { ...current, lastCheckedAt: new Date(now.getTime() - 5 * 60_000) },
+    decision,
+    desiredStatus: "OPEN",
+    now,
+  }), "CHECKPOINT");
+  for (const material of [
+    { current: { ...current, status: "ARMED" as const }, decision, desiredStatus: "OPEN" as const },
+    { current, decision: { ...decision, conditionsMet: 5 }, desiredStatus: "OPEN" as const },
+    { current, decision: { ...decision, planId: "another-plan" }, desiredStatus: "OPEN" as const },
+    { current, decision: { ...decision, clientOid: "client-2" }, desiredStatus: "OPEN" as const },
+    { current, decision: { ...decision, bitgetOrderId: "order-2" }, desiredStatus: "OPEN" as const },
+    { current: { ...current, status: "CLOSED" as const, closeReason: "old" }, decision: { ...decision, rejectionReason: "new" }, desiredStatus: "CLOSED" as const },
+  ]) {
+    assert.equal(classifyDynamicPlanAudit({ ...material, now }), "MATERIAL");
+  }
+  assert.equal(classifyDynamicPlanAudit({ current, decision, desiredStatus: "OPEN", now, force: true }), "MATERIAL");
+  assert.equal(classifyDynamicPlanAudit({ current, decision: { ...decision, clientOid: null }, desiredStatus: "OPEN", now }), "NONE");
+  assert.equal(classifyDynamicPlanAudit({ current, decision: { ...decision, bitgetOrderId: null }, desiredStatus: "OPEN", now }), "NONE");
+  assert.equal(classifyDynamicPlanAudit({
+    current: { ...current, lastCheckedAt: null },
+    decision,
+    desiredStatus: "OPEN",
+    now,
+  }), "MATERIAL");
+  const completeTerminal = {
+    ...current,
+    status: "CLOSED" as const,
+    closedAt: new Date(now.getTime() - 30_000),
+    closeReason: "target complete",
+  };
+  const terminalDecision = { ...decision, rejectionReason: "target complete" };
+  assert.equal(classifyDynamicPlanAudit({
+    current: { ...current, status: "ORDER_SUBMITTED", submittedAt: null },
+    decision,
+    desiredStatus: "ORDER_SUBMITTED",
+    now,
+  }), "MATERIAL");
+  assert.equal(classifyDynamicPlanAudit({
+    current: { ...current, status: "ORDER_SUBMITTED" },
+    decision,
+    desiredStatus: "ORDER_SUBMITTED",
+    now,
+  }), "NONE");
+  for (const desiredStatus of ["PARTIALLY_FILLED", "OPEN", "REDUCED", "CLOSED"] as const) {
+    const statusCurrent = {
+      ...current,
+      status: desiredStatus,
+      closedAt: desiredStatus === "CLOSED" ? completeTerminal.closedAt : null,
+      closeReason: desiredStatus === "CLOSED" ? "target complete" : null,
+    };
+    const statusDecision = desiredStatus === "CLOSED" ? terminalDecision : decision;
+    assert.equal(classifyDynamicPlanAudit({
+      current: { ...statusCurrent, firstFillAt: null },
+      decision: statusDecision,
+      desiredStatus,
+      now,
+    }), "MATERIAL");
+    assert.equal(classifyDynamicPlanAudit({
+      current: { ...statusCurrent, averageFillPrice: null },
+      decision: statusDecision,
+      desiredStatus,
+      now,
+    }), "MATERIAL");
+    assert.equal(classifyDynamicPlanAudit({ current: statusCurrent, decision: statusDecision, desiredStatus, now }), "NONE");
+  }
+  for (const desiredStatus of ["CLOSED", "EXPIRED", "INVALIDATED", "EXECUTION_ERROR"] as const) {
+    const statusDecision = { ...decision, rejectionReason: "terminal" };
+    const statusCurrent = {
+      ...current,
+      status: desiredStatus,
+      closedAt: new Date(now.getTime() - 30_000),
+      closeReason: "terminal",
+    };
+    assert.equal(classifyDynamicPlanAudit({
+      current: { ...statusCurrent, closedAt: null },
+      decision: statusDecision,
+      desiredStatus,
+      now,
+    }), "MATERIAL");
+    assert.equal(classifyDynamicPlanAudit({ current: statusCurrent, decision: statusDecision, desiredStatus, now }), "NONE");
+  }
   assert.equal(shouldWriteDynamicPlanAudit({
     current,
     decision: { ...decision, conditionsMet: 5 },
@@ -629,7 +717,7 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(commissioningPlans, /to_regclass\('trade_ai_plans'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ symbols: liveSymbolsForThisRun, limit: 3 \} : \{\}/);
   assert.match(commissioningPlans, /WITH active_audit AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);
-  assert.match(commissioningPlans, /runPrefetchedPlanMaintenance\(\{/);
+  assert.match(commissioningPlans, /runClassifiedPlanMaintenance\(\{/);
   assert.match(commissioningPlans, /LEFT JOIN LATERAL[\s\S]*plan_snapshot ON TRUE/);
   assert.match(strategy, /runLiveCommissioning\([\s\S]{0,500}eligibleSymbols: liveSymbolsForThisRun/);
   assert.match(strategy, /selectDynamicTradeUniverse\(liveSymbolsForThisRun, forecastBySymbol, now\)/);

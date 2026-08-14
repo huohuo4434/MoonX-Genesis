@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { runPrefetchedPlanMaintenance } from "../lib/trading-signals/ai-plan-dynamic-sync-core";
+import {
+  resolveDynamicPlanStatus,
+  runClassifiedPlanMaintenance,
+} from "../lib/trading-signals/ai-plan-dynamic-sync-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -14,39 +17,153 @@ const admin = read("components/admin/AiTradePlanAdminClient.tsx");
 const memberTypes = read("types/ai-trading-desk.ts");
 const pkg = JSON.parse(read("package.json")) as { scripts: { test: string } };
 
-test("prefetched maintenance synchronizes every available active snapshot once and remains serial", async () => {
+test("mixed maintenance writes material rows immediately and batches eight checkpoints in one call", async () => {
   const rows = [
-    { id: "active-open", planId: "plan-open" },
-    { id: "active-partial", planId: "plan-partial" },
-    { id: "active-missing-plan", planId: null },
-    { id: "recent-observing", planId: "plan-recent" },
+    { id: "checkpoint-1", kind: "CHECKPOINT" as const },
+    { id: "material-status", kind: "MATERIAL" as const },
+    ...Array.from({ length: 7 }, (_, index) => ({ id: `checkpoint-${index + 2}`, kind: "CHECKPOINT" as const })),
+    { id: "none", kind: "NONE" as const },
+    { id: "material-order", kind: "MATERIAL" as const },
   ];
   const calls: string[] = [];
   let concurrent = 0;
   let maximumConcurrent = 0;
-  const synchronized = await runPrefetchedPlanMaintenance({
+  let checkpointDatabaseCalls = 0;
+  const result = await runClassifiedPlanMaintenance({
     rows,
-    hasPlanSnapshot: (row) => Boolean(row.planId),
-    sync: async (row) => {
+    classify: (row) => row.kind,
+    writeMaterial: async (row) => {
       concurrent += 1;
       maximumConcurrent = Math.max(maximumConcurrent, concurrent);
       await Promise.resolve();
-      calls.push(row.id);
+      calls.push(`material:${row.id}`);
+      concurrent -= 1;
+    },
+    writeCheckpoints: async (checkpoints) => {
+      checkpointDatabaseCalls += 1;
+      concurrent += 1;
+      maximumConcurrent = Math.max(maximumConcurrent, concurrent);
+      calls.push(`batch:${checkpoints.map((row) => row.id).join(",")}`);
       concurrent -= 1;
     },
   });
 
-  assert.equal(synchronized, 3);
-  assert.deepEqual(calls, ["active-open", "active-partial", "recent-observing"]);
+  assert.deepEqual(result, { processed: 11, material: 2, checkpoints: 8 });
+  assert.equal(checkpointDatabaseCalls, 1);
+  assert.deepEqual(calls.slice(0, 2), ["material:material-status", "material:material-order"]);
+  assert.match(calls[2] ?? "", /^batch:checkpoint-1,checkpoint-2,[\s\S]*checkpoint-8$/);
   assert.equal(maximumConcurrent, 1);
   assert.match(plans, /LEFT JOIN LATERAL[\s\S]*p\.id = selected\.plan_id OR p\.source_decision_id = selected\.id/);
   const maintenanceBody = plans.slice(
     plans.indexOf("export async function syncAiTradePlansFromRecentDecisions"),
     plans.indexOf("async function loadEvents")
   );
-  assert.match(maintenanceBody, /runPrefetchedPlanMaintenance/);
-  assert.doesNotMatch(maintenanceBody, /syncAiTradePlanFromDecision\(decision/);
+  assert.match(maintenanceBody, /runClassifiedPlanMaintenance/);
+  assert.match(maintenanceBody, /checkpointIdentity: \(\{ current \}\) => current\.id/);
+  for (const field of [
+    "audit_submitted_at",
+    "audit_first_fill_at",
+    "audit_average_fill_price",
+    "audit_closed_at",
+  ]) {
+    assert.match(maintenanceBody, new RegExp(field));
+  }
+  assert.equal([...maintenanceBody.matchAll(/syncAiTradePlanFromDecision\(decision/g)].length, 1,
+    "only duplicate plan bindings may use the per-row authoritative fresh read");
   assert.equal([...maintenanceBody.matchAll(/\$queryRawUnsafe/g)].length, 1);
+  const checkpointWriter = plans.slice(
+    plans.indexOf("async function batchCheckpointDynamicPlans"),
+    plans.indexOf("function statusFromDecision")
+  );
+  assert.equal([...checkpointWriter.matchAll(/\$queryRawUnsafe/g)].length, 1);
+  assert.match(checkpointWriter, /updated_plans AS[\s\S]*updated_decisions AS[\s\S]*inserted_events AS/);
+  assert.match(checkpointWriter, /ON CONFLICT \(event_key\) DO NOTHING/);
+  assert.match(checkpointWriter, /CONDITION_PROGRESS:\$\{decision\.id\}:\$\{decision\.conditionsMet\}/);
+  for (const field of ["plan_id", "decision_id", "current_price", "distance_to_entry_pct", "event_id", "event_key", "event_at"]) {
+    assert.match(checkpointWriter, new RegExp(`${field}:`));
+  }
+  assert.match(checkpointWriter, /expected_count \/ CASE[\s\S]*updated_plan_count = expected_count[\s\S]*updated_decision_count = expected_count/);
+  const materialWriter = plans.slice(
+    plans.indexOf("async function updateDynamicPlan"),
+    plans.indexOf("async function batchCheckpointDynamicPlans")
+  );
+  assert.match(materialWriter, /client_oid = COALESCE\(\$9, client_oid\)/);
+  assert.match(materialWriter, /bitget_order_id = COALESCE\(\$10, bitget_order_id\)/);
+  assert.match(materialWriter, /submitted_at = CASE WHEN \$2 = 'ORDER_SUBMITTED' THEN COALESCE\(submitted_at, \$7\)/);
+  assert.match(materialWriter, /first_fill_at = CASE WHEN \$2 IN \('PARTIALLY_FILLED','OPEN','REDUCED','CLOSED'\) THEN COALESCE\(first_fill_at, \$7\)/);
+  assert.match(materialWriter, /average_fill_price = CASE WHEN \$2 IN \('PARTIALLY_FILLED','OPEN','REDUCED','CLOSED'\) THEN COALESCE\(average_fill_price, \$5\)/);
+  assert.match(materialWriter, /closed_at = CASE WHEN \$2 IN \('CLOSED','EXPIRED','INVALIDATED','EXECUTION_ERROR'\) THEN COALESCE\(closed_at, \$7\)/);
+});
+
+test("checkpoint batch failure propagates after serial material writes and cannot report success", async () => {
+  const calls: string[] = [];
+  await assert.rejects(
+    runClassifiedPlanMaintenance({
+      rows: [
+        { id: "checkpoint", kind: "CHECKPOINT" as const },
+        { id: "material", kind: "MATERIAL" as const },
+      ],
+      classify: (row) => row.kind,
+      writeMaterial: async (row) => { calls.push(`material:${row.id}`); },
+      writeCheckpoints: async () => {
+        calls.push("batch:start");
+        throw new Error("atomic batch failed");
+      },
+    }),
+    /atomic batch failed/
+  );
+  assert.deepEqual(calls, ["material:material", "batch:start"]);
+});
+
+test("duplicate plan bindings fresh-read every row and terminal state cannot be reopened", async () => {
+  for (const statuses of [
+    ["CLOSED", "OPEN"] as const,
+    ["OPEN", "CLOSED"] as const,
+  ]) {
+    let persistedStatus: "OPEN" | "CLOSED" = "OPEN";
+    let freshReads = 0;
+    let concurrent = 0;
+    let maximumConcurrent = 0;
+    const linkedDecisions: string[] = [];
+    const events: Array<{ decisionId: string; status: string }> = [];
+    const result = await runClassifiedPlanMaintenance({
+      rows: statuses.map((status, index) => ({
+        id: `decision-${index}`,
+        planId: "shared-plan",
+        kind: index === 0 ? "MATERIAL" as const : "CHECKPOINT" as const,
+        status,
+      })),
+      classify: (row) => row.kind,
+      checkpointIdentity: (row) => row.planId,
+      writeMaterial: async () => { throw new Error("duplicate must not use stale prefetched material writer"); },
+      writeDuplicateFresh: async (row) => {
+        concurrent += 1;
+        maximumConcurrent = Math.max(maximumConcurrent, concurrent);
+        freshReads += 1;
+        const freshlyReadStatus = persistedStatus;
+        persistedStatus = resolveDynamicPlanStatus({
+          currentStatus: freshlyReadStatus,
+          decisionStatus: row.status,
+          rejectionCode: "",
+          conditionsMet: 5,
+          conditionsTotal: 5,
+          bitgetOrderId: "order-1",
+        }) as typeof persistedStatus;
+        linkedDecisions.push(row.id);
+        events.push({ decisionId: row.id, status: persistedStatus });
+        await Promise.resolve();
+        concurrent -= 1;
+      },
+      writeCheckpoints: async () => { throw new Error("duplicate must never enter checkpoint batch"); },
+    });
+    assert.deepEqual(result, { processed: 2, material: 2, checkpoints: 0 });
+    assert.equal(freshReads, 2);
+    assert.equal(persistedStatus, "CLOSED");
+    assert.deepEqual(linkedDecisions, ["decision-0", "decision-1"]);
+    assert.deepEqual(events.map((event) => event.decisionId), linkedDecisions);
+    assert.equal(maximumConcurrent, 1);
+  }
+  assert.match(plans, /writeDuplicateFresh:[\s\S]*syncAiTradePlanFromDecision\(decision, now, \{ force: true \}\)/);
 });
 
 test("AI计划在Bitget可执行订单前发布并锁定", () => {
