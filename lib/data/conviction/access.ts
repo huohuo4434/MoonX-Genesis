@@ -123,7 +123,8 @@ import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-
 import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
-import { buildFocusDossier, buildMemberFocusDossier } from "@/lib/data/conviction/focus-dossier-core";
+import { buildFocusDossier, buildMemberFocusDossier, loadFocusDossierGeneratedDailies } from "@/lib/data/conviction/focus-dossier-core";
+import { listFocusResearchSupplements } from "@/lib/data/conviction/focus-research-supplements";
 import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { FocusDossierView } from "@/types/focus-dossier";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
@@ -562,14 +563,23 @@ export async function getConvictionDetailPayload(
       staticPeriodAsset,
       buildStaticPeriodSlots(staticPeriodAsset, true, asOfDate)
     );
-    const baseDossier = buildFocusDossier({ assetId: staticPeriodAsset, forecasts: staticPublished(staticPeriodAsset), asOfDate, nowMs: capturedNow.getTime() });
+    const supplementalEvidence = listFocusResearchSupplements(staticPeriodAsset);
+    const baseDossier = buildFocusDossier({
+      assetId: staticPeriodAsset,
+      forecasts: staticPublished(staticPeriodAsset),
+      asOfDate,
+      nowMs: capturedNow.getTime(),
+      supplementalEvidence,
+    });
     let generatedDailies: GeneratedDailyForecastRecord[] = [];
     if (baseDossier.periodStart && baseDossier.periodEnd) {
       try {
         const { listLatestGeneratedDailiesForMarketDates } = await import("@/lib/weekly-source/store");
-        const start = Date.parse(`${baseDossier.periodStart}T00:00:00Z`);
-        const dates = Array.from({ length: 7 }, (_, index) => new Date(start + index * 86_400_000).toISOString().slice(0, 10));
-        generatedDailies = await listLatestGeneratedDailiesForMarketDates(focusDailyMarketCode(staticPeriodAsset), dates, { readOnly: true });
+        generatedDailies = await loadFocusDossierGeneratedDailies({
+          dossier: baseDossier,
+          marketCode: focusDailyMarketCode(staticPeriodAsset),
+          read: (marketCode, dates) => listLatestGeneratedDailiesForMarketDates(marketCode, dates, { readOnly: true }),
+        });
       } catch {
         // Display remains available from immutable static evidence when the optional
         // persisted daily research reader is unavailable.
@@ -593,6 +603,7 @@ export async function getConvictionDetailPayload(
         asOfDate,
         nowMs: capturedNow.getTime(),
         generatedDailies,
+        supplementalEvidence,
       }),
       forecast: {
         today: null,

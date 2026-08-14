@@ -15,10 +15,10 @@ import {
 } from "@/lib/data/conviction/eth-forecasts";
 
 test("focus assets expose weekly and monthly research, with longer horizons archived", () => {
-  assert.deepEqual(LONGXIN_VISIBLE_PERIOD_ORDER, ["WEEK", "MONTH_1"]);
+  assert.deepEqual(LONGXIN_VISIBLE_PERIOD_ORDER, ["WEEK", "WEEK_2", "WEEK_3", "MONTH_1"]);
   assert.ok(LONGXIN_FULL_PERIOD_ORDER.includes("YEAR_10"));
-  assert.deepEqual(ASTEROID_PERIOD_ORDER.slice(0, 2), ["WEEK", "MONTH_1"]);
-  assert.deepEqual(ETH_VISIBLE_PERIOD_ORDER, ["WEEK", "MONTH_1"]);
+  assert.deepEqual(ASTEROID_PERIOD_ORDER.slice(0, 5), ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1"]);
+  assert.deepEqual(ETH_VISIBLE_PERIOD_ORDER, ["WEEK", "WEEK_2", "MONTH_1"]);
 
   const visible = [
     ...listLongxinPeriodForecasts(),

@@ -293,7 +293,7 @@ test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:0
 });
 
 test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate", () => {
-  const files = ["types/focus-dossier.ts", "lib/data/conviction/focus-dossier-core.ts", "components/conviction/FocusDossierPanel.tsx"];
+  const files = ["types/focus-dossier.ts", "lib/data/conviction/focus-dossier-core.ts", "lib/data/conviction/focus-research-supplements.ts", "components/conviction/FocusDossierPanel.tsx"];
   for (const file of files) {
     const source = readFileSync(file, "utf8");
     assert.doesNotMatch(source, /\uFFFD|Ã|â€™|鈥|锟斤拷/);
@@ -302,9 +302,9 @@ test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate"
   assert.match(panel, /RESEARCH_ONLY/);
   assert.match(panel, /未提供版本号/);
   assert.match(panel, /未提供锁定时间，不声明已锁定/);
-  assert.match(panel, /本周唯一结论/);
-  assert.match(panel, /7日路径/);
-  assert.match(panel, /长期背景（不替代本周结论）/);
+  assert.match(panel, /本期唯一结论/);
+  assert.match(panel, /本期逐日路径/);
+  assert.match(panel, /长期背景（不替代本期结论）/);
 });
 
 test("unified member layout renders supporting research inside closed accessible disclosures", () => {
