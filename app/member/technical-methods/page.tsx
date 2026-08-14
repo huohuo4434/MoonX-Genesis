@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { ChanStructureChart } from "@/components/member/ChanStructureChart";
+import { TeacherMethodRulebookPanel } from "@/components/member/TeacherMethodRulebookPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getAccessUser } from "@/lib/auth/get-access-user";
 import type { ChanTimeframe } from "@/types/chan-execution";
@@ -50,12 +51,14 @@ export default async function MemberTechnicalMethodsPage({
     : "4H";
   const capturedNowMs = Date.now();
   // Sensitive evidence and server-only market access begin only after all access gates.
-  const [evidenceModule, marketModule, structureModule, multiModule, directionModule] = await Promise.all([
+  const [evidenceModule, marketModule, structureModule, multiModule, directionModule, teacherRulebookModule, teacherEvaluationModule] = await Promise.all([
     import("@/lib/data/chan-execution-evidence-20260814"),
     import("@/lib/market-data/chan-market-data"),
     import("@/lib/trading-signals/chan-structure-core"),
     import("@/lib/trading-signals/chan-multi-timeframe-core"),
     import("@/lib/trading-signals/chan-formal-direction-reader"),
+    import("@/lib/data/teacher-method-rulebook-20260815"),
+    import("@/lib/research/teacher-method-evaluation-core"),
   ]);
   const [markets, formalDirection] = await Promise.all([
     marketModule.loadChanTimeframes({ symbol, capturedNowMs, timeoutMs: 4_000 }),
@@ -71,6 +74,21 @@ export default async function MemberTechnicalMethodsPage({
   const selectedMarket = markets.find((market) => market.timeframe === selectedTimeframe) ?? markets[0]!;
   const selectedFrame = frames.find((frame) => frame.timeframe === selectedTimeframe) ?? frames[0]!;
   const evidence = evidenceModule.getChanExecutionEvidence20260814();
+  const teacherRulebook = teacherRulebookModule.getTeacherMethodRulebook20260815();
+  const teacherEvaluation = teacherEvaluationModule.evaluateTeacherResearch({
+    authoritativeDirection,
+    // The page does not yet receive a traceable original/mutual/changed hexagram and moving line bundle.
+    liuyao: { originalHexagram: null, mutualHexagram: null, changedHexagram: null, movingLine: null, direction: "NEUTRAL" },
+    // Qimen stays unavailable until a complete chart and explicit timing window are supplied.
+    qimen: { chartAvailable: false, timingWindow: null },
+    chan: {
+      available: frames.every((frame) => frame.error == null),
+      complete: frames.every((frame) => frame.structure.trendState === "COMPLETE"),
+      direction: decision.technicalBias === "BULL" || decision.technicalBias === "BEAR" ? decision.technicalBias : "NEUTRAL",
+    },
+    // NANA/fundamental evidence remains a separate unavailable input in this V1 page.
+    fundamentals: { available: false, direction: "NEUTRAL" },
+  });
   const nowLabel = new Intl.DateTimeFormat("zh-CN", {
     timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
   }).format(new Date(capturedNowMs));
@@ -106,5 +124,6 @@ export default async function MemberTechnicalMethodsPage({
 
     <details className="mt-6 rounded-2xl border border-white/10 p-5"><summary className="cursor-pointer font-semibold">方法、权重与局限 / Method & Limits</summary><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[["缠论", 35], ["乔乔", 20], ["市场资金波动", 15], ["NANA宏观期权", 15], ["流动性事件", 15]].map(([name, weight]) => <div key={name} className="rounded-xl border border-white/10 p-4"><div className="text-sm text-zinc-400">{name}</div><div className="mt-2 text-xl font-bold">{weight}%</div><div className="mt-1 text-xs text-zinc-500">{name === "缠论" ? `本轮真实贡献 ${decision.chanContribution}/35` : "缺少正式实时输入，不评分"}</div></div>)}</div><p className="mt-4 text-sm leading-6 text-zinc-400">缠论 35 分已由四周期真实结构计算：每个完成且具备标准二/三买卖点的周期贡献 8.75 分；多空冲突时仅非平票的占优一侧保留贡献，2:2 平票贡献为 0，且两种冲突都硬性 WAIT。其余四项尚未接入本页实时评分，不填假分。结构未完成、周期冲突、正式方向缺失或无标准买卖点时，任何分数都不能越过 WAIT。当前背驰只使用已完成结构中的价格推进幅度收缩；不声称计算了 MACD 或量能背离。</p></details>
     <details className="mt-4 rounded-2xl border border-white/10 p-5"><summary className="cursor-pointer font-semibold">版本化来源证据 / Source Evidence</summary><div className="mt-4 text-sm leading-6 text-zinc-400">{evidence.sourceArtifacts.map((artifact) => <p key={artifact.id}>{artifact.id} · {artifact.name} · sourcePublishedAt: null</p>)}<p className="mt-2">{evidence.mooxPolicy}</p><p>已读文字稿课程：{evidence.transcribedLessons} 份（{evidence.transcriptRange}）。未转写 m4a 不声称学过；疑似转写词不进入正式术语。</p>{evidence.notes.map((note) => <p key={`${note.source}-${note.sourceArtifact}`} className="mt-2"><b className="text-zinc-200">{note.source}</b> · artifact={note.sourceArtifact} · {note.claim} · {note.status}</p>)}</div></details>
+    <TeacherMethodRulebookPanel rulebook={teacherRulebook} evaluation={teacherEvaluation} />
   </main></>;
 }
