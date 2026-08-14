@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { ASTEROID_PERIOD_FORECASTS, type ConvictionPeriodForecast } from "../lib/data/conviction/asteroid-forecasts";
 import { buildFocusDossier, buildMemberFocusDossier, prepareNextFocusWeek } from "../lib/data/conviction/focus-dossier-core";
 import { runFocusWeekPreparation } from "../lib/data/conviction/focus-week-preparation-core";
+import { UnifiedDossierDisclosure } from "../components/conviction/UnifiedDossierDisclosure";
 
 const NOW = Date.parse("2026-08-14T08:00:00+08:00");
 
@@ -160,4 +163,30 @@ test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate"
   assert.match(panel, /本周唯一结论/);
   assert.match(panel, /7日路径/);
   assert.match(panel, /长期背景（不替代本周结论）/);
+});
+
+test("unified member layout renders supporting research inside closed accessible disclosures", () => {
+  const collapsed = renderToStaticMarkup(createElement(
+    UnifiedDossierDisclosure,
+    { enabled: true, title: "完整研究依据与历史版本" },
+    createElement("section", { "data-testid": "period-panel" }, "旧周期逐日路径仍可访问")
+  ));
+  assert.match(collapsed, /^<details /);
+  assert.doesNotMatch(collapsed, /<details[^>]*\sopen(?:=|\s|>)/);
+  assert.match(collapsed, /<summary[^>]*>完整研究依据与历史版本<\/summary>/);
+  assert.match(collapsed, /data-testid="period-panel"/);
+  assert.match(collapsed, /旧周期逐日路径仍可访问/);
+
+  const unchangedFallback = renderToStaticMarkup(createElement(
+    UnifiedDossierDisclosure,
+    { enabled: false, title: "不应出现的折叠标题" },
+    createElement("section", { "data-testid": "legacy-layout" }, "旧页面保持原展示")
+  ));
+  assert.doesNotMatch(unchangedFallback, /<details|<summary|不应出现的折叠标题/);
+  assert.match(unchangedFallback, /data-testid="legacy-layout"/);
+
+  const page = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
+  assert.equal((page.match(/title="资产背景与风险"/g) ?? []).length, 1);
+  assert.equal((page.match(/title="完整研究依据与历史版本"/g) ?? []).length, 1);
+  assert.match(page, /enabled=\{hasUnifiedDossier\}/);
 });

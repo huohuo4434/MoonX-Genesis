@@ -6,6 +6,7 @@ import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
 import { FocusDossierPanel } from "@/components/conviction/FocusDossierPanel";
+import { UnifiedDossierDisclosure } from "@/components/conviction/UnifiedDossierDisclosure";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { dailyPathTemporalStatus, prioritizeDailyPath } from "@/lib/data/conviction/freshness";
@@ -500,6 +501,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   const visibleTypes = new Set(tabs.map((item) => item.type));
   const archivePeriods = payload.forecast?.periods?.filter((item) => !visibleTypes.has(item.type)) ?? [];
   const [tab, setTab] = useState(tabs[0]?.type ?? "WEEK");
+  const hasUnifiedDossier = payload.mode === "fullAccess" && Boolean(payload.focusDossier);
 
   return (
     <div className="min-h-screen bg-[#07080a] text-white">
@@ -534,6 +536,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           <FocusDossierPanel dossier={payload.focusDossier} />
         ) : null}
 
+        <UnifiedDossierDisclosure enabled={hasUnifiedDossier} title="资产背景与风险">
         <section className="space-y-3">
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">基本面介绍</h2>
           <p className="text-body-sm leading-relaxed text-white/75">{a.summaryZh}</p>
@@ -592,6 +595,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             ))}
           </ul>
         </section>
+        </UnifiedDossierDisclosure>
 
         {payload.deviceAccessRequired ? (
           <Card padding="md" className="border-amber-400/20 bg-amber-400/[0.05]">
@@ -601,6 +605,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           </Card>
         ) : null}
 
+        <UnifiedDossierDisclosure enabled={hasUnifiedDossier} title="完整研究依据与历史版本">
         {payload.mode === "fullAccess" && payload.vibeEvidence ? (
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}
@@ -798,6 +803,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             </section>
           </section>
         )}
+        </UnifiedDossierDisclosure>
       </div>
     </div>
   );
