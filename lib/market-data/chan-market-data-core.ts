@@ -22,6 +22,54 @@ export function isValidChanCandle(row: ChanCandle): boolean {
     && row.low <= Math.min(row.open, row.close);
 }
 
+type OrderlyTvPayload = {
+  s?: string;
+  o?: Array<number | string | null>;
+  h?: Array<number | string | null>;
+  l?: Array<number | string | null>;
+  c?: Array<number | string | null>;
+  v?: Array<number | string | null>;
+  t?: Array<number | string | null>;
+};
+
+export function parseOrderlyTvCandles(payload: unknown): ChanCandle[] {
+  const row = payload as OrderlyTvPayload;
+  if (row?.s !== "ok" || !Array.isArray(row.t)) return [];
+  return row.t.map((timestamp, index) => ({
+    timestamp: Number(timestamp) * 1_000,
+    open: Number(row.o?.[index]),
+    high: Number(row.h?.[index]),
+    low: Number(row.l?.[index]),
+    close: Number(row.c?.[index]),
+    volume: Number.isFinite(Number(row.v?.[index])) ? Number(row.v?.[index]) : null,
+  })).filter(isValidChanCandle).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export function aggregateContinuousFourHourCandles(candles: ChanCandle[], capturedNowMs: number): ChanCandle[] {
+  const closed = filterClosedCandles(candles, "1H", capturedNowMs);
+  const buckets = new Map<number, ChanCandle[]>();
+  for (const candle of closed) {
+    const bucket = Math.floor(candle.timestamp / intervalMs("4H")) * intervalMs("4H");
+    const rows = buckets.get(bucket) ?? [];
+    rows.push(candle);
+    buckets.set(bucket, rows);
+  }
+  return [...buckets.entries()].sort((a, b) => a[0] - b[0]).flatMap(([timestamp, rows]) => {
+    rows.sort((a, b) => a.timestamp - b.timestamp);
+    if (rows.length !== 4 || rows[0]?.timestamp !== timestamp) return [];
+    if (rows.some((row, index) => index > 0 && row.timestamp - rows[index - 1]!.timestamp !== intervalMs("1H"))) return [];
+    const volumeRows = rows.map((row) => row.volume).filter((value): value is number => value != null && Number.isFinite(value));
+    return [{
+      timestamp,
+      open: rows[0]!.open,
+      high: Math.max(...rows.map((row) => row.high)),
+      low: Math.min(...rows.map((row) => row.low)),
+      close: rows[3]!.close,
+      volume: volumeRows.length === rows.length ? volumeRows.reduce((sum, value) => sum + value, 0) : null,
+    }];
+  }).filter((row) => row.timestamp + intervalMs("4H") <= capturedNowMs);
+}
+
 type YahooChartPayload = {
   chart?: { result?: Array<{
     meta?: { exchangeTimezoneName?: string };

@@ -5,10 +5,10 @@ export type ChanInstrumentSymbol = string;
 export type ChanInstrument = {
   symbol: ChanInstrumentSymbol;
   label: string;
-  provider: "BITGET_PUBLIC" | "YAHOO_CHART";
+  provider: "BITGET_PUBLIC" | "YAHOO_CHART" | "ORDERLY_PUBLIC";
   providerSymbol: string;
   formalPlanSymbol: string;
-  market: "CRYPTO" | "US_EQUITY";
+  market: "CRYPTO" | "US_EQUITY" | "INDEX_COMMODITY";
 };
 
 export type ChanCandle = { timestamp: number; open: number; high: number; low: number; close: number; volume: number | null };

@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { decideChanExecution } from "../lib/trading-signals/chan-execution-decision-core";
 import { analyzeChanStructure, buildChanSegments, buildDivergenceEvidence, classifyChanBuySellPoints, classifyChanTrendState, deriveDirectionalRiskLevels, detectChanZones, normalizeChanInclusions } from "../lib/trading-signals/chan-structure-core";
-import { aggregateYahooFourHourCandles, filterClosedCandles, filterYahooClosedCandles, intervalMs, isValidChanCandle, parseYahooChanCandles } from "../lib/market-data/chan-market-data-core";
-import { resolveChanInstrument } from "../lib/market-data/chan-instrument-catalog";
+import { aggregateContinuousFourHourCandles, aggregateYahooFourHourCandles, filterClosedCandles, filterYahooClosedCandles, intervalMs, isValidChanCandle, parseOrderlyTvCandles, parseYahooChanCandles } from "../lib/market-data/chan-market-data-core";
+import { buildOrderlyChanInstruments, mergeChanInstrumentCatalog, resolveChanInstrument } from "../lib/market-data/chan-instrument-catalog";
 import type { ChanCandle, ChanStructure, ChanStroke } from "../types/chan-execution";
 
 const emptyStructure = (overrides: Partial<ChanStructure> = {}): ChanStructure => ({ sufficient: true, normalizedCandles: [], fractals: [], strokes: [], segments: [{ startStroke: 0, endStroke: 4, direction: "UP", complete: true }], zones: [{ startStroke: 0, endStroke: 2, low: 95, high: 105 }], trendState: "COMPLETE", divergence: false, divergenceEvidence: { priceExtended: false, momentumContracted: false, zoneConfirmed: true, segmentComplete: true }, buyPoint: "NONE", sellPoint: "NONE", riskLevels: { long: { invalidation: 95, tp1: 115, tp2: 125, breakevenTrigger: 115 }, short: { invalidation: 105, tp1: 85, tp2: 75, breakevenTrigger: 85 } }, ...overrides });
@@ -166,10 +166,11 @@ test("source evidence is research-only and chart cannot draw future candles", ()
   assert.match(chart, /包含关系归一后的结构计算/);
   assert.doesNotMatch(chart, /forecast|projection|future/i);
   assert.match(market, /AbortController/);
-  assert.match(market, /filterClosedCandles\([^;]+timeframe, capturedNowMs\)/s);
+  assert.match(market, /filterClosedCandles\([^;]+input\.timeframe, input\.capturedNowMs\)/s);
   assert.match(market, /resolveChanInstrument\(input\.symbol\)/);
   assert.match(market, /query1\.finance\.yahoo\.com/);
-  assert.match(page, /股票或加密代码/);
+  assert.match(market, /api\.orderly\.org\/v1\/tv\/history/);
+  assert.match(page, /股票、加密货币或指数商品/);
   assert.doesNotMatch(page, /TeacherMethodRulebookPanel|研究检查|LIUYAO_INPUT_INCOMPLETE|tradingEligible=false/);
   assert.doesNotMatch([evidence, chart, market, page].join("\n"), /submitOrder|executeReadyDecision|placeOrder|paptrading/);
 });
@@ -208,6 +209,44 @@ test("Yahoo daily candles exclude the current exchange date and arbitrary safe U
   assert.equal(resolveChanInstrument("PLTR")?.formalPlanSymbol, "PLTR");
   assert.equal(resolveChanInstrument("bad ticker"), null);
   assert.equal(resolveChanInstrument("DOGEUSDT"), null);
+});
+
+test("MoonX DEX Orderly catalog exposes crypto, US equity contracts, and macro contracts without collapsing ETH", () => {
+  const orderly = buildOrderlyChanInstruments([
+    { symbol: "PERP_BTC_USDC" },
+    { symbol: "PERP_ETH_USDC" },
+    { symbol: "PERP_SOL_USDC" },
+    { symbol: "PERP_AAPL_USDC_mythos" },
+    { symbol: "PERP_SPX500_USDC" },
+    { symbol: "PERP_ETH_USDC_builder" },
+    { symbol: "SPOT_FAKE_USDC" },
+  ]);
+  const merged = mergeChanInstrumentCatalog(orderly);
+  assert.equal(resolveChanInstrument("ETH", merged)?.providerSymbol, "PERP_ETH_USDC");
+  assert.equal(resolveChanInstrument("SOL", merged)?.market, "CRYPTO");
+  assert.equal(resolveChanInstrument("AAPL", merged)?.market, "US_EQUITY");
+  assert.equal(resolveChanInstrument("SPX500", merged)?.formalPlanSymbol, "SPX");
+  assert.equal(merged.filter((row) => row.symbol === "ETH").length, 1);
+});
+
+test("Orderly TradingView candles parse real arrays and only complete continuous 4H buckets survive", () => {
+  const base = Date.parse("2026-08-14T00:00:00Z") / 1_000;
+  const payload = {
+    s: "ok",
+    t: Array.from({ length: 8 }, (_, index) => base + index * 3_600),
+    o: Array.from({ length: 8 }, (_, index) => 100 + index),
+    h: Array.from({ length: 8 }, (_, index) => 102 + index),
+    l: Array.from({ length: 8 }, (_, index) => 99 + index),
+    c: Array.from({ length: 8 }, (_, index) => 101 + index),
+    v: Array.from({ length: 8 }, () => 10),
+  };
+  const parsed = parseOrderlyTvCandles(payload);
+  assert.equal(parsed.length, 8);
+  const aggregated = aggregateContinuousFourHourCandles(parsed, Date.parse("2026-08-14T09:00:00Z"));
+  assert.equal(aggregated.length, 2);
+  assert.deepEqual({ open: aggregated[0]?.open, close: aggregated[0]?.close, volume: aggregated[0]?.volume }, { open: 100, close: 104, volume: 40 });
+  assert.equal(aggregateContinuousFourHourCandles(parsed.filter((_, index) => index !== 2), Date.parse("2026-08-14T09:00:00Z")).length, 1);
+  assert.deepEqual(parseOrderlyTvCandles({ s: "no_data" }), []);
 });
 
 test("Yahoo intraday filtering rejects extended hours, current bars, and the short 15:30 hourly tail", () => {

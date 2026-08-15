@@ -5,7 +5,7 @@ import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat
 import { ChanStructureChart } from "@/components/member/ChanStructureChart";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getAccessUser } from "@/lib/auth/get-access-user";
-import { CHAN_INSTRUMENTS, resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
+import { resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
 import type { ChanDirection, ChanStage, ChanTimeframe } from "@/types/chan-execution";
 
 export const metadata = {
@@ -51,22 +51,26 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
   }
 
   const query = await searchParams;
-  const instrument = resolveChanInstrument(query.symbol) ?? resolveChanInstrument("BTCUSDT")!;
-  const symbol = instrument.symbol;
   const selectedTimeframe = (["30m", "1H", "4H", "1D"] as const).includes(query.timeframe as "30m" | "1H" | "4H" | "1D")
     ? query.timeframe as "30m" | "1H" | "4H" | "1D"
     : "4H";
   const capturedNowMs = Date.now();
 
-  const [marketModule, structureModule, multiModule, directionModule] = await Promise.all([
+  const [catalogModule, marketModule, structureModule, multiModule, directionModule] = await Promise.all([
+    import("@/lib/market-data/chan-instrument-catalog.server"),
     import("@/lib/market-data/chan-market-data"),
     import("@/lib/trading-signals/chan-structure-core"),
     import("@/lib/trading-signals/chan-multi-timeframe-core"),
     import("@/lib/trading-signals/chan-formal-direction-reader"),
   ]);
+  const catalogState = await catalogModule.loadChanInstrumentCatalog();
+  const instrument = resolveChanInstrument(query.symbol, catalogState.instruments)
+    ?? resolveChanInstrument("BTC", catalogState.instruments)
+    ?? resolveChanInstrument("BTCUSDT", catalogState.instruments)!;
+  const symbol = instrument.symbol;
   const [markets, formalDirection] = await Promise.all([
-    marketModule.loadChanTimeframes({ symbol, capturedNowMs, timeoutMs: 4_500 }),
-    directionModule.readChanFormalDirection({ symbol, capturedNowMs }),
+    marketModule.loadChanTimeframes({ symbol, instrument, capturedNowMs, timeoutMs: 4_500 }),
+    directionModule.readChanFormalDirection({ symbol: instrument.formalPlanSymbol, capturedNowMs }),
   ]);
   const frames = markets.map((market) => ({ timeframe: market.timeframe as "30m" | "1H" | "4H" | "1D", structure: structureModule.analyzeChanStructure(market.candles), error: market.error }));
   const decision = multiModule.decideChanMultiTimeframe({ authoritativeDirection: formalDirection.direction, frames });
@@ -75,6 +79,10 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
   const selectedSignal = decision.timeframeSignals.find((row) => row.timeframe === selectedTimeframe) ?? decision.timeframeSignals[0]!;
   const selectedStage = selectedSignal.stage;
   const nowLabel = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(capturedNowMs));
+  const cryptoInstruments = catalogState.instruments.filter((row) => row.market === "CRYPTO");
+  const equityInstruments = catalogState.instruments.filter((row) => row.market === "US_EQUITY");
+  const macroInstruments = catalogState.instruments.filter((row) => row.market === "INDEX_COMMODITY");
+  const selectedIsCatalogued = catalogState.instruments.some((row) => row.symbol === symbol);
 
   return <><MemberDeviceHeartbeat /><main className="mx-auto max-w-7xl px-4 py-8 text-zinc-100">
     <section className="rounded-3xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.08] to-violet-400/[0.05] p-5 sm:p-7">
@@ -97,16 +105,21 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
 
     <section className="mt-6 rounded-2xl border border-white/10 p-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="text-lg font-semibold">四周期阶段</h2><p className="mt-1 text-xs text-zinc-500">更新于 {nowLabel} · 点击查看任一周期的K线和阶段</p></div>
+        <div><h2 className="text-lg font-semibold">四周期阶段</h2><p className="mt-1 text-xs text-zinc-500">更新于 {nowLabel} · 当前提供 {catalogState.instruments.length} 个品种 · 点击查看任一周期</p></div>
         <form className="flex flex-wrap items-center gap-2">
           <label className="text-xs text-zinc-500">品种</label>
-          <input name="symbol" list="chan-symbols" defaultValue={symbol} aria-label="股票或加密代码" className="w-36 rounded-lg bg-zinc-900 px-3 py-2 uppercase" />
-          <datalist id="chan-symbols">{CHAN_INSTRUMENTS.map((item) => <option key={item.symbol} value={item.symbol}>{item.label}</option>)}</datalist>
+          <select name="symbol" defaultValue={symbol} aria-label="股票、加密货币或指数商品" className="max-w-56 rounded-lg bg-zinc-900 px-3 py-2">
+            {!selectedIsCatalogued ? <option value={symbol}>{instrument.label}</option> : null}
+            <optgroup label={`加密货币（${cryptoInstruments.length}）`}>{cryptoInstruments.map((item) => <option key={item.providerSymbol} value={item.symbol}>{item.label}</option>)}</optgroup>
+            <optgroup label={`美股合约（${equityInstruments.length}）`}>{equityInstruments.map((item) => <option key={item.providerSymbol} value={item.symbol}>{item.label}</option>)}</optgroup>
+            <optgroup label={`指数、商品与外汇（${macroInstruments.length}）`}>{macroInstruments.map((item) => <option key={item.providerSymbol} value={item.symbol}>{item.label}</option>)}</optgroup>
+          </select>
           <label className="text-xs text-zinc-500">周期</label>
           <select name="timeframe" defaultValue={selectedTimeframe} className="rounded-lg bg-zinc-900 px-3 py-2">{["30m", "1H", "4H", "1D"].map((value) => <option key={value}>{value}</option>)}</select>
           <button className="rounded-lg bg-amber-300 px-4 py-2 font-semibold text-black">查看</button>
         </form>
       </div>
+      <p className="mt-3 text-xs text-zinc-500">行情优先来自 MoonX DEX 对应的公开合约市场；美股与主流加密货币在主源异常时自动使用公开备用行情。页面只分析真实已闭合K线。</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{decision.timeframeSignals.map((row) => {
         const active = row.timeframe === selectedTimeframe;
         return <a key={row.timeframe} href={`?symbol=${encodeURIComponent(symbol)}&timeframe=${row.timeframe}`} className={`rounded-xl border p-4 transition ${active ? "border-amber-300/50 bg-amber-300/[0.06]" : row.available ? "border-white/10 bg-black/15" : "border-rose-300/20 bg-rose-300/[0.03]"}`}>

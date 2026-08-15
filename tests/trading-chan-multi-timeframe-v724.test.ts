@@ -317,7 +317,10 @@ test("page uses one captured now and the market adapter fans out all four reads 
   const market = readFileSync(resolve("lib/market-data/chan-market-data.ts"), "utf8");
   const reader = readFileSync(resolve("lib/trading-signals/chan-formal-direction-reader.ts"), "utf8");
   assert.match(page, /const capturedNowMs = Date\.now\(\)/);
-  assert.match(page, /loadChanTimeframes\(\{ symbol, capturedNowMs/);
+  assert.match(page, /loadChanTimeframes\(\{ symbol, instrument, capturedNowMs/);
+  assert.match(page, /loadChanInstrumentCatalog\(\)/);
+  assert.match(page, /<select name="symbol"/);
+  assert.match(page, /MoonX DEX/);
   assert.match(market, /return Promise\.all\(/);
   assert.match(market, /\["30m", "1H", "4H", "1D"\]/);
   assert.match(market, /capturedNowMs = input\.capturedNowMs \?\? Date\.now\(\)/);
