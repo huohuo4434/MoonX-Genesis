@@ -29,9 +29,28 @@ export function resolveCanonicalQuoteSymbol(symbol: string, quoteSymbol: string)
   }
   if (s === "SPX" || q === "SPX") return "^GSPC";
   if (s === "NDX" || q === "NDX") return "^NDX";
-  if (s === "SSEC" || s === "SSE" || q === "000001.SS") return "000001.SS";
+  if (
+    s === "SSEC" ||
+    s === "SSE" ||
+    s === "SHCOMP" ||
+    s === "000001.SS" ||
+    q === "000001.SS"
+  ) {
+    return "000001.SS";
+  }
   if (s === "WTI" || q === "WTI" || q === "CL=F") return "CL=F";
   if (s === "BTC" || q === "BTC-USD") return "BTC-USD";
+  if (s === "ETH" || q === "ETH-USD") return "ETH-USD";
+  if (
+    s === "SILVER" ||
+    s === "SLV" ||
+    s === "XAG" ||
+    s === "XAGUSD" ||
+    s === "SI=F" ||
+    q.toUpperCase() === "SI=F"
+  ) {
+    return "SI=F";
+  }
   if (
     s === "GLD" ||
     s === "GOLD" ||

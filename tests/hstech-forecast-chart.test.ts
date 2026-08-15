@@ -15,6 +15,13 @@ describe("HSTECH quote mapping", () => {
     assert.equal(resolveCanonicalQuoteSymbol("HSTECH", "HSTECH"), HSTECH_YAHOO_SYMBOL);
   });
 
+  test("maps every weekly verification market to its canonical Yahoo symbol", () => {
+    assert.equal(resolveCanonicalQuoteSymbol("000001.SS", ""), "000001.SS");
+    assert.equal(resolveCanonicalQuoteSymbol("SHCOMP", ""), "000001.SS");
+    assert.equal(resolveCanonicalQuoteSymbol("ETH", ""), "ETH-USD");
+    assert.equal(resolveCanonicalQuoteSymbol("SILVER", ""), "SI=F");
+  });
+
   test("rejects ETF-scale closes", () => {
     const err = quoteSanityFailure({
       symbol: "HSTECH",
