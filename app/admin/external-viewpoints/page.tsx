@@ -85,11 +85,11 @@ export default async function AdminExternalViewpointsPage() {
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-lg border border-white/10 p-2">
                   <Text variant="caption" color="tertiary" className="block">老师01</Text>
-                  <Text variant="body-sm" weight="semibold" className="mt-1 block">{profile.teacher01WeightPct}%</Text>
+                  <Text variant="body-sm" weight="semibold" className="mt-1 block">{blend?.teacher01EffectiveWeightPct ?? profile.teacher01WeightPct}%</Text>
                 </div>
                 <div className="rounded-lg border border-white/10 p-2">
                   <Text variant="caption" color="tertiary" className="block">老师02</Text>
-                  <Text variant="body-sm" weight="semibold" className="mt-1 block">{profile.teacher02WeightPct}%</Text>
+                  <Text variant="body-sm" weight="semibold" className="mt-1 block">{blend?.teacher02EffectiveWeightPct ?? profile.teacher02WeightPct}%</Text>
                 </div>
                 <div className="rounded-lg border border-white/10 p-2">
                   <Text variant="caption" color="tertiary" className="block">路径校准</Text>

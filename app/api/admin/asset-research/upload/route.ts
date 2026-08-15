@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
-import {
-  listAssetResearchUploads,
-  saveAssetResearchUpload,
-} from "@/lib/data/asset-research-upload-store";
+import type { MethodEvidenceKind, MethodEvidenceDirection } from "@/lib/research/method-evidence-input-core";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,6 +28,7 @@ export async function GET() {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
+  const { listAssetResearchUploads } = await import("@/lib/data/asset-research-upload-store");
   const records = await listAssetResearchUploads();
   return NextResponse.json(
     { records: records.slice(0, 100) },
@@ -64,6 +62,12 @@ export async function POST(req: NextRequest) {
   const method = String(form.get("method") ?? "").trim();
   const period = String(form.get("period") ?? "").trim();
   const notes = String(form.get("notes") ?? "").trim();
+  const evidenceKind = String(form.get("evidenceKind") ?? "LIUYAO").trim() as MethodEvidenceKind;
+  const direction = String(form.get("direction") ?? "NEUTRAL").trim() as MethodEvidenceDirection;
+  const movingLinesRaw = String(form.get("movingLines") ?? "").trim();
+  const movingLines = movingLinesRaw
+    ? movingLinesRaw.split(",").map((value) => Number(value.trim()))
+    : [];
 
   if (!assetSymbol || !assetName || !method || !period) {
     return NextResponse.json(
@@ -73,6 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const { saveAssetResearchUpload } = await import("@/lib/data/asset-research-upload-store");
     const record = await saveAssetResearchUpload({
       assetSymbol,
       assetName,
@@ -83,12 +88,34 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
       mime: file.type || null,
       bytes: Buffer.from(await file.arrayBuffer()),
+      structuredEvidence: {
+        kind: evidenceKind,
+        sourceLabel: String(form.get("sourceLabel") ?? "").trim(),
+        sourcePublishedAt: String(form.get("sourcePublishedAt") ?? "").trim(),
+        applicableStart: String(form.get("applicableStart") ?? "").trim(),
+        applicableEnd: String(form.get("applicableEnd") ?? "").trim(),
+        direction,
+        confirmation: String(form.get("confirmation") ?? "").trim(),
+        invalidation: String(form.get("invalidation") ?? "").trim(),
+        primaryHexagram: String(form.get("primaryHexagram") ?? "").trim() || undefined,
+        mutualHexagram: String(form.get("mutualHexagram") ?? "").trim() || undefined,
+        changedHexagram: String(form.get("changedHexagram") ?? "").trim() || undefined,
+        movingLines,
+        isStaticHexagram: form.get("isStaticHexagram") === "true",
+        qimenChart: String(form.get("qimenChart") ?? "").trim() || undefined,
+        qimenChartReviewed: form.get("qimenChartReviewed") === "true",
+        qimenWindowStart: String(form.get("qimenWindowStart") ?? "").trim() || undefined,
+        qimenWindowEnd: String(form.get("qimenWindowEnd") ?? "").trim() || undefined,
+      },
     });
     return NextResponse.json(
       {
         ok: true,
         record,
-        message: "材料已进入待整理区，不会自动发布为正式预测",
+        message:
+          record.evidenceReadiness?.state === "FORWARD_LOCKED"
+            ? "前瞻证据已锁定，等待结果验证；不会自动发布或触发交易"
+            : `材料已保存为WAIT：${record.evidenceReadiness?.hardWaitReasons.join("、") || "证据不完整"}`,
       },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );

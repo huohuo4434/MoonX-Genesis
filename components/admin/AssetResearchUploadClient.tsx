@@ -12,6 +12,9 @@ type UploadRecord = {
   size: number;
   uploadedAt: string;
   status: "draft";
+  evidenceReadiness?: { state: "FORWARD_LOCKED" | "WAIT"; hardWaitReasons: string[] };
+  evidenceLockedAt?: string;
+  integrityStatus?: "VERIFIED" | "LEGACY_UNVERIFIED" | "FAILED";
 };
 
 function formatBytes(n: number): string {
@@ -28,6 +31,23 @@ export function AssetResearchUploadClient() {
   const [method, setMethod] = useState("六爻");
   const [period, setPeriod] = useState("近期");
   const [notes, setNotes] = useState("");
+  const [evidenceKind, setEvidenceKind] = useState("LIUYAO");
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [sourcePublishedAt, setSourcePublishedAt] = useState("");
+  const [applicableStart, setApplicableStart] = useState("");
+  const [applicableEnd, setApplicableEnd] = useState("");
+  const [direction, setDirection] = useState("UP");
+  const [confirmation, setConfirmation] = useState("");
+  const [invalidation, setInvalidation] = useState("");
+  const [primaryHexagram, setPrimaryHexagram] = useState("");
+  const [mutualHexagram, setMutualHexagram] = useState("");
+  const [changedHexagram, setChangedHexagram] = useState("");
+  const [movingLines, setMovingLines] = useState("");
+  const [isStaticHexagram, setIsStaticHexagram] = useState(false);
+  const [qimenChart, setQimenChart] = useState("");
+  const [qimenChartReviewed, setQimenChartReviewed] = useState(false);
+  const [qimenWindowStart, setQimenWindowStart] = useState("");
+  const [qimenWindowEnd, setQimenWindowEnd] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [records, setRecords] = useState<UploadRecord[]>([]);
@@ -62,6 +82,23 @@ export function AssetResearchUploadClient() {
       fd.set("method", method);
       fd.set("period", period);
       fd.set("notes", notes);
+      fd.set("evidenceKind", evidenceKind);
+      fd.set("sourceLabel", sourceLabel);
+      fd.set("sourcePublishedAt", sourcePublishedAt ? new Date(sourcePublishedAt).toISOString() : "");
+      fd.set("applicableStart", applicableStart);
+      fd.set("applicableEnd", applicableEnd);
+      fd.set("direction", direction);
+      fd.set("confirmation", confirmation);
+      fd.set("invalidation", invalidation);
+      fd.set("primaryHexagram", primaryHexagram);
+      fd.set("mutualHexagram", mutualHexagram);
+      fd.set("changedHexagram", changedHexagram);
+      fd.set("movingLines", movingLines);
+      fd.set("isStaticHexagram", String(isStaticHexagram));
+      fd.set("qimenChart", qimenChart);
+      fd.set("qimenChartReviewed", String(qimenChartReviewed));
+      fd.set("qimenWindowStart", qimenWindowStart ? new Date(qimenWindowStart).toISOString() : "");
+      fd.set("qimenWindowEnd", qimenWindowEnd ? new Date(qimenWindowEnd).toISOString() : "");
       const res = await fetch("/api/admin/asset-research/upload", {
         method: "POST",
         body: fd,
@@ -118,15 +155,53 @@ export function AssetResearchUploadClient() {
           </label>
           <label className="space-y-1 text-body-sm">
             <span>分析方法</span>
-            <select className={inputClass} value={method} onChange={(e) => setMethod(e.target.value)}>
-              <option>六爻</option>
-              <option>奇门遁甲</option>
-              <option>八字</option>
-              <option>周期</option>
-              <option>技术结构</option>
-              <option>综合</option>
+            <select className={inputClass} value={evidenceKind} onChange={(e) => { setEvidenceKind(e.target.value); setMethod(e.target.options[e.target.selectedIndex]?.text ?? e.target.value); setDirection(e.target.value === "QIMEN" ? "TIMING_ONLY" : "NEUTRAL"); }}>
+              <option value="LIUYAO">六爻</option>
+              <option value="QIMEN">奇门遁甲</option>
+              <option value="FUNDAMENTAL">基本面 / NANA</option>
+              <option value="EXTERNAL_ANALYST">公开市场观点 / X</option>
+              <option value="TECHNICAL">技术结构</option>
+              <option value="MACRO">宏观</option>
+              <option value="NEWS">新闻事件</option>
             </select>
           </label>
+          <label className="space-y-1 text-body-sm">
+            <span>来源（仅内部审计）</span>
+            <input className={inputClass} value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} placeholder="账号、课程或原始文件标识" />
+          </label>
+          <label className="space-y-1 text-body-sm">
+            <span>来源发布时间</span>
+            <input className={inputClass} type="datetime-local" value={sourcePublishedAt} onChange={(e) => setSourcePublishedAt(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-body-sm">
+            <span>适用开始</span>
+            <input className={inputClass} type="date" value={applicableStart} onChange={(e) => setApplicableStart(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-body-sm">
+            <span>适用结束</span>
+            <input className={inputClass} type="date" value={applicableEnd} onChange={(e) => setApplicableEnd(e.target.value)} />
+          </label>
+          <label className="space-y-1 text-body-sm">
+            <span>方向职责</span>
+            <select className={inputClass} value={direction} onChange={(e) => setDirection(e.target.value)}>
+              <option value="UP">偏多</option><option value="DOWN">偏空</option><option value="NEUTRAL">中性</option><option value="TIMING_ONLY">只做择时</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-body-sm md:col-span-2"><span>确认条件</span><textarea className="min-h-20 w-full rounded-md border border-border/[0.16] bg-background p-3 text-body-sm" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label>
+          <label className="space-y-1 text-body-sm md:col-span-2"><span>失效条件</span><textarea className="min-h-20 w-full rounded-md border border-border/[0.16] bg-background p-3 text-body-sm" value={invalidation} onChange={(e) => setInvalidation(e.target.value)} /></label>
+          {evidenceKind === "LIUYAO" ? <>
+            <label className="space-y-1 text-body-sm"><span>原卦</span><input className={inputClass} value={primaryHexagram} onChange={(e) => setPrimaryHexagram(e.target.value)} /></label>
+            <label className="space-y-1 text-body-sm"><span>互卦</span><input className={inputClass} value={mutualHexagram} onChange={(e) => setMutualHexagram(e.target.value)} /></label>
+            <label className="space-y-1 text-body-sm"><span>变卦（静卦填“无变卦”）</span><input className={inputClass} value={changedHexagram} onChange={(e) => setChangedHexagram(e.target.value)} /></label>
+            <label className="space-y-1 text-body-sm"><span>动爻（1-6）</span><input className={inputClass} disabled={isStaticHexagram} value={movingLines} onChange={(e) => setMovingLines(e.target.value)} placeholder="例如 2,5" /></label>
+            <label className="flex items-center gap-2 text-body-sm md:col-span-2"><input type="checkbox" checked={isStaticHexagram} onChange={(e) => { setIsStaticHexagram(e.target.checked); if (e.target.checked) { setMovingLines(""); setChangedHexagram("无变卦（静卦）"); } }} />明确声明为静卦（零动爻且无变卦）</label>
+          </> : null}
+          {evidenceKind === "QIMEN" ? <>
+            <label className="space-y-1 text-body-sm md:col-span-2"><span>完整奇门盘（不可用摘要反推）</span><textarea className="min-h-32 w-full rounded-md border border-border/[0.16] bg-background p-3 text-body-sm" value={qimenChart} onChange={(e) => setQimenChart(e.target.value)} /></label>
+            <label className="flex items-center gap-2 text-body-sm md:col-span-2"><input type="checkbox" checked={qimenChartReviewed} onChange={(e) => setQimenChartReviewed(e.target.checked)} />已对照原盘核对九宫、值符、值使、九星、八门、八神、天盘与地盘</label>
+            <label className="space-y-1 text-body-sm"><span>择时窗口开始</span><input className={inputClass} type="datetime-local" value={qimenWindowStart} onChange={(e) => setQimenWindowStart(e.target.value)} /></label>
+            <label className="space-y-1 text-body-sm"><span>择时窗口结束</span><input className={inputClass} type="datetime-local" value={qimenWindowEnd} onChange={(e) => setQimenWindowEnd(e.target.value)} /></label>
+          </> : null}
           <label className="space-y-1 text-body-sm md:col-span-2">
             <span>预测周期</span>
             <input
@@ -180,7 +255,7 @@ export function AssetResearchUploadClient() {
               <div className="flex flex-wrap items-center gap-2">
                 <strong>{r.assetName}</strong>
                 <span className="font-mono text-caption text-foreground-secondary">{r.assetSymbol}</span>
-                <span className="rounded-full border border-border/[0.14] px-2 py-0.5 text-caption">草稿</span>
+                <span className="rounded-full border border-border/[0.14] px-2 py-0.5 text-caption">{r.evidenceReadiness?.state === "FORWARD_LOCKED" ? "前瞻已锁定" : "WAIT"}</span>
               </div>
               <p className="mt-2 text-body-sm text-foreground-secondary">
                 {r.method} · {r.period} · {r.fileName} · {formatBytes(r.size)}
@@ -188,6 +263,8 @@ export function AssetResearchUploadClient() {
               <p className="mt-1 text-caption text-foreground-tertiary">
                 {new Date(r.uploadedAt).toLocaleString("zh-CN")}
               </p>
+              {r.evidenceReadiness?.hardWaitReasons.length ? <p className="mt-1 text-caption text-amber-300">缺口：{r.evidenceReadiness.hardWaitReasons.join("、")}</p> : null}
+              <p className="mt-1 text-caption text-foreground-tertiary">完整性：{r.integrityStatus === "VERIFIED" ? "证据记录哈希一致（附件SHA-256已锁定）" : r.integrityStatus === "FAILED" ? "证据记录校验失败，已阻断" : "旧资料，未提供哈希"}</p>
             </div>
           ))
         )}

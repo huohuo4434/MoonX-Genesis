@@ -39,7 +39,7 @@ describe("teacher02 external Liu-Yao source", () => {
     assert.equal(silver?.teacher02WeightPct, 30);
   });
 
-  it("blends with locked weekly direction instead of allowing teacher02 to act alone", async () => {
+  it("uses locked weekly authority and defaults to observation when evidence conflicts", async () => {
     const records = await listResearchRecords();
     const gold = buildTeacherSourceBlend({ assetId: "gold", asOfDate: "2026-08-03", records });
     const silver = buildTeacherSourceBlend({ assetId: "silver", asOfDate: "2026-08-03", records });
@@ -52,8 +52,10 @@ describe("teacher02 external Liu-Yao source", () => {
     assert.equal(silver?.lean, "UP");
     assert.equal(ndx?.lean, "UP");
     assert.equal(eth?.lean, "UP");
-    assert.equal(spx?.lean, "DOWN");
+    assert.equal(spx?.lean, "FLAT");
     assert.equal(spx?.alignment, "conflict");
+    assert.equal(spx?.weightedDirection, 0);
+    assert.equal((gold?.teacher01EffectiveWeightPct ?? 0) + (gold?.teacher02EffectiveWeightPct ?? 0) + (gold?.moonxPathWeightPct ?? 0), 100);
     assert.equal(gold?.canTriggerTradeAlone, false);
     assert.equal(gold?.rev322Calibration?.version, "Rev3.2.2");
     assert.equal(eth?.rev322Calibration?.marketKind, "CONTINUOUS_7X24");

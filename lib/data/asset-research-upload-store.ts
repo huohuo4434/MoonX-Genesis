@@ -1,10 +1,17 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/admin";
+import {
+  assessMethodEvidence,
+  type MethodEvidenceReadiness,
+  type StructuredMethodEvidence,
+} from "@/lib/research/method-evidence-input-core";
 
 const DATA_BUCKET = "moonx-data";
 const MEDIA_BUCKET = "moonx-asset-research";
 const META_FILE = "asset-research/uploads.json";
+const IMMUTABLE_RECORDS_PATH = "asset-research/records";
 
 export type AssetResearchUploadRecord = {
   id: string;
@@ -20,6 +27,12 @@ export type AssetResearchUploadRecord = {
   size: number;
   status: "draft";
   uploadedAt: string;
+  structuredEvidence?: StructuredMethodEvidence;
+  evidenceReadiness?: MethodEvidenceReadiness;
+  evidenceHash?: string;
+  evidenceLockedAt?: string;
+  fileSha256?: string;
+  integrityStatus?: "VERIFIED" | "LEGACY_UNVERIFIED" | "FAILED";
 };
 
 type Store = {
@@ -59,14 +72,52 @@ async function readStore(): Promise<Store> {
   }
 }
 
-async function writeStore(store: Store): Promise<void> {
+async function writeImmutableRecord(record: AssetResearchUploadRecord): Promise<void> {
   const admin = await ensureBucket(DATA_BUCKET, 10 * 1024 * 1024);
   const { error } = await admin.storage.from(DATA_BUCKET).upload(
-    META_FILE,
-    JSON.stringify(store, null, 2),
-    { contentType: "application/json", upsert: true }
+    `${IMMUTABLE_RECORDS_PATH}/${record.id}.json`,
+    JSON.stringify(record, null, 2),
+    { contentType: "application/json", upsert: false }
   );
   if (error) throw error;
+}
+
+async function listImmutableRecords(): Promise<AssetResearchUploadRecord[]> {
+  const admin = getAdminClient();
+  if (!admin) return [];
+  const objects: string[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await admin.storage.from(DATA_BUCKET).list(IMMUTABLE_RECORDS_PATH, {
+      limit: 1000, offset, sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    for (const item of data ?? []) if (item.name.endsWith(".json")) objects.push(item.name);
+    if ((data?.length ?? 0) < 1000) break;
+  }
+  const rows = await Promise.all(objects.map(async (name) => {
+    const { data, error } = await admin.storage.from(DATA_BUCKET).download(`${IMMUTABLE_RECORDS_PATH}/${name}`);
+    if (error || !data) throw error ?? new Error(`Missing immutable evidence ${name}`);
+    return JSON.parse(await data.text()) as AssetResearchUploadRecord;
+  }));
+  return rows.map((record) => {
+    if (!record.evidenceHash || !record.fileSha256 || !record.structuredEvidence) {
+      return { ...record, integrityStatus: "LEGACY_UNVERIFIED" as const };
+    }
+    const actual = createHash("sha256")
+      .update(`${JSON.stringify(record.structuredEvidence)}\n${record.fileSha256}`)
+      .digest("hex");
+    if (actual === record.evidenceHash) return { ...record, integrityStatus: "VERIFIED" as const };
+    return {
+      ...record,
+      integrityStatus: "FAILED" as const,
+      evidenceReadiness: {
+        state: "WAIT" as const,
+        hardWaitReasons: ["EVIDENCE_INTEGRITY_FAILED"],
+        executionAuthority: "RESEARCH_ONLY" as const,
+        tradingEligible: false as const,
+      },
+    };
+  });
 }
 
 function safeToken(value: string, fallback: string): string {
@@ -92,6 +143,7 @@ export async function saveAssetResearchUpload(input: {
   fileName: string;
   mime: string | null;
   bytes: Buffer;
+  structuredEvidence: StructuredMethodEvidence;
 }): Promise<AssetResearchUploadRecord> {
   const admin = await ensureBucket(MEDIA_BUCKET, 100 * 1024 * 1024);
   const now = new Date();
@@ -106,6 +158,11 @@ export async function saveAssetResearchUpload(input: {
   });
   if (error) throw error;
 
+  const evidenceReadiness = assessMethodEvidence(input.structuredEvidence, now);
+  const fileSha256 = createHash("sha256").update(input.bytes).digest("hex");
+  const evidenceHash = createHash("sha256")
+    .update(`${JSON.stringify(input.structuredEvidence)}\n${fileSha256}`)
+    .digest("hex");
   const record: AssetResearchUploadRecord = {
     id,
     assetSymbol: symbol,
@@ -120,16 +177,22 @@ export async function saveAssetResearchUpload(input: {
     size: input.bytes.length,
     status: "draft",
     uploadedAt: now.toISOString(),
+    structuredEvidence: input.structuredEvidence,
+    evidenceReadiness,
+    evidenceHash,
+    evidenceLockedAt: now.toISOString(),
+    fileSha256,
+    integrityStatus: "VERIFIED",
   };
 
-  const store = await readStore();
-  store.records.unshift(record);
-  store.records = store.records.slice(0, 500);
-  store.updatedAt = now.toISOString();
-  await writeStore(store);
+  await writeImmutableRecord(record);
   return record;
 }
 
 export async function listAssetResearchUploads(): Promise<AssetResearchUploadRecord[]> {
-  return (await readStore()).records;
+  const [legacy, immutable] = await Promise.all([readStore(), listImmutableRecords()]);
+  const byId = new Map<string, AssetResearchUploadRecord>();
+  for (const record of legacy.records) byId.set(record.id, { ...record, integrityStatus: "LEGACY_UNVERIFIED" });
+  for (const record of immutable) byId.set(record.id, record);
+  return Array.from(byId.values()).sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
 }

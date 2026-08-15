@@ -1,5 +1,6 @@
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { buildTeacher02Rev322PathCalibration, type Teacher02Rev322PathCalibration } from "@/lib/research/teacher02-rev322";
+import { deriveForwardValidatedWeight, type ForwardMethodSample } from "@/lib/research/method-evidence-input-core";
 import type { ResearchDirection, ResearchRecord } from "@/types/research";
 
 export type TeacherBlendAssetId = "ethereum" | "nasdaq-100" | "sp500" | "gold" | "silver";
@@ -132,9 +133,12 @@ export type TeacherSourceBlendResult = {
   teacher01Direction: string;
   teacher01Score: number;
   teacher01RecordId: string;
+  teacher01EffectiveWeightPct: number;
   teacher02Direction: ResearchDirection;
   teacher02Score: number;
   teacher02RecordId: string;
+  teacher02EffectiveWeightPct: number;
+  teacher02ForwardSamples: number;
   directionalWeightPct: number;
   moonxPathWeightPct: number;
   publicSummary: string;
@@ -183,10 +187,51 @@ export function buildTeacherSourceBlend(input: {
 
   const teacher01Score = pathDirectionValue(`${weekly.overallDirection} ${weekly.weeklyPath}`);
   const teacher02Score = RESEARCH_DIRECTION_VALUE[teacher02.direction];
-  const directionalWeightPct = profile.teacher01WeightPct + profile.teacher02WeightPct;
-  const weightedDirection =
+  const forwardSamplesBySource = new Map<string, ForwardMethodSample>();
+  for (const record of input.records
+    .filter((record) =>
+      record.assetId === input.assetId &&
+      record.tags.includes("source:teacher02") &&
+      record.sourcePublishedAtVerified === true
+    )
+    .map((record) => {
+      const conclusion = record.verificationResult?.conclusion?.zhCN ?? "";
+      const result: ForwardMethodSample["result"] = !record.verificationResult?.scoreEligible
+        ? "UNVERIFIABLE"
+        : /部分命中/.test(conclusion)
+          ? "PARTIAL_HIT"
+          : /未命中/.test(conclusion)
+            ? "MISS"
+            : /完全命中|方向命中|命中/.test(conclusion)
+              ? "FULL_HIT"
+              : "UNVERIFIABLE";
+      return {
+        sourceId: record.id,
+        market: record.market,
+        horizon: record.tags.find((tag) => tag.startsWith("horizon:"))?.slice(8).toUpperCase() ?? "UNCLASSIFIED",
+        regime: record.tags.find((tag) => tag.startsWith("regime:"))?.slice(7) ?? "UNCLASSIFIED",
+        sourcePublishedAt: record.sourcePublishedAt ?? "",
+        lockedAt: record.ingestedAt ?? record.publishedAt,
+        forecastStart: record.forecastStart ?? "",
+        scoreEligible: record.verificationEligibility === "formal" && record.verificationResult?.scoreEligible === true,
+        result,
+      };
+    })) {
+    if (!forwardSamplesBySource.has(record.sourceId)) forwardSamplesBySource.set(record.sourceId, record);
+  }
+  const forwardSamples = Array.from(forwardSamplesBySource.values());
+  const dynamicWeight = deriveForwardValidatedWeight({
+    baseWeightPct: profile.teacher02WeightPct,
+    maxWeightPct: 100 - profile.moonxExtensionWeightPct,
+    samples: forwardSamples,
+    scope: { market: teacher02.market, horizon: "WEEK", regime: teacher02.tags.find((tag) => tag.startsWith("regime:"))?.slice(7) ?? "UNCLASSIFIED" },
+  });
+  const teacher02EffectiveWeightPct = dynamicWeight.effectiveWeightPct;
+  const teacher01EffectiveWeightPct = 100 - profile.moonxExtensionWeightPct - teacher02EffectiveWeightPct;
+  const directionalWeightPct = teacher01EffectiveWeightPct + teacher02EffectiveWeightPct;
+  const blendedWeightedDirection =
     directionalWeightPct > 0
-      ? (teacher01Score * profile.teacher01WeightPct + teacher02Score * profile.teacher02WeightPct) /
+      ? (teacher01Score * teacher01EffectiveWeightPct + teacher02Score * teacher02EffectiveWeightPct) /
         directionalWeightPct
       : 0;
   const teacher01Sign = sign(teacher01Score);
@@ -197,6 +242,7 @@ export function buildTeacherSourceBlend(input: {
       : teacher01Sign !== 0 && teacher02Sign !== 0 && teacher01Sign !== teacher02Sign
         ? "conflict"
         : "partial";
+  const weightedDirection = alignment === "conflict" ? 0 : blendedWeightedDirection;
   const confidence = clamp(
     Math.round(52 + Math.abs(weightedDirection) * 24 + (alignment === "aligned" ? 8 : alignment === "conflict" ? -8 : 0)),
     40,
@@ -208,21 +254,24 @@ export function buildTeacherSourceBlend(input: {
       : alignment === "conflict"
         ? "主六爻与辅助六爻的周内路径存在分歧，维持主体系方向并降低追涨杀跌力度。"
         : "辅助六爻主要用于补充时间窗口，暂不单独改变主方向。";
-  const adminSummary = `${profile.label}：老师01 ${profile.teacher01WeightPct}%／老师02 ${profile.teacher02WeightPct}%／MoonX路径校准 ${profile.moonxExtensionWeightPct}%；当前${alignment === "aligned" ? "方向一致" : alignment === "conflict" ? "方向分歧" : "部分一致"}。${rev322Calibration ? ` ${rev322Calibration.summary}` : ""}`;
+  const adminSummary = `${profile.label}：主方法有效权重 ${teacher01EffectiveWeightPct}%／辅助方法有效权重 ${teacher02EffectiveWeightPct}%（同市场、周周期、同环境正式前瞻样本 ${dynamicWeight.eligibleSamples}/${dynamicWeight.minimumSamples}）／路径校准 ${profile.moonxExtensionWeightPct}%；当前${alignment === "aligned" ? "方向一致" : alignment === "conflict" ? "方向冲突，默认观望" : "部分一致"}。${rev322Calibration ? ` ${rev322Calibration.summary}` : ""}`;
 
   return {
     assetId: input.assetId,
     profile,
-    lean: leanFromScore(weightedDirection),
+    lean: alignment === "conflict" ? "FLAT" : leanFromScore(weightedDirection),
     weightedDirection,
     confidence,
     alignment,
     teacher01Direction: weekly.overallDirection,
     teacher01Score,
     teacher01RecordId: weekly.id,
+    teacher01EffectiveWeightPct,
     teacher02Direction: teacher02.direction,
     teacher02Score,
     teacher02RecordId: teacher02.id,
+    teacher02EffectiveWeightPct,
+    teacher02ForwardSamples: dynamicWeight.eligibleSamples,
     directionalWeightPct,
     moonxPathWeightPct: profile.moonxExtensionWeightPct,
     publicSummary,
@@ -235,7 +284,16 @@ export function buildTeacherSourceBlend(input: {
 
 export function summarizeTeacher02Verification(records: ResearchRecord[]) {
   const teacher02 = records.filter((record) => record.tags.includes("source:teacher02"));
-  const completed = teacher02.filter((record) => record.verificationResult?.scoreEligible === true);
+  const completed = Array.from(new Map(teacher02.filter((record) =>
+    record.verificationEligibility === "formal" &&
+    record.sourcePublishedAtVerified === true &&
+    record.verificationResult?.scoreEligible === true &&
+    Boolean(record.forecastStart) &&
+    Boolean(record.sourcePublishedAt) &&
+    Boolean(record.ingestedAt) &&
+    new Date(record.sourcePublishedAt!).getTime() < new Date(`${record.forecastStart}T00:00:00.000Z`).getTime() &&
+    new Date(record.ingestedAt!).getTime() < new Date(`${record.forecastStart}T00:00:00.000Z`).getTime()
+  ).map((record) => [record.id, record])).values());
   const directionHits = completed.filter((record) => {
     const conclusion = record.verificationResult?.conclusion?.zhCN ?? "";
     return /方向命中|完全命中|命中/.test(conclusion) && !/未命中/.test(conclusion);
