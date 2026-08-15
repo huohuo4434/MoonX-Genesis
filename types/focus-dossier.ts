@@ -7,6 +7,10 @@ export type FocusDossierDay = {
   summary: string;
   confirmation: string | null;
   invalidation: string | null;
+  sourceKind?: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION" | null;
+  version?: number | null;
+  asOfDate?: string | null;
+  rollingReason?: string | null;
 };
 
 export type FocusSupplementalEvidence = {
@@ -34,6 +38,17 @@ export type FocusDossierView = {
   periodStart: string | null;
   periodEnd: string | null;
   dailyPath: FocusDossierDay[];
+  dailyAuditRows: Array<{
+    forecastDate: string;
+    version: number;
+    direction: string;
+    path: string;
+    validationStatus: string | null;
+    publishedAt: string | null;
+    previousVersionId: string | null;
+    sourceKind: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION" | null;
+    revisionReason: string | null;
+  }>;
   supportLevels: string[];
   resistanceLevels: string[];
   confirmation: string | null;

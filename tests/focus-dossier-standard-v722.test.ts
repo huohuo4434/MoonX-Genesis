@@ -145,7 +145,9 @@ test("formal locked next week publishes seven isolated append-only research days
   assert.equal(first.all.length, 7);
   assert.equal(first.append.length, 7);
   assert.ok(first.all.every((row) => row.marketCode === "FOCUS:ASTEROID" && row.status === "PUBLISHED" && row.lockedAt === null));
-  assert.ok(first.all.every((row) => row.direction === "NEUTRAL" && /不从周卦机械拆分/.test(row.expectedPath)));
+  assert.ok(first.all.every((row) => row.direction !== "NEUTRAL" && /不是独立日卦或奇门盘/.test(row.expectedPath)));
+  assert.ok(first.all.every((row) => row.liuyaoEvidence?.includes("FOCUS_SOURCE_KIND=MOOX_WEEK_DERIVED")));
+  assert.ok(new Set(first.all.map((row) => row.direction)).size > 1);
   assert.ok(first.all.every((row) => row.previousVersionId === null && row.version === 1));
 
   const repeated = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW + 60_000, auxiliary, latest: first.all });
@@ -165,7 +167,8 @@ test("original formal dailyPath wins while auxiliary evidence cannot change its 
   });
   assert.equal(result.all[0]?.direction, "探底回升");
   assert.equal(result.all[0]?.expectedPath, "原始正式逐日证据");
-  assert.equal(result.all[1]?.direction, "NEUTRAL");
+  assert.notEqual(result.all[1]?.direction, "NEUTRAL");
+  assert.match(result.all[0]?.liuyaoEvidence ?? "", /FOCUS_SOURCE_KIND=TEACHER_DAILY/);
 });
 
 test("member dossier prefers authoritative persisted focus versions only for the matching locked weekly source", () => {
@@ -174,7 +177,7 @@ test("member dossier prefers authoritative persisted focus versions only for the
   const dossier = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-18", nowMs: NOW + 4 * 86_400_000, generatedDailies: batch.all });
   assert.equal(dossier.dailyPath.length, 7);
   assert.ok(dossier.dailyPath.every((day) => day.state !== "MISSING"));
-  assert.ok(dossier.dailyPath.every((day) => day.direction === "观察"));
+  assert.ok(dossier.dailyPath.every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
   const stale = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-18", nowMs: NOW + 4 * 86_400_000, generatedDailies: batch.all.map((row) => ({ ...row, sourceWeeklyForecastId: "other-week" })) });
   assert.ok(stale.dailyPath.some((day) => day.state === "MISSING"));
 });
@@ -270,6 +273,7 @@ test("Saturday publication persists one seven-row batch and skips all dependenci
 
 test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:00 Beijing", () => {
   const route = readFileSync("app/api/cron/prepare-focus-week/route.ts", "utf8");
+  const routeHandler = readFileSync("lib/data/conviction/focus-week-route-handler.ts", "utf8");
   const orchestration = readFileSync("lib/data/conviction/focus-week-preparation-core.ts", "utf8");
   const access = readFileSync("lib/data/conviction/access.ts", "utf8");
   const page = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
@@ -277,10 +281,10 @@ test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:0
   const vercel = JSON.parse(readFileSync("vercel.json", "utf8")) as { crons: Array<{ path: string; schedule: string }> };
   assert.match(route, /CRON_SECRET/);
   assert.match(orchestration, /SATURDAY_ONLY/);
-  assert.match(route, /runFocusWeekPreparation/);
-  assert.match(route, /export const GET = handleFocusWeekPreparation/);
-  assert.match(route, /export const POST = handleFocusWeekPreparation/);
-  assert.match(route, /PREPARATION_EVIDENCE_UNAVAILABLE/);
+  assert.match(routeHandler, /runFocusWeekPreparation/);
+  assert.match(route, /export async function GET/);
+  assert.match(route, /export async function POST/);
+  assert.match(routeHandler, /PREPARATION_EVIDENCE_UNAVAILABLE/);
   assert.doesNotMatch(route, /INSERT|UPDATE|DELETE|upsert|create\(/i);
   assert.match(access, /focusDossier: null/);
   const publicReturn = access.indexOf('mode: "publicOnly"');
@@ -289,7 +293,7 @@ test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:0
   assert.match(access, /readOnly: true/);
   assert.match(page, /payload\.mode === "fullAccess" && payload\.focusDossier/);
   assert.match(verificationSync, /startsWith: "FOCUS:"/);
-  assert.deepEqual(vercel.crons.find((item) => item.path === "/api/cron/prepare-focus-week"), { path: "/api/cron/prepare-focus-week", schedule: "0 2 * * 6" });
+  assert.deepEqual(vercel.crons.find((item) => item.path === "/api/cron/prepare-focus-week"), { path: "/api/cron/prepare-focus-week", schedule: "0 2 * * *" });
 });
 
 test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate", () => {

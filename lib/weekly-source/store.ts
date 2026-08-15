@@ -14,7 +14,7 @@ import type {
   WeeklyForecastSourceRecord,
 } from "@/lib/weekly-source/types";
 import { executeAtomicFocusDailyAppend } from "@/lib/data/conviction/focus-daily-generation-core";
-import { FOCUS_DAILY_MARKET_PREFIX, filterPublicGeneratedDailyRows, isPublicGeneratedDailyMarketCode } from "@/lib/weekly-source/generated-daily-namespace-core";
+import { FOCUS_DAILY_MARKET_PREFIX, filterPublicGeneratedDailyRows, isPublicGeneratedDailyMarketCode, selectFocusGeneratedDailyAuditRows } from "@/lib/weekly-source/generated-daily-namespace-core";
 
 function mapWeeklyRow(row: {
   id: string;
@@ -241,6 +241,32 @@ export async function listLatestGeneratedDailiesForMarketDates(
   const latest = new Map<string, (typeof rows)[number]>();
   for (const row of rows) if (!latest.has(row.forecastDate)) latest.set(row.forecastDate, row);
   return [...latest.values()].map(mapGeneratedRow);
+}
+
+export async function listFocusGeneratedDailyAuditVersions(input: {
+  marketCode: string;
+  sourceWeeklyForecastId: string;
+  periodStart: string;
+  periodEnd: string;
+  readOnly: true;
+}): Promise<GeneratedDailyForecastRecord[]> {
+  if (!hasPrisma() || !prisma) throw new Error("generated-daily-authoritative-store-unavailable");
+  if (!input.marketCode.startsWith(FOCUS_DAILY_MARKET_PREFIX)) throw new Error("focus-daily-reader-namespace-required");
+  if (!input.sourceWeeklyForecastId.trim()) throw new Error("focus-daily-source-required");
+  const start = Date.parse(`${input.periodStart}T00:00:00.000Z`);
+  const end = Date.parse(`${input.periodEnd}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || new Date(start).toISOString().slice(0, 10) !== input.periodStart || new Date(end).toISOString().slice(0, 10) !== input.periodEnd || end < start || Math.floor((end - start) / 86_400_000) + 1 > 62) {
+    throw new Error("focus-daily-audit-range-invalid");
+  }
+  const rows = await prisma.generatedDailyForecast.findMany({
+    where: {
+      marketCode: input.marketCode,
+      sourceWeeklyForecastId: input.sourceWeeklyForecastId,
+      forecastDate: { gte: input.periodStart, lte: input.periodEnd },
+    },
+    orderBy: [{ forecastDate: "asc" }, { version: "desc" }, { publishedAt: "desc" }, { id: "desc" }],
+  });
+  return selectFocusGeneratedDailyAuditRows(rows.map(mapGeneratedRow), input);
 }
 
 function generatedDailyCreateData(record: GeneratedDailyForecastRecord) {

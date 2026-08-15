@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/prepare-focus-week",
-      "schedule": "0 2 * * 6"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/generate-social-cards",

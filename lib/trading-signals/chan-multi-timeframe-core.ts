@@ -2,17 +2,10 @@ import type {
   ChanDirection,
   ChanMultiTimeframeDecision,
   ChanMultiTimeframeFrame,
-  ChanStructure,
 } from "@/types/chan-execution";
+import { deriveChanStage } from "@/lib/trading-signals/chan-stage-core";
 
 export const CHAN_V2_TIMEFRAMES = ["30m", "1H", "4H", "1D"] as const;
-
-function structureSignal(structure: ChanStructure): "BULL" | "BEAR" | "NONE" {
-  const bullish = structure.buyPoint === "SECOND" || structure.buyPoint === "THIRD";
-  const bearish = structure.sellPoint === "SECOND" || structure.sellPoint === "THIRD";
-  if (bullish === bearish) return "NONE";
-  return bullish ? "BULL" : "BEAR";
-}
 
 function directionRisk(
   direction: ChanDirection,
@@ -43,11 +36,13 @@ export function decideChanMultiTimeframe(input: {
   const ordered = CHAN_V2_TIMEFRAMES.map((timeframe) => byTimeframe.get(timeframe));
   const timeframeSignals = CHAN_V2_TIMEFRAMES.map((timeframe, index) => {
     const frame = ordered[index];
+    const stage = frame ? deriveChanStage(frame.structure) : deriveChanStage({ sufficient: false, normalizedCandles: [], fractals: [], strokes: [], segments: [], zones: [], trendState: "INCOMPLETE", divergence: false, divergenceEvidence: { priceExtended: false, momentumContracted: false, zoneConfirmed: false, segmentComplete: false }, buyPoint: "NONE", sellPoint: "NONE", riskLevels: { long: null, short: null } });
     return {
       timeframe,
-      signal: frame ? structureSignal(frame.structure) : "NONE" as const,
+      signal: stage.status === "ACTIVE" ? stage.direction === "BULL" ? "BULL" as const : "BEAR" as const : "NONE" as const,
       complete: Boolean(frame?.structure.sufficient && frame.structure.trendState === "COMPLETE"),
       available: Boolean(frame && !frame.error),
+      stage,
     };
   });
   const reasons: string[] = [];

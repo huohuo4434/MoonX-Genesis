@@ -1,6 +1,6 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import { prepareNextFocusWeek } from "@/lib/data/conviction/focus-dossier-core";
-import { buildFocusDailyPublicationBatch, selectFormalNextFocusWeek, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
+import { buildFocusDailyPublicationBatch, focusDailyQuoteCapability, selectFormalCurrentFocusWeek, selectFormalNextFocusWeek, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { FocusWeekPreparation } from "@/types/focus-dossier";
 
@@ -11,6 +11,32 @@ export type FocusWeekEvidence = {
   exchange?: string | null;
   forecasts: readonly ConvictionPeriodForecast[];
 };
+export type FocusDailyCoverageRow = {
+  assetId: string;
+  formalPeriodInventory: Array<{ id: string; type: string; start: string; end: string; version: number }>;
+  currentWeekId: string | null;
+  nextWeekId: string | null;
+  teacherDailyCount: number;
+  currentTeacherDailyCount: number;
+  nextTeacherDailyCount: number;
+  generatedDailyCount: number;
+  quoteMapping: "AVAILABLE" | "UNAVAILABLE";
+  rollingCapability: "CLOSED_BARS_AND_X" | "WEEKLY_AND_OPTIONAL_X_ONLY";
+  confirmationAvailable: boolean;
+  invalidationAvailable: boolean;
+  gapReasons: string[];
+};
+
+export function buildFocusDailyCoverageReport(evidence: readonly FocusWeekEvidence[], asOfDate: string, nowMs: number): FocusDailyCoverageRow[] {
+  return evidence.map((asset) => {
+    const current = selectFormalCurrentFocusWeek({ forecasts: asset.forecasts, asOfDate, nowMs });
+    const next = selectFormalNextFocusWeek({ forecasts: asset.forecasts, asOfDate, nowMs });
+    const authority = current ?? next;
+    const quote = focusDailyQuoteCapability({ symbol: asset.symbol ?? asset.assetId, assetType: asset.assetType, exchange: asset.exchange });
+    const gaps = [!current && "CURRENT_WEEK_MISSING", !next && "NEXT_WEEK_MISSING", current && !current.dailyPath?.length && "CURRENT_TEACHER_DAILY_MISSING", next && !next.dailyPath?.length && "NEXT_TEACHER_DAILY_MISSING", !quote.available && "QUOTE_MAPPING_UNAVAILABLE", !authority?.confirmationLevel && "CONFIRMATION_MISSING", !authority?.invalidationLevel && "INVALIDATION_MISSING"].filter((value): value is string => Boolean(value));
+    return { assetId: asset.assetId, formalPeriodInventory: asset.forecasts.filter((row) => row.status === "published" && Date.parse(row.publishedAt) <= nowMs && Date.parse(row.lockedAt) <= nowMs).map((row) => ({ id: row.id, type: row.forecastType, start: row.periodStart, end: row.periodEnd, version: row.version })), currentWeekId: current?.id ?? null, nextWeekId: next?.id ?? null, teacherDailyCount: authority?.dailyPath?.length ?? 0, currentTeacherDailyCount: current?.dailyPath?.length ?? 0, nextTeacherDailyCount: next?.dailyPath?.length ?? 0, generatedDailyCount: 0, quoteMapping: quote.available ? "AVAILABLE" as const : "UNAVAILABLE" as const, rollingCapability: quote.available ? "CLOSED_BARS_AND_X" as const : "WEEKLY_AND_OPTIONAL_X_ONLY" as const, confirmationAvailable: Boolean(authority?.confirmationLevel), invalidationAvailable: Boolean(authority?.invalidationLevel), gapReasons: gaps };
+  }).sort((a, b) => a.assetId.localeCompare(b.assetId));
+}
 
 export type FocusWeekPreparationRun =
   | { kind: "UNAUTHORIZED"; ok: false }
@@ -30,6 +56,7 @@ export type FocusWeekPreparationRun =
       failedAssets: number;
       errors: Array<{ assetId: string; error: string }>;
       items: FocusWeekPreparation[];
+      coverage: FocusDailyCoverageRow[];
       preservesHistoricalVersions: true;
       writeMode: "APPEND_ONLY";
     };
@@ -42,6 +69,7 @@ export async function runFocusWeekPreparation(input: {
   loadLatest?: (asset: FocusWeekEvidence, dates: readonly string[]) => Promise<readonly GeneratedDailyForecastRecord[]>;
   loadAuxiliary?: (asset: FocusWeekEvidence) => Promise<FocusDailyAuxiliaryEvidence>;
   persistBatch?: (records: readonly GeneratedDailyForecastRecord[]) => Promise<{ created: number; records: GeneratedDailyForecastRecord[] }>;
+  scheduleMode?: "SATURDAY_ONLY" | "DAILY_ROLLING";
 }): Promise<FocusWeekPreparationRun> {
   if (!input.authorized) return { kind: "UNAUTHORIZED", ok: false };
 
@@ -49,13 +77,15 @@ export async function runFocusWeekPreparation(input: {
   if (!Number.isFinite(asOf) || new Date(asOf).toISOString().slice(0, 10) !== input.asOfDate) {
     throw new Error("Invalid preparation date");
   }
-  if (new Date(asOf).getUTCDay() !== 6) {
+  const isSaturday = new Date(asOf).getUTCDay() === 6;
+  if (!isSaturday && input.scheduleMode !== "DAILY_ROLLING") {
     return { kind: "NOT_SATURDAY", ok: true, skipped: true, reason: "SATURDAY_ONLY", asOfDate: input.asOfDate };
   }
 
   // This is deliberately the only dependency call. The orchestration is read-only;
   // a rejected reader propagates and can never be reported as a successful preparation.
   const evidence = await input.readEvidence();
+  const coverage = buildFocusDailyCoverageReport(evidence, input.asOfDate, input.nowMs);
   const items = evidence.map(({ assetId, forecasts }) =>
     prepareNextFocusWeek({ assetId, forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs })
   );
@@ -68,24 +98,29 @@ export async function runFocusWeekPreparation(input: {
   const errors: Array<{ assetId: string; error: string }> = [];
   if (publicationEnabled) {
     for (const asset of evidence) {
-      const weekly = selectFormalNextFocusWeek({ forecasts: asset.forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs });
-      if (!weekly) continue;
-      const dates = Array.from({ length: 7 }, (_, index) => {
-        const start = Date.parse(`${weekly.periodStart}T00:00:00Z`);
-        return new Date(start + index * 86_400_000).toISOString().slice(0, 10);
-      });
+      const targets = [
+        { weekly: selectFormalCurrentFocusWeek({ forecasts: asset.forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs }), mode: "CURRENT" as const },
+        ...(isSaturday ? [{ weekly: selectFormalNextFocusWeek({ forecasts: asset.forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs }), mode: "NEXT" as const }] : []),
+      ].filter((target) => target.weekly != null);
+      if (!targets.length) continue;
       try {
-        // All dependencies complete before the first write. A dependency failure
-        // therefore leaves this asset with zero persisted rows.
-        const latest = await input.loadLatest!(asset, dates);
+        const targetDates = targets.flatMap(({ weekly, mode }) => {
+          const start = Date.parse(`${mode === "CURRENT" ? input.asOfDate : weekly!.periodStart}T00:00:00Z`);
+          const end = Date.parse(`${weekly!.periodEnd}T00:00:00Z`);
+          return Array.from({ length: Math.floor((end - start) / 86_400_000) + 1 }, (_, index) => new Date(start + index * 86_400_000).toISOString().slice(0, 10));
+        });
+        // All read dependencies for this asset finish before its first write.
+        const latest = await input.loadLatest!(asset, [...new Set(targetDates)]);
+        const coverageRow = coverage.find((row) => row.assetId === asset.assetId);
+        if (coverageRow) coverageRow.generatedDailyCount = latest.length;
         const auxiliary = await input.loadAuxiliary!(asset);
-        const batch = buildFocusDailyPublicationBatch({ assetId: asset.assetId, weekly, asOfDate: input.asOfDate, nowMs: input.nowMs, auxiliary, latest });
-        if (!batch.append.length) {
+        const append = targets.flatMap(({ weekly, mode }) => buildFocusDailyPublicationBatch({ assetId: asset.assetId, weekly: weekly!, asOfDate: input.asOfDate, nowMs: input.nowMs, auxiliary, latest, mode }).append);
+        if (!append.length) {
           unchangedAssets += 1;
           continue;
         }
-        const saved = await input.persistBatch!(batch.append);
-        if (saved.records.length !== batch.append.length) throw new Error("focus-publication-batch-incomplete");
+        const saved = await input.persistBatch!(append);
+        if (saved.records.length !== append.length) throw new Error("focus-publication-batch-incomplete");
         publishedRows += saved.created;
       } catch (error) {
         errors.push({ assetId: asset.assetId, error: error instanceof Error ? error.message : String(error) });
@@ -107,6 +142,7 @@ export async function runFocusWeekPreparation(input: {
     failedAssets: errors.length,
     errors,
     items,
+    coverage,
     preservesHistoricalVersions: true,
     writeMode: "APPEND_ONLY",
   };

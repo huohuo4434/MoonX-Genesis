@@ -123,7 +123,7 @@ import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-
 import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
-import { buildFocusDossier, buildMemberFocusDossier, loadFocusDossierGeneratedDailies } from "@/lib/data/conviction/focus-dossier-core";
+import { buildFocusDossier, buildMemberFocusDossier, loadFocusDossierDailyAudit, loadFocusDossierGeneratedDailies } from "@/lib/data/conviction/focus-dossier-core";
 import { listFocusResearchSupplements } from "@/lib/data/conviction/focus-research-supplements";
 import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { FocusDossierView } from "@/types/focus-dossier";
@@ -303,7 +303,7 @@ export async function listStaticFocusEvidence(): Promise<Array<{
   const publishedAssets = await listConvictionAssets();
   return [...STATIC_PERIOD_ASSET_IDS].flatMap((assetId) => {
     const asset = publishedAssets.find((item) => item.slug === assetId || item.id === assetId);
-    if (!asset) return [];
+    if (!asset) throw new Error(`focus-asset-metadata-unavailable:${assetId}`);
     if (!asset.isPublished || asset.status !== "published") throw new Error(`focus-asset-metadata-unavailable:${assetId}`);
     return [{ assetId, symbol: asset.symbol, assetType: asset.assetType, exchange: asset.exchange ?? null, forecasts: staticPublished(assetId) }];
   });
@@ -559,6 +559,7 @@ export async function getConvictionDetailPayload(
   }
 
   if (staticPeriodAsset) {
+    const publishedForecasts = staticPublished(staticPeriodAsset);
     const periods = await attachAdminKeyDates(
       staticPeriodAsset,
       buildStaticPeriodSlots(staticPeriodAsset, true, asOfDate)
@@ -566,20 +567,38 @@ export async function getConvictionDetailPayload(
     const supplementalEvidence = listFocusResearchSupplements(staticPeriodAsset);
     const baseDossier = buildFocusDossier({
       assetId: staticPeriodAsset,
-      forecasts: staticPublished(staticPeriodAsset),
+      forecasts: publishedForecasts,
       asOfDate,
       nowMs: capturedNow.getTime(),
       supplementalEvidence,
     });
     let generatedDailies: GeneratedDailyForecastRecord[] = [];
+    let generatedDailyAudit: GeneratedDailyForecastRecord[] = [];
     if (baseDossier.periodStart && baseDossier.periodEnd) {
       try {
-        const { listLatestGeneratedDailiesForMarketDates } = await import("@/lib/weekly-source/store");
-        generatedDailies = await loadFocusDossierGeneratedDailies({
-          dossier: baseDossier,
-          marketCode: focusDailyMarketCode(staticPeriodAsset),
-          read: (marketCode, dates) => listLatestGeneratedDailiesForMarketDates(marketCode, dates, { readOnly: true }),
-        });
+        const { listFocusGeneratedDailyAuditVersions, listLatestGeneratedDailiesForMarketDates } = await import("@/lib/weekly-source/store");
+        const sourceForecast = publishedForecasts.find((forecast) =>
+          forecast.periodStart === baseDossier.periodStart &&
+          forecast.periodEnd === baseDossier.periodEnd &&
+          forecast.version === baseDossier.version
+        );
+        const marketCode = focusDailyMarketCode(staticPeriodAsset);
+        [generatedDailies, generatedDailyAudit] = await Promise.all([
+          loadFocusDossierGeneratedDailies({
+            dossier: baseDossier,
+            marketCode,
+            read: (code, dates) => listLatestGeneratedDailiesForMarketDates(code, dates, { readOnly: true }),
+          }),
+          sourceForecast
+            ? loadFocusDossierDailyAudit({
+                accessMode: "fullAccess",
+                dossier: baseDossier,
+                marketCode,
+                sourceWeeklyForecastId: sourceForecast.id,
+                read: listFocusGeneratedDailyAuditVersions,
+              })
+            : Promise.resolve([]),
+        ]);
       } catch {
         // Display remains available from immutable static evidence when the optional
         // persisted daily research reader is unavailable.
@@ -599,10 +618,11 @@ export async function getConvictionDetailPayload(
       resonanceSignal,
       focusDossier: buildFocusDossier({
         assetId: staticPeriodAsset,
-        forecasts: staticPublished(staticPeriodAsset),
+        forecasts: publishedForecasts,
         asOfDate,
         nowMs: capturedNow.getTime(),
         generatedDailies,
+        generatedDailyAudit,
         supplementalEvidence,
       }),
       forecast: {

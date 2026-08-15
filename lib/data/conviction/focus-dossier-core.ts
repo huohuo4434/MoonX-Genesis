@@ -45,6 +45,26 @@ export async function loadFocusDossierGeneratedDailies(input: {
   return input.read(input.marketCode, dates);
 }
 
+export async function loadFocusDossierDailyAudit(input: {
+  accessMode: "publicOnly" | "deviceRequired" | "fullAccess";
+  dossier: Pick<FocusDossierView, "periodStart" | "periodEnd">;
+  marketCode: string;
+  sourceWeeklyForecastId: string;
+  read: (query: {
+    marketCode: string; sourceWeeklyForecastId: string; periodStart: string; periodEnd: string; readOnly: true;
+  }) => Promise<GeneratedDailyForecastRecord[]>;
+}): Promise<GeneratedDailyForecastRecord[]> {
+  if (input.accessMode !== "fullAccess" || !input.dossier.periodStart || !input.dossier.periodEnd) return [];
+  if (!focusDossierPeriodDates(input.dossier.periodStart, input.dossier.periodEnd).length) return [];
+  return input.read({
+    marketCode: input.marketCode,
+    sourceWeeklyForecastId: input.sourceWeeklyForecastId,
+    periodStart: input.dossier.periodStart,
+    periodEnd: input.dossier.periodEnd,
+    readOnly: true,
+  });
+}
+
 function isFormal(forecast: ConvictionPeriodForecast, nowMs: number): boolean {
   const publishedAt = Date.parse(forecast.publishedAt);
   const lockedAt = Date.parse(forecast.lockedAt);
@@ -153,6 +173,7 @@ function emptyDossier(input: {
     periodStart: null,
     periodEnd: null,
     dailyPath: [],
+    dailyAuditRows: [],
     supportLevels: [],
     resistanceLevels: [],
     confirmation: null,
@@ -214,6 +235,7 @@ export function buildFocusDossier(input: {
   asOfDate: string;
   nowMs: number;
   generatedDailies?: readonly GeneratedDailyForecastRecord[];
+  generatedDailyAudit?: readonly GeneratedDailyForecastRecord[];
   supplementalEvidence?: readonly FocusSupplementalEvidence[];
 }): FocusDossierView {
   const weekly = weeklyForecasts(input.forecasts, input.nowMs);
@@ -241,6 +263,8 @@ export function buildFocusDossier(input: {
     const sourceDay = sourceDays.get(date);
     const generated = sourceDay?.status === "已验证" ? null : generatedDays.get(date);
     if (generated) {
+      const sourceKind = generated.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] as FocusDossierDay["sourceKind"];
+      const generatedAsOf = generated.liuyaoEvidence?.match(/AS_OF=(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
       return {
         date,
         state: date === input.asOfDate ? "TODAY" : "PENDING",
@@ -248,11 +272,26 @@ export function buildFocusDossier(input: {
         summary: generated.expectedPath,
         confirmation: generated.confirmationLevel,
         invalidation: generated.invalidationLevel,
+        sourceKind: sourceKind ?? null,
+        version: generated.version,
+        asOfDate: generatedAsOf,
+        rollingReason: generated.revisionReason,
       };
     }
     return sourceDayToView(date, input.asOfDate, sourceDays);
   });
   const complete = requiredDates.length > 0 && dailyPath.every((day) => day.state !== "MISSING");
+  const dailyAuditRows = (input.generatedDailyAudit ?? []).map((row) => ({
+    forecastDate: row.forecastDate,
+    version: row.version,
+    direction: row.direction,
+    path: row.expectedPath,
+    validationStatus: row.validationStatus,
+    publishedAt: row.publishedAt,
+    previousVersionId: row.previousVersionId,
+    sourceKind: (row.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] ?? null) as FocusDossierView["dailyAuditRows"][number]["sourceKind"],
+    revisionReason: row.revisionReason,
+  }));
   const nextWeek = nextForecastView(next, input.asOfDate);
   const asOfMs = parseDateKey(input.asOfDate);
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
@@ -272,6 +311,7 @@ export function buildFocusDossier(input: {
     periodStart: current.periodStart,
     periodEnd: current.periodEnd,
     dailyPath,
+    dailyAuditRows,
     supportLevels: current.supportLevels,
     resistanceLevels: current.resistanceLevels,
     confirmation: current.confirmationLevel ?? null,
@@ -340,6 +380,7 @@ export function buildMemberFocusDossier(input: {
     periodStart: weekly.weekStart,
     periodEnd: weekly.weekEnd,
     dailyPath,
+    dailyAuditRows: [],
     supportLevels: weekly.keySupport,
     resistanceLevels: weekly.keyResistance,
     confirmation: weekly.confirmation ?? null,

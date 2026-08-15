@@ -1,6 +1,15 @@
 export type ChanDirection = "BULL" | "BEAR" | "NEUTRAL";
 export type ChanAction = "BUY_CANDIDATE" | "SELL_CANDIDATE" | "HOLD" | "TAKE_PROFIT" | "DO_NOT_CHASE" | "WAIT";
 export type ChanTimeframe = "5m" | "30m" | "1H" | "4H" | "1D" | "1W";
+export type ChanInstrumentSymbol = "BTCUSDT" | "ETHUSDT" | "SPY" | "QQQ" | "NVDA" | "MSFT" | "GOOGL" | "MU" | "SNDK";
+export type ChanInstrument = {
+  symbol: ChanInstrumentSymbol;
+  label: string;
+  provider: "BITGET_PUBLIC" | "YAHOO_CHART";
+  providerSymbol: string;
+  formalPlanSymbol: string;
+  market: "CRYPTO" | "US_EQUITY";
+};
 
 export type ChanCandle = { timestamp: number; open: number; high: number; low: number; close: number; volume: number | null };
 export type ChanFractal = { index: number; timestamp: number; kind: "TOP" | "BOTTOM"; price: number };
@@ -23,6 +32,24 @@ export type ChanStructure = {
     long: { invalidation: number; tp1: number; tp2: number; breakevenTrigger: number } | null;
     short: { invalidation: number; tp1: number; tp2: number; breakevenTrigger: number } | null;
   };
+};
+
+export type ChanStageStatus = "ACTIVE" | "AWAITING_CONFIRMATION" | "INVALIDATED" | "INSUFFICIENT";
+export type ChanStageCode =
+  | "SECOND_BUY_CONFIRMED" | "THIRD_BUY_CONFIRMED" | "SECOND_SELL_CONFIRMED" | "THIRD_SELL_CONFIRMED"
+  | "WAIT_SECOND_BUY_CONFIRMATION" | "WAIT_THIRD_BUY_CONFIRMATION" | "WAIT_SECOND_SELL_CONFIRMATION" | "WAIT_THIRD_SELL_CONFIRMATION"
+  | "SECOND_BUY_INVALIDATED" | "THIRD_BUY_INVALIDATED" | "SECOND_SELL_INVALIDATED" | "THIRD_SELL_INVALIDATED"
+  | "STRUCTURE_INCOMPLETE" | "NO_VALID_STAGE";
+export type ChanStage = {
+  code: ChanStageCode;
+  labelZh: string;
+  labelEn: string;
+  status: ChanStageStatus;
+  direction: ChanDirection;
+  confirmation: number | null;
+  invalidation: number | null;
+  action: "BUY_CANDIDATE" | "SELL_CANDIDATE" | "WAIT";
+  waitingFor: string;
 };
 
 export type ChanExecutionInputs = {
@@ -69,6 +96,7 @@ export type ChanMultiTimeframeDecision = {
     signal: "BULL" | "BEAR" | "NONE";
     complete: boolean;
     available: boolean;
+    stage: ChanStage;
   }>;
   executionAuthority: "RESEARCH_ONLY";
   tradingEligible: false;

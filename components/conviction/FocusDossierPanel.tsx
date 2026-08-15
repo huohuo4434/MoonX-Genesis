@@ -89,6 +89,7 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
                 <div className="flex items-center justify-between gap-2"><p className="text-body-sm font-medium text-white">{day.date}</p><Badge variant="outline">{DAY_STATE[day.state]}</Badge></div>
                 <p className="mt-2 text-caption text-cyan-100/70">{day.direction ?? "无正式方向"}</p>
                 <p className="mt-2 text-caption leading-6 text-white/55">{day.summary}</p>
+                {day.sourceKind ? <p className="mt-2 text-[11px] text-white/35">{day.sourceKind} · V{day.version ?? 1} · as-of {day.asOfDate ?? "—"}</p> : null}
               </article>
             ))}
           </div>
@@ -96,13 +97,29 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <Card padding="sm" className="border-white/[0.08] bg-black/20"><p className="text-caption font-medium text-emerald-100">已发生</p><ul className="mt-2 space-y-1 text-caption text-white/55">{dossier.occurred.length ? dossier.occurred.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无已验证日级结果</li>}</ul></Card>
+        <Card padding="sm" className="border-emerald-300/15 bg-emerald-300/[0.025]"><p className="text-caption font-semibold text-emerald-100">周验证（核心 / 首要）</p><p className="mt-2 text-caption text-white/55">正式锁定周结论是主验证对象；日度滚动只记录实现路径，不改写周结论。</p></Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20"><p className="text-caption font-medium text-amber-100">待验证</p><ul className="mt-2 space-y-1 text-caption text-white/55">{dossier.pendingVerification.length ? dossier.pendingVerification.slice(0, 4).map((item) => <li key={item}>· {item}</li>) : <li>· 暂无待验证条目</li>}</ul></Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
           <p className="text-caption font-medium text-cyan-100">下周预告</p>
           {dossier.nextWeek ? <><p className="mt-2 text-caption text-white/70">{dossier.nextWeek.periodStart} 至 {dossier.nextWeek.periodEnd}</p><p className="mt-2 text-caption leading-6 text-white/55">{dossier.nextWeek.conclusion}</p><p className="mt-2 text-caption text-amber-100/60">{dossier.nextWeek.dailyEvidenceReady ? "逐日证据已齐；到期前仍标记为未来期" : "逐日证据待补齐；不生成每日占位结论"}</p></> : <p className="mt-2 text-caption text-white/50">下周正式证据待发布。</p>}
         </Card>
       </div>
+
+      <details className="rounded-lg border border-white/[0.08] bg-black/15 p-3">
+        <summary className="cursor-pointer text-body-sm text-white/70">完整日度审计（含失败、部分命中、未验证与全部历史版本）</summary>
+        {dossier.dailyAuditRows.length ? (
+          <ul className="mt-3 space-y-2 text-caption text-white/55">
+            {dossier.dailyAuditRows.map((row) => (
+              <li key={`${row.forecastDate}-${row.version}-${row.publishedAt ?? "unpublished"}`} className="rounded-md border border-white/[0.06] p-2">
+                <p>{row.forecastDate} · V{row.version} · {row.direction} · {row.validationStatus ?? "UNVERIFIED"}</p>
+                <p className="mt-1">{row.path}</p>
+                <p className="mt-1 text-white/35">来源：{row.sourceKind ?? "未标注"} · 发布时间：{row.publishedAt ?? "未发布"} · 前版：{row.previousVersionId ?? "无"}</p>
+                {row.revisionReason ? <p className="mt-1 text-white/35">修订原因：{row.revisionReason}</p> : null}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="mt-3 text-caption text-white/45">尚无持久化日度版本；不会以最新摘要冒充完整审计。</p>}
+      </details>
 
       {dossier.supplementalEvidence.length ? (
         <details className="rounded-lg border border-amber-300/15 bg-amber-300/[0.025] p-3">

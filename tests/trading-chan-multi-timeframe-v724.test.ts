@@ -12,11 +12,25 @@ import { buildChanChartAnnotations } from "../lib/trading-signals/chan-structure
 import type { ChanMultiTimeframeFrame, ChanStructure } from "../types/chan-execution";
 
 function structure(overrides: Partial<ChanStructure> = {}): ChanStructure {
+  const bearish = overrides.sellPoint === "SECOND" || overrides.sellPoint === "THIRD";
+  const strokes = bearish
+    ? [
+        { startIndex: 0, endIndex: 3, startPrice: 90, endPrice: 120, direction: "UP" as const, complete: true },
+        { startIndex: 3, endIndex: 6, startPrice: 120, endPrice: 100, direction: "DOWN" as const, complete: true },
+        { startIndex: 6, endIndex: 9, startPrice: 100, endPrice: 115, direction: "UP" as const, complete: true },
+        { startIndex: 9, endIndex: 12, startPrice: 115, endPrice: 98, direction: "DOWN" as const, complete: true },
+      ]
+    : [
+        { startIndex: 0, endIndex: 3, startPrice: 120, endPrice: 90, direction: "DOWN" as const, complete: true },
+        { startIndex: 3, endIndex: 6, startPrice: 90, endPrice: 110, direction: "UP" as const, complete: true },
+        { startIndex: 6, endIndex: 9, startPrice: 110, endPrice: 95, direction: "DOWN" as const, complete: true },
+        { startIndex: 9, endIndex: 12, startPrice: 95, endPrice: 112, direction: "UP" as const, complete: true },
+      ];
   return {
     sufficient: true,
     normalizedCandles: [],
     fractals: [],
-    strokes: [],
+    strokes,
     segments: [{ startStroke: 0, endStroke: 4, direction: "UP", complete: true }],
     zones: [{ startStroke: 0, endStroke: 2, low: 95, high: 105 }],
     trendState: "COMPLETE",
@@ -76,6 +90,15 @@ test("formal LONG plus four completed bullish second-buy structures yields one r
   assert.equal(result.confirmation, 115);
   assert.equal(result.tradingEligible, false);
   assert.equal(result.chanContribution, 35);
+  assert.ok(result.timeframeSignals.every((row) => row.stage.code === "SECOND_BUY_CONFIRMED" && row.stage.status === "ACTIVE"));
+});
+
+test("a strict higher-low sequence without its confirmation stroke exposes waiting stage and stays WAIT", () => {
+  const waiting = structure({ buyPoint: "NONE", trendState: "NEAR_COMPLETE" });
+  waiting.strokes = waiting.strokes.slice(0, 3);
+  const result = decideChanMultiTimeframe({ authoritativeDirection: "BULL", frames: CHAN_V2_TIMEFRAMES.map((timeframe) => ({ timeframe, structure: waiting, error: null })) });
+  assert.equal(result.action, "WAIT");
+  assert.ok(result.timeframeSignals.every((row) => row.stage.code === "WAIT_SECOND_BUY_CONFIRMATION" && row.stage.status === "AWAITING_CONFIRMATION"));
 });
 
 test("timeframe conflict strictly WAIT and never flips formal LONG to SELL", () => {
