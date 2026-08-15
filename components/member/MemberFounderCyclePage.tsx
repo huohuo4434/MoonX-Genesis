@@ -1,9 +1,11 @@
 import type { MemberFounderCyclePack } from "@/types/member-founder-cycle";
+import type { MemberWealthChainView } from "@/types/member-wealth-chain";
+import { MemberWealthChainPanel } from "@/components/member/MemberWealthChainPanel";
 import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN,PUBLIC_ATTRIBUTION_DISCLOSURE_ZH,PUBLIC_INTERPRETATION_LABEL_ZH,projectPublicAttribution,publicAttributionText } from "@/lib/presentation/public-attribution";
 
 const pick = (value: { zh: string; en: string }, en: boolean) => en ? value.en : value.zh;
 
-export function MemberFounderCyclePage({ pack: rawPack, locale }: { pack: MemberFounderCyclePack; locale: "zh" | "en" }) {
+export function MemberFounderCyclePage({ pack: rawPack, wealthChain, locale }: { pack: MemberFounderCyclePack; wealthChain: MemberWealthChainView; locale: "zh" | "en" }) {
   const en = locale === "en";
   const pack = projectPublicAttribution(rawPack, { locale });
   return (
@@ -20,6 +22,8 @@ export function MemberFounderCyclePage({ pack: rawPack, locale }: { pack: Member
         </div>
         <p className="mt-4 text-xs text-zinc-500">{en ? "Research archive" : "研究档案"} · {en ? "Ingested" : "录入"}: {pack.ingestedAt}</p>
       </header>
+
+      <MemberWealthChainPanel pack={wealthChain} locale={locale} />
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {pack.methodology.map((item) => <article key={item.title.en} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="font-semibold text-amber-200">{pick(item.title, en)}</h2><p className="mt-3 text-sm leading-6 text-zinc-400">{pick(item.description, en)}</p></article>)}

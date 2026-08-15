@@ -23,7 +23,9 @@ test("founder cycle route enforces login membership and device before loading th
   assert.doesNotMatch(route, /^import .*member-founder-cycle-20260814/m);
   const deviceReturn = route.indexOf('if (action === "RENDER_DEVICE_GATE")');
   const dynamicPack = route.indexOf('import("@/lib/data/member-founder-cycle-20260814")');
+  const dynamicWealthPack = route.indexOf('import("@/lib/data/member-wealth-chain-20260815")');
   assert.ok(deviceReturn >= 0 && dynamicPack > deviceReturn);
+  assert.ok(dynamicWealthPack > deviceReturn);
   assert.match(route.slice(0, dynamicPack), /REDIRECT_LOGIN/);
   assert.match(route.slice(0, dynamicPack), /REDIRECT_MEMBERSHIP/);
 });

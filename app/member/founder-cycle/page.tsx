@@ -28,10 +28,12 @@ export default async function MemberFounderCycleRoute() {
   if (action === "REDIRECT_MEMBERSHIP") redirect("/account/membership");
   if (action === "RENDER_DEVICE_GATE") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
-  const [{ getMemberFounderCyclePack20260814 }, locale] = await Promise.all([
+  const [{ getMemberFounderCyclePack20260814 }, { getMemberWealthChainView20260815 }, locale] = await Promise.all([
     import("@/lib/data/member-founder-cycle-20260814"),
+    import("@/lib/data/member-wealth-chain-20260815"),
     getRequestLocale(),
   ]);
   const pack = getMemberFounderCyclePack20260814();
-  return <><MemberDeviceHeartbeat /><MemberFounderCyclePage pack={pack} locale={locale === "en" ? "en" : "zh"} /></>;
+  const wealthChain = getMemberWealthChainView20260815();
+  return <><MemberDeviceHeartbeat /><MemberFounderCyclePage pack={pack} wealthChain={wealthChain} locale={locale === "en" ? "en" : "zh"} /></>;
 }
