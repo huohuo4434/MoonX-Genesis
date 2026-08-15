@@ -6,20 +6,57 @@
  */
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { chmod, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const CONFIG_KEYS = new Set([
+  "MOOX_BASE_URL", "MOOX_SIGNAL_TOKEN", "MOOX_SYMBOLS", "MOOX_AGENT_MODE",
+  "MOOX_AGENT_STATE_FILE", "MOOX_AGENT_KILL_SWITCH", "BITGET_API_KEY",
+  "BITGET_API_SECRET", "BITGET_API_PASSPHRASE", "MOOX_MAX_RISK_PER_TRADE_PCT",
+  "MOOX_MAX_POSITION_PCT", "MOOX_MAX_TOTAL_POSITION_PCT", "MOOX_MAX_ACCOUNT_LEVERAGE",
+  "MOOX_ENABLE_LIVE", "MOOX_LIVE_CONFIRMATION",
+]);
+
+export function parseLocalConfig(text) {
+  const values = {};
+  for (const [index, raw] of String(text).replace(/^\uFEFF/, "").split(/\r?\n/).entries()) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const separator = line.indexOf("=");
+    if (separator < 1) throw new Error(`本地配置第${index + 1}行格式错误，应为 名称=内容`);
+    const key = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim();
+    if (!CONFIG_KEYS.has(key)) throw new Error(`本地配置第${index + 1}行包含不支持的名称：${key}`);
+    if (Object.hasOwn(values, key)) throw new Error(`本地配置重复填写：${key}`);
+    values[key] = value;
+  }
+  return values;
+}
+
+const AGENT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
+const LOCAL_CONFIG_PATH = join(AGENT_DIRECTORY, "MOOX配置.txt");
+if (existsSync(LOCAL_CONFIG_PATH)) {
+  const localValues = parseLocalConfig(readFileSync(LOCAL_CONFIG_PATH, "utf8"));
+  for (const [key, value] of Object.entries(localValues)) {
+    if (process.env[key] == null && value !== "") process.env[key] = value;
+  }
+}
 
 export const VERSION = "1.0.0";
 export const LIVE_CONFIRMATION = "I_ACCEPT_LOCAL_LIVE_RISK";
 export const CATEGORY = "USDT-FUTURES";
 const BITGET_BASE = "https://api.bitget.com";
-const STATE_FILE = process.env.MOOX_AGENT_STATE_FILE || ".moox-agent-state.json";
-const KILL_FILE = process.env.MOOX_AGENT_KILL_SWITCH || "MOOX_AGENT_STOP";
+const STATE_FILE = process.env.MOOX_AGENT_STATE_FILE || join(AGENT_DIRECTORY, ".moox-agent-state.json");
+const KILL_FILE = process.env.MOOX_AGENT_KILL_SWITCH || join(AGENT_DIRECTORY, "MOOX_AGENT_STOP");
 const FORBIDDEN_PERMISSIONS = ["withdraw", "transfer"];
 let bitgetClockOffsetMs = 0;
 
 function required(name) {
   const value = process.env[name]?.trim();
+  if (!value && name === "MOOX_SIGNAL_TOKEN") {
+    throw new Error("缺少 MOOX_SIGNAL_TOKEN：请打开Agent同目录的“MOOX配置.txt”，把会员页只显示一次的Token粘贴到 MOOX_SIGNAL_TOKEN= 的等号右边，保存后重新双击“1-启动PAPER.bat”");
+  }
   if (!value) throw new Error(`缺少本地环境变量 ${name}`);
   return value;
 }

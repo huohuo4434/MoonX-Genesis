@@ -1,17 +1,17 @@
 # MOOX 会员本地 Bitget Agent
 
-此工具在会员自己的电脑或 VPS 上运行。MOOX 只提供只读的正式计划；Bitget API Key、Secret、Passphrase 不上传 MOOX，也不写入 Agent 状态文件。
+此工具在会员自己的电脑或 VPS 上运行。Windows 新手请直接下载 `MOOX-Bitget-Windows.zip`，解压后先看 `README-先看我.txt`。MOOX 只提供只读的正式计划；Bitget API Key、Secret、Passphrase 不上传 MOOX，也不写入 Agent 状态文件。
 
 ## 1. 准备
 
 - 安装 Node.js 20 或更高版本。
-- 从会员页下载 `moox-bitget-local-agent.mjs` 和环境变量模板。
+- Windows新手下载一键ZIP；高级用户才需要单独下载 `moox-bitget-local-agent.mjs` 和环境变量模板。
 - 在会员页创建仅有 `plans:read` 权限的 MOOX Token；它只显示一次。
 - Bitget Key 只给 UTA 交易与必要只读权限，不给提币或划转权限。LIVE 模式必须绑定 IP 白名单。
 
 ## 2. 首次运行：PAPER
 
-PowerShell 示例：
+Windows新手只需把Token粘贴到同目录 `MOOX配置.txt`，然后双击 `1-启动PAPER.bat`。Agent会原生读取配置，不需要dotenv。高级用户PowerShell示例：
 
 ```powershell
 $env:MOOX_SIGNAL_TOKEN="mxm_这里换成只读Token"

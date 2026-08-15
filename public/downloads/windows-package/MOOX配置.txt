@@ -1,0 +1,22 @@
+# MOOX会员本地Agent配置（等号右边填写，等号不要删除）
+# 第一次只做PAPER：只需要把会员页生成的一次性只读Token粘贴到下面。
+MOOX_SIGNAL_TOKEN=
+MOOX_SYMBOLS=BTCUSDT
+MOOX_AGENT_MODE=PAPER
+MOOX_BASE_URL=https://mooxintel.com
+
+# 下面三项PAPER不需要填写。只有准备做DRY_RUN连接检查时才在自己电脑填写。
+# 这些内容绝对不要发给MOOX、客服、Discord或任何人。
+BITGET_API_KEY=
+BITGET_API_SECRET=
+BITGET_API_PASSPHRASE=
+
+# 保守风控上限。新手不要修改。
+MOOX_MAX_RISK_PER_TRADE_PCT=0.5
+MOOX_MAX_POSITION_PCT=5
+MOOX_MAX_TOTAL_POSITION_PCT=20
+MOOX_MAX_ACCOUNT_LEVERAGE=2
+
+# LIVE不会被这些双击脚本开启。保持下面内容不变。
+MOOX_ENABLE_LIVE=false
+MOOX_LIVE_CONFIRMATION=

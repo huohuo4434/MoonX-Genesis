@@ -1,0 +1,15 @@
+@echo off
+cd /d "%~dp0"
+where node >nul 2>nul
+if errorlevel 1 (
+  powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcANXURgaFsCWeJW8WITgBvAGQAZQAuAGoAcwAgADIAMAAWYvRm2JpIcixnAjD3i0hRiVvFiBr/aAB0AHQAcABzADoALwAvAG4AbwBkAGUAagBzAC4AbwByAGcALwAnAA==
+  pause
+  exit /b 1
+)
+set "MOOX_AGENT_MODE=PAPER"
+powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAY2soVy9UqFKJW2hRhHZQAEEAUABFAFIAIWoPXyYgJiANThpP3o+lY0IAaQB0AGcAZQB0AAz/DU4aTwtOH3eeW6KLVVMCMCcA
+node "%~dp0moox-bitget-local-agent.mjs"
+set "MOOX_EXIT=%ERRORLEVEL%"
+powershell.exe -NoProfile -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAglmcZ9BjOnk6fxFcVABvAGsAZQBuABr/94tTYgBfDFTudlVfhHYcIE0ATwBPAFgATZFufy4AdAB4AHQAHSAM/5h8NI0wUiAATQBPAE8AWABfAFMASQBHAE4AQQBMAF8AVABPAEsARQBOAD0AIACEdkl791PzU7mPDP/dT1hbDlTNkbBlzFP7UVAAQQBQAEUAUgACMCcA
+pause
+exit /b %MOOX_EXIT%

@@ -4,22 +4,29 @@
 
 ## 安装
 
+Windows 普通会员优先下载会员页的 `MOOX-Bitget-Windows.zip`：
+
 1. 安装 Node.js 20 或更高版本。
-2. 从会员 AI 交易页面下载 `moox-bitget-local-agent.mjs` 和环境变量模板。
-3. 在会员页面创建只读 MOOX Token。Token 只有 `plans:read` 权限，可随时撤销。
-4. 先设置 `MOOX_AGENT_MODE=PAPER`，运行：
+2. 解压 ZIP，先打开 `README-先看我.txt`。
+3. 在会员页面创建只读 MOOX Token。Token 只有 `plans:read` 权限，可随时撤销；ZIP 不预装任何会员 Token。
+4. 用记事本打开同目录 `MOOX配置.txt`，把 Token 粘贴到 `MOOX_SIGNAL_TOKEN=` 的等号右边。
+5. 双击 `1-启动PAPER.bat`。PAPER 不需要填写任何 Bitget 凭证。
+
+Agent 原生、安全读取同目录 UTF-8 配置文件，不依赖 dotenv，也不会输出 Secret 或 Passphrase。高级用户仍可单独下载 `.mjs`，通过环境变量运行：
 
 ```powershell
 node .\moox-bitget-local-agent.mjs
 ```
 
-5. 创建名为 `MOOX_AGENT_STOP` 的文件可立即阻止任何增加敞口的新订单。只读对账和已有持仓的保护动作仍可继续，避免急停反而留下裸仓。删除该文件不会自动恢复任何旧任务；应先核对账户和状态文件。
+双击 `3-停止新增交易.bat` 可创建急停文件，立即阻止任何增加敞口的新订单。只读对账和已有持仓的保护动作仍可继续，避免急停反而留下裸仓。删除该文件不会自动恢复任何旧任务；应先核对账户和状态文件。
 
 ## 三种模式
 
 - `PAPER`：默认。只在本机状态文件记录假设成交，不连接 Bitget。
 - `DRY_RUN`：读取 Bitget账户权限、资产、持仓和合约参数，建立本地日亏损/回撤基线并计算仓位，但不下单。首次 LIVE 前必须至少成功运行一次 DRY_RUN。
 - `LIVE`：只有本地同时设置 `MOOX_ENABLE_LIVE=true` 和 `MOOX_LIVE_CONFIRMATION=I_ACCEPT_LOCAL_LIVE_RISK` 才能运行。
+
+Windows 包故意不提供 LIVE 启动脚本。PAPER 和 DRY_RUN 批处理文件都显式覆盖为各自安全模式，不能隐式切换 LIVE。
 
 ## Bitget Key 要求
 

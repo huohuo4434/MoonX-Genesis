@@ -93,19 +93,17 @@ export function MemberTradingOnboarding() {
 
   return <section className="mt-12 space-y-6" data-testid="member-local-trading-control">
     <div className="rounded-3xl border border-amber-300/30 bg-neutral-950 p-6 text-neutral-100">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">会员本地交易控制 · Phase 2</p>
-      <h2 className="mt-2 text-2xl font-bold">统一计划、个人Paper账户与本地Bitget Agent</h2>
-      <p className="mt-3 max-w-4xl text-sm leading-7 text-neutral-300">MOOX只提供已发布并锁定的只读计划。Bitget API Key、Secret、Passphrase只能保存在您自己的电脑或VPS环境变量中，本站没有也不会提供上传这些密钥的输入框。</p>
-      <div className="mt-5 flex flex-wrap gap-3">
-        <a className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-bold text-black" download href="/downloads/moox-bitget-local-agent.mjs">下载本地Agent</a>
-        <a className="rounded-xl border border-neutral-700 px-4 py-2 text-sm" download href="/downloads/moox-bitget-local-agent.env.example">下载配置模板</a>
-        <a className="rounded-xl border border-neutral-700 px-4 py-2 text-sm" download href="/downloads/moox-bitget-local-agent-guide.md">下载使用说明</a>
-      </div>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">会员本地交易控制 · Windows小白版</p>
+      <h2 className="mt-2 text-2xl font-bold">不用写代码：下载、粘贴Token、双击PAPER</h2>
+      <p className="mt-3 max-w-4xl text-sm leading-7 text-neutral-300">MOOX只提供已发布并锁定的只读计划。ZIP里没有您的Token，也没有任何Bitget密钥。Bitget Key、Secret、Passphrase只能留在您自己的电脑，本站没有也不会提供上传这些密钥的输入框。</p>
+      <a className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-base font-bold text-black" download href="/downloads/MOOX-Bitget-Windows.zip">下载Windows一键包（推荐）</a>
       <ol className="mt-5 grid gap-3 text-sm text-neutral-300 md:grid-cols-3">
-        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">1. PAPER（默认）</b><br />只读取计划并在本地留档，不连接交易所。</li>
-        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">2. DRY_RUN</b><br />只读账户、权限、持仓和合约参数，不下单。</li>
-        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">3. LIVE（本地明确开启）</b><br />必须在本机输入确认语；急停、仓位、止损和保护单门禁不可关闭。</li>
+        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">1. 下载并解压ZIP</b><br />先打开“README-先看我.txt”；没有Node.js就按说明安装一次。</li>
+        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">2. 创建Token并粘贴</b><br />在本页创建一次性只读Token，粘贴到“MOOX配置.txt”的等号右边。</li>
+        <li className="rounded-xl bg-white/5 p-4"><b className="text-white">3. 双击启动PAPER</b><br />双击“1-启动PAPER.bat”。它不连接Bitget，也不会下真实订单。</li>
       </ol>
+      <p className="mt-4 text-sm text-amber-200">本包没有LIVE按钮。DRY_RUN也只做连接检查；LIVE仍要求在本机命令行手工双确认并先成功完成DRY_RUN。</p>
+      <details className="mt-4 text-sm text-neutral-400"><summary className="cursor-pointer">高级用户：单独下载原始文件</summary><div className="mt-3 flex flex-wrap gap-3"><a className="rounded-xl border border-neutral-700 px-4 py-2" download href="/downloads/moox-bitget-local-agent.mjs">Agent源码</a><a className="rounded-xl border border-neutral-700 px-4 py-2" download href="/downloads/moox-bitget-local-agent.env.example">环境变量模板</a><a className="rounded-xl border border-neutral-700 px-4 py-2" download href="/downloads/moox-bitget-local-agent-guide.md">高级说明</a></div></details>
     </div>
 
     <div className="grid gap-6 xl:grid-cols-2">
@@ -132,7 +130,7 @@ export function MemberTradingOnboarding() {
 
     <div className="rounded-3xl border border-white/10 bg-neutral-950 p-6 text-neutral-100">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-bold">本地Agent只读Token</h3><p className="mt-1 text-sm text-neutral-400">权限固定为 plans:read；不能操作Paper、不能下单、不能读取或保存交易所密钥。</p></div><button className="rounded-xl bg-sky-300 px-4 py-2 text-sm font-bold text-black" disabled={Boolean(busy)} onClick={() => void createToken()}>创建90天Token</button></div>
-      {revealedToken && <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-300/10 p-4"><p className="font-bold text-amber-200">只显示一次，请立即复制到本机环境变量 MOOX_SIGNAL_TOKEN：</p><code className="mt-2 block break-all text-sm">{revealedToken}</code><button className="mt-2 rounded-lg border border-amber-300/50 px-3 py-1 text-sm" onClick={() => void navigator.clipboard.writeText(revealedToken)}>复制Token</button></div>}
+      {revealedToken && <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-300/10 p-4"><p className="font-bold text-amber-200">只显示一次：复制后，用记事本打开ZIP里的“MOOX配置.txt”，粘贴到 MOOX_SIGNAL_TOKEN= 的等号右边：</p><code className="mt-2 block break-all text-sm">{revealedToken}</code><button className="mt-2 rounded-lg border border-amber-300/50 px-3 py-1 text-sm" onClick={() => void navigator.clipboard.writeText(revealedToken)}>复制Token</button></div>}
       <div className="mt-4 space-y-2">{tokens.map((token) => <div key={token.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/5 p-3 text-sm"><span>{token.label} · {token.prefix} · 到期 {new Date(token.expiresAt).toLocaleDateString("zh-CN")} · {token.active ? "有效" : "已撤销"}</span>{token.active && <button className="rounded-lg border border-rose-400/50 px-3 py-1 text-rose-200" disabled={Boolean(busy)} onClick={() => void revokeToken(token.id)}>撤销</button>}</div>)}</div>
       {message && <p role="status" className="mt-4 text-sm text-amber-200">{message}</p>}
     </div>
