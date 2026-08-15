@@ -1,4 +1,5 @@
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
+import { listStaticMemberAutomationFocus, type MemberAutomationFocusDefinition } from "@/lib/data/conviction/focus-registry-core";
 
 export type AiTradingFocusDirection = "LONG" | "SHORT" | "NEUTRAL";
 export type AiTradingCountertrendPolicy = "NONE" | "STRONG_ONLY";
@@ -63,18 +64,22 @@ const ASSET_NAMES: Record<string, [string, string]> = {
 };
 
 export function listAiTradingFocusRegistry(): Array<{
-  canonicalSymbol: string; displayName: string; assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
+  assetId: string; canonicalSymbol: string | null; displayName: string; assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
 }> {
   const classes: Record<string, "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF"> = {
     BTCUSDT: "CRYPTO", ETHUSDT: "CRYPTO", HYPEUSDT: "CRYPTO",
     XAUTUSDT: "COMMODITY", XAGUSDT: "COMMODITY", CLUSDT: "COMMODITY",
     QQQUSDT: "ETF", SPYUSDT: "ETF",
   };
-  return Object.keys(CORE_PRIORITY).map((canonicalSymbol) => ({
+  const staticFocus = listStaticMemberAutomationFocus();
+  const knownSymbols = new Set(staticFocus.map((row) => row.canonicalSymbol).filter(Boolean));
+  const aiOnly: MemberAutomationFocusDefinition[] = Object.keys(CORE_PRIORITY).filter((symbol) => !knownSymbols.has(symbol)).map((canonicalSymbol) => ({
+    assetId: `ai:${canonicalSymbol.toLowerCase()}`,
     canonicalSymbol,
     displayName: ASSET_NAMES[canonicalSymbol]?.[0] ?? canonicalSymbol,
     assetClass: classes[canonicalSymbol] ?? "EQUITY",
   }));
+  return [...staticFocus, ...aiOnly];
 }
 
 const PLAYBOOKS: AiTradingFocusPlaybook[] = [

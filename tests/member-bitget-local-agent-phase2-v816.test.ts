@@ -10,7 +10,7 @@ const now = Date.parse("2026-08-15T12:00:00.000Z");
 const plan = {
   schema: "moonx.member.trading-plan.v1", planId: "plan-1", version: 1, revisionId: "abcdefabcdefabcdefabcdef",
   symbol: "BTCUSDT", generatedAt: "2026-08-15T11:59:30.000Z", state: "LONG_READY",
-  instrument: { canonicalSymbol: "BTCUSDT", bitgetSymbol: "BTCUSDT", availability: "AVAILABLE", executionScope: "PAPER_LOCAL" },
+  instrument: { assetId: "btc", canonicalSymbol: "BTCUSDT", bitgetSymbol: "BTCUSDT", availability: "AVAILABLE", executionScope: "PAPER_LOCAL" },
   authority: { valid: true, forecastId: "f1", forecastVersion: "v1", publishedAt: "2026-08-10T00:00:00.000Z", lockedAt: "2026-08-10T00:00:00.000Z", validUntil: "2026-08-17T00:00:00.000Z", direction: "LONG" },
   evidence: { formalPublishedPlanOnly: true, researchOnlyExcluded: true, sourcePlanContentHash: "content-hash-locked" },
   risk: { memberLocalAgentEligible: true, serverExecutionAllowed: false, tradingEligible: true },

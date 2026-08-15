@@ -6,7 +6,7 @@ import type { AiTradePlan } from "../types/ai-trade-plan";
 import type { ChanMultiTimeframeDecision, ChanStage } from "../types/chan-execution";
 
 const now = "2026-08-15T12:00:00.000Z";
-const instrument = { canonicalSymbol: "BTCUSDT", displayName: "比特币", assetClass: "CRYPTO" as const, bitgetSymbol: "BTCUSDT", availability: "AVAILABLE" as const, executionScope: "PAPER_LOCAL" as const, discoveredAt: now };
+const instrument = { assetId: "btc", canonicalSymbol: "BTCUSDT", displayName: "比特币", assetClass: "CRYPTO" as const, bitgetSymbol: "BTCUSDT", availability: "AVAILABLE" as const, executionScope: "PAPER_LOCAL" as const, discoveredAt: now };
 
 function sourcePlan(patch: Partial<AiTradePlan> = {}): AiTradePlan {
   return {

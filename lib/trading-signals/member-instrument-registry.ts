@@ -3,7 +3,7 @@ import type { MemberTradingInstrument } from "@/types/member-trading-plan";
 export type BitgetPublicInstrument = { symbol?: string; category?: string; status?: string };
 
 export function intersectFocusWithBitget(input: {
-  focus: Array<{ canonicalSymbol: string; displayName: string; assetClass: MemberTradingInstrument["assetClass"] }>;
+  focus: Array<{ assetId: string; canonicalSymbol: string | null; displayName: string; assetClass: MemberTradingInstrument["assetClass"] }>;
   contracts: readonly BitgetPublicInstrument[];
   discoveredAt: string;
 }): MemberTradingInstrument[] {
@@ -11,9 +11,10 @@ export function intersectFocusWithBitget(input: {
     .filter((row) => row.category === "USDT-FUTURES" && row.status === "online" && typeof row.symbol === "string")
     .map((row) => row.symbol!.toUpperCase()));
   return input.focus.map((row) => {
-    const exact = row.canonicalSymbol.toUpperCase();
-    const available = online.has(exact);
+    const exact = row.canonicalSymbol?.toUpperCase() ?? null;
+    const available = exact != null && online.has(exact);
     return {
+      assetId: row.assetId,
       canonicalSymbol: exact,
       displayName: row.displayName,
       assetClass: row.assetClass,

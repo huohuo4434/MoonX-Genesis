@@ -10,7 +10,8 @@ export type MemberTradingPlanState =
   | "NO_AUTHORITY";
 
 export type MemberTradingInstrument = {
-  canonicalSymbol: string;
+  assetId: string;
+  canonicalSymbol: string | null;
   displayName: string;
   assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
   bitgetSymbol: string | null;

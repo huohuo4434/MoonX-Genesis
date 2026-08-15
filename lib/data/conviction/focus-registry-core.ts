@@ -19,3 +19,33 @@ export const STATIC_FOCUS_ASSET_IDS = Object.freeze([
 
 export type StaticFocusAssetId = (typeof STATIC_FOCUS_ASSET_IDS)[number];
 
+export type MemberAutomationFocusDefinition = {
+  assetId: string;
+  canonicalSymbol: string | null;
+  displayName: string;
+  assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
+};
+
+/** Single production mapping for every member focus asset; null means no exact Bitget contract identity. */
+export const STATIC_MEMBER_AUTOMATION_FOCUS: Readonly<Record<StaticFocusAssetId, MemberAutomationFocusDefinition>> = Object.freeze({
+  "ganfeng-lithium": { assetId: "ganfeng-lithium", canonicalSymbol: null, displayName: "赣锋锂业", assetClass: "EQUITY" },
+  "lian-tech": { assetId: "lian-tech", canonicalSymbol: null, displayName: "利安科技", assetClass: "EQUITY" },
+  "lexin-medical": { assetId: "lexin-medical", canonicalSymbol: null, displayName: "乐心医疗", assetClass: "EQUITY" },
+  cxmt: { assetId: "cxmt", canonicalSymbol: null, displayName: "长鑫科技", assetClass: "EQUITY" },
+  asteroid: { assetId: "asteroid", canonicalSymbol: null, displayName: "太空狗", assetClass: "CRYPTO" },
+  sandisk: { assetId: "sandisk", canonicalSymbol: "SNDKUSDT", displayName: "闪迪", assetClass: "EQUITY" },
+  nbis: { assetId: "nbis", canonicalSymbol: "NBISUSDT", displayName: "Nebius", assetClass: "EQUITY" },
+  mu: { assetId: "mu", canonicalSymbol: "MUUSDT", displayName: "美光", assetClass: "EQUITY" },
+  hype: { assetId: "hype", canonicalSymbol: "HYPEUSDT", displayName: "HYPE", assetClass: "CRYPTO" },
+  sol: { assetId: "sol", canonicalSymbol: "SOLUSDT", displayName: "Solana", assetClass: "CRYPTO" },
+  eth: { assetId: "eth", canonicalSymbol: "ETHUSDT", displayName: "以太坊", assetClass: "CRYPTO" },
+  btc: { assetId: "btc", canonicalSymbol: "BTCUSDT", displayName: "比特币", assetClass: "CRYPTO" },
+  googl: { assetId: "googl", canonicalSymbol: "GOOGLUSDT", displayName: "谷歌", assetClass: "EQUITY" },
+  msft: { assetId: "msft", canonicalSymbol: "MSFTUSDT", displayName: "微软", assetClass: "EQUITY" },
+  tencent: { assetId: "tencent", canonicalSymbol: "TENCENTUSDT", displayName: "腾讯", assetClass: "EQUITY" },
+  "kingsoft-office": { assetId: "kingsoft-office", canonicalSymbol: null, displayName: "金山办公", assetClass: "EQUITY" },
+});
+
+export function listStaticMemberAutomationFocus(): MemberAutomationFocusDefinition[] {
+  return STATIC_FOCUS_ASSET_IDS.map((assetId) => STATIC_MEMBER_AUTOMATION_FOCUS[assetId]);
+}

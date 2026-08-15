@@ -55,7 +55,7 @@ export function MemberTradingOnboarding() {
       try {
         const result = await readJson<{ instruments: MemberTradingInstrument[] }>(await fetch(endpoint.instruments, { cache: "no-store" }));
         setInstruments(result.instruments);
-        const first = result.instruments.find((row) => row.availability === "AVAILABLE")?.canonicalSymbol ?? result.instruments[0]?.canonicalSymbol;
+        const first = result.instruments.find((row) => row.availability === "AVAILABLE")?.canonicalSymbol;
         if (first) { setSymbol(first); await refresh(first); }
       } catch (error) { setMessage(error instanceof Error ? error.message : "品种列表读取失败"); }
     })();
@@ -119,7 +119,7 @@ export function MemberTradingOnboarding() {
 
     <div className="grid gap-6 xl:grid-cols-2">
       <div className="rounded-3xl border border-white/10 bg-neutral-950 p-6 text-neutral-100">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">当前统一计划</h3><div className="flex gap-2"><select aria-label="交易品种" className="rounded-lg border border-neutral-700 bg-black px-3 py-2" value={symbol} onChange={(event) => { setSymbol(event.target.value); void refresh(event.target.value); }}>{instruments.map((row) => <option key={row.canonicalSymbol} value={row.canonicalSymbol}>{row.displayName} · {row.canonicalSymbol} · {row.availability === "AVAILABLE" ? "可Paper/本地" : "仅研究"}</option>)}</select><button className="rounded-lg border border-neutral-700 px-3 py-2" disabled={Boolean(busy) || !symbol} onClick={() => void refresh(symbol)}>读取</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">当前统一计划</h3><div className="flex gap-2"><select aria-label="交易品种" className="rounded-lg border border-neutral-700 bg-black px-3 py-2" value={symbol} onChange={(event) => { setSymbol(event.target.value); void refresh(event.target.value); }}>{instruments.map((row) => <option key={row.assetId} value={row.canonicalSymbol ?? ""} disabled={!row.canonicalSymbol}>{row.displayName} · {row.canonicalSymbol ?? "无精确Bitget合约"} · {row.availability === "AVAILABLE" ? "合约可用·正式计划满足后可执行" : "仅研究"}</option>)}</select><button className="rounded-lg border border-neutral-700 px-3 py-2" disabled={Boolean(busy) || !symbol} onClick={() => void refresh(symbol)}>读取</button></div></div>
         {plan ? <div className="mt-5 space-y-3 text-sm">
           <p className="text-lg font-bold">{plan.symbol} · {plan.state} · V{plan.version}</p>
           <p>正式方向：<b>{plan.authority.direction}</b>　缠论阶段：<b>{plan.chan.stageLabel}</b></p>
