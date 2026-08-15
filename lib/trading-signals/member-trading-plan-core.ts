@@ -128,6 +128,8 @@ export function buildMemberTradingPlan(input: {
     },
     risk: {
       paperOnly: true,
+      serverExecutionAllowed: false,
+      memberLocalAgentEligible: ready,
       tradingEligible: ready,
       riskPerTradePct: Math.max(0.1, Math.min(1, input.plan.riskPercent)),
       maxPositionPct: 5,

@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type {
   MemberPaperAccount,
+  MemberPaperEvent,
   MemberPaperPosition,
   MemberPaperSnapshot,
   MemberTradingPlan,
@@ -44,6 +45,17 @@ type PositionRow = {
 };
 
 type EventRow = { result_payload: MemberPaperSnapshot | string; request_fingerprint: string };
+type PublicEventRow = {
+  id: string;
+  position_id: string | null;
+  source_plan_id: string;
+  source_plan_version: number;
+  event_type: "ENTER" | "EXIT";
+  price: number;
+  quantity: number;
+  realized_pnl: number;
+  created_at: Date;
+};
 
 function finite(value: number): number {
   return Number.isFinite(value) ? value : 0;
@@ -86,13 +98,19 @@ async function ensureAccount(userId: string): Promise<void> {
 
 async function readSnapshot(userId: string): Promise<MemberPaperSnapshot> {
   if (!prisma) throw new Error("Paper数据库未连接");
-  const [accounts, positions] = await Promise.all([
+  const [accounts, positions, events] = await Promise.all([
     prisma.$queryRawUnsafe<AccountRow[]>(
       "SELECT * FROM member_paper_accounts WHERE user_id = $1 LIMIT 1",
       userId
     ),
     prisma.$queryRawUnsafe<PositionRow[]>(
       "SELECT * FROM member_paper_positions WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 200",
+      userId
+    ),
+    prisma.$queryRawUnsafe<PublicEventRow[]>(
+      `SELECT id, position_id, source_plan_id, source_plan_version, event_type,
+              price, quantity, realized_pnl, created_at
+       FROM member_paper_events WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
       userId
     ),
   ]);
@@ -117,7 +135,18 @@ async function readSnapshot(userId: string): Promise<MemberPaperSnapshot> {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
-  return { schema: "moonx.member.paper.v1", generatedAt: new Date().toISOString(), account, positions: mapped };
+  const publicEvents: MemberPaperEvent[] = events.map((event) => ({
+    id: event.id,
+    positionId: event.position_id,
+    sourcePlanId: event.source_plan_id,
+    sourcePlanVersion: Number(event.source_plan_version),
+    eventType: event.event_type,
+    price: Number(event.price),
+    quantity: Number(event.quantity),
+    realizedPnl: Number(event.realized_pnl),
+    createdAt: event.created_at.toISOString(),
+  }));
+  return { schema: "moonx.member.paper.v1", generatedAt: new Date().toISOString(), account, positions: mapped, events: publicEvents };
 }
 
 export async function getMemberPaperSnapshot(userId: string): Promise<MemberPaperSnapshot> {

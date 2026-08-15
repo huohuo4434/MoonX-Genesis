@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Section } from "@/components/ui";
-import { AiTradingDeskClient } from "@/components/member/AiTradingDeskClient";
+import { MemberTradingOnboarding } from "@/components/member/MemberTradingOnboarding";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
-import { createMemberAiTradingDeskPlaceholder } from "@/lib/trading-signals/member-ai-trading-placeholder";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -40,8 +39,5 @@ export default async function MemberAiTradingDeskPage() {
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
-  const initial = createMemberAiTradingDeskPlaceholder(
-    en ? "The page is open. Loading the latest server snapshot." : "页面已经打开，正在读取最近一次服务器快照。"
-  );
-  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><AiTradingDeskClient initial={initial} /></Section></main>;
+  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberTradingOnboarding /></Section></main>;
 }

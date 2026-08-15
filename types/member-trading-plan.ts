@@ -56,6 +56,8 @@ export type MemberTradingPlan = {
   };
   risk: {
     paperOnly: true;
+    serverExecutionAllowed: false;
+    memberLocalAgentEligible: boolean;
     tradingEligible: boolean;
     riskPerTradePct: number;
     maxPositionPct: number;
@@ -67,6 +69,18 @@ export type MemberTradingPlan = {
     researchOnlyExcluded: true;
     sourcePlanContentHash: string;
   };
+};
+
+export type MemberPaperEvent = {
+  id: string;
+  positionId: string | null;
+  sourcePlanId: string;
+  sourcePlanVersion: number;
+  eventType: "ENTER" | "EXIT";
+  price: number;
+  quantity: number;
+  realizedPnl: number;
+  createdAt: string;
 };
 
 export type MemberPaperAccount = {
@@ -108,4 +122,5 @@ export type MemberPaperSnapshot = {
   generatedAt: string;
   account: MemberPaperAccount;
   positions: MemberPaperPosition[];
+  events: MemberPaperEvent[];
 };
