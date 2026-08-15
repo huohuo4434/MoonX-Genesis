@@ -120,6 +120,13 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
         </form>
       </div>
       <p className="mt-3 text-xs text-zinc-500">行情优先来自 MoonX DEX 对应的公开合约市场；美股与主流加密货币在主源异常时自动使用公开备用行情。页面只分析真实已闭合K线。</p>
+      <form className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="text-xs text-zinc-500">其他美股</label>
+        <input name="symbol" aria-label="输入其他美股代码" placeholder="例如 PLTR" className="w-32 rounded-lg bg-zinc-900 px-3 py-2 uppercase" pattern="[A-Za-z][A-Za-z0-9.\-]{0,9}" maxLength={10} />
+        <input type="hidden" name="timeframe" value={selectedTimeframe} />
+        <button className="rounded-lg border border-white/15 px-3 py-2 text-sm font-semibold text-zinc-200">查询美股</button>
+        <span className="text-xs text-zinc-600">目录外普通美股使用公开现货K线。</span>
+      </form>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{decision.timeframeSignals.map((row) => {
         const active = row.timeframe === selectedTimeframe;
         return <a key={row.timeframe} href={`?symbol=${encodeURIComponent(symbol)}&timeframe=${row.timeframe}`} className={`rounded-xl border p-4 transition ${active ? "border-amber-300/50 bg-amber-300/[0.06]" : row.available ? "border-white/10 bg-black/15" : "border-rose-300/20 bg-rose-300/[0.03]"}`}>

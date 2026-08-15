@@ -320,6 +320,7 @@ test("page uses one captured now and the market adapter fans out all four reads 
   assert.match(page, /loadChanTimeframes\(\{ symbol, instrument, capturedNowMs/);
   assert.match(page, /loadChanInstrumentCatalog\(\)/);
   assert.match(page, /<select name="symbol"/);
+  assert.match(page, /输入其他美股代码/);
   assert.match(page, /MoonX DEX/);
   assert.match(market, /return Promise\.all\(/);
   assert.match(market, /\["30m", "1H", "4H", "1D"\]/);
