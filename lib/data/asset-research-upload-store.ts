@@ -113,6 +113,9 @@ async function listImmutableRecords(): Promise<AssetResearchUploadRecord[]> {
       evidenceReadiness: {
         state: "WAIT" as const,
         hardWaitReasons: ["EVIDENCE_INTEGRITY_FAILED"],
+        evidenceGrade: record.structuredEvidence.kind === "LIUYAO"
+          ? record.structuredEvidence.evidenceMode === "AUDIO_INTERPRETATION" ? "VERBAL_INTERPRETATION" as const : "FULL_CHART" as const
+          : "STANDARD" as const,
         executionAuthority: "RESEARCH_ONLY" as const,
         tradingEligible: false as const,
       },

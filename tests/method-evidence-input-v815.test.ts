@@ -31,6 +31,26 @@ test("完整六爻证据只锁为前瞻研究，永不具备交易权限", () =>
   assert.equal(result.state, "FORWARD_LOCKED");
   assert.equal(result.executionAuthority, "RESEARCH_ONLY");
   assert.equal(result.tradingEligible, false);
+  assert.equal(result.evidenceGrade, "FULL_CHART");
+});
+
+test("视频或语音里的明确六爻解读无需补排盘截图即可锁定为前瞻样本", () => {
+  const verbal = assessMethodEvidence({
+    ...base,
+    evidenceMode: "AUDIO_INTERPRETATION",
+    verbalInterpretation: "老师明确判断下周先冲高、周中回落，并给出周三至周四的主要风险窗口。",
+    primaryHexagram: undefined,
+    mutualHexagram: undefined,
+    changedHexagram: undefined,
+    movingLines: undefined,
+    isStaticHexagram: undefined,
+  }, now);
+  assert.equal(verbal.state, "FORWARD_LOCKED");
+  assert.equal(verbal.evidenceGrade, "VERBAL_INTERPRETATION");
+  assert.equal(verbal.tradingEligible, false);
+  const vague = assessMethodEvidence({ ...base, evidenceMode: "AUDIO_INTERPRETATION", verbalInterpretation: "可能涨跌" }, now);
+  assert.equal(vague.state, "WAIT");
+  assert.ok(vague.hardWaitReasons.includes("LIUYAO_VERBAL_INTERPRETATION_REQUIRED"));
 });
 
 test("六爻缺互卦或动爻字段、来源来自未来都必须WAIT", () => {

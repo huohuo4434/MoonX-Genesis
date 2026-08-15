@@ -18,6 +18,8 @@ export type StructuredMethodEvidence = {
   direction: MethodEvidenceDirection;
   confirmation: string;
   invalidation: string;
+  evidenceMode?: "FULL_CHART" | "AUDIO_INTERPRETATION";
+  verbalInterpretation?: string;
   primaryHexagram?: string;
   mutualHexagram?: string;
   changedHexagram?: string;
@@ -32,6 +34,7 @@ export type StructuredMethodEvidence = {
 export type MethodEvidenceReadiness = {
   state: "FORWARD_LOCKED" | "WAIT";
   hardWaitReasons: string[];
+  evidenceGrade: "FULL_CHART" | "VERBAL_INTERPRETATION" | "STANDARD";
   executionAuthority: "RESEARCH_ONLY";
   tradingEligible: false;
 };
@@ -77,20 +80,25 @@ export function assessMethodEvidence(
   if (!evidence.invalidation.trim()) reasons.push("INVALIDATION_REQUIRED");
 
   if (evidence.kind === "LIUYAO") {
-    if (!evidence.primaryHexagram?.trim()) reasons.push("LIUYAO_PRIMARY_REQUIRED");
-    if (!evidence.mutualHexagram?.trim()) reasons.push("LIUYAO_MUTUAL_REQUIRED");
-    if (typeof evidence.isStaticHexagram !== "boolean") reasons.push("LIUYAO_STATIC_DECLARATION_REQUIRED");
-    if (!Array.isArray(evidence.movingLines)) reasons.push("LIUYAO_MOVING_LINES_REQUIRED");
-    else if (evidence.movingLines.some((line) => !Number.isInteger(line) || line < 1 || line > 6)) {
-      reasons.push("LIUYAO_MOVING_LINES_INVALID");
-    }
-    const changed = evidence.changedHexagram?.trim() ?? "";
-    if (evidence.isStaticHexagram === true) {
-      if ((evidence.movingLines?.length ?? 0) !== 0) reasons.push("LIUYAO_STATIC_WITH_MOVING_LINES");
-      if (!/^(无变卦|無變卦|静卦|靜卦)(（静卦）|\(静卦\))?$/.test(changed)) reasons.push("LIUYAO_STATIC_CHANGED_INVALID");
-    } else if (evidence.isStaticHexagram === false) {
-      if (!changed || /无变卦|無變卦|静卦|靜卦/.test(changed)) reasons.push("LIUYAO_CHANGED_REQUIRED");
-      if (Array.isArray(evidence.movingLines) && evidence.movingLines.length < 1) reasons.push("LIUYAO_DYNAMIC_MOVING_LINES_REQUIRED");
+    if (evidence.evidenceMode === "AUDIO_INTERPRETATION") {
+      if ((evidence.verbalInterpretation?.trim().length ?? 0) < 20) reasons.push("LIUYAO_VERBAL_INTERPRETATION_REQUIRED");
+      if (evidence.direction === "TIMING_ONLY") reasons.push("LIUYAO_VERBAL_DIRECTION_REQUIRED");
+    } else {
+      if (!evidence.primaryHexagram?.trim()) reasons.push("LIUYAO_PRIMARY_REQUIRED");
+      if (!evidence.mutualHexagram?.trim()) reasons.push("LIUYAO_MUTUAL_REQUIRED");
+      if (typeof evidence.isStaticHexagram !== "boolean") reasons.push("LIUYAO_STATIC_DECLARATION_REQUIRED");
+      if (!Array.isArray(evidence.movingLines)) reasons.push("LIUYAO_MOVING_LINES_REQUIRED");
+      else if (evidence.movingLines.some((line) => !Number.isInteger(line) || line < 1 || line > 6)) {
+        reasons.push("LIUYAO_MOVING_LINES_INVALID");
+      }
+      const changed = evidence.changedHexagram?.trim() ?? "";
+      if (evidence.isStaticHexagram === true) {
+        if ((evidence.movingLines?.length ?? 0) !== 0) reasons.push("LIUYAO_STATIC_WITH_MOVING_LINES");
+        if (!/^(无变卦|無變卦|静卦|靜卦)(（静卦）|\(静卦\))?$/.test(changed)) reasons.push("LIUYAO_STATIC_CHANGED_INVALID");
+      } else if (evidence.isStaticHexagram === false) {
+        if (!changed || /无变卦|無變卦|静卦|靜卦/.test(changed)) reasons.push("LIUYAO_CHANGED_REQUIRED");
+        if (Array.isArray(evidence.movingLines) && evidence.movingLines.length < 1) reasons.push("LIUYAO_DYNAMIC_MOVING_LINES_REQUIRED");
+      }
     }
   }
 
@@ -117,6 +125,7 @@ export function assessMethodEvidence(
   return {
     state: reasons.length ? "WAIT" : "FORWARD_LOCKED",
     hardWaitReasons: Array.from(new Set(reasons)),
+    evidenceGrade: evidence.kind === "LIUYAO" ? evidence.evidenceMode === "AUDIO_INTERPRETATION" ? "VERBAL_INTERPRETATION" : "FULL_CHART" : "STANDARD",
     executionAuthority: "RESEARCH_ONLY",
     tradingEligible: false,
   };

@@ -1,6 +1,7 @@
 import { DIRECTION_VALUES, FRAMEWORK_WEIGHTS } from "@/lib/research/consensus-engine";
 import type { TeacherSourceBlendResult } from "@/lib/research/teacher-source-weights";
 import type { ResearchFramework, ResearchRecord } from "@/types/research";
+import { isForwardAudioResearchRecordEligible } from "@/lib/research/forward-audio-evidence-core";
 
 export type ResearchVoteLean = "UP" | "DOWN" | "FLAT" | "ABSTAIN";
 
@@ -39,6 +40,7 @@ function frameworkWeight(framework: ResearchFramework): number {
 export function isResearchRecordEligibleForDirectionVote(record: ResearchRecord): boolean {
   if (record.consensusEligible !== true) return false;
   if (record.verificationEligibility === "provisional") return false;
+  if (record.verificationEligibility === "forward-audio" && !isForwardAudioResearchRecordEligible(record)) return false;
   if (record.direction === "insufficient-evidence") return false;
   if (record.tags.includes("no-direction-score")) return false;
   return true;

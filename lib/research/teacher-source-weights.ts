@@ -2,6 +2,7 @@ import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { buildTeacher02Rev322PathCalibration, type Teacher02Rev322PathCalibration } from "@/lib/research/teacher02-rev322";
 import { deriveForwardValidatedWeight, type ForwardMethodSample } from "@/lib/research/method-evidence-input-core";
 import type { ResearchDirection, ResearchRecord } from "@/types/research";
+import { isForwardAudioResearchRecordEligible } from "@/lib/research/forward-audio-evidence-core";
 
 export type TeacherBlendAssetId = "ethereum" | "nasdaq-100" | "sp500" | "gold" | "silver";
 export type TeacherBlendLean = "UP" | "DOWN" | "FLAT";
@@ -139,6 +140,8 @@ export type TeacherSourceBlendResult = {
   teacher02RecordId: string;
   teacher02EffectiveWeightPct: number;
   teacher02ForwardSamples: number;
+  verbalInterpretationWeightPct: number;
+  verbalInterpretationRecordId: string | null;
   directionalWeightPct: number;
   moonxPathWeightPct: number;
   publicSummary: string;
@@ -185,8 +188,21 @@ export function buildTeacherSourceBlend(input: {
     forecastEnd: teacher02.forecastEnd,
   });
 
+  const verbalInterpretation = input.records.find((record) =>
+    record.assetId === input.assetId &&
+    record.tags.includes("source-mode:audio-transcript") &&
+    record.consensusEligible === true &&
+    isForwardAudioResearchRecordEligible(record) &&
+    record.forecastStart! <= input.asOfDate && record.forecastEnd! >= input.asOfDate
+  );
+
   const teacher01Score = pathDirectionValue(`${weekly.overallDirection} ${weekly.weeklyPath}`);
   const teacher02Score = RESEARCH_DIRECTION_VALUE[teacher02.direction];
+  const verbalInterpretationScore = verbalInterpretation ? RESEARCH_DIRECTION_VALUE[verbalInterpretation.direction] : 0;
+  // A clear, forward-locked audio interpretation is useful immediately, but
+  // remains capped below either structured teacher source until it builds its
+  // own verified sample history.
+  const verbalInterpretationWeightPct = verbalInterpretation ? 8 : 0;
   const forwardSamplesBySource = new Map<string, ForwardMethodSample>();
   for (const record of input.records
     .filter((record) =>
@@ -222,25 +238,27 @@ export function buildTeacherSourceBlend(input: {
   const forwardSamples = Array.from(forwardSamplesBySource.values());
   const dynamicWeight = deriveForwardValidatedWeight({
     baseWeightPct: profile.teacher02WeightPct,
-    maxWeightPct: 100 - profile.moonxExtensionWeightPct,
+    maxWeightPct: 100 - profile.moonxExtensionWeightPct - verbalInterpretationWeightPct,
     samples: forwardSamples,
     scope: { market: teacher02.market, horizon: "WEEK", regime: teacher02.tags.find((tag) => tag.startsWith("regime:"))?.slice(7) ?? "UNCLASSIFIED" },
   });
   const teacher02EffectiveWeightPct = dynamicWeight.effectiveWeightPct;
-  const teacher01EffectiveWeightPct = 100 - profile.moonxExtensionWeightPct - teacher02EffectiveWeightPct;
-  const directionalWeightPct = teacher01EffectiveWeightPct + teacher02EffectiveWeightPct;
+  const teacher01EffectiveWeightPct = 100 - profile.moonxExtensionWeightPct - teacher02EffectiveWeightPct - verbalInterpretationWeightPct;
+  const directionalWeightPct = teacher01EffectiveWeightPct + teacher02EffectiveWeightPct + verbalInterpretationWeightPct;
   const blendedWeightedDirection =
     directionalWeightPct > 0
-      ? (teacher01Score * teacher01EffectiveWeightPct + teacher02Score * teacher02EffectiveWeightPct) /
+      ? (teacher01Score * teacher01EffectiveWeightPct + teacher02Score * teacher02EffectiveWeightPct + verbalInterpretationScore * verbalInterpretationWeightPct) /
         directionalWeightPct
       : 0;
   const teacher01Sign = sign(teacher01Score);
   const teacher02Sign = sign(teacher02Score);
+  const verbalInterpretationSign = sign(verbalInterpretationScore);
+  const activeSigns = [teacher01Sign, teacher02Sign, ...(verbalInterpretation ? [verbalInterpretationSign] : [])].filter((value) => value !== 0);
   const alignment: TeacherBlendAlignment =
-    teacher01Sign !== 0 && teacher01Sign === teacher02Sign
-      ? "aligned"
-      : teacher01Sign !== 0 && teacher02Sign !== 0 && teacher01Sign !== teacher02Sign
-        ? "conflict"
+    activeSigns.includes(1) && activeSigns.includes(-1)
+      ? "conflict"
+      : activeSigns.length >= 2 && activeSigns.every((value) => value === activeSigns[0])
+        ? "aligned"
         : "partial";
   const weightedDirection = alignment === "conflict" ? 0 : blendedWeightedDirection;
   const confidence = clamp(
@@ -252,9 +270,9 @@ export function buildTeacherSourceBlend(input: {
     alignment === "aligned"
       ? "主六爻与辅助六爻在当前区间方向大体一致，关键窗口仍需价格结构确认。"
       : alignment === "conflict"
-        ? "主六爻与辅助六爻的周内路径存在分歧，维持主体系方向并降低追涨杀跌力度。"
+        ? "前瞻证据方向冲突，默认观望且不输出方向；等待确认条件或失效条件触发后再判断。"
         : "辅助六爻主要用于补充时间窗口，暂不单独改变主方向。";
-  const adminSummary = `${profile.label}：主方法有效权重 ${teacher01EffectiveWeightPct}%／辅助方法有效权重 ${teacher02EffectiveWeightPct}%（同市场、周周期、同环境正式前瞻样本 ${dynamicWeight.eligibleSamples}/${dynamicWeight.minimumSamples}）／路径校准 ${profile.moonxExtensionWeightPct}%；当前${alignment === "aligned" ? "方向一致" : alignment === "conflict" ? "方向冲突，默认观望" : "部分一致"}。${rev322Calibration ? ` ${rev322Calibration.summary}` : ""}`;
+  const adminSummary = `${profile.label}：主方法有效权重 ${teacher01EffectiveWeightPct}%／辅助方法有效权重 ${teacher02EffectiveWeightPct}%（同市场、周周期、同环境正式前瞻样本 ${dynamicWeight.eligibleSamples}/${dynamicWeight.minimumSamples}）${verbalInterpretation ? `／前瞻语音解读 ${verbalInterpretationWeightPct}%` : ""}／路径校准 ${profile.moonxExtensionWeightPct}%；当前${alignment === "aligned" ? "方向一致" : alignment === "conflict" ? "方向冲突，默认观望" : "部分一致"}。${rev322Calibration ? ` ${rev322Calibration.summary}` : ""}`;
 
   return {
     assetId: input.assetId,
@@ -272,11 +290,13 @@ export function buildTeacherSourceBlend(input: {
     teacher02RecordId: teacher02.id,
     teacher02EffectiveWeightPct,
     teacher02ForwardSamples: dynamicWeight.eligibleSamples,
+    verbalInterpretationWeightPct,
+    verbalInterpretationRecordId: verbalInterpretation?.id ?? null,
     directionalWeightPct,
     moonxPathWeightPct: profile.moonxExtensionWeightPct,
     publicSummary,
     adminSummary,
-    sourceIds: [weekly.id, teacher02.id],
+    sourceIds: [weekly.id, teacher02.id, ...(verbalInterpretation ? [verbalInterpretation.id] : [])],
     canTriggerTradeAlone: false,
     rev322Calibration,
   };

@@ -74,7 +74,7 @@ export interface ResearchRecord {
   sourcePublishedAt?: string | null;
   sourcePublishedAtVerified?: boolean;
   ingestedAt?: string;
-  verificationEligibility?: "formal" | "provisional";
+  verificationEligibility?: "formal" | "forward-audio" | "provisional";
   retrospectiveNotes?: LocalizedText[];
   sourceSymbol?: string;
   sourceAssetId?: string;
@@ -130,6 +130,13 @@ export interface ResearchRecord {
   hexagramPrimary?: LocalizedText;
   hexagramChanged?: LocalizedText;
   movingLinesNote?: LocalizedText;
+  /** Structured, forward-locked interpretation extracted from supplied audio/transcript. */
+  verbalForecastEvidence?: {
+    sourceMode: "AUDIO_TRANSCRIPT";
+    interpretation: string;
+    confirmation: string;
+    invalidation: string;
+  };
   /** Stable alias IDs used by curated import docs (do not duplicate cards). */
   aliases?: string[];
   /** Editorial research score (0–100) when distinct from confidence framing. */

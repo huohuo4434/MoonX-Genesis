@@ -55,6 +55,8 @@ describe("teacher02 external Liu-Yao source", () => {
     assert.equal(spx?.lean, "FLAT");
     assert.equal(spx?.alignment, "conflict");
     assert.equal(spx?.weightedDirection, 0);
+    assert.equal(spx?.lean, "FLAT");
+    assert.match(spx?.publicSummary ?? "", /默认观望且不输出方向/);
     assert.equal((gold?.teacher01EffectiveWeightPct ?? 0) + (gold?.teacher02EffectiveWeightPct ?? 0) + (gold?.moonxPathWeightPct ?? 0), 100);
     assert.equal(gold?.canTriggerTradeAlone, false);
     assert.equal(gold?.rev322Calibration?.version, "Rev3.2.2");

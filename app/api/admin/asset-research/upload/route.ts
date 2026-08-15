@@ -17,6 +17,9 @@ const ALLOWED_EXT = new Set([
   ".docx",
   ".txt",
   ".md",
+  ".mp3",
+  ".m4a",
+  ".wav",
 ]);
 
 function extOf(name: string): string {
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
   }
   if (!ALLOWED_EXT.has(extOf(file.name))) {
     return NextResponse.json(
-      { error: "仅支持 ZIP、图片、PDF、Word、TXT、MD" },
+      { error: "仅支持 ZIP、图片、PDF、Word、TXT、MD、MP3、M4A、WAV" },
       { status: 400 }
     );
   }
@@ -62,6 +65,7 @@ export async function POST(req: NextRequest) {
   const method = String(form.get("method") ?? "").trim();
   const period = String(form.get("period") ?? "").trim();
   const notes = String(form.get("notes") ?? "").trim();
+  const audioFile = new Set([".mp3", ".m4a", ".wav"]).has(extOf(file.name));
   const evidenceKind = String(form.get("evidenceKind") ?? "LIUYAO").trim() as MethodEvidenceKind;
   const direction = String(form.get("direction") ?? "NEUTRAL").trim() as MethodEvidenceDirection;
   const movingLinesRaw = String(form.get("movingLines") ?? "").trim();
@@ -97,6 +101,8 @@ export async function POST(req: NextRequest) {
         direction,
         confirmation: String(form.get("confirmation") ?? "").trim(),
         invalidation: String(form.get("invalidation") ?? "").trim(),
+        evidenceMode: audioFile || form.get("evidenceMode") === "AUDIO_INTERPRETATION" ? "AUDIO_INTERPRETATION" : "FULL_CHART",
+        verbalInterpretation: String(form.get("verbalInterpretation") ?? notes).trim() || undefined,
         primaryHexagram: String(form.get("primaryHexagram") ?? "").trim() || undefined,
         mutualHexagram: String(form.get("mutualHexagram") ?? "").trim() || undefined,
         changedHexagram: String(form.get("changedHexagram") ?? "").trim() || undefined,

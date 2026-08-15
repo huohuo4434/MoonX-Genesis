@@ -10,14 +10,16 @@ type RecordSeed = Pick<
   sourceRef: string;
   sourceDate: string;
   confidence: number;
+  verbalForecastEvidence?: NonNullable<ResearchRecord["verbalForecastEvidence"]>;
 };
 
 function researchOnly(seed: RecordSeed): ResearchRecord {
+  const forwardAudio = seed.tags.includes("source-mode:audio-transcript");
   return {
     id: seed.id,
     publishedAt: seed.sourceDate,
     sourcePublishedAt: seed.sourceDate,
-    sourcePublishedAtVerified: false,
+    sourcePublishedAtVerified: forwardAudio,
     ingestedAt: INGESTED_AT,
     forecastStart: seed.forecastStart,
     forecastEnd: seed.forecastEnd,
@@ -31,20 +33,21 @@ function researchOnly(seed: RecordSeed): ResearchRecord {
     publicSourceLabel: lt("易老师综合解读", "易老師綜合解讀", "Yi interpretation"),
     direction: seed.direction,
     editorialConfidence: seed.confidence,
-    consensusEligible: false,
+    consensusEligible: forwardAudio,
     excludeFromLongTermConsensus: true,
-    verificationEligibility: "provisional",
+    verificationEligibility: forwardAudio ? "forward-audio" : "provisional",
     layer: "tactical",
     horizon: lt(`${seed.forecastStart} 至 ${seed.forecastEnd}`, `${seed.forecastStart} 至 ${seed.forecastEnd}`, `${seed.forecastStart} to ${seed.forecastEnd}`),
     title: seed.title,
     summary: seed.summary,
     moonxInterpretation: seed.summary,
+    verbalForecastEvidence: seed.verbalForecastEvidence,
     thesis: [lt("仅作研究辅助；不覆盖正式锁定周方向。", "僅作研究輔助；不覆蓋正式鎖定週方向。", "Research-only auxiliary evidence; it cannot override the locked weekly direction.")],
     turningWindows: seed.turningWindows,
     sourceStatus: "summary_only",
     status: "active",
     visibility: "internal",
-    tags: [...seed.tags, "research-only", "no-direction-score", "ingested-20260815"],
+    tags: [...seed.tags, "research-only", ...(forwardAudio ? ["forward-sample", "source-locked", "horizon:WEEK", "no-auto-trade"] : ["no-direction-score"]), "ingested-20260815"],
   };
 }
 
@@ -52,9 +55,11 @@ function researchOnly(seed: RecordSeed): ResearchRecord {
  * User-supplied research archive received on 2026-08-15.
  *
  * Important integrity boundary:
- * - the Liuyao transcript does not contain a reliably structured original chart;
+ * - the Liuyao transcript is preserved as a lower-confidence verbal forecast,
+ *   not mislabelled as a complete chart;
  * - the technical/macro material was ingested after its 2026-08-14 observation;
- * - consequently every record is provisional, RESEARCH_ONLY and consensus-ineligible.
+ * - forward audio interpretations may cast one bounded research vote, while
+ *   late material remains provisional and cannot backfill history.
  */
 export const teacherResearch20260815: ResearchRecord[] = [
   researchOnly({
@@ -63,9 +68,10 @@ export const teacherResearch20260815: ResearchRecord[] = [
     direction: "slightly-bearish", forecastStart: "2026-08-17", forecastEnd: "2026-08-21", sourceDate: "2026-08-15", confidence: 52,
     sourceRef: "wolf-liuyao-transcript-week-20260817",
     title: lt("SPX：周中波动放大，空方略占优", "SPX：週中波動放大，空方略佔優", "SPX: volatility may expand midweek; bears slightly favored"),
-    summary: lt("周初仍有蓄力或上冲尝试；8月19日至20日波动与回落风险增大，后段可能出现超跌修复。因缺少可核验原盘，只保留为路径风险提示。", "週初仍有蓄力或上沖嘗試；8月19日至20日波動與回落風險增大，後段可能出現超跌修復。因缺少可核驗原盤，只保留為路徑風險提示。", "Early strength remains possible; Aug 19-20 carries higher volatility and downside risk, followed by a possible oversold repair. The original chart is unavailable, so this remains a path-risk note."),
+    summary: lt("周初仍有蓄力或上冲尝试；8月19日至20日波动与回落风险增大，后段可能出现超跌修复。语音解读已在周期开始前锁定，以较低置信度参与本周研究。", "週初仍有蓄力或上沖嘗試；8月19日至20日波動與回落風險增大，後段可能出現超跌修復。語音解讀已在週期開始前鎖定，以較低置信度參與本週研究。", "Early strength remains possible; Aug 19-20 carries higher volatility and downside risk, followed by a possible oversold repair. The verbal forecast was locked before the period and enters this week's research at lower confidence."),
     turningWindows: [{ id: "SPX-20260819-20", start: "2026-08-19", end: "2026-08-20", label: lt("波动放大窗口", "波動放大窗口", "Volatility window") }],
-    tags: ["spx", "weekly", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "周初仍有蓄力或上冲尝试，8月19日至20日波动与回落风险增大，后段可能超跌修复。", confirmation: "8月19日至20日出现波动放大并转弱回落。", invalidation: "截至8月20日仍持续走强且没有出现预期回落。" },
+    tags: ["spx", "weekly", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-WOLF-NDX-WEEK-20260815",
@@ -73,9 +79,10 @@ export const teacherResearch20260815: ResearchRecord[] = [
     direction: "bearish", forecastStart: "2026-08-17", forecastEnd: "2026-08-21", sourceDate: "2026-08-15", confidence: 54,
     sourceRef: "wolf-liuyao-transcript-week-20260817",
     title: lt("NDX：相对偏弱，先修复后仍防回落", "NDX：相對偏弱，先修復後仍防回落", "NDX: relatively weaker; repair may precede renewed pressure"),
-    summary: lt("周初若先下探，可能出现资金回流和反弹；8月19日至20日更容易进入震荡下行，后段再观察超跌修复。缺原盘，不升级为正式六爻方向。", "週初若先下探，可能出現資金回流和反彈；8月19日至20日更容易進入震盪下行，後段再觀察超跌修復。缺原盤，不升級為正式六爻方向。", "An early dip may attract a rebound, while Aug 19-20 is more exposed to choppy downside before a possible late repair. No original chart means no formal Liuyao promotion."),
+    summary: lt("周初若先下探，可能出现资金回流和反弹；8月19日至20日更容易进入震荡下行，后段再观察超跌修复。该语音判断按前瞻解读参与研究，并在周后核验。", "週初若先下探，可能出現資金回流和反彈；8月19日至20日更容易進入震盪下行，後段再觀察超跌修復。該語音判斷按前瞻解讀參與研究，並在週後核驗。", "An early dip may attract a rebound, while Aug 19-20 is more exposed to choppy downside before a possible late repair. This verbal forecast enters forward research and will be verified after the week."),
     turningWindows: [{ id: "NDX-20260819-20", start: "2026-08-19", end: "2026-08-20", label: lt("偏空变盘窗口", "偏空變盤窗口", "Bearish turn window") }],
-    tags: ["ndx", "weekly", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "周初下探后可能有资金回流反弹，8月19日至20日更容易转入震荡下行，后段再观察修复。", confirmation: "8月19日至20日反弹转弱并进入震荡下行。", invalidation: "8月19日至20日继续强势上行且未出现转弱。" },
+    tags: ["ndx", "weekly", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-WOLF-BTC-WEEK-20260815",
@@ -88,7 +95,8 @@ export const teacherResearch20260815: ResearchRecord[] = [
       { id: "BTC-20260819-20", start: "2026-08-19", end: "2026-08-20", label: lt("主要变盘窗口", "主要變盤窗口", "Primary turn window") },
       { id: "BTC-20260823", date: "2026-08-23", label: lt("次级观察日", "次級觀察日", "Secondary watch date") },
     ],
-    tags: ["btc", "weekly", "conflicting-paths", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "8月17日至19日能量增强但伴随冲顶风险，19日至20日为主要变盘窗，20日可能形成周内高点。", confirmation: "19日至20日出现高位转弱或周内高点特征。", invalidation: "20日后继续稳定上行且没有出现高位转弱。" },
+    tags: ["btc", "weekly", "conflicting-paths", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-WOLF-ETH-WEEK-20260815",
@@ -96,9 +104,10 @@ export const teacherResearch20260815: ResearchRecord[] = [
     direction: "neutral", forecastStart: "2026-08-17", forecastEnd: "2026-08-23", sourceDate: "2026-08-15", confidence: 44,
     sourceRef: "wolf-liuyao-transcript-week-20260817",
     title: lt("ETH：高波动无趋势，20日前后重点防反转", "ETH：高波動無趨勢，20日前後重點防反轉", "ETH: high-volatility range; watch for a reversal around Aug 20"),
-    summary: lt("当前更接近无趋势来回震荡；17日至19日可能快速反弹，20日前后若反弹失败则回落风险显著。原叙述明确承认此前时点存在一天偏差，故不参与动态权重。", "當前更接近無趨勢來回震盪；17日至19日可能快速反彈，20日前後若反彈失敗則回落風險顯著。原敘述明確承認此前時點存在一天偏差，故不參與動態權重。", "The market is described as trendless and volatile. A fast rebound may occur Aug 17-19; failure around Aug 20 would raise downside risk. The source acknowledges a prior one-day timing miss, so it is excluded from dynamic weighting."),
+    summary: lt("当前更接近无趋势来回震荡；17日至19日可能快速反弹，20日前后若反弹失败则回落风险显著。原叙述明确承认此前时点存在一天偏差，因此本轮以较低置信度参与并继续校准。", "當前更接近無趨勢來回震盪；17日至19日可能快速反彈，20日前後若反彈失敗則回落風險顯著。原敘述明確承認此前時點存在一天偏差，因此本輪以較低置信度參與並繼續校準。", "The market is described as trendless and volatile. A fast rebound may occur Aug 17-19; failure around Aug 20 would raise downside risk. The source acknowledges a prior one-day timing miss, so it participates at lower confidence and remains under calibration."),
     turningWindows: [{ id: "ETH-20260820", date: "2026-08-20", label: lt("反转确认日", "反轉確認日", "Reversal confirmation date") }],
-    tags: ["eth", "weekly", "conflicting-paths", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "ETH偏高波动震荡，17日至19日可能快速反弹，20日前后若反弹失败则回落风险增大。", confirmation: "20日前后反弹失败并重新转弱。", invalidation: "20日后有效突破震荡区并维持强势上行。" },
+    tags: ["eth", "weekly", "conflicting-paths", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-WOLF-GOLD-WEEK-20260815",
@@ -108,7 +117,8 @@ export const teacherResearch20260815: ResearchRecord[] = [
     title: lt("黄金：周初仍可冲高，18日至19日防补缺口", "黃金：週初仍可衝高，18日至19日防補缺口", "Gold: an early push remains possible; gap-fill risk rises Aug 18-19"),
     summary: lt("8月17日仍可能出现上冲或减仓窗口，18日至19日回落风险上升；缺少原始排盘，跌幅与是否完全补缺口均不作确定断言。", "8月17日仍可能出現上衝或減倉窗口，18日至19日回落風險上升；缺少原始排盤，跌幅與是否完全補缺口均不作確定斷言。", "Aug 17 may still offer an upside or de-risking window, while downside risk rises Aug 18-19. Without the original chart, neither decline magnitude nor a full gap fill is asserted."),
     turningWindows: [{ id: "GOLD-20260818-19", start: "2026-08-18", end: "2026-08-19", label: lt("回落风险窗口", "回落風險窗口", "Downside-risk window") }],
-    tags: ["gold", "gld", "weekly", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "8月17日仍可能上冲，18日至19日回落风险上升，但不确定是否完全回补缺口。", confirmation: "18日至19日出现冲高转弱或回落。", invalidation: "19日结束前继续上行且没有出现冲高转弱。" },
+    tags: ["gold", "gld", "weekly", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-WOLF-SILVER-WEEK-20260815",
@@ -117,7 +127,8 @@ export const teacherResearch20260815: ResearchRecord[] = [
     sourceRef: "wolf-liuyao-transcript-week-20260817",
     title: lt("白银：相对黄金更弱，仍处高波动蓄势", "白銀：相對黃金更弱，仍處高波動蓄勢", "Silver: weaker than gold and still in a high-volatility buildup"),
     summary: lt("相对黄金更弱，方向偏谨慎；来源只给出蓄势与高波动描述，未提供可核验的独立逐日路径，因此不拆分具体交易日结论。", "相對黃金更弱，方向偏謹慎；來源只給出蓄勢與高波動描述，未提供可核驗的獨立逐日路徑，因此不拆分具體交易日結論。", "Silver is described as weaker than gold. The source supplies only a high-volatility buildup thesis, not a verifiable daily path, so no day-by-day conclusions are invented."),
-    tags: ["silver", "weekly", "source-chart-missing"],
+    verbalForecastEvidence: { sourceMode: "AUDIO_TRANSCRIPT", interpretation: "白银相对黄金更弱，方向偏谨慎，处于高波动蓄势状态，暂不拆分具体交易日。", confirmation: "本周白银相对黄金继续走弱并出现下行波动。", invalidation: "本周白银转为持续强于黄金并保持上行。" },
+    tags: ["silver", "weekly", "source-chart-missing", "source-mode:audio-transcript"],
   }),
   researchOnly({
     id: "SOURCE-GAOSHAN-SPX-20260814",
@@ -170,5 +181,5 @@ export const teacherArchiveIngestStatus20260815 = {
   textSourcesParsed: 29,
   chartImagesReviewed: 9,
   audioPendingTranscription: 3,
-  policy: "UNTRANSCRIBED_AUDIO_CANNOT_INFLUENCE_RESEARCH",
+  policy: "AUDIO_TRANSCRIPT_CAN_ENTER_BOUNDED_FORWARD_RESEARCH",
 } as const;

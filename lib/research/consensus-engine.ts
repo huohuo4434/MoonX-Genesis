@@ -4,6 +4,7 @@
  * V1.1 spec for the exact formula this implements.
  */
 import type { LocalizedText } from "@/lib/i18n/config";
+import { isForwardAudioResearchRecordEligible } from "@/lib/research/forward-audio-evidence-core";
 import type { ForecastWindow, ResearchDirection, ResearchFramework, ResearchRecord } from "@/types/research";
 
 export const DIRECTION_VALUES: Record<ResearchDirection, number> = {
@@ -102,6 +103,7 @@ export function computeConsensus(
   const nowKey = now.toISOString().slice(0, 10);
   const eligibleRecords = allRecords.filter((r) => {
     if (r.assetId !== assetId || !r.consensusEligible || r.direction === "insufficient-evidence") return false;
+    if (r.verificationEligibility === "forward-audio" && !isForwardAudioResearchRecordEligible(r)) return false;
     if (r.forecastStart && nowKey < r.forecastStart) return false;
     if (r.forecastEnd && nowKey > r.forecastEnd) return false;
     if (r.expiresAt && now.getTime() >= new Date(r.expiresAt).getTime()) return false;
