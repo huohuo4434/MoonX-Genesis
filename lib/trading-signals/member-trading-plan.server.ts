@@ -7,13 +7,12 @@ import type { ChanMultiTimeframeFrame } from "@/types/chan-execution";
 import type { MemberTradingPlan } from "@/types/member-trading-plan";
 
 function normalizeRequestedSymbol(value: string): string {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 20);
+  const symbol = value.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 20);
+  return symbol && !symbol.endsWith("USDT") ? `${symbol}USDT` : symbol;
 }
 
 function planSymbolMatches(planSymbol: string, requested: string): boolean {
-  const left = planSymbol.toUpperCase();
-  const right = requested.toUpperCase();
-  return left === right || left.replace(/USDT$/i, "") === right.replace(/USDT$/i, "");
+  return planSymbol.toUpperCase() === requested.toUpperCase();
 }
 
 function latestPlan(plans: readonly AiTradePlan[], symbol: string, nowMs: number): AiTradePlan | null {
@@ -35,6 +34,10 @@ export async function loadCurrentMemberTradingPlan(input: {
   const symbol = normalizeRequestedSymbol(input.symbol);
   if (!symbol) return null;
   const now = input.now ?? new Date();
+  const { loadMemberTradingInstruments } = await import("@/lib/trading-signals/member-instrument-registry.server");
+  const registry = await loadMemberTradingInstruments(now);
+  const executionInstrument = registry.instruments.find((row) => row.canonicalSymbol === symbol);
+  if (!executionInstrument) return null;
   const plans = await getPublishedAiTradePlans(100, { readOnly: true });
   const sourcePlan = latestPlan(plans, symbol, now.getTime());
   if (!sourcePlan) return null;
@@ -78,6 +81,7 @@ export async function loadCurrentMemberTradingPlan(input: {
     chan,
     currentPrice: currentPrice != null && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null,
     generatedAt: now.toISOString(),
+    instrument: executionInstrument,
   });
 }
 

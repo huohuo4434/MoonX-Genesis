@@ -138,11 +138,24 @@ async function mooxPlan(symbol) {
   });
 }
 
+export function executionGeometryValid(plan) {
+  const price = Number(plan?.execution?.currentPrice);
+  const stop = Number(plan?.execution?.stopLoss);
+  const targets = plan?.execution?.takeProfits?.map(Number) || [];
+  const zone = plan?.execution?.entryZone?.map(Number) || [];
+  if (!(price > 0 && stop > 0 && zone.length === 2 && zone.every((value) => value > 0) && targets.length === 3 && targets.every((value) => value > 0))) return false;
+  const [low, high] = zone;
+  return plan?.authority?.direction === "LONG"
+    ? low <= high && stop < Math.min(low, price) && Math.max(high, price) < targets[0] && targets[0] < targets[1] && targets[1] < targets[2]
+    : plan?.authority?.direction === "SHORT" && low <= high && stop > Math.max(high, price) && Math.min(low, price) > targets[0] && targets[0] > targets[1] && targets[1] > targets[2];
+}
+
 export function validatePlan(plan, now = Date.now(), requestedSymbol = "") {
   const errors = [];
   if (plan?.schema !== "moonx.member.trading-plan.v1") errors.push("计划协议版本错误");
   if (!plan?.planId || !Number.isInteger(plan?.version) || !/^[a-f0-9]{24}$/.test(plan?.revisionId || "")) errors.push("计划版本身份不完整");
   if (requestedSymbol && plan?.symbol !== requestedSymbol) errors.push("返回计划品种与请求不一致");
+  if (plan?.instrument?.availability !== "AVAILABLE" || plan?.instrument?.executionScope !== "PAPER_LOCAL" || plan?.instrument?.bitgetSymbol !== plan?.symbol) errors.push("该重点关注品种不是Bitget当前在线的精确合约");
   if (!plan?.authority?.valid || !plan?.authority?.forecastId || !plan?.authority?.forecastVersion) errors.push("正式预测权威无效");
   if (!plan?.authority?.publishedAt || Date.parse(plan.authority.publishedAt) > now) errors.push("正式预测尚未发布");
   if (!plan?.authority?.lockedAt || Date.parse(plan.authority.lockedAt) > now) errors.push("正式预测尚未锁定");
@@ -156,17 +169,26 @@ export function validatePlan(plan, now = Date.now(), requestedSymbol = "") {
   if (!plan?.chan?.timeframes?.length || plan.chan.timeframes.some((row) => !row.available || !row.complete)) errors.push("缠论周期数据不完整");
   const generatedAge = now - Date.parse(plan?.generatedAt || "");
   if (!Number.isFinite(generatedAge) || generatedAge < 0 || generatedAge > 120_000) errors.push("MOOX计划快照超过120秒");
-  const price = Number(plan?.execution?.currentPrice);
-  const stop = Number(plan?.execution?.stopLoss);
-  const targets = plan?.execution?.takeProfits?.map(Number) || [];
-  if (!(price > 0 && stop > 0 && targets.length === 3 && targets.every((value) => value > 0))) errors.push("价格或保护价不完整");
-  if (price > 0 && stop > 0 && targets.length === 3) {
-    const geometry = plan.authority.direction === "LONG"
-      ? stop < price && targets.every((value, index) => value > price && (index === 0 || value >= targets[index - 1]))
-      : stop > price && targets.every((value, index) => value < price && (index === 0 || value <= targets[index - 1]));
-    if (!geometry) errors.push("止盈止损几何与正式方向冲突");
-  }
+  if (plan?.execution?.levelStatus !== "VALID") errors.push("执行点位状态无效或已隐藏");
+  if (!executionGeometryValid(plan)) errors.push("入场区、止损、参考价与止盈几何冲突");
   if (errors.length) throw new Error(errors.join("；"));
+  return plan;
+}
+
+export function findExistingLiveRecord(state, plan, requestedSymbol) {
+  const matches = Object.values(state?.executions || {}).filter((record) => record?.mode === "LIVE"
+    && record.symbol === requestedSymbol && record.planId === plan?.planId && record.version === plan?.version);
+  if (matches.length > 1) throw new Error("同一计划存在多条LIVE本地记录，停止并人工对账");
+  return matches[0] || null;
+}
+
+export function validateRecoveryPlan(plan, record, requestedSymbol) {
+  if (plan?.schema !== "moonx.member.trading-plan.v1" || plan?.symbol !== requestedSymbol) throw new Error("恢复计划身份无效");
+  if (plan.planId !== record.planId || plan.version !== record.version) throw new Error("恢复计划与本地LIVE记录不一致");
+  if (!plan?.evidence?.sourcePlanContentHash || (record.sourcePlanContentHash && record.sourcePlanContentHash !== plan.evidence.sourcePlanContentHash)) throw new Error("恢复计划锁定内容身份不一致");
+  const expectedSide = plan?.authority?.direction === "LONG" ? "long" : plan?.authority?.direction === "SHORT" ? "short" : "";
+  if (!expectedSide || record.posSide !== expectedSide) throw new Error("恢复记录持仓方向与锁定计划不一致");
+  if (!executionGeometryValid(plan)) throw new Error("恢复计划保护点位不完整或几何无效，停止并人工处理持仓");
   return plan;
 }
 
@@ -313,7 +335,10 @@ export function positionList(response) {
 async function instrument(symbol) {
   const response = await jsonRequest(`${BITGET_BASE}/api/v3/market/instruments?category=${CATEGORY}&symbol=${encodeURIComponent(symbol)}`);
   if (response.code !== "00000") throw new Error(`合约参数读取失败：${response.msg}`);
-  return Array.isArray(response.data) ? response.data[0] : response.data;
+  const rows = Array.isArray(response.data) ? response.data : [response.data];
+  const exact = rows.find((row) => row?.symbol === symbol && row?.category === CATEGORY);
+  if (!exact) throw new Error(`Bitget不存在精确在线合约：${symbol}`);
+  return exact;
 }
 
 async function marketTicker(symbol) {
@@ -330,10 +355,20 @@ export function executionQuote(plan, ticker, now = Date.now()) {
   const planned = numeric(plan.execution.currentPrice, "计划价格");
   if (Math.abs(price - planned) / planned > 0.005) throw new Error("Bitget执行价格偏离MOOX计划超过0.5%");
   const [low, high] = plan.execution.entryZone.map(Number);
+  if (!(Number.isFinite(low) && Number.isFinite(high) && low > 0 && low <= high)) throw new Error("锁定入场区反序或无效");
   const confirmation = Number(plan.execution.confirmationAboveOrBelow);
-  const inZone = Number.isFinite(low) && Number.isFinite(high) && price >= Math.min(low, high) && price <= Math.max(low, high);
+  const inZone = price >= low && price <= high;
   const confirmed = plan.authority.direction === "LONG" ? price >= confirmation : price <= confirmation;
   if (!inZone && !(Number.isFinite(confirmation) && confirmed)) throw new Error("实时价格既不在锁定入场区也未越过确认位");
+  return price;
+}
+
+export function recoveryMarketPrice(symbol, ticker, now = Date.now()) {
+  if (!ticker || ticker.symbol !== symbol || ticker.category !== CATEGORY) throw new Error("恢复行情品种不匹配");
+  const ts = numeric(ticker.ts, "恢复行情时间");
+  if (now - ts < 0 || now - ts > 5_000) throw new Error("Bitget恢复行情超过5秒");
+  const price = numeric(ticker.markPrice || ticker.lastPrice, "Bitget恢复价格");
+  if (!(price > 0)) throw new Error("Bitget恢复价格无效");
   return price;
 }
 
@@ -353,7 +388,8 @@ export function normalizedPrice(raw, contract) {
   return (Math.round(numeric(raw, "保护价格") / multiplier) * multiplier).toFixed(precision);
 }
 
-export function assertContract(contract, qty) {
+export function assertContract(contract, qty, symbol = contract?.symbol) {
+  if (contract?.symbol !== symbol || contract?.category !== CATEGORY) throw new Error("合约身份与请求品种不一致");
   if (contract?.status !== "online") throw new Error("合约当前不可交易");
   if (numeric(qty, "下单数量") > numeric(contract?.maxMarketOrderQty, "市价单最大数量")) throw new Error("下单数量超过市价单上限");
   return true;
@@ -419,7 +455,9 @@ async function reconcileExisting(record, plan, runMode) {
     throw new Error("本地记录与交易所订单/持仓不一致，已停止，不会重复下单");
   }
   const contract = await instrument(symbol);
-  const prices = protectionPrices(plan, contract);
+  const freshPrice = recoveryMarketPrice(symbol, await marketTicker(symbol));
+  const recoveryPlan = { ...plan, execution: { ...plan.execution, currentPrice: freshPrice } };
+  const prices = protectionPrices(recoveryPlan, contract);
   const protection = await placeProtection(plan, record.posSide, prices);
   return { symbol, status: "RECONCILED_OPEN_PROTECTED", record: { ...record, protectionOrderId: protection.orderId } };
 }
@@ -487,7 +525,10 @@ async function paper(plan, state) {
 }
 
 async function executeSymbol(symbol, runMode, state) {
-  const plan = validatePlan(await mooxPlan(symbol), Date.now(), symbol);
+  const payload = await mooxPlan(symbol);
+  const liveRecord = findExistingLiveRecord(state, payload, symbol);
+  if (liveRecord) return reconcileExisting(liveRecord, validateRecoveryPlan(payload, liveRecord, symbol), runMode);
+  const plan = validatePlan(payload, Date.now(), symbol);
   if (executionKey(plan) in state.executions) {
     return reconcileExisting(state.executions[executionKey(plan)], plan, runMode);
   }
@@ -519,17 +560,18 @@ async function executeSymbol(symbol, runMode, state) {
     const confirmed = await confirmOrder(clientOid, finalPlan.symbol, expectedSideFinal);
     const recoveryPrices = protectionPrices(finalPlan, contract);
     const protection = await placeProtection(finalPlan, expectedSideFinal, recoveryPrices);
-    const record = { mode: "LIVE", planId: finalPlan.planId, version: finalPlan.version, revisionId: finalPlan.revisionId, symbol: finalPlan.symbol, posSide: expectedSideFinal, clientOid, orderId: confirmed.order.orderId, protectionOrderId: protection.orderId, createdAt: new Date().toISOString() };
+    const record = { mode: "LIVE", planId: finalPlan.planId, version: finalPlan.version, revisionId: finalPlan.revisionId, sourcePlanContentHash: finalPlan.evidence.sourcePlanContentHash, symbol: finalPlan.symbol, posSide: expectedSideFinal, clientOid, orderId: confirmed.order.orderId, protectionOrderId: protection.orderId, createdAt: new Date().toISOString() };
     state.executions[executionKey(finalPlan)] = record;
     await saveState(state);
     return { symbol, status: "LIVE_RECOVERED_PROTECTED", record };
   }
   if (positions.some((row) => Math.abs(Number(row.total || 0)) > 0)) throw new Error("账户已有USDT合约持仓；本地Agent v1拒绝新增任何敞口");
+  const finalContract = await instrument(finalPlan.symbol);
   const quote = executionQuote(finalPlan, await marketTicker(symbol));
   const executionPlan = { ...finalPlan, execution: { ...finalPlan.execution, currentPrice: quote } };
-  const qty = calculateQuantity(executionPlan, assets, [], contract);
-  assertContract(contract, qty);
-  const prices = protectionPrices(executionPlan, contract);
+  const qty = calculateQuantity(executionPlan, assets, [], finalContract);
+  assertContract(finalContract, qty, finalPlan.symbol);
+  const prices = protectionPrices(executionPlan, finalContract);
   if (disposition === "ABSENT") {
     assertKillSwitch();
     try {
@@ -563,7 +605,7 @@ async function executeSymbol(symbol, runMode, state) {
     && confirmed.order.tpTriggerBy === "mark" && confirmed.order.slTriggerBy === "mark";
   if (!presetConfirmed) throw new Error("初始订单止盈止损未按预期确认；停止并人工处理持仓");
   const protection = await placeProtection(finalPlan, expectedSideFinal, prices);
-  const record = { mode: "LIVE", planId: finalPlan.planId, version: finalPlan.version, revisionId: finalPlan.revisionId, symbol: finalPlan.symbol, posSide: expectedSideFinal, clientOid, orderId: confirmed.order.orderId, protectionOrderId: protection.orderId, createdAt: new Date().toISOString() };
+  const record = { mode: "LIVE", planId: finalPlan.planId, version: finalPlan.version, revisionId: finalPlan.revisionId, sourcePlanContentHash: finalPlan.evidence.sourcePlanContentHash, symbol: finalPlan.symbol, posSide: expectedSideFinal, clientOid, orderId: confirmed.order.orderId, protectionOrderId: protection.orderId, createdAt: new Date().toISOString() };
   state.executions[executionKey(finalPlan)] = record;
   await saveState(state);
   return { symbol, status: "LIVE_CONFIRMED_PROTECTED", presetConfirmed, record };

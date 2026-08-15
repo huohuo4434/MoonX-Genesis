@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { MemberPaperSnapshot, MemberTradingPlan } from "@/types/member-trading-plan";
+import type { MemberPaperSnapshot, MemberTradingInstrument, MemberTradingPlan } from "@/types/member-trading-plan";
 
 type TokenView = {
   id: string; label: string; prefix: string; active: boolean; expiresAt: string;
@@ -12,6 +12,7 @@ const endpoint = {
   plan: "/api/v1/member/trading/plans/current",
   paper: "/api/v1/member/trading/paper",
   tokens: "/api/v1/member/trading/api-keys",
+  instruments: "/api/v1/member/trading/instruments",
 };
 
 function money(value: number | null | undefined) {
@@ -25,7 +26,8 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export function MemberTradingOnboarding() {
-  const [symbol, setSymbol] = useState("BTCUSDT");
+  const [symbol, setSymbol] = useState("");
+  const [instruments, setInstruments] = useState<MemberTradingInstrument[]>([]);
   const [plan, setPlan] = useState<MemberTradingPlan | null>(null);
   const [paper, setPaper] = useState<MemberPaperSnapshot | null>(null);
   const [tokens, setTokens] = useState<TokenView[]>([]);
@@ -48,7 +50,16 @@ export function MemberTradingOnboarding() {
     finally { setBusy(""); }
   }, [symbol]);
 
-  useEffect(() => { void refresh("BTCUSDT"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void (async () => {
+      try {
+        const result = await readJson<{ instruments: MemberTradingInstrument[] }>(await fetch(endpoint.instruments, { cache: "no-store" }));
+        setInstruments(result.instruments);
+        const first = result.instruments.find((row) => row.availability === "AVAILABLE")?.canonicalSymbol ?? result.instruments[0]?.canonicalSymbol;
+        if (first) { setSymbol(first); await refresh(first); }
+      } catch (error) { setMessage(error instanceof Error ? error.message : "品种列表读取失败"); }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function paperAction(action: "ENTER" | "EXIT", positionId?: string, positionSymbol?: string) {
     if (action === "ENTER" && !plan) return;
@@ -108,12 +119,13 @@ export function MemberTradingOnboarding() {
 
     <div className="grid gap-6 xl:grid-cols-2">
       <div className="rounded-3xl border border-white/10 bg-neutral-950 p-6 text-neutral-100">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">当前统一计划</h3><div className="flex gap-2"><input aria-label="交易品种" className="w-32 rounded-lg border border-neutral-700 bg-black px-3 py-2" value={symbol} onChange={(event) => setSymbol(event.target.value.toUpperCase())} /><button className="rounded-lg border border-neutral-700 px-3 py-2" disabled={Boolean(busy)} onClick={() => void refresh(symbol)}>读取</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">当前统一计划</h3><div className="flex gap-2"><select aria-label="交易品种" className="rounded-lg border border-neutral-700 bg-black px-3 py-2" value={symbol} onChange={(event) => { setSymbol(event.target.value); void refresh(event.target.value); }}>{instruments.map((row) => <option key={row.canonicalSymbol} value={row.canonicalSymbol}>{row.displayName} · {row.canonicalSymbol} · {row.availability === "AVAILABLE" ? "可Paper/本地" : "仅研究"}</option>)}</select><button className="rounded-lg border border-neutral-700 px-3 py-2" disabled={Boolean(busy) || !symbol} onClick={() => void refresh(symbol)}>读取</button></div></div>
         {plan ? <div className="mt-5 space-y-3 text-sm">
           <p className="text-lg font-bold">{plan.symbol} · {plan.state} · V{plan.version}</p>
           <p>正式方向：<b>{plan.authority.direction}</b>　缠论阶段：<b>{plan.chan.stageLabel}</b></p>
-          <p>现价 {money(plan.execution.currentPrice)}　确认 {money(plan.execution.confirmationAboveOrBelow)}　失效/止损 {money(plan.execution.stopLoss)}</p>
-          <p>止盈：{plan.execution.takeProfits.map(money).join(" / ")}</p>
+          <p>{plan.instrument.displayName} · {plan.instrument.availability === "AVAILABLE" ? `Bitget精确合约 ${plan.instrument.bitgetSymbol}` : "Bitget无同名在线合约 · RESEARCH_ONLY / UNAVAILABLE"}</p>
+          <p>现价 {money(plan.execution.currentPrice)}　确认 {money(plan.execution.confirmationAboveOrBelow)}</p>
+          {plan.execution.levelStatus === "VALID" && plan.execution.takeProfits ? <><p>失效/止损 {money(plan.execution.stopLoss)}</p><p>止盈：{plan.execution.takeProfits.map(money).join(" / ")}</p></> : <p className="text-amber-300">执行点位已隐藏：{plan.execution.statusReason}</p>}
           <p className={ready ? "text-emerald-300" : "text-amber-300"}>{ready ? "正式锁定、条件满足且行情新鲜：允许Paper与本地Agent候选。" : "当前不满足执行门禁：保持等待。"}</p>
           <button className="rounded-xl bg-emerald-400 px-4 py-2 font-bold text-black disabled:opacity-40" disabled={!ready || Boolean(busy)} onClick={() => void paperAction("ENTER")}>按此版本Paper入场</button>
         </div> : <p className="mt-5 text-neutral-400">正在读取正式计划……</p>}

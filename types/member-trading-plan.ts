@@ -5,7 +5,19 @@ export type MemberTradingPlanState =
   | "CONFLICT_WAIT"
   | "RISK_REDUCE"
   | "EXIT_OR_PROTECT"
+  | "INVALID_LEVEL_GEOMETRY"
+  | "INSTRUMENT_UNAVAILABLE"
   | "NO_AUTHORITY";
+
+export type MemberTradingInstrument = {
+  canonicalSymbol: string;
+  displayName: string;
+  assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
+  bitgetSymbol: string | null;
+  availability: "AVAILABLE" | "UNAVAILABLE";
+  executionScope: "PAPER_LOCAL" | "RESEARCH_ONLY";
+  discoveredAt: string;
+};
 
 export type MemberTradingPlan = {
   schema: "moonx.member.trading-plan.v1";
@@ -14,6 +26,7 @@ export type MemberTradingPlan = {
   version: number;
   revisionId: string;
   symbol: string;
+  instrument: MemberTradingInstrument;
   generatedAt: string;
   validUntil: string;
   state: MemberTradingPlanState;
@@ -45,11 +58,12 @@ export type MemberTradingPlan = {
     }>;
   };
   execution: {
+    levelStatus: "VALID" | "HIDDEN_NO_AUTHORITY" | "INVALID_LEVEL_GEOMETRY";
     currentPrice: number | null;
-    entryZone: [number, number];
+    entryZone: [number, number] | null;
     confirmationAboveOrBelow: number | null;
-    stopLoss: number;
-    takeProfits: [number, number, number];
+    stopLoss: number | null;
+    takeProfits: [number, number, number] | null;
     triggerRule: string;
     invalidationRule: string;
     statusReason: string;

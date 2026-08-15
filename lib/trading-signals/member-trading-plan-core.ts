@@ -52,10 +52,27 @@ function statusReason(state: MemberTradingPlanState, chan: ChanMultiTimeframeDec
   if (state === "LONG_READY") return "正式方向看多，四周期缠论结构完成并出现同向候选买点。";
   if (state === "SHORT_READY") return "正式方向看空，四周期缠论结构完成并出现同向候选卖点。";
   if (state === "NO_AUTHORITY") return "没有当前有效且已发布锁定的正式预测，禁止生成执行候选。";
+  if (state === "INVALID_LEVEL_GEOMETRY") return "止损、参考价与止盈顺序无效，执行点位已隐藏且禁止执行。";
+  if (state === "INSTRUMENT_UNAVAILABLE") return "该重点关注品种不是Bitget当前在线的精确合约，仅供研究。";
   if (state === "CONFLICT_WAIT") return "正式方向与缠论结构冲突，保持等待。";
   if (state === "RISK_REDUCE") return "已有计划处于持仓管理阶段，只允许减仓或保护，不新增敞口。";
   if (state === "EXIT_OR_PROTECT") return "计划已结束或失效，只允许退出与保护。";
   return chan.reasons.length ? `等待确认：${chan.reasons.join("、")}` : "方向已锁定，等待缠论结构完成确认。";
+}
+
+export function validateMemberLevelGeometry(input: {
+  direction: "LONG" | "SHORT";
+  reference: number | null;
+  entryZone: [number, number];
+  stopLoss: number;
+  takeProfits: [number, number, number];
+}): boolean {
+  const { reference, entryZone: [low, high], stopLoss: stop, takeProfits: [t1, t2, t3] } = input;
+  if (![reference, low, high, stop, t1, t2, t3].every((value) => Number.isFinite(value) && Number(value) > 0)) return false;
+  if (low > high || reference == null) return false;
+  return input.direction === "LONG"
+    ? stop < Math.min(low, reference) && Math.max(high, reference) < t1 && t1 < t2 && t2 < t3
+    : stop > Math.max(high, reference) && Math.min(low, reference) > t1 && t1 > t2 && t2 > t3;
 }
 
 export function buildMemberTradingPlan(input: {
@@ -63,10 +80,19 @@ export function buildMemberTradingPlan(input: {
   chan: ChanMultiTimeframeDecision;
   currentPrice: number | null;
   generatedAt: string;
+  instrument: MemberTradingPlan["instrument"];
 }): MemberTradingPlan {
   const nowMs = Date.parse(input.generatedAt);
   const formal = Number.isFinite(nowMs) && isMemberPlanFormal(input.plan, nowMs);
-  const state = stateFor({ plan: input.plan, formal, chan: input.chan });
+  let state = stateFor({ plan: input.plan, formal, chan: input.chan });
+  const rawEntry: [number, number] = [input.plan.entryZoneLow, input.plan.entryZoneHigh];
+  const rawTargets: [number, number, number] = [input.plan.target1, input.plan.target2, input.plan.target3];
+  const geometryValid = formal && validateMemberLevelGeometry({
+    direction: input.plan.direction as "LONG" | "SHORT", reference: input.currentPrice,
+    entryZone: rawEntry, stopLoss: input.plan.protectiveStop, takeProfits: rawTargets,
+  });
+  if (formal && !geometryValid) state = "INVALID_LEVEL_GEOMETRY";
+  else if (formal && input.instrument.availability !== "AVAILABLE") state = "INSTRUMENT_UNAVAILABLE";
   const controlling = input.chan.timeframeSignals.find((row) => row.timeframe === "4H")
     ?? input.chan.timeframeSignals[0];
   const revisionId = createHash("sha256").update(JSON.stringify({
@@ -78,7 +104,8 @@ export function buildMemberTradingPlan(input: {
     confirmation: input.chan.confirmation,
     invalidation: input.chan.invalidation,
   })).digest("hex").slice(0, 24);
-  const ready = state === "LONG_READY" || state === "SHORT_READY";
+  const ready = geometryValid && input.instrument.availability === "AVAILABLE" && (state === "LONG_READY" || state === "SHORT_READY");
+  const exposeLevels = formal && geometryValid;
   return {
     schema: "moonx.member.trading-plan.v1",
     planId: input.plan.id,
@@ -86,6 +113,7 @@ export function buildMemberTradingPlan(input: {
     version: input.plan.version,
     revisionId,
     symbol: input.plan.symbol,
+    instrument: input.instrument,
     generatedAt: input.generatedAt,
     validUntil: input.plan.forecastValidUntil ?? input.plan.expiresAt,
     state,
@@ -117,11 +145,12 @@ export function buildMemberTradingPlan(input: {
       })),
     },
     execution: {
+      levelStatus: !formal ? "HIDDEN_NO_AUTHORITY" : geometryValid ? "VALID" : "INVALID_LEVEL_GEOMETRY",
       currentPrice: input.currentPrice,
-      entryZone: [input.plan.entryZoneLow, input.plan.entryZoneHigh],
+      entryZone: exposeLevels ? rawEntry : null,
       confirmationAboveOrBelow: input.chan.confirmation ?? controlling?.stage.confirmation ?? null,
-      stopLoss: input.plan.protectiveStop,
-      takeProfits: [input.plan.target1, input.plan.target2, input.plan.target3],
+      stopLoss: exposeLevels ? input.plan.protectiveStop : null,
+      takeProfits: exposeLevels ? rawTargets : null,
       triggerRule: input.plan.triggerRule,
       invalidationRule: input.plan.invalidationRule,
       statusReason: statusReason(state, input.chan),

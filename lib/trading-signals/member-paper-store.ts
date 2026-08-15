@@ -248,12 +248,16 @@ function requirePrice(plan: MemberTradingPlan): number {
 }
 
 function validateRiskGeometry(plan: MemberTradingPlan, price: number): void {
+  if (plan.execution.levelStatus !== "VALID" || !plan.execution.entryZone || plan.execution.stopLoss == null || !plan.execution.takeProfits) {
+    throw new Error("执行点位不可用，Paper不执行");
+  }
   const stop = plan.execution.stopLoss;
   const [target1, target2, target3] = plan.execution.takeProfits;
+  const [low, high] = plan.execution.entryZone;
   const long = plan.authority.direction === "LONG";
-  const valid = long
-    ? stop < price && target1 > price && target2 >= target1 && target3 >= target2
-    : stop > price && target1 < price && target2 <= target1 && target3 <= target2;
+  const valid = low <= high && (long
+    ? stop < Math.min(low, price) && Math.max(high, price) < target1 && target1 < target2 && target2 < target3
+    : stop > Math.max(high, price) && Math.min(low, price) > target1 && target1 > target2 && target2 > target3);
   if (!valid) throw new Error("止损止盈结构与当前价格不一致，Paper不执行");
 }
 
@@ -274,6 +278,8 @@ export async function enterMemberPaperPlan(input: {
   }
   const price = requirePrice(input.plan);
   validateRiskGeometry(input.plan, price);
+  const stopLoss = input.plan.execution.stopLoss!;
+  const takeProfits = input.plan.execution.takeProfits!;
   await ensureAccount(input.userId);
   const positionId = `mpp_${randomUUID()}`;
   let accountId = "";
@@ -303,7 +309,7 @@ export async function enterMemberPaperPlan(input: {
       const openRisk = openRows.reduce((sum, row) => sum + Math.abs(Number(row.entry_price) - Number(row.stop_loss)) * Number(row.quantity), 0);
       const openUnrealized = openRows.reduce((sum, row) => sum + Number(row.unrealized_pnl), 0);
       const equity = Number(account.cash_balance) + openUnrealized;
-      const stopDistance = Math.abs(price - input.plan.execution.stopLoss);
+      const stopDistance = Math.abs(price - stopLoss);
       const riskBudget = equity * input.plan.risk.riskPerTradePct / 100;
       const remainingRisk = Math.max(0, equity * 0.03 - openRisk);
       const remainingNotional = Math.max(0, equity * 0.20 - openNotional);
@@ -319,8 +325,8 @@ export async function enterMemberPaperPlan(input: {
           target_1, target_2, target_3, realized_pnl, unrealized_pnl
         ) VALUES (
           ${positionId}, ${account.id}, ${input.userId}, ${input.plan.planId}, ${input.plan.version}, ${input.plan.revisionId},
-          ${input.plan.symbol}, ${input.plan.authority.direction}, 'OPEN', ${quantity}, ${price}, ${price}, ${input.plan.execution.stopLoss},
-          ${input.plan.execution.takeProfits[0]}, ${input.plan.execution.takeProfits[1]}, ${input.plan.execution.takeProfits[2]}, 0, 0
+          ${input.plan.symbol}, ${input.plan.authority.direction}, 'OPEN', ${quantity}, ${price}, ${price}, ${stopLoss},
+          ${takeProfits[0]}, ${takeProfits[1]}, ${takeProfits[2]}, 0, 0
         )
       `;
       await tx.$executeRaw`

@@ -62,6 +62,21 @@ const ASSET_NAMES: Record<string, [string, string]> = {
   MSFTUSDT: ["微软", "Microsoft"],
 };
 
+export function listAiTradingFocusRegistry(): Array<{
+  canonicalSymbol: string; displayName: string; assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
+}> {
+  const classes: Record<string, "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF"> = {
+    BTCUSDT: "CRYPTO", ETHUSDT: "CRYPTO", HYPEUSDT: "CRYPTO",
+    XAUTUSDT: "COMMODITY", XAGUSDT: "COMMODITY", CLUSDT: "COMMODITY",
+    QQQUSDT: "ETF", SPYUSDT: "ETF",
+  };
+  return Object.keys(CORE_PRIORITY).map((canonicalSymbol) => ({
+    canonicalSymbol,
+    displayName: ASSET_NAMES[canonicalSymbol]?.[0] ?? canonicalSymbol,
+    assetClass: classes[canonicalSymbol] ?? "EQUITY",
+  }));
+}
+
 const PLAYBOOKS: AiTradingFocusPlaybook[] = [
   {
     symbol: "XAUTUSDT",

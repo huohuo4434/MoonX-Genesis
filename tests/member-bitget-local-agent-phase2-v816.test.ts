@@ -4,17 +4,18 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 // The downloadable artifact is intentionally plain ESM with no package dependency.
 // @ts-expect-error JavaScript download artifact has no declaration file.
-import { assertAccountSettings, assertContract, assertLiveOptIn, assertPermissionSafety, bitgetSignature, clockOffset, confirmedOrderIdentity, executionQuote, normalizedPrice, normalizedQuantity, positionList, preflightDisposition, strategyProtectionMatches, updateRiskLedger, validatePlan } from "../public/downloads/moox-bitget-local-agent.mjs";
+import { assertAccountSettings, assertContract, assertLiveOptIn, assertPermissionSafety, bitgetSignature, clockOffset, confirmedOrderIdentity, executionGeometryValid, executionQuote, findExistingLiveRecord, normalizedPrice, normalizedQuantity, positionList, preflightDisposition, recoveryMarketPrice, strategyProtectionMatches, updateRiskLedger, validatePlan, validateRecoveryPlan } from "../public/downloads/moox-bitget-local-agent.mjs";
 
 const now = Date.parse("2026-08-15T12:00:00.000Z");
 const plan = {
   schema: "moonx.member.trading-plan.v1", planId: "plan-1", version: 1, revisionId: "abcdefabcdefabcdefabcdef",
   symbol: "BTCUSDT", generatedAt: "2026-08-15T11:59:30.000Z", state: "LONG_READY",
+  instrument: { canonicalSymbol: "BTCUSDT", bitgetSymbol: "BTCUSDT", availability: "AVAILABLE", executionScope: "PAPER_LOCAL" },
   authority: { valid: true, forecastId: "f1", forecastVersion: "v1", publishedAt: "2026-08-10T00:00:00.000Z", lockedAt: "2026-08-10T00:00:00.000Z", validUntil: "2026-08-17T00:00:00.000Z", direction: "LONG" },
   evidence: { formalPublishedPlanOnly: true, researchOnlyExcluded: true, sourcePlanContentHash: "content-hash-locked" },
   risk: { memberLocalAgentEligible: true, serverExecutionAllowed: false, tradingEligible: true },
   chan: { timeframes: ["30m", "1H", "4H", "1D"].map((timeframe) => ({ timeframe, available: true, complete: true })) },
-  execution: { currentPrice: 67000, stopLoss: 66000, takeProfits: [68000, 69000, 70000] },
+  execution: { levelStatus: "VALID", currentPrice: 67000, entryZone: [66800, 67200], stopLoss: 66000, takeProfits: [68000, 69000, 70000] },
 };
 
 test("download agent signs the exact UTA prehash and rejects stale or incomplete plans", () => {
@@ -26,6 +27,36 @@ test("download agent signs the exact UTA prehash and rejects stale or incomplete
   assert.throws(() => validatePlan({ ...plan, risk: { ...plan.risk, memberLocalAgentEligible: false } }, now), /未授权/);
   assert.throws(() => validatePlan({ ...plan, evidence: { ...plan.evidence, sourcePlanContentHash: "" } }, now), /内容身份/);
   assert.throws(() => validatePlan(plan, now, "ETHUSDT"), /品种/);
+});
+
+test("all execution layers reject reversed or invaded entry-zone geometry", () => {
+  assert.equal(executionGeometryValid(plan), true);
+  assert.equal(executionGeometryValid({ ...plan, execution: { ...plan.execution, entryZone: [67200, 66800] } }), false);
+  assert.equal(executionGeometryValid({ ...plan, execution: { ...plan.execution, stopLoss: 66900 } }), false);
+  assert.equal(executionGeometryValid({ ...plan, execution: { ...plan.execution, currentPrice: 69000, takeProfits: [68000, 70000, 71000] } }), false);
+  assert.equal(executionGeometryValid({ ...plan, execution: { ...plan.execution, takeProfits: [68000, 68000, 70000] } }), false);
+  const short = { ...plan, state: "SHORT_READY", authority: { ...plan.authority, direction: "SHORT" }, execution: { ...plan.execution, currentPrice: 67000, entryZone: [66800, 67200], stopLoss: 68000, takeProfits: [66000, 65000, 64000] } };
+  assert.equal(executionGeometryValid(short), true);
+  assert.equal(executionGeometryValid({ ...short, execution: { ...short.execution, stopLoss: 67100 } }), false);
+});
+
+test("existing LIVE record is discoverable before new-open availability gates", () => {
+  const record = { mode: "LIVE", planId: "plan-1", version: 1, symbol: "BTCUSDT", posSide: "long", clientOid: "mxe_1" };
+  const unavailable = { ...plan, state: "INSTRUMENT_UNAVAILABLE", instrument: { ...plan.instrument, availability: "UNAVAILABLE", executionScope: "RESEARCH_ONLY", bitgetSymbol: null }, risk: { ...plan.risk, tradingEligible: false, memberLocalAgentEligible: false } };
+  assert.equal(findExistingLiveRecord({ executions: { old: record } }, unavailable, "BTCUSDT"), record);
+  assert.equal(validateRecoveryPlan(unavailable, record, "BTCUSDT"), unavailable);
+  assert.throws(() => validateRecoveryPlan(unavailable, { ...record, posSide: "short" }, "BTCUSDT"), /持仓方向/);
+  assert.equal(findExistingLiveRecord({ executions: {} }, unavailable, "BTCUSDT"), null);
+  assert.throws(() => validatePlan(unavailable, now, "BTCUSDT"), /精确合约|未授权/);
+});
+
+test("existing LIVE protection recovery uses a fresh exact Bitget mark without entry permission", () => {
+  assert.equal(recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "BTCUSDT", markPrice: "67100", ts: String(now - 1000) }, now), 67100);
+  assert.throws(() => recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "ETHUSDT", markPrice: "67100", ts: String(now - 1000) }, now), /品种/);
+  assert.throws(() => recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "BTCUSDT", markPrice: "67100", ts: String(now - 6000) }, now), /超过5秒/);
+  const source = readFileSync("public/downloads/moox-bitget-local-agent.mjs", "utf8");
+  assert.ok(source.indexOf("findExistingLiveRecord(state, payload, symbol)") < source.indexOf("const plan = validatePlan(payload"));
+  assert.match(source, /recoveryMarketPrice\(symbol, await marketTicker\(symbol\)\)/);
 });
 
 test("persistent local risk ledger requires DRY baseline and survives restart/day rollover", () => {
@@ -61,7 +92,7 @@ test("permissions, account configuration and LIVE consent are explicit", () => {
 });
 
 test("contract prices, order identity and secondary protection are bound exactly", () => {
-  const contract = { status: "online", priceMultiplier: "0.5", pricePrecision: "1", maxMarketOrderQty: "2" };
+  const contract = { symbol: "BTCUSDT", category: "USDT-FUTURES", status: "online", priceMultiplier: "0.5", pricePrecision: "1", maxMarketOrderQty: "2" };
   assert.equal(normalizedPrice(66000.24, contract), "66000.0");
   assert.equal(assertContract(contract, "0.1"), true);
   assert.throws(() => assertContract({ ...contract, status: "limit_open" }, "0.1"), /不可交易/);
