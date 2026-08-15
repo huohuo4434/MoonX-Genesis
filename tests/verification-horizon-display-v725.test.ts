@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  DEFAULT_PUBLIC_VERIFICATION_PERIOD,
   DAILY_PUBLIC_DETAIL_LIMIT,
   selectPublicVerificationDetails,
 } from "../lib/accuracy/verification-display-policy";
@@ -29,7 +30,11 @@ test("weekly and monthly views are not compacted", () => {
 
 test("verification UI exposes three horizons and discloses outcome-neutral selection", () => {
   const ui = fs.readFileSync(path.join(process.cwd(), "components/verification/PublicVerificationCenter.tsx"), "utf8");
-  assert.match(ui, /\["DAILY", "WEEKLY", "MONTHLY"\]/);
+  assert.equal(DEFAULT_PUBLIC_VERIFICATION_PERIOD, "WEEKLY");
+  assert.match(ui, /\["WEEKLY", "MONTHLY", "DAILY"\]/);
+  assert.match(ui, /周预测是公开主准确率/);
+  assert.match(ui, /日度复盘（辅助）/);
+  assert.doesNotMatch(ui, /日度加权命中率|日度方向命中率|日度完整路径命中率/);
   assert.match(ui, /不按命中结果挑选/);
   assert.match(ui, /月度验证样本将在完整月份结束/);
   assert.match(ui, /selectPublicVerificationDetails/);

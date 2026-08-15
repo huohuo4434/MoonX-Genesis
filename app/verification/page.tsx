@@ -15,8 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/verification",
     titleZh: "公开验证中心",
     titleEn: "Public Track Record",
-    descriptionZh: "发布即锁定、失败不删除。公开展示日度与周度预测的真实验证结果、样本数与待验证队列。",
-    descriptionEn: "A version-locked public track record for daily and weekly forecasts, including misses, sample sizes and pending verification records.",
+    descriptionZh: "以锁定周预测为主准确率口径，发布即锁定、失败不删除；日度记录作为周路径辅助复盘。",
+    descriptionEn: "A version-locked weekly-first public track record; daily records remain supporting path reviews and misses are retained.",
   });
 }
 

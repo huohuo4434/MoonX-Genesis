@@ -1,5 +1,7 @@
 export type PublicVerificationPeriod = "DAILY" | "WEEKLY" | "MONTHLY";
 
+export const DEFAULT_PUBLIC_VERIFICATION_PERIOD: PublicVerificationPeriod = "WEEKLY";
+
 export const DAILY_PUBLIC_DETAIL_LIMIT = 12;
 
 export function selectPublicVerificationDetails<T extends { date: string; period: PublicVerificationPeriod }>(

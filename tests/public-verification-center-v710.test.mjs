@@ -17,13 +17,15 @@ test("public verification page is track-record first", () => {
 test("track-record center exposes real stats, trend, asset and star views", () => {
   const ui = read("components/verification/PublicVerificationCenter.tsx");
   for (const marker of [
-    "已验证日样本",
-    "日度加权命中率",
+    "已验证日复盘",
+    "主准确率口径",
+    "周预测准确率",
     "周度方向命中率",
     "月度路径命中率",
     "战绩趋势",
     "按资产表现",
     "共识星级真实表现",
+    "日度共识诊断（辅助复盘，默认收起）",
     "最近日验证",
     "周验证档案",
     "月验证档案",

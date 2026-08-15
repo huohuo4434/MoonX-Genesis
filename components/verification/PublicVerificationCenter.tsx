@@ -9,6 +9,7 @@ import type {
 } from "@/lib/accuracy/get-weekly-history";
 import { publicStarAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 import {
+  DEFAULT_PUBLIC_VERIFICATION_PERIOD,
   selectPublicVerificationDetails,
   type PublicVerificationPeriod,
 } from "@/lib/accuracy/verification-display-policy";
@@ -190,7 +191,7 @@ export function PublicVerificationCenter({
   en: boolean;
 }) {
   const [range, setRange] = useState<RangeFilter>("90D");
-  const [period, setPeriod] = useState<PeriodFilter>("DAILY");
+  const [period, setPeriod] = useState<PeriodFilter>(DEFAULT_PUBLIC_VERIFICATION_PERIOD);
   const [asset, setAsset] = useState("ALL");
 
   const allRows = useMemo<UnifiedRow[]>(() => {
@@ -279,13 +280,11 @@ export function PublicVerificationCenter({
 
   const dailyFull = dailyStats.fullHitCount ?? dailyStats.hitCount;
   const dailyPartial = dailyStats.partialHitCount ?? 0;
-  const dailyCountable = dailyFull + dailyPartial + dailyStats.missCount;
-  const dailyWeightedRate = dailyCountable ? (dailyFull + dailyPartial * 0.5) / dailyCountable : null;
   const metricCards = period === "DAILY" ? [
-    [en ? "Verified daily samples" : "已验证日样本", String(dailyStats.verifiedCount), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
-    [en ? "Daily weighted accuracy" : "日度加权命中率", pct(dailyStats.weightedHitRate ?? dailyWeightedRate, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
-    [en ? "Daily direction accuracy" : "日度方向命中率", pct(dailyStats.directionHitRate, en), en ? "Locked direction only" : "只核对发布时锁定方向"],
-    [en ? "Daily full-path accuracy" : "日度完整路径命中率", pct(dailyStats.pathHitRate, en), en ? `Daily n=${dailyStats.verifiedCount}` : `当前日度样本 n=${dailyStats.verifiedCount}`],
+    [en ? "Verified daily reviews" : "已验证日复盘", String(dailyStats.verifiedCount), en ? "Supporting review only" : "仅作为周路径辅助复盘"],
+    [en ? "Primary accuracy scope" : "主准确率口径", en ? "Weekly" : "周预测", en ? "Daily results do not define the headline rate" : "日度结果不作为网站主成功率"],
+    [en ? "Daily full hits" : "日度完全命中", String(dailyFull), en ? "Retained in the archive" : "完整保留在历史档案"],
+    [en ? "Daily partial hits" : "日度部分命中", String(dailyPartial), en ? "Retained in the archive" : "完整保留在历史档案"],
     [en ? "Daily misses" : "日度未命中", String(dailyStats.missCount), en ? "Never deleted" : "失败记录永久保留"],
     [en ? "Daily pending" : "日度待验证", String(Math.max(dailyStats.pendingCount, pendingCount)), en ? "Processed after the session" : "交易时段结束后处理"],
   ] : period === "WEEKLY" ? [
@@ -313,7 +312,7 @@ export function PublicVerificationCenter({
             <div className="mb-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">MOOX TRACK RECORD</div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{en ? "Public verification center" : "公开历史验证"}</h1>
             <p className="mt-3 text-sm leading-6 text-foreground-secondary sm:text-base">
-              {en ? "Forecasts are locked when published. Hits, partial hits and misses remain permanently visible; unverifiable records never inflate the denominator." : "预测发布即锁定，命中、部分命中和未命中全部永久保留；不可验证记录不会被拿来抬高命中率。"}
+              {en ? "Headline accuracy is based on locked weekly forecasts. Daily records are supporting path reviews. Hits, partial hits and misses remain permanently visible." : "公开主准确率以发布时锁定的周预测为准；日度记录只作为周路径辅助复盘。命中、部分命中和未命中全部永久保留。"}
             </p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-foreground-tertiary">
               <span>{en ? "Version locked" : "✓ 发布版本锁定"}</span>
@@ -339,20 +338,27 @@ export function PublicVerificationCenter({
         {selectedUnverifiable > 0 ? <div className="mt-3 text-xs text-foreground-tertiary">{en ? `${selectedUnverifiable} unverifiable records are retained outside the accuracy denominator.` : `另有 ${selectedUnverifiable} 条不可验证记录保留在本周期档案中，但不进入命中率分母。`}</div> : null}
       </section>
 
-      {period === "DAILY" ? <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
+      <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">{en ? "Track-record trend" : "战绩趋势"}</h2>
-            <p className="mt-1 text-sm text-foreground-tertiary">{en ? "The curve uses only countable, completed records." : "曲线只使用已经完成且可计分的真实样本。"}</p>
+            <h2 className="text-xl font-semibold text-foreground">{en ? "Verification scope" : "验证口径"}</h2>
+            <p className="mt-1 text-sm text-foreground-tertiary">{en ? "Weekly forecasts define the headline accuracy. Daily records are supporting path reviews." : "周预测是公开主准确率；日度记录只用于观察周路径如何兑现。"}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {(["30D", "90D", "ALL"] as const).map((value) => <button key={value} type="button" onClick={() => setRange(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${range === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "ALL" ? (en ? "All" : "全部") : value}</button>)}
-            {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((value) => <button key={value} type="button" onClick={() => setPeriod(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${period === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "DAILY" ? (en ? "Daily verification" : "日验证") : value === "WEEKLY" ? (en ? "Weekly verification" : "周验证") : (en ? "Monthly verification" : "月验证")}</button>)}
+            {(["WEEKLY", "MONTHLY", "DAILY"] as const).map((value) => <button key={value} type="button" onClick={() => setPeriod(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${period === value ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-foreground-secondary"}`}>{value === "DAILY" ? (en ? "Daily review" : "日度复盘（辅助）") : value === "WEEKLY" ? (en ? "Weekly accuracy" : "周预测准确率") : (en ? "Monthly verification" : "月验证")}</button>)}
             <select value={asset} onChange={(event) => setAsset(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary/50">
               <option value="ALL">{en ? "All assets" : "全部资产"}</option>
               {assetOptions.map(([symbol, label]) => <option key={symbol} value={symbol}>{label} · {symbol}</option>)}
             </select>
           </div>
+        </div>
+      </section>
+
+      {period === "WEEKLY" ? <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">{en ? "Weekly track-record trend" : "周预测战绩趋势"}</h2>
+          <p className="mt-1 text-sm text-foreground-tertiary">{en ? "The curve uses only completed, countable locked weekly forecasts." : "曲线只使用周期结束、取得真实行情且可计分的锁定周预测。"}</p>
         </div>
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
           <MiniTrend rows={filteredRows} en={en} />
@@ -363,13 +369,16 @@ export function PublicVerificationCenter({
         </div>
       </section> : null}
 
-      <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
+      {period === "DAILY" ? <details className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
+        <summary className="cursor-pointer text-base font-semibold text-foreground">{en ? "Daily consensus diagnostics (supporting review)" : "日度共识诊断（辅助复盘，默认收起）"}</summary>
+        <div className="mt-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-xl font-semibold text-foreground">{en ? "Consensus-star validation" : "共识星级真实表现"}</h2><p className="mt-1 text-sm text-foreground-tertiary">{en ? "Stars measure cross-method agreement, not bullishness or expected return." : "星级代表多方法共识度，不代表看涨程度或涨跌幅。"}</p></div>
           <div className="text-xs text-foreground-tertiary">{en ? `Rated daily samples n=${ratedSamples}` : `带星级日度样本 n=${ratedSamples}`}</div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{starBuckets.map((bucket) => <div key={bucket.stars} className="rounded-xl border border-border/60 bg-background/20 p-4"><div className="text-base tracking-wider text-amber-400">{"★".repeat(bucket.stars)}<span className="text-foreground-tertiary">{"☆".repeat(5 - bucket.stars)}</span></div><div className="mt-3 text-2xl font-bold tabular-nums text-foreground">{bucket.sampleCount ? pct(bucket.weightedHitRate, en) : "—"}</div><div className="mt-1 text-xs text-foreground-tertiary">n={bucket.sampleCount} · {bucket.fullHit}/{bucket.partialHit}/{bucket.miss}</div></div>)}</div>
-      </section>
+        </div>
+      </details> : null}
 
       <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="mb-4"><h2 className="text-xl font-semibold text-foreground">{period === "DAILY" ? (en ? "Recent daily verification" : "最近日验证") : period === "WEEKLY" ? (en ? "Weekly verification archive" : "周验证档案") : (en ? "Monthly verification archive" : "月验证档案")}</h2><p className="mt-1 text-sm text-foreground-tertiary">{period === "DAILY" ? (en ? "The compact view shows the 12 most recent daily records by date, regardless of outcome. The complete archive remains in CSV and JSON." : "紧凑视图按日期展示最近 12 条，不按命中结果挑选；完整日度档案仍可通过 CSV / JSON 下载。") : period === "WEEKLY" ? (en ? "All weekly results remain visible with their locked forecast and realized evidence." : "周验证正常展示全部结果，可展开查看锁定预测与实际证据。") : (en ? "Monthly records are published only after a complete calendar month can be verified. Current-month outlooks are not presented as finished results." : "月度验证样本将在完整月份结束、取得真实行情后发布；当月预测不会冒充已验证成绩。")}</p></div>
