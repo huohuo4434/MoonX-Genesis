@@ -325,6 +325,9 @@ test("page uses one captured now and the market adapter fans out all four reads 
   assert.match(reader, /resolvePredictionStrategyPlans/);
   assert.doesNotMatch(reader, /ensure|executeRaw|UPDATE|INSERT|DELETE|createEvent/i);
   const deniedReturn = page.indexOf('gate.status === "DEVICE_REQUIRED"');
-  const evidenceImport = page.indexOf('import("@/lib/data/chan-execution-evidence-20260814")');
-  assert.ok(deniedReturn >= 0 && evidenceImport > deniedReturn, "member evidence must load only after the device denial return");
+  const marketImport = page.indexOf('import("@/lib/market-data/chan-market-data")');
+  assert.ok(deniedReturn >= 0 && marketImport > deniedReturn, "server market data must load only after the device denial return");
+  assert.match(page, /当前阶段：\{selectedStage\.labelZh\}/);
+  assert.match(page, /怎么看这页/);
+  assert.doesNotMatch(page, /方法、权重与局限|TeacherMethodRulebookPanel|研究委员会|RESEARCH_ONLY|tradingEligible=false/);
 });

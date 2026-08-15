@@ -1,7 +1,7 @@
 export type ChanDirection = "BULL" | "BEAR" | "NEUTRAL";
 export type ChanAction = "BUY_CANDIDATE" | "SELL_CANDIDATE" | "HOLD" | "TAKE_PROFIT" | "DO_NOT_CHASE" | "WAIT";
 export type ChanTimeframe = "5m" | "30m" | "1H" | "4H" | "1D" | "1W";
-export type ChanInstrumentSymbol = "BTCUSDT" | "ETHUSDT" | "SPY" | "QQQ" | "NVDA" | "MSFT" | "GOOGL" | "MU" | "SNDK";
+export type ChanInstrumentSymbol = string;
 export type ChanInstrument = {
   symbol: ChanInstrumentSymbol;
   label: string;

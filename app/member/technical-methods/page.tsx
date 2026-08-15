@@ -1,41 +1,46 @@
 import { unstable_noStore as noStore } from "next/cache";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { ChanStructureChart } from "@/components/member/ChanStructureChart";
-import { TeacherMethodRulebookPanel } from "@/components/member/TeacherMethodRulebookPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getAccessUser } from "@/lib/auth/get-access-user";
-import type { ChanTimeframe } from "@/types/chan-execution";
-import { PUBLIC_ATTRIBUTION_DISCLOSURE_ZH,PUBLIC_INTERPRETATION_LABEL_ZH } from "@/lib/presentation/public-attribution";
+import { CHAN_INSTRUMENTS, resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
+import type { ChanDirection, ChanStage, ChanTimeframe } from "@/types/chan-execution";
 
 export const metadata = {
-  title: "缠论技术执行台｜MOOX会员研究",
-  description: "多周期真实闭合K线结构研究；只负责执行位置，不改变正式预测方向。",
+  title: "缠论阶段分析｜MOOX会员研究",
+  description: "用真实闭合K线识别当前缠论阶段、确认位和失效位。",
 };
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const actionLabels = {
-  WAIT: "等待 / WAIT",
-  BUY_CANDIDATE: "候选买点 / BUY CANDIDATE",
-  SELL_CANDIDATE: "候选卖点 / SELL CANDIDATE",
-} as const;
-
 const reasonLabels: Record<string, string> = {
-  AUTHORITATIVE_DIRECTION_UNAVAILABLE: "正式锁定方向缺失",
-  TIMEFRAME_DATA_UNAVAILABLE: "一个或多个周期行情不可用",
-  TIMEFRAME_STRUCTURE_INCOMPLETE: "一个或多个关键周期结构未完成",
-  TIMEFRAME_CONFLICT_OR_NO_ENTRY: "周期冲突或没有标准二/三买卖点",
-  STRUCTURE_OPPOSES_AUTHORITY: "结构候选与正式方向冲突",
+  AUTHORITATIVE_DIRECTION_UNAVAILABLE: "正式周/月方向尚未发布",
+  TIMEFRAME_DATA_UNAVAILABLE: "部分周期行情暂不可用",
+  TIMEFRAME_STRUCTURE_INCOMPLETE: "部分周期结构还没走完",
+  TIMEFRAME_CONFLICT_OR_NO_ENTRY: "各周期暂未形成同向买卖点",
+  STRUCTURE_OPPOSES_AUTHORITY: "缠论结构与正式方向相反",
 };
 
-export default async function MemberTechnicalMethodsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ symbol?: string; timeframe?: string }>;
-}) {
+function directionLabel(direction: ChanDirection): string {
+  return direction === "BULL" ? "偏多" : direction === "BEAR" ? "偏空" : "暂无正式方向";
+}
+
+function actionText(action: "BUY_CANDIDATE" | "SELL_CANDIDATE" | "WAIT", stage: ChanStage): string {
+  if (action === "BUY_CANDIDATE") return "已出现同向候选买点；等待价格确认后再考虑，不追涨。";
+  if (action === "SELL_CANDIDATE") return "已出现同向候选卖点；等待价格确认后再考虑，不抢跑。";
+  return stage.waitingFor;
+}
+
+function formatPrice(value: number | null): string {
+  if (value == null) return "等待结构形成";
+  return value >= 1_000
+    ? value.toLocaleString("en-US", { maximumFractionDigits: 2 })
+    : value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
+export default async function MemberTechnicalMethodsPage({ searchParams }: { searchParams: Promise<{ symbol?: string; timeframe?: string }> }) {
   noStore();
   const access = await getAccessUser();
   if (!access.authenticated) redirect("/login?next=/member/technical-methods");
@@ -46,83 +51,82 @@ export default async function MemberTechnicalMethodsPage({
   }
 
   const query = await searchParams;
-  const symbol = query.symbol === "ETHUSDT" ? "ETHUSDT" : "BTCUSDT";
+  const instrument = resolveChanInstrument(query.symbol) ?? resolveChanInstrument("BTCUSDT")!;
+  const symbol = instrument.symbol;
   const selectedTimeframe = (["30m", "1H", "4H", "1D"] as const).includes(query.timeframe as "30m" | "1H" | "4H" | "1D")
     ? query.timeframe as "30m" | "1H" | "4H" | "1D"
     : "4H";
   const capturedNowMs = Date.now();
-  // Server-only market access begins only after all access gates.
-  const [marketModule, structureModule, multiModule, directionModule, teacherRulebookModule, teacherEvaluationModule] = await Promise.all([
+
+  const [marketModule, structureModule, multiModule, directionModule] = await Promise.all([
     import("@/lib/market-data/chan-market-data"),
     import("@/lib/trading-signals/chan-structure-core"),
     import("@/lib/trading-signals/chan-multi-timeframe-core"),
     import("@/lib/trading-signals/chan-formal-direction-reader"),
-    import("@/lib/data/teacher-method-rulebook-20260815"),
-    import("@/lib/research/teacher-method-evaluation-core"),
   ]);
   const [markets, formalDirection] = await Promise.all([
-    marketModule.loadChanTimeframes({ symbol, capturedNowMs, timeoutMs: 4_000 }),
+    marketModule.loadChanTimeframes({ symbol, capturedNowMs, timeoutMs: 4_500 }),
     directionModule.readChanFormalDirection({ symbol, capturedNowMs }),
   ]);
-  const frames = markets.map((market) => ({
-    timeframe: market.timeframe as "30m" | "1H" | "4H" | "1D",
-    structure: structureModule.analyzeChanStructure(market.candles),
-    error: market.error,
-  }));
-  const authoritativeDirection = formalDirection.direction;
-  const decision = multiModule.decideChanMultiTimeframe({ authoritativeDirection, frames });
+  const frames = markets.map((market) => ({ timeframe: market.timeframe as "30m" | "1H" | "4H" | "1D", structure: structureModule.analyzeChanStructure(market.candles), error: market.error }));
+  const decision = multiModule.decideChanMultiTimeframe({ authoritativeDirection: formalDirection.direction, frames });
   const selectedMarket = markets.find((market) => market.timeframe === selectedTimeframe) ?? markets[0]!;
   const selectedFrame = frames.find((frame) => frame.timeframe === selectedTimeframe) ?? frames[0]!;
-  const teacherRulebook = teacherRulebookModule.getTeacherMethodRulebook20260815();
-  const teacherEvaluation = teacherEvaluationModule.evaluateTeacherResearch({
-    authoritativeDirection,
-    // The page does not yet receive a traceable original/mutual/changed hexagram and moving line bundle.
-    liuyao: { originalHexagram: null, mutualHexagram: null, changedHexagram: null, movingLine: null, direction: "NEUTRAL" },
-    // Qimen stays unavailable until a complete chart and explicit timing window are supplied.
-    qimen: { chartAvailable: false, timingWindow: null },
-    chan: {
-      available: frames.every((frame) => frame.error == null),
-      complete: frames.every((frame) => frame.structure.trendState === "COMPLETE"),
-      direction: decision.technicalBias === "BULL" || decision.technicalBias === "BEAR" ? decision.technicalBias : "NEUTRAL",
-    },
-    // Macro and fundamental evidence remains a separate unavailable input in this V1 page.
-    fundamentals: { available: false, direction: "NEUTRAL" },
-  });
-  const nowLabel = new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  }).format(new Date(capturedNowMs));
+  const selectedSignal = decision.timeframeSignals.find((row) => row.timeframe === selectedTimeframe) ?? decision.timeframeSignals[0]!;
+  const selectedStage = selectedSignal.stage;
+  const nowLabel = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(capturedNowMs));
 
   return <><MemberDeviceHeartbeat /><main className="mx-auto max-w-7xl px-4 py-8 text-zinc-100">
     <section className="rounded-3xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.08] to-violet-400/[0.05] p-5 sm:p-7">
-      <div className="text-xs font-semibold tracking-[.16em] text-amber-300">MOOX CHAN EXECUTION CONSOLE · V2 · RESEARCH ONLY</div>
-      <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_260px]">
+      <p className="text-xs font-semibold tracking-[.14em] text-amber-300">缠论阶段分析 · {instrument.label} · {selectedTimeframe}</p>
+      <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_360px]">
         <div>
-          <h1 className="text-3xl font-bold">唯一结论：{actionLabels[decision.action]}</h1>
-          <p className="mt-3 text-base text-zinc-200">现在怎么做：{decision.action === "WAIT" ? "不追价、不预判反转；等待正式方向接入、四周期结构完成并出现同向二买/三买或对称卖点。" : "这只是研究候选，仍需正式方向与全部外部硬门禁确认，不构成订单。"}</p>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">正式锁定周/月预测是唯一方向权威。缠论只提供位置、结构完成度与等待条件，不能投方向票，也不能把正式多头翻为空头或把正式空头翻为多头。</p>
+          <h1 className="text-3xl font-bold">当前阶段：{selectedStage.labelZh}</h1>
+          <p className="mt-3 text-base leading-7 text-zinc-200"><b>现在怎么做：</b>{actionText(decision.action, selectedStage)}</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">缠论负责判断位置和阶段；正式周/月预测负责方向。两者同向才会出现候选动作，冲突时继续等待。</p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">正式方向</div><div className="mt-1 font-semibold">{authoritativeDirection === "BULL" ? "看多 / BULL" : authoritativeDirection === "BEAR" ? "看空 / BEAR" : "缺失 / MISSING"}</div><div className="mt-1 text-[11px] text-zinc-500">{formalDirection.sourceHorizon ?? "—"} · {formalDirection.reason}</div></div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">缠论结构倾向</div><div className="mt-1 font-semibold">{decision.technicalBias}</div><div className="mt-1 text-[11px] text-zinc-500">权重贡献 {decision.chanContribution} / {decision.chanWeight}</div></div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">关键确认</div><div className="mt-1 font-semibold">{decision.confirmation?.toLocaleString() ?? "—"}</div></div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">结构失效</div><div className="mt-1 font-semibold">{decision.invalidation?.toLocaleString() ?? "—"}</div></div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">正式方向</div><div className="mt-1 text-lg font-semibold">{directionLabel(formalDirection.direction)}</div><div className="mt-1 text-[11px] text-zinc-500">{formalDirection.sourceHorizon === "WEEK" ? "本周预测" : formalDirection.sourceHorizon === "MONTH" ? "本月预测" : "等待发布"}</div></div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">当前结构</div><div className="mt-1 text-lg font-semibold">{selectedStage.direction === "BULL" ? "偏多" : selectedStage.direction === "BEAR" ? "偏空" : "未定"}</div><div className="mt-1 text-[11px] text-zinc-500">{selectedTimeframe} · {selectedStage.status === "ACTIVE" ? "已确认" : selectedStage.status === "INVALIDATED" ? "已失效" : "等待确认"}</div></div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">确认价</div><div className="mt-1 text-lg font-semibold">{formatPrice(selectedStage.confirmation)}</div></div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">失效价</div><div className="mt-1 text-lg font-semibold">{formatPrice(selectedStage.invalidation)}</div></div>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">{decision.reasons.map((reason) => <span key={reason} className="rounded-full border border-rose-300/25 bg-rose-300/[0.06] px-3 py-1 text-rose-200">{reasonLabels[reason] ?? reason}</span>)}</div>
+      {decision.reasons.length ? <p className="mt-4 text-sm text-amber-100/70">暂未形成操作候选：{decision.reasons.slice(0, 2).map((reason) => reasonLabels[reason] ?? "等待结构确认").join("；")}</p> : null}
     </section>
 
     <section className="mt-6 rounded-2xl border border-white/10 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">多周期共振矩阵 / Multi-timeframe Matrix</h2><p className="mt-1 text-xs text-zinc-500">捕获时间 {nowLabel}。四周期必须数据可用、结构完成且候选同向；任一失败都严格 WAIT。</p></div><form className="flex flex-wrap gap-2"><select name="symbol" defaultValue={symbol} className="rounded-lg bg-zinc-900 px-3 py-2"><option>BTCUSDT</option><option>ETHUSDT</option></select><select name="timeframe" defaultValue={selectedTimeframe} className="rounded-lg bg-zinc-900 px-3 py-2">{["30m", "1H", "4H", "1D"].map((value) => <option key={value}>{value}</option>)}</select><button className="rounded-lg bg-amber-300 px-4 py-2 font-semibold text-black">查看周期</button></form></div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h2 className="text-lg font-semibold">四周期阶段</h2><p className="mt-1 text-xs text-zinc-500">更新于 {nowLabel} · 点击查看任一周期的K线和阶段</p></div>
+        <form className="flex flex-wrap items-center gap-2">
+          <label className="text-xs text-zinc-500">品种</label>
+          <input name="symbol" list="chan-symbols" defaultValue={symbol} aria-label="股票或加密代码" className="w-36 rounded-lg bg-zinc-900 px-3 py-2 uppercase" />
+          <datalist id="chan-symbols">{CHAN_INSTRUMENTS.map((item) => <option key={item.symbol} value={item.symbol}>{item.label}</option>)}</datalist>
+          <label className="text-xs text-zinc-500">周期</label>
+          <select name="timeframe" defaultValue={selectedTimeframe} className="rounded-lg bg-zinc-900 px-3 py-2">{["30m", "1H", "4H", "1D"].map((value) => <option key={value}>{value}</option>)}</select>
+          <button className="rounded-lg bg-amber-300 px-4 py-2 font-semibold text-black">查看</button>
+        </form>
+      </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{decision.timeframeSignals.map((row) => {
-        const frame = frames.find((item) => item.timeframe === row.timeframe);
-        return <div key={row.timeframe} className={`rounded-xl border p-4 ${row.available && row.complete ? "border-white/10" : "border-rose-300/20 bg-rose-300/[0.03]"}`}><div className="flex items-center justify-between"><b>{row.timeframe}</b><span className="text-xs text-zinc-400">{row.signal}</span></div><div className="mt-3 space-y-1 text-xs text-zinc-400"><p>行情：{row.available ? "已读取闭合K" : `不可用 · ${frame?.error ?? "MISSING"}`}</p><p>结构：{row.complete ? "完成" : frame?.structure.trendState ?? "缺失"}</p><p>买点：{frame?.structure.buyPoint ?? "NONE"} · 卖点：{frame?.structure.sellPoint ?? "NONE"}</p></div></div>;
+        const active = row.timeframe === selectedTimeframe;
+        return <a key={row.timeframe} href={`?symbol=${encodeURIComponent(symbol)}&timeframe=${row.timeframe}`} className={`rounded-xl border p-4 transition ${active ? "border-amber-300/50 bg-amber-300/[0.06]" : row.available ? "border-white/10 bg-black/15" : "border-rose-300/20 bg-rose-300/[0.03]"}`}>
+          <div className="flex items-center justify-between"><b>{row.timeframe}</b><span className="text-xs text-zinc-400">{row.available ? row.stage.status === "ACTIVE" ? "已确认" : row.stage.status === "INVALIDATED" ? "已失效" : "观察中" : "暂无行情"}</span></div>
+          <p className="mt-3 font-medium text-white">{row.available ? row.stage.labelZh : "该周期暂不可用"}</p>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">{row.available ? row.stage.waitingFor : "稍后重试；不会用未闭合或伪造K线补齐。"}</p>
+          {row.available && (row.stage.confirmation != null || row.stage.invalidation != null) ? <p className="mt-2 text-[11px] text-zinc-500">确认 {formatPrice(row.stage.confirmation)} · 失效 {formatPrice(row.stage.invalidation)}</p> : null}
+        </a>;
       })}</div>
     </section>
 
-    <section className="mt-6"><div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">{symbol} · {selectedTimeframe} 结构图</h2><p className="text-xs text-zinc-500">原始已闭合K线优先显示；归一结构只用于叠加计算。</p></div><Link href="/member/founder-cycle" className="text-sm text-amber-200">创始人周期研究 →</Link></div><ChanStructureChart candles={selectedMarket.candles} structure={selectedFrame.structure} timeframe={selectedTimeframe as ChanTimeframe} authoritativeDirection={authoritativeDirection} />{selectedMarket.error ? <p className="mt-2 text-sm text-rose-300">该周期行情读取失败：{selectedMarket.error}。不生成结构结论。</p> : null}</section>
+    <section className="mt-6">
+      <div className="mb-3"><h2 className="text-lg font-semibold">{symbol} · {selectedTimeframe} 结构图</h2><p className="text-xs text-zinc-500">只使用已闭合K线；黄色为笔、蓝色为线段、紫色为中枢。</p></div>
+      <ChanStructureChart candles={selectedMarket.candles} structure={selectedFrame.structure} timeframe={selectedTimeframe as ChanTimeframe} authoritativeDirection={formalDirection.direction} />
+      {selectedMarket.error ? <p className="mt-2 text-sm text-rose-300">该周期行情暂时读取失败，请稍后重试。</p> : null}
+    </section>
 
-    <details className="mt-6 rounded-2xl border border-white/10 p-5"><summary className="cursor-pointer font-semibold">方法、权重与局限 / Method & Limits</summary><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[["结构执行", 35], ["传统方法交叉检查", 20], ["市场资金波动", 15], ["宏观与期权", 15], ["流动性事件", 15]].map(([name, weight]) => <div key={name} className="rounded-xl border border-white/10 p-4"><div className="text-sm text-zinc-400">{name}</div><div className="mt-2 text-xl font-bold">{weight}%</div><div className="mt-1 text-xs text-zinc-500">{name === "结构执行" ? `本轮真实贡献 ${decision.chanContribution}/35` : "缺少正式实时输入，不评分"}</div></div>)}</div><p className="mt-4 text-sm leading-6 text-zinc-400">结构执行 35 分由四周期真实结构计算。其余输入缺失时不填假分；结构未完成、周期冲突、正式方向缺失或无标准买卖点时，任何分数都不能越过 WAIT。当前背驰只使用已完成结构中的价格推进幅度收缩，不声称计算未接入的指标。</p></details>
-    <details className="mt-4 rounded-2xl border border-white/10 p-5"><summary className="cursor-pointer font-semibold">{PUBLIC_INTERPRETATION_LABEL_ZH} · 方法说明</summary><div className="mt-4 text-sm leading-6 text-zinc-400"><p>{PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}</p><p className="mt-2">版本化内部来源、原文、文件路径与身份信息仅供管理员审计，不在会员展示。</p></div></details>
-    <TeacherMethodRulebookPanel rulebook={teacherRulebook} evaluation={teacherEvaluation} />
+    <details className="mt-6 rounded-2xl border border-white/10 p-4 text-sm text-zinc-400">
+      <summary className="cursor-pointer font-semibold text-zinc-200">怎么看这页</summary>
+      <ul className="mt-3 space-y-2 leading-6"><li>1. 先看“当前阶段”，确认是在二买、三买、二卖、三卖还是等待确认。</li><li>2. 再看确认价和失效价；没有确认前不抢跑，失效后放弃原结构。</li><li>3. 最后看四周期是否同向；周期冲突时只观察，不用单一小周期替代正式周/月方向。</li></ul>
+    </details>
   </main></>;
 }

@@ -4,7 +4,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { decideChanExecution } from "../lib/trading-signals/chan-execution-decision-core";
 import { analyzeChanStructure, buildChanSegments, buildDivergenceEvidence, classifyChanBuySellPoints, classifyChanTrendState, deriveDirectionalRiskLevels, detectChanZones, normalizeChanInclusions } from "../lib/trading-signals/chan-structure-core";
-import { filterClosedCandles, intervalMs, isValidChanCandle } from "../lib/market-data/chan-market-data-core";
+import { aggregateYahooFourHourCandles, filterClosedCandles, filterYahooClosedCandles, intervalMs, isValidChanCandle, parseYahooChanCandles } from "../lib/market-data/chan-market-data-core";
+import { resolveChanInstrument } from "../lib/market-data/chan-instrument-catalog";
 import type { ChanCandle, ChanStructure, ChanStroke } from "../types/chan-execution";
 
 const emptyStructure = (overrides: Partial<ChanStructure> = {}): ChanStructure => ({ sufficient: true, normalizedCandles: [], fractals: [], strokes: [], segments: [{ startStroke: 0, endStroke: 4, direction: "UP", complete: true }], zones: [{ startStroke: 0, endStroke: 2, low: 95, high: 105 }], trendState: "COMPLETE", divergence: false, divergenceEvidence: { priceExtended: false, momentumContracted: false, zoneConfirmed: true, segmentComplete: true }, buyPoint: "NONE", sellPoint: "NONE", riskLevels: { long: { invalidation: 95, tp1: 115, tp2: 125, breakevenTrigger: 115 }, short: { invalidation: 105, tp1: 85, tp2: 75, breakevenTrigger: 85 } }, ...overrides });
@@ -166,6 +167,65 @@ test("source evidence is research-only and chart cannot draw future candles", ()
   assert.doesNotMatch(chart, /forecast|projection|future/i);
   assert.match(market, /AbortController/);
   assert.match(market, /filterClosedCandles\([^;]+timeframe, capturedNowMs\)/s);
-  assert.match(market, /new Set\(\["BTCUSDT", "ETHUSDT"\]\)/);
+  assert.match(market, /resolveChanInstrument\(input\.symbol\)/);
+  assert.match(market, /query1\.finance\.yahoo\.com/);
+  assert.match(page, /股票或加密代码/);
+  assert.doesNotMatch(page, /TeacherMethodRulebookPanel|研究检查|LIUYAO_INPUT_INCOMPLETE|tradingEligible=false/);
   assert.doesNotMatch([evidence, chart, market, page].join("\n"), /submitOrder|executeReadyDecision|placeOrder|paptrading/);
+});
+
+test("Yahoo chart parsing and four-hour aggregation use complete real bars only", () => {
+  const start = Date.parse("2026-08-13T13:30:00Z") / 1_000;
+  const timestamps = Array.from({ length: 8 }, (_, index) => start + index * 1_800);
+  const parsed = parseYahooChanCandles({ chart: { result: [{ meta: { exchangeTimezoneName: "America/New_York" }, timestamp: timestamps, indicators: { quote: [{
+    open: timestamps.map((_, index) => 100 + index), high: timestamps.map((_, index) => 102 + index), low: timestamps.map((_, index) => 99 + index), close: timestamps.map((_, index) => 101 + index), volume: timestamps.map(() => 10),
+  }] } }] } });
+  assert.equal(parsed.candles.length, 8);
+  const fourHour = aggregateYahooFourHourCandles(parsed.candles, parsed.timeZone, Date.UTC(2026, 7, 14, 22));
+  assert.equal(fourHour.length, 1);
+  assert.deepEqual({ open: fourHour[0]?.open, high: fourHour[0]?.high, low: fourHour[0]?.low, close: fourHour[0]?.close, volume: fourHour[0]?.volume }, { open: 100, high: 109, low: 99, close: 108, volume: 80 });
+});
+
+test("Yahoo 4H aggregation rejects gaps, extended hours, and unclosed bars", () => {
+  const nyBar = (hour: number, minute: number, close = hour * 100 + minute) => ({
+    timestamp: Date.parse(`2026-08-14T${String(hour + 4).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`),
+    open: close - 1, high: close + 1, low: close - 2, close, volume: 1,
+  });
+  const regular = [
+    nyBar(9, 30), nyBar(10, 0), nyBar(10, 30), nyBar(11, 0),
+    nyBar(11, 30), nyBar(12, 0), nyBar(12, 30), nyBar(13, 0),
+  ];
+  assert.equal(aggregateYahooFourHourCandles([nyBar(8, 0), ...regular, nyBar(16, 0)], "America/New_York", Date.parse("2026-08-14T18:00:00Z")).length, 1);
+  assert.equal(aggregateYahooFourHourCandles(regular.filter((_, index) => index !== 3), "America/New_York", Date.parse("2026-08-14T18:00:00Z")).length, 0);
+  assert.equal(aggregateYahooFourHourCandles(regular, "America/New_York", Date.parse("2026-08-14T16:45:00Z")).length, 0);
+});
+
+test("Yahoo daily candles exclude the current exchange date and arbitrary safe US tickers resolve", () => {
+  const previous = { timestamp: Date.parse("2026-08-14T13:30:00Z"), open: 100, high: 102, low: 99, close: 101, volume: 10 };
+  const current = { ...previous, timestamp: Date.parse("2026-08-15T13:30:00Z") };
+  assert.deepEqual(filterYahooClosedCandles([previous, current], "1D", Date.parse("2026-08-15T20:00:00Z"), "America/New_York"), [previous]);
+  assert.equal(resolveChanInstrument("AAPL")?.provider, "YAHOO_CHART");
+  assert.equal(resolveChanInstrument("PLTR")?.formalPlanSymbol, "PLTR");
+  assert.equal(resolveChanInstrument("bad ticker"), null);
+  assert.equal(resolveChanInstrument("DOGEUSDT"), null);
+});
+
+test("Yahoo intraday filtering rejects extended hours, current bars, and the short 15:30 hourly tail", () => {
+  const bar = (iso: string) => ({ timestamp: Date.parse(iso), open: 10, high: 11, low: 9, close: 10.5, volume: 1 });
+  const captured = Date.parse("2026-08-14T20:45:00Z"); // 16:45 New York (EDT)
+  const hourly = [
+    bar("2026-08-14T12:30:00Z"), // 08:30 pre-market
+    bar("2026-08-14T13:30:00Z"), // 09:30 complete 1h
+    bar("2026-08-14T19:30:00Z"), // 15:30 only 30 minutes before close
+    bar("2026-08-14T20:00:00Z"), // 16:00 after-hours
+  ];
+  assert.deepEqual(filterYahooClosedCandles(hourly, "1H", captured, "America/New_York").map((row) => row.timestamp), [Date.parse("2026-08-14T13:30:00Z")]);
+  const halfHourly = [
+    bar("2026-08-14T13:00:00Z"), // 09:00 pre-market
+    bar("2026-08-14T13:30:00Z"), // 09:30 complete
+    bar("2026-08-14T19:30:00Z"), // 15:30 complete
+    bar("2026-08-14T20:00:00Z"), // 16:00 after-hours
+    bar("2026-08-14T20:30:00Z"), // current/future
+  ];
+  assert.deepEqual(filterYahooClosedCandles(halfHourly, "30m", captured, "America/New_York").map((row) => row.timestamp), [Date.parse("2026-08-14T13:30:00Z"), Date.parse("2026-08-14T19:30:00Z")]);
 });

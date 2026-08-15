@@ -81,7 +81,8 @@ export function resolveChanFormalDirection(input: {
 }
 
 export async function readChanFormalDirectionWithDependencies<TSettings>(input: {
-  symbol: "BTCUSDT" | "ETHUSDT";
+  symbol: string;
+  formalPlanSymbol?: string;
   capturedNowMs: number;
 }, dependencies: {
   readSettings: (options: { readOnly: true }) => Promise<TSettings>;
@@ -89,7 +90,7 @@ export async function readChanFormalDirectionWithDependencies<TSettings>(input: 
 }): Promise<ChanFormalDirectionResult> {
   try {
     const settings = await dependencies.readSettings({ readOnly: true });
-    const requestedSymbol = input.symbol === "ETHUSDT" ? "ETH" : "BTC";
+    const requestedSymbol = (input.formalPlanSymbol ?? (input.symbol === "ETHUSDT" ? "ETH" : input.symbol === "BTCUSDT" ? "BTC" : input.symbol)).toUpperCase();
     const plans = await dependencies.resolvePlans(settings, new Date(input.capturedNowMs), [requestedSymbol]);
     const exact = plans.filter((plan) => plan.symbol.toUpperCase() === requestedSymbol);
     if (exact.length !== 1) return { direction: "NEUTRAL", sourceHorizon: null, reason: "SCOPED_FORMAL_PLAN_AMBIGUOUS" };
