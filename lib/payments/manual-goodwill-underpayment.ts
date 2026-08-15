@@ -14,6 +14,7 @@ import {
 import { getPaymentConfig } from "@/lib/payments/config";
 import { manualGoodwillVerificationWindow, runManualGoodwillActivationCore } from "@/lib/payments/manual-goodwill-core";
 import { validateTxHash, verifyTronTransfer } from "@/lib/payments/verify-chain";
+import { deliverPaidOrderConsultationQuota } from "@/lib/consultations/quota-delivery";
 
 export type ManualGoodwillActivationResult = {
   alreadyActivated: boolean;
@@ -21,6 +22,7 @@ export type ManualGoodwillActivationResult = {
   grantApplied: boolean;
   grantSkipped: string | null;
   actualReceivedAmount: number;
+  consultationQuota?: { delivered: boolean; error: string | null };
 };
 
 export async function activateGoodwillUnderpayment(input: {
@@ -33,12 +35,14 @@ export async function activateGoodwillUnderpayment(input: {
   const order = await getAutoPaymentOrderById(input.orderId);
   if (!order) throw new Error("付款订单不存在");
   if (order.status === "paid" || order.status === "overpaid") {
+    const consultationQuota = await deliverPaidOrderConsultationQuota(order.id);
     return {
       alreadyActivated: true,
       membershipExpiresAt: order.membershipExpiresAt,
       grantApplied: false,
       grantSkipped: "order_already_activated",
       actualReceivedAmount: order.paidAmount ?? 0,
+      consultationQuota,
     };
   }
   if (order.chain !== "TRON" || !validateTxHash("TRON", input.txHash)) {
@@ -56,7 +60,7 @@ export async function activateGoodwillUnderpayment(input: {
     minimumAmount,
     uniqueSuffix: order.metadata.uniqueSuffix,
   };
-  return runManualGoodwillActivationCore({
+  const result = await runManualGoodwillActivationCore({
     order: authoritativeOrder,
     claimedActualAmount: input.claimedActualAmount,
     verifyAuthoritativeTransfer: () => verifyTronTransfer(input.txHash, {
@@ -103,4 +107,6 @@ export async function activateGoodwillUnderpayment(input: {
       reason,
     }),
   });
+  const consultationQuota = await deliverPaidOrderConsultationQuota(order.id);
+  return { ...result, consultationQuota };
 }

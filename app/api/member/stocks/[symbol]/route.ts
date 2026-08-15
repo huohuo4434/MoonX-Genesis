@@ -3,12 +3,24 @@ import { getMemberUserContext } from "@/lib/access/member-preview";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { checkMemberApiRateLimit } from "@/lib/auth/member-api-rate-limit";
 import { getMemberStockDetailPayload } from "@/lib/data/member-stocks/access";
+import { projectAttributionForAudience } from "@/lib/presentation/public-attribution";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+const requireMemberDeviceAccess=getMemberDevicePageAccess;
 
-function jsonNoStore(body: unknown, init?: ResponseInit) {
-  const response = NextResponse.json(body, init);
+type ResponseAudience = "MEMBER" | "PUBLIC" | "ADMIN";
+type ResponseLocale = "zh" | "en";
+
+function jsonNoStore(
+  body: unknown,
+  init?: ResponseInit,
+  presentation: { audience?: ResponseAudience; locale?: ResponseLocale } = {},
+) {
+  const response = NextResponse.json(projectAttributionForAudience(body, {
+    audience: presentation.audience ?? "MEMBER",
+    locale: presentation.locale ?? "zh",
+  }), init);
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
   response.headers.set("Vary", "Cookie");
   return response;
@@ -18,18 +30,19 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
  * Member stock detail API — strips analysis fields for non-members.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ symbol: string }> }
 ) {
+  const locale: ResponseLocale = request.headers.get("accept-language")?.toLowerCase().startsWith("en") ? "en" : "zh";
   const { symbol } = await context.params;
   const [user, gate] = await Promise.all([
     getMemberUserContext(),
-    getMemberDevicePageAccess(),
+    requireMemberDeviceAccess(),
   ]);
   const payload = await getMemberStockDetailPayload(symbol);
 
   if (!payload) {
-    return jsonNoStore({ error: "not found" }, { status: 404 });
+    return jsonNoStore({ error: "not found" }, { status: 404 }, { locale });
   }
 
   if (payload.mode === "locked" || !user.isMember || gate.status !== "ALLOWED") {
@@ -45,11 +58,11 @@ export async function GET(
       hasToday: payload.mode === "locked" ? payload.hasToday : Boolean(payload.today),
       hasTomorrow: payload.mode === "locked" ? payload.hasTomorrow : Boolean(payload.tomorrow),
       hasWeekly: payload.mode === "locked" ? payload.hasWeekly : Boolean(payload.weekly),
-    });
+    }, undefined, { locale });
   }
 
   const rate = await checkMemberApiRateLimit({ scope: "member-stock" });
-  if (!rate.ok) return jsonNoStore({ error: "请求过于频繁" }, { status: 429 });
+  if (!rate.ok) return jsonNoStore({ error: "请求过于频繁" }, { status: 429 }, { locale });
 
   return jsonNoStore({
     mode: "member",
@@ -68,5 +81,5 @@ export async function GET(
     riskLevel: payload.riskLevel,
     ipoHighVolWarning: payload.ipoHighVolWarning,
     sourceIds: payload.isAdmin ? payload.sourceIds : undefined,
-  });
+  }, undefined, { audience: payload.isAdmin ? "ADMIN" : "MEMBER", locale });
 }

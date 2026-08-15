@@ -3,6 +3,10 @@
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import type { BilingualText, WeeklyAlphaBar, WeeklyAlphaEntry, WeeklyAlphaIssue } from "@/types/weekly-alpha";
+import type { PublicProjection } from "@/lib/presentation/public-attribution";
+
+type PublicWeeklyAlphaEntry = PublicProjection<WeeklyAlphaEntry>;
+type PublicWeeklyAlphaIssue = PublicProjection<WeeklyAlphaIssue>;
 
 function t(value: BilingualText, en: boolean) {
   return en ? value.en : value.zh;
@@ -49,13 +53,13 @@ function ganzhiForLocale(value: string, en: boolean): string {
   return map[value] ?? "Verified sexagenary day";
 }
 
-function directionClass(entry: WeeklyAlphaEntry) {
+function directionClass(entry: PublicWeeklyAlphaEntry) {
   return entry.direction === "BULLISH"
     ? "border-red-400/25 bg-red-400/[0.04]"
     : "border-emerald-400/25 bg-emerald-400/[0.04]";
 }
 
-function CandleChart({ entry, en }: { entry: WeeklyAlphaEntry; en: boolean }) {
+function CandleChart({ entry, en }: { entry: PublicWeeklyAlphaEntry; en: boolean }) {
   const bars = entry.technical.bars;
   if (entry.technical.status === "UNAVAILABLE") {
     return (
@@ -142,7 +146,7 @@ function Stars({ count }: { count: number }) {
   return <span className="tracking-[0.12em] text-amber-400" aria-label={`${count} stars`}>{"★".repeat(count)}{"☆".repeat(5 - count)}</span>;
 }
 
-function EntryCard({ entry, en }: { entry: WeeklyAlphaEntry; en: boolean }) {
+function EntryCard({ entry, en }: { entry: PublicWeeklyAlphaEntry; en: boolean }) {
   return (
     <Card padding="lg" className={`overflow-hidden border ${directionClass(entry)}`}>
       <div className="flex flex-col gap-4">
@@ -180,9 +184,9 @@ function EntryCard({ entry, en }: { entry: WeeklyAlphaEntry; en: boolean }) {
 
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="rounded-lg border border-border/60 p-4">
-            <div className="text-body-sm font-semibold">{en ? "Teacher-method Liu Yao interpretation" : "老师法六爻解读"}</div>
+            <div className="text-body-sm font-semibold">{en ? "Yi's integrated interpretation" : "易老师综合解读"}</div>
             <ul className="mt-3 space-y-2 text-body-sm text-foreground-secondary">
-              {entry.teacherInterpretation.map((item, index) => <li key={index}>• {t(item, en)}</li>)}
+              {entry.methodInterpretation.map((item, index) => <li key={index}>• {t(item, en)}</li>)}
             </ul>
           </div>
           <div className="rounded-lg border border-border/60 p-4">
@@ -256,7 +260,7 @@ function EntryCard({ entry, en }: { entry: WeeklyAlphaEntry; en: boolean }) {
   );
 }
 
-export function WeeklyAlphaFive({ issue }: { issue: WeeklyAlphaIssue }) {
+export function WeeklyAlphaFive({ issue }: { issue: PublicWeeklyAlphaIssue }) {
   const { locale } = useLocale();
   const en = locale === "en";
   return (

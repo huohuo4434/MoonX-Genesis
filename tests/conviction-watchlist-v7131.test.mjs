@@ -43,9 +43,11 @@ test("BTC becomes a spotlight dossier without exposing external technical levels
   const seed = read("lib/data/conviction/seed.ts");
   const teaser = read("lib/data/conviction/watchlist-teasers.ts");
   const access = read("lib/data/conviction/access.ts");
+  const registry = read("lib/data/conviction/focus-static-forecast-registry.ts");
   assert.match(seed, /id: "bitcoin"/);
   assert.match(seed, /slug: "btc"/);
-  assert.match(access, /if \(assetId === "btc"\) return listBtcPeriodForecasts20260801\(\)/);
+  assert.match(access, /listStaticFocusForecasts\(assetId\)/);
+  assert.match(registry, /case "btc": return listBtcPeriodForecasts20260801\(\)/);
   for (const secret of ["65391", "65,391", "66000", "66,000", "63000", "63,000", "84000", "84,000"]) {
     assert.equal(seed.includes(secret), false, `BTC public seed leaked ${secret}`);
     assert.equal(teaser.includes(secret), false, `BTC public teaser leaked ${secret}`);

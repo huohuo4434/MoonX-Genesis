@@ -25,9 +25,11 @@ test("source claims remain unverified and separated from MOOX interpretation", (
   assert.match(data, /executionAuthority: "RESEARCH_ONLY"/);
   assert.match(data, /currentSignal: null/);
   assert.doesNotMatch(data, /currentSignal: "(?:GREEN|RED|LONG|SHORT)"/);
-  assert.match(component, /SOURCE_CLAIM/);
-  assert.match(component, /radar\.stone\.sourceClaims/);
-  assert.match(component, /radar\.stone\.mooxInterpretation/);
+  assert.match(component, /unverified source claims/);
+  assert.match(component, /公开信息 · 待核验/);
+  assert.match(component, /radar\.macroLiquidity\.sourceClaims/);
+  assert.match(component, /radar\.macroLiquidity\.mooxInterpretation/);
+  assert.doesNotMatch(component, /radar\.stone/);
 });
 
 test("research pack has no trading imports or triggers", () => {

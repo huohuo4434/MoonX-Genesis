@@ -13,7 +13,6 @@ import { hasConvictionFullAccess } from "@/lib/data/conviction/access-mode";
 import {
   ASTEROID_PERIOD_LABELS,
   ASTEROID_PERIOD_ORDER,
-  listAsteroidPeriodForecasts,
   type ConvictionForecastType,
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
@@ -21,14 +20,12 @@ import {
   SANDISK_PERIOD_LABELS,
   SANDISK_PERIOD_ORDER,
   SANDISK_VISIBLE_PERIOD_ORDER,
-  listSandiskPeriodForecasts,
   sandiskPeriodMeta,
 } from "@/lib/data/conviction/sandisk-forecasts";
 import {
   NBIS_PERIOD_LABELS,
   NBIS_PERIOD_ORDER,
   NBIS_VISIBLE_PERIOD_ORDER,
-  listNbisPeriodForecasts,
   nbisPeriodMeta,
 } from "@/lib/data/conviction/nbis-liuyao-20260811";
 import {
@@ -37,17 +34,14 @@ import {
   aSharePeriodLabel20260810,
   aSharePeriodMeta20260810,
   isAShareResearchAssetId,
-  listASharePeriodForecasts20260810,
   type AShareResearchAssetId,
 } from "@/lib/data/conviction/a-share-liuyao-20260810";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
   LONGXIN_FULL_PERIOD_ORDER,
   LONGXIN_VISIBLE_PERIOD_ORDER,
-  listLongxinPeriodForecasts,
 } from "@/lib/data/conviction/longxin-forecasts";
 import {
-  listMuHypePeriodForecasts,
   periodMetaForAsset,
   PERIOD_ORDER_BY_ASSET,
   VISIBLE_PERIOD_ORDER_BY_ASSET,
@@ -58,8 +52,6 @@ import {
   SOL_PERIOD_ORDER,
   SOL_VISIBLE_PERIOD_ORDER,
   hypePeriodMeta20260809,
-  listHypePeriodForecasts20260809,
-  listSolPeriodForecasts20260809,
   periodLabelForHype20260809,
   periodLabelForSol20260809,
   solPeriodMeta20260809,
@@ -68,7 +60,6 @@ import {
   ETH_PERIOD_ORDER,
   ETH_VISIBLE_PERIOD_ORDER,
   ethPeriodMeta,
-  listEthPeriodForecasts,
 } from "@/lib/data/conviction/eth-forecasts";
 import {
   getConvictionAssetBySlug,
@@ -79,7 +70,6 @@ import {
 import {
   VIBE_FOCUS_PERIOD_ORDER,
   VIBE_FOCUS_VISIBLE_PERIOD_ORDER,
-  listVibeFocusPeriodForecasts,
   vibeFocusPeriodMeta,
   type VibeFocusAssetId,
 } from "@/lib/data/conviction/vibe-focus-forecasts";
@@ -87,24 +77,20 @@ import {
   GOOGLE_PERIOD_ORDER,
   GOOGLE_VISIBLE_PERIOD_ORDER,
   googlePeriodMeta,
-  listGooglePeriodForecasts,
 } from "@/lib/data/conviction/google-forecasts";
 import {
   MSFT_PERIOD_ORDER,
   MSFT_VISIBLE_PERIOD_ORDER,
-  listMsftPeriodForecasts,
   msftPeriodMeta,
 } from "@/lib/data/conviction/msft-forecasts";
 import {
   TENCENT_PERIOD_LABELS,
   TENCENT_PERIOD_ORDER,
   TENCENT_VISIBLE_PERIOD_ORDER,
-  listTencentPeriodForecasts,
   tencentPeriodMeta,
 } from "@/lib/data/conviction/tencent-forecasts";
 import {
   BTC_PERIOD_ORDER,
-  listBtcPeriodForecasts20260801,
 } from "@/lib/data/conviction/btc-forecasts-20260801";
 import { getVibeEvidence, getVibeEvidenceMap, toVibePublicView } from "@/lib/data/vibe/store";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
@@ -123,7 +109,7 @@ import { buildWatchlistResonanceRanking } from "@/lib/data/conviction/resonance-
 import { targetWeekWindow } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { forecastFreshnessStatus, prioritizeCurrentPeriods, summarizeForecastFreshness, type ForecastFreshnessStatus, type ForecastFreshnessSummary } from "@/lib/data/conviction/freshness";
-import { buildFocusDossier, buildMemberFocusDossier, loadFocusDossierDailyAudit, loadFocusDossierGeneratedDailies } from "@/lib/data/conviction/focus-dossier-core";
+import { buildFocusDetailedReport, buildMemberFocusDossier, loadFocusDossierDailyAudit, loadFocusDossierGeneratedDailies } from "@/lib/data/conviction/focus-dossier-core";
 import { listFocusResearchSupplements } from "@/lib/data/conviction/focus-research-supplements";
 import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { FocusDossierView } from "@/types/focus-dossier";
@@ -133,6 +119,8 @@ import type {
   MemberStockVerificationResult,
   MemberStockWeeklyMemberView,
 } from "@/types/member-stock";
+import { STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
+import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 
 export type ConvictionListPagePayload = {
   mode: "publicOnly" | "fullAccess";
@@ -251,46 +239,14 @@ type StaticPeriodAssetId =
 // V7.17.3 A-share static dossiers
 
 
-const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>([
-  "ganfeng-lithium",
-  "lian-tech",
-  "lexin-medical",
-  "cxmt",
-  "asteroid",
-  "sandisk",
-  "nbis",
-  "mu",
-  "hype",
-  "sol",
-  "eth",
-  "btc",
-  "googl",
-  "msft",
-  "tencent",
-  "kingsoft-office",
-]);
+const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
 }
 
 function staticPublished(assetId: StaticPeriodAssetId) {
-  if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
-  if (assetId === "cxmt") return listLongxinPeriodForecasts();
-  if (assetId === "asteroid") return listAsteroidPeriodForecasts();
-  if (assetId === "sandisk") return listSandiskPeriodForecasts();
-  if (assetId === "nbis") return listNbisPeriodForecasts();
-  if (assetId === "hype") return listHypePeriodForecasts20260809();
-  if (assetId === "sol") return listSolPeriodForecasts20260809();
-  if (assetId === "eth") return listEthPeriodForecasts();
-  if (assetId === "btc") return listBtcPeriodForecasts20260801();
-  if (assetId === "googl") return listGooglePeriodForecasts();
-  if (assetId === "msft") return listMsftPeriodForecasts();
-  if (assetId === "tencent") return listTencentPeriodForecasts();
-  if (assetId === "kingsoft-office") {
-    return listVibeFocusPeriodForecasts(assetId);
-  }
-  return listMuHypePeriodForecasts(assetId);
+  return listStaticFocusForecasts(assetId);
 }
 
 export async function listStaticFocusEvidence(): Promise<Array<{
@@ -565,7 +521,7 @@ export async function getConvictionDetailPayload(
       buildStaticPeriodSlots(staticPeriodAsset, true, asOfDate)
     );
     const supplementalEvidence = listFocusResearchSupplements(staticPeriodAsset);
-    const baseDossier = buildFocusDossier({
+    const baseDossier = buildFocusDetailedReport({
       assetId: staticPeriodAsset,
       forecasts: publishedForecasts,
       asOfDate,
@@ -616,7 +572,7 @@ export async function getConvictionDetailPayload(
       asOfDate,
       freshness: summarizeForecastFreshness(periods.map((slot) => slot.freshnessStatus), asOfDate),
       resonanceSignal,
-      focusDossier: buildFocusDossier({
+      focusDossier: buildFocusDetailedReport({
         assetId: staticPeriodAsset,
         forecasts: publishedForecasts,
         asOfDate,
@@ -652,7 +608,7 @@ export async function getConvictionDetailPayload(
       asOfDate,
       freshness: summarizeForecastFreshness([], asOfDate),
       resonanceSignal,
-      focusDossier: buildFocusDossier({ assetId: asset.id, forecasts: [], asOfDate, nowMs: capturedNow.getTime() }),
+      focusDossier: buildFocusDetailedReport({ assetId: asset.id, forecasts: [], asOfDate, nowMs: capturedNow.getTime() }),
       forecast: {
         today: null,
         tomorrow: null,

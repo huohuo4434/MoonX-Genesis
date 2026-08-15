@@ -1,22 +1,24 @@
 import type { MemberFounderCyclePack } from "@/types/member-founder-cycle";
+import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN,PUBLIC_ATTRIBUTION_DISCLOSURE_ZH,PUBLIC_INTERPRETATION_LABEL_ZH,projectPublicAttribution,publicAttributionText } from "@/lib/presentation/public-attribution";
 
 const pick = (value: { zh: string; en: string }, en: boolean) => en ? value.en : value.zh;
 
-export function MemberFounderCyclePage({ pack, locale }: { pack: MemberFounderCyclePack; locale: "zh" | "en" }) {
+export function MemberFounderCyclePage({ pack: rawPack, locale }: { pack: MemberFounderCyclePack; locale: "zh" | "en" }) {
   const en = locale === "en";
+  const pack = projectPublicAttribution(rawPack, { locale });
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-zinc-100">
       <header className="rounded-3xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.08] to-violet-400/[0.05] p-6 sm:p-8">
         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">MOOX · RESEARCH ONLY</div>
         <h1 className="mt-3 text-3xl font-bold sm:text-4xl">{pick(pack.title, en)}</h1>
         <p className="mt-4 max-w-4xl text-sm leading-7 text-zinc-300">
-          {en ? "A structured archive of teacher-supplied founder-cycle hypotheses. Every claim remains unverified and is separated from MOOX interpretation." : "对老师提供的创始人周期假设进行结构化归档。所有主张均未验证，并与 MOOX 解读严格分层。"}
+          {en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}
         </p>
         <p className="mt-3 rounded-xl border border-amber-300/15 bg-black/20 p-3 text-sm leading-6 text-amber-100">{pick(pack.archiveNotice, en)}</p>
         <div className="mt-5 flex flex-wrap gap-2 text-xs">
           {[pack.verificationStatus, pack.executionAuthority, "CONSENSUS: NO", "TRADING: NO"].map((tag) => <span key={tag} className="rounded-full border border-white/15 bg-black/20 px-3 py-1.5">{tag}</span>)}
         </div>
-        <p className="mt-4 text-xs text-zinc-500">{en ? "Source artifact" : "来源文件"}: {pack.sourceArtifact} · {en ? "Published at" : "来源发布时间"}: — · {en ? "Ingested" : "录入"}: {pack.ingestedAt}</p>
+        <p className="mt-4 text-xs text-zinc-500">{en ? "Research archive" : "研究档案"} · {en ? "Ingested" : "录入"}: {pack.ingestedAt}</p>
       </header>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -28,7 +30,7 @@ export function MemberFounderCyclePage({ pack, locale }: { pack: MemberFounderCy
           <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-2xl font-bold">{pick(item.name, en)}</h2><p className="mt-2 font-mono text-sm text-violet-200">{item.assumedBazi}</p></div><span className="rounded-full border border-amber-300/25 px-3 py-1 text-xs text-amber-200">{pick(item.calibrationStatus, en)}</span></div>
           {item.birthInput ? <p className="mt-4 text-sm text-zinc-400">{pick(item.birthInput, en)}</p> : null}
           <div className="mt-4 flex flex-wrap gap-2">{item.structureTags.map((tag) => <span key={tag.en} className="rounded-lg bg-violet-400/[0.08] px-3 py-2 text-xs text-violet-100">{pick(tag, en)}</span>)}</div>
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">{item.claims.map((claim) => <div key={claim.id} className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>{claim.category}</span><span>·</span><span>{claim.verificationStatus}</span></div><h3 className="mt-3 text-sm font-semibold text-zinc-100">{en ? "Teacher claim" : "老师主张"}</h3><p className="mt-2 text-sm leading-6 text-zinc-300">{pick(claim.teacherClaim, en)}</p><h3 className="mt-4 text-sm font-semibold text-emerald-200">{en ? "MOOX interpretation" : "MOOX 解读"}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{pick(claim.mooxInterpretation, en)}</p></div>)}</div>
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">{item.claims.map((claim) => <div key={claim.id} className="rounded-2xl border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>{claim.category}</span><span>·</span><span>{claim.verificationStatus}</span></div><h3 className="mt-3 text-sm font-semibold text-zinc-100">{en ? "Research material summary" : "研究资料摘要"}</h3><p className="mt-2 text-sm leading-6 text-zinc-300">{publicAttributionText(pick(claim.researchMaterialSummary, en),en?"en":"zh")}</p><h3 className="mt-4 text-sm font-semibold text-emerald-200">{en ? "Yi's interpretation" : PUBLIC_INTERPRETATION_LABEL_ZH}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{publicAttributionText(pick(claim.mooxInterpretation, en),en?"en":"zh")}</p></div>)}</div>
         </article>)}
       </section>
 

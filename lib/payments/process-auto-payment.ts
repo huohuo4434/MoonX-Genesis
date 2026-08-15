@@ -30,6 +30,7 @@ export interface AutoPaymentProcessResult {
   activated: boolean;
   message: string;
   membershipExpiresAt?: string | null;
+  consultationQuota?: { delivered: boolean; error: string | null };
 }
 
 function verificationWindow(order: AutoPaymentOrder): { notBefore: Date; notAfter: Date } {
@@ -166,6 +167,8 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
       senderAddress: transfer.senderAddress,
       amountRaw: transfer.amountRaw,
     });
+    const { deliverPaidOrderConsultationQuota } = await import("@/lib/consultations/quota-delivery");
+    const consultationQuota = await deliverPaidOrderConsultationQuota(claimed.id);
     const finalStatus = transfer.amountNormalized > claimed.expectedAmount + 0.000001 ? "overpaid" : "paid";
     await safeAdminNotice(claimed, "activated", {
       message: `链上核验成功；grantApplied=${grant.grantApplied}; grantSkipped=${grant.grantSkipped ?? "none"}`,
@@ -178,6 +181,7 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
       activated: true,
       message: "链上付款已确认，会员已自动开通",
       membershipExpiresAt: grant.membershipExpiresAt,
+      consultationQuota,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

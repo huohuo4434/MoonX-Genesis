@@ -13,6 +13,7 @@ import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
 import { buildWeeklyAlphaIssue } from "@/lib/data/weekly-alpha";
 import { getMemberMarketBranchOutlook20260813 } from "@/lib/data/member-market-branches-20260813";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
+import { projectPublicAttribution,projectPublicResearchRadar } from "@/lib/presentation/public-attribution";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -21,8 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/member/weekly",
     titleZh: "本周精选5 · 会员周报",
     titleEn: "Weekly Alpha 5",
-    descriptionZh: "会员专享：每周精选5个高价值标的，包含老师法六爻解读、万年历校验、真实K线、支撑压力与周内推演。",
-    descriptionEn: "Member-only Weekly Alpha 5 with teacher-method Liu Yao, verified calendar data, real candles, execution levels and weekly path scenarios.",
+    descriptionZh: "会员专享：易老师综合传统术数、公开市场信息、真实K线、支撑压力与宏观事件形成每周独立研判；AI仅辅助归并与情景推演。",
+    descriptionEn: "Member-only Weekly Alpha 5 under Yi methodology, with traditional analysis, verified calendar data, real candles, execution levels and weekly path scenarios.",
   });
 }
 
@@ -38,13 +39,14 @@ export default async function MemberWeeklyRoute() {
   if (gate.status === "DEVICE_REQUIRED") {
     return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath="/member/weekly" /></Section></main>;
   }
-  const payload = await getMemberWeeklyPagePayload();
+  const locale=(await getRequestLocale())==="en"?"en":"zh";
+  const payload = projectPublicAttribution(await getMemberWeeklyPagePayload(),{locale});
   if (payload.mode === "locked") {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
-  const alphaIssue = await buildWeeklyAlphaIssue(payload.summary.weekStart);
-  const branchOutlook = getMemberMarketBranchOutlook20260813();
+  const alphaIssue = projectPublicAttribution(await buildWeeklyAlphaIssue(payload.summary.weekStart),{locale});
+  const branchOutlook = projectPublicAttribution(getMemberMarketBranchOutlook20260813(),{locale});
   const { getMemberQimenStoneRadar20260814 } = await import("@/lib/data/member-qimen-stone-radar-20260814");
-  const researchRadar = getMemberQimenStoneRadar20260814();
+  const researchRadar = projectPublicResearchRadar(getMemberQimenStoneRadar20260814(),locale);
   return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} branchOutlook={branchOutlook} researchRadar={researchRadar} /></>;
 }

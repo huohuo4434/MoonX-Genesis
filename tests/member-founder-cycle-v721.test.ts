@@ -61,8 +61,10 @@ test("page is bilingual mobile-readable and score is display-only", () => {
   assert.match(component, /locale: "zh" \| "en"/);
   assert.match(component, /sm:grid-cols-2/);
   assert.match(component, /sm:p-8/);
-  assert.match(component, /Teacher claim/);
-  assert.match(component, /老师主张/);
+  assert.match(component, /Research material summary/);
+  assert.match(component, /Yi's interpretation|PUBLIC_INTERPRETATION_LABEL_ZH/);
+  assert.match(component, /projectPublicAttribution\(rawPack/);
+  assert.doesNotMatch(component, /Teacher claim|老师主张/);
   assert.match(component, /DISPLAY ONLY/);
   assert.match(data, /status: "MOOX_PROVISIONAL"/);
   assert.match(data, /displayOnly: true/);

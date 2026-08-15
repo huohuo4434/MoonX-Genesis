@@ -191,6 +191,7 @@ export function AccountPageClient({
               <Button asChild size="sm" variant="outline"><Link href="/member/signals">{en ? "AI trade signals" : "AI交易信号"}</Link></Button>
               <Button asChild size="sm" variant="outline"><Link href="/member/btc-eth-cycle">BTC / ETH {en ? "cycle" : "周期"}</Link></Button>
               <Button asChild size="sm" variant="outline"><Link href="/member/founder-cycle">{en ? "Founder cycles" : "创始人周期"}</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link href="/member/consultations">{en ? "Liuyao / Bazi consultation" : "六爻 / 八字咨询"}</Link></Button>
             </div>
           </details>
         ) : null}

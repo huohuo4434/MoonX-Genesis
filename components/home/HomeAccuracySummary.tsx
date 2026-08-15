@@ -4,6 +4,7 @@ import { SectionHeader } from "@/components/home/SectionHeader";
 import { Card, Text } from "@/components/ui";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 import { publicSourceAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
+import { PUBLIC_INTERPRETATION_LABEL_ZH,publicAttributionText } from "@/lib/presentation/public-attribution";
 
 const MIN_SAMPLE = 5;
 
@@ -55,7 +56,7 @@ export async function HomeAccuracySummary() {
           {byAsset.map((a) => (
             <Card key={a.source} padding="md" className="min-w-0">
               <Text variant="caption" color="tertiary" className="block break-words">
-                {a.source.replace(/准确率$/, "")}
+                {publicAttributionText(a.source.replace(/准确率$/, "")) || PUBLIC_INTERPRETATION_LABEL_ZH}
               </Text>
               <Text variant="body-sm" weight="semibold" className="mt-1 whitespace-pre-line break-words">
                 {assetSampleLabel(a.hit, a.miss, a.hitRate)}

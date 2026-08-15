@@ -7,6 +7,7 @@ import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { getOrRefreshEarlyAltcoinRadar, type EarlyAltcoinCandidate, type EarlyAltcoinVerdict } from "@/lib/trading-signals/early-altcoin-radar";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN,PUBLIC_ATTRIBUTION_DISCLOSURE_ZH,PUBLIC_MARKET_VIEW_LABEL_ZH,projectPublicAttribution,type PublicProjection } from "@/lib/presentation/public-attribution";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -48,13 +49,13 @@ function age(value: number | null): string {
   return value < 48 ? `${value.toFixed(1)}小时` : `${(value / 24).toFixed(1)}天`;
 }
 
-function CandidateCard({ item }: { item: EarlyAltcoinCandidate }) {
+function CandidateCard({ item }: { item: PublicProjection<EarlyAltcoinCandidate> }) {
   return (
     <Card padding="md" className={`border ${item.verdict === "EARLY_CANDIDATE" ? "border-emerald-300/35 bg-emerald-300/[0.045]" : item.verdict === "AVOID" ? "border-rose-300/25 bg-rose-300/[0.035]" : "border-white/[0.08] bg-white/[0.025]"}`}>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="neutral">{item.symbol}</Badge>
         <Badge variant={variant(item.verdict)}>{item.verdictZh}</Badge>
-        <Badge variant={item.sourceTier === "S" ? "success" : "outline"}>{item.sourceLabelZh}</Badge>
+        <Badge variant="outline">{PUBLIC_MARKET_VIEW_LABEL_ZH}</Badge>
         <Badge variant="outline">{item.marketStageZh}</Badge>
       </div>
 
@@ -106,8 +107,7 @@ function CandidateCard({ item }: { item: EarlyAltcoinCandidate }) {
       {item.riskFlagsZh.length > 0 ? <div className="mt-3 rounded-lg border border-rose-300/15 bg-rose-300/[0.035] p-3"><Text variant="caption" className="block text-rose-200">风险提醒</Text>{item.riskFlagsZh.map((flag) => <Text key={flag} variant="body-sm" color="secondary" className="mt-1 block">• {flag}</Text>)}</div> : null}
 
       <details className="mt-3 rounded-lg border border-white/[0.07] bg-black/20 p-3">
-        <summary className="cursor-pointer text-sm font-medium text-white/80">查看原始线索</summary>
-        <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{item.postExcerptZh}</Text>
+        <summary className="cursor-pointer text-sm font-medium text-white/80">查看市场与合约核验</summary>
         {item.contractAddress ? <Text variant="caption" color="tertiary" className="mt-2 block break-all">合约地址：{item.contractAddress}</Text> : null}
         {item.chainId ? <Text variant="caption" color="tertiary" className="mt-1 block">链：{item.chainId}</Text> : null}
       </details>
@@ -123,9 +123,9 @@ export default async function EarlyAltcoinRadarPage() {
     return <main><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Member early-token intelligence" : "会员早期山寨币雷达 · 公开预览"}
       title={en ? "Find new tokens before they become mainstream" : "只抓新、早、小：新上市币和只能链上买的早期币"}
-      description={en ? "Priority sources are scanned every 15 minutes and then filtered by market structure and on-chain liquidity." : "重点发现源每15分钟扫描；单一重点源可以先进入雷达，但必须继续核验合约、DEX流动性、池子年龄和是否过热。"}
+      description={en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}
       solves={en ? ["Separate early tokens from mainstream assets", "Show where the token actually trades", "Make the final action explicit"] : ["主流币和股票不再混进山寨币雷达", "直接告诉你链上还是交易所能买", "最终结论和动作放第一屏"]}
-      memberBenefits={en ? ["S/A-tier discovery sources", "On-chain metrics", "Signal performance tracking"] : ["S/A级重点发现源", "链上流动性/成交/池龄", "首次发现后的真实涨跌跟踪"]}
+      memberBenefits={en ? ["Independent market screening", "On-chain metrics", "Signal performance tracking"] : ["易老师市场研判", "链上流动性/成交/池龄", "首次发现后的真实涨跌跟踪"]}
       exampleTitle={en ? "Example" : "示例"}
       exampleLines={en ? ["NEWCOIN · Early candidate", "On-chain only", "Wait for pullback"] : ["NEWCOIN：🚨早期候选", "仅链上可买", "结论：等回踩，小仓位，不追"]}
       nextPath={en ? `/en${path}` : path}
@@ -134,7 +134,7 @@ export default async function EarlyAltcoinRadarPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   let report;
-  try { report = await getOrRefreshEarlyAltcoinRadar(20); } catch { report = null; }
+  try { report = projectPublicAttribution(await getOrRefreshEarlyAltcoinRadar(20),{locale:en?"en":"zh"}); } catch { report = null; }
 
   return (
     <main>
@@ -143,7 +143,7 @@ export default async function EarlyAltcoinRadarPage() {
         <div className="max-w-5xl">
           <Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MOOX EARLY ALTCOIN RADAR · 15 MIN</Text>
           <Heading as="h1" size="h2" className="mt-2">{en ? "Early Altcoin Radar" : "早期山寨币雷达"}</Heading>
-          <Text variant="body" color="secondary" className="mt-3 leading-relaxed">{en ? "Focused on newly listed and on-chain-only tokens, not BTC/ETH or stocks." : "这里只看新上市、刚起量、仍处早期或只能链上交易的山寨币。BTC、ETH、主流资产和股票不会再混进来。重点发现源只负责“先发现”，MOOX仍要独立判断值不值得买。"}</Text>
+          <Text variant="body" color="secondary" className="mt-3 leading-relaxed">{en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}</Text>
         </div>
 
         {!report ? <Card padding="lg" className="border border-dashed border-white/10"><Heading as="h2" size="h3">等待第一份早期山寨币报告</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">重点源下一轮采集完成后会自动生成。</Text></Card> : <>
@@ -152,7 +152,6 @@ export default async function EarlyAltcoinRadarPage() {
             <Heading as="h2" size="h2" className="mt-2">{report.conclusionZh}</Heading>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">{report.actionSummaryZh.slice(0, 6).map((row) => <div key={row} className="rounded-lg border border-white/[0.08] bg-black/20 p-3 text-sm text-white/85">{row}</div>)}</div>
             <div className="mt-4 flex flex-wrap gap-2"><Badge variant={report.earlyCandidateCount > 0 ? "success" : "outline"}>{report.earlyCandidateCount} 个早期候选</Badge><Badge variant="outline">共跟踪 {report.candidateCount} 个新币线索</Badge></div>
-            <Text variant="body-sm" color="secondary" className="mt-3 block">{report.sourceHealthZh}</Text>
             <Text variant="caption" color="tertiary" className="mt-2 block">生成：{formatDateTimeChina(report.generatedAt)}</Text>
           </Card>
 

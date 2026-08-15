@@ -1,5 +1,6 @@
 import { Badge, Card } from "@/components/ui";
 import type { FocusDossierView } from "@/types/focus-dossier";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
 const DAY_STATE = {
   OCCURRED: "已发生",
@@ -14,7 +15,8 @@ const EVIDENCE_LABEL = {
   MISSING: "缺失",
 } as const;
 
-export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
+export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossierView }) {
+  const dossier=projectPublicAttribution(rawDossier);
   const ready = dossier.evidenceStatus === "READY";
   const nextReady = dossier.displayScope === "NEXT_PERIOD_READY" && dossier.nextWeek?.dailyEvidenceReady;
   const primaryPath = nextReady ? dossier.nextWeek!.dailyPath : dossier.dailyPath;
@@ -68,6 +70,13 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
         </Card>
       </div>
 
+      <Card padding="sm" className="border-cyan-300/15 bg-cyan-300/[0.025]">
+        <p className="text-caption font-semibold text-cyan-100">正式周方向权威</p>
+        {dossier.weeklyAuthority ? (
+          <p className="mt-2 text-body-sm text-white/70">{dossier.weeklyAuthority.direction} · {dossier.weeklyAuthority.periodStart} 至 {dossier.weeklyAuthority.periodEnd} · V{dossier.weeklyAuthority.version}</p>
+        ) : <p className="mt-2 text-body-sm text-amber-100/70">缺少当前正式锁定周证据：详细报告保持 WAIT / MISSING，不由技术、行情或外部信息补造方向。</p>}
+      </Card>
+
       {dossier.monthlyEvidence ? (
         <Card padding="sm" className="border-violet-300/15 bg-violet-300/[0.035]">
           <p className="text-caption font-medium text-violet-100">月度正式结论</p>
@@ -89,6 +98,8 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
                 <div className="flex items-center justify-between gap-2"><p className="text-body-sm font-medium text-white">{day.date}</p><Badge variant="outline">{DAY_STATE[day.state]}</Badge></div>
                 <p className="mt-2 text-caption text-cyan-100/70">{day.direction ?? "无正式方向"}</p>
                 <p className="mt-2 text-caption leading-6 text-white/55">{day.summary}</p>
+                {day.keyDayEvidence?.map((item) => <p key={`${item.type}-${item.label}`} className="mt-2 text-[11px] text-violet-100/60">关键日证据 · {item.type} · {item.label}</p>)}
+                {day.auxiliaryEvidence ? <p className="mt-2 text-[11px] text-white/40">闭合行情 {day.auxiliaryEvidence.closedMarketData} · Chan {day.auxiliaryEvidence.chan}{day.auxiliaryEvidence.chanStage ? ` / ${day.auxiliaryEvidence.chanStage}` : ""}</p> : null}
                 {day.sourceKind ? <p className="mt-2 text-[11px] text-white/35">{day.sourceKind} · V{day.version ?? 1} · as-of {day.asOfDate ?? "—"}</p> : null}
               </article>
             ))}
@@ -128,7 +139,7 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
             {dossier.supplementalEvidence.map((item) => (
               <article key={item.id} className="rounded-lg border border-white/[0.07] bg-black/15 p-3 text-caption leading-6 text-white/55">
                 <p className="text-white/75">{item.periodStart} 至 {item.periodEnd} · {item.status} · RESEARCH_ONLY</p>
-                <p>来源：{item.sourceArtifact} · sourcePublishedAt 未提供 · lockedAt 未提供</p>
+                <p>研究资料为后补档案 · 原始来源与路径仅供管理员审计 · 不计入历史命中</p>
                 <p>{item.summary ?? item.gapNote ?? "内容待可靠结构化。"}</p>
                 <p className="text-rose-100/60">不回填正式预测，不计入历史命中。</p>
               </article>
@@ -140,6 +151,7 @@ export function FocusDossierPanel({ dossier }: { dossier: FocusDossierView }) {
       <details className="rounded-lg border border-white/[0.08] bg-black/15 p-3">
         <summary className="cursor-pointer text-body-sm text-white/70">长期背景（不替代本期结论）</summary>
         <p className="mt-2 text-caption leading-6 text-white/50">{dossier.longTermBackground ?? "长期正式资料待更新。"}</p>
+        {dossier.backgroundHorizons.length ? <div className="mt-3 space-y-2 text-caption text-white/50">{dossier.backgroundHorizons.map((item) => <details key={`${item.forecastType}-${item.periodStart}-${item.version}`} className="rounded-md border border-white/[0.06] p-2"><summary>{item.forecastType} · {item.periodStart} 至 {item.periodEnd} · V{item.version}</summary><p className="mt-2">{item.conclusion}</p>{item.dailyPath.length ? <ul className="mt-2 space-y-1">{item.dailyPath.map((day) => <li key={day.date}>{day.date} · {day.direction ?? "待更新"} · {day.summary}</li>)}</ul> : null}</details>)}</div> : null}
       </details>
       <p className="text-caption text-white/35">研究权限：RESEARCH_ONLY · 不具备交易执行资格</p>
     </section>

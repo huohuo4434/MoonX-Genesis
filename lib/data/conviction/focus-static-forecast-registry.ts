@@ -1,0 +1,36 @@
+import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import { listASharePeriodForecasts20260810, isAShareResearchAssetId } from "@/lib/data/conviction/a-share-liuyao-20260810";
+import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
+import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
+import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecasts";
+import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
+import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-forecasts";
+import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
+import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
+import { listNbisPeriodForecasts } from "@/lib/data/conviction/nbis-liuyao-20260811";
+import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
+import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
+import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-forecasts";
+import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
+
+export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
+  if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
+  switch (assetId) {
+    case "cxmt": return listLongxinPeriodForecasts();
+    case "asteroid": return listAsteroidPeriodForecasts();
+    case "sandisk": return listSandiskPeriodForecasts();
+    case "nbis": return listNbisPeriodForecasts();
+    case "hype": return listHypePeriodForecasts20260809();
+    case "sol": return listSolPeriodForecasts20260809();
+    case "eth": return listEthPeriodForecasts();
+    case "btc": return listBtcPeriodForecasts20260801();
+    case "googl": return listGooglePeriodForecasts();
+    case "msft": return listMsftPeriodForecasts();
+    case "tencent": return listTencentPeriodForecasts();
+    case "kingsoft-office": return listVibeFocusPeriodForecasts(assetId);
+    case "mu": return listMuHypePeriodForecasts(assetId);
+    default: return [];
+  }
+}
+

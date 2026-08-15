@@ -12,6 +12,7 @@ import {
 import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-payment";
 import { processAutoPaymentOrder } from "@/lib/payments/process-auto-payment";
 import { activateGoodwillUnderpayment } from "@/lib/payments/manual-goodwill-underpayment";
+import { deliverPaidOrderConsultationQuota } from "@/lib/consultations/quota-delivery";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
     }
     if (isAutoPaymentMembershipActivated(order)) {
       await ensureManualFullPaymentAudit(order);
-      return NextResponse.json({ ok: true, alreadyActivated: true, membershipExpiresAt: order.membershipExpiresAt });
+      const consultationQuota = await deliverPaidOrderConsultationQuota(order.id);
+      return NextResponse.json({ ok: true, alreadyActivated: true, membershipExpiresAt: order.membershipExpiresAt, consultationQuota });
     }
     if (order.paidAmount == null || order.paidAmount + 0.0000001 < order.expectedAmount) {
       return NextResponse.json({ error: "到账金额不足或尚未权威记录；请使用明确的少付人工特批流程" }, { status: 409 });
@@ -93,6 +95,7 @@ export async function POST(request: NextRequest) {
       paidAmount: order.paidAmount,
       reason: `管理员${adminUser.email}核对全额链上到账后手动开通`,
     });
+    const consultationQuota = await deliverPaidOrderConsultationQuota(order.id);
     await notifyAdminAutoPayment({
       order,
       kind: "manual_activated",
@@ -105,6 +108,7 @@ export async function POST(request: NextRequest) {
       membershipExpiresAt: grant.membershipExpiresAt,
       grantApplied: grant.grantApplied,
       grantSkipped: grant.grantSkipped,
+      consultationQuota,
     });
   } catch (error) {
     return NextResponse.json(

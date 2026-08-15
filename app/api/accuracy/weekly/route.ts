@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Public verification endpoint: authorization is intentionally not required; output is presentation-projected.
 
-export async function GET() {
+export async function GET(request: Request) {
+  const locale = request.headers.get("accept-language")?.toLowerCase().startsWith("en") ? "en" : "zh";
   if (!prisma) {
     return NextResponse.json(
       { ok: true, summary: { sampleSize: 0, full: 0, partial: 0, miss: 0, weightedAccuracy: null }, data: [] },
@@ -19,6 +22,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     summary: { sampleSize: eligible.length, full, partial, miss: eligible.length - full - partial, weightedAccuracy },
-    data: rows,
+    data: projectPublicAttribution(rows, { locale }),
   }, { headers: { "Cache-Control": "no-store" } });
 }

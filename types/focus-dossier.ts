@@ -1,5 +1,30 @@
 export type FocusDossierEvidenceStatus = "READY" | "INCOMPLETE" | "MISSING";
 
+export type FocusKeyDayEvidence = {
+  date: string;
+  type: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "ADMIN";
+  label: string;
+};
+
+export type FocusAuxiliaryEvidenceView = {
+  closedMarketData: "AVAILABLE" | "UNAVAILABLE";
+  chan: "AVAILABLE" | "UNAVAILABLE";
+  chanTimeframes: Array<"1D">;
+  chanStage: string | null;
+  technical: string | null;
+  macroNews: string | null;
+  note: string;
+};
+
+export type FocusBackgroundHorizon = {
+  forecastType: string;
+  periodStart: string;
+  periodEnd: string;
+  conclusion: string;
+  version: number;
+  dailyPath: FocusDossierDay[];
+};
+
 export type FocusDossierDay = {
   date: string;
   state: "OCCURRED" | "TODAY" | "PENDING" | "MISSING";
@@ -11,6 +36,8 @@ export type FocusDossierDay = {
   version?: number | null;
   asOfDate?: string | null;
   rollingReason?: string | null;
+  keyDayEvidence?: FocusKeyDayEvidence[];
+  auxiliaryEvidence?: FocusAuxiliaryEvidenceView | null;
 };
 
 export type FocusSupplementalEvidence = {
@@ -33,6 +60,14 @@ export type FocusDossierView = {
   assetId: string;
   asOfDate: string;
   evidenceStatus: FocusDossierEvidenceStatus;
+  reportSchemaVersion: "2026-08-15.v1";
+  weeklyAuthority: {
+    direction: string;
+    periodStart: string;
+    periodEnd: string;
+    version: number;
+  } | null;
+  backgroundHorizons: FocusBackgroundHorizon[];
   statusLabel: string;
   conclusion: string | null;
   periodStart: string | null;
@@ -88,6 +123,9 @@ export type FocusDossierView = {
   source: string | null;
   longTermBackground: string | null;
 };
+
+/** Canonical member-facing Focus report DTO. The legacy dossier name remains as a compatibility alias. */
+export type FocusDetailedReport = FocusDossierView;
 
 export type FocusWeekPreparation = {
   assetId: string;

@@ -56,6 +56,8 @@ test("member page loads the server-only rulebook only after login, membership an
   assert.match(page, /chartAvailable: false/);
   assert.match(page, /fundamentals: \{ available: false/);
   const panel = readFileSync("components/member/TeacherMethodRulebookPanel.tsx", "utf8");
-  assert.match(panel, /老师研究委员会：\{evaluation\.action\}/);
+  assert.match(panel, /研究检查：\{evaluation\.action\}/);
+  assert.match(panel, /PUBLIC_INTERPRETATION_LABEL_ZH/);
+  assert.doesNotMatch(panel, /老师研究委员会/);
   assert.match(panel, /evaluation\.hardWaitReasons/);
 });

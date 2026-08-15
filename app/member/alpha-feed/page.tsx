@@ -7,6 +7,7 @@ import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { getOrRefreshXScanReport, type XScanAssetReport, type XScanVerdict } from "@/lib/trading-signals/x-scan-report";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
+import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN,PUBLIC_ATTRIBUTION_DISCLOSURE_ZH,projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -107,7 +108,7 @@ export default async function AlphaFeedPage() {
     return <main><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Member market intelligence · Public preview" : "会员市场热点追踪 · 公开预览"}
       title={en ? "Know what matters and what to do next" : "不是告诉你“谁最热”，而是直接告诉你“现在该不该做”"}
-      description={en ? "MOOX converts the 15-minute X scan into clear conclusions and actions." : "每15分钟把X扫描转成明确结论：值得买、等买点、不追、回避，结论必须放在第一屏。"}
+      description={en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}
       solves={en ? ["Clear conclusion first", "Action before raw data", "Evidence remains auditable"] : ["先给最终结论，不让会员猜", "明确写现在怎么做", "原始数据折叠保留用于复核"]}
       memberBenefits={en ? ["15-minute conclusions", "Action plan", "Market-wide hotspot context"] : ["15分钟市场结论", "明确操作建议", "全市场热点证据"]}
       exampleTitle={en ? "Example" : "示例"}
@@ -118,7 +119,7 @@ export default async function AlphaFeedPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   let report;
-  try { report = await getOrRefreshXScanReport(20); } catch { report = null; }
+  try { report = projectPublicAttribution(await getOrRefreshXScanReport(20),{locale:en?"en":"zh"}); } catch { report = null; }
 
   return (
     <main>

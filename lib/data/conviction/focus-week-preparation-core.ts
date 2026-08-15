@@ -1,6 +1,6 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import { prepareNextFocusWeek } from "@/lib/data/conviction/focus-dossier-core";
-import { buildFocusDailyPublicationBatch, focusDailyQuoteCapability, selectFormalCurrentFocusWeek, selectFormalNextFocusWeek, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
+import { buildFocusDailyPublicationBatch, focusDailyChanCapability, focusDailyQuoteCapability, selectFormalCurrentFocusWeek, selectFormalNextFocusWeek, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { FocusWeekPreparation } from "@/types/focus-dossier";
 
@@ -20,7 +20,17 @@ export type FocusDailyCoverageRow = {
   currentTeacherDailyCount: number;
   nextTeacherDailyCount: number;
   generatedDailyCount: number;
+  rollingRevisionCount: number;
+  latestGeneratedVersion: number;
+  currentKeyDayCount: number;
+  nextKeyDayCount: number;
+  backgroundHorizons: string[];
   quoteMapping: "AVAILABLE" | "UNAVAILABLE";
+  quoteProvider: "CRYPTO" | "HK" | "CN" | "US" | null;
+  quoteSymbol: string | null;
+  chanMapping: "AVAILABLE" | "UNAVAILABLE";
+  chanTimeframes: Array<"1D">;
+  chanStage: "RUNTIME_1D_EVIDENCE_REQUIRED" | "UNAVAILABLE";
   rollingCapability: "CLOSED_BARS_AND_X" | "WEEKLY_AND_OPTIONAL_X_ONLY";
   confirmationAvailable: boolean;
   invalidationAvailable: boolean;
@@ -33,8 +43,10 @@ export function buildFocusDailyCoverageReport(evidence: readonly FocusWeekEviden
     const next = selectFormalNextFocusWeek({ forecasts: asset.forecasts, asOfDate, nowMs });
     const authority = current ?? next;
     const quote = focusDailyQuoteCapability({ symbol: asset.symbol ?? asset.assetId, assetType: asset.assetType, exchange: asset.exchange });
+    const chan = focusDailyChanCapability(asset.symbol ?? asset.assetId);
     const gaps = [!current && "CURRENT_WEEK_MISSING", !next && "NEXT_WEEK_MISSING", current && !current.dailyPath?.length && "CURRENT_TEACHER_DAILY_MISSING", next && !next.dailyPath?.length && "NEXT_TEACHER_DAILY_MISSING", !quote.available && "QUOTE_MAPPING_UNAVAILABLE", !authority?.confirmationLevel && "CONFIRMATION_MISSING", !authority?.invalidationLevel && "INVALIDATION_MISSING"].filter((value): value is string => Boolean(value));
-    return { assetId: asset.assetId, formalPeriodInventory: asset.forecasts.filter((row) => row.status === "published" && Date.parse(row.publishedAt) <= nowMs && Date.parse(row.lockedAt) <= nowMs).map((row) => ({ id: row.id, type: row.forecastType, start: row.periodStart, end: row.periodEnd, version: row.version })), currentWeekId: current?.id ?? null, nextWeekId: next?.id ?? null, teacherDailyCount: authority?.dailyPath?.length ?? 0, currentTeacherDailyCount: current?.dailyPath?.length ?? 0, nextTeacherDailyCount: next?.dailyPath?.length ?? 0, generatedDailyCount: 0, quoteMapping: quote.available ? "AVAILABLE" as const : "UNAVAILABLE" as const, rollingCapability: quote.available ? "CLOSED_BARS_AND_X" as const : "WEEKLY_AND_OPTIONAL_X_ONLY" as const, confirmationAvailable: Boolean(authority?.confirmationLevel), invalidationAvailable: Boolean(authority?.invalidationLevel), gapReasons: gaps };
+    const inventory = asset.forecasts.filter((row) => row.status === "published" && Date.parse(row.publishedAt) <= nowMs && Date.parse(row.lockedAt) <= nowMs).map((row) => ({ id: row.id, type: row.forecastType, start: row.periodStart, end: row.periodEnd, version: row.version }));
+    return { assetId: asset.assetId, formalPeriodInventory: inventory, currentWeekId: current?.id ?? null, nextWeekId: next?.id ?? null, teacherDailyCount: authority?.dailyPath?.length ?? 0, currentTeacherDailyCount: current?.dailyPath?.length ?? 0, nextTeacherDailyCount: next?.dailyPath?.length ?? 0, generatedDailyCount: 0, rollingRevisionCount: 0, latestGeneratedVersion: 0, currentKeyDayCount: current?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, nextKeyDayCount: next?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, backgroundHorizons: [...new Set(inventory.filter((row) => !row.type.startsWith("WEEK")).map((row) => row.type))], quoteMapping: quote.available ? "AVAILABLE" as const : "UNAVAILABLE" as const, quoteProvider: quote.market, quoteSymbol: quote.quoteSymbol, chanMapping: chan.catalogSupported ? "AVAILABLE" as const : "UNAVAILABLE" as const, chanTimeframes: chan.analyzedTimeframes, chanStage: chan.catalogSupported ? "RUNTIME_1D_EVIDENCE_REQUIRED" as const : "UNAVAILABLE" as const, rollingCapability: quote.available ? "CLOSED_BARS_AND_X" as const : "WEEKLY_AND_OPTIONAL_X_ONLY" as const, confirmationAvailable: Boolean(authority?.confirmationLevel), invalidationAvailable: Boolean(authority?.invalidationLevel), gapReasons: gaps };
   }).sort((a, b) => a.assetId.localeCompare(b.assetId));
 }
 
@@ -112,7 +124,11 @@ export async function runFocusWeekPreparation(input: {
         // All read dependencies for this asset finish before its first write.
         const latest = await input.loadLatest!(asset, [...new Set(targetDates)]);
         const coverageRow = coverage.find((row) => row.assetId === asset.assetId);
-        if (coverageRow) coverageRow.generatedDailyCount = latest.length;
+        if (coverageRow) {
+          coverageRow.generatedDailyCount = latest.length;
+          coverageRow.rollingRevisionCount = latest.filter((row) => row.version > 1).length;
+          coverageRow.latestGeneratedVersion = Math.max(0, ...latest.map((row) => row.version));
+        }
         const auxiliary = await input.loadAuxiliary!(asset);
         const append = targets.flatMap(({ weekly, mode }) => buildFocusDailyPublicationBatch({ assetId: asset.assetId, weekly: weekly!, asOfDate: input.asOfDate, nowMs: input.nowMs, auxiliary, latest, mode }).append);
         if (!append.length) {

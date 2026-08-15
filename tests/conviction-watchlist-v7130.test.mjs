@@ -95,7 +95,9 @@ test("Google keeps V2 audit records and adds V3 technical overlay", () => {
 
 test("MSFT access is routed to dedicated multi-horizon data", () => {
   const source = read("lib/data/conviction/access.ts");
-  assert.match(source, /if \(assetId === "msft"\) return listMsftPeriodForecasts\(\)/);
+  const registry = read("lib/data/conviction/focus-static-forecast-registry.ts");
+  assert.match(source, /listStaticFocusForecasts\(assetId\)/);
+  assert.match(registry, /case "msft": return listMsftPeriodForecasts\(\)/);
   assert.match(source, /if \(assetId === "msft"\) return MSFT_PERIOD_ORDER/);
   assert.match(source, /if \(assetId === "msft"\) return MSFT_VISIBLE_PERIOD_ORDER/);
 });

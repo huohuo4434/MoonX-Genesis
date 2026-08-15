@@ -5,11 +5,13 @@ import { SectionHeader } from "@/components/home/SectionHeader";
 import { Badge, Card, Text } from "@/components/ui";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 import type { WeeklyEdition } from "@/lib/data/weekly-edition";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
-export function WeeklyForecastClient({ edition }: { edition: WeeklyEdition }) {
+export function WeeklyForecastClient({ edition:rawEdition }: { edition: WeeklyEdition }) {
   const { locale } = useLocale();
   const t = useTranslations();
   const isChinese = locale === "zh-CN" || locale === "zh-TW";
+  const edition=projectPublicAttribution(rawEdition,{locale:isChinese?"zh":"en"});
 
   return (
     <section id="weekly-forecast" className="border-t border-border/[0.06] py-12 lg:py-16">

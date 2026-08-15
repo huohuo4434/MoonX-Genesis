@@ -18,6 +18,7 @@ const BENEFITS = [
   ["六爻、奇门与技术依据", "—", "完整展示", "Liu Yao, Qimen Dunjia and technical structure", "—", "Full access"],
   ["重点资产完整研究", "摘要", "完整展示", "Focused-asset research", "Summary", "Full access"],
   ["AI交易台与会员信号", "公开摘要", "完整内容", "AI Strategy Desk and member signals", "Public summary", "Full access"],
+  ["六爻 / 八字咨询权益", "—", "月度1次、季度3次、年度12次", "Liuyao / Bazi consultations", "—", "1 monthly, 3 quarterly, 12 yearly"],
 ] as const;
 
 export function PricingPageContent({

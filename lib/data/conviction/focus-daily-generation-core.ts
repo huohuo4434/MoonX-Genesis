@@ -1,14 +1,42 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import { nextMondayWindow } from "@/lib/data/conviction/focus-dossier-core";
-import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
+import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { FOCUS_DAILY_MARKET_PREFIX } from "@/lib/weekly-source/generated-daily-namespace-core";
 
 const DAY_MS = 86_400_000;
 export type FocusDailySourceKind = "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION";
 export type FocusRealizedPhase = "NONE" | "EARLY_RALLY" | "EARLY_DROP";
-export type FocusDailyAuxiliaryEvidence = { evidenceKey: string; supportLevels: string[]; resistanceLevels: string[]; technicalEvidence: string; newsEvidence: string | null; realizedPhase?: FocusRealizedPhase };
+export type FocusDailyAuxiliaryEvidence = {
+  evidenceKey: string;
+  supportLevels: string[];
+  resistanceLevels: string[];
+  technicalEvidence: string | null;
+  newsEvidence: string | null;
+  realizedPhase?: FocusRealizedPhase;
+  marketDataStatus?: "AVAILABLE" | "UNAVAILABLE";
+  chanStatus?: "AVAILABLE" | "UNAVAILABLE";
+  chanTimeframes?: Array<"1D">;
+  chanStage?: string | null;
+};
 export type FocusClosedDailyBar = { date: string; open: number; high: number; low: number; close: number; synthetic?: boolean };
 export type FocusDailyQuoteCapability = { available: boolean; market: "CRYPTO" | "HK" | "CN" | "US" | null; quoteSymbol: string | null; reason: string | null };
+export type FocusDailyChanCapability = {
+  catalogSupported: boolean;
+  instrument: string | null;
+  analyzedTimeframes: Array<"1D">;
+  reason: string | null;
+};
+
+const CHAN_FOCUS_INSTRUMENTS: Readonly<Record<string, string>> = Object.freeze({
+  BTC: "BTCUSDT", ETH: "ETHUSDT", SNDK: "SNDK", MU: "MU", GOOGL: "GOOGL", MSFT: "MSFT",
+});
+
+export function focusDailyChanCapability(symbolInput: string): FocusDailyChanCapability {
+  const instrument = CHAN_FOCUS_INSTRUMENTS[symbolInput.trim().toUpperCase()] ?? null;
+  return instrument
+    ? { catalogSupported: true, instrument, analyzedTimeframes: ["1D"], reason: null }
+    : { catalogSupported: false, instrument: null, analyzedTimeframes: [], reason: "CHAN_INSTRUMENT_UNAVAILABLE" };
+}
 export function focusDailyQuoteCapability(input: { symbol: string; assetType?: string; exchange?: string | null }): FocusDailyQuoteCapability {
   const symbol = input.symbol.trim().toUpperCase();
   if (!symbol || symbol === "ASTEROID") return { available: false, market: null, quoteSymbol: null, reason: "QUOTE_MAPPING_UNAVAILABLE" };
@@ -77,6 +105,27 @@ function pathTemplate(weekly: ConvictionPeriodForecast): Array<{ direction: stri
 function probabilities(direction: string) { if (/回落|回撤|偏弱|探底/.test(direction)) return { up: 20, flat: 35, down: 45 }; if (/偏强|上行|反弹|修复|冲高/.test(direction)) return { up: 45, flat: 35, down: 20 }; return { up: 25, flat: 50, down: 25 }; }
 function sourceMarker(kind: FocusDailySourceKind, weekly: ConvictionPeriodForecast, asOfDate: string) { return `FOCUS_SOURCE_KIND=${kind};AS_OF=${asOfDate};WEEKLY=${weekly.id}:V${weekly.version}`; }
 
+function exactDatedKeyEvidence(weekly: ConvictionPeriodForecast, forecastDate: string) {
+  return (weekly.keyDates ?? [])
+    .filter((item) => item.date === forecastDate)
+    .map((item) => ({ date: forecastDate, type: item.source, label: item.label }));
+}
+
+function encodeCalendarEvidence(weekly: ConvictionPeriodForecast, forecastDate: string): CalendarEvidence | null {
+  const evidence = exactDatedKeyEvidence(weekly, forecastDate);
+  if (!evidence.length) return null;
+  const source = weekly.keyDates?.find((item) => item.date === forecastDate);
+  return {
+    calendarDateChina: forecastDate,
+    dayStem: "",
+    dayBranch: "",
+    dayElement: "",
+    ganzhiLabel: source?.ganzhi ?? "",
+    relationToWeekly: "不变",
+    note: `FOCUS_KEY_DAY_EVIDENCE=${JSON.stringify(evidence)}`,
+  } as CalendarEvidence;
+}
+
 export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly: ConvictionPeriodForecast; asOfDate: string; nowMs: number; auxiliary: FocusDailyAuxiliaryEvidence; latest: readonly GeneratedDailyForecastRecord[]; mode?: "CURRENT" | "NEXT" }): { all: GeneratedDailyForecastRecord[]; append: GeneratedDailyForecastRecord[] } {
   const mode = input.mode ?? "NEXT";
   const expected = mode === "NEXT" ? nextMondayWindow(input.asOfDate) : { start: input.weekly.periodStart, end: input.weekly.periodEnd };
@@ -96,7 +145,13 @@ export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly
     const path = sourceDay?.summary?.trim() || `${derived.path}；该日为MOOX基于正式锁定周路径的确定性拆解，不是独立日卦或奇门盘。`;
     const evidenceKey = stableHash(JSON.stringify({ sourceId: input.weekly.id, sourceVersion: input.weekly.version, forecastDate, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? input.weekly.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? input.weekly.invalidationLevel ?? null, auxiliary: input.auxiliary.evidenceKey }));
     const previous = latestByDate.get(forecastDate) ?? null, version = previous ? previous.version + 1 : 1, probs = probabilities(direction);
-    return { id: `GDF-${marketCode}-${forecastDate.replace(/-/g, "")}-V${version}`, marketCode, forecastDate, sourceWeeklyForecastId: input.weekly.id, direction, upProbability: probs.up, sidewaysProbability: probs.flat, downProbability: probs.down, expectedPath: path, supportLevels: input.auxiliary.supportLevels, resistanceLevels: input.auxiliary.resistanceLevels, confirmationLevel: sourceDay?.confirmation ?? input.weekly.confirmationLevel ?? null, invalidationLevel: sourceDay?.riskNote ?? input.weekly.invalidationLevel ?? null, riskLevel: input.weekly.riskLevel, catalysts: input.weekly.catalysts, risks: input.weekly.risks, liuyaoEvidence: `${sourceMarker(sourceKind, input.weekly, input.asOfDate)}；正式周方向=${input.weekly.direction}；日节奏不改写周证据。`, qimenEvidence: null, calendarEvidence: null, technicalEvidence: input.auxiliary.technicalEvidence, newsEvidence: input.auxiliary.newsEvidence, marketProgressStatus: rolling ? "AHEAD" as const : "NOT_STARTED" as const, revisionReason: `FOCUS_DAILY:${sourceKind}:${evidenceKey}`, previousVersionId: previous?.id ?? null, version, status: "PUBLISHED" as const, generatedAt: publishedAt, publishedAt, lockedAt: null, validatedAt: null, validationStatus: null };
+    const calendarEvidence = encodeCalendarEvidence(input.weekly, forecastDate);
+    const qimenEvidence = exactDatedKeyEvidence(input.weekly, forecastDate).some((item) => item.type === "QIMEN") ? calendarEvidence?.note ?? null : null;
+    const technicalEvidence = [
+      input.auxiliary.technicalEvidence,
+      `FOCUS_AUX=${JSON.stringify({ marketDataStatus: input.auxiliary.marketDataStatus ?? (input.auxiliary.supportLevels.length ? "AVAILABLE" : "UNAVAILABLE"), chanStatus: input.auxiliary.chanStatus ?? "UNAVAILABLE", chanTimeframes: input.auxiliary.chanTimeframes ?? [], chanStage: input.auxiliary.chanStage ?? null })}`,
+    ].filter(Boolean).join("; ");
+    return { id: `GDF-${marketCode}-${forecastDate.replace(/-/g, "")}-V${version}`, marketCode, forecastDate, sourceWeeklyForecastId: input.weekly.id, direction, upProbability: probs.up, sidewaysProbability: probs.flat, downProbability: probs.down, expectedPath: path, supportLevels: input.auxiliary.supportLevels, resistanceLevels: input.auxiliary.resistanceLevels, confirmationLevel: sourceDay?.confirmation ?? input.weekly.confirmationLevel ?? null, invalidationLevel: sourceDay?.riskNote ?? input.weekly.invalidationLevel ?? null, riskLevel: input.weekly.riskLevel, catalysts: input.weekly.catalysts, risks: input.weekly.risks, liuyaoEvidence: `${sourceMarker(sourceKind, input.weekly, input.asOfDate)}；正式周方向=${input.weekly.direction}；日节奏不改写周证据。`, qimenEvidence, calendarEvidence, technicalEvidence, newsEvidence: input.auxiliary.newsEvidence, marketProgressStatus: rolling ? "AHEAD" as const : "NOT_STARTED" as const, revisionReason: `FOCUS_DAILY:${sourceKind}:${evidenceKey}`, previousVersionId: previous?.id ?? null, version, status: "PUBLISHED" as const, generatedAt: publishedAt, publishedAt, lockedAt: null, validatedAt: null, validationStatus: null };
   });
   return { all, append: all.filter((candidate) => latestByDate.get(candidate.forecastDate)?.revisionReason !== candidate.revisionReason) };
 }

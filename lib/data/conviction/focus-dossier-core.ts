@@ -1,11 +1,13 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import type {
+  FocusAuxiliaryEvidenceView,
+  FocusBackgroundHorizon,
   FocusDossierDay,
   FocusDossierView,
   FocusSupplementalEvidence,
   FocusWeekPreparation,
 } from "@/types/focus-dossier";
-import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
+import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 
 const DAY_MS = 86_400_000;
 const MAX_DISPLAY_PERIOD_DAYS = 62;
@@ -92,6 +94,55 @@ function hasCompleteDailyCoverage(forecast: ConvictionPeriodForecast): boolean {
   return requiredDates.every((date) => suppliedDates.has(date));
 }
 
+function backgroundHorizons(forecasts: readonly ConvictionPeriodForecast[], nowMs: number, asOfDate: string): FocusBackgroundHorizon[] {
+  return forecasts.filter((forecast) => !forecast.forecastType.startsWith("WEEK") && isFormal(forecast, nowMs))
+    .sort((left, right) => left.periodStart.localeCompare(right.periodStart) || left.forecastType.localeCompare(right.forecastType) || right.version - left.version)
+    .map((forecast) => {
+      const sourceDays = new Map((forecast.dailyPath ?? []).map((day) => [day.date, day]));
+      return {
+        forecastType: forecast.forecastType,
+        periodStart: forecast.periodStart,
+        periodEnd: forecast.periodEnd,
+        conclusion: forecast.summary,
+        version: forecast.version,
+        dailyPath: focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => ({ ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) })),
+      };
+    });
+}
+
+function parseKeyDayEvidence(value: CalendarEvidence | null): FocusDossierDay["keyDayEvidence"] {
+  const marker = "FOCUS_KEY_DAY_EVIDENCE=";
+  const note = value?.note;
+  if (!note?.startsWith(marker)) return [];
+  try {
+    const parsed = JSON.parse(note.slice(marker.length));
+    return Array.isArray(parsed) ? parsed.filter((row) => row && typeof row.date === "string" && typeof row.label === "string" && ["LIUYAO", "QIMEN", "BAZI", "TECHNICAL", "ADMIN"].includes(row.type)) : [];
+  } catch { return []; }
+}
+
+function forecastKeyDayEvidence(forecast: ConvictionPeriodForecast, date: string): NonNullable<FocusDossierDay["keyDayEvidence"]> {
+  return (forecast.keyDates ?? []).filter((item) => item.date === date).map((item) => ({ date, type: item.source, label: item.label }));
+}
+
+function parseAuxiliaryEvidence(technical: string | null, news: string | null): FocusAuxiliaryEvidenceView | null {
+  const marker = "FOCUS_AUX=";
+  const encoded = technical?.split("; ").find((part) => part.startsWith(marker));
+  if (!encoded) return null;
+  try {
+    const parsed = JSON.parse(encoded.slice(marker.length));
+    const chanTimeframes = Array.isArray(parsed.chanTimeframes) ? parsed.chanTimeframes.filter((item: unknown): item is "1D" => item === "1D") : [];
+    return {
+      closedMarketData: parsed.marketDataStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",
+      chan: parsed.chanStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",
+      chanTimeframes,
+      chanStage: typeof parsed.chanStage === "string" ? parsed.chanStage : null,
+      technical: (technical ?? "").split("; ").filter((part) => !part.startsWith(marker)).join("; ") || null,
+      macroNews: news,
+      note: "辅助证据只调整日内节奏，不改变正式锁定周方向。",
+    };
+  } catch { return null; }
+}
+
 function sourceDayToView(
   date: string,
   asOfDate: string,
@@ -129,7 +180,7 @@ function nextForecastView(forecast: ConvictionPeriodForecast | null, asOfDate: s
     periodEnd: forecast.periodEnd,
     conclusion: forecast.summary,
     dailyEvidenceReady: hasCompleteDailyCoverage(forecast),
-    dailyPath: focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => sourceDayToView(date, asOfDate, sourceDays)),
+    dailyPath: focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => ({ ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) })),
     supportLevels: [...forecast.supportLevels],
     resistanceLevels: [...forecast.resistanceLevels],
     confirmation: forecast.confirmationLevel ?? null,
@@ -147,6 +198,7 @@ function emptyDossier(input: {
   monthly: ConvictionPeriodForecast | null;
   longTerm: ConvictionPeriodForecast | null;
   supplementalEvidence: readonly FocusSupplementalEvidence[];
+  backgroundHorizons: FocusBackgroundHorizon[];
 }): FocusDossierView {
   const nextWeek = nextForecastView(input.next, input.asOfDate);
   const nextReady = Boolean(nextWeek?.dailyEvidenceReady);
@@ -164,6 +216,9 @@ function emptyDossier(input: {
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: nextReady || monthlyEvidence ? "INCOMPLETE" : "MISSING",
+    reportSchemaVersion: "2026-08-15.v1",
+    weeklyAuthority: null,
+    backgroundHorizons: input.backgroundHorizons,
     statusLabel: nextReady
       ? "本期周资料缺失或已结束；下周逐日证据已准备"
       : monthlyEvidence
@@ -248,8 +303,9 @@ export function buildFocusDossier(input: {
   ));
   const longTerm = latest(input.forecasts.filter((item) => item.forecastType === "YEAR_1" && isFormal(item, input.nowMs)));
   const supplementalEvidence = input.supplementalEvidence ?? [];
+  const backgrounds = backgroundHorizons(input.forecasts, input.nowMs, input.asOfDate);
   if (!current) {
-    return emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence });
+    return emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds });
   }
 
   const sourceDays = new Map((current.dailyPath ?? []).map((day) => [day.date, day]));
@@ -276,9 +332,11 @@ export function buildFocusDossier(input: {
         version: generated.version,
         asOfDate: generatedAsOf,
         rollingReason: generated.revisionReason,
+        keyDayEvidence: parseKeyDayEvidence(generated.calendarEvidence),
+        auxiliaryEvidence: parseAuxiliaryEvidence(generated.technicalEvidence, generated.newsEvidence),
       };
     }
-    return sourceDayToView(date, input.asOfDate, sourceDays);
+    return { ...sourceDayToView(date, input.asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(current, date) };
   });
   const complete = requiredDates.length > 0 && dailyPath.every((day) => day.state !== "MISSING");
   const dailyAuditRows = (input.generatedDailyAudit ?? []).map((row) => ({
@@ -302,6 +360,9 @@ export function buildFocusDossier(input: {
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: complete ? "READY" : "INCOMPLETE",
+    reportSchemaVersion: "2026-08-15.v1",
+    weeklyAuthority: { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version },
+    backgroundHorizons: backgrounds,
     statusLabel: highlightPreparedNext
       ? "本期资料仍保留；下周逐日证据已准备"
       : complete
@@ -375,6 +436,9 @@ export function buildMemberFocusDossier(input: {
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: complete ? "READY" : "INCOMPLETE",
+    reportSchemaVersion: "2026-08-15.v1",
+    weeklyAuthority: null,
+    backgroundHorizons: [],
     statusLabel: complete ? "本期结论与逐日资料已发布" : "本期结论已发布；逐日资料待补齐",
     conclusion: `${weekly.overallDirection}｜${weekly.headline}`,
     periodStart: weekly.weekStart,
@@ -400,4 +464,8 @@ export function buildMemberFocusDossier(input: {
     source: weekly.publicSourceLabel,
     longTermBackground: weekly.weeklyPath,
   };
+}
+
+export function buildFocusDetailedReport(input: Parameters<typeof buildFocusDossier>[0]): FocusDossierView {
+  return buildFocusDossier(input);
 }

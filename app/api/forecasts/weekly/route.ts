@@ -7,13 +7,16 @@ import {
   listPublishedWeeklyAnalyses,
   toWeeklyMemberView,
 } from "@/lib/data/weekly-analysis";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+const requireMemberWeeklyAccess=getWeeklyForecastAccessDecision;
 
-export async function GET() {
+export async function GET(request: Request) {
   noStore();
-  const decision = await getWeeklyForecastAccessDecision();
+  const locale = request.headers.get("accept-language")?.toLowerCase().startsWith("en") ? "en" : "zh";
+  const decision = await requireMemberWeeklyAccess();
 
   if (!decision.allowed) {
     const status = decision.access.reason === "LOGIN_REQUIRED" ? 401 : 403;
@@ -41,7 +44,7 @@ export async function GET() {
     {
       ok: true,
       reason: decision.access.reason,
-      data: listPublishedWeeklyAnalyses().map(toWeeklyMemberView),
+      data: projectPublicAttribution(listPublishedWeeklyAnalyses().map(toWeeklyMemberView), { locale }),
     },
     { headers: { "Cache-Control": "private, no-store, max-age=0" } }
   );

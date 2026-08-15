@@ -18,8 +18,10 @@ import type {
   WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
 import type { WeeklyAlphaIssue } from "@/types/weekly-alpha";
+import type { PublicProjection } from "@/lib/presentation/public-attribution";
 import type { MemberMarketBranchOutlook } from "@/types/member-market-branch";
 import type { MemberResearchRadarPack } from "@/types/member-research-radar";
+type PublicResearchRadar=Omit<MemberResearchRadarPack,"stone">&{macroLiquidity:MemberResearchRadarPack["stone"]};
 
 function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO", en: boolean): string {
   const zh = { LIUYAO: "六爻", QIMEN: "奇门", BAZI: "八字", TECHNICAL: "技术", MACRO: "宏观" } as const;
@@ -143,14 +145,14 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
   return <main><Section spacing="lg"><div className="mx-auto flex max-w-2xl flex-col gap-4 px-4">
     <div className="flex items-center gap-2"><LockIcon size={18} /><Badge variant="default">{en ? "Members" : "会员"}</Badge></div>
     <Heading as="h1" size="h2">{en ? "Weekly Alpha 5" : "本周精选5 · 会员周报"}</Heading>
-    <Text variant="body" color="secondary">{en ? "Active members receive a concentrated five-name weekly research edition with verified calendar data, teacher-method Liu Yao, real-candle execution levels and a broader core-market appendix." : "有效会员每周可查看精选5深度研究：老师法六爻、万年历硬校验、真实K线、支撑压力、周内路径，以及九大核心市场背景附录。"}</Text>
+    <Text variant="body" color="secondary">{en ? "Active members receive Yi's integrated weekly interpretation with calendar checks, traditional methods, real-candle execution levels and core-market context." : "有效会员每周可查看易老师综合解读：传统术数、万年历硬校验、真实K线、支撑压力、周内路径与核心市场背景。AI仅辅助归并、冲突检查和情景推演。"}</Text>
     <MetaHeader summary={summary} />
     <div className="grid gap-3">{summary.teasers.map((item) => <Card key={item.id} padding="md" className="space-y-2 overflow-hidden"><Text variant="body" weight="semibold">{en ? assetNameEn(item.assetName) : item.assetName} <span className="font-mono text-caption font-normal text-foreground-tertiary">{item.displaySymbol ?? item.symbol}</span></Text><Badge variant="outline">{item.isReady ? (en ? "Available to members" : "会员可查看") : (en ? "Research pending" : "资料待补充")}</Badge></Card>)}</div>
     <div className="flex flex-wrap gap-3 pt-2"><Button asChild variant="primary"><Link href={href("/pricing")}>{en ? "Compare access" : "会员解锁"}</Link></Button><Button asChild variant="outline"><Link href={href(`/login?next=${encodeURIComponent("/member/weekly")}`)}>{en ? "Sign in" : "登录"}</Link></Button></div>
   </div></Section></main>;
 }
 
-export function MemberWeeklyFullPage({ slots, summary, alphaIssue, branchOutlook, researchRadar }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary; alphaIssue: WeeklyAlphaIssue | null; branchOutlook: MemberMarketBranchOutlook; researchRadar: MemberResearchRadarPack; analyses?: WeeklyAnalysisMemberView[] }) {
+export function MemberWeeklyFullPage({ slots, summary, alphaIssue, branchOutlook, researchRadar }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary; alphaIssue: PublicProjection<WeeklyAlphaIssue> | null; branchOutlook: MemberMarketBranchOutlook; researchRadar: PublicResearchRadar; analyses?: WeeklyAnalysisMemberView[] }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const rows = slots?.length > 0 ? slots : (summary.teasers.map((item) => item.isReady ? null : ({ kind: "unpublished" as const, assetId: item.assetId, assetName: item.assetName, symbol: item.symbol, displaySymbol: item.displaySymbol ?? item.symbol })).filter(Boolean) as WeeklyMarketSlot[]);

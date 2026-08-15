@@ -59,6 +59,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/membership-events", label: "会员流水" },
       { href: "/admin/payments", label: "付款审核", badgeKey: "payments" },
       { href: "/admin/referrals", label: "邀请管理" },
+      { href: "/admin/consultations", label: "会员咨询复核" },
       { href: "/admin/social", label: "Social Content" },
     ],
   },

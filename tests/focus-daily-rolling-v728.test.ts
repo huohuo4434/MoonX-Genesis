@@ -9,6 +9,7 @@ import { selectFocusGeneratedDailyAuditRows } from "../lib/weekly-source/generat
 import type { GeneratedDailyForecastRecord } from "../lib/weekly-source/types";
 import { GET } from "../app/api/cron/prepare-focus-week/route";
 import { runFocusWeekRouteHandler, type FocusRouteModuleLoader } from "../lib/data/conviction/focus-week-route-handler";
+import { STATIC_FOCUS_ASSET_IDS } from "../lib/data/conviction/focus-registry-core";
 
 const NOW = Date.parse("2026-08-15T02:00:00.000Z");
 const next = ASTEROID_PERIOD_FORECASTS.find((row) => row.id === "ASTEROID-W3-20260817-V1")!;
@@ -80,14 +81,12 @@ test("production-shared coverage classifies every reader asset and route exposes
 });
 
 test("coverage enumerates every actual static focus registry entry without a hand-maintained test list", () => {
-  const access = readFileSync("lib/data/conviction/access.ts", "utf8");
-  const registryBody = access.match(/STATIC_PERIOD_ASSET_IDS\s*=\s*new Set<[^>]+>\(\[([\s\S]*?)\]\);/)?.[1];
-  assert.ok(registryBody, "production static focus registry must be discoverable");
-  const assetIds = [...registryBody!.matchAll(/"([a-z0-9-]+)"/g)].map((match) => match[1]!);
+  const assetIds = [...STATIC_FOCUS_ASSET_IDS];
   assert.ok(assetIds.length > 10, "coverage must use the full production focus registry");
   const report = buildFocusDailyCoverageReport(assetIds.map((assetId) => ({ assetId, symbol: assetId === "asteroid" ? "ASTEROID" : assetId.toUpperCase(), forecasts: [current, next] })), "2026-08-15", NOW);
   assert.deepEqual(report.map((row) => row.assetId).sort(), [...assetIds].sort());
   assert.ok(report.every((row) => row.formalPeriodInventory.length === 2 && row.gapReasons.every(Boolean)));
+  assert.match(readFileSync("lib/data/conviction/access.ts", "utf8"), /new Set<StaticPeriodAssetId>\(STATIC_FOCUS_ASSET_IDS\)/);
 });
 
 test("Focus rolling stays isolated from trading and preserves weekly primary verification UI", () => {
