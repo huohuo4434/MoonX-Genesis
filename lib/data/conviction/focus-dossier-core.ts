@@ -36,6 +36,12 @@ export function focusDossierPeriodDates(start: string, end: string): string[] {
   return dates;
 }
 
+export function focusPrimaryDailyEvidenceStatus(dossier: Pick<FocusDossierView, "displayScope" | "dailyEvidenceStatus" | "nextWeek">): FocusDossierView["dailyEvidenceStatus"] {
+  return dossier.displayScope === "NEXT_PERIOD_READY" && dossier.nextWeek?.dailyEvidenceReady
+    ? "READY"
+    : dossier.dailyEvidenceStatus;
+}
+
 export async function loadFocusDossierGeneratedDailies(input: {
   dossier: Pick<FocusDossierView, "periodStart" | "periodEnd"> & Partial<Pick<FocusDossierView, "nextWeek">>;
   marketCode: string;

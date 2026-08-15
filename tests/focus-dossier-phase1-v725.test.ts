@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { ConvictionPeriodForecast } from "../lib/data/conviction/asteroid-forecasts";
-import { buildFocusDossier, focusDossierPeriodDates, loadFocusDossierGeneratedDailies } from "../lib/data/conviction/focus-dossier-core";
+import { buildFocusDossier, focusDossierPeriodDates, focusPrimaryDailyEvidenceStatus, loadFocusDossierGeneratedDailies } from "../lib/data/conviction/focus-dossier-core";
 import type { GeneratedDailyForecastRecord } from "../lib/weekly-source/types";
 import { listFocusResearchSupplements } from "../lib/data/conviction/focus-research-supplements";
 
@@ -204,6 +204,9 @@ test("persisted next-week rows are loaded and overlaid only onto their exact wee
   assert.equal(dossier.nextWeek?.dailyPath.length, 7);
   assert.equal(dossier.nextWeek?.dailyPath[0]?.summary, "2026-08-17 下周逐日研究");
   assert.equal(dossier.displayScope, "NEXT_PERIOD_READY");
+  assert.equal(focusPrimaryDailyEvidenceStatus(dossier), "READY");
+  const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
+  assert.match(panel, /focusPrimaryDailyEvidenceStatus\(dossier\)/);
 });
 
 test("a formal forecast for the week after next is not labeled or promoted as next week", () => {

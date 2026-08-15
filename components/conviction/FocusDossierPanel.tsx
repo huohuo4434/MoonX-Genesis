@@ -1,6 +1,7 @@
 import { Badge, Card } from "@/components/ui";
 import type { FocusDossierView } from "@/types/focus-dossier";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
+import { focusPrimaryDailyEvidenceStatus } from "@/lib/data/conviction/focus-dossier-core";
 
 const DAY_STATE = {
   OCCURRED: "已发生",
@@ -17,8 +18,9 @@ const EVIDENCE_LABEL = {
 
 export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossierView }) {
   const dossier=projectPublicAttribution(rawDossier);
-  const ready = dossier.evidenceStatus === "READY";
   const nextReady = dossier.displayScope === "NEXT_PERIOD_READY" && dossier.nextWeek?.dailyEvidenceReady;
+  const ready = Boolean(nextReady || dossier.evidenceStatus === "READY");
+  const primaryDailyEvidenceStatus = focusPrimaryDailyEvidenceStatus(dossier);
   const primaryPath = nextReady ? dossier.nextWeek!.dailyPath : dossier.dailyPath;
   const primaryConclusion = nextReady ? dossier.nextWeek!.conclusion : dossier.conclusion;
   const primaryStart = nextReady ? dossier.nextWeek!.periodStart : dossier.periodStart;
@@ -56,7 +58,7 @@ export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossie
         </Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
           <p className="text-caption text-white/40">证据覆盖</p>
-          <p className="mt-1 text-body-sm text-white/75">周：{dossier.weeklyEvidenceStatus === "READY" ? "完整" : "缺失"} · 日：{EVIDENCE_LABEL[dossier.dailyEvidenceStatus]} · 月：{dossier.monthlyEvidence ? "可用" : "缺失"}</p>
+          <p className="mt-1 text-body-sm text-white/75">周：{dossier.weeklyEvidenceStatus === "READY" ? "完整" : "缺失"} · 日：{EVIDENCE_LABEL[primaryDailyEvidenceStatus]} · 月：{dossier.monthlyEvidence ? "可用" : "缺失"}</p>
         </Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
           <p className="text-caption text-white/40">确认 / 失效</p>
