@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ASTEROID_PERIOD_FORECASTS, type ConvictionPeriodForecast } from "../lib/data/conviction/asteroid-forecasts";
 import { buildFocusDailyPublicationBatch, focusDailyQuoteCapability } from "../lib/data/conviction/focus-daily-generation-core";
+import { resolveFocusDailyAuxiliaryEvidence } from "../lib/data/conviction/focus-daily-evidence-core";
 import { buildFocusDailyCoverageReport, runFocusWeekPreparation } from "../lib/data/conviction/focus-week-preparation-core";
 import { buildFocusDossier, loadFocusDossierDailyAudit } from "../lib/data/conviction/focus-dossier-core";
+import { listNbisPeriodForecasts } from "../lib/data/conviction/nbis-liuyao-20260811";
 import { selectFocusGeneratedDailyAuditRows } from "../lib/weekly-source/generated-daily-namespace-core";
 import type { GeneratedDailyForecastRecord } from "../lib/weekly-source/types";
 import { GET } from "../app/api/cron/prepare-focus-week/route";
@@ -64,6 +66,75 @@ test("daily orchestration authenticates before reads and keeps an asset at zero 
   assert.equal(failed.kind, "PREPARED");
   if (failed.kind === "PREPARED") assert.equal(failed.failedAssets, 1);
   assert.equal(writes, 0);
+});
+
+test("NBIS weekly authority still publishes today and future paths when market and X enrichments fail", async () => {
+  let xCalls = 0;
+  let marketCalls = 0;
+  const fallback = await resolveFocusDailyAuxiliaryEvidence({
+    symbol: "NBIS",
+    quoteSymbol: "NBIS",
+    asOfDate: "2026-08-15",
+    dependencies: {
+      loadXMentions24h: async () => { xCalls += 1; throw new Error("x unavailable"); },
+      loadBars: async () => { marketCalls += 1; throw new Error("quote unavailable"); },
+    },
+  });
+  assert.deepEqual({ xCalls, marketCalls }, { xCalls: 1, marketCalls: 1 });
+  assert.equal(fallback.marketDataStatus, "UNAVAILABLE");
+  assert.equal(fallback.chanStatus, "UNAVAILABLE");
+  assert.match(fallback.technicalEvidence ?? "", /正式锁定周方向仍可用于今日及未来日节奏推演/);
+
+  let persisted: GeneratedDailyForecastRecord[] = [];
+  const run = await runFocusWeekPreparation({
+    authorized: true,
+    asOfDate: "2026-08-15",
+    nowMs: NOW,
+    scheduleMode: "DAILY_ROLLING",
+    readEvidence: async () => [{ assetId: "nbis", symbol: "NBIS", assetType: "STOCK", exchange: "纳斯达克证券交易所", forecasts: listNbisPeriodForecasts() }],
+    loadLatest: async () => [],
+    loadAuxiliary: async () => fallback,
+    persistBatch: async (records) => {
+      persisted = [...records];
+      return { created: records.length, records: [...records] };
+    },
+  });
+  assert.equal(run.kind, "PREPARED");
+  if (run.kind === "PREPARED") {
+    assert.equal(run.failedAssets, 0);
+    assert.equal(run.publishedRows, 9);
+  }
+  assert.deepEqual(persisted.map((row) => row.forecastDate), [
+    "2026-08-15", "2026-08-16",
+    "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23",
+  ]);
+  assert.ok(persisted.every((row) => row.sourceWeeklyForecastId.startsWith("NBIS-") && row.status === "PUBLISHED"));
+  assert.ok(persisted.every((row) => row.liuyaoEvidence?.includes("正式周方向=震荡上涨")));
+  assert.ok(persisted.every((row) => row.supportLevels.length === 0 && row.resistanceLevels.length === 0));
+
+  const dossierBeforeGeneration = buildFocusDossier({
+    assetId: "nbis",
+    forecasts: listNbisPeriodForecasts(),
+    asOfDate: "2026-08-15",
+    nowMs: NOW,
+    generatedDailies: [],
+  });
+  assert.equal(dossierBeforeGeneration.weeklyAuthority?.direction, "震荡上涨");
+  assert.ok(dossierBeforeGeneration.dailyPath.every((day) => day.direction == null));
+  const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
+  assert.match(panel, /正式周方向：\$\{dossier\.weeklyAuthority\.direction\} · 日节奏待生成/);
+  assert.doesNotMatch(panel, /day\.direction \?\? "无正式方向"/);
+});
+
+test("formal short weeks are accepted while implausible weekly horizons fail closed", () => {
+  const sixDay = listNbisPeriodForecasts().find((row) => row.periodStart === "2026-08-11" && row.periodEnd === "2026-08-16")!;
+  const generated = buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: sixDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" });
+  assert.deepEqual(generated.all.map((row) => row.forecastDate), ["2026-08-15", "2026-08-16"]);
+
+  const fourteenDay = { ...sixDay, id: "FOURTEEN-DAY-WEEK", periodStart: "2026-08-03", periodEnd: "2026-08-16" };
+  assert.equal(buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fourteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }).all.length, 2);
+  const fifteenDay = { ...sixDay, id: "FIFTEEN-DAY-WEEK", periodStart: "2026-08-02", periodEnd: "2026-08-16" };
+  assert.throws(() => buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fifteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }), /focus-week-period-out-of-range/);
 });
 
 test("production-shared coverage classifies every reader asset and route exposes the report", () => {

@@ -96,7 +96,11 @@ export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossie
             {primaryPath.map((day) => (
               <article key={day.date} className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
                 <div className="flex items-center justify-between gap-2"><p className="text-body-sm font-medium text-white">{day.date}</p><Badge variant="outline">{DAY_STATE[day.state]}</Badge></div>
-                <p className="mt-2 text-caption text-cyan-100/70">{day.direction ?? "无正式方向"}</p>
+                <p className="mt-2 text-caption text-cyan-100/70">
+                  {day.direction ?? (dossier.weeklyAuthority
+                    ? `正式周方向：${dossier.weeklyAuthority.direction} · 日节奏待生成`
+                    : "缺少正式周方向")}
+                </p>
                 <p className="mt-2 text-caption leading-6 text-white/55">{day.summary}</p>
                 {day.keyDayEvidence?.map((item) => <p key={`${item.type}-${item.label}`} className="mt-2 text-[11px] text-violet-100/60">关键日证据 · {item.type} · {item.label}</p>)}
                 {day.auxiliaryEvidence ? <p className="mt-2 text-[11px] text-white/40">闭合行情 {day.auxiliaryEvidence.closedMarketData} · Chan {day.auxiliaryEvidence.chan}{day.auxiliaryEvidence.chanStage ? ` / ${day.auxiliaryEvidence.chanStage}` : ""}</p> : null}

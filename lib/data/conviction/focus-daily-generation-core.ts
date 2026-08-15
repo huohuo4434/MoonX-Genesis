@@ -68,7 +68,10 @@ function parseDate(value: string): number {
 function dates(start: string, end: string): string[] {
   const first = parseDate(start), last = parseDate(end);
   const length = Math.floor((last - first) / DAY_MS) + 1;
-  if (length !== 7) throw new Error("focus-week-must-have-seven-days");
+  // A formally locked weekly study may begin after Monday when the source is
+  // first supplied mid-week. Preserve its exact period instead of rejecting a
+  // valid short week; cap the horizon so malformed/sentinel ranges fail closed.
+  if (length < 1 || length > 14) throw new Error("focus-week-period-out-of-range");
   return Array.from({ length }, (_, index) => new Date(first + index * DAY_MS).toISOString().slice(0, 10));
 }
 function isFormalWeek(forecast: ConvictionPeriodForecast, start: string, end: string, nowMs: number): boolean {
