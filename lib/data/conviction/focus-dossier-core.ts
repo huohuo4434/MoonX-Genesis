@@ -37,12 +37,18 @@ export function focusDossierPeriodDates(start: string, end: string): string[] {
 }
 
 export async function loadFocusDossierGeneratedDailies(input: {
-  dossier: Pick<FocusDossierView, "periodStart" | "periodEnd">;
+  dossier: Pick<FocusDossierView, "periodStart" | "periodEnd"> & Partial<Pick<FocusDossierView, "nextWeek">>;
   marketCode: string;
   read: (marketCode: string, dates: string[]) => Promise<GeneratedDailyForecastRecord[]>;
 }): Promise<GeneratedDailyForecastRecord[]> {
-  if (!input.dossier.periodStart || !input.dossier.periodEnd) return [];
-  const dates = focusDossierPeriodDates(input.dossier.periodStart, input.dossier.periodEnd);
+  const dates = Array.from(new Set([
+    ...(input.dossier.periodStart && input.dossier.periodEnd
+      ? focusDossierPeriodDates(input.dossier.periodStart, input.dossier.periodEnd)
+      : []),
+    ...(input.dossier.nextWeek
+      ? focusDossierPeriodDates(input.dossier.nextWeek.periodStart, input.dossier.nextWeek.periodEnd)
+      : []),
+  ])).sort();
   if (!dates.length) return [];
   return input.read(input.marketCode, dates);
 }
@@ -85,13 +91,6 @@ function latest<T extends ConvictionPeriodForecast>(forecasts: readonly T[]): T 
   return forecasts.slice().sort((left, right) =>
     right.version - left.version || right.publishedAt.localeCompare(left.publishedAt) || right.id.localeCompare(left.id)
   )[0] ?? null;
-}
-
-function hasCompleteDailyCoverage(forecast: ConvictionPeriodForecast): boolean {
-  const requiredDates = focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd);
-  if (!requiredDates.length) return false;
-  const suppliedDates = new Set((forecast.dailyPath ?? []).map((day) => day.date));
-  return requiredDates.every((date) => suppliedDates.has(date));
 }
 
 function backgroundHorizons(forecasts: readonly ConvictionPeriodForecast[], nowMs: number, asOfDate: string): FocusBackgroundHorizon[] {
@@ -172,15 +171,61 @@ function sourceDayToView(
   };
 }
 
-function nextForecastView(forecast: ConvictionPeriodForecast | null, asOfDate: string) {
+function generatedDailyView(
+  forecast: ConvictionPeriodForecast,
+  date: string,
+  asOfDate: string,
+  generatedDailies: readonly GeneratedDailyForecastRecord[],
+  nowMs: number,
+): FocusDossierDay | null {
+  const generated = generatedDailies
+    .filter((day) => {
+      const publishedAt = day.publishedAt ? Date.parse(day.publishedAt) : Number.NaN;
+      return day.forecastDate === date && day.sourceWeeklyForecastId === forecast.id &&
+        ["PUBLISHED", "LOCKED"].includes(day.status) && Number.isFinite(publishedAt) && publishedAt <= nowMs;
+    })
+    .sort((left, right) => right.version - left.version || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? ""))[0];
+  if (!generated) return null;
+  const sourceKind = generated.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] as FocusDossierDay["sourceKind"];
+  const generatedAsOf = generated.liuyaoEvidence?.match(/AS_OF=(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+  return {
+    date,
+    state: date === asOfDate ? "TODAY" : "PENDING",
+    direction: generated.direction === "NEUTRAL" ? "观察" : generated.direction,
+    summary: generated.expectedPath,
+    confirmation: generated.confirmationLevel,
+    invalidation: generated.invalidationLevel,
+    sourceKind: sourceKind ?? null,
+    version: generated.version,
+    asOfDate: generatedAsOf,
+    rollingReason: generated.revisionReason,
+    keyDayEvidence: parseKeyDayEvidence(generated.calendarEvidence),
+    auxiliaryEvidence: parseAuxiliaryEvidence(generated.technicalEvidence, generated.newsEvidence),
+  };
+}
+
+function nextForecastView(
+  forecast: ConvictionPeriodForecast | null,
+  asOfDate: string,
+  generatedDailies: readonly GeneratedDailyForecastRecord[] = [],
+  nowMs = Number.POSITIVE_INFINITY,
+) {
   if (!forecast) return null;
   const sourceDays = new Map((forecast.dailyPath ?? []).map((day) => [day.date, day]));
+  const dailyPath = focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => {
+    const sourceDay = sourceDays.get(date);
+    if (sourceDay?.status !== "已验证") {
+      const generated = generatedDailyView(forecast, date, asOfDate, generatedDailies, nowMs);
+      if (generated) return generated;
+    }
+    return { ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) };
+  });
   return {
     periodStart: forecast.periodStart,
     periodEnd: forecast.periodEnd,
     conclusion: forecast.summary,
-    dailyEvidenceReady: hasCompleteDailyCoverage(forecast),
-    dailyPath: focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => ({ ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) })),
+    dailyEvidenceReady: dailyPath.length > 0 && dailyPath.every((day) => day.state !== "MISSING"),
+    dailyPath,
     supportLevels: [...forecast.supportLevels],
     resistanceLevels: [...forecast.resistanceLevels],
     confirmation: forecast.confirmationLevel ?? null,
@@ -199,8 +244,10 @@ function emptyDossier(input: {
   longTerm: ConvictionPeriodForecast | null;
   supplementalEvidence: readonly FocusSupplementalEvidence[];
   backgroundHorizons: FocusBackgroundHorizon[];
+  generatedDailies: readonly GeneratedDailyForecastRecord[];
+  nowMs: number;
 }): FocusDossierView {
-  const nextWeek = nextForecastView(input.next, input.asOfDate);
+  const nextWeek = nextForecastView(input.next, input.asOfDate, input.generatedDailies, input.nowMs);
   const nextReady = Boolean(nextWeek?.dailyEvidenceReady);
   const monthlyEvidence = input.monthly ? {
     periodStart: input.monthly.periodStart,
@@ -305,7 +352,7 @@ export function buildFocusDossier(input: {
   const supplementalEvidence = input.supplementalEvidence ?? [];
   const backgrounds = backgroundHorizons(input.forecasts, input.nowMs, input.asOfDate);
   if (!current) {
-    return emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds });
+    return emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds, generatedDailies: input.generatedDailies ?? [], nowMs: input.nowMs });
   }
 
   const sourceDays = new Map((current.dailyPath ?? []).map((day) => [day.date, day]));
@@ -319,22 +366,7 @@ export function buildFocusDossier(input: {
     const sourceDay = sourceDays.get(date);
     const generated = sourceDay?.status === "已验证" ? null : generatedDays.get(date);
     if (generated) {
-      const sourceKind = generated.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] as FocusDossierDay["sourceKind"];
-      const generatedAsOf = generated.liuyaoEvidence?.match(/AS_OF=(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
-      return {
-        date,
-        state: date === input.asOfDate ? "TODAY" : "PENDING",
-        direction: generated.direction === "NEUTRAL" ? "观察" : generated.direction,
-        summary: generated.expectedPath,
-        confirmation: generated.confirmationLevel,
-        invalidation: generated.invalidationLevel,
-        sourceKind: sourceKind ?? null,
-        version: generated.version,
-        asOfDate: generatedAsOf,
-        rollingReason: generated.revisionReason,
-        keyDayEvidence: parseKeyDayEvidence(generated.calendarEvidence),
-        auxiliaryEvidence: parseAuxiliaryEvidence(generated.technicalEvidence, generated.newsEvidence),
-      };
+      return generatedDailyView(current, date, input.asOfDate, [generated], input.nowMs)!;
     }
     return { ...sourceDayToView(date, input.asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(current, date) };
   });
@@ -350,7 +382,7 @@ export function buildFocusDossier(input: {
     sourceKind: (row.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] ?? null) as FocusDossierView["dailyAuditRows"][number]["sourceKind"],
     revisionReason: row.revisionReason,
   }));
-  const nextWeek = nextForecastView(next, input.asOfDate);
+  const nextWeek = nextForecastView(next, input.asOfDate, input.generatedDailies ?? [], input.nowMs);
   const asOfMs = parseDateKey(input.asOfDate);
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
   const highlightPreparedNext = Boolean(weekend && nextWeek?.dailyEvidenceReady);

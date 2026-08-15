@@ -46,6 +46,42 @@ function dailyPath(startDay: number, count: number) {
   }));
 }
 
+function generatedDay(forecastDate: string, sourceWeeklyForecastId: string): GeneratedDailyForecastRecord {
+  return {
+    id: `generated-${forecastDate}`,
+    marketCode: "FOCUS:ASSET",
+    forecastDate,
+    sourceWeeklyForecastId,
+    direction: "NEUTRAL",
+    upProbability: 33,
+    sidewaysProbability: 34,
+    downProbability: 33,
+    expectedPath: `${forecastDate} 下周逐日研究`,
+    supportLevels: [],
+    resistanceLevels: [],
+    confirmationLevel: null,
+    invalidationLevel: null,
+    riskLevel: null,
+    catalysts: [],
+    risks: [],
+    liuyaoEvidence: "FOCUS_SOURCE_KIND=MOOX_WEEK_DERIVED; AS_OF=2026-08-15",
+    qimenEvidence: null,
+    calendarEvidence: null,
+    technicalEvidence: null,
+    newsEvidence: null,
+    marketProgressStatus: "NOT_STARTED",
+    revisionReason: null,
+    previousVersionId: null,
+    version: 1,
+    status: "PUBLISHED",
+    generatedAt: "2026-08-15T09:00:00+08:00",
+    publishedAt: "2026-08-15T09:00:00+08:00",
+    lockedAt: null,
+    validatedAt: null,
+    validationStatus: null,
+  };
+}
+
 test("a formal period longer than seven days is ready when every calendar date is covered", () => {
   const eightDays = forecast({ periodStart: "2026-08-09", periodEnd: "2026-08-16", dailyPath: dailyPath(9, 8) });
   const dossier = buildFocusDossier({ assetId: "asset", forecasts: [eightDays], asOfDate: "2026-08-15", nowMs: NOW });
@@ -142,6 +178,32 @@ test("weekend view highlights a fully prepared future week without presenting it
   assert.match(panel, /下周已准备（未来期）/);
   assert.match(panel, /本期资料仍按原周期保留/);
   assert.match(panel, /下一期逐日路径（未来期）/);
+});
+
+test("persisted next-week rows are loaded and overlaid only onto their exact weekly source", async () => {
+  const current = forecast({ id: "current-week-v1", summary: "本期正式结论", dailyPath: dailyPath(10, 7) });
+  const next = forecast({ id: "next-week-v1", periodStart: "2026-08-17", periodEnd: "2026-08-23", summary: "下周正式结论", dailyPath: undefined });
+  const base = buildFocusDossier({ assetId: "asset", forecasts: [current, next], asOfDate: "2026-08-15", nowMs: NOW });
+  const persisted = Array.from({ length: 7 }, (_, index) => generatedDay(`2026-08-${17 + index}`, next.id));
+  let readerCalls = 0;
+  const loaded = await loadFocusDossierGeneratedDailies({
+    dossier: base,
+    marketCode: "FOCUS:ASSET",
+    read: async (_marketCode, dates) => {
+      readerCalls += 1;
+      assert.deepEqual(dates, [
+        "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16",
+        "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23",
+      ]);
+      return [...persisted, generatedDay("2026-08-17", "different-week")];
+    },
+  });
+  assert.equal(readerCalls, 1);
+  const dossier = buildFocusDossier({ assetId: "asset", forecasts: [current, next], asOfDate: "2026-08-15", nowMs: NOW, generatedDailies: loaded });
+  assert.equal(dossier.nextWeek?.dailyEvidenceReady, true);
+  assert.equal(dossier.nextWeek?.dailyPath.length, 7);
+  assert.equal(dossier.nextWeek?.dailyPath[0]?.summary, "2026-08-17 下周逐日研究");
+  assert.equal(dossier.displayScope, "NEXT_PERIOD_READY");
 });
 
 test("a formal forecast for the week after next is not labeled or promoted as next week", () => {
