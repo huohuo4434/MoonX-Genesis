@@ -44,11 +44,11 @@ export type FocusSupplementalEvidence = {
   id: string;
   periodStart: string;
   periodEnd: string;
-  status: "LATE_INGESTED_SOURCE" | "SOURCE_GAP";
+  status: "LATE_INGESTED_SOURCE" | "SOURCE_GAP" | "FORWARD_AUXILIARY";
   executionAuthority: "RESEARCH_ONLY";
   sourceArtifact: string;
-  sourcePublishedAt: null;
-  lockedAt: null;
+  sourcePublishedAt: string | null;
+  lockedAt: string | null;
   summary: string | null;
   gapNote: string | null;
   includedInHistoricalHitRate: false;

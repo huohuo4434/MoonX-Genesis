@@ -23,7 +23,7 @@ import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-20260728";
 import { listResearchRecords } from "@/lib/data/research-records";
 import { buildTeacherSourceBlend, teacherBlendAssetIdForDailyKey } from "@/lib/research/teacher-source-weights";
-import { computeWeightedResearchVote } from "@/lib/research/weighted-research-vote";
+import { computeWeightedResearchVote, isResearchRecordEligibleForDirectionVote } from "@/lib/research/weighted-research-vote";
 
 type AssetKey = (typeof DAILY_ACCURACY_ASSETS)[number]["key"];
 
@@ -129,6 +129,7 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
   };
   const hints = assetHints[assetKey];
   const matched = records.filter((r) => {
+    if (!isResearchRecordEligibleForDirectionVote(r)) return false;
     if (r.forecastStart && forecastDate < r.forecastStart) return false;
     if (r.forecastEnd && forecastDate > r.forecastEnd) return false;
     if (r.expiresAt && new Date(`${forecastDate}T12:00:00Z`).getTime() >= new Date(r.expiresAt).getTime()) return false;
@@ -147,9 +148,13 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
   });
 
   const tech = await technicalContext(assetKey, forecastDate);
-  if (!matched.length && !tech) return null;
+  const teacherAssetId = teacherBlendAssetIdForDailyKey(assetKey);
+  const teacherBlend = teacherAssetId
+    ? buildTeacherSourceBlend({ assetId: teacherAssetId, asOfDate: forecastDate, records })
+    : null;
+  if (!matched.length && !tech && !teacherBlend) return null;
 
-  if (!matched.length) {
+  if (!matched.length && !teacherBlend) {
     return {
       sourceIds: [`tech-${assetKey}-${forecastDate}`],
       sourceType: "insufficient",
@@ -169,15 +174,11 @@ async function gatherEvidence(assetKey: AssetKey, forecastDate: string): Promise
   const directionVoters = matched.filter(
     (r) => !(assetKey === "WTI" && r.id === WTI_EXT_PATH_RECORD_ID)
   );
-  const teacherAssetId = teacherBlendAssetIdForDailyKey(assetKey);
-  const teacherBlend = teacherAssetId
-    ? buildTeacherSourceBlend({ assetId: teacherAssetId, asOfDate: forecastDate, records })
-    : null;
   const vote = computeWeightedResearchVote({
-    records: directionVoters.length ? directionVoters : matched,
+    records: directionVoters,
     teacherBlend,
   });
-  const ids = vote.sourceIds.length ? vote.sourceIds : matched.slice(0, 5).map((r) => r.id);
+  const ids = vote.sourceIds;
   const lean: Evidence["lean"] = vote.lean;
 
   if (lean === "ABSTAIN") {

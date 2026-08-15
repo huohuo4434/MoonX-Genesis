@@ -231,16 +231,21 @@ test("monthly-only focus assets show the monthly conclusion and explicit weekly 
 
 test("MU late source and SNDK source gap remain research-only and cannot become formal or historical hits", () => {
   const mu = listFocusResearchSupplements("mu");
-  assert.equal(mu.length, 1);
+  assert.equal(mu.length, 2);
   assert.deepEqual({ status: mu[0]?.status, authority: mu[0]?.executionAuthority, publishedAt: mu[0]?.sourcePublishedAt, lockedAt: mu[0]?.lockedAt, summary: mu[0]?.summary, historical: mu[0]?.includedInHistoricalHitRate }, {
     status: "LATE_INGESTED_SOURCE", authority: "RESEARCH_ONLY", publishedAt: null, lockedAt: null, summary: null, historical: false,
   });
   assert.match(mu[0]?.gapNote ?? "", /不回填正式周预测，也不计入历史命中/);
+  assert.equal(mu[1]?.status, "LATE_INGESTED_SOURCE");
+  assert.match(mu[1]?.summary ?? "", /三买推进后的冲高回踩/);
+  assert.equal(mu[1]?.includedInHistoricalHitRate, false);
 
   const sndk = listFocusResearchSupplements("sandisk");
   assert.equal(sndk[0]?.status, "SOURCE_GAP");
   assert.equal(sndk[0]?.summary, null);
   assert.match(sndk[0]?.gapNote ?? "", /暂不写入方向结论/);
+  assert.equal(sndk[1]?.status, "LATE_INGESTED_SOURCE");
+  assert.match(sndk[1]?.summary ?? "", /30分钟三买结构/);
 
   const dossier = buildFocusDossier({ assetId: "mu", forecasts: [], asOfDate: "2026-08-15", nowMs: NOW, supplementalEvidence: mu });
   assert.equal(dossier.conclusion, null);

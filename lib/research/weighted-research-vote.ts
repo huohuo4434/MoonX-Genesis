@@ -35,6 +35,15 @@ function frameworkWeight(framework: ResearchFramework): number {
   return FRAMEWORK_WEIGHTS[framework] ?? 1;
 }
 
+/** Single production gate for any research record that can affect direction. */
+export function isResearchRecordEligibleForDirectionVote(record: ResearchRecord): boolean {
+  if (record.consensusEligible !== true) return false;
+  if (record.verificationEligibility === "provisional") return false;
+  if (record.direction === "insufficient-evidence") return false;
+  if (record.tags.includes("no-direction-score")) return false;
+  return true;
+}
+
 /**
  * Groups records by framework so many records from one method cannot create
  * multiple artificial votes. When a teacher blend exists, all raw Liu-Yao
@@ -46,8 +55,7 @@ export function computeWeightedResearchVote(input: {
 }): WeightedResearchVote {
   const groups = new Map<ResearchFramework, ResearchRecord[]>();
   const usable = input.records.filter((record) => {
-    if (record.direction === "insufficient-evidence") return false;
-    if (record.tags.includes("no-direction-score")) return false;
+    if (!isResearchRecordEligibleForDirectionVote(record)) return false;
     if (input.teacherBlend && (record.framework === "oracle-six-yao" || record.tags.includes("source:teacher02"))) {
       return false;
     }

@@ -140,12 +140,12 @@ export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossie
 
       {dossier.supplementalEvidence.length ? (
         <details className="rounded-lg border border-amber-300/15 bg-amber-300/[0.025] p-3">
-          <summary className="cursor-pointer text-body-sm text-amber-100/80">晚录入与来源缺口（不计历史命中）</summary>
+          <summary className="cursor-pointer text-body-sm text-amber-100/80">易老师综合研究补充（不改正式方向）</summary>
           <div className="mt-3 space-y-3">
             {dossier.supplementalEvidence.map((item) => (
               <article key={item.id} className="rounded-lg border border-white/[0.07] bg-black/15 p-3 text-caption leading-6 text-white/55">
                 <p className="text-white/75">{item.periodStart} 至 {item.periodEnd} · {item.status} · RESEARCH_ONLY</p>
-                <p>研究资料为后补档案 · 原始来源与路径仅供管理员审计 · 不计入历史命中</p>
+                <p>{item.status === "FORWARD_AUXILIARY" ? "前瞻辅助证据" : "历史补充档案"} · 原始来源与路径仅供管理员审计 · 不计入正式命中</p>
                 <p>{item.summary ?? item.gapNote ?? "内容待可靠结构化。"}</p>
                 <p className="text-rose-100/60">不回填正式预测，不计入历史命中。</p>
               </article>
