@@ -471,6 +471,59 @@ function LongTermArchive({ periods }: { periods: ConvictionPeriodSlot[] }) {
   );
 }
 
+// MOOX_TSLA_LITE_DERIVED_DAILY_V7187
+function pickResearchBasisPeriod(periods: ConvictionPeriodSlot[], asOfDate: string) {
+  const published = periods.filter((slot) => Boolean(slot.forecast));
+  const active = published.find(
+    (slot) => Boolean(slot.forecast) && slot.forecast!.periodStart <= asOfDate && slot.forecast!.periodEnd >= asOfDate
+  );
+  if (active) return active;
+  const upcoming = published
+    .filter((slot) => Boolean(slot.forecast) && slot.forecast!.periodStart > asOfDate)
+    .sort((a, b) => a.forecast!.periodStart.localeCompare(b.forecast!.periodStart));
+  if (upcoming.length) return upcoming[0];
+  return published
+    .slice()
+    .sort((a, b) => b.forecast!.periodEnd.localeCompare(a.forecast!.periodEnd))[0] ?? null;
+}
+
+function TslaLiteDerivedDailyCard({
+  slug,
+  periods,
+  asOfDate,
+}: {
+  slug: string;
+  periods: ConvictionPeriodSlot[];
+  asOfDate: string;
+}) {
+  if (slug !== "tsla" && slug !== "lite") return null;
+  const basis = pickResearchBasisPeriod(periods, asOfDate);
+  const formalCount = periods.filter((slot) => Boolean(slot.forecast)).length;
+  const coverage = slug === "tsla"
+    ? "11个正式周期：连续周段、到年底、2027及未来三年"
+    : "5个正式周期 + 1个同问旁证：连续三周、到9月底及到年底";
+  return (
+    <Card padding="md" className="border-cyan-300/20 bg-cyan-300/[0.035]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Text variant="body-sm" weight="semibold" className="text-cyan-50">研究资料已完整接入</Text>
+        <Badge variant="outline">已锁定 {formalCount} 个页面周期</Badge>
+      </div>
+      <Text variant="caption" className="mt-2 block text-cyan-50/70">{coverage}。系统不要求日卦；没有日卦不属于资料缺失。</Text>
+      <Text variant="caption" className="mt-2 block text-white/60">日内分析规则：从当前有效周卦/阶段卦拆解当日节奏，再叠加缠论、支撑压力、成交与风险结构验算。技术只决定位置和是否可交易，不反向修改六爻方向。</Text>
+      {basis?.forecast ? (
+        <div className="mt-3 rounded-lg border border-white/[0.08] bg-black/20 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">当前基准：{basis.labelZh}</Badge>
+            <Badge variant="outline">{mooxDirectionLabelZh(basis.forecast.direction)}</Badge>
+          </div>
+          <Text variant="caption" className="mt-2 block text-white/55">周卦拆解基准：{basis.forecast.expectedPath}</Text>
+          <Text variant="caption" className="mt-1 block text-amber-100/70">当日没有形成缠论/技术确认时，输出“等待”或“不交易”，而不是补造日卦。</Text>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailPayload }) {
   const a = payload.public;
   const mcap = formatMarketCapDisplay(a);
@@ -500,9 +553,15 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
   ].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
   const tabs = payload.periodSlots;
+  const isTslaLiteResearch = a.slug === "tsla" || a.slug === "lite";
+  const lockedResearchCount = tabs.filter((item) => item.hasResearch).length;
+  const staticResearchComplete = isTslaLiteResearch && lockedResearchCount > 0;
   const visibleTypes = new Set(tabs.map((item) => item.type));
   const archivePeriods = payload.forecast?.periods?.filter((item) => !visibleTypes.has(item.type)) ?? [];
-  const [tab, setTab] = useState(tabs[0]?.type ?? "WEEK");
+  const preferredResearchTab = payload.forecast?.periods
+    ? pickResearchBasisPeriod(payload.forecast.periods, payload.asOfDate)?.type
+    : tabs.find((item) => item.hasResearch)?.type;
+  const [tab, setTab] = useState(preferredResearchTab ?? tabs[0]?.type ?? "WEEK");
   const hasUnifiedDossier = payload.mode === "fullAccess" && Boolean(payload.focusDossier);
 
   return (
@@ -527,7 +586,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
             <Badge variant="outline">{a.assetType === "STOCK" ? "股票" : a.assetType === "CRYPTO" ? "加密资产" : a.assetType === "ETF" ? "ETF" : a.assetType === "INDEX" ? "指数" : "商品"}</Badge>
             <Badge variant="outline">MOOX评级：{a.rating}</Badge>
             <Badge variant="outline">风险等级：{a.riskLevel}</Badge>
-            <Badge variant="outline">{a.researchStatusZh}</Badge>
+            <Badge variant="outline">{staticResearchComplete ? (a.slug === "tsla" ? "多周期研究已锁定 · 11个周期" : "多周期研究已锁定 · 5个正式周期 + 1个旁证") : a.researchStatusZh}</Badge>
           </div>
           <p className="mt-2 text-caption text-white/40">
             最近更新：{formatDateChina(a.researchUpdatedAt)}
@@ -621,14 +680,18 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           </section>
         ) : null}
 
-        {payload.freshness.needsUpdate ? (
+        {payload.freshness.needsUpdate && !staticResearchComplete ? (
           <Card padding="md" className="border-red-400/20 bg-red-400/[0.04]">
             <Text variant="body-sm" weight="semibold" className="text-red-100">当前周期研究待更新</Text>
             <Text variant="caption" className="mt-1 block text-red-100/65">{payload.freshness.label}。页面不再把过期内容标记为当前报告。</Text>
           </Card>
         ) : null}
 
-        <section className="space-y-3">
+                {payload.mode === "fullAccess" && staticResearchComplete && payload.forecast?.periods ? (
+          <TslaLiteDerivedDailyCard slug={a.slug} periods={payload.forecast.periods} asOfDate={payload.asOfDate} />
+        ) : null}
+
+<section className="space-y-3">
           <h2 className="font-mono text-caption uppercase tracking-[0.16em] text-white/40">会员预测周期</h2>
           <div className="flex flex-wrap gap-2">
             {tabs.map((t) => (
@@ -661,7 +724,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                   <h2 className="mt-1 text-h3 text-white">研究已经做完，答案没有放在公开页。</h2>
                 </div>
                 <Badge variant="outline" className="border-amber-300/20 bg-amber-300/[.05] text-amber-100/75">
-                  已完成 {tabs.filter((item) => item.hasResearch).length} 个公开可识别周期
+                  已锁定 {tabs.filter((item) => item.hasResearch).length} 个研究周期
                 </Badge>
               </div>
               <p className="mt-3 max-w-3xl text-body-sm leading-7 text-white/55">

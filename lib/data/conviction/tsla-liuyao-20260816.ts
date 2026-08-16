@@ -5,6 +5,14 @@ import {
 
 export type TSLAResearchAssetId = "tsla";
 
+export const TSLA_RESEARCH_COMPLETENESS_20260816 = {
+  formalPeriodCount: 11,
+  corroborationCount: 0,
+  requiresDailyHexagram: false,
+  dailyAnalysisSourceZh: "当前有效周卦/阶段卦拆解 + 缠论与技术结构验算",
+  completenessRuleZh: "已经提供并锁定的周卦、月度/阶段卦和年底/长期卦构成完整研究；没有日卦不属于资料缺失。",
+} as const;
+
 export function isTSLAResearchAssetId(value: string): value is TSLAResearchAssetId {
   return value === "tsla";
 }

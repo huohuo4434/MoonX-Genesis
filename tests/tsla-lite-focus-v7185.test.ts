@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   TSLA_LIUYAO_FORECASTS_20260816,
   TSLA_PERIOD_ORDER,
+  TSLA_RESEARCH_COMPLETENESS_20260816,
   tslaPeriodLabel20260816,
 } from "@/lib/data/conviction/tsla-liuyao-20260816";
 import {
   LITE_LIUYAO_FORECASTS_20260816,
   LITE_PERIOD_ORDER,
+  LITE_RESEARCH_COMPLETENESS_20260816,
   litePeriodLabel20260816,
 } from "@/lib/data/conviction/lite-liuyao-20260816";
 
@@ -105,4 +107,16 @@ test("technical and external evidence remain execution-only", () => {
   const long = LITE_LIUYAO_FORECASTS_20260816.find((x) => x.forecastType === "YEAR_1")!;
   assert.equal(long.direction, "震荡上涨");
   assert.equal(TSLA_LIUYAO_FORECASTS_20260816.find((x) => x.forecastType === "YEAR_3")?.direction, "先涨后跌");
+});
+
+
+test("TSLA and LITE completeness explicitly does not require daily hexagrams", () => {
+  assert.equal(TSLA_RESEARCH_COMPLETENESS_20260816.formalPeriodCount, 11);
+  assert.equal(TSLA_RESEARCH_COMPLETENESS_20260816.requiresDailyHexagram, false);
+  assert.match(TSLA_RESEARCH_COMPLETENESS_20260816.dailyAnalysisSourceZh, /周卦\/阶段卦拆解/);
+  assert.match(TSLA_RESEARCH_COMPLETENESS_20260816.completenessRuleZh, /没有日卦不属于资料缺失/);
+  assert.equal(LITE_RESEARCH_COMPLETENESS_20260816.formalPeriodCount, 5);
+  assert.equal(LITE_RESEARCH_COMPLETENESS_20260816.corroborationCount, 1);
+  assert.equal(LITE_RESEARCH_COMPLETENESS_20260816.requiresDailyHexagram, false);
+  assert.match(LITE_RESEARCH_COMPLETENESS_20260816.dailyAnalysisSourceZh, /缠论与技术结构验算/);
 });

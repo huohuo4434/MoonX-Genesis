@@ -5,6 +5,14 @@ import {
 
 export type LITEResearchAssetId = "lite";
 
+export const LITE_RESEARCH_COMPLETENESS_20260816 = {
+  formalPeriodCount: 5,
+  corroborationCount: 1,
+  requiresDailyHexagram: false,
+  dailyAnalysisSourceZh: "当前有效周卦/阶段卦拆解 + 缠论与技术结构验算",
+  completenessRuleZh: "已经提供并锁定的周卦、月度/阶段卦和年底/长期卦构成完整研究；没有日卦不属于资料缺失。",
+} as const;
+
 export function isLITEResearchAssetId(value: string): value is LITEResearchAssetId {
   return value === "lite";
 }
