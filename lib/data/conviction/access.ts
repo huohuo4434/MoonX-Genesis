@@ -36,6 +36,22 @@ import {
   isAShareResearchAssetId,
   type AShareResearchAssetId,
 } from "@/lib/data/conviction/a-share-liuyao-20260810";
+import {
+  TSLA_PERIOD_ORDER,
+  TSLA_VISIBLE_PERIOD_ORDER,
+  listTSLAPeriodForecasts20260816,
+  tslaPeriodLabel20260816,
+  tslaPeriodMeta20260816,
+  type TSLAResearchAssetId,
+} from "@/lib/data/conviction/tsla-liuyao-20260816";
+import {
+  LITE_PERIOD_ORDER,
+  LITE_VISIBLE_PERIOD_ORDER,
+  listLITEPeriodForecasts20260816,
+  litePeriodLabel20260816,
+  litePeriodMeta20260816,
+  type LITEResearchAssetId,
+} from "@/lib/data/conviction/lite-liuyao-20260816";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
   LONGXIN_FULL_PERIOD_ORDER,
@@ -235,17 +251,22 @@ type StaticPeriodAssetId =
   | "eth"
   | "btc"
   | VibeFocusAssetId
-  | AShareResearchAssetId;
+  | AShareResearchAssetId
+  | TSLAResearchAssetId
+  | LITEResearchAssetId;
 // V7.17.3 A-share static dossiers
 
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
+  if (value === "tsla" || value === "lite") return true;
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
 }
 
 function staticPublished(assetId: StaticPeriodAssetId) {
+  if (assetId === "tsla") return listTSLAPeriodForecasts20260816();
+  if (assetId === "lite") return listLITEPeriodForecasts20260816();
   return listStaticFocusForecasts(assetId);
 }
 
@@ -266,6 +287,8 @@ export async function listStaticFocusEvidence(): Promise<Array<{
 }
 
 function fullOrder(assetId: StaticPeriodAssetId) {
+  if (assetId === "tsla") return TSLA_PERIOD_ORDER;
+  if (assetId === "lite") return LITE_PERIOD_ORDER;
   if (isAShareResearchAssetId(assetId)) return A_SHARE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
@@ -285,6 +308,8 @@ function fullOrder(assetId: StaticPeriodAssetId) {
 }
 
 function visibleOrder(assetId: StaticPeriodAssetId) {
+  if (assetId === "tsla") return TSLA_VISIBLE_PERIOD_ORDER;
+  if (assetId === "lite") return LITE_VISIBLE_PERIOD_ORDER;
   if (isAShareResearchAssetId(assetId)) return A_SHARE_VISIBLE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
@@ -304,6 +329,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
 }
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
+  if (assetId === "tsla") return tslaPeriodLabel20260816(type);
+  if (assetId === "lite") return litePeriodLabel20260816(type);
   if (isAShareResearchAssetId(assetId)) return aSharePeriodLabel20260810(type);
   if (assetId === "hype") return periodLabelForHype20260809(type);
   if (assetId === "sol") return periodLabelForSol20260809(type);
@@ -437,6 +464,8 @@ async function attachAdminKeyDates(
 }
 
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
+  if (assetId === "tsla") return tslaPeriodMeta20260816();
+  if (assetId === "lite") return litePeriodMeta20260816();
   if (isAShareResearchAssetId(assetId)) return aSharePeriodMeta20260810(assetId);
   if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "nbis") return nbisPeriodMeta();
@@ -699,6 +728,8 @@ export type ConvictionWeeklyFreshnessOverview = {
 };
 
 const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
+  tsla: "TSLA",
+  lite: "LITE",
   "ganfeng-lithium": "赣锋锂业",
   "lian-tech": "利安科技",
   "lexin-medical": "乐心医疗",

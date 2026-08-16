@@ -479,6 +479,8 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     ? "/pricing"
     : `/login?next=${encodeURIComponent(a.detailHref)}`;
   const isStaticPeriodAsset = [
+    "tsla",
+    "lite",
     "cxmt",
     "asteroid",
     "sandisk",

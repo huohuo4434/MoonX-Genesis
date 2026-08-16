@@ -4,7 +4,7 @@
  */
 import type { ConvictionAsset } from "@/types/conviction-asset";
 
-export const CONVICTION_ASSETS_MAX = 16;
+export const CONVICTION_ASSETS_MAX = 24;
 
 export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
   {
@@ -729,6 +729,33 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     risksZh: ["原卦题名称曾误写，已由用户确认对象为赣锋锂业002460", "8月高波动", "10月底后需重新起卦"], risksEn: ["Original prompt name corrected by user", "August volatility", "Re-read required after October"],
     marketCap: null, marketCapCurrency: "CNY", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-10", displayOrder: 13, isPublished: true, memberForecastStockId: null,
   },
+  {
+    id: "tsla", slug: "tsla", assetType: "STOCK",
+    nameZh: "特斯拉", nameEn: "Tesla", aliases: ["TSLA", "Tesla", "特斯拉"],
+    symbol: "TSLA", exchange: "NASDAQ", network: null, contractAddress: null, contractPendingAdminConfirm: false,
+    status: "published", riskLevel: "高", rating: "A", tags: ["EV", "AI", "Robotaxi", "Energy", "High Volatility", "六爻研究"],
+    summaryZh: "特斯拉多周期重点研究档案。MOOX已拆分8月17日至10月4日七个周段、到年底、2027年及未来三年，并保留万里老师外部六爻旁证但不覆盖MOOX锁定方向。",
+    summaryEn: "Tesla multi-horizon research dossier covering seven weekly windows, year-end, 2027 and the three-year path, with external Liu Yao evidence kept separate from MOOX direction calls.",
+    thesisZh: ["六爻负责各周期正式方向，不能用一个大周期覆盖所有周段。", "8月底偏多、9月上旬仍有洗盘，9月中下旬至10月初是更强窗口。", "年底大周期为先涨后跌；2027偏多；未来三年震荡上行但包含大回撤。", "技术分析只寻找回踩、确认和风控位置，不反向修改六爻方向。"],
+    thesisEn: ["Each Liu Yao horizon is read independently.", "Late August is constructive, early September remains vulnerable, and late September into early October is the stronger window.", "The year-end path is up then down; 2027 is constructive; the three-year path remains higher but includes deep drawdowns.", "Technicals are execution-only and cannot reverse Liu Yao direction."],
+    catalystsZh: ["Robotaxi与AI叙事", "能源与储能", "产品与消息催化", "风险偏好", "估值重构"], catalystsEn: ["Robotaxi and AI", "Energy storage", "Product/news catalysts", "Risk appetite", "Valuation repricing"],
+    risksZh: ["高波动", "年底回撤", "估值压力", "消息冲击", "2028独立周期风险"], risksEn: ["High volatility", "Year-end drawdown", "Valuation risk", "Headline shocks", "Independent 2028 cycle risk"],
+    marketCap: null, marketCapCurrency: "USD", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-16", displayOrder: 17, isPublished: true, memberForecastStockId: null,
+  },
+  {
+    id: "lite", slug: "lite", assetType: "STOCK",
+    nameZh: "Lumentum（LITE）", nameEn: "Lumentum", aliases: ["LITE", "Lumentum", "Lumentum Holdings"],
+    symbol: "LITE", exchange: "NASDAQ", network: null, contractAddress: null, contractPendingAdminConfirm: false,
+    status: "published", riskLevel: "高", rating: "A", tags: ["Optical", "AI Datacenter", "Photonics", "High Volatility", "Wave Analysis", "六爻研究"],
+    summaryZh: "Lumentum多周期重点研究档案。MOOX已录入连续三周、8月17日至9月底和到年底六爻路线，并把817.57、1032、1265、1680作为波浪执行参考，不让技术点位反向修改六爻方向。",
+    summaryEn: "Lumentum multi-horizon Liu Yao dossier with three weekly windows, the Aug–Sep path and the year-end path. Wave levels are execution references only.",
+    thesisZh: ["8月17—23日先防高位分歧和回踩。", "8月24日后逐步转强，8月底至9月初为高波动偏多。", "到年底总体震荡上行，但同问重起卦只作旁证，不重复加权。", "817.57/1032/1265/1680只负责失效、确认和目标，不决定玄学方向。"],
+    thesisEn: ["Watch for high-level divergence and a pullback in Aug 17–23.", "The path improves after Aug 24 and remains bullish but volatile into early September.", "The year-end path is higher; a repeated casting is corroboration, not a second vote.", "Wave levels govern execution only."],
+    catalystsZh: ["AI数据中心光通信", "光器件需求", "产能与产品升级", "资金聚集", "潜在三浪"], catalystsEn: ["AI datacenter optics", "Optical-component demand", "Capacity/product upgrades", "Capital concentration", "Potential wave three"],
+    risksZh: ["高波动", "双六冲", "财报后追高", "假突破", "817.57结构失效"], risksEn: ["High volatility", "Double six-clash", "Post-earnings chasing", "False breakouts", "817.57 structure invalidation"],
+    marketCap: null, marketCapCurrency: "USD", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-16", displayOrder: 18, isPublished: true, memberForecastStockId: null,
+  },
+
 
 
 ];

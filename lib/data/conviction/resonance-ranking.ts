@@ -1,4 +1,6 @@
 import "server-only";
+import { listTSLAPeriodForecasts20260816 } from "@/lib/data/conviction/tsla-liuyao-20260816";
+import { listLITEPeriodForecasts20260816 } from "@/lib/data/conviction/lite-liuyao-20260816";
 import { listASharePeriodForecasts20260810 } from "@/lib/data/conviction/a-share-liuyao-20260810";
 
 import { listAsteroidPeriodForecasts, type ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
@@ -121,6 +123,8 @@ function spcxSignal(asOfDate: string): WatchlistResonanceSignal {
 
 export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistResonanceSignal[] {
   const signals = [
+    regularSignal("tsla", listTSLAPeriodForecasts20260816(), asOfDate),
+    regularSignal("lite", listLITEPeriodForecasts20260816(), asOfDate),
     regularSignal("lexin-medical", listASharePeriodForecasts20260810("lexin-medical"), asOfDate),
     regularSignal("lian-tech", listASharePeriodForecasts20260810("lian-tech"), asOfDate),
     regularSignal("ganfeng-lithium", listASharePeriodForecasts20260810("ganfeng-lithium"), asOfDate),

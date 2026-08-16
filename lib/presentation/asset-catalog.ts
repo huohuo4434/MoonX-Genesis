@@ -58,6 +58,9 @@ export const ASSET_PRESENTATIONS: AssetPresentation[] = [
   { assetId: "lian-tech", nameZh: "利安科技", symbol: "300784", displaySymbol: "300784", venue: "深圳证券交易所创业板", marketLabel: "股票", aliases: ["300784.SZ"] },
   { assetId: "ganfeng-lithium", nameZh: "赣锋锂业", symbol: "002460", displaySymbol: "002460", venue: "深圳证券交易所主板", marketLabel: "股票", aliases: ["002460", "002460.SZ", "赣锋锂业", "赣南锂业"] },
 
+  { assetId: "tsla", nameZh: "特斯拉", symbol: "TSLA", displaySymbol: "TSLA", venue: "NASDAQ", marketLabel: "股票", aliases: ["Tesla"] },
+  { assetId: "lite", nameZh: "Lumentum", symbol: "LITE", displaySymbol: "LITE", venue: "NASDAQ", marketLabel: "股票", aliases: ["Lumentum", "Lumentum Holdings"] },
+
 ];
 
 function normalized(value: string): string {

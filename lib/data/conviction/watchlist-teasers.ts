@@ -274,6 +274,25 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     accent: "rose",
     priority: 11,
   },
+  {
+    slug: "tsla", assetType: "STOCK", nameZh: "特斯拉", nameEn: "Tesla", symbol: "TSLA", detailHref: "/featured-stocks/tsla", rating: "A", riskZh: "高",
+    eyebrowZh: "特斯拉多周期专题 · 周段到三年", eyebrowEn: "Tesla multi-horizon dossier · weeks through three years",
+    headlineZh: "特斯拉：短期、年底与2027并不是同一个方向", headlineEn: "Tesla: the near-term, year-end and 2027 paths are not the same trade",
+    hookZh: "七个连续周段、到年底、2027与未来三年已经分开研究。公开页只展示覆盖深度，会员档案才显示各段正式方向、外部旁证与执行纪律。",
+    hookEn: "Seven weekly windows, year-end, 2027 and the three-year path are separated. Exact calls and evidence remain member-only.",
+    coverageZh: "连续七周 / 到年底 / 2027 / 未来三年 / 万里旁证", coverageEn: "7 weekly windows / year-end / 2027 / three years / external cross-check",
+    lockedPreviewZh: ["七段周内路线", "年底转折", "2027方向", "长期回撤风险"], lockedPreviewEn: ["Seven-week map", "Year-end turn", "2027 direction", "Long-cycle drawdown"], accent: "rose", priority: 8.9,
+  },
+  {
+    slug: "lite", assetType: "STOCK", nameZh: "Lumentum", nameEn: "Lumentum", symbol: "LITE", detailHref: "/featured-stocks/lite", rating: "A", riskZh: "高",
+    eyebrowZh: "AI光通信专题 · 六爻与波浪分层", eyebrowEn: "AI-optics dossier · Liu Yao plus wave execution",
+    headlineZh: "LITE：长期方向和眼前买点必须分开看", headlineEn: "LITE: the long-term direction and the current entry are two different questions",
+    hookZh: "连续三周、到9月底和到年底已经拆开；波浪点位只负责执行，不会反向改写六爻方向。精确方向与关键位留在会员档案。",
+    hookEn: "Three weekly windows, the Sep path and year-end are separated. Wave levels guide execution only; exact calls remain member-only.",
+    coverageZh: "连续三周 / 9月底 / 年底 / 波浪执行", coverageEn: "3 weeks / September / year-end / wave execution",
+    lockedPreviewZh: ["短期回踩窗口", "转强阶段", "年底方向", "结构失效与目标"], lockedPreviewEn: ["Pullback window", "Strength phase", "Year-end direction", "Invalidation and targets"], accent: "cyan", priority: 9.0,
+  },
+
 ];
 
 export const WATCHLIST_TEASER_BY_SLUG = Object.fromEntries(
