@@ -12,6 +12,9 @@ import {
 } from "@/lib/i18n/server";
 import { siteConfig } from "@/lib/site-config";
 import { runResearchDataValidation } from "@/lib/research/run-validation";
+import { PlainLanguageDirectionGuard } from "@/components/system/PlainLanguageDirectionGuard";
+import { TomorrowViewFallback } from "@/components/home/TomorrowViewFallback";
+import { WatchlistDailyDomFallback } from "@/components/watchlist/WatchlistDailyDomFallback";
 import "@/styles/globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -73,6 +76,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <MobileBottomNav />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+        <PlainLanguageDirectionGuard />
+        <TomorrowViewFallback />
+        <WatchlistDailyDomFallback />
       </body>
     </html>
   );

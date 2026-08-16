@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/crypto-beijing-reverify",
       "schedule": "17 * * * *"
+    },
+    {
+      "path": "/api/cron/watchlist-weekly-daily",
+      "schedule": "0 12 * * 6"
     }
   ]
 }
