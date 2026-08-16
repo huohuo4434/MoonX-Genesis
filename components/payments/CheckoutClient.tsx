@@ -359,7 +359,7 @@ export function CheckoutClient({
             <Text variant="caption" color="tertiary">
               {en
                 ? (network === "TRC20" ? "The hash field below is optional. Use it only to accelerate verification if automatic discovery is delayed." : "After submission, the chain is checked immediately and then every minute. Correct confirmed payments activate membership automatically; no manual review is required.")
-                : (network === "TRC20" ? "下方交易哈希为可选项；只有自动识别延迟时，才需要粘贴哈希手动加速核验。" : "提交后系统会立即核验，并由 Vercel 每分钟自动重试。正确且已确认的付款会自动开通会员，无需人工审核。")}
+                : (network === "TRC20" ? "下方交易哈希为可选项；只有自动识别延迟时，才需要粘贴哈希手动加速核验。" : "提交后系统会立即核验，并系统会自动重试发送。正确且已确认的付款会自动开通会员，无需人工审核。")}
             </Text>
             <Button type="submit" disabled={loading || remaining <= 0 || !txHash.trim()}>
               {loading ? (en ? "Verifying…" : "核验中…") : en ? "Verify with transaction hash" : "手动提交哈希核验（可选）"}

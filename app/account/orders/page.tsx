@@ -53,7 +53,7 @@ export default async function AccountOrdersPage() {
   return (
     <main>
       <Section spacing="lg">
-        <Heading as="h1" size="h2">我的订单 · My orders</Heading>
+        <Heading as="h1" size="h2">我的订单</Heading>
         <Text variant="body-sm" color="secondary" className="mt-2">
           新订单由系统自动核验并开通；只有错链、错币、少付等异常情况需要人工处理。
         </Text>

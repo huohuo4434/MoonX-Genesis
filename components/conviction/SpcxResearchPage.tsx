@@ -184,7 +184,7 @@ export default function SpcxResearchPage({ language }: { language: SpcxLanguage 
               ? english ? "Checking membership…" : "正在核验会员状态…"
               : state === "unavailable"
                 ? english ? "Membership check is temporarily unavailable. Protected research remains hidden." : "会员核验暂时不可用，受保护研究未被公开。"
-                : english ? "A valid membership is required." : "需要有效会员权限。"}
+                : english ? "A valid membership is required." : "需要付费会员权限。"}
           </div>
         </section>
       )}

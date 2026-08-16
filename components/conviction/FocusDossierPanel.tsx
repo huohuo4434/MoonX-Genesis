@@ -62,7 +62,7 @@ export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossie
         </Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
           <p className="text-caption text-white/40">确认 / 失效</p>
-          <p className="mt-1 text-body-sm text-white/75">{primaryConfirmation ?? "未提供正式确认位"}</p>
+          <p className="mt-1 text-body-sm text-white/75">{primaryConfirmation ?? "本期不设确认位"}</p>
           <p className="mt-1 text-caption text-white/45">{primaryInvalidation ?? "未提供正式失效位"}</p>
         </Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">

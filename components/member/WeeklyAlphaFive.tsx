@@ -201,7 +201,7 @@ function EntryCard({ entry, en }: { entry: PublicWeeklyAlphaEntry; en: boolean }
           <div className="mb-2 flex items-end justify-between gap-3">
             <div>
               <div className="text-body-sm font-semibold">{en ? "Real-candle execution layer" : "真实K线执行层"}</div>
-              <div className="text-caption text-foreground-tertiary">{en ? "Levels can change execution; they cannot reverse the locked metaphysical direction." : "支撑压力只负责执行，不拥有方向投票权。"}</div>
+              <div className="text-caption text-foreground-tertiary">{en ? "Levels can change execution; they cannot reverse the locked metaphysical direction." : "支撑压力只负责执行，不参与方向判断。"}</div>
             </div>
             <Badge variant="outline">{entry.technical.status === "READY" ? (en ? "Real OHLC" : "真实行情") : entry.technical.status === "STATIC_LOCKED" ? (en ? "Research-locked levels" : "研究锁定位") : (en ? "No fake data" : "不造假数据")}</Badge>
           </div>

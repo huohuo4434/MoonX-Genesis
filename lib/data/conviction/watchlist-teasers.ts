@@ -143,7 +143,7 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     eyebrowEn: "CXMT · post-IPO phase tracking",
     headlineZh: "长鑫：上市后的第一轮定价还没走完，短期与中期正在拉开差距",
     headlineEn: "CXMT: the first post-IPO repricing is not finished, and the short and medium horizons are beginning to separate",
-    hookZh: "最值得看的已经不是涨了多少，而是哪些周期开始靠拢、哪些仍然各走各的。三周、月度和更长周期已经分别展开，不用拿一个结论套到底。",
+    hookZh: "最值得看的已经不是涨了多少，而是哪些周期开始靠拢、哪些仍然各走各的。三周、月度和更长周期已经分别展开，不要用同一个结论套所有周期。",
     hookEn: "The key question is no longer how far it has moved, but which horizons are beginning to converge and which are not. The full dossier separates the three-week, monthly and longer-term paths.",
     coverageZh: "周度×3 / 月度 / 3个月 / 1年 / 10年",
     coverageEn: "3 weekly windows / monthly / 3-month / 1-year / 10-year",

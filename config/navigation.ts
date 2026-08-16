@@ -105,7 +105,7 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.today", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
     { key: "footer.weekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
     { key: "footer.monthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
-    { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易公开台" },
+    { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "入场确认" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
     { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
     { key: "footer.guide", href: NAV_ROUTES.guide, labelZh: "新手使用指南" },

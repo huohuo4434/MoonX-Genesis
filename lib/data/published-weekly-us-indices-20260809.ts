@@ -25,7 +25,7 @@ const US_INDEX_DIRECTION_BLEND: WeeklyBasisWeights = {
 };
 
 export const WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4 = {
-  zh: "V4于2026年8月9日、目标周开始前锁定。标普与纳指新增同周期六爻复核，并加入狼叔8/9公开六爻作为外部交叉验证。正式方向仍只由MOOX六爻与多周期玄学共振决定；技术分析只找点位，不拥有方向投票权。标普正式方向上调为上涨；纳指正式方向收口为下跌，周中反弹只属于路径，不改写整周方向。",
+  zh: "V4于2026年8月9日、目标周开始前锁定。标普与纳指新增同周期六爻复核，并加入狼叔8/9公开六爻作为外部交叉验证。正式方向仍只由MOOX六爻与多周期玄学共振决定；技术分析只找点位，不参与方向判断。标普正式方向上调为上涨；纳指正式方向收口为下跌，周中反弹只属于路径，不改写整周方向。",
   en: "V4 was locked on Aug 9 before the target week. SPX and NDX received same-window Liu Yao reviews, with the Aug 9 public Wolf Liu Yao reading used only as an external cross-check. Formal direction remains determined by MOOX metaphysical evidence; technical analysis is restricted to execution and levels. SPX is formally bullish; NDX is formally bearish, with any midweek rebound treated as path rather than a direction reversal.",
 };
 

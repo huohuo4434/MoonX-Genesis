@@ -34,7 +34,7 @@ export const DEFAULT_METHODOLOGY_MODULES: MethodologyModule[] = [
     publicDisplay: true,
     nameZh: "技术分析",
     nameEn: "Technical Analysis",
-    summaryZh: "执行定位：只负责支撑、压力、入场、止损与路径位置，不拥有方向投票权，也不能反向修改玄学方向。",
+    summaryZh: "执行定位：只负责支撑、压力、入场、止损与路径位置，不参与方向判断，也不能反向修改玄学方向。",
     summaryEn: "Execution positioning only: support, resistance, entries and risk levels. It has no vote on the official direction.",
     weightRangeZh: "点位工具（不投票）",
     weightRangeEn: "Levels only (no direction vote)",

@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const QUESTIONS_ZH = [
   {
     title: "MOOX是什么？",
-    body: "MOOX先用玄学研究给出唯一方向，再把运行路径、技术点位、风险控制和公开验证连接成一套可复盘流程。技术分析只负责位置，不拥有方向投票权。",
+    body: "MOOX先用玄学研究给出唯一方向，再把运行路径、技术点位、风险控制和公开验证连接成一套可复盘流程。技术分析只负责位置，不参与方向判断。",
   },
   {
     title: "我每天先看哪里？",
@@ -102,7 +102,7 @@ export default async function GuidePage() {
             <Text variant="body" color="secondary" className="mt-3 block">
               {en
                 ? "Remember only three steps: read the direction, wait for confirmation, and stop defending the view after invalidation."
-                : "普通用户只需要记住三句话：先看方向，再等确认，失效就停止坚持。"}
+                : "普通用户只需要记住三句话：先看方向，再等确认，失效了就不要硬扛。"}
             </Text>
           </div>
 

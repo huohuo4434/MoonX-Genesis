@@ -20,7 +20,7 @@ export default async function AccountMembershipPage() {
         </Heading>
         <Card padding="lg" className="mt-6 max-w-lg">
           <Text variant="body-sm" color="secondary">
-            状态：{membership.isActive ? "有效会员" : membership.status}
+            状态：{membership.isActive ? "付费会员" : membership.status}
           </Text>
           <Text variant="body-sm" color="secondary" className="mt-2">
             访问级别：{membership.accessLevel}

@@ -100,7 +100,7 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
           <div className="rounded-xl border border-white/10 bg-black/20 p-3"><div className="text-zinc-500">失效价</div><div className="mt-1 text-lg font-semibold">{formatPrice(selectedStage.invalidation)}</div></div>
         </div>
       </div>
-      {decision.reasons.length ? <p className="mt-4 text-sm text-amber-100/70">暂未形成操作候选：{decision.reasons.slice(0, 2).map((reason) => reasonLabels[reason] ?? "等待结构确认").join("；")}</p> : null}
+      {decision.reasons.length ? <p className="mt-4 text-sm text-amber-100/70">本周期暂无可执行机会，继续等待：{decision.reasons.slice(0, 2).map((reason) => reasonLabels[reason] ?? "等待结构确认").join("；")}</p> : null}
     </section>
 
     <section className="mt-6 rounded-2xl border border-white/10 p-4">

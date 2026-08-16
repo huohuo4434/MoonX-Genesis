@@ -64,7 +64,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
             </h1>
             <p className="mt-4 max-w-3xl text-body leading-7 text-white/58">
               {payload.mode === "publicOnly"
-                ? (en ? "This is not a flat list of popular assets. The higher a dossier sits, the more attention it deserves first. Public cards reveal research depth and selected clues; the decisive call, timing and execution map stay inside the full dossier." : "重点关注不是把所有资产平铺给你。越靠前，越值得先打开专题。公开卡只露研究深度和部分节奏线索，真正的结论、关键时间与执行位置留在完整专题。")
+                ? (en ? "This is not a flat list of popular assets. The higher a dossier sits, the more attention it deserves first. Public cards reveal research depth and selected clues; the decisive call, timing and execution map stay inside the full dossier." : "重点关注不是把所有资产平铺给你。越靠前，越值得先打开专题。公开卡只展示研究深度和部分节奏线索，真正的结论、关键时间与执行位置留在完整专题。")
                 : (en ? "Open the front-ranked dossiers first, then use the full page for the target-week call, weekly rhythm, key timing and execution levels." : "先看前排，再进专题拿目标周结论、周内节奏、关键时间和执行位置；不需要在十几个标的之间自己猜谁更值得先看。")}
             </p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm text-white/60">
@@ -106,7 +106,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
               <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{en ? `Priority watchlist · ${weekLabel}` : `${weekLabel}：这几个先看`}</h2>
               <p className="mt-2 max-w-3xl text-body-sm leading-7 text-white/58">
                 {payload.mode === "publicOnly"
-                  ? (en ? "The front of the list contains the setups with the clearest concentration of research signals. Public view tells you what deserves attention first; the full direction and timing stay locked." : "前排不是热度榜，而是当前研究里最值得先盯的几只。公开页只告诉你谁值得优先看；真正方向、关键时间和执行区进入专题后才揭晓。")
+                  ? (en ? "The front of the list contains the setups with the clearest concentration of research signals. Public view tells you what deserves attention first; the full direction and timing stay locked." : "靠前不代表最热，而是当前研究里最值得先盯的几只。公开页只告诉你谁值得优先看；真正方向、关键时间和执行区进入专题后才揭晓。")
                   : (en ? "Higher-ranked dossiers have stronger target-week alignment. Bullish and bearish opportunities can both rank near the top; execution levels are shown inside each dossier." : "越靠前，目标周信号越集中。看多和看空机会都可能排在前面；进入专题后直接看唯一方向、周内节奏和执行位置。")}
               </p>
             </div>

@@ -51,3 +51,5 @@ data/teacher-learning-media/
 # MOOX local developer workbench
 /.code-review-graph/
 /.moox-workbench/
+
+.next-stale-*

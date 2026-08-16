@@ -157,7 +157,7 @@ export function AccountSecurityPanel({ memberEligible }: { memberEligible: boole
         <Button variant="outline" onClick={() => void logoutOthers()}>{en ? "Sign out other devices" : "退出其他设备"}</Button>
       </div>
       <Text variant="caption" color="tertiary" className="mt-4 block">
-        {en ? "The site stores only a server-generated credential hash and coarse browser/system names. It does not collect Canvas or hardware fingerprints and does not block accounts by a fixed IP." : "网站只保存服务器生成设备凭证的哈希和粗粒度浏览器/系统名称，不采集Canvas或硬件指纹，也不按固定IP封禁。"}
+        {en ? "The site stores only a server-generated credential hash and coarse browser/system names. It does not collect Canvas or hardware fingerprints and does not block accounts by a fixed IP." : "网站只保存服务器生成设备凭证的哈希和大致的浏览器和系统类型/系统名称，不采集Canvas或硬件指纹，也不按固定IP封禁。"}
       </Text>
     </Card>
   );

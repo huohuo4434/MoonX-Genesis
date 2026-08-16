@@ -145,7 +145,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
   return <main><Section spacing="lg"><div className="mx-auto flex max-w-2xl flex-col gap-4 px-4">
     <div className="flex items-center gap-2"><LockIcon size={18} /><Badge variant="default">{en ? "Members" : "会员"}</Badge></div>
     <Heading as="h1" size="h2">{en ? "Weekly Alpha 5" : "本周精选5 · 会员周报"}</Heading>
-    <Text variant="body" color="secondary">{en ? "Active members receive Yi's integrated weekly interpretation with calendar checks, traditional methods, real-candle execution levels and core-market context." : "有效会员每周可查看易老师综合解读：传统术数、万年历硬校验、真实K线、支撑压力、周内路径与核心市场背景。AI仅辅助归并、冲突检查和情景推演。"}</Text>
+    <Text variant="body" color="secondary">{en ? "Active members receive Yi's integrated weekly interpretation with calendar checks, traditional methods, real-candle execution levels and core-market context." : "付费会员每周可查看易老师综合解读：传统术数、万年历硬校验、真实K线、支撑压力、周内路径与核心市场背景。AI仅辅助归并、冲突检查和情景推演。"}</Text>
     <MetaHeader summary={summary} />
     <div className="grid gap-3">{summary.teasers.map((item) => <Card key={item.id} padding="md" className="space-y-2 overflow-hidden"><Text variant="body" weight="semibold">{en ? assetNameEn(item.assetName) : item.assetName} <span className="font-mono text-caption font-normal text-foreground-tertiary">{item.displaySymbol ?? item.symbol}</span></Text><Badge variant="outline">{item.isReady ? (en ? "Available to members" : "会员可查看") : (en ? "Research pending" : "资料待补充")}</Badge></Card>)}</div>
     <div className="flex flex-wrap gap-3 pt-2"><Button asChild variant="primary"><Link href={href("/pricing")}>{en ? "Compare access" : "会员解锁"}</Link></Button><Button asChild variant="outline"><Link href={href(`/login?next=${encodeURIComponent("/member/weekly")}`)}>{en ? "Sign in" : "登录"}</Link></Button></div>
@@ -172,7 +172,7 @@ export function MemberWeeklyFullPage({ slots, summary, alphaIssue, branchOutlook
     </div>
     <Card padding="md" className="mb-4 border-cyan-400/20 bg-cyan-400/[0.035]">
       <Text variant="body-sm" weight="semibold">{en ? "MOOX direction doctrine" : "本期方向规则"}</Text>
-      <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "The official bullish/bearish call is determined by Liu Yao and cross-horizon metaphysical resonance. Qimen is used for timing; technical analysis is used only for price levels and execution." : "正式看涨/看跌方向由六爻主判断与多周期玄学共振决定；奇门负责时间窗口；技术分析只负责支撑、压力、入场与风控点位，不拥有方向投票权。"}</Text>
+      <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "The official bullish/bearish call is determined by Liu Yao and cross-horizon metaphysical resonance. Qimen is used for timing; technical analysis is used only for price levels and execution." : "正式看涨/看跌方向由六爻主判断与多周期玄学共振决定；奇门负责时间窗口；技术分析只负责支撑、压力、入场与风控点位，不参与方向判断。"}</Text>
       {(summary.researchBlendNoteZh || summary.researchBlendNoteEn) ? <details className="mt-2">
         <summary className="cursor-pointer text-caption text-foreground-tertiary">{en ? "Archived edition methodology note" : "原版本融合说明（仅留档）"}</summary>
         <Text variant="caption" color="tertiary" className="mt-2 block">{en ? summary.researchBlendNoteEn : summary.researchBlendNoteZh}</Text>

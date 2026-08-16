@@ -6,7 +6,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 const FAQ_ZH = [
   ["预测什么时候更新？", "日度、下一交易日、周度和月度页面会分别标明目标时段、发布时间及数据状态。休市市场不生成虚假的当日验证。"],
   ["为什么方向明确了还会显示等待？", "MOOX方向先由玄学确定；等待只代表技术入场位置还没到。方向和执行是两层，不用技术条件反向修改方向。"],
-  ["USDT付款后多久开通？", "生成订单并提交交易哈希后，系统立即核验，并由 Vercel 每分钟自动重试。链上确认后自动开通；通常无需人工审核。"],
+  ["USDT付款后多久开通？", "生成订单并提交交易哈希后，系统立即核验，并系统会自动重试发送。链上确认后自动开通；通常无需人工审核。"],
   ["历史准确率如何计算？", "只统计已到验证截止时间、取得真实行情且结论已锁定的记录；同时展示样本量、完整命中、部分命中、未命中和不可验证。"],
 ] as const;
 
@@ -50,7 +50,7 @@ export function SupportPageClient({
                 Telegram {telegram}
               </a>
               <Text variant="caption" color="tertiary" className="mt-2 block">
-                {en ? "For account, page and urgent delivery issues." : "适合账户、页面与紧急交付问题。"}
+                {en ? "For account, page and urgent delivery issues." : "适合账户、页面与开通、到账等紧急问题。"}
               </Text>
             </Card>
             <Card padding="lg">

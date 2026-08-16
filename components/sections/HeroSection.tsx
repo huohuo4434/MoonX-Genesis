@@ -10,7 +10,7 @@ export function HeroSection() {
   const steps = [
     ["01", en ? "Direction" : "方向", en ? "Bullish, bearish or wait" : "看涨、看跌或观望"],
     ["02", en ? "Confirmation" : "确认", en ? "Levels and structure" : "点位与结构触发"],
-    ["03", en ? "Proof" : "验证", en ? "Locked public record" : "锁定记录，不删失败"],
+    ["03", en ? "Proof" : "验证", en ? "Locked public record" : "记录锁定后不删除，失败也保留"],
   ] as const;
 
   return (
@@ -26,12 +26,12 @@ export function HeroSection() {
             MOOX Intelligence
           </div>
           <h1 className="max-w-4xl break-keep text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-white sm:text-5xl lg:text-7xl">
-            {en ? "One direction. Better timing." : "先看清方向，再等对位置。"}
+            {en ? "One direction. Better timing." : "先看清方向，再等到位置。"}
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-white/60 sm:text-lg sm:leading-8">
             {en
               ? "MOOX turns multi-source market research into one readable decision: direction, confirmation, invalidation and a public record. When evidence conflicts, the answer is wait."
-              : "MOOX 把卦象、市场结构、关键价位和多方研究收成一个可执行结论：方向、确认、失效和验证。证据分歧大，就明确建议观望。"}
+              : "MOOX 把卦象、市场结构、关键价位和多方研究整合成一个可执行结论：方向、确认、失效和验证。证据分歧大，就明确建议观望。"}
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

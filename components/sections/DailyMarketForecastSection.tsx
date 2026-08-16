@@ -140,7 +140,7 @@ export async function DailyMarketForecastSection() {
               今日预测将在北京时间08:00开放
             </Text>
             <Text variant="body-sm" color="secondary">
-              有效会员可全天提前查看今日预测。
+              付费会员可全天提前查看今日预测。
             </Text>
             <Button asChild variant="primary" size="sm">
               <Link href={routes.pricing}>升级会员</Link>

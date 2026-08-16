@@ -13,7 +13,7 @@ export default async function AdminTradingTerminalPage() {
       <Section spacing="lg">
         <AdminNav current="/admin/trading-terminal" />
         <Heading as="h1" size="h2">
-          MoonX 模拟量化交易终端
+          MOOX 模拟交易
         </Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
           把正式预测转换成交易草稿，锁定入场、止损、分批止盈和仓位纪律；价格触发后只在模拟账户执行。已发布计划不能覆盖，只能生成新版本。

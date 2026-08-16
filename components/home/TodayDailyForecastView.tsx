@@ -107,7 +107,7 @@ function MetaRow({
         <p className="text-body-sm text-foreground">{publishedAt ? formatDateTimeForLocale(publishedAt, en) : accessLabel === (en ? "Sign in to view" : "登录后查看") ? accessLabel : en ? "Not published" : "尚未发布"}</p>
       </div>
       <div>
-        <p className="text-caption text-foreground-tertiary">{en ? "Access" : "查看权限"}</p>
+        <p className="text-caption text-foreground-tertiary">{en ? "Access" : "查看范围"}</p>
         <p className="text-body-sm text-foreground">{accessLabel}</p>
       </div>
     </div>
@@ -193,7 +193,7 @@ export function TodayDailyForecastView({
               {en ? "Today’s market view" : "今日市场观点"}
             </Text>
             <Text variant="body-sm" color="secondary">
-              {en ? "Registered users can view today’s basic forecast after 08:00 Beijing time. Active members receive full early access all day." : "注册用户可在北京时间08:00后查看今日观点；有效会员可全天提前查看完整预测。"}
+              {en ? "Registered users can view today’s basic forecast after 08:00 Beijing time. Active members receive full early access all day." : "注册用户可在北京时间08:00后查看今日观点；付费会员可全天提前查看完整预测。"}
             </Text>
             <Text variant="caption" color="tertiary">
               {en ? "Direction, probabilities and expected path are hidden until sign-in." : "未登录不展示方向、概率与路径。"}
@@ -215,7 +215,7 @@ export function TodayDailyForecastView({
               {en ? "Today’s view opens at 08:00 Beijing time" : "今日观点将在北京时间08:00开放"}
             </Text>
             <Text variant="body-sm" color="secondary">
-              {en ? "Direction and probabilities remain hidden before release. Active members receive early access all day." : "开放前不会展示方向与概率。有效会员可全天提前查看。"}
+              {en ? "Direction and probabilities remain hidden before release. Active members receive early access all day." : "开放前不会展示方向与概率。付费会员可全天提前查看。"}
             </Text>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild variant="primary" size="sm">

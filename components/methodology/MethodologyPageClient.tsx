@@ -106,7 +106,7 @@ export function MethodologyPageClient({ modules }: { modules: MethodologyModule[
         </Heading>
         <Text variant="body" color="secondary" className="block max-w-2xl">
           {zh
-            ? "MOOX的规则只有一条主线：玄学定方向，技术找点位。周卦、月卦和更大周期同向时形成共振，直接给唯一看涨或看跌结论；只有卦象真正冲突才写方向不明确。奇门负责时间窗口，技术分析只负责支撑、压力、入场和风控，不得反向修改玄学方向。"
+            ? "MOOX的规则只有一条主线：玄学定方向，技术找点位。周卦、月卦和更大周期同向时形成共振，直接给唯一看涨或看跌结论；只有卦象真正冲突才写方向不明确。奇门负责时间窗口，技术分析只负责支撑、压力、入场和风控，不会反过来改玄学给出的方向。"
             : "MOOX uses metaphysical research to set one official direction. Alignment across weekly, monthly and larger-horizon readings creates resonance. Qimen is for timing; technical analysis is strictly for levels and execution, never for flipping the metaphysical call."}
         </Text>
       </header>

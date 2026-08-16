@@ -1,32 +1,17 @@
 import type { MetadataRoute } from "next";
-import { englishPath } from "@/lib/i18n/config";
-import { siteConfig } from "@/lib/site-config";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = siteConfig.url.replace(/\/$/, "");
+export default function sitemap(): MetadataRoute.Sitemap {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://mooxintel.com").replace(/\/$/, "");
   const paths = [
-    "/",
-    "/guide",
-    "/featured-stocks",
-    "/verification",
-    "/methodology",
-    "/support",
-    "/pricing",
-    "/login",
-    "/register",
-    "/privacy",
-    "/terms",
-    "/member/weekly",
-    "/member/monthly",
-    "/member/ai-trading",
+    "/", "/en", "/featured-stocks", "/en/featured-stocks",
+    "/verification", "/en/verification", "/pricing", "/en/pricing",
+    "/guide", "/en/guide", "/methodology", "/en/methodology",
+    "/support", "/en/support", "/privacy", "/en/privacy", "/terms", "/en/terms",
   ];
-  const now = new Date();
-  return paths.flatMap((path) => {
-    const priority = path === "/" ? 1 : path.startsWith("/member/") ? 0.6 : 0.7;
-    const changeFrequency = path === "/" ? "daily" as const : "weekly" as const;
-    return [
-      { url: `${base}${path}`, lastModified: now, changeFrequency, priority },
-      { url: `${base}${englishPath(path)}`, lastModified: now, changeFrequency, priority },
-    ];
-  });
+  return paths.map((pathname) => ({
+    url: `${base}${pathname}`,
+    lastModified: new Date(),
+    changeFrequency: pathname.includes("verification") ? "daily" : "weekly",
+    priority: pathname === "/" || pathname === "/en" ? 1 : 0.7,
+  }));
 }
