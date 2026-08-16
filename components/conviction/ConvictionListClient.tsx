@@ -164,7 +164,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
         </section>
 
                 <section className="mt-6 rounded-[22px] border border-violet-300/15 bg-violet-300/[.035] p-5 sm:p-6">
-          <p className="font-mono text-caption uppercase tracking-[.16em] text-violet-200/60">{en ? "MEMBER WEEKLY ALPHA" : "会员独享 · 本周精选5"}</p>
+          <p className="font-mono text-caption uppercase tracking-[.16em] text-violet-200/60">{en ? "MEMBER WEEKLY ALPHA" : "会员独享 · 本周"}</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">{en ? "Weekly Top 5 stays behind the member gate" : "本周最值得交易的5个标的，只在会员周报公布"}</h2>
           <p className="mt-2 max-w-3xl text-body-sm leading-7 text-white/58">{en ? "This dossier index is intentionally neutral. Members receive ranked Top 5, hexagram evidence, support/resistance and weekly path." : "这里不再通过列表顺序暗示本周热门。Top 5、方向、支撑压力和周内推演只进入会员周报。"}</p>
         </section>

@@ -12,7 +12,7 @@ export type WeeklyAlphaCalendarDay = {
 };
 
 /**
- * Publication-locked calendar table for the first Weekly Alpha 5 edition.
+ * Publication-locked calendar table for the first Weekly edition.
  * Verified against external almanac pages and the deterministic MOOX 60-day
  * engine. Never replace this with LLM-generated stem/branch labels.
  */

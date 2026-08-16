@@ -76,7 +76,7 @@ export function AccountReferralPanel() {
         {t("referral.title")}
       </Text>
       <Text variant="body-sm" color="secondary">
-        {t("referral.subtitle")}
+        {locale === "en" ? "Copy the code or link below. Rewards are credited after the invited member successfully activates." : "复制下方邀请码或链接发送给好友，奖励会在好友成功开通后自动计入。"}
       </Text>
 
       {error ? (

@@ -74,10 +74,10 @@ export async function HomeWeeklySection() {
           {payload.mode === "member"
             ? summary.displayMode === "NEXT_WEEK"
               ? "查看完整下周精选5周报"
-              : "查看完整本周精选5周报"
+              : "查看完整本周周报"
             : summary.displayMode === "NEXT_WEEK"
               ? "登录会员查看下周精选5"
-              : "登录会员查看本周精选5"}
+              : "登录会员查看本周"}
         </Link>
       </div>
     </section>

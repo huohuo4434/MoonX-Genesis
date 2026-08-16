@@ -175,7 +175,13 @@ export function AdminNav({
           className={`${open ? "flex" : "hidden"} flex-col gap-3 md:flex`}
         >
           <div className="flex flex-wrap gap-2">
-            {primaryLinks.map((link) => (
+            {primaryLinks.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-border/70 bg-card/40 px-5 py-10 text-center">
+          <div className="text-base font-semibold text-foreground">暂无咨询申请</div>
+          <div className="mt-2 text-sm text-foreground-secondary">会员在「会员六爻/八字咨询」提交后会出现在这里。</div>
+        </div>
+      ) : null}
+{primaryLinks.map((link) => (
               <AdminLinkItem
                 key={link.href}
                 link={link}

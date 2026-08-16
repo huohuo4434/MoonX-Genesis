@@ -111,7 +111,7 @@ export function AccountPageClient({
             </Text>
             <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                { href: "/member/weekly", zh: "本周精选5", en: "Weekly Alpha 5", zhBody: "本周先看什么、处在哪个阶段。", enBody: "What matters this week and the current stage." },
+                { href: "/member/weekly", zh: "本周", en: "Weekly", zhBody: "本周先看什么、处在哪个阶段。", enBody: "What matters this week and the current stage." },
                 { href: "/member/tomorrow", zh: "下一交易日", en: "Next Session", zhBody: "提前看方向、运行路径与风险窗口。", enBody: "Direction, path and risk window before the session." },
                 { href: "/member/ai-trading", zh: "AI执行确认", en: "AI Execution", zhBody: "只认真实持仓、保护单与有效点位；无数据就是等待。", enBody: "Reconciled positions, protection and valid levels only." },
                 { href: "/member/technical-methods", zh: "缠论执行台", en: "Chan Console", zhBody: "看结构是否完成，以及二买、三买和失效位。", enBody: "Structure completion, entries and invalidation." },

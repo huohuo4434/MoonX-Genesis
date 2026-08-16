@@ -62,10 +62,10 @@ export const INTERNAL_LEGACY_ROUTES = [
 /** Compact desktop primary nav: the product story, not every route. */
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
-  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度" },
-  { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI策略台" },
+  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周" },
+  { key: "nav.aiTradingDesk", href: NAV_ROUTES.aiTradingDesk, labelZh: "入场确认" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "公开验证" },
+  { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
 ];
 
 /** Secondary destinations live under “更多”, preventing header crowding. */
@@ -87,7 +87,7 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.todayView", href: NAV_ROUTES.todayView, labelZh: "今日" },
-  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度" },
+  { key: "nav.weeklyAnalysis", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周" },
   { key: "nav.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
   { key: "nav.login", href: NAV_ROUTES.login, labelZh: "账户" },
@@ -102,12 +102,12 @@ export function buildPublicFooterColumns(_options?: {
   signedIn?: boolean;
 }): Array<{ titleKey: string; titleZh: string; links: NavItem[] }> {
   const product: NavItem[] = [
-    { key: "footer.today", href: NAV_ROUTES.todayView, labelZh: "今日观点" },
-    { key: "footer.weekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周度行情" },
+    { key: "footer.today", href: NAV_ROUTES.todayView, labelZh: "今日" },
+    { key: "footer.weekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "本周" },
     { key: "footer.monthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月度走势" },
     { key: "footer.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "入场确认" },
     { key: "footer.featuredStocks", href: NAV_ROUTES.featuredStocks, labelZh: "重点关注" },
-    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "历史验证" },
+    { key: "footer.verification", href: NAV_ROUTES.verification, labelZh: "验证" },
     { key: "footer.guide", href: NAV_ROUTES.guide, labelZh: "新手使用指南" },
     { key: "footer.methodology", href: NAV_ROUTES.methodology, labelZh: "预测方法" },
   ];

@@ -98,7 +98,7 @@ export async function HomeQuickStart() {
   }
 
   let weeklyCard: QuickCard = {
-    label: en ? "Weekly Alpha 5" : "本周精选5",
+    label: en ? "Weekly" : "本周",
     title: en ? "Open the member weekly report" : "查看会员核心周报",
     body: en ? "Five concentrated weekly opportunities first, then the broader core-market map." : "先看本周最值得盯的5个，再看九大核心市场背景。",
     href: "/member/weekly",
@@ -111,11 +111,11 @@ export async function HomeQuickStart() {
       .sort((a, b) => b.confidence - a.confidence)[0];
     if (published) {
       weeklyCard = {
-        label: en ? "Weekly Alpha 5" : "本周精选5",
+        label: en ? "Weekly" : "本周",
         title: en ? "Member weekly report is live" : "会员核心周报已发布",
         body: en
           ? "Open the concentrated five-name report first, then use the core-market appendix for context."
-          : "先看本周精选5深度研究，再用九大核心市场附录判断整体环境。",
+          : "先看本周深度研究，再用九大核心市场附录判断整体环境。",
         href: "/member/weekly",
         badge: en ? "Members" : "会员",
       };

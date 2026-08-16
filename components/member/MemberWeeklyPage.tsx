@@ -144,7 +144,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
   const en = locale === "en";
   return <main><Section spacing="lg"><div className="mx-auto flex max-w-2xl flex-col gap-4 px-4">
     <div className="flex items-center gap-2"><LockIcon size={18} /><Badge variant="default">{en ? "Members" : "会员"}</Badge></div>
-    <Heading as="h1" size="h2">{en ? "Weekly Alpha 5" : "本周精选5 · 会员周报"}</Heading>
+    <Heading as="h1" size="h2">{en ? "Weekly" : "本周 · 会员周报"}</Heading>
     <Text variant="body" color="secondary">{en ? "Active members receive Yi's integrated weekly interpretation with calendar checks, traditional methods, real-candle execution levels and core-market context." : "付费会员每周可查看易老师综合解读：传统术数、万年历硬校验、真实K线、支撑压力、周内路径与核心市场背景。AI仅辅助归并、冲突检查和情景推演。"}</Text>
     <MetaHeader summary={summary} />
     <div className="grid gap-3">{summary.teasers.map((item) => <Card key={item.id} padding="md" className="space-y-2 overflow-hidden"><Text variant="body" weight="semibold">{en ? assetNameEn(item.assetName) : item.assetName} <span className="font-mono text-caption font-normal text-foreground-tertiary">{item.displaySymbol ?? item.symbol}</span></Text><Badge variant="outline">{item.isReady ? (en ? "Available to members" : "会员可查看") : (en ? "Research pending" : "资料待补充")}</Badge></Card>)}</div>
@@ -158,10 +158,10 @@ export function MemberWeeklyFullPage({ slots, summary, alphaIssue, branchOutlook
   const rows = slots?.length > 0 ? slots : (summary.teasers.map((item) => item.isReady ? null : ({ kind: "unpublished" as const, assetId: item.assetId, assetName: item.assetName, symbol: item.symbol, displaySymbol: item.displaySymbol ?? item.symbol })).filter(Boolean) as WeeklyMarketSlot[]);
   return <main><Section spacing="lg"><div className="mx-auto w-full max-w-container px-4 sm:px-6 lg:px-8">
     <Badge variant="default" className="mb-3">{en ? "Members" : "会员"}</Badge>
-    <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Alpha 5 + Core Market Outlook" : "本周精选5 · 会员周报"}</Heading>
+    <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly + Core Market Outlook" : "本周 · 会员周报"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-3xl">{en ? "Start with the five highest-conviction weekly opportunities, then use the nine core markets as the broader context appendix." : "先看本周证据最干净、最值得盯的5个标的，再用九大核心市场作为大盘与跨市场背景附录。"}</Text>
     <MetaHeader summary={summary} />
-    {alphaIssue ? <WeeklyAlphaFive issue={alphaIssue} /> : <Card padding="lg" className="mb-8 border-amber-400/20 bg-amber-400/[0.025]"><Text variant="body" weight="semibold">{en ? "Weekly Alpha 5 is under editorial review" : "本期精选5正在编辑审核"}</Text><Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "MOOX does not auto-fill five names when calendar or Liu Yao evidence has not passed publication review." : "万年历或六爻证据未完成发布审核时，MOOX不会为了凑满5个自动塞入低质量标的。"}</Text></Card>}
+    {alphaIssue ? <WeeklyAlphaFive issue={alphaIssue} /> : <Card padding="lg" className="mb-8 border-amber-400/20 bg-amber-400/[0.025]"><Text variant="body" weight="semibold">{en ? "Weekly is under editorial review" : "本周研究正在编辑审核"}</Text><Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "MOOX does not auto-fill five names when calendar or Liu Yao evidence has not passed publication review." : "万年历或六爻证据未完成发布审核时，MOOX不会为了凑满5个自动塞入低质量标的。"}</Text></Card>}
     <MemberMarketBranchOutlookSection outlook={branchOutlook} />
     <MemberQimenStoneRadar radar={researchRadar} />
     <div className="mb-4 flex items-end justify-between gap-3">

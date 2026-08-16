@@ -55,12 +55,12 @@ export function VerificationPipelineStatus({ status, en }: { status: PipelineSta
     : status.verificationRecords;
   const syncGapCount: number | string = status.generatedSourceHealthy ? status.syncMissing : "—";
   const cards: Array<[string, number | string, boolean]> = [
-    [en ? "Published / locked" : "正式发布/锁定", publishedLockedCount, false],
-    [en ? "In verification" : "已进入验证链", status.verificationRecords, false],
-    [en ? "Pending" : "待验证", status.pending, false],
-    [en ? "Completed" : "已完成", status.completed, false],
-    [en ? "Unverifiable" : "不可验证", status.unverifiable, false],
-    [en ? "Excluded" : "不计统计", status.excluded, false],
+    [en ? "Published / locked records" : "正式发布/锁定记录", publishedLockedCount, false],
+    [en ? "Records in verification" : "已进入验证链记录", status.verificationRecords, false],
+    [en ? "Pending records (incl. prior versions)" : "待验证记录（含历史版本）", status.pending, false],
+    [en ? "Completed records" : "已完成记录", status.completed, false],
+    [en ? "Daily unverifiable, cumulative" : "日度累计不可验证", status.unverifiable, false],
+    [en ? "Excluded records" : "不计统计记录", status.excluded, false],
     [en ? "Sync gaps" : "同步缺口", syncGapCount, status.state === "SYNC_GAP" && status.syncMissing > 0],
   ];
   const detail = friendlyError(status, en);
@@ -112,6 +112,11 @@ export function VerificationPipelineStatus({ status, en }: { status: PipelineSta
             : `另有 ${status.excluded} 条记录已处理但按规则不计入命中率（例如休市、晚发布或系统测试），不会再显示为“待处理”。`}
         </div>
       ) : null}
+      <div className="mt-3 rounded-lg border border-border/50 bg-background/20 px-3 py-2 text-xs text-foreground-tertiary">
+        {en
+          ? "This section uses cumulative daily-pipeline records. Pending may include retained prior versions; the weekly summary above uses a separate weekly-only scope."
+          : "本区采用日度验证链累计口径：待验证数可能包含保留的历史版本；上方周度摘要采用独立的周度口径。"}
+      </div>
       {detail ? (
         <div
           className={`mt-3 rounded-lg border px-3 py-2 text-xs ${

@@ -27,7 +27,7 @@ function usDays(input: Array<[string, string, string, string, string]>): WeeklyA
 export const WEEKLY_ALPHA_20260810_BASE: Omit<WeeklyAlphaIssue, "entries"> & { entries: Array<Omit<WeeklyAlphaEntry, "technical"> & { technical: WeeklyAlphaEntry["technical"] }> } = {
   id: "WEEKLY-ALPHA-20260810-V1",
   version: 1,
-  title: { zh: "MOOX Weekly Alpha 5｜本周精选5", en: "MOOX Weekly Alpha 5" },
+  title: { zh: "MOOX Weekly｜本周", en: "MOOX Weekly" },
   subtitle: {
     zh: "不是把所有资产都说一遍，而是从重点关注与核心市场中只保留目标周证据最干净的5个。",
     en: "A concentrated five-name edition selected from the watchlist and core markets using the cleanest target-week evidence.",

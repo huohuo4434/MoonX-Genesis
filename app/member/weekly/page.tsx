@@ -20,10 +20,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/member/weekly",
-    titleZh: "本周精选5 · 会员周报",
-    titleEn: "Weekly Alpha 5",
+    titleZh: "本周 · 会员周报",
+    titleEn: "Weekly",
     descriptionZh: "会员专享：易老师综合传统术数、公开市场信息、真实K线、支撑压力与宏观事件形成每周独立研判；AI仅辅助归并与情景推演。",
-    descriptionEn: "Member-only Weekly Alpha 5 under Yi methodology, with traditional analysis, verified calendar data, real candles, execution levels and weekly path scenarios.",
+    descriptionEn: "Member-only Weekly under Yi methodology, with traditional analysis, verified calendar data, real candles, execution levels and weekly path scenarios.",
   });
 }
 
