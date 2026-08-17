@@ -137,8 +137,15 @@ export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]>
     const { generateCoreMarketsFromWeeklyPure } = await import("@/lib/forecasts/daily-pipeline");
     const { generatedDailyToUi } = await import("@/lib/forecasts/generated-to-ui");
     const persisted = await listGeneratedDailiesForDate(today);
-    const generated = persisted.length ? persisted : generateCoreMarketsFromWeeklyPure(today, "LOCKED");
-    for (const row of generated) accept(generatedDailyToUi(row, "public"), "GENERATED");
+    for (const row of persisted) {
+      accept(generatedDailyToUi(row, "public"), "GENERATED");
+    }
+    // Persisted rows may be only a partial batch (for example BTC/ETH only).
+    // Always generate the canonical nine-market fallback, then let the merger
+    // keep the authoritative stored version and fill every missing market.
+    for (const row of generateCoreMarketsFromWeeklyPure(today, "LOCKED")) {
+      accept(generatedDailyToUi(row, "public"), "GENERATED");
+    }
   } catch (err) {
     console.warn("[today] autonomous weekly fallback skipped", err);
   }
@@ -180,7 +187,7 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     const expectedDate = getNextForecastDate(normalized.market, today);
     if (normalized.forecastForDate !== expectedDate || !isHumanPublishedForecast(normalized)) return;
     candidates.push({ forecast: normalized, source });
-    acceptedAssetSessions.add(`${normalized.symbol}:${normalized.forecastForDate}`);
+    acceptedAssetSessions.add(`${canonicalAssetCode(normalized.symbol)}:${normalized.forecastForDate}`);
   };
 
   for (const forecast of await getStoreForecastsForTomorrow(now)) {
@@ -192,26 +199,32 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
 
   try {
     const { listGeneratedDailiesForDate } = await import("@/lib/weekly-source/store");
-    const { generateCoreMarketsFromWeeklyPure, CORE_DAILY_MARKETS } = await import(
+    const { generateCoreMarketFromWeeklyPure, CORE_DAILY_MARKETS } = await import(
       "@/lib/forecasts/daily-pipeline"
     );
     const { generatedDailyToUi } = await import("@/lib/forecasts/generated-to-ui");
 
     for (const marketCode of CORE_DAILY_MARKETS) {
-      const targetDate = getNextForecastDate(marketMeta(marketCode).legacyMarket, today);
-      const persisted = await listGeneratedDailiesForDate(targetDate);
-      const persistedHit = persisted.find((row) => sameMarketCode(row.marketCode, marketCode));
-      if (persistedHit) {
-        acceptIfCorrectSession(generatedDailyToUi(persistedHit, "member"), "GENERATED");
-      }
-      const identity = `${canonicalAssetCode(marketCode)}:${targetDate}`;
-      if (!acceptedAssetSessions.has(identity)) {
-        const generatedHit = generateCoreMarketsFromWeeklyPure(targetDate, "LOCKED").find(
-          (row) => sameMarketCode(row.marketCode, marketCode)
-        );
-        if (generatedHit) {
-          acceptIfCorrectSession(generatedDailyToUi(generatedHit, "member"), "GENERATED");
+      try {
+        const targetDate = getNextForecastDate(marketMeta(marketCode).legacyMarket, today);
+        const persisted = await listGeneratedDailiesForDate(targetDate);
+        const persistedHit = persisted.find((row) => sameMarketCode(row.marketCode, marketCode));
+        if (persistedHit) {
+          acceptIfCorrectSession(generatedDailyToUi(persistedHit, "member"), "GENERATED");
         }
+        const identity = `${canonicalAssetCode(marketCode)}:${targetDate}`;
+        if (!acceptedAssetSessions.has(identity)) {
+          const generatedHit = generateCoreMarketFromWeeklyPure(
+            marketCode,
+            targetDate,
+            "LOCKED"
+          );
+          if (generatedHit) {
+            acceptIfCorrectSession(generatedDailyToUi(generatedHit, "member"), "GENERATED");
+          }
+        }
+      } catch (error) {
+        console.warn(`[tomorrow] single-market fallback skipped ${marketCode}`, error);
       }
     }
   } catch (err) {

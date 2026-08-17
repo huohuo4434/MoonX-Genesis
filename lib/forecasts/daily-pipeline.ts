@@ -568,28 +568,44 @@ export async function runDailyForecastPipeline(input?: {
   return report;
 }
 
-/** Pure helper for tests — generate without I/O. */
+/** Pure helper for one market/date — no database or live-price I/O. */
+export function generateCoreMarketFromWeeklyPure(
+  marketCode: string,
+  forecastDate: string,
+  status: GeneratedDailyForecastRecord["status"] = "LOCKED"
+): GeneratedDailyForecastRecord | null {
+  const market = marketCode.toUpperCase();
+  const weekly =
+    (market === "BTC" ? btcResearchAsWeeklySource(forecastDate) : null) ??
+    (market === "ETH" ? ethResearchAsWeeklySource(forecastDate) : null) ??
+    findCanonicalWeeklySource(market, forecastDate) ??
+    analysisAsWeeklySource(market, forecastDate);
+  if (!weekly) return null;
+  return generateDailyFromWeekly({
+    weekly,
+    forecastDate,
+    version: 1,
+    status,
+    snapshot: emptySnapshot(),
+  });
+}
+
+/** Pure batch helper. One broken market must never blank the other eight. */
 export function generateCoreMarketsFromWeeklyPure(
   forecastDate: string,
   status: GeneratedDailyForecastRecord["status"] = "LOCKED"
 ): GeneratedDailyForecastRecord[] {
   const out: GeneratedDailyForecastRecord[] = [];
   for (const market of CORE_DAILY_MARKETS) {
-    const weekly =
-      (market === "BTC" ? btcResearchAsWeeklySource(forecastDate) : null) ??
-      (market === "ETH" ? ethResearchAsWeeklySource(forecastDate) : null) ??
-      findCanonicalWeeklySource(market, forecastDate) ??
-      analysisAsWeeklySource(market, forecastDate);
-    if (!weekly) continue;
-    out.push(
-      generateDailyFromWeekly({
-        weekly,
-        forecastDate,
-        version: 1,
-        status,
-        snapshot: emptySnapshot(),
-      })
-    );
+    try {
+      const row = generateCoreMarketFromWeeklyPure(market, forecastDate, status);
+      if (row) out.push(row);
+    } catch (error) {
+      console.warn(
+        `[daily-pipeline] pure generation skipped ${market}:${forecastDate}`,
+        error
+      );
+    }
   }
   return out;
 }
