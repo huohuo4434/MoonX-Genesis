@@ -29,6 +29,8 @@ import {
   findXIntelligenceSummaryForMarket,
 } from "@/lib/trading-signals/x-intelligence-overlay";
 
+import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
+
 export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
 
@@ -437,6 +439,10 @@ export async function runDailyForecastPipeline(input?: {
         );
         const xOverlay = buildXIntelligenceAutoWeight(xSummary);
         record = applyXIntelligenceToGeneratedDaily(record, xOverlay);
+        record = applyQimenFirstToGeneratedDaily(record, {
+          liuyaoDirection: weekly.weeklyDirection,
+          previousQimenEvidence: latest?.qimenEvidence ?? null,
+        }); // MOOX_QIMEN_FIRST_V72005_PRE_TECH
         // Initial publication may state that technical levels are unavailable. Once a
         // locked version exists, a provider failure preserves that complete version;
         // new path text must never be combined with stale levels from another version.

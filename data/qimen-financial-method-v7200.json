@@ -1,0 +1,53 @@
+{
+  "version": "7.20.0.5",
+  "policy": "QIMEN_PRIMARY_LIUYAO_AUXILIARY_TECHNICAL_EXECUTION",
+  "publicMarketBaziVote": false,
+  "castTime": {
+    "fixed20Bjt": false,
+    "primary": "REUSE_PERSISTED_CAST_IF_AVAILABLE",
+    "fallback": "DETERMINISTIC_19_00_TO_22_59_ASIA_SHANGHAI_PREVIOUS_DAY_BY_MARKET_DATE",
+    "retryMustReuse": true
+  },
+  "coreYongshen": {
+    "primary": [
+      "时干天盘",
+      "时干地盘"
+    ],
+    "secondary": [
+      "日干天盘",
+      "日干地盘",
+      "值符",
+      "值使"
+    ],
+    "capitalPrice": [
+      "甲子戊",
+      "生门"
+    ],
+    "bullish": [
+      "丙",
+      "丁",
+      "九天",
+      "天冲",
+      "生门",
+      "开门"
+    ],
+    "bearish": [
+      "庚",
+      "辛",
+      "白虎",
+      "九地",
+      "死门",
+      "惊门"
+    ],
+    "volatility": [
+      "腾蛇",
+      "天冲",
+      "驿马"
+    ]
+  },
+  "sourceBoundary": {
+    "teacherExplicit": "TEACHER_EVIDENCE",
+    "mooxDerived": "MOOX_DIGITAL_PROTOCOL",
+    "undisclosedManualPalaceSelection": "NOT_CLAIMED"
+  }
+}

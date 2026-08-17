@@ -17,6 +17,9 @@ export function generatedDailyToUi(
   const meta = marketMeta(r.marketCode);
   const canonicalCode = canonicalAssetCode(r.marketCode);
   const formal = r.direction;
+  const qimenSummary = r.qimenEvidence
+    ? r.qimenEvidence.split("；").slice(0, 3).join("；")
+    : null; // MOOX_QIMEN_FIRST_V72005_UI
   const consensus = consensusStarsFromInputs({
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
     frameworkCount: [r.liuyaoEvidence, r.qimenEvidence, r.calendarEvidence, r.newsEvidence].filter(Boolean).length || 1,
@@ -56,7 +59,7 @@ export function generatedDailyToUi(
     consensusModuleCount: consensus.activeModules,
     consensusNote: consensus.note,
     headline: `${meta.assetName}${formal}`,
-    summary: [normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
+    summary: [qimenSummary, normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
     expectedPath: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
     pathBias: normalizeDailyLanguage(r.expectedPath),
     intradayRhythm: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
