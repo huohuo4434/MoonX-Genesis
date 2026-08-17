@@ -117,6 +117,34 @@ function sanitizeForecastForClient(f: DailyForecast): DailyForecast {
   return normalizeForecastContract(f);
 }
 
+async function applyQimenToAccessRows(rows: DailyForecast[]): Promise<DailyForecast[]> { // MOOX_QIMEN_DAILY_RESONANCE_V7201_ACCESS
+  if (!rows.length) return rows;
+  try {
+    const [{ applyQimenFirstToGeneratedDaily }, { generateCoreMarketsFromWeeklyPure }] = await Promise.all([
+      import("@/lib/forecasts/qimen-first-policy"),
+      import("@/lib/forecasts/daily-pipeline"),
+    ]);
+    const pureByDate = new Map<string, ReturnType<typeof generateCoreMarketsFromWeeklyPure>>();
+    const weeklyAuxFor = (forecast: DailyForecast): string | null => {
+      if (forecast.liuyaoEvidence) return forecast.liuyaoEvidence;
+      let rowsForDate = pureByDate.get(forecast.forecastForDate);
+      if (!rowsForDate) {
+        rowsForDate = generateCoreMarketsFromWeeklyPure(forecast.forecastForDate, "LOCKED");
+        pureByDate.set(forecast.forecastForDate, rowsForDate);
+      }
+      const canonical = canonicalAssetCode(forecast.symbol);
+      return rowsForDate.find((row) => canonicalAssetCode(row.marketCode) === canonical)?.liuyaoEvidence ?? null;
+    };
+    return rows.map((forecast) => applyQimenFirstToGeneratedDaily(forecast, {
+      liuyaoDirection: weeklyAuxFor(forecast),
+      previousQimenEvidence: forecast.qimenEvidence ?? null,
+    }));
+  } catch (error) {
+    console.warn("[prediction-access] Qimen-first access overlay skipped", error);
+    return rows;
+  }
+}
+
 export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
   const { getStoreForecastsForToday } = await import("@/lib/data/store-to-ui-forecasts");
@@ -162,7 +190,7 @@ export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]>
   const rows = mergeCanonicalForecastCandidates(candidates)
     .filter((forecast) => forecast.forecastForDate === today)
     .map((forecast) => applyTodayFacingCopy(sanitizeForecastForClient(forecast), now));
-  return sortByDailyAssetOrder(rows);
+  return sortByDailyAssetOrder(await applyQimenToAccessRows(rows));
 }
 
 /** Next formal batch after Beijing today — used by member + public teaser metadata. */
@@ -251,7 +279,8 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     const expectedDate = getNextForecastDate(forecast.market, today);
     return isHumanPublishedForecast(forecast) && forecast.forecastForDate === expectedDate;
   });
-  return sortByDailyAssetOrder(rows.map(sanitizeForecastForClient));
+  const sanitizedRows = rows.map(sanitizeForecastForClient);
+  return sortByDailyAssetOrder(await applyQimenToAccessRows(sanitizedRows));
 }
 
 export type TodayPublicTeaser = {

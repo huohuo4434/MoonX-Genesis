@@ -203,9 +203,16 @@ export async function HomeLandingBoard() {
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                   九大市场今日预测
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">
-                  首页只展示方向、信心星级和关键技术位。周度、月度及完整研究进入会员页面查看。
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-white/62 sm:text-base">
+                  奇门看势，六爻验应，技术定点。日分析以奇门遁甲作精细化第一主判，六爻只作辅助印证；
+                  两法同向即记为「共振」，信心星级随之提升；若相左，则以奇门为纲并主动降级。
                 </p>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs"> {/* MOOX_QIMEN_DAILY_RESONANCE_V7201_METHOD */}
+                  <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-violet-200">奇门主判</span>
+                  <span className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-cyan-200">六爻辅助</span>
+                  <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-amber-100">共振加权</span>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-white/55">技术定点</span>
+                </div>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link
@@ -251,20 +258,33 @@ export async function HomeLandingBoard() {
                           </td>
                           <td className="px-3 py-3">
                             {direction ? (
-                              <span
-                                className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}
-                              >
-                                {direction}
-                              </span>
+                              <>
+                                <span
+                                  className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}
+                                >
+                                  {direction}
+                                </span>
+                                {forecast?.qimenMysticNote ? (
+                                  <p className="mt-2 max-w-[320px] text-xs leading-5 text-violet-100/64">
+                                    <span className="mr-1 font-medium text-violet-300/90">盘语</span>
+                                    {forecast.qimenMysticNote}
+                                  </p>
+                                ) : null}
+                              </>
                             ) : (
                               <span className="text-sm text-white/45">待发布</span>
                             )}
                           </td>
                           <td className="px-3 py-3">
                             {confidence ? (
-                              <span className="font-mono text-base tracking-[0.16em] text-amber-200">
-                                {starsText(confidence)}
-                              </span>
+                              <>
+                                <span className="font-mono text-base tracking-[0.16em] text-amber-200">
+                                  {starsText(confidence)}
+                                </span>
+                                {forecast?.qimenAgreementLabel ? (
+                                  <div className="mt-1 text-[11px] text-white/42">{forecast.qimenAgreementLabel}</div>
+                                ) : null}
+                              </>
                             ) : (
                               <span className="text-white/35">—</span>
                             )}
@@ -308,7 +328,7 @@ export async function HomeLandingBoard() {
             )}
 
             <p className="mt-4 text-xs leading-6 text-white/42">
-              信心星级用于表达当前多方法的一致程度；首页不再展示情景百分比和冗长内部说明。
+              星级表达奇门与六爻等方法的一致程度：共振则提升、分歧则降级；盘语只提炼用神与门星神关系，不代表涨跌幅或收益保证。
             </p>
           </div>
         </div>

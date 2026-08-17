@@ -117,6 +117,19 @@ export interface DailyForecast {
   priceDataSourceLabel?: string;
   priceSnapshotAtLabel?: string;
 
+  /** Full auditable Qimen evidence persisted/overlaid by the daily research layer. */
+  qimenEvidence?: string; // MOOX_QIMEN_DAILY_RESONANCE_V7201_TYPES
+  /** Locked weekly Liuyao evidence used only as auxiliary confirmation/risk. */
+  liuyaoEvidence?: string;
+  /** Short traditional-divination research phrase for compact UI display. */
+  qimenMysticNote?: string;
+  /** 奇六共振 / 奇六分歧·奇门为纲 / 奇门主判. */
+  qimenAgreementLabel?: string;
+  qimenPrimaryDirection?: "UP" | "DOWN" | "SIDEWAYS" | string;
+  liuyaoAuxiliaryDirection?: string | null;
+  directionConflict?: boolean;
+  methodPriority?: string;
+
   evidenceRecordIds?: string[];
   correctionNote?: string;
 

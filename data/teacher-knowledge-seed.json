@@ -3844,6 +3844,66 @@
       "updatedAt": "2026-08-18T00:00:00.000Z",
       "content": "主用神取时干天盘/地盘，次看日干、值符、值使。个人八字仅用于私人适配度、风险与仓位层。",
       "source": "MOOX V7.20.0.5 methodology synthesis"
+    },
+    {
+      "id": "moox_qimen_v7201_lesson_asset_yongshen",
+      "lessonCode": "moox_qimen_v7201_lesson_asset_yongshen",
+      "title": "金融奇门：按产品取用神，同盘分资产判断",
+      "teacherName": "",
+      "courseSeries": "",
+      "lessonNumber": "",
+      "lessonDate": "2026-08-18T00:00:00.000Z",
+      "originalFileName": "",
+      "sourceType": "吴老师课程案例 + MOOX V7.20.1 source-boundary synthesis",
+      "assets": [],
+      "timeframes": [],
+      "tags": [
+        "奇门遁甲",
+        "金融用神",
+        "产品锚点",
+        "日分析"
+      ],
+      "rawTranscript": "",
+      "cleanedTranscript": "",
+      "summary": "每日共用一张稳定奇门盘，不同金融产品按吴老师明确案例取各自对象用神；对象属性不机械等同涨跌。",
+      "adminNotes": "",
+      "status": "APPROVED",
+      "version": 0,
+      "createdBy": "2026-08-18T00:00:00.000Z",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "content": "# MOOX V7.20.1 产品用神规则\n\n每日研究先固定一张可复盘的时家奇门盘，再按产品对象用神分别读取宫位。当前资料中可明确编码的锚点：BTC以戊为主并观察壬；标普500以丁为主并结合美股丙；纳指按美股类别观察丙并结合丁；A股观察庚并结合己；恒生科技观察庚并结合丙；黄金观察辛并结合乙；白银观察丙；原油癸加壬仅作为老师案例锚点；ETH现有资料未找到明确专属奇门用神，因此保留通用日干/时干协议并显式标记，不擅自冒充老师规则。\n\n产品用神只用于定位研究对象所在宫。比如黄金以辛金为对象，并不意味着辛金本身就是看跌；A股以庚金为对象，也不等于庚金自动判空。方向必须看用神所在宫的门、星、神、旺衰、空墓迫刑及值符值使关系。",
+      "source": "吴老师课程案例 + MOOX V7.20.1 source-boundary synthesis"
+    },
+    {
+      "id": "moox_qimen_v7201_lesson_resonance",
+      "lessonCode": "moox_qimen_v7201_lesson_resonance",
+      "title": "日分析共振：奇门主判，六爻辅助",
+      "teacherName": "",
+      "courseSeries": "",
+      "lessonNumber": "",
+      "lessonDate": "2026-08-18T00:00:00.000Z",
+      "originalFileName": "",
+      "sourceType": "User-confirmed MOOX daily methodology 2026-08-18",
+      "assets": [],
+      "timeframes": [],
+      "tags": [
+        "奇门优先",
+        "六爻辅助",
+        "共振",
+        "信心星级"
+      ],
+      "rawTranscript": "",
+      "cleanedTranscript": "",
+      "summary": "奇门先定日方向，六爻只做辅助印证；同向共振加星，相左则保留奇门并降级。",
+      "adminNotes": "",
+      "status": "APPROVED",
+      "version": 0,
+      "createdBy": "2026-08-18T00:00:00.000Z",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "content": "正式日分析顺序：奇门遁甲第一主判 → 六爻辅助印证/风险提示 → 技术结构给支撑压力与执行位。奇门与六爻同向记为共振，信心星级上调；相左则标记奇六分歧，以奇门为纲并主动降低置信度。技术分析不得反向覆盖玄学方向。",
+      "source": "User-confirmed MOOX daily methodology 2026-08-18"
     }
   ],
   "versions": [],
@@ -5258,6 +5318,110 @@
         "隔离"
       ],
       "scope": "PUBLIC_MARKET_ISOLATION"
+    },
+    {
+      "id": "moox_qimen_v7201_rule_asset_stem_identity",
+      "ruleCode": "MR-QM-0101",
+      "title": "Product stem identity is not a direction vote",
+      "category": "QIMEN_DAILY_MARKET",
+      "conditions": [],
+      "analysisSteps": [],
+      "conclusion": "",
+      "exceptions": [],
+      "applicableAssets": [],
+      "applicableTimeframes": [],
+      "keywords": [
+        "对象用神",
+        "方向隔离"
+      ],
+      "priority": 0,
+      "confidence": "moox_qimen_v7201_rule_asset_stem_identity",
+      "sourceLessonId": "moox_qimen_v7201_rule_asset_stem_identity",
+      "sourceQuote": "Wu-teacher financial object mappings / MOOX V7.20.1",
+      "sourceTextStart": "对象用神所在宫的门星神、月令旺衰、空亡、入墓、门迫、击刑及值符值使关系决定方向评分。",
+      "sourceTextEnd": "对象用神所在宫的门星神、月令旺衰、空亡、入墓、门迫、击刑及值符值使关系决定方向评分。",
+      "status": "APPROVED",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "code": "MR-QM-0101",
+      "content": "对象用神所在宫的门星神、月令旺衰、空亡、入墓、门迫、击刑及值符值使关系决定方向评分。",
+      "rule": "产品对象干只定位对象，不得因为庚辛等对象属性直接判空，也不得因为丙丁直接判多。",
+      "source": "Wu-teacher financial object mappings / MOOX V7.20.1",
+      "tags": [
+        "对象用神",
+        "方向隔离"
+      ],
+      "scope": "QIMEN_DAILY_MARKET"
+    },
+    {
+      "id": "moox_qimen_v7201_rule_daily_master_chart",
+      "ruleCode": "MR-QM-0102",
+      "title": "One stable daily master chart",
+      "category": "QIMEN_AUTOMATION",
+      "conditions": [],
+      "analysisSteps": [],
+      "conclusion": "",
+      "exceptions": [],
+      "applicableAssets": [],
+      "applicableTimeframes": [],
+      "keywords": [
+        "可复盘",
+        "不换盘"
+      ],
+      "priority": 0,
+      "confidence": "moox_qimen_v7201_rule_daily_master_chart",
+      "sourceLessonId": "moox_qimen_v7201_rule_daily_master_chart",
+      "sourceQuote": "MOOX V7.20.1 reproducibility rule",
+      "sourceTextStart": "已有qimenEvidence时复用起局时间；没有时按稳定研究窗口生成。2026-08-18缺失盘按用户实际补盘请求时间06:09北京时间留痕。",
+      "sourceTextEnd": "已有qimenEvidence时复用起局时间；没有时按稳定研究窗口生成。2026-08-18缺失盘按用户实际补盘请求时间06:09北京时间留痕。",
+      "status": "APPROVED",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "code": "MR-QM-0102",
+      "content": "已有qimenEvidence时复用起局时间；没有时按稳定研究窗口生成。2026-08-18缺失盘按用户实际补盘请求时间06:09北京时间留痕。",
+      "rule": "同一目标日使用一张稳定日盘，不因资产不同或任务重试而重新起局；资产差异由产品用神产生。",
+      "source": "MOOX V7.20.1 reproducibility rule",
+      "tags": [
+        "可复盘",
+        "不换盘"
+      ],
+      "scope": "QIMEN_AUTOMATION"
+    },
+    {
+      "id": "moox_qimen_v7201_rule_resonance_stars",
+      "ruleCode": "MR-QM-0103",
+      "title": "Qimen-Liuyao resonance changes confidence",
+      "category": "DAILY_PUBLIC_MARKET",
+      "conditions": [],
+      "analysisSteps": [],
+      "conclusion": "",
+      "exceptions": [],
+      "applicableAssets": [],
+      "applicableTimeframes": [],
+      "keywords": [
+        "共振",
+        "星级",
+        "方法一致度"
+      ],
+      "priority": 0,
+      "confidence": "moox_qimen_v7201_rule_resonance_stars",
+      "sourceLessonId": "moox_qimen_v7201_rule_resonance_stars",
+      "sourceQuote": "User-confirmed MOOX rule 2026-08-18",
+      "sourceTextStart": "星级表达方法一致程度，不代表收益幅度，也不构成准确率保证。",
+      "sourceTextEnd": "星级表达方法一致程度，不代表收益幅度，也不构成准确率保证。",
+      "status": "APPROVED",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "code": "MR-QM-0103",
+      "content": "星级表达方法一致程度，不代表收益幅度，也不构成准确率保证。",
+      "rule": "奇门与六爻同向时提高信心星级；冲突时保留奇门方向并降低星级。",
+      "source": "User-confirmed MOOX rule 2026-08-18",
+      "tags": [
+        "共振",
+        "星级",
+        "方法一致度"
+      ],
+      "scope": "DAILY_PUBLIC_MARKET"
     }
   ],
   "cases": [
@@ -6523,6 +6687,27 @@
         "奇门",
         "数字协议",
         "复盘"
+      ]
+    },
+    {
+      "id": "moox_qimen_v7201_method_teacher_yongshen",
+      "title": "MOOX Qimen Teacher-Yongshen Daily Protocol V2",
+      "steps": [],
+      "conditions": [],
+      "exceptions": [],
+      "sourceLessonId": "moox_qimen_v7201_method_teacher_yongshen",
+      "sourceQuote": "MOOX V7.20.1 derived reproducible protocol; not claimed as teacher undisclosed manual palace-selection method",
+      "status": "APPROVED",
+      "createdAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "name": "Teacher-Yongshen + Qimen-first + Liuyao-resonance",
+      "content": "固定日盘 → 按产品老师锚点取用神 → 门星神与旺衰/空墓迫刑评分 → 奇门给上涨/下跌/震荡 → 六爻做同向/冲突判定 → 共振加星或冲突降级 → 技术仅定支撑压力和执行位。",
+      "source": "MOOX V7.20.1 derived reproducible protocol; not claimed as teacher undisclosed manual palace-selection method",
+      "tags": [
+        "奇门",
+        "金融用神",
+        "数字协议",
+        "共振"
       ]
     }
   ],

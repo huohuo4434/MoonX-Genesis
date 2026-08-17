@@ -76,6 +76,8 @@ export function generatedDailyToUi(
       flat: r.sidewaysProbability,
       down: r.downProbability,
     },
+    qimenEvidence: r.qimenEvidence ?? undefined, // MOOX_QIMEN_DAILY_RESONANCE_V7201_RAW
+    liuyaoEvidence: r.liuyaoEvidence || undefined,
     reviewedBy: "weekly-to-daily",
     reviewedAt: r.publishedAt ?? r.generatedAt,
     publishedBy: "weekly-to-daily",

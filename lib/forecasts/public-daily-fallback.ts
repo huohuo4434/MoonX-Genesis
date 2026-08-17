@@ -9,6 +9,7 @@
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { isTradingDay } from "@/lib/calendar/next-trading-day";
 import { generatedDailyToUi } from "@/lib/forecasts/generated-to-ui";
+import { applyQimenFirstToGeneratedDaily } from "@/lib/forecasts/qimen-first-policy"; // MOOX_QIMEN_DAILY_RESONANCE_V7201_FALLBACK
 import { generateDailyFromWeekly, marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import type { DailyForecast } from "@/types/daily-forecast";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
@@ -119,7 +120,11 @@ export function buildWeeklyDerivedFallbackForMarket(
       version: 1,
       status: "LOCKED",
     });
-    const ui = generatedDailyToUi(generated, accessLevel);
+    const qimenized = applyQimenFirstToGeneratedDaily(generated, {
+      liuyaoDirection: weekly.weeklyDirection,
+      previousQimenEvidence: generated.qimenEvidence,
+    });
+    const ui = generatedDailyToUi(qimenized, accessLevel);
     return {
       ...ui,
       id: `${ui.id}-PUBLIC-FALLBACK`,

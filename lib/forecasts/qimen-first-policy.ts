@@ -1,5 +1,5 @@
 /*
- * MOOX V7.20.0.5 — Qimen-first daily research policy
+ * MOOX V7.20.1 — Qimen-first daily resonance research policy
  *
  * Source boundaries:
  * 1) Standard chart layer: time Qimen, split-supplement, rotating plate.
@@ -16,8 +16,8 @@
  * - This module contains no order, leverage, payment or membership operation.
  */
 
-export const MOOX_QIMEN_ENGINE_VERSION = "MOOX_QIMEN_TIME_ROTATING_V1_20260818";
-export const MOOX_QIMEN_POLICY_VERSION = "QIMEN_PRIMARY_LIUYAO_AUX_TECH_EXEC_V1";
+export const MOOX_QIMEN_ENGINE_VERSION = "MOOX_QIMEN_TIME_ROTATING_V3_20260818";
+export const MOOX_QIMEN_POLICY_VERSION = "QIMEN_PRIMARY_TEACHER_YONGSHEN_LIUYAO_AUX_V2";
 
 type JsonRecord = Record<string, unknown>;
 type QimenDirection = "UP" | "DOWN" | "SIDEWAYS";
@@ -198,6 +198,75 @@ const STEM_SCORE: Record<string, number> = {
   己: -0.2, 庚: -1.4, 辛: -1.7, 甲: 0.0,
 };
 
+
+
+interface TeacherAssetAnchor {
+  primary: readonly string[];
+  secondary?: readonly string[];
+  basis: "TEACHER_EXPLICIT" | "TEACHER_CASE" | "GENERIC_FALLBACK";
+  note: string;
+}
+
+/**
+ * Product-specific object anchors extracted from the user's Wu-teacher materials.
+ * Only explicit/case-supported mappings are encoded. Unknown products keep the
+ * generic time/day-stem protocol instead of inventing a teacher rule.
+ */
+const TEACHER_ASSET_ANCHORS: Record<string, TeacherAssetAnchor> = {
+  BTC: {
+    primary: ["戊"],
+    secondary: ["壬"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师BTC案例：戊土为对象，同时观察壬水对立/配合",
+  },
+  SPX: {
+    primary: ["丁"],
+    secondary: ["丙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师2026-08-17周度资料明确：标普500取丁火；同时结合美股丙火背景",
+  },
+  NDX: {
+    primary: ["丙"],
+    secondary: ["丁"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师本周美股资料：美股以丙火结合丁火观察；纳指沿用美股类别锚点",
+  },
+  SHCOMP: {
+    primary: ["庚"],
+    secondary: ["己"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师A股案例：观察庚金，并结合己土",
+  },
+  HSTECH: {
+    primary: ["庚"],
+    secondary: ["丙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师恒生科技案例：庚金与丙火配合",
+  },
+  GLD: {
+    primary: ["辛"],
+    secondary: ["乙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师黄金案例：辛金，并观察辛乙组合",
+  },
+  GOLD: {
+    primary: ["辛"],
+    secondary: ["乙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师黄金案例：辛金，并观察辛乙组合",
+  },
+  SILVER: {
+    primary: ["丙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师黄金白银资料：可把丙火视为白银",
+  },
+  WTI: {
+    primary: ["癸"],
+    secondary: ["壬"],
+    basis: "TEACHER_CASE",
+    note: "吴老师原油月度案例：原油宫见癸加壬、腾蛇；作为案例锚点而非通用古法",
+  },
+};
 const FINANCIAL_YONGSHEN = {
   core: {
     primary: ["时干天盘", "时干地盘"],
@@ -216,6 +285,7 @@ const FINANCIAL_YONGSHEN = {
     RATES_POLICY: ["值符", "值使", "开门", "天心", "决策主体"],
   },
   baziBoundary: "个人八字只用于私人适配度与风险叠加，不参与公共市场方向投票",
+  teacherAssetAnchors: TEACHER_ASSET_ANCHORS,
 } as const;
 
 function mod(value: number, divisor: number): number {
@@ -551,12 +621,12 @@ function elementSeasonScore(palaceElement: string, monthBranch: string): number 
   return 0;
 }
 
-function palaceScore(palace: PalaceState, monthBranch: string): number {
+function palaceScore(palace: PalaceState, monthBranch: string, includeMarketStemSignal = true): number {
   let score = 0;
   if (palace.door) score += DOOR_SCORE[palace.door] ?? 0;
   if (palace.star) score += STAR_SCORE[palace.star] ?? 0;
   if (palace.deity) score += DEITY_SCORE[palace.deity] ?? 0;
-  if (palace.heavenStem) score += STEM_SCORE[palace.heavenStem] ?? 0;
+  if (includeMarketStemSignal && palace.heavenStem) score += STEM_SCORE[palace.heavenStem] ?? 0;
   score += elementSeasonScore(palace.element, monthBranch);
   if (palace.horse) score += score >= 0 ? 0.4 : -0.4;
   if (palace.void) score -= 1.6;
@@ -576,20 +646,55 @@ function findHeavenPalace(chart: QimenChart, stem: string): PalaceNumber | null 
   return chart.palaces.find((palace) => palace.heavenStem === effective)?.palace ?? null;
 }
 
-function directionFromChart(chart: QimenChart): {
+function resolveTeacherAnchor(asset: string): TeacherAssetAnchor | null {
+  const code = asset.toUpperCase();
+  if (TEACHER_ASSET_ANCHORS[code]) return TEACHER_ASSET_ANCHORS[code];
+  if (/^SPX|S&P|标普/.test(code)) return TEACHER_ASSET_ANCHORS.SPX ?? null;
+  if (/^NDX|NASDAQ|纳指/.test(code)) return TEACHER_ASSET_ANCHORS.NDX ?? null;
+  if (/^GOLD|XAU|GC=F/.test(code)) return TEACHER_ASSET_ANCHORS.GOLD ?? null;
+  if (/^SILVER|XAG|SI=F|SLV/.test(code)) return TEACHER_ASSET_ANCHORS.SILVER ?? null;
+  if (/^WTI|CL=F|BRENT|OIL/.test(code)) return TEACHER_ASSET_ANCHORS.WTI ?? null;
+  return null;
+}
+
+function directionFromChart(chart: QimenChart, asset: string): {
   direction: QimenDirection;
   score: number;
   confidence: number;
+  anchor: TeacherAssetAnchor | null;
   evidence: Array<{ role: string; palace: PalaceNumber; score: number }>;
 } {
-  const roles: Array<{ role: string; palace: PalaceNumber | null; weight: number }> = [
-    { role: "时干天盘（对象主用神）", palace: findHeavenPalace(chart, chart.pillars.hour.stem), weight: 0.28 },
-    { role: "时干地盘（对象根基）", palace: findEarthPalace(chart, chart.pillars.hour.stem), weight: 0.22 },
-    { role: "日干天盘（起念/事项）", palace: findHeavenPalace(chart, chart.pillars.day.stem), weight: 0.14 },
-    { role: "日干地盘（事项根基）", palace: findEarthPalace(chart, chart.pillars.day.stem), weight: 0.11 },
-    { role: "值符宫（主趋势权重）", palace: chart.chiefStarPalace, weight: 0.15 },
-    { role: "值使宫（执行/阶段）", palace: chart.chiefDoorPalace, weight: 0.10 },
-  ];
+  const teacherAnchor = resolveTeacherAnchor(asset);
+  const roles: Array<{ role: string; palace: PalaceNumber | null; weight: number; objectRole?: boolean }> = [];
+
+  if (teacherAnchor) {
+    // Teacher product anchor dominates.  The stem identifies the object and must
+    // NOT be treated as inherently bullish/bearish (e.g. A-share=庚, gold=辛).
+    for (const stem of teacherAnchor.primary) {
+      roles.push({ role: `老师对象用神${stem}天盘`, palace: findHeavenPalace(chart, stem), weight: 0.24, objectRole: true });
+      roles.push({ role: `老师对象用神${stem}地盘`, palace: findEarthPalace(chart, stem), weight: 0.18, objectRole: true });
+    }
+    for (const stem of teacherAnchor.secondary ?? []) {
+      roles.push({ role: `老师辅助用神${stem}天盘`, palace: findHeavenPalace(chart, stem), weight: 0.12, objectRole: true });
+      roles.push({ role: `老师辅助用神${stem}地盘`, palace: findEarthPalace(chart, stem), weight: 0.08, objectRole: true });
+    }
+    roles.push(
+      { role: "时干天盘（事件/当下）", palace: findHeavenPalace(chart, chart.pillars.hour.stem), weight: 0.08 },
+      { role: "日干天盘（起念/事项）", palace: findHeavenPalace(chart, chart.pillars.day.stem), weight: 0.06 },
+      { role: "值符宫（主趋势）", palace: chart.chiefStarPalace, weight: 0.07 },
+      { role: "值使宫（阶段执行）", palace: chart.chiefDoorPalace, weight: 0.05 },
+    );
+  } else {
+    roles.push(
+      { role: "时干天盘（对象主用神）", palace: findHeavenPalace(chart, chart.pillars.hour.stem), weight: 0.28 },
+      { role: "时干地盘（对象根基）", palace: findEarthPalace(chart, chart.pillars.hour.stem), weight: 0.22 },
+      { role: "日干天盘（起念/事项）", palace: findHeavenPalace(chart, chart.pillars.day.stem), weight: 0.14 },
+      { role: "日干地盘（事项根基）", palace: findEarthPalace(chart, chart.pillars.day.stem), weight: 0.11 },
+      { role: "值符宫（主趋势权重）", palace: chart.chiefStarPalace, weight: 0.15 },
+      { role: "值使宫（执行/阶段）", palace: chart.chiefDoorPalace, weight: 0.10 },
+    );
+  }
+
   const evidence: Array<{ role: string; palace: PalaceNumber; score: number }> = [];
   let weighted = 0;
   let totalWeight = 0;
@@ -597,16 +702,17 @@ function directionFromChart(chart: QimenChart): {
     if (!item.palace) continue;
     const palace = chart.palaces.find((candidate) => candidate.palace === item.palace);
     if (!palace) continue;
-    const score = palaceScore(palace, chart.pillars.month.branch);
+    const score = palaceScore(palace, chart.pillars.month.branch, !item.objectRole);
     evidence.push({ role: item.role, palace: item.palace, score: round(score) });
     weighted += score * item.weight;
     totalWeight += item.weight;
   }
   const score = totalWeight > 0 ? weighted / totalWeight : 0;
-  const direction: QimenDirection = score >= 0.8 ? "UP" : score <= -0.8 ? "DOWN" : "SIDEWAYS";
-  const base = direction === "SIDEWAYS" ? 54 : 58;
-  const confidence = clamp(Math.round(base + Math.abs(score) * 7), 50, 88);
-  return { direction, score: round(score), confidence, evidence };
+  const direction: QimenDirection = score >= 0.65 ? "UP" : score <= -0.65 ? "DOWN" : "SIDEWAYS";
+  const base = direction === "SIDEWAYS" ? 54 : 59;
+  const anchorBonus = teacherAnchor?.basis === "TEACHER_EXPLICIT" ? 3 : teacherAnchor ? 1 : 0;
+  const confidence = clamp(Math.round(base + Math.abs(score) * 7 + anchorBonus), 50, 90);
+  return { direction, score: round(score), confidence, anchor: teacherAnchor, evidence };
 }
 
 function hashText(text: string): number {
@@ -625,7 +731,7 @@ function parseDateOnly(value: string): { year: number; month: number; day: numbe
 }
 
 function determineTargetDate(record: JsonRecord): string {
-  const candidates = [record.forecastDate, record.targetDate, record.sessionDate, record.tradeDate, record.date];
+  const candidates = [record.forecastDate, record.forecastForDate, record.targetDate, record.sessionDate, record.tradeDate, record.date];
   for (const candidate of candidates) {
     const text = safeString(candidate);
     if (text && parseDateOnly(text)) return text.slice(0, 10);
@@ -656,6 +762,8 @@ function inferAssetCategory(asset: string): keyof typeof FINANCIAL_YONGSHEN.cate
 interface QimenDailyApplyOptions {
   liuyaoDirection?: string | null;
   previousQimenEvidence?: string | null;
+  /** One-time/manual backfill only. Normal automation leaves this empty. */
+  castAtOverride?: string | Date | null;
 }
 
 function castAtFromEvidence(value: unknown): Date | null {
@@ -667,7 +775,21 @@ function castAtFromEvidence(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function deterministicCastAt(record: JsonRecord, previousQimenEvidence?: string | null): Date {
+const MANUAL_DAILY_CAST_OVERRIDES: Record<string, string> = {
+  // User-requested 2026-08-18 morning repair; records the actual repair cast
+  // rather than pretending the missing forecast had been generated the night before.
+  "2026-08-18": "2026-08-17T22:09:00.000Z", // Beijing 2026-08-18 06:09
+};
+
+function deterministicCastAt(
+  record: JsonRecord,
+  previousQimenEvidence?: string | null,
+  castAtOverride?: string | Date | null,
+): Date {
+  if (castAtOverride) {
+    const forced = castAtOverride instanceof Date ? castAtOverride : new Date(castAtOverride);
+    if (!Number.isNaN(forced.getTime())) return forced;
+  }
   // First reuse a previously persisted chart time for the same market/date.
   const previous = castAtFromEvidence(previousQimenEvidence) ?? castAtFromEvidence(record.qimenEvidence);
   if (previous) return previous;
@@ -679,12 +801,16 @@ function deterministicCastAt(record: JsonRecord, previousQimenEvidence?: string 
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
 
+  const targetDate = determineTargetDate(record);
+  const manualOverride = MANUAL_DAILY_CAST_OVERRIDES[targetDate];
+  if (manualOverride) return new Date(manualOverride);
+
   // With no persisted chart, use a stable research-window time derived from
   // target date + asset. Retries therefore never silently recast the question.
-  const targetDate = determineTargetDate(record);
   const parts = parseDateOnly(targetDate) ?? { year: 2026, month: 1, day: 1 };
-  const asset = assetIdentity(record);
-  const seed = hashText(`${targetDate}|${asset}|${MOOX_QIMEN_POLICY_VERSION}`);
+  // One daily master chart is shared across assets; product differentiation comes
+  // from product-specific yongshen, matching the teacher workflow more closely.
+  const seed = hashText(`${targetDate}|DAILY_MASTER|${MOOX_QIMEN_POLICY_VERSION}`);
   const hourChoices = [19, 20, 21, 22] as const;
   const minuteChoices = [7, 17, 29, 37, 49] as const;
   const hour = requiredAt(hourChoices, seed % hourChoices.length, "research-window hour");
@@ -735,9 +861,10 @@ function renderQimenEvidence(input: {
   confidence: number;
   score: number;
   category: keyof typeof FINANCIAL_YONGSHEN.categories;
+  assetAnchor: TeacherAssetAnchor | null;
   agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS";
 }): string {
-  const { chart, direction, confidence, score, category, agreement } = input;
+  const { chart, direction, confidence, score, category, assetAnchor, agreement } = input;
   const palaceText = chart.palaces.map((palace) => {
     const heaven = palace.heavenStem ?? "—";
     const star = palace.star ?? "—";
@@ -762,6 +889,8 @@ function renderQimenEvidence(input: {
     `旬空=${chart.voidBranches.join("") || "—"}`,
     `驿马=${chart.horseBranch}`,
     `对象类别=${category}`,
+    `金融用神=${assetAnchor ? `${assetAnchor.primary.join("/")}${assetAnchor.secondary?.length ? `+${assetAnchor.secondary.join("/")}` : ""}|${assetAnchor.basis}` : "通用时干/日干协议|GENERIC_FALLBACK"}`,
+    `用神依据=${assetAnchor?.note ?? "现有老师资料未明确该产品专属奇门用神，不擅自补写"}`,
     `六爻辅助=${agreementLabel(agreement)}`,
     `九宫=${palaceText}`,
     "规则边界=奇门定日方向-六爻辅助确认-技术只定点位",
@@ -786,17 +915,91 @@ function looksLikeDailyForecast(record: JsonRecord): boolean {
   return hasDirection && hasAsset && hasResearch;
 }
 
+function directionalProbabilities(
+  direction: QimenDirection,
+  confidence: number,
+  score: number,
+): { up: number; flat: number; down: number } {
+  const lead = clamp(Math.round(confidence), 45, 92);
+  const remainder = 100 - lead;
+  if (direction === "UP") {
+    const down = Math.round(remainder * 0.34);
+    return { up: lead, flat: remainder - down, down };
+  }
+  if (direction === "DOWN") {
+    const up = Math.round(remainder * 0.34);
+    return { up, flat: remainder - up, down: lead };
+  }
+  const tilt = clamp(score / 2.5, -0.28, 0.28);
+  const up = Math.round(remainder * (0.5 + tilt));
+  return { up, flat: lead, down: remainder - up };
+}
+
+function resonanceStars(confidence: number, agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS"): 1 | 2 | 3 | 4 | 5 {
+  const base = Math.max(1, Math.min(5, Math.round(confidence / 20)));
+  const adjusted = agreement === "RESONANCE" ? base + 1 : agreement === "CONFLICT_QIMEN_PREVAILS" ? base - 1 : base;
+  return Math.max(1, Math.min(5, adjusted)) as 1 | 2 | 3 | 4 | 5;
+}
+
+
+function isUiDailyForecastRecord(record: JsonRecord): boolean {
+  return "forecastForDate" in record && "symbol" in record && ("assetId" in record || "accessLevel" in record);
+}
+
+function qimenMysticLine(
+  chart: QimenChart,
+  signal: { direction: QimenDirection; anchor: TeacherAssetAnchor | null },
+): string {
+  const primaryStem = signal.anchor?.primary[0] ?? chart.pillars.hour.stem;
+  const palaceNumber = findHeavenPalace(chart, primaryStem) ?? findEarthPalace(chart, primaryStem);
+  const palace = palaceNumber
+    ? chart.palaces.find((candidate) => candidate.palace === palaceNumber) ?? null
+    : null;
+  if (!palace) {
+    return signal.direction === "UP"
+      ? "气机渐聚，阳势有启；顺势而观，不逐躁动。"
+      : signal.direction === "DOWN"
+        ? "气机内收，阴势渐重；先守后看，不逆其锋。"
+        : "气机未成一线，阴阳相持；静观其变，候门而动。";
+  }
+  const position = palace.palace === 5 ? `${primaryStem}居中宫` : `${primaryStem}落${palace.trigram}${palace.palace}宫`;
+  const omens: string[] = [];
+  if (palace.door && palace.deity) omens.push(`${palace.door}${palace.deity}同临`);
+  else if (palace.door) omens.push(`${palace.door}临宫`);
+  else if (palace.deity) omens.push(`${palace.deity}临宫`);
+  if (palace.star) omens.push(`${palace.star}随势`);
+  if (palace.horse) omens.push("驿马催行");
+  if (palace.void) omens.push("旬空减力");
+  if (palace.stemTomb) omens.push("入墓收气");
+  if (palace.doorPressure) omens.push("门迫添折");
+  if (palace.instrumentPunishment) omens.push("击刑生扰");
+  const tail = signal.direction === "UP"
+    ? "阳机渐聚，势取其升"
+    : signal.direction === "DOWN"
+      ? "阴势收束，先防回落"
+      : "阴阳相持，宜观其变";
+  return `${position}${omens.length ? `，${omens.slice(0, 3).join("、")}` : ""}；${tail}。`;
+}
+
+function agreementDisplayLabel(
+  agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS",
+): string {
+  if (agreement === "RESONANCE") return "奇六共振";
+  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "奇六分歧·奇门为纲";
+  return "奇门主判";
+}
+
 function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {}): JsonRecord {
   const next: JsonRecord = { ...record };
   const asset = assetIdentity(record);
   const category = inferAssetCategory(asset);
-  const castAt = deterministicCastAt(record, options.previousQimenEvidence);
+  const castAt = deterministicCastAt(record, options.previousQimenEvidence, options.castAtOverride);
   const chart = buildQimenChart(castAt);
-  const signal = directionFromChart(chart);
+  const signal = directionFromChart(chart, asset);
   const directionKey = ["direction", "trend", "bias", "view"].find((key) => key in record) ?? "direction";
   const legacyRaw = record[directionKey];
   const liuyaoDirection = normalizeDirection(
-    options.liuyaoDirection ?? record.liuyaoDirection ?? record.hexagramDirection ?? record.mysticDirection ?? legacyRaw,
+    options.liuyaoDirection ?? record.liuyaoDirection ?? record.liuyaoEvidence ?? record.hexagramDirection ?? record.mysticDirection ?? legacyRaw,
   );
   const agreement = liuyaoDirection === null
     ? "NO_LIUYAO_SIGNAL" as const
@@ -812,20 +1015,41 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   // Fail closed: only replace the formal direction when the chart invariants pass.
   if (chart.invariants.valid) {
     const formalDirection = renderFormalDirection(signal.direction);
-    next[directionKey] = formalDirection;
+    if (isUiDailyForecastRecord(record)) {
+      // UI DailyForecast.direction has a separate enum. Keep that contract intact
+      // and place the formal Qimen direction in directionLabel.
+      next.direction = signal.direction === "UP" ? "看涨" : signal.direction === "DOWN" ? "看跌" : "中性";
+      next.directionLabel = formalDirection;
+    } else {
+      next[directionKey] = formalDirection;
+    }
+    const probs = directionalProbabilities(signal.direction, confidence, signal.score);
+    if ("upProbability" in record || "sidewaysProbability" in record || "downProbability" in record) {
+      next.upProbability = probs.up;
+      next.sidewaysProbability = probs.flat;
+      next.downProbability = probs.down;
+    }
+    if ("probabilities" in record) next.probabilities = probs;
+    if ("confidence" in record) next.confidence = confidence;
+    if ("consensusStars" in record) next.consensusStars = resonanceStars(confidence, agreement);
+    if ("consensusScore" in record) next.consensusScore = confidence;
+    if ("consensusLabel" in record) {
+      next.consensusLabel = agreement === "RESONANCE" ? "奇门六爻共振" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "奇门主判·六爻分歧" : "奇门主判";
+    }
     // GeneratedDailyForecastRecord persists this TEXT column, so the full audit
     // evidence survives DB writes without a schema migration.
-    if ("qimenEvidence" in record || "marketCode" in record || "forecastDate" in record) {
+    if ("qimenEvidence" in record || "marketCode" in record || "forecastDate" in record || "forecastForDate" in record) {
       next.qimenEvidence = renderQimenEvidence({
         chart,
         direction: signal.direction,
         confidence,
         score: signal.score,
         category,
+        assetAnchor: signal.anchor,
         agreement,
       });
     }
-  } else if ("qimenEvidence" in record || "marketCode" in record || "forecastDate" in record) {
+  } else if ("qimenEvidence" in record || "marketCode" in record || "forecastDate" in record || "forecastForDate" in record) {
     next.qimenEvidence = `奇门不可用=盘面结构校验失败；起局=${chart.castAt}；规则=保留原方向并禁止奇门覆盖`;
   }
 
@@ -844,6 +1068,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       primary: [...FINANCIAL_YONGSHEN.core.primary],
       secondary: [...FINANCIAL_YONGSHEN.core.secondary],
       categoryIndicators: [...FINANCIAL_YONGSHEN.categories[category]],
+      teacherAssetAnchor: signal.anchor,
       personalBaziVote: "DISABLED_FOR_PUBLIC_MARKET_DIRECTION",
     },
     liuyaoAuxiliary: {
@@ -853,11 +1078,11 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       canOverrideQimen: false,
     },
     technicalBoundary: "LEVELS_ENTRY_INVALIDATION_ONLY_NO_DIRECTION_VOTE",
-    castTimePolicy: "PERSISTED_CAST_OR_DETERMINISTIC_RESEARCH_WINDOW_NO_RECAST_ON_RETRY",
+    castTimePolicy: "ONE_DAILY_MASTER_CHART_PERSISTED_OR_DETERMINISTIC_RESEARCH_WINDOW",
     evidence: signal.evidence,
     chart,
     sourceBoundary: {
-      teacherEvidence: "吴老师课程 + 开挂的金兔子明确行情象意",
+      teacherEvidence: "吴老师产品用神锚点 + 开挂的金兔子日/时干、值符值使、门星神与旺衰象意",
       mooxDigitalProtocol: "上涨/下跌/震荡评分为MOOX可复现规则，不冒充老师未公开的人工取宫法",
     },
   };
@@ -865,6 +1090,8 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   next.qimenPrimaryDirection = signal.direction;
   next.liuyaoAuxiliaryDirection = liuyaoDirection;
   next.directionConflict = agreement === "CONFLICT_QIMEN_PREVAILS";
+  next.qimenMysticNote = qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor });
+  next.qimenAgreementLabel = agreementDisplayLabel(agreement);
 
   const summary = `${renderFormalDirection(signal.direction)}，置信度${confidence}%；`
     + `${agreement === "RESONANCE" ? "与六爻共振" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "与六爻冲突，按规则保留奇门方向并降置信度" : "六爻仅作辅助"}；`
