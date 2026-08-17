@@ -29,6 +29,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/trading-signals", label: "AI交易信号中心" },
       { href: "/admin/bitget-demo", label: "Bitget模拟执行" },
       { href: "/admin/market-prices", label: "行情录入" },
+      { href: "/admin/market-data-sources", label: "多源行情诊断" },
       { href: "/admin/support-resistance", label: "支撑压力录入" },
       { href: "/admin/full-cycle", label: "全周期／关键日" },
       { href: "/admin/btc-eth-cycle", label: "BTC／ETH周期" },

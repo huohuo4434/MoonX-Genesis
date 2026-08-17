@@ -117,9 +117,10 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
           <label className="text-xs text-zinc-500">周期</label>
           <select name="timeframe" defaultValue={selectedTimeframe} className="rounded-lg bg-zinc-900 px-3 py-2">{["30m", "1H", "4H", "1D"].map((value) => <option key={value}>{value}</option>)}</select>
           <button className="rounded-lg bg-amber-300 px-4 py-2 font-semibold text-black">查看</button>
+          <a href={`/member/market-structure?symbol=${encodeURIComponent(symbol)}&timeframe=${selectedTimeframe}`} className="rounded-lg border border-cyan-300/30 px-3 py-2 text-sm font-semibold text-cyan-100">多源K线</a>
         </form>
       </div>
-      <p className="mt-3 text-xs text-zinc-500">行情优先来自 MoonX DEX 对应的公开合约市场；美股与主流加密货币在主源异常时自动使用公开备用行情。页面只分析真实已闭合K线。</p>
+      <p className="mt-3 text-xs text-zinc-500">加密行情优先使用Binance，并由OKX、Bitget交叉校验；美股继续使用公开现货K线。页面只分析真实已闭合K线。</p>
       <form className="mt-3 flex flex-wrap items-center gap-2">
         <label className="text-xs text-zinc-500">其他美股</label>
         <input name="symbol" aria-label="输入其他美股代码" placeholder="例如 PLTR" className="w-32 rounded-lg bg-zinc-900 px-3 py-2 uppercase" pattern="[A-Za-z][A-Za-z0-9.\-]{0,9}" maxLength={10} />

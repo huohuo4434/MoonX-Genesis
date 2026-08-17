@@ -21,6 +21,7 @@ export const NAV_ROUTES = {
   earlyAltcoinRadar: "/member/early-altcoin-radar",
   aiTradingDesk: "/member/ai-trading",
   technicalMethods: "/member/technical-methods",
+  marketStructure: "/member/market-structure",
   founderCycle: "/member/founder-cycle",
   weeklyAnalysis: "/member/weekly",
   monthlyAnalysis: "/member/monthly",
@@ -82,6 +83,7 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
   { key: "memberNav.earlyAltcoinRadar", href: NAV_ROUTES.earlyAltcoinRadar, labelZh: "早期山寨币雷达", labelEn: "Early Altcoin Radar" },
   { key: "memberNav.tradeSignals", href: NAV_ROUTES.tradingSignals, labelZh: "AI交易信号", labelEn: "AI Trade Signals" },
   { key: "memberNav.technicalMethods", href: NAV_ROUTES.technicalMethods, labelZh: "缠论执行台", labelEn: "Chan Execution Console" },
+  { key: "memberNav.marketStructure", href: NAV_ROUTES.marketStructure, labelZh: "多源K线", labelEn: "Multi-source Market" },
   { key: "memberNav.founderCycle", href: NAV_ROUTES.founderCycle, labelZh: "创始人周期", labelEn: "Founder Cycles" },
 ];
 
@@ -127,7 +129,7 @@ export function buildPublicFooterColumns(_options?: {
 export const AUDIT_ROUTES = [
   "/", "/guide", "/login", "/account", "/account/orders", "/pricing", "/support",
   "/methodology", "/member/tomorrow", "/member/weekly", "/member/monthly",
-  "/member/alpha-feed", "/member/ai-trading", "/member/signals", "/featured-stocks", "/verification",
+  "/member/alpha-feed", "/member/ai-trading", "/member/signals", "/member/market-structure", "/featured-stocks", "/verification",
   "/privacy", "/terms", "/admin", "/admin/payments", "/admin/settings",
   "/admin/site-health", "/admin/security", "/admin/iching/library", "/admin/iching/rules",
   "/admin/iching/cases", "/admin/iching/validation", ...INTERNAL_LEGACY_ROUTES,
