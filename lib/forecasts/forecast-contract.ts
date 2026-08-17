@@ -9,7 +9,8 @@ import {
   normalizeDailyLanguage,
   signalStrengthFromConfidence,
 } from "@/lib/forecasts/daily-language";
-import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
+import { normalizeOfficialDirection } from "@/lib/forecasts/formal-direction";
+import { validatePredictionGovernance } from "@/lib/forecasts/prediction-governance";
 
 export const FORECAST_PATH_FORBIDDEN_TERMS = [
   "妻财",
@@ -150,7 +151,7 @@ export function normalizeForecastContract(forecast: DailyForecast): DailyForecas
     targetSessionKey: forecastTargetSessionKey(forecast),
     targetSessionLabel: targetSessionLabel(forecast.market, forecast.forecastForDate, canonicalCode),
     tradingSessionLabel: targetSessionLabel(forecast.market, forecast.forecastForDate, canonicalCode),
-    directionLabel: normalizeFormalDirection(forecast.directionLabel ?? forecast.direction),
+    directionLabel: normalizeOfficialDirection(forecast.directionLabel ?? forecast.direction),
     confidence,
     probabilities: normalizeProbabilitySet(forecast.probabilities),
     expectedPath,
@@ -210,8 +211,8 @@ export function mergeCanonicalForecastCandidates(candidates: ForecastCandidate[]
     if (!current || compareCandidates(next, current) > 0) {
       if (
         current &&
-        normalizeFormalDirection(current.forecast.directionLabel ?? current.forecast.direction) !==
-          normalizeFormalDirection(normalized.directionLabel ?? normalized.direction)
+        normalizeOfficialDirection(current.forecast.directionLabel ?? current.forecast.direction) !==
+          normalizeOfficialDirection(normalized.directionLabel ?? normalized.direction)
       ) {
         console.warn(
           `[forecast-consistency] ${key} has conflicting directions; selected ${normalized.id} over ${current.forecast.id}.`
@@ -221,4 +222,23 @@ export function mergeCanonicalForecastCandidates(candidates: ForecastCandidate[]
     }
   }
   return [...selected.values()].map((entry) => entry.forecast);
+}
+
+
+/** Publish-time governance checks. This function never rewrites history. */
+export function validateForecastGovernanceContract(forecast: DailyForecast): string[] {
+  const errors = validatePredictionGovernance({
+    direction: forecast.directionLabel ?? forecast.direction,
+    probabilities: forecast.probabilities ?? null,
+    technicalChangedDirection: false,
+  });
+  if (containsForecastPathMethodTerms(forecast.pathBias)) errors.push("PATH_CONTAINS_METHODOLOGY_TERMS");
+  for (const row of [...(forecast.expectedPath ?? []), ...(forecast.intradayRhythm ?? [])]) {
+    if (containsForecastPathMethodTerms(row)) errors.push("PATH_CONTAINS_METHODOLOGY_TERMS");
+  }
+  const technicalText = `${forecast.confirmation ?? ""} ${forecast.invalidation ?? ""}`;
+  if (/(改为|转为|升级为|反向修改).*(看涨|看跌|上涨|下跌)/.test(technicalText)) {
+    errors.push("TECHNICAL_TEXT_MUST_NOT_REVERSE_DIRECTION");
+  }
+  return [...new Set(errors)];
 }

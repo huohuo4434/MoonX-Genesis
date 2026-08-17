@@ -15,6 +15,35 @@ export const ALLOWED_FORMAL_DIRECTIONS = [
 
 export type FormalDirection = (typeof ALLOWED_FORMAL_DIRECTIONS)[number];
 
+export const OFFICIAL_DIRECTION_VALUES = [
+  "上涨",
+  "震荡上涨",
+  "先跌后涨",
+  "震荡",
+  "先涨后跌",
+  "震荡下跌",
+  "下跌",
+] as const;
+
+export type OfficialDirection = (typeof OFFICIAL_DIRECTION_VALUES)[number];
+
+const OFFICIAL_SET = new Set<string>(OFFICIAL_DIRECTION_VALUES);
+
+/** Public/member official vocabulary; legacy path labels remain readable internally. */
+export function normalizeOfficialDirection(raw: string | null | undefined): OfficialDirection {
+  const text = String(raw ?? "").trim();
+  if (!text) return "震荡";
+  if (OFFICIAL_SET.has(text)) return text as OfficialDirection;
+  if (/先跌后涨|探底回升|先抑后扬|先压后修复|低位修复/.test(text)) return "先跌后涨";
+  if (/先涨后跌|冲高回落|先扬后抑|高开低走|回落兑现/.test(text)) return "先涨后跌";
+  if (/震荡上涨|震荡偏多|震荡偏涨|偏强|修复上行|修复偏多|偏强确认|高波动上涨/.test(text)) return "震荡上涨";
+  if (/震荡下跌|震荡偏空|震荡偏跌|偏弱|回踩观察|承压|修复失败|高波动回落/.test(text)) return "震荡下跌";
+  if (/整固|盘整|横盘|区间整理|区间震荡|宽幅震荡|中性|观察|观望|等待确认/.test(text)) return "震荡";
+  if (/上涨|看涨|看多|强势上行|明显走强/.test(text)) return "上涨";
+  if (/下跌|看跌|看空|明显转弱|单边向下/.test(text)) return "下跌";
+  return "震荡";
+}
+
 const ALLOWED = new Set<string>(ALLOWED_FORMAL_DIRECTIONS);
 
 const BANNED_TO_ALLOWED: Record<string, FormalDirection> = {

@@ -1,4 +1,4 @@
-import { normalizeFormalDirection } from "@/lib/forecasts/formal-direction";
+import { normalizeOfficialDirection } from "@/lib/forecasts/formal-direction";
 
 export type MooxPrimaryDirection = "BULLISH" | "BEARISH" | "UNCLEAR";
 
@@ -9,9 +9,9 @@ export type MooxPrimaryDirection = "BULLISH" | "BEARISH" | "UNCLEAR";
  * - Composite path labels still collapse to ONE end-state directional call.
  */
 export function mooxPrimaryDirection(raw: string | null | undefined): MooxPrimaryDirection {
-  const direction = normalizeFormalDirection(raw);
-  if (["上涨", "震荡上涨", "先跌后涨", "探底回升"].includes(direction)) return "BULLISH";
-  if (["下跌", "震荡下跌", "先涨后跌", "冲高回落"].includes(direction)) return "BEARISH";
+  const direction = normalizeOfficialDirection(raw);
+  if (["上涨", "震荡上涨", "先跌后涨"].includes(direction)) return "BULLISH";
+  if (["下跌", "震荡下跌", "先涨后跌"].includes(direction)) return "BEARISH";
   return "UNCLEAR";
 }
 
@@ -61,18 +61,18 @@ export function mooxDirectionAtDate(params: {
   periodEnd: string;
   targetDate: string;
 }): MooxPrimaryDirection {
-  const normalized = normalizeFormalDirection(params.direction);
+  const normalized = normalizeOfficialDirection(params.direction);
   const start = Date.parse(`${params.periodStart}T00:00:00Z`);
   const end = Date.parse(`${params.periodEnd}T00:00:00Z`);
   const target = Date.parse(`${params.targetDate}T00:00:00Z`);
   const days = Math.max(0, Math.round((end - start) / 86_400_000));
 
   if (days <= 10) return mooxPrimaryDirection(normalized);
-  if (normalized === "先涨后跌" || normalized === "冲高回落") {
+  if (normalized === "先涨后跌") {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return "BEARISH";
     return target <= start + (end - start) * 0.5 ? "BULLISH" : "BEARISH";
   }
-  if (normalized === "先跌后涨" || normalized === "探底回升") {
+  if (normalized === "先跌后涨") {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return "BULLISH";
     return target <= start + (end - start) * 0.5 ? "BEARISH" : "BULLISH";
   }

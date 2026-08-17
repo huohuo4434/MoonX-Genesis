@@ -1,4 +1,4 @@
-import type { TeacherResearchEvaluation, TeacherResearchEvaluationInput } from "@/types/teacher-method-rulebook";
+import type { TeacherResearchEvaluation, TeacherResearchEvaluationInput } from "../../types/teacher-method-rulebook";
 
 function conflicts(authority: "BULL" | "BEAR" | "NEUTRAL", signal: "BULL" | "BEAR" | "NEUTRAL"): boolean {
   return authority !== "NEUTRAL" && signal !== "NEUTRAL" && authority !== signal;
@@ -18,12 +18,9 @@ export function evaluateTeacherResearch(input: TeacherResearchEvaluationInput): 
   const reasons: string[] = [];
   if (input.authoritativeDirection === "NEUTRAL") reasons.push("AUTHORITATIVE_DIRECTION_MISSING");
   if (!coverage.liuyao) reasons.push("LIUYAO_INPUT_INCOMPLETE");
-  if (!coverage.qimen) reasons.push("QIMEN_CHART_OR_TIMING_MISSING");
-  if (!coverage.chan) reasons.push("CHAN_STRUCTURE_INCOMPLETE");
-  if (!coverage.fundamentals) reasons.push("FUNDAMENTAL_CONTEXT_MISSING");
+  // Qimen, Chan and fundamentals are timing/execution/context evidence. Their absence
+  // or disagreement may require waiting for execution, but cannot rewrite the formal direction.
   if (conflicts(input.authoritativeDirection, input.liuyao.direction)) reasons.push("LIUYAO_DIRECTION_CONFLICT");
-  if (conflicts(input.authoritativeDirection, input.chan.direction)) reasons.push("CHAN_DIRECTION_CONFLICT");
-  if (conflicts(input.authoritativeDirection, input.fundamentals.direction)) reasons.push("FUNDAMENTAL_DIRECTION_CONFLICT");
   return {
     action: reasons.length ? "WAIT" : "RESEARCH_CANDIDATE",
     direction: input.authoritativeDirection,
