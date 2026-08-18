@@ -1,3 +1,5 @@
+import type { FocusQimenParallelView } from "@/lib/forecasts/focus-qimen-multihorizon";
+
 export type FocusDossierEvidenceStatus = "READY" | "INCOMPLETE" | "MISSING";
 
 export type FocusKeyDayEvidence = {
@@ -83,6 +85,7 @@ export type FocusDossierView = {
     previousVersionId: string | null;
     sourceKind: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION" | null;
     revisionReason: string | null;
+    qimenEvidence: string | null;
   }>;
   supportLevels: string[];
   resistanceLevels: string[];
@@ -122,6 +125,7 @@ export type FocusDossierView = {
   lockedAt: string | null;
   source: string | null;
   longTermBackground: string | null;
+  qimenParallel: FocusQimenParallelView;
 };
 
 /** Canonical member-facing Focus report DTO. The legacy dossier name remains as a compatibility alias. */

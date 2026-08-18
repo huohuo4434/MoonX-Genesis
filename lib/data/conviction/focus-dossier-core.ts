@@ -8,9 +8,34 @@ import type {
   FocusWeekPreparation,
 } from "@/types/focus-dossier";
 import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
+import { buildFocusQimenParallelView } from "@/lib/forecasts/focus-qimen-multihorizon";
 
 const DAY_MS = 86_400_000;
 const MAX_DISPLAY_PERIOD_DAYS = 62;
+
+function attachFocusQimenParallel(
+  dossier: Omit<FocusDossierView, "qimenParallel">,
+  forecasts: readonly ConvictionPeriodForecast[],
+  nowMs: number,
+): FocusDossierView {
+  const useNext = dossier.displayScope === "NEXT_PERIOD_READY" && Boolean(dossier.nextWeek?.dailyEvidenceReady);
+  const dailyPath = useNext && dossier.nextWeek ? dossier.nextWeek.dailyPath : dossier.dailyPath;
+  const periodStart = useNext && dossier.nextWeek ? dossier.nextWeek.periodStart : dossier.periodStart;
+  const periodEnd = useNext && dossier.nextWeek ? dossier.nextWeek.periodEnd : dossier.periodEnd;
+  return {
+    ...dossier,
+    qimenParallel: buildFocusQimenParallelView({
+      assetId: dossier.assetId,
+      asOfDate: dossier.asOfDate,
+      nowMs,
+      dailyPath,
+      periodStart,
+      periodEnd,
+      forecasts,
+      auditRows: dossier.dailyAuditRows,
+    }),
+  };
+}
 
 function parseDateKey(value: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -252,7 +277,7 @@ function emptyDossier(input: {
   backgroundHorizons: FocusBackgroundHorizon[];
   generatedDailies: readonly GeneratedDailyForecastRecord[];
   nowMs: number;
-}): FocusDossierView {
+}): Omit<FocusDossierView, "qimenParallel"> {
   const nextWeek = nextForecastView(input.next, input.asOfDate, input.generatedDailies, input.nowMs);
   const nextReady = Boolean(nextWeek?.dailyEvidenceReady);
   const monthlyEvidence = input.monthly ? {
@@ -358,7 +383,7 @@ export function buildFocusDossier(input: {
   const supplementalEvidence = input.supplementalEvidence ?? [];
   const backgrounds = backgroundHorizons(input.forecasts, input.nowMs, input.asOfDate);
   if (!current) {
-    return emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds, generatedDailies: input.generatedDailies ?? [], nowMs: input.nowMs });
+    return attachFocusQimenParallel(emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds, generatedDailies: input.generatedDailies ?? [], nowMs: input.nowMs }), input.forecasts, input.nowMs);
   }
 
   const sourceDays = new Map((current.dailyPath ?? []).map((day) => [day.date, day]));
@@ -387,12 +412,13 @@ export function buildFocusDossier(input: {
     previousVersionId: row.previousVersionId,
     sourceKind: (row.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] ?? null) as FocusDossierView["dailyAuditRows"][number]["sourceKind"],
     revisionReason: row.revisionReason,
+    qimenEvidence: row.qimenEvidence,
   }));
   const nextWeek = nextForecastView(next, input.asOfDate, input.generatedDailies ?? [], input.nowMs);
   const asOfMs = parseDateKey(input.asOfDate);
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
   const highlightPreparedNext = Boolean(weekend && nextWeek?.dailyEvidenceReady);
-  return {
+  return attachFocusQimenParallel({
     executionAuthority: "RESEARCH_ONLY",
     tradingEligible: false,
     assetId: input.assetId,
@@ -436,7 +462,7 @@ export function buildFocusDossier(input: {
     lockedAt: current.lockedAt,
     source: current.sourceType,
     longTermBackground: longTerm?.archiveSummary ?? longTerm?.summary ?? null,
-  };
+  }, input.forecasts, input.nowMs);
 }
 
 export function buildMemberFocusDossier(input: {
@@ -468,7 +494,7 @@ export function buildMemberFocusDossier(input: {
       : { date, state: "MISSING", direction: null, summary: "该日正式资料待更新；不生成占位预测。", confirmation: null, invalidation: null };
   });
   const complete = dates.length > 0 && dailyPath.every((day) => day.state !== "MISSING");
-  return {
+  return attachFocusQimenParallel({
     executionAuthority: "RESEARCH_ONLY",
     tradingEligible: false,
     assetId: input.assetId,
@@ -501,7 +527,7 @@ export function buildMemberFocusDossier(input: {
     lockedAt: null,
     source: weekly.publicSourceLabel,
     longTermBackground: weekly.weeklyPath,
-  };
+  }, [], input.nowMs);
 }
 
 export function buildFocusDetailedReport(input: Parameters<typeof buildFocusDossier>[0]): FocusDossierView {

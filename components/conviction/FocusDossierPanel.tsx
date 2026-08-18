@@ -2,6 +2,7 @@ import { Badge, Card } from "@/components/ui";
 import type { FocusDossierView } from "@/types/focus-dossier";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 import { focusPrimaryDailyEvidenceStatus } from "@/lib/data/conviction/focus-dossier-core";
+import { FocusQimenParallelPanel } from "@/components/conviction/FocusQimenParallelPanel";
 
 const DAY_STATE = {
   OCCURRED: "已发生",
@@ -88,10 +89,12 @@ export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossie
         </Card>
       ) : null}
 
+      <FocusQimenParallelPanel view={dossier.qimenParallel} />
+
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-body font-semibold text-white">{nextReady ? "下一期逐日路径（未来期）" : "本期逐日路径"}</h3>
-          <p className="text-caption text-white/40">覆盖天数以正式周期为准；缺一天就明确标记待更新，不补造走势。</p>
+          <h3 className="text-body font-semibold text-white">{nextReady ? "下一期六爻原始逐日证据（未来期）" : "本期六爻原始逐日证据"}</h3>
+          <p className="text-caption text-white/40">以下保留六爻原始证据与技术辅助；上方双法表不会改写这里的正式六爻内容。</p>
         </div>
         {primaryPath.length ? (
           <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">

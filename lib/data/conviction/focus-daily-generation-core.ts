@@ -2,6 +2,7 @@ import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-fo
 import { nextMondayWindow } from "@/lib/data/conviction/focus-dossier-core";
 import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { FOCUS_DAILY_MARKET_PREFIX } from "@/lib/weekly-source/generated-daily-namespace-core";
+import { buildFocusQimenParallelReading } from "@/lib/forecasts/focus-qimen-parallel";
 
 const DAY_MS = 86_400_000;
 export type FocusDailySourceKind = "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION";
@@ -146,10 +147,18 @@ export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly
     if (rolling && forecastDate > input.asOfDate) derived = input.auxiliary.realizedPhase === "EARLY_RALLY" ? { direction: "整固兑现观察", path: "前段上涨已提前兑现，未来日改为整固/兑现观察，不重复机械大涨" } : { direction: "企稳修复观察", path: "前段下跌已提前兑现，未来日改为企稳/修复观察，不重复机械大跌" };
     const direction = sourceDay?.direction?.trim() || derived.direction;
     const path = sourceDay?.summary?.trim() || `${derived.path}；该日为MOOX基于正式锁定周路径的确定性拆解，不是独立日卦或奇门盘。`;
-    const evidenceKey = stableHash(JSON.stringify({ sourceId: input.weekly.id, sourceVersion: input.weekly.version, forecastDate, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? input.weekly.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? input.weekly.invalidationLevel ?? null, auxiliary: input.auxiliary.evidenceKey }));
-    const previous = latestByDate.get(forecastDate) ?? null, version = previous ? previous.version + 1 : 1, probs = probabilities(direction);
+    const qimenReading = buildFocusQimenParallelReading({
+      assetId: input.assetId,
+      forecastDate,
+      liuyaoDirection: direction,
+    });
     const calendarEvidence = encodeCalendarEvidence(input.weekly, forecastDate);
-    const qimenEvidence = exactDatedKeyEvidence(input.weekly, forecastDate).some((item) => item.type === "QIMEN") ? calendarEvidence?.note ?? null : null;
+    const teacherQimenKeyDate = exactDatedKeyEvidence(input.weekly, forecastDate).some((item) => item.type === "QIMEN")
+      ? calendarEvidence?.note ?? null
+      : null;
+    const qimenEvidence = [qimenReading.evidence, teacherQimenKeyDate].filter((value): value is string => Boolean(value)).join("；") || null;
+    const evidenceKey = stableHash(JSON.stringify({ sourceId: input.weekly.id, sourceVersion: input.weekly.version, forecastDate, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? input.weekly.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? input.weekly.invalidationLevel ?? null, auxiliary: input.auxiliary.evidenceKey, qimen: qimenReading.verificationKey }));
+    const previous = latestByDate.get(forecastDate) ?? null, version = previous ? previous.version + 1 : 1, probs = probabilities(direction);
     const technicalEvidence = [
       input.auxiliary.technicalEvidence,
       `FOCUS_AUX=${JSON.stringify({ marketDataStatus: input.auxiliary.marketDataStatus ?? (input.auxiliary.supportLevels.length ? "AVAILABLE" : "UNAVAILABLE"), chanStatus: input.auxiliary.chanStatus ?? "UNAVAILABLE", chanTimeframes: input.auxiliary.chanTimeframes ?? [], chanStage: input.auxiliary.chanStage ?? null })}`,
