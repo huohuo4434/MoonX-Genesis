@@ -1,3 +1,4 @@
+// MOOX_V72052_HOME_FRESH
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
@@ -6,6 +7,7 @@ import { displayMarketCode, normalizeFormalDirection } from "@/lib/forecasts/for
 import { isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import type { DailyForecast } from "@/types/daily-forecast";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-history";
+import { buildHomeResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
 
 const CORE_MARKETS = [
   { symbol: "BTC", name: "比特币" },
@@ -47,19 +49,6 @@ function starsText(value: number): string {
   return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
 }
 
-function cleanLevel(value: string | undefined): string {
-  if (!value) return "待补充";
-  return value
-    .replace(/^(第一|第二|第三)?(支撑|压力)(区|位)?[：:]\s*/u, "")
-    .replace(/[（(][^）)]*(来源|密集|MACD|均线|触碰|共振)[^）)]*[）)]/gu, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-function firstLevel(levels: string[] | undefined): string {
-  return cleanLevel(levels?.find((item) => item.trim().length > 0));
-}
-
 function zhDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(`${value}T00:00:00+08:00`);
@@ -93,9 +82,19 @@ function buildMarketRows(forecasts: DailyForecast[]) {
 }
 
 function selectVerification(items: PublicAccuracyHistoryItem[]) {
+  const sorted = [...items].sort((a, b) => {
+    const verified = String(b.verifiedAt).localeCompare(String(a.verifiedAt));
+    if (verified !== 0) return verified;
+    const date = b.forecastDate.localeCompare(a.forecastDate);
+    if (date !== 0) return date;
+    return b.version - a.version;
+  });
   const selected: PublicAccuracyHistoryItem[] = [];
-  for (const item of [...items.filter((row) => row.verdictLabel === "完全命中"), ...items.filter((row) => row.verdictLabel === "部分命中"), ...items]) {
-    if (selected.some((row) => row.forecastId === item.forecastId)) continue;
+  const seen = new Set<string>();
+  for (const item of sorted) {
+    const key = `${canonicalSymbol(item.symbol)}|${item.forecastDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     selected.push(item);
     if (selected.length === 3) break;
   }
@@ -146,12 +145,13 @@ export async function HomeLandingBoard() {
                     {marketRows.map(({ symbol, name, forecast }) => {
                       const direction = forecast ? homeDirection(forecast) : null;
                       const confidence = forecast ? confidenceStars(forecast) : null;
+                      const researchReason = forecast ? buildHomeResearchReason(forecast) : "";
                       return <tr key={symbol} className="bg-white/[0.045] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
                         <td className="rounded-l-2xl px-3 py-3"><div className="font-medium">{name}</div><div className="mt-1 text-xs text-white/42">{symbol}</div></td>
-                        <td className="px-3 py-3">{direction ? <><span className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}>{direction}</span>{forecast?.qimenMysticNote ? <p className="mt-2 max-w-[320px] text-xs leading-5 text-violet-100/64"><span className="mr-1 font-medium text-violet-300/90">盘语</span>{forecast.qimenMysticNote}</p> : null}</> : <span className="text-sm text-white/45">待发布</span>}</td>
+                        <td className="px-3 py-3">{direction ? <><span className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}>{direction}</span>{researchReason ? <p className="mt-2 max-w-[360px] text-xs leading-5 text-white/58">{researchReason}</p> : null}</> : <span className="text-sm text-white/45">待发布</span>}</td>
                         <td className="px-3 py-3">{confidence ? <><span className="font-mono text-base tracking-[0.16em] text-amber-200">{starsText(confidence)}</span>{forecast?.qimenAgreementLabel ? <div className="mt-1 text-[11px] text-white/42">{forecast.qimenAgreementLabel}</div> : null}</> : <span className="text-white/35">—</span>}</td>
-                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? firstLevel(forecast.supportLevels) : "—"}</td>
-                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? firstLevel(forecast.resistanceLevels) : "—"}</td>
+                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? cleanDailyLevel(forecast.supportLevels?.[0]) : "—"}</td>
+                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? cleanDailyLevel(forecast.resistanceLevels?.[0]) : "—"}</td>
                         <td className="rounded-r-2xl px-3 py-3 text-xs text-white/42">{forecast ? zhDateTime(forecast.updatedAt || forecast.publishedAt) : "—"}</td>
                       </tr>;
                     })}
@@ -165,7 +165,6 @@ export async function HomeLandingBoard() {
                 <div className="mt-4 flex flex-wrap gap-3"><Link href="/login?next=/" className="rounded-full bg-violet-500 px-5 py-2 text-sm font-medium text-white">登录查看</Link><Link href="/pricing" className="rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-white/80">会员价格</Link></div>
               </div>
             )}
-            <p className="mt-4 text-xs leading-6 text-white/42">星级表示方法一致程度；详细依据进入会员报告查看。</p>
           </div>
         </div>
       </section>

@@ -1,14 +1,14 @@
+// MOOX_V72051_DAILY_TRUTH_PIPELINE
 /**
  * Beijing-time daily forecast pipeline from weekly Liu Yao sources.
  * Continuous autonomous forecast pipeline. Idempotent per market/date/version.
  */
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { getCurrentSessionDate, getNextForecastDate } from "@/lib/calendar/next-trading-day";
-import { buildLockedLevelsForAsset, validatePublishedPriceLevels } from "@/lib/market-data/price-levels";
+import { assetKeyFromSymbol, defaultConfirmationMethod, formatAssetPrice, buildLockedLevelsForAsset, validatePublishedPriceLevels } from "@/lib/market-data/price-levels";
 import { generateDailyFromWeekly, marketMeta } from "@/lib/forecasts/weekly-to-daily";
 import {
   buildClosedMarketProgressSnapshot,
-  dailyTechnicalInputPolicy,
   decideDailyPipelineEvidenceGate,
   persistDailyRevision,
   withAuthoritativeDailyLatest,
@@ -23,13 +23,8 @@ import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
-import {
-  applyXIntelligenceToGeneratedDaily,
-  buildXIntelligenceAutoWeight,
-  findXIntelligenceSummaryForMarket,
-} from "@/lib/trading-signals/x-intelligence-overlay";
-
 import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
+import { applyApprovedXOverlayToGeneratedDaily, getApprovedXForecastOverlay } from "@/lib/trading-signals/x-opinion-matrix"; // MOOX_X_APPROVED_V72051
 
 export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
@@ -303,6 +298,41 @@ async function buildTechnicalLevelsWithRetry(input: {
   throw lastError instanceof Error ? lastError : new Error("TECHNICAL_PRICE_DATA_UNAVAILABLE");
 }
 
+function compactZone(low: number, high: number, marketCode: string): string {
+  const key = assetKeyFromSymbol(marketCode === "SHCOMP" ? "SSEC" : marketCode);
+  const a = formatAssetPrice(Math.min(low, high), key).display;
+  const b = formatAssetPrice(Math.max(low, high), key).display;
+  return a === b ? a : `${a}—${b}`;
+}
+
+function buildSnapshotFallbackLevels(input: {
+  marketCode: string;
+  direction: string;
+  snapshot: MarketSnapshot | null;
+}) {
+  const snap = input.snapshot;
+  if (!snap?.lastPrice || !Number.isFinite(snap.lastPrice)) return null;
+  const atr = snap.atr && snap.atr > 0 ? snap.atr : Math.max(snap.lastPrice * 0.012, 0.01);
+  let support = snap.nearestSupport && snap.nearestSupport > 0 ? snap.nearestSupport : snap.lastPrice - atr * 0.8;
+  let resistance = snap.nearestResistance && snap.nearestResistance > 0 ? snap.nearestResistance : snap.lastPrice + atr * 0.8;
+  if (support >= snap.lastPrice) support = snap.lastPrice - atr * 0.65;
+  if (resistance <= snap.lastPrice) resistance = snap.lastPrice + atr * 0.65;
+  const width = Math.max(atr * 0.12, snap.lastPrice * 0.001);
+  const supportText = compactZone(support - width, support + width, input.marketCode);
+  const resistanceText = compactZone(resistance - width, resistance + width, input.marketCode);
+  const method = defaultConfirmationMethod(input.marketCode === "SHCOMP" ? "SSEC" : input.marketCode);
+  const direction = input.direction;
+  const invalidation = /上涨|回升/u.test(direction)
+    ? `${method}有效跌破${supportText}，${direction}判断失效`
+    : /下跌|回落/u.test(direction)
+      ? `${method}有效站上${resistanceText}，${direction}判断失效`
+      : `${method}有效突破${resistanceText}或跌破${supportText}，震荡判断失效`;
+  const confirmation = /下跌|回落/u.test(direction)
+    ? `${method}跌破${supportText}，下行确认增强`
+    : `${method}站上${resistanceText}，上行确认增强`;
+  return { supportLevels: [supportText], resistanceLevels: [resistanceText], invalidation, confirmation };
+}
+
 export type PipelineReport = {
   phase: PipelinePhase;
   beijingDate: string;
@@ -347,7 +377,6 @@ export async function runDailyForecastPipeline(input?: {
     getLatestGeneratedDailyForMarketDate,
     upsertGeneratedDaily,
   } = await import("@/lib/weekly-source/store");
-  const { getXIntelligenceSnapshot } = await import("@/lib/trading-signals/x-intelligence-summary");
   const now = input?.now ?? new Date();
   const phase = input?.forcePhase ?? resolvePipelinePhase();
   const beijingDate = getBeijingTodayKey(now);
@@ -362,7 +391,6 @@ export async function runDailyForecastPipeline(input?: {
   };
 
   await ensureCanonicalWeeklySourcesInDb();
-  const xIntelligence = await getXIntelligenceSnapshot().catch(() => null);
 
   if (phase === "idle" && !input?.forcePhase && !input?.forceDraftDate) {
     return report;
@@ -414,7 +442,6 @@ export async function runDailyForecastPipeline(input?: {
         const evidenceGate = decideDailyPipelineEvidenceGate({
           hasLatest: Boolean(latest),
           marketProgressAvailable: Boolean(snapshot),
-          xSnapshotAvailable: Boolean(xIntelligence),
         });
         if (latest && evidenceGate.action === "PRESERVE_LATEST") {
           report.records.push(latest);
@@ -433,58 +460,47 @@ export async function runDailyForecastPipeline(input?: {
           snapshot: snapshot ?? emptySnapshot(),
           previousVersionId: latest?.id ?? null,
         });
-        const xSummary = findXIntelligenceSummaryForMarket(
-          xIntelligence?.aggregate.summaries ?? [],
-          market
-        );
-        const xOverlay = buildXIntelligenceAutoWeight(xSummary);
-        record = applyXIntelligenceToGeneratedDaily(record, xOverlay);
         record = applyQimenFirstToGeneratedDaily(record, {
           liuyaoDirection: weekly.weeklyDirection,
           previousQimenEvidence: latest?.qimenEvidence ?? null,
         }); // MOOX_QIMEN_FIRST_V72005_PRE_TECH
-        // Initial publication may state that technical levels are unavailable. Once a
-        // locked version exists, a provider failure preserves that complete version;
-        // new path text must never be combined with stale levels from another version.
-        // The legacy crypto level builder is BTC-specific, so ETH must not reuse BTC prices.
-        if (dailyTechnicalInputPolicy(market) === "ETH_NO_BTC_LEVEL_REUSE") {
+        const approvedXOverlay = await getApprovedXForecastOverlay(market, now).catch(() => null);
+        record = applyApprovedXOverlayToGeneratedDaily(record, approvedXOverlay); // MOOX_X_APPROVED_V72051_POST_QIMEN
+        // Every core market, including ETH, must receive its own current technical levels.
+        // Primary source uses the canonical market symbol; a closed-bar snapshot provides
+        // a numeric fallback so an older blank level set cannot remain frozen indefinitely.
+        try {
+          const technical = await buildTechnicalLevelsWithRetry({
+            marketCode: market,
+            direction: record.direction,
+            forecastDate: target,
+            publishedAt: now.toISOString(),
+            attempts: Math.max(1, Math.min(3, input?.technicalAttempts ?? (phase === "lock" ? 3 : 2))),
+          });
           record = {
             ...record,
-            resistanceLevels: [],
-            technicalEvidence:
-              "ETH日预测由本周研究和点位卦自动推演；技术价位等待Bitget ETH真实K线确认，不复用BTC价位，不提供虚构支撑压力。",
+            supportLevels: technical.supportLevels,
+            resistanceLevels: technical.resistanceLevels,
+            confirmationLevel: technical.confirmation,
+            invalidationLevel: technical.invalidation,
+            technicalEvidence: `行情结构快照 ${technical.priceSnapshotAtLabel} · ${technical.priceDataSourceLabel}`,
           };
-        } else {
-          try {
-            const technical = await buildTechnicalLevelsWithRetry({
-              marketCode: market,
-              direction: record.direction,
-              forecastDate: target,
-              publishedAt: now.toISOString(),
-              attempts: Math.max(
-                1,
-                Math.min(3, input?.technicalAttempts ?? (phase === "lock" ? 3 : 2))
-              ),
-            });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          report.warnings.push({ market, date: target, error: message });
+          const fallback = buildSnapshotFallbackLevels({ marketCode: market, direction: record.direction, snapshot });
+          if (fallback) {
             record = {
               ...record,
-              supportLevels: [...new Set([...record.supportLevels, ...technical.supportLevels])],
-              resistanceLevels: technical.resistanceLevels,
-              confirmationLevel: record.confirmationLevel ?? technical.confirmation,
-              invalidationLevel: record.invalidationLevel ?? technical.invalidation,
-              technicalEvidence: [
-                "裸K波段与平台结构；EMA60；MACD零轴与动能共振",
-                `行情来源 ${technical.priceDataSourceLabel}`,
-                `快照 ${technical.priceSnapshotAtLabel}`,
-              ].join("。"),
+              supportLevels: fallback.supportLevels,
+              resistanceLevels: fallback.resistanceLevels,
+              confirmationLevel: fallback.confirmation,
+              invalidationLevel: fallback.invalidation,
+              technicalEvidence: "最近已收盘行情结构回退计算",
             };
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            report.warnings.push({ market, date: target, error: message });
-            const technicalGate = decideDailyPipelineEvidenceGate({
-              hasLatest: Boolean(latest),
-              technicalReadFailed: true,
-            });
+            report.warnings.push({ market, date: target, error: "technical-levels:fallback-from-closed-market-snapshot" });
+          } else {
+            const technicalGate = decideDailyPipelineEvidenceGate({ hasLatest: Boolean(latest), technicalReadFailed: true });
             if (latest && technicalGate.action === "PRESERVE_LATEST") {
               report.records.push(latest);
               report.skipped.push(`${market}:${target}:${technicalGate.reason}`);
@@ -496,7 +512,7 @@ export async function runDailyForecastPipeline(input?: {
               resistanceLevels: [],
               confirmationLevel: null,
               invalidationLevel: null,
-              technicalEvidence: "技术价位数据暂不可用；方向与路径照常发布，点位栏暂不展示。",
+              technicalEvidence: "行情源暂不可用，等待下一轮自动重试",
             };
           }
         }

@@ -1,3 +1,4 @@
+// MOOX_V72051_DAILY_TRUTH_REVISION
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
 
@@ -42,12 +43,9 @@ export function decideDailyPipelineEvidenceGate(input: {
     return { action: "SKIP_RESEARCH_ONLY", reason: "continuity-research-only" };
   }
   if (!input.hasLatest) return { action: "CONTINUE", reason: null };
-  if (input.marketProgressAvailable === false) {
-    return { action: "PRESERVE_LATEST", reason: "market-progress-unavailable" };
-  }
-  if (input.xSnapshotAvailable === false) {
-    return { action: "PRESERVE_LATEST", reason: "x-intelligence-unavailable" };
-  }
+  // Market-progress and X are optional enrichment inputs. A temporary miss must not
+  // freeze the daily record, otherwise fresh Qimen direction and price levels can
+  // never replace an older incomplete version.
   if (input.technicalReadFailed) {
     return { action: "PRESERVE_LATEST", reason: "technical-levels-unavailable" };
   }
@@ -114,7 +112,6 @@ export function decideDailyRevision(input: {
   verifiedMarketProgress: boolean;
 }): DailyRevisionDecision {
   if (!input.latest) return { shouldCreate: true, reasons: ["INITIAL_VERSION"] };
-  if (!input.verifiedMarketProgress) return { shouldCreate: false, reasons: ["MARKET_PROGRESS_UNAVAILABLE"] };
 
   const reasons: string[] = [];
   if (compact(input.latest.direction) !== compact(input.candidate.direction)) reasons.push("DIRECTION_CHANGED");
@@ -127,6 +124,30 @@ export function decideDailyRevision(input: {
   );
   if (probabilityDelta >= 5) reasons.push("PROBABILITY_CHANGED");
   if (publicXStage(input.latest.newsEvidence) !== publicXStage(input.candidate.newsEvidence)) reasons.push("X_STAGE_CHANGED");
+
+  if (compact(input.latest.liuyaoEvidence) !== compact(input.candidate.liuyaoEvidence) ||
+      compact(input.latest.qimenEvidence) !== compact(input.candidate.qimenEvidence)) {
+    reasons.push("RESEARCH_EVIDENCE_CHANGED");
+  }
+
+  // Execution levels are part of the published daily product. They are based on
+  // closed-bar structure, so a change normally occurs only after a new session
+  // becomes available. Persisting the change fixes stale/blank support, resistance
+  // and invalidation without creating a version on every cron tick.
+  const latestLevels = compact([
+    ...(input.latest.supportLevels ?? []),
+    ...(input.latest.resistanceLevels ?? []),
+    input.latest.confirmationLevel ?? "",
+    input.latest.invalidationLevel ?? "",
+  ].join("|"));
+  const candidateLevels = compact([
+    ...(input.candidate.supportLevels ?? []),
+    ...(input.candidate.resistanceLevels ?? []),
+    input.candidate.confirmationLevel ?? "",
+    input.candidate.invalidationLevel ?? "",
+  ].join("|"));
+  if (latestLevels !== candidateLevels) reasons.push("TECHNICAL_LEVELS_CHANGED");
+
   return { shouldCreate: reasons.length > 0, reasons };
 }
 

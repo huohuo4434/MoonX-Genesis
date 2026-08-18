@@ -51,6 +51,17 @@ function baseProbabilities(direction: string): { up: number; flat: number; down:
   return { up: 30, flat: 40, down: 30 };
 }
 
+function conciseWeeklyReason(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const clauses = text
+    .replace(/\s+/g, " ")
+    .split(/[。；]/u)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/不编造具体变盘日|技术分析只负责|完整研究依据按需展开|先看明确方向/u.test(item));
+  return clauses.slice(0, 2).join("；") || null;
+}
+
 function pathForDay(weekly: WeeklyForecastSourceRecord, progress: number): string {
   const path = weekly.weeklyPath;
   if (progress < 0.34) {
@@ -194,8 +205,9 @@ export function generateDailyFromWeekly(input: {
   const status = input.status ?? "DRAFT";
 
   const liuyaoEvidence = [
-    `本周主卦${weekly.primaryHexagram ?? "—"}`,
+    weekly.primaryHexagram ? `本周主卦${weekly.primaryHexagram}` : null,
     weekly.changedHexagram ? `变卦${weekly.changedHexagram}` : null,
+    conciseWeeklyReason(weekly.interpretation),
     `主方向「${normalizeFormalDirection(weekly.weeklyDirection)}」`,
     moving.labels.join("；"),
   ]

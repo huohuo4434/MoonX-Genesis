@@ -657,13 +657,19 @@ export async function buildTechnicalPriceStructure(input: {
         ? "1小时"
         : "30分钟";
 
-  const confirmation =
-    `${periodText}K线收盘站上${resistanceLow}—${resistanceHigh}` +
-    `压力区上沿${resistanceHigh}，确认突破有效。`;
+  const isBullish = /上涨|回升|看涨/u.test(input.directionLabel);
+  const isBearish = /下跌|回落|看跌/u.test(input.directionLabel);
+  const confirmation = isBearish
+    ? `${periodText}K线收盘跌破${supportLow}—${supportHigh}支撑区下沿${supportLow}，下行确认增强。`
+    : isBullish
+      ? `${periodText}K线收盘站上${resistanceLow}—${resistanceHigh}压力区上沿${resistanceHigh}，上行确认增强。`
+      : `${periodText}K线继续运行在${supportLow}—${resistanceHigh}区间内，震荡结构维持。`;
 
-  const invalidation =
-    `${periodText}K线收盘跌破${supportLow}—${supportHigh}` +
-    `支撑区下沿${supportLow}，原「${input.directionLabel}」判断失效。`;
+  const invalidation = isBearish
+    ? `${periodText}K线收盘站上${resistanceLow}—${resistanceHigh}压力区上沿${resistanceHigh}，原「${input.directionLabel}」判断失效。`
+    : isBullish
+      ? `${periodText}K线收盘跌破${supportLow}—${supportHigh}支撑区下沿${supportLow}，原「${input.directionLabel}」判断失效。`
+      : `${periodText}K线收盘站上${resistanceHigh}或跌破${supportLow}，原「${input.directionLabel}」判断失效。`;
 
   const supportPrice = formatAssetPrice(firstSupport.low, asset);
   const resistancePrice = formatAssetPrice(firstResistance.high, asset);
