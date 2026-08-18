@@ -5,6 +5,8 @@ import {
   getThreeHorizonStrategyDashboard,
   updateThreeHorizonProfile,
 } from "@/lib/trading-signals/three-horizon-strategy";
+import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ const updateSchema = z.object({
   maxTradesPerDay: z.number().int().min(0).max(4).optional(),
 });
 
-export async function GET() {
+async function legacyUnifiedSourceGET() {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
@@ -32,7 +34,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function legacyUnifiedSourcePOST(request: NextRequest) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
@@ -50,4 +52,46 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+}
+
+// MOOX_UNIFIED_LIVE_WRAPPER_V72031:app_api_admin_bitget-demo_strategies_route.ts:GET
+export async function GET() {
+  const custody = await runUnifiedLiveCustodyCycle({
+    trigger: "app_api_admin_bitget-demo_strategies_route.ts:GET",
+    ownerKey: "official",
+  });
+  const gate = await evaluateUnifiedLiveNewEntryGate("official");
+  if (!gate.allowed) {
+    return Response.json({
+      ok: true,
+      unifiedLive: true,
+      mode: gate.mode,
+      newOrdersPlaced: 0,
+      positionManagementContinues: true,
+      blockedReasons: gate.reasons,
+      custody,
+    });
+  }
+  return legacyUnifiedSourceGET();
+}
+
+// MOOX_UNIFIED_LIVE_WRAPPER_V72031:app_api_admin_bitget-demo_strategies_route.ts:POST
+export async function POST(request: NextRequest) {
+  const custody = await runUnifiedLiveCustodyCycle({
+    trigger: "app_api_admin_bitget-demo_strategies_route.ts:POST",
+    ownerKey: "official",
+  });
+  const gate = await evaluateUnifiedLiveNewEntryGate("official");
+  if (!gate.allowed) {
+    return Response.json({
+      ok: true,
+      unifiedLive: true,
+      mode: gate.mode,
+      newOrdersPlaced: 0,
+      positionManagementContinues: true,
+      blockedReasons: gate.reasons,
+      custody,
+    });
+  }
+  return legacyUnifiedSourcePOST(request);
 }

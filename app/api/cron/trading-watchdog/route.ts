@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runTradingReliabilityWatchdog } from "@/lib/trading-signals/trading-reliability";
+import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -10,7 +11,7 @@ function authorizeCron(request: NextRequest): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-export async function GET(request: NextRequest) {
+async function legacyTradingWatchdogGET(request: NextRequest) {
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -26,6 +27,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function legacyTradingWatchdogPOST(request: NextRequest) {
   return GET(request);
+}
+
+// MOOX_UNIFIED_LIVE_CUSTODY_WATCHDOG_V72031:GET
+export async function GET(request: NextRequest) {
+  await runUnifiedLiveCustodyCycle({
+    trigger: "TRADING_WATCHDOG:GET",
+    ownerKey: "official",
+  });
+  return legacyTradingWatchdogGET(request);
+}
+
+// MOOX_UNIFIED_LIVE_CUSTODY_WATCHDOG_V72031:POST
+export async function POST(request: NextRequest) {
+  await runUnifiedLiveCustodyCycle({
+    trigger: "TRADING_WATCHDOG:POST",
+    ownerKey: "official",
+  });
+  return legacyTradingWatchdogPOST(request);
 }

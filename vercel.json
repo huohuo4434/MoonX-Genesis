@@ -71,6 +71,10 @@
     {
       "path": "/api/cron/watchlist-weekly-daily",
       "schedule": "0 12 * * 6"
+    },
+    {
+      "path": "/api/cron/live-trading-custodian",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

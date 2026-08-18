@@ -904,3 +904,99 @@ model SecurityEvent {
   @@index([userId, createdAt])
   @@index([eventType, createdAt])
 }
+
+// MOOX V7.20.3.1 unified live trading. Additive only; no existing model is modified.
+model MooxUnifiedLiveAccount {
+  id                        String                   @id @default(cuid())
+  ownerKey                  String                   @unique
+  accountScope              String
+  displayName               String?
+  agentId                   String?                  @unique
+  mode                      String                   @default("MANAGE_ONLY")
+  newEntriesEnabled         Boolean                  @default(false)
+  positionManagementEnabled Boolean                  @default(true)
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  settings                  MooxUnifiedLiveSetting[]
+  slices                    MooxUnifiedLiveSlice[]
+  events                    MooxUnifiedLiveEvent[]
+
+  @@index([accountScope, mode])
+}
+
+model MooxUnifiedLiveSetting {
+  id                     String                 @id @default(cuid())
+  accountId              String
+  horizon                String
+  enabled                Boolean                @default(true)
+  sizingMode             String
+  sizingValue            Float
+  leverage               Int                    @default(1)
+  maxOpenPositions       Int                    @default(1)
+  maxLossPercent         Float                  @default(0.5)
+  dailyLossPercent       Float                  @default(1)
+  weeklyLossPercent      Float                  @default(2.5)
+  maxMarginUsePercent    Float                  @default(25)
+  target1ReducePercent   Float                  @default(30)
+  isolatedMargin         Boolean                @default(true)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  account                MooxUnifiedLiveAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, horizon])
+  @@index([horizon, enabled])
+}
+
+model MooxUnifiedLiveSlice {
+  id                  String                 @id @default(cuid())
+  accountId           String
+  symbol              String
+  horizon             String
+  side                String
+  status              String                 @default("PENDING")
+  sourceKind          String
+  exchangePositionKey String?
+  strategyDecisionId  String?
+  marginAmount        Float                  @default(0)
+  notionalAmount      Float                  @default(0)
+  quantity            Float                  @default(0)
+  leverage            Int                    @default(1)
+  entryPrice          Float
+  stopPrice           Float?
+  target1             Float?
+  target2             Float?
+  maxHoldMinutes      Int
+  openedAt            DateTime               @default(now())
+  lastManagedAt       DateTime?
+  nextCheckAt         DateTime?
+  closedAt            DateTime?
+  closeReason         String?
+  qimenDirection      String?
+  liuyaoDirection     String?
+  resonance           String?
+  technicalEntry      String?
+  publicVisible       Boolean                @default(false)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  account             MooxUnifiedLiveAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([symbol, status])
+  @@index([exchangePositionKey])
+}
+
+model MooxUnifiedLiveEvent {
+  id          String                 @id @default(cuid())
+  accountId   String
+  code        String
+  severity    String
+  detail      String
+  symbol      String?
+  sliceId     String?
+  positionKey String?
+  createdAt   DateTime               @default(now())
+  account     MooxUnifiedLiveAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([code, severity])
+}

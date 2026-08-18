@@ -12,5 +12,5 @@ function authorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  return NextResponse.json(await runUnifiedLiveCustodyCycle({ trigger: "LEGACY_PREDICTION_AUTO_TRADER_MIGRATION", ownerKey: "official" }));
+  return NextResponse.json(await runUnifiedLiveCustodyCycle({ trigger: "CRON_CUSTODIAN", ownerKey: "official" }));
 }
