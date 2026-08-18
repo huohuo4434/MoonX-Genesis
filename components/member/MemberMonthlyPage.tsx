@@ -22,11 +22,11 @@ export function MemberMonthlyPage() {
     <div className="space-y-7">
       <div>
         <Badge variant="default">{en ? "Members only" : "会员专享"}</Badge>
-        <Heading as="h1" size="h2" className="mt-3">{en ? "Monthly Outlook" : "月度走势分析"}</Heading>
+        <Heading as="h1" size="h2" className="mt-3">{en ? "Monthly Outlook" : "会员月走势预测"}</Heading>
         <Text variant="body" color="secondary" className="mt-2 block max-w-4xl">
           {en
             ? "MOOX OFFICIAL DIRECTION comes first. Where the metaphysical evidence is clear, the call is bullish or bearish; only genuinely conflicting evidence is marked unclear. Technical analysis is used for levels, not for changing the call."
-            : "月度页先给 MOOX 唯一方向：卦象明确就直接看涨或看跌，卦象冲突才写方向不明确。技术分析只负责点位，不参与修改方向。"}
+            : "先看月度主方向，再看月内路径、关键周与失效条件。"}
         </Text>
       </div>
       <Card padding="md" className="border-primary/20 bg-primary/[0.025]">

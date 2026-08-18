@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { Container } from "@/components/ui";
 import { siteConfig } from "@/lib/site-config";
-import type { NavItem } from "@/lib/navigation";
+import type { NavItem } from "@/config/member-channel-navigation";
 import { useLocale, useTranslations } from "@/lib/i18n/LocaleProvider";
 
 export function Footer({ footerColumns }: { footerColumns: Array<{ titleKey: string; titleZh?: string; links: NavItem[] }> }) {
   const year = new Date().getFullYear();
   const t = useTranslations();
   const { locale, href } = useLocale();
-  const label = (item: NavItem) => locale === "zh-CN" ? item.labelZh : t(item.key);
+  const label = (item: NavItem) => locale === "zh-CN" ? item.labelZh : (item.labelEn ?? t(item.key));
   return (
     <footer className="border-t border-border/[0.08]">
       <Container size="lg" className="py-2xl">

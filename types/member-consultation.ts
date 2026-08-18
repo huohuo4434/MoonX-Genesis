@@ -7,7 +7,7 @@ export type ConsultationStatus =
 
 export type LiuyaoInput = {
   kind: "LIUYAO"; question: string; scope: string; horizon: string; castAt: string;
-  timezone: string; location: string; castMethod: string;
+  timezone: string; location: string; castMethod: string; replyEmail: string;
   linesBottomUp: [6 | 7 | 8 | 9, 6 | 7 | 8 | 9, 6 | 7 | 8 | 9, 6 | 7 | 8 | 9, 6 | 7 | 8 | 9, 6 | 7 | 8 | 9];
   consent: true;
 };
@@ -16,7 +16,7 @@ export type BaziInput = {
   birthDate: string; birthTime: string | null; timePrecision: "EXACT" | "UNKNOWN";
   timezone: string; location: string; sourceConfidence: "HIGH" | "MEDIUM" | "LOW";
   gender?: "FEMALE" | "MALE" | "UNSPECIFIED"; trueSolarTimeConsent: boolean;
-  topic: string; horizon: string; consent: true;
+  topic: string; horizon: string; replyEmail?: string; consent: true;
 };
 export type ConsultationInput = LiuyaoInput | BaziInput;
 

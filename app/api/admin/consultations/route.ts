@@ -2,6 +2,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { NextRequest,NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { authorizeThenLoad } from "@/lib/consultations/authorized-loader-core";
+import { sendRawEmail } from "@/lib/email/notifications";
+import { siteConfig } from "@/lib/site-config";
+import { CONSULTATION_DISCLOSURE } from "@/types/member-consultation";
 
 export const dynamic="force-dynamic";
 export const revalidate=0;
@@ -61,9 +64,32 @@ export async function POST(request:NextRequest){
     if(body.action==="APPROVE"){
       if(typeof body.content!=="string"||body.content.trim().length<20)throw new Error("CONTENT_REQUIRED");
       const current=await m.getAdminConsultation(body.id);if(current.status==="APPROVED")return NextResponse.json({ok:true,status:"APPROVED",reviewer:"易老师"});
-      const version=await m.appendResponseVersion({requestId:body.id,authorKind:"PRIMARY_REVIEWER_FINAL",authorId:adminUser.id,content:body.content.trim()});
+      const privateInput=await m.readPrivateInput(body.id,adminUser.id);
+      const finalContent=body.content.trim();
+      const version=await m.appendResponseVersion({requestId:body.id,authorKind:"PRIMARY_REVIEWER_FINAL",authorId:adminUser.id,content:finalContent});
       await m.approveConsultation(body.id,adminUser.id,version);
-      return NextResponse.json({ok:true,status:"APPROVED",reviewer:"易老师",version:version.version});
+      const replyEmail=typeof privateInput.replyEmail==="string"?privateInput.replyEmail.trim():"";
+      let emailStatus:"sent"|"email_failed"|"email_not_configured"|"not_requested"="not_requested";
+      let emailError:string|undefined;
+      if(replyEmail){
+        const email=await sendRawEmail({
+          to:replyEmail,
+          subject:`MOOX会员${privateInput.kind==="LIUYAO"?"问卦":"咨询"}解答已完成`,
+          text:[
+            "MOOX会员咨询解答",
+            "",
+            finalContent,
+            "",
+            CONSULTATION_DISCLOSURE,
+            "",
+            `会员中心留档：${siteConfig.url}/member/consultations`,
+            `客服：${siteConfig.supportEmail} / Telegram ${siteConfig.telegram}`,
+          ].join("\n"),
+        });
+        emailStatus=email.status;
+        emailError=email.error;
+      }
+      return NextResponse.json({ok:true,status:"APPROVED",reviewer:"易老师",version:version.version,emailStatus,emailError});
     }
     return NextResponse.json({ok:false,error:"UNKNOWN_ACTION"},{status:400});
   }catch(error){return NextResponse.json({ok:false,error:error instanceof Error?error.message:"CONSULTATION_ACTION_FAILED"},{status:409});}

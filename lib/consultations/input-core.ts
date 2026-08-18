@@ -2,6 +2,7 @@ import type { BaziInput, ConsultationInput, LiuyaoInput } from "@/types/member-c
 
 const IANA_ZONE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+\-]+)+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateConsultationInput(value: unknown): { ok: true; input: ConsultationInput } | { ok: false; missing: string[] } {
   const row = value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -10,7 +11,8 @@ export function validateConsultationInput(value: unknown): { ok: true; input: Co
     const v = row[key]; if (typeof v !== "string" || v.trim().length < min) missing.push(key);
   };
   if (row.kind === "LIUYAO") {
-    ["question", "scope", "horizon", "castAt", "timezone", "location", "castMethod"].forEach((k) => requiredText(k));
+    ["question", "scope", "horizon", "castAt", "timezone", "location", "castMethod", "replyEmail"].forEach((k) => requiredText(k));
+    if (!EMAIL.test(String(row.replyEmail ?? ""))) missing.push("replyEmail");
     if (!IANA_ZONE.test(String(row.timezone ?? ""))) missing.push("timezone");
     if (!Array.isArray(row.linesBottomUp) || row.linesBottomUp.length !== 6 || row.linesBottomUp.some((n) => ![6,7,8,9].includes(Number(n)))) missing.push("linesBottomUp");
     if (row.consent !== true) missing.push("consent");

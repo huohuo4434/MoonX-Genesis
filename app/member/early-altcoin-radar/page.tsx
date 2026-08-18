@@ -141,9 +141,9 @@ export default async function EarlyAltcoinRadarPage() {
       <Section spacing="lg">
         <MemberDeviceHeartbeat />
         <div className="max-w-5xl">
-          <Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MOOX EARLY ALTCOIN RADAR · 15 MIN</Text>
+          <div className="flex flex-wrap items-center gap-2"><Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MOOX EARLY ALTCOIN RADAR · 15 MIN</Text><Badge variant="warning">实验性功能</Badge></div>
           <Heading as="h1" size="h2" className="mt-2">{en ? "Early Altcoin Radar" : "早期山寨币雷达"}</Heading>
-          <Text variant="body" color="secondary" className="mt-3 leading-relaxed">{en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}</Text>
+          <Text variant="body" color="secondary" className="mt-3 leading-relaxed">{en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}</Text><Text variant="caption" color="tertiary" className="mt-2 block">候选线索仅作实验观察，不直接改变正式预测，也不直接触发AI实盘。</Text>
         </div>
 
         {!report ? <Card padding="lg" className="border border-dashed border-white/10"><Heading as="h2" size="h3">等待第一份早期山寨币报告</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">重点源下一轮采集完成后会自动生成。</Text></Card> : <>

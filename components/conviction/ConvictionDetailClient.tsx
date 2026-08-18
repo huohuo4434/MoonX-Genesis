@@ -6,6 +6,7 @@ import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { ForecastEvidencePanel } from "@/components/forecasts/ForecastEvidencePanel";
 import { VibeEvidencePanel } from "@/components/conviction/VibeEvidencePanel";
 import { FocusDossierPanel } from "@/components/conviction/FocusDossierPanel";
+import { KeyPersonContextPanel } from "@/components/conviction/KeyPersonContextPanel";
 import { UnifiedDossierDisclosure } from "@/components/conviction/UnifiedDossierDisclosure";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
@@ -595,6 +596,10 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
 
         {payload.mode === "fullAccess" && payload.focusDossier ? (
           <FocusDossierPanel dossier={payload.focusDossier} />
+        ) : null}
+
+        {payload.mode === "fullAccess" ? (
+          <KeyPersonContextPanel slug={a.slug} asOfDate={payload.asOfDate} resonanceSignal={payload.resonanceSignal} periods={payload.forecast?.periods ?? []} />
         ) : null}
 
         <UnifiedDossierDisclosure enabled={hasUnifiedDossier} title="资产背景与风险">

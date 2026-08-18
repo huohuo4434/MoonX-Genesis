@@ -10,77 +10,45 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/guide",
-    titleZh: "MOOX新手使用指南",
+    titleZh: "MOOX新手指南",
     titleEn: "MOOX Beginner Guide",
-    descriptionZh: "1分钟了解MOOX先看哪里、预测卡片怎么读、什么时候可以交易以及判断失效后如何处理。",
-    descriptionEn: "A one-minute guide to reading MOOX direction, path, confirmation, invalidation and public verification.",
+    descriptionZh: "快速了解MOOX先看哪里、方向与点位怎么配合、信心星级和失效条件如何阅读。",
+    descriptionEn: "A concise guide to MOOX direction, confidence, execution levels, invalidation and verification.",
   });
 }
 
 const QUESTIONS_ZH = [
-  {
-    title: "MOOX是什么？",
-    body: "MOOX先用玄学研究给出唯一方向，再把运行路径、技术点位、风险控制和公开验证连接成一套可复盘流程。技术分析只负责位置，不参与方向判断。",
-  },
-  {
-    title: "我每天先看哪里？",
-    body: "先看“今日”了解当前方向，再看“周度”确认所处阶段，最后看“AI交易公开台”判断系统是否真正等到入场条件。",
-  },
-  {
-    title: "预测卡片怎么读？",
-    body: "第一步只看MOOX唯一方向；第二步看多周期是否共振；第三步才看技术点位与执行。页面里的百分比叫“情景权重”，不是方向投票，也不是历史命中率；正式方向只由玄学共振决定。",
-  },
-  {
-    title: "什么时候可以交易？",
-    body: "方向可以提前判断，但交易要等待价格和结构确认。预测看涨不代表立刻追涨，预测看跌也不代表立刻追空。",
-  },
-  {
-    title: "判断错了怎么处理？",
-    body: "技术风控位触发时先处理仓位和执行风险；是否修改MOOX方向，要等待新的玄学周期证据，而不是由单个价格位决定。",
-  },
+  { title: "MOOX先判断什么？", body: "核心市场日分析由奇门先判方向、六爻辅助；重点关注标的把六爻与奇门并列展示。周、月等大周期决定环境。" },
+  { title: "缠论和技术做什么？", body: "只寻找支撑、压力、入场确认、加减仓和失效位置，不反向修改已经锁定的正式方向。" },
+  { title: "星级代表什么？", body: "表示方法之间的一致程度，不代表上涨幅度。五星可以看涨，也可以看跌。" },
+  { title: "什么时候执行？", body: "方向提前锁定，价格和结构达到确认条件后才执行；没有合适位置就等待。" },
+  { title: "怎么判断是否可靠？", body: "到历史验证查看连续样本。六爻、奇门、共振样本和量化交易结果分别留档，不只展示正确案例。" },
 ] as const;
 
 const QUESTIONS_EN = [
-  {
-    title: "What is MOOX?",
-    body: "MOOX is not a simple up-or-down call and does not promise profits. It connects direction, expected path, confirmation, levels, risk controls and public verification into one reviewable process.",
-  },
-  {
-    title: "Where should I look first each day?",
-    body: "Start with Today for the immediate bias, use Weekly to understand the current stage, then check the AI Strategy Desk to see whether entry conditions are actually confirmed.",
-  },
-  {
-    title: "How do I read a forecast card?",
-    body: "Read direction and expected path first, then confirmation and invalidation. Probabilities compare scenarios; they are not the historical hit rate.",
-  },
-  {
-    title: "When is a trade allowed?",
-    body: "Direction can be researched in advance, but execution waits for price and structure confirmation. Bullish does not mean buy now, and bearish does not mean short now.",
-  },
-  {
-    title: "What happens when the view is wrong?",
-    body: "When invalidation is triggered, stop defending the old view and wait for a new structure. Risk control and review matter more than proving a prediction right.",
-  },
+  { title: "What does MOOX decide first?", body: "For core-market daily research, Qimen sets the primary direction and Liu Yao provides confirmation. Focus assets show both systems side by side." },
+  { title: "What do Chan and technical data do?", body: "They locate support, resistance, confirmation, scaling and invalidation. They do not reverse a locked formal direction." },
+  { title: "What do stars mean?", body: "Stars show agreement across methods, not upside magnitude. Five stars can be bullish or bearish." },
+  { title: "When is execution allowed?", body: "Direction is researched first; execution waits for price and structure confirmation. No suitable location means no trade." },
+  { title: "How is reliability judged?", body: "Use Verification to review continuous samples. Liu Yao, Qimen, resonance and quant-trading outcomes are kept separately." },
 ] as const;
 
 const GLOSSARY_ZH = [
-  ["方向", "当前最主要的行情情景。"],
-  ["概率", "不同情景之间的相对权重，不是历史命中率。"],
+  ["方向", "当前最主要的行情判断。"],
+  ["信心星级", "不同方法的一致程度，不是涨幅。"],
   ["运行路径", "行情可能先怎么走、后怎么走。"],
-  ["技术跟随参考", "用于选择更合适的执行位置，不负责决定多空方向。"],
-  ["技术风控参考", "用于控制仓位风险；方向是否修订必须回到新的玄学证据。"],
-  ["方法共识星级", "多种研究方法的一致程度，五星也可能是五星看跌。"],
-  ["路径命中", "不仅方向正确，先后运行顺序也与原计划基本一致。"],
+  ["关键支撑／压力", "等待入场、减仓或止盈的位置。"],
+  ["失效条件", "原计划不再成立的明确条件。"],
+  ["共振", "六爻、奇门或其他周期证据同向。"],
 ] as const;
 
 const GLOSSARY_EN = [
-  ["Direction", "The primary market scenario."],
-  ["Probability", "Relative scenario weight, not the historical hit rate."],
-  ["Expected path", "The possible order of market moves."],
-  ["Confirmation", "The condition that makes the trading logic actionable."],
-  ["Invalidation", "The condition that cancels the original view."],
-  ["Method consensus", "Agreement across research methods; five stars can also be bearish."],
-  ["Path hit", "Both the direction and the broad sequence matched the locked forecast."],
+  ["Direction", "The primary market view."],
+  ["Confidence stars", "Agreement across methods, not expected return."],
+  ["Expected path", "The likely sequence of market moves."],
+  ["Support / resistance", "Locations for entry, reduction or profit-taking."],
+  ["Invalidation", "The explicit condition that ends the original plan."],
+  ["Resonance", "Liu Yao, Qimen or other horizon evidence points the same way."],
 ] as const;
 
 export default async function GuidePage() {
@@ -90,98 +58,55 @@ export default async function GuidePage() {
   const questions = en ? QUESTIONS_EN : QUESTIONS_ZH;
   const glossary = en ? GLOSSARY_EN : GLOSSARY_ZH;
 
-  return (
-    <main>
-      <Section spacing="lg">
-        <div className="mx-auto w-full max-w-5xl space-y-8">
-          <div className="max-w-3xl">
-            <Badge variant="default">{en ? "1-minute guide" : "1分钟使用说明"}</Badge>
-            <Heading as="h1" size="h2" className="mt-3">
-              {en ? "Use MOOX without learning every research term" : "不懂六爻和奇门，也能正常使用MOOX"}
-            </Heading>
-            <Text variant="body" color="secondary" className="mt-3 block">
-              {en
-                ? "Remember only three steps: read the direction, wait for confirmation, and stop defending the view after invalidation."
-                : "普通用户只需要记住三句话：先看方向，再等确认，失效了就不要硬扛。"}
-            </Text>
-          </div>
+  return <main><Section spacing="lg"><div className="mx-auto w-full max-w-5xl space-y-8">
+    <div className="max-w-3xl">
+      <Badge variant="default">{en ? "Beginner Guide" : "新手指南"}</Badge>
+      <Heading as="h1" size="h2" className="mt-3">{en ? "Read the conclusion first" : "先看结论，再看位置"}</Heading>
+      <Text variant="body" color="secondary" className="mt-3 block">{en ? "Direction first, confirmation second, invalidation always respected." : "只记住三步：看方向、等确认、守失效。"}</Text>
+    </div>
 
-          <Card padding="lg" className="border-primary/20 bg-primary/[0.025]">
-            <Heading as="h2" size="h3">{en ? "Your daily reading order" : "每天按照这个顺序看"}</Heading>
-            <div className="mt-5 grid gap-3 md:grid-cols-4">
-              {[
-                { title: en ? "1. Today" : "1. 今日", body: en ? "Current direction and path" : "当前方向和运行路径", path: "/#moonx-view" },
-                { title: en ? "2. Weekly" : "2. 周度", body: en ? "The current stage of the week" : "这周处于哪个阶段", path: "/member/weekly" },
-                { title: en ? "3. AI Strategy Desk" : "3. AI交易公开台", body: en ? "Whether entry is confirmed" : "是否真正等到入场条件", path: "/member/ai-trading" },
-                { title: en ? "4. Verification" : "4. 历史验证", body: en ? "Review the continuous record" : "查看连续样本和复盘", path: "/verification" },
-              ].map(({ title, body, path }) => (
-                <Link key={path} href={href(path)} className="rounded-xl border border-border/[0.1] p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.02]">
-                  <Text variant="body-sm" weight="semibold">{title}</Text>
-                  <Text variant="caption" color="secondary" className="mt-2 block">{body}</Text>
-                </Link>
-              ))}
-            </div>
-          </Card>
+    <Card padding="lg" className="border-primary/20 bg-primary/[0.025]">
+      <Heading as="h2" size="h3">{en ? "Recommended reading order" : "推荐阅读顺序"}</Heading>
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
+        {[
+          { title: en ? "1. Daily Report" : "1. 会员日报", body: en ? "Today and next session" : "今天与下一交易日", path: "/member/daily" },
+          { title: en ? "2. Weekly Outlook" : "2. 周走势预测", body: en ? "Weekly stage and path" : "本周阶段与路径", path: "/member/weekly" },
+          { title: en ? "3. Quant Trading" : "3. 量化交易", body: en ? "Execution and risk state" : "执行与风控状态", path: "/member/ai-trading" },
+          { title: en ? "4. Verification" : "4. 历史验证", body: en ? "Continuous public record" : "连续样本与复盘", path: "/verification" },
+        ].map(({ title, body, path }) => <Link key={path} href={href(path)} className="rounded-xl border border-border/[0.1] p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.02]"><Text variant="body-sm" weight="semibold">{title}</Text><Text variant="caption" color="secondary" className="mt-2 block">{body}</Text></Link>)}
+      </div>
+    </Card>
 
-          <div>
-            <Heading as="h2" size="h3">{en ? "Five questions new users ask" : "新用户最常问的五个问题"}</Heading>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {questions.map((item, index) => (
-                <Card key={item.title} padding="lg" className={index === questions.length - 1 ? "md:col-span-2" : undefined}>
-                  <Text variant="body" weight="semibold">{item.title}</Text>
-                  <Text variant="body-sm" color="secondary" className="mt-2 block">{item.body}</Text>
-                </Card>
-              ))}
-            </div>
-          </div>
+    <div>
+      <Heading as="h2" size="h3">{en ? "Five essentials" : "五个核心问题"}</Heading>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {questions.map((item, index) => <Card key={item.title} padding="lg" className={index === questions.length - 1 ? "md:col-span-2" : undefined}><Text variant="body" weight="semibold">{item.title}</Text><Text variant="body-sm" color="secondary" className="mt-2 block">{item.body}</Text></Card>)}
+      </div>
+    </div>
 
-          <div>
-            <Heading as="h2" size="h3">{en ? "Forecast terms" : "预测卡片里的词是什么意思"}</Heading>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {glossary.map(([term, explanation]) => (
-                <Card key={term} padding="md">
-                  <Text variant="body-sm" weight="semibold">
-                    <TermHelp explanation={explanation}>{term}</TermHelp>
-                  </Text>
-                  <Text variant="caption" color="secondary" className="mt-2 block">{explanation}</Text>
-                </Card>
-              ))}
-            </div>
-          </div>
+    <div>
+      <Heading as="h2" size="h3">{en ? "Terms on forecast cards" : "预测卡片怎么读"}</Heading>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {glossary.map(([term, explanation]) => <Card key={term} padding="md"><Text variant="body-sm" weight="semibold"><TermHelp explanation={explanation}>{term}</TermHelp></Text><Text variant="caption" color="secondary" className="mt-2 block">{explanation}</Text></Card>)}
+      </div>
+    </div>
 
-          <Card padding="lg">
-            <Heading as="h2" size="h3">{en ? "Three common mistakes" : "最容易犯的三个错误"}</Heading>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {(en
-                ? [
-                    ["Chasing the headline", "A bullish or bearish label is not an immediate order."],
-                    ["Ignoring the weekly stage", "Daily views should be interpreted inside the weekly path."],
-                    ["Refusing invalidation", "When the invalidation condition appears, the original plan is over."],
-                  ]
-                : [
-                    ["只看一句涨跌就追单", "看涨或看跌只是方向，不是立即下单指令。"],
-                    ["不看周度背景", "日度判断最好放在周度运行阶段中理解。"],
-                    ["忽略技术风控", "技术风控触发后先处理仓位；方向研究与交易执行分开复盘。"],
-                  ]
-              ).map(([title, body]) => (
-                <div key={title} className="rounded-lg border border-border/[0.08] p-3">
-                  <Text variant="body-sm" weight="semibold">{title}</Text>
-                  <Text variant="caption" color="secondary" className="mt-1 block">{body}</Text>
-                </div>
-              ))}
-            </div>
-          </Card>
+    <Card padding="lg">
+      <Heading as="h2" size="h3">{en ? "Three mistakes to avoid" : "三个常见错误"}</Heading>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {(en ? [
+          ["Chasing a label", "Bullish or bearish is not an immediate order."],
+          ["Ignoring the horizon", "Daily views should be read inside weekly and monthly context."],
+          ["Defending an invalid plan", "Once invalidation appears, execution must stop or reduce risk."],
+        ] : [
+          ["看到涨跌就追单", "方向不是立即下单指令。"],
+          ["忽略周期背景", "日度判断要放进周度和月度环境中理解。"],
+          ["失效后仍硬扛", "触发失效条件后先停止执行或降低风险。"],
+        ]).map(([title, body]) => <div key={title} className="rounded-lg border border-border/[0.08] p-3"><Text variant="body-sm" weight="semibold">{title}</Text><Text variant="caption" color="secondary" className="mt-1 block">{body}</Text></div>)}
+      </div>
+    </Card>
 
-          <div className="flex flex-wrap gap-3">
-            <Button asChild variant="primary"><Link href={href("/#moonx-view")}>{en ? "View Today" : "开始查看今日"}</Link></Button>
-            <Button asChild variant="outline"><Link href={href("/member/ai-trading")}>{en ? "Open AI Strategy Desk" : "查看AI交易公开台"}</Link></Button>
-          </div>
-
-          <Text variant="caption" color="tertiary">
-            {en ? "Research and scenario analysis only. Not investment advice." : "所有内容仅供研究参考，不构成投资建议。"}
-          </Text>
-        </div>
-      </Section>
-    </main>
-  );
+    <div className="flex flex-wrap gap-3"><Button asChild variant="primary"><Link href={href("/member")}>{en ? "Open Member Channel" : "进入会员频道"}</Link></Button><Button asChild variant="outline"><Link href={href("/verification")}>{en ? "View Verification" : "查看历史验证"}</Link></Button></div>
+    <Text variant="caption" color="tertiary">{en ? "Research and scenario analysis only. Not investment advice." : "所有内容仅供研究参考，不构成投资建议。"}</Text>
+  </div></Section></main>;
 }

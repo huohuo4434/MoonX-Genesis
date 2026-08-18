@@ -12,9 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/member/monthly",
-    titleZh: "月度走势分析 | MOOX Intelligence",
+    titleZh: "会员月走势预测 | MOOX Intelligence",
     titleEn: "Monthly Outlook | MOOX Intelligence",
-    descriptionZh: "月度方向、运行路径与关键风险的公开预览及会员完整研究。",
+    descriptionZh: "月度主方向、月内路径、关键周、风险与失效条件。",
     descriptionEn: "Monthly direction, probabilities, expected paths, timing windows and key risks across core markets.",
   });
 }

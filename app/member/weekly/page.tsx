@@ -10,20 +10,18 @@ import {
 } from "@/components/member/MemberWeeklyPage";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
-import { buildWeeklyAlphaIssue } from "@/lib/data/weekly-alpha";
-import { getMemberMarketBranchOutlook20260813 } from "@/lib/data/member-market-branches-20260813";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
-import { projectPublicAttribution,projectPublicResearchRadar } from "@/lib/presentation/public-attribution";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/member/weekly",
-    titleZh: "本周 · 会员周报",
-    titleEn: "Weekly",
-    descriptionZh: "会员专享：易老师综合传统术数、公开市场信息、真实K线、支撑压力与宏观事件形成每周独立研判；AI仅辅助归并与情景推演。",
-    descriptionEn: "Member-only Weekly under Yi methodology, with traditional analysis, verified calendar data, real candles, execution levels and weekly path scenarios.",
+    titleZh: "会员周走势预测",
+    titleEn: "Weekly Outlook",
+    descriptionZh: "会员专享：逐个查看核心市场本周方向、周内路径、关键日期、支撑压力与失效条件。",
+    descriptionEn: "Member-only weekly outlook with direction, path, key dates, support, resistance and invalidation for each core market.",
   });
 }
 
@@ -44,9 +42,5 @@ export default async function MemberWeeklyRoute() {
   if (payload.mode === "locked") {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
-  const alphaIssue = projectPublicAttribution(await buildWeeklyAlphaIssue(payload.summary.weekStart),{locale});
-  const branchOutlook = projectPublicAttribution(getMemberMarketBranchOutlook20260813(),{locale});
-  const { getMemberQimenStoneRadar20260814 } = await import("@/lib/data/member-qimen-stone-radar-20260814");
-  const researchRadar = projectPublicResearchRadar(getMemberQimenStoneRadar20260814(),locale);
-  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} alphaIssue={alphaIssue} branchOutlook={branchOutlook} researchRadar={researchRadar} /></>;
+  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} /></>;
 }

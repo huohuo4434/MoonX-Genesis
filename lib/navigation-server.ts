@@ -1,4 +1,3 @@
-import { getAccessUser } from "@/lib/auth/get-access-user";
 import "server-only";
 
 import {
@@ -7,7 +6,7 @@ import {
   PUBLIC_MORE_NAV,
   type NavItem,
   MEMBER_RESEARCH_NAV,
-} from "@/config/navigation";
+} from "@/config/member-channel-navigation";
 
 export type { NavItem };
 
@@ -19,9 +18,13 @@ export function getMemberResearchNav(): NavItem[] {
   return MEMBER_RESEARCH_NAV;
 }
 
+/**
+ * The Member Channel is a visible product catalogue. Each destination keeps its
+ * own server-side membership and trusted-device gate, so navigation visibility
+ * never grants access to protected data.
+ */
 export async function getMemberResearchNavForCurrentUser(): Promise<NavItem[]> {
-  const memberAccess = await getAccessUser();
-  return memberAccess.isActiveMember || memberAccess.isAdmin ? MEMBER_RESEARCH_NAV : [];
+  return MEMBER_RESEARCH_NAV;
 }
 
 export function getPublicMoreNav(): NavItem[] {
