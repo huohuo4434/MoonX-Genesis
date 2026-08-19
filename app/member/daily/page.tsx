@@ -1,4 +1,4 @@
-// MOOX_V72051_MEMBER_DAILY_CLEAN
+// MOOX_V72065_MEMBER_DAILY_LIVE_LEVELS
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -14,7 +14,8 @@ import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import type { DailyForecast } from "@/types/daily-forecast";
-import { buildDailyInvalidation, buildDailyResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
+import { buildDailyResearchReason } from "@/lib/forecasts/daily-display-reason";
+import { buildMemberDailyTechnicalViews, type MemberDailyTechnicalView } from "@/lib/forecasts/member-daily-live-levels";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,7 +43,15 @@ function tone(direction: string): string {
   return "border-sky-400/20 bg-sky-400/[0.05] text-sky-100";
 }
 
-function ForecastTable({ title, forecasts }: { title: string; forecasts: DailyForecast[] }) {
+function ForecastTable({
+  title,
+  forecasts,
+  technicalViews,
+}: {
+  title: string;
+  forecasts: DailyForecast[];
+  technicalViews: Record<string, MemberDailyTechnicalView>;
+}) {
   const rows = forecasts
     .filter(isHumanPublishedForecast)
     .sort((left, right) => dailyAssetOrderIndex(left.assetId) - dailyAssetOrderIndex(right.assetId));
@@ -59,19 +68,20 @@ function ForecastTable({ title, forecasts }: { title: string; forecasts: DailyFo
         <div className="overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2">
           <table className="min-w-[900px] w-full border-separate border-spacing-y-2 text-left">
             <thead className="text-caption text-foreground-tertiary">
-              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">方向</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效条件</th><th className="px-3 py-2">更新</th></tr>
+              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">方向</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
             </thead>
             <tbody>
               {rows.map((forecast) => {
                 const direction = displayDirection(forecast);
+                const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
                 return (
                   <tr key={forecast.id} className="bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
                     <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
                     <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span>{qimenAgreementLabel(forecast) ? <div className="mt-1 text-caption text-foreground-tertiary">{qimenAgreementLabel(forecast)}</div> : null}</td>
                     <td className="max-w-[330px] px-3 py-3 text-body-sm text-foreground-secondary">{buildDailyResearchReason(forecast)}</td>
-                    <td className="px-3 py-3 text-body-sm">{cleanDailyLevel(forecast.supportLevels?.[0])}</td>
-                    <td className="px-3 py-3 text-body-sm">{cleanDailyLevel(forecast.resistanceLevels?.[0])}</td>
-                    <td className="px-3 py-3 text-body-sm text-foreground-secondary">{buildDailyInvalidation(forecast)}</td>
+                    <td className="px-3 py-3 text-body-sm font-medium">{technical.support}</td>
+                    <td className="px-3 py-3 text-body-sm font-medium">{technical.resistance}</td>
+                    <td className="px-3 py-3 text-body-sm text-foreground-secondary">{technical.invalidation}</td>
                     <td className="rounded-r-xl px-3 py-3 text-caption text-foreground-tertiary">{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</td>
                   </tr>
                 );
@@ -98,7 +108,9 @@ export default async function MemberDailyPage() {
   ]);
   const todayRows = today.allowed ? today.forecasts : [];
   const tomorrowRows = tomorrow.mode === "member" ? tomorrow.forecasts : [];
-  const latest = [...todayRows, ...tomorrowRows]
+  const allRows = [...todayRows, ...tomorrowRows];
+  const technicalViews = await buildMemberDailyTechnicalViews(allRows);
+  const latest = allRows
     .map((row) => row.updatedAt || row.publishedAt)
     .filter((value): value is string => Boolean(value))
     .sort()
@@ -118,8 +130,8 @@ export default async function MemberDailyPage() {
               </div>
             </header>
 
-            <ForecastTable title="今日市场" forecasts={todayRows} />
-            <ForecastTable title="下一交易日" forecasts={tomorrowRows} />
+            <ForecastTable title="今日市场" forecasts={todayRows} technicalViews={technicalViews} />
+            <ForecastTable title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} />
 
             <div className="flex flex-wrap gap-3">
               <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">查看周走势预测</Link>
