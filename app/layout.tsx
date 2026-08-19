@@ -14,6 +14,7 @@ import { runResearchDataValidation } from "@/lib/research/run-validation";
 import { DeferredLegacyCompatibility } from "@/components/system/DeferredLegacyCompatibility";
 import "@/styles/globals.css";
 
+import SiteClarityGuards from "@/components/system/SiteClarityGuards"; // MOOX_CLARITY_LIVE_LEVELS_V72092
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const originalPath = await getOriginalPathname("/");
@@ -73,7 +74,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <DeferredLegacyCompatibility />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-      </body>
+              <SiteClarityGuards /> {/* MOOX_CLARITY_LIVE_LEVELS_V72092 */}
+</body>
     </html>
   );
 }
