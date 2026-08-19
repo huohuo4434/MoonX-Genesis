@@ -1,7 +1,6 @@
 // MOOX_V7206_VERIFICATION_RANKING
 // MOOX_V72052_HOME_FRESH
 import Link from "next/link";
-import { cache, Suspense } from "react";
 import { unstable_noStore as noStore } from "next/cache";
 import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
@@ -11,7 +10,7 @@ import type { DailyForecast } from "@/types/daily-forecast";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-history";
 import { buildHomeResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
 import { HomeMobileAppView } from "@/components/home/HomeMobileAppView";
-// V7.20.7 compatibility note: getPublicUnifiedLiveSnapshot moved off the homepage critical render path in V7.20.8.
+import { getPublicUnifiedLiveSnapshot } from "@/lib/trading-signals/unified-live-public";
 
 const CORE_MARKETS = [
   { symbol: "BTC", name: "比特币" },
@@ -155,23 +154,18 @@ const MEMBER_ENTRIES = [
   { href: "/member/ai-trading", eyebrow: "AI交易研究", title: "计划、持仓与盈亏", body: "查看研究计划、管理员账户持仓和每单已实现盈亏。", tone: "pink" },
 ] as const;
 
-export function HomeLandingBoard() {
-  return (
-    <main className="min-h-screen bg-[#06070b] text-white">
-      <Suspense fallback={<HomeLandingFallback />}>
-        <HomeLandingData />
-      </Suspense>
-    </main>
-  );
-}
-
-async function HomeLandingData() {
+export async function HomeLandingBoard() {
   noStore();
   const now = new Date();
-  const todayResult = await Promise.allSettled([getTodayForecastAccessPayload(now)]);
-  const todayPayload = todayResult[0].status === "fulfilled" ? todayResult[0].value : null;
+  const [todayResult, verificationResult, liveResult] = await Promise.allSettled([
+    getTodayForecastAccessPayload(now),
+    getPublicAccuracyHistory(now),
+    getPublicUnifiedLiveSnapshot(),
+  ]);
+  const todayPayload = todayResult.status === "fulfilled" ? todayResult.value : null;
   const todayForecasts = todayPayload?.allowed ? todayPayload.forecasts : [];
   const marketRows = buildMarketRows(todayForecasts);
+  const verificationItems = verificationResult.status === "fulfilled" ? selectVerification(verificationResult.value.items, now) : [];
   const todayAccessMessage = todayPayload && !todayPayload.allowed ? todayPayload.message : "今日观点正在整理中";
   const publishedRows = marketRows.filter((row) => Boolean(row.forecast));
   const mobileMarkets = publishedRows
@@ -196,8 +190,21 @@ async function HomeLandingData() {
     .map(({ resonanceRank: _resonanceRank, ...row }) => row);
   const resonanceCount = publishedRows.filter((row) => /共振/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
   const divergenceCount = publishedRows.filter((row) => /分歧/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
+  const livePublicReadable = liveResult.status === "fulfilled";
+  const openOfficialPositions = liveResult.status === "fulfilled"
+    ? liveResult.value.positions.filter((row) => !["CLOSED", "CANCELLED"].includes(String(row.status).toUpperCase())).length
+    : 0;
+  const mobileVerification = verificationItems.map(({ item }) => ({
+    id: item.forecastId,
+    assetName: item.assetName,
+    date: zhDate(item.forecastDate),
+    predicted: item.predictedDirection,
+    actual: item.actualDirection,
+    verdict: item.verdictLabel,
+  }));
+
   return (
-    <>
+    <main className="min-h-screen bg-[#06070b] text-white">
       <HomeMobileAppView
         canViewDaily={Boolean(todayPayload?.allowed)}
         accessMessage={todayAccessMessage}
@@ -205,10 +212,10 @@ async function HomeLandingData() {
         resonanceCount={resonanceCount}
         divergenceCount={divergenceCount}
         publishedCount={publishedRows.length}
+        livePublicReadable={livePublicReadable}
+        openOfficialPositions={openOfficialPositions}
+        verification={mobileVerification}
       />
-      <Suspense fallback={<HomeMobileVerificationFallback />}>
-        <HomeMobileVerificationData nowIso={now.toISOString()} />
-      </Suspense>
       <div className="hidden md:block">
       <section id="daily-board" className="border-b border-white/5 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.20),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,190,210,0.13),transparent_28%),linear-gradient(180deg,#0d1020_0%,#06070b_100%)]">
         <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8">
@@ -267,9 +274,14 @@ async function HomeLandingData() {
         </div>
       </section>
 
-      <Suspense fallback={<HomeDesktopVerificationFallback />}>
-        <HomeDesktopVerificationData nowIso={now.toISOString()} />
-      </Suspense>
+      <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,25,26,.98),rgba(8,9,14,.98))] p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">验证精选</p><h2 className="mt-2 text-2xl font-semibold">九大市场近期表现较稳的3个市场</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
+          <div className="mt-5 grid gap-3">
+            {verificationItems.length ? verificationItems.map(({ item, weightedRate, samples }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">近30天加权命中 {samples ? `${Math.round(weightedRate * 100)}% · ${samples}个有效样本` : "样本积累中"}</div><div className="mt-1 text-sm text-white/48">最近验证 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
+          </div>
+        </div>
+      </section>
 
       <section className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-5 rounded-3xl border border-violet-400/20 bg-violet-500/[0.07] p-6 sm:flex-row sm:items-center">
@@ -278,83 +290,6 @@ async function HomeLandingData() {
         </div>
       </section>
       </div>
-    </>
-  );
-}
-
-const loadHomeVerification = cache(async (nowIso: string) => {
-  const now = new Date(nowIso);
-  const payload = await getPublicAccuracyHistory(now);
-  return selectVerification(payload.items, now);
-});
-
-async function HomeMobileVerificationData({ nowIso }: { nowIso: string }) {
-  const verification = await loadHomeVerification(nowIso);
-  return (
-    <section className="px-4 pb-24 pt-5 md:hidden">
-      <div className="flex items-center justify-between"><div><p className="text-[11px] tracking-[0.18em] text-white/35">VERIFICATION</p><h2 className="mt-1 text-lg font-semibold">最近验证</h2></div><Link href="/verification" className="text-xs text-emerald-200">历史 →</Link></div>
-      <div className="mt-3 overflow-hidden rounded-3xl border border-white/8 bg-white/[0.025]">
-        {verification.length ? verification.map(({ item }) => <div key={item.forecastId} className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-xs text-white/38">{zhDate(item.forecastDate)} · 预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className="shrink-0 rounded-full border border-emerald-400/18 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">{item.verdictLabel}</span></div>) : <div className="p-5 text-sm text-white/40">暂无可展示的已验证记录。</div>}
-      </div>
-    </section>
-  );
-}
-
-async function HomeDesktopVerificationData({ nowIso }: { nowIso: string }) {
-  const verificationItems = await loadHomeVerification(nowIso);
-  return (
-    <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8">
-      <div className="rounded-3xl border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,25,26,.98),rgba(8,9,14,.98))] p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">验证精选</p><h2 className="mt-2 text-2xl font-semibold">九大市场近期表现较稳的3个市场</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
-        <div className="mt-5 grid gap-3">
-          {verificationItems.length ? verificationItems.map(({ item, weightedRate, samples }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">近30天加权命中 {samples ? `${Math.round(weightedRate * 100)}% · ${samples}个有效样本` : "样本积累中"}</div><div className="mt-1 text-sm text-white/48">最近验证 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HomeMobileVerificationFallback() {
-  return <section className="px-4 pb-24 pt-5 md:hidden"><div className="h-32 animate-pulse rounded-3xl border border-white/8 bg-white/[0.025]" /></section>;
-}
-
-function HomeDesktopVerificationFallback() {
-  return <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8"><div className="h-44 animate-pulse rounded-3xl border border-white/8 bg-white/[0.025]" /></section>;
-}
-
-function HomeLandingFallback() {
-  return (
-    <>
-      <div className="md:hidden pb-24">
-        <section className="px-4 pt-5">
-          <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,.18),transparent_38%),linear-gradient(160deg,#15132a_0%,#090a10_66%)] p-5">
-            <div className="h-3 w-24 animate-pulse rounded-full bg-violet-300/15" />
-            <div className="mt-3 h-7 w-40 animate-pulse rounded-xl bg-white/10" />
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              {[0, 1, 2].map((item) => <div key={item} className="h-[68px] animate-pulse rounded-2xl border border-white/8 bg-white/[0.035]" />)}
-            </div>
-          </div>
-        </section>
-        <section className="px-4 pt-4">
-          <div className="h-5 w-44 animate-pulse rounded-lg bg-white/10" />
-          <div className="mt-3 grid gap-3">
-            {[0, 1, 2].map((item) => <div key={item} className="h-28 animate-pulse rounded-3xl border border-white/8 bg-white/[0.025]" />)}
-          </div>
-        </section>
-      </div>
-      <div className="hidden md:block">
-        <section className="border-b border-white/5 bg-[#090b12]">
-          <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-7">
-              <div className="h-5 w-36 animate-pulse rounded-lg bg-violet-300/15" />
-              <div className="mt-4 h-10 w-72 animate-pulse rounded-xl bg-white/10" />
-              <div className="mt-8 grid gap-3">
-                {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-2xl bg-white/[0.04]" />)}
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </>
+    </main>
   );
 }

@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button, Heading, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { loadSessionLite } from "@/lib/client/session-lite";
+
+type SessionPayload = {
+  authenticated?: boolean;
+  email?: string | null;
+  isAdmin?: boolean;
+  isActiveMember?: boolean;
+};
 
 export function MemberWelcomeGuide() {
   const { locale, href } = useLocale();
@@ -14,18 +20,31 @@ export function MemberWelcomeGuide() {
 
   useEffect(() => {
     let cancelled = false;
-    loadSessionLite(2 * 60 * 1000).then((payload) => {
-      if (cancelled || !payload.authenticated || !payload.isActiveMember || payload.isAdmin) return;
-      const email = (payload.email ?? "member").toLowerCase();
-      const key = `moox_member_welcome_v1:${email}`;
-      setStorageKey(key);
-      try {
-        if (window.localStorage.getItem(key) !== "seen") setOpen(true);
-      } catch {
-        setOpen(true);
-      }
-    });
-    return () => { cancelled = true; };
+    const controller = new AbortController();
+
+    fetch("/api/auth/session-lite", {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => response.ok ? response.json() as Promise<SessionPayload> : null)
+      .then((payload) => {
+        if (cancelled || !payload?.authenticated || !payload.isActiveMember || payload.isAdmin) return;
+        const email = (payload.email ?? "member").toLowerCase();
+        const key = `moox_member_welcome_v1:${email}`;
+        setStorageKey(key);
+        try {
+          if (window.localStorage.getItem(key) !== "seen") setOpen(true);
+        } catch {
+          setOpen(true);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   function close() {

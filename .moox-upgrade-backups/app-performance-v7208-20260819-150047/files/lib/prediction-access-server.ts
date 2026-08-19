@@ -328,12 +328,8 @@ export async function getTodayForecastAccessPayload(
   now = new Date()
 ): Promise<TodayForecastAccessPayload> {
   noStore();
-  // V7.20.8: auth/device resolution and forecast reads are independent. Run them
-  // together so homepage latency is the slower branch instead of the sum of both.
-  const [{ access }, rows] = await Promise.all([
-    resolveTodayPredictionAccess(now),
-    loadTodayForecastRows(now),
-  ]);
+  const { access } = await resolveTodayPredictionAccess(now);
+  const rows = await loadTodayForecastRows(now);
   const teaser = toTodayPublicTeaserMeta(rows);
 
   if (!access.allowed) {

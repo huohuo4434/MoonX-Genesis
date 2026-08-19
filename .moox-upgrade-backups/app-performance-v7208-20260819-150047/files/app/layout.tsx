@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { FooterShell, NavbarShell } from "@/components/layout";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { MemberWelcomeGuide } from "@/components/onboarding/MemberWelcomeGuide";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { englishPath } from "@/lib/i18n/config";
 import {
@@ -11,7 +12,9 @@ import {
 } from "@/lib/i18n/server";
 import { siteConfig } from "@/lib/site-config";
 import { runResearchDataValidation } from "@/lib/research/run-validation";
-import { DeferredLegacyCompatibility } from "@/components/system/DeferredLegacyCompatibility";
+import { PlainLanguageDirectionGuard } from "@/components/system/PlainLanguageDirectionGuard";
+import { TomorrowViewFallback } from "@/components/home/TomorrowViewFallback";
+import { WatchlistDailyDomFallback } from "@/components/watchlist/WatchlistDailyDomFallback";
 import "@/styles/globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -67,12 +70,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="font-sans antialiased">
         <LocaleProvider initialLocale={locale}>
           <NavbarShell />
+          <MemberWelcomeGuide />
           <div className="pb-20 md:pb-0">{children}</div>
           <FooterShell />
           <MobileBottomNav />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-        <DeferredLegacyCompatibility />
+        <PlainLanguageDirectionGuard />
+        <TomorrowViewFallback />
+        <WatchlistDailyDomFallback />
       </body>
     </html>
   );

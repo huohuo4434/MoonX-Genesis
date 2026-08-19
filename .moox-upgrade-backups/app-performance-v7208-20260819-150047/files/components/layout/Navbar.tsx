@@ -64,6 +64,7 @@ export function Navbar({
     <Link
       key={link.key}
       href={href(link.href)}
+      prefetch={false}
       onClick={() => setIsMenuOpen(false)}
       className="flex min-h-11 items-center justify-between rounded-md px-3 py-2.5 text-body-sm text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring"
     >
@@ -95,7 +96,8 @@ export function Navbar({
               <Link
                 key={link.key}
                 href={href(link.href)}
-                          className="whitespace-nowrap rounded-md px-2.5 py-2 text-[13px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring 2xl:px-3 2xl:text-body-sm"
+                prefetch={false}
+                className="whitespace-nowrap rounded-md px-2.5 py-2 text-[13px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring 2xl:px-3 2xl:text-body-sm"
               >
                 {label(link)}
               </Link>
@@ -117,8 +119,6 @@ export function Navbar({
                           {group.links.map((link) => (
                             <DropdownItem
                               key={link.key}
-                              onMouseEnter={() => router.prefetch(href(link.href))}
-                              onFocus={() => router.prefetch(href(link.href))}
                               onSelect={() => router.push(href(link.href))}
                               className="min-h-10 justify-between"
                             >
@@ -144,7 +144,7 @@ export function Navbar({
                 </DropdownTrigger>
                 <DropdownContent align="end">
                   {moreNav.map((link) => (
-                    <DropdownItem key={link.key} onMouseEnter={() => router.prefetch(href(link.href))} onFocus={() => router.prefetch(href(link.href))} onSelect={() => router.push(href(link.href))}>
+                    <DropdownItem key={link.key} onSelect={() => router.push(href(link.href))}>
                       {label(link)}
                     </DropdownItem>
                   ))}

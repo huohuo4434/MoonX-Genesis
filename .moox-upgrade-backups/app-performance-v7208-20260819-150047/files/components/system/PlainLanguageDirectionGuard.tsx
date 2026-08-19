@@ -69,37 +69,18 @@ export function PlainLanguageDirectionGuard() {
   useEffect(() => {
     normalizeTree(document.body);
     hideLegacyAndWeekendCards();
-
-    // V7.20.8: batch legacy DOM compatibility work once per animation frame instead
-    // of rescanning/hiding synchronously for every individual DOM mutation.
-    const pendingRoots = new Set<ParentNode>();
-    let frame = 0;
-    const flush = () => {
-      frame = 0;
-      for (const root of pendingRoots) normalizeTree(root);
-      pendingRoots.clear();
-      hideLegacyAndWeekendCards();
-    };
-    const schedule = () => {
-      if (!frame) frame = window.requestAnimationFrame(flush);
-    };
-
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.type === "characterData" && mutation.target.parentNode) pendingRoots.add(mutation.target.parentNode);
+        if (mutation.type === "characterData" && mutation.target instanceof Text) normalizeTextNode(mutation.target);
         for (const node of mutation.addedNodes) {
-          if (node instanceof Text && node.parentNode) pendingRoots.add(node.parentNode);
-          else if (node instanceof HTMLElement) pendingRoots.add(node);
+          if (node instanceof Text) normalizeTextNode(node);
+          else if (node instanceof HTMLElement) normalizeTree(node);
         }
       }
-      if (pendingRoots.size) schedule();
+      hideLegacyAndWeekendCards();
     });
     observer.observe(document.body, { subtree: true, childList: true, characterData: true });
-    return () => {
-      observer.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
-      pendingRoots.clear();
-    };
+    return () => observer.disconnect();
   }, []);
   return null;
 }

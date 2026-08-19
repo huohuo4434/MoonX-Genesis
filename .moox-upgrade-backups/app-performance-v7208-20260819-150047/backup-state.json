@@ -1,0 +1,82 @@
+﻿[
+    {
+        "path":  "app/loading.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "app/layout.tsx",
+        "existed":  true,
+        "hash":  "e8ae36f169bd798d978a828a0274af1ec1f90b04b0eeeafa92ac2f9eb54c5105"
+    },
+    {
+        "path":  "app/api/public/live-trading/route.ts",
+        "existed":  true,
+        "hash":  "55a943ce88254e296c8cc0d692a9cd6b2226f6767dcafed3f74864b6d72acab7"
+    },
+    {
+        "path":  "components/home/HomeLandingBoard.tsx",
+        "existed":  true,
+        "hash":  "1fce5d68b97c9083fbb6809430c0f49b3ee830c9932cac9cc96819e786b50703"
+    },
+    {
+        "path":  "components/home/HomeMobileAppView.tsx",
+        "existed":  true,
+        "hash":  "24015db238757ae063dfdec8bf225eeb38382a64e3b22b39dc4dc01daf0ae4cd"
+    },
+    {
+        "path":  "components/home/HomeOfficialAccountTile.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "components/home/TomorrowViewFallback.tsx",
+        "existed":  true,
+        "hash":  "5a9c585e9ebc84d545943654373a8481ca1799d01ad3f72eb18d4377c3e92c4d"
+    },
+    {
+        "path":  "components/layout/Navbar.tsx",
+        "existed":  true,
+        "hash":  "a70c53a0cad749cdaa5a6357386316000db9ff24f1ab9a9018406f03e83cbb56"
+    },
+    {
+        "path":  "components/layout/NavbarSession.tsx",
+        "existed":  true,
+        "hash":  "bb7c42d73e4dfc145c9385432b38d8b76a5472488b9b4211a59ed8cafbf08322"
+    },
+    {
+        "path":  "components/onboarding/MemberWelcomeGuide.tsx",
+        "existed":  true,
+        "hash":  "7c592531f44fb52c4234ea83fd7f7fe7fa8892190c6ea28b0655fe647c079dd6"
+    },
+    {
+        "path":  "components/system/DeferredLegacyCompatibility.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "components/system/PlainLanguageDirectionGuard.tsx",
+        "existed":  true,
+        "hash":  "320146c615b2d2a5b2af6e18638d865d7a9088651e6a90003c67221eb790d8a5"
+    },
+    {
+        "path":  "lib/client/session-lite.ts",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "lib/prediction-access-server.ts",
+        "existed":  true,
+        "hash":  "3544a63c82eb80cc63255e65b319eae499e807aad98a9ab53764bc6ef36d2610"
+    },
+    {
+        "path":  "tests/app-performance-v7208.test.mjs",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "docs/MOOX_APP_PERFORMANCE_V7208.md",
+        "existed":  false,
+        "hash":  null
+    }
+]
