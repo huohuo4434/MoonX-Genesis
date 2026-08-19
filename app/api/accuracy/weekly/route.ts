@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
+import { WEEKLY_SCORE_VERSION, explainWeeklyVerification, scoreWeeklyVerification } from "@/lib/verification/weekly-verification-core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,7 +15,19 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "no-store" } }
     );
   }
-  const rows = await prisma.weeklyVerificationRecord.findMany({ orderBy: [{ weekEnd: "desc" }, { symbol: "asc" }] });
+  const storedRows = await prisma.weeklyVerificationRecord.findMany({ orderBy: [{ weekEnd: "desc" }, { symbol: "asc" }] });
+  const rows = storedRows.map((row) => {
+    if (!row.actualPattern || row.result === "PENDING") return row;
+    const scored = scoreWeeklyVerification(row.predictedPattern, row.actualPattern);
+    const isCurrent = row.explanation?.includes(WEEKLY_SCORE_VERSION) ?? false;
+    return {
+      ...row,
+      ...scored,
+      explanation: isCurrent
+        ? row.explanation
+        : `[${WEEKLY_SCORE_VERSION}] ${explainWeeklyVerification(row.predictedPattern, row.actualPattern, scored)}`,
+    };
+  });
   const eligible = rows.filter((r) => !["PENDING", "UNVERIFIABLE"].includes(r.result));
   const full = eligible.filter((r) => r.result === "FULL_HIT").length;
   const partial = eligible.filter((r) => r.result === "PARTIAL_HIT").length;
