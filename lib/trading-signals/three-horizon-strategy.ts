@@ -78,6 +78,8 @@ import {
   getAiTradingExecutionFocus,
 } from "@/lib/trading-signals/ai-trading-focus";
 import { getHexagramDirectionPrior, type HexagramDirectionPrior } from "@/lib/trading-signals/hexagram-direction-priors";
+import { getMarketBaziRegimePrior } from "@/lib/trading-signals/market-bazi-regime";
+import { evaluateCryptoCrossAssetGuard } from "@/lib/trading-signals/crypto-cross-asset-policy";
 import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { buildXIntelligenceTradeUniverseBoost } from "@/lib/trading-signals/market-environment";
@@ -101,6 +103,7 @@ import {
   resolveAuthoritativeForecastDirection,
 } from "@/lib/trading-signals/authoritative-market-structure-core";
 
+// MOOX_V720101_BAZI_DIVERGENCE_GUARD: asset-Bazi regime prior + BTC/ETH independent execution guard.
 // MOOX_V72010_1000U_LIVE_EXECUTION: formal direction + three-horizon execution with hard live risk caps.
 // V7.9: profiles are no longer code-limited to one fixed group of ten.
 // The live allow-list in demo-client remains authoritative; V7.9.1 adds the explicitly approved SNDK/MSFT stock perps, then dynamically selects only currently available contracts.
@@ -772,6 +775,7 @@ function evaluateIntraday(
   const m30 = closedCandles(candles["30m"], "30m", now);
   const m5 = closedCandles(candles["5m"], "5m", now);
   const prior = getHexagramDirectionPrior(symbol, profile.strategyType, now);
+  const marketBaziRegime = getMarketBaziRegimePrior(symbol, profile.strategyType, now);
   const h4Signal = technicalDirectionSignal(h4, 8, 20, 5);
   const m30Signal = technicalDirectionSignal(m30, 8, 21, 6);
   const chan30 = analyzeChanStructure(m30);
@@ -779,7 +783,8 @@ function evaluateIntraday(
   const executionFocus = getAiTradingExecutionFocus(symbol, now);
   const focusMainDirection = executionFocus?.day?.mainDirection ?? executionFocus?.weeklyDirection ?? "NEUTRAL";
   const focusTacticalDirection = executionFocus?.day?.tacticalDirection ?? "NEUTRAL";
-  const strongCountertrend = Boolean(
+  const formalPlanDirection = forecastDirectionForStrategy(plan, profile.strategyType);
+  const focusCountertrend = Boolean(
     forecastDirection(plan) === "NEUTRAL" &&
     profile.strategyType === "INTRADAY" &&
     executionFocus?.countertrendPolicy === "STRONG_ONLY" &&
@@ -792,6 +797,20 @@ function evaluateIntraday(
     Math.abs(h4Signal.score) >= 8 &&
     Math.abs(m30Signal.score) >= 8
   );
+  const baziCountertrend = Boolean(
+    profile.strategyType === "INTRADAY" &&
+    marketBaziRegime?.countertrendEligible &&
+    formalPlanDirection !== "NEUTRAL" &&
+    marketBaziRegime.direction !== formalPlanDirection &&
+    h4Signal.direction === marketBaziRegime.direction &&
+    m30Signal.direction === marketBaziRegime.direction &&
+    Math.abs(h4Signal.score) >= 12 &&
+    Math.abs(m30Signal.score) >= 12
+  );
+  const strongCountertrend = focusCountertrend || baziCountertrend;
+  const baziCountertrendConfluence = baziCountertrend && marketBaziRegime
+    ? Math.round(clamp((marketBaziRegime.confidence + Math.abs(h4Signal.score) + Math.abs(m30Signal.score)) / 3, 0, 85))
+    : 0;
   const activeDirection = resolveActiveDirection({
     primary: h4Signal,
     secondary: m30Signal,
@@ -809,7 +828,11 @@ function evaluateIntraday(
     focusDirection: focusMainDirection,
   });
   const mooxDirection = officialDirection.direction;
-  const direction = strongCountertrend ? focusTacticalDirection : mooxDirection;
+  const direction = focusCountertrend
+    ? focusTacticalDirection
+    : baziCountertrend && marketBaziRegime
+      ? marketBaziRegime.direction
+      : mooxDirection;
 
   const latest30 = last(m30);
   const previous30 = m30[m30.length - 2];
@@ -821,13 +844,19 @@ function evaluateIntraday(
   const previousEma5 = ema5Series[Math.max(0, ema5Series.length - 2)] ?? ema5;
   const rsi30 = rsi(m30);
   const atr30 = atr(m30);
-  const forecast = strongCountertrend && executionFocus
+  const forecast = focusCountertrend && executionFocus
     ? {
         score: executionFocus.countertrendConfluence,
         label: `周内反向段已预先标记，4H/30m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
         compatible: true,
       }
-    : forecastCompatibility(direction, plan, profile.strategyType);
+    : baziCountertrend && marketBaziRegime
+      ? {
+          score: baziCountertrendConfluence,
+          label: `资产八字月度先验与正式方向冲突，但4H/30m已同向确认；仅允许${Math.round(marketBaziRegime.countertrendRiskScale * 100)}%风险探路仓`,
+          compatible: true,
+        }
+      : forecastCompatibility(direction, plan, profile.strategyType);
 
   const chan30Aligned = direction === "LONG"
     ? chan30.buyPoint !== "NONE" || chan30.strokes.at(-1)?.direction === "UP"
@@ -916,7 +945,7 @@ function evaluateIntraday(
       key: "environment",
       label: "4小时大结构",
       met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft),
-      value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`,
+      value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${focusCountertrend ? "；当前执行预设周内反向段" : baziCountertrend && marketBaziRegime ? `；资产八字${marketBaziRegime.direction === "LONG" ? "偏多" : "偏空"}与4H/30m共振，仅小仓反向` : ""}`,
       weight: 20,
     },
     {
@@ -937,9 +966,11 @@ function evaluateIntraday(
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；技术结构不能自行决定多空", weight: 10 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 10 },
   ];
-  const strength = strongCountertrend && executionFocus
+  const strength = focusCountertrend && executionFocus
     ? executionFocus.countertrendConfluence * directionValue(direction)
-    : officialDirection.strength;
+    : baziCountertrend && marketBaziRegime
+      ? Math.max(45, baziCountertrendConfluence) * directionValue(direction)
+      : officialDirection.strength;
   const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m30, atr30, plan, livePrice, {
     directionStrength: strength,
     prior: strongCountertrend ? null : prior,
@@ -961,32 +992,50 @@ function evaluateIntraday(
         fiveMinuteDivergence: chan5.divergence,
         trigger: entryTriggerLabel,
       },
+      marketBaziRegime,
+      marketBaziRelation: marketBaziRegime
+        ? marketBaziRegime.direction === mooxDirection ? "ALIGN" : "CONFLICT"
+        : "NO_SIGNAL",
     },
   };
-  if (!strongCountertrend || !executionFocus) return withChan;
+  if (!strongCountertrend) return withChan;
+  const countertrendSource = focusCountertrend ? "WEEKLY_TACTICAL" : "MARKET_BAZI_REGIME";
+  const countertrendRiskScale = focusCountertrend && executionFocus
+    ? executionFocus.countertrendRiskScale
+    : marketBaziRegime?.countertrendRiskScale ?? 0.3;
+  const countertrendConfluence = focusCountertrend && executionFocus
+    ? executionFocus.countertrendConfluence
+    : baziCountertrendConfluence;
   if (!withChan.ready) return {
     ...withChan,
     raw: {
       ...withChan.raw,
-      focusCountertrend: true,
+      countertrendSource,
+      focusCountertrend,
+      baziCountertrend,
       focusMainDirection,
       focusTacticalDirection,
-      focusCountertrendConfluence: executionFocus.countertrendConfluence,
+      countertrendConfluence,
+      countertrendRiskScale,
     },
   };
   return {
     ...withChan,
     executionTier: "PROBE",
-    riskScale: Math.min(withChan.riskScale || PROBE_RISK_SCALE, executionFocus.countertrendRiskScale),
-    rejectionCode: "FOCUS_COUNTERTREND_PROBE",
-    rejectionReason: `周内反向段与4H/30m形成强共振，只执行小仓探路；风险缩放至${Math.round(executionFocus.countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`,
+    riskScale: Math.min(withChan.riskScale || PROBE_RISK_SCALE, countertrendRiskScale),
+    rejectionCode: focusCountertrend ? "FOCUS_COUNTERTREND_PROBE" : "BAZI_REGIME_COUNTERTREND_PROBE",
+    rejectionReason: focusCountertrend
+      ? `周内反向段与4H/30m形成强共振，只执行小仓探路；风险缩放至${Math.round(countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`
+      : `资产八字月度先验与正式方向冲突，但4H/30m及5m执行条件形成反向共振；只执行小仓探路，风险缩放至${Math.round(countertrendRiskScale * 100)}%。正式奇门方向不因此改写。`,
     raw: {
       ...withChan.raw,
-      focusCountertrend: true,
+      countertrendSource,
+      focusCountertrend,
+      baziCountertrend,
       focusMainDirection,
       focusTacticalDirection,
-      focusCountertrendConfluence: executionFocus.countertrendConfluence,
-      focusCountertrendRiskScale: executionFocus.countertrendRiskScale,
+      countertrendConfluence,
+      countertrendRiskScale,
     },
   };
 }
@@ -3759,6 +3808,24 @@ export async function runThreeHorizonStrategyEngine(
           strategyType: profile.strategyType,
           primaryForecastDirection: formalForecastDirectionForExternalOverlay(forecastPlan, profile.strategyType, now.getTime()),
         });
+        if (symbol === "BTCUSDT" || symbol === "ETHUSDT") {
+          const peerSymbol: BitgetSupportedSymbol = symbol === "BTCUSDT" ? "ETHUSDT" : "BTCUSDT";
+          const peerDirection = forecastDirectionForStrategy(forecastBySymbol.get(peerSymbol), profile.strategyType);
+          const entryConfirmed = evaluation.conditions.some((condition) => condition.key === "entry" && condition.met);
+          const crossAssetGuard = evaluateCryptoCrossAssetGuard({
+            symbol,
+            selfDirection: evaluation.direction,
+            peerDirection,
+            selfEntryConfirmed: entryConfirmed,
+          });
+          if (crossAssetGuard.divergent) {
+            evaluation = {
+              ...evaluation,
+              riskScale: Math.min(evaluation.riskScale || 1, crossAssetGuard.riskScale),
+              raw: { ...evaluation.raw, cryptoCrossAssetGuard: crossAssetGuard },
+            };
+          }
+        }
         let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;
         let rejectionReason = evaluation.rejectionReason;

@@ -50,7 +50,7 @@ export const BASIS_LABELS: Array<{ key: keyof ForecastBasisWeights; label: strin
   { key: "cycle", label: "周期分析" },
   { key: "qimen", label: "奇门择时" },
   { key: "macro", label: "资金与消息" },
-  { key: "bazi", label: "八字中长期旁证" },
+  { key: "bazi", label: "资产八字/月令中长期旁证（有明确事前来源时）" },
 ];
 
 /** Markets allowed to attach Wave evidence notes on tomorrow page. */
