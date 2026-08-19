@@ -70,9 +70,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div className="pb-20 md:pb-0">{children}</div>
           <FooterShell />
           <MobileBottomNav />
-          <DeferredLegacyCompatibility />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+        <DeferredLegacyCompatibility />
       </body>
     </html>
   );
