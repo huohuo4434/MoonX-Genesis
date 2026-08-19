@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
+import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
+
+// MOOX_V72010_1000U_AUTO_CRON: authoritative minute runner; never places orders directly.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function authorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -12,5 +16,30 @@ function authorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  return NextResponse.json(await runUnifiedLiveCustodyCycle({ trigger: "LEGACY_PREDICTION_AUTO_TRADER_MIGRATION", ownerKey: "official" }));
+
+  const now = new Date();
+  const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
+    allowed: false,
+    reasons: [error instanceof Error ? error.message : "UNIFIED_LIVE_GATE_UNAVAILABLE"],
+    mode: "MANAGE_ONLY" as const,
+    positionManagementContinues: true,
+  }));
+
+  const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+  const autoEntryAllowed = unifiedGate.allowed && strategyActiveExecutionEnabled;
+  const effectiveGate = strategyActiveExecutionEnabled
+    ? unifiedGate
+    : { ...unifiedGate, allowed: false, reasons: [...unifiedGate.reasons, "LEGACY_STRATEGY_EXECUTION_DISABLED"] };
+
+  const report = await runBitgetDemoServerRuntime(now, "CRON", {
+    absoluteDeadlineAt: new Date(Date.now() + 285_000),
+    forceManageOnly: !autoEntryAllowed,
+  });
+
+  return NextResponse.json({
+    ok: report.ok,
+    execution: autoEntryAllowed ? "THREE_HORIZON_LIVE_ENABLED" : "MANAGE_ONLY",
+    unifiedGate: effectiveGate,
+    report,
+  });
 }

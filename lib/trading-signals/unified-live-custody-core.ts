@@ -62,9 +62,14 @@ export function auditUnifiedLiveCustody(input: {
     });
   }
 
-  const siteOnlySlices = active.filter(
-    (slice) => !input.positions.some((position) => positionMatchesSlice(position, slice)),
-  );
+  const settlementGraceMs = 2 * 60_000;
+  const siteOnlySlices = active.filter((slice) => {
+    if (input.positions.some((position) => positionMatchesSlice(position, slice))) return false;
+    const openedAt = new Date(slice.openedAt).getTime();
+    const pendingSettlement = String(slice.status) === "PENDING" && Number.isFinite(openedAt)
+      && now.getTime() - openedAt < settlementGraceMs;
+    return !pendingSettlement;
+  });
   for (const slice of siteOnlySlices) {
     issues.push({
       code: "SITE_ONLY_POSITION",

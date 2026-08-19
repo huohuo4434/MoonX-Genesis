@@ -1,0 +1,106 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = process.cwd();
+const read = (path) => readFileSync(resolve(root, path), "utf8");
+const cron = read("app/api/cron/prediction-auto-trader/route.ts");
+const runtime = read("lib/bitget/demo-runtime.ts");
+const client = read("lib/bitget/demo-client.ts");
+const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
+const store = read("lib/trading-signals/unified-live-store.ts");
+const adapter = read("lib/trading-signals/unified-live-exchange-adapter.ts");
+const custody = read("lib/trading-signals/unified-live-custody-core.ts");
+const adminLive = read("app/api/admin/live-trading/route.ts");
+const memberLive = read("app/api/member/live-trading/route.ts");
+const memberSettings = read("app/api/member/live-trading/settings/route.ts");
+const memberClient = read("components/live-trading/MemberLiveTradingClient.tsx");
+const vercel = JSON.parse(read("vercel.json"));
+
+test("prediction cron now delegates to the existing three-horizon server runtime behind the unified gate", () => {
+  assert.match(cron, /evaluateUnifiedLiveNewEntryGate\("official"\)/);
+  assert.match(cron, /runBitgetDemoServerRuntime\(now, "CRON"/);
+  assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
+  assert.match(cron, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
+  assert.match(cron, /Date\.now\(\) \+ 285_000/);
+  assert.match(cron, /CRON_SECRET/);
+  assert.doesNotMatch(cron, /placeBitgetDemoMarketOrder/);
+  assert.doesNotMatch(cron, /fetch\(/);
+  const entry = vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader");
+  assert.equal(entry?.schedule, "* * * * *");
+});
+
+test("runtime cannot start live experiment or new exposure while unified gate forces manage-only", () => {
+  assert.match(runtime, /forceManageOnly\?: boolean/);
+  assert.match(runtime, /allowStart: syncOptions\.allowStart && !options\.forceManageOnly/);
+  assert.match(runtime, /startup\.policy\.allowNewEntries && !forcedManageOnly/);
+  assert.match(runtime, /runThreeHorizonStrategyEngine/);
+  assert.match(runtime, /LIVE_STRATEGY_SYMBOLS_PER_RUN/);
+});
+
+test("1000U experiment has hard capital and loss caps independent of stale larger env aliases", () => {
+  assert.match(client, /Math\.min\(1000, numericEnv\("BITGET_LIVE_INITIAL_CAPITAL_USDT"/);
+  assert.match(client, /liveDailyLossUsdt = Math\.min\(requestedLiveDailyLossUsdt, Math\.max\(1, liveInitialCapitalUsdt \* 0\.01\)\)/);
+  assert.match(client, /liveMaxDrawdownUsdt = Math\.min\(requestedLiveMaxDrawdownUsdt, Math\.max\(5, liveInitialCapitalUsdt \* 0\.05\)\)/);
+  assert.match(client, /liveMaxPositionNotionalUsdt: Math\.min\(400,/);
+  assert.match(client, /liveMaxConcurrentPositions: Math\.min\(4,/);
+  assert.match(client, /liveMaxTradesPerDay: Math\.min\(6,/);
+  assert.match(client, /leverageOverride\?: number/);
+  assert.match(client, /configureUtaSymbol\(payload\.symbol, posSide, preparedSettings, payload\.leverage\)/);
+});
+
+test("short-term execution is 4H -> 30m -> 5m and only execution timing can change, not official direction", () => {
+  assert.match(strategy, /environmentTimeframe: "4H"/);
+  assert.match(strategy, /directionTimeframe: "30m"/);
+  assert.match(strategy, /entryTimeframe: "5m"/);
+  assert.match(strategy, /analyzeChanStructure\(m30\)/);
+  assert.match(strategy, /analyzeChanStructure\(m5\)/);
+  assert.match(strategy, /strictChanTrigger/);
+  assert.match(strategy, /rightSideTrigger/);
+  assert.match(strategy, /Direction is owned by formal MOOX research/);
+  assert.match(strategy, /Math\.min\(rawEquity, environment\.liveInitialCapitalUsdt, 1000\)/);
+  assert.match(strategy, /Math\.min\(unifiedSetting\.leverage, environment\.leverage\)/);
+  assert.match(strategy, /Math\.min\(calculated\.notionalAmount, environment\.liveMaxPositionNotionalUsdt, 400\)/);
+});
+
+test("live sizing comes from unified short-medium-long settings and successful orders are registered for custody", () => {
+  assert.match(strategy, /getUnifiedLiveSetting\("official", unifiedHorizon\)/);
+  assert.match(strategy, /calculateUnifiedLivePositionSize/);
+  assert.match(strategy, /registerUnifiedLiveStrategySlice/);
+  assert.match(store, /strategyDecisionId: input\.strategyDecisionId/);
+  assert.match(store, /status: "PENDING"/);
+  assert.match(custody, /settlementGraceMs = 2 \* 60_000/);
+});
+
+test("unified custody reads authoritative UTA positions and protection orders and fails closed", () => {
+  assert.match(adapter, /getBitgetDemoCurrentPositions/);
+  assert.match(adapter, /getBitgetDemoPendingStrategyOrders/);
+  assert.match(adapter, /available: false, positions: \[\], orders: \[\]/);
+  assert.doesNotMatch(adapter, /live-admin-snapshot/);
+});
+
+test("admin member page controls official 1000U settings, ordinary members remain local-agent scoped", () => {
+  assert.match(memberLive, /officialControl \? "official" : `member:\$\{actor\.id\}`/);
+  assert.match(memberLive, /if \(officialControl\) \{[\s\S]*runUnifiedLiveCustodyCycle/);
+  assert.match(memberSettings, /const leverageMax = officialControl \? 2 : 10/);
+  assert.match(memberSettings, /officialControl \? "official" : `member:\$\{actor\.id\}`/);
+  assert.match(memberClient, /启用1000U实盘/);
+  assert.match(memberClient, /请输入 LIVE1000/);
+  assert.match(memberClient, /停止新开仓/);
+  assert.match(memberLive, /getThreeHorizonStrategyDashboard/);
+  assert.match(memberLive, /strategyDiagnostics:/);
+  assert.match(memberClient, /三周期自动扫描诊断/);
+  assert.match(memberClient, /今天扫描了多少、为什么没下单/);
+});
+
+test("LIVE mode switch is explicit and requires runtime, Bitget, 1000U and custody readiness", () => {
+  assert.match(adminLive, /runtime\.mode === "LIVE"/);
+  assert.match(adminLive, /runtime\.allowLiveSwitch/);
+  assert.match(adminLive, /runtime\.allowNewEntriesByEnv/);
+  assert.match(adminLive, /bitget\.mode === "LIVE_EXPERIMENT"/);
+  assert.match(adminLive, /bitget\.executionAllowed/);
+  assert.match(adminLive, /strategyActiveExecutionEnabled/);
+  assert.match(adminLive, /Math\.abs\(bitget\.liveInitialCapitalUsdt - 1000\) < 0\.01/);
+  assert.match(adminLive, /status\.audit\?\.freezeNewEntries/);
+});

@@ -52,6 +52,12 @@ import {
 } from "@/lib/bitget/demo-client";
 import { getBitgetMirrorSettings } from "@/lib/bitget/demo-connector";
 import { getTradingReliabilityOpeningGate } from "@/lib/trading-signals/trading-reliability";
+import { analyzeChanStructure } from "@/lib/trading-signals/chan-structure-core";
+import { calculateUnifiedLivePositionSize } from "@/lib/trading-signals/unified-live-position-sizing";
+import {
+  getUnifiedLiveSetting,
+  registerUnifiedLiveStrategySlice,
+} from "@/lib/trading-signals/unified-live-store";
 import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-plan-renewal-core";
 import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-preflight-core";
 import { LiveTradeExecutionError } from "@/lib/bitget/live-execution-core";
@@ -95,6 +101,7 @@ import {
   resolveAuthoritativeForecastDirection,
 } from "@/lib/trading-signals/authoritative-market-structure-core";
 
+// MOOX_V72010_1000U_LIVE_EXECUTION: formal direction + three-horizon execution with hard live risk caps.
 // V7.9: profiles are no longer code-limited to one fixed group of ten.
 // The live allow-list in demo-client remains authoritative; V7.9.1 adds the explicitly approved SNDK/MSFT stock perps, then dynamically selects only currently available contracts.
 const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^[A-Z0-9]{2,20}USDT$/;
@@ -111,13 +118,13 @@ const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 // This extra switch is only an emergency kill switch and defaults to enabled once those
 // explicit real-money gates have already been accepted.
 const LIVE_COMMISSIONING_ENABLED =
-  process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() !== "false";
+  process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
   process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
 const LIVE_ACTIVITY_ENABLED = LIVE_ACTIVE_EXECUTION_ENABLED;
-const LIVE_ACTIVITY_TARGET = Math.max(1, Math.floor(envNumber(
-  "MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4
-)));
+const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
+  "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
+));
 const LIVE_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_START_HOUR_BJ_V641",
   envNumber("BITGET_LIVE_DAILY_MINIMUM_START_HOUR_BJ", 0, 0, 23),
@@ -180,10 +187,10 @@ const PROFILE_DEFINITIONS: Record<
   INTRADAY: {
     strategyType: "INTRADAY",
     label: "短线",
-    description: "30分钟至8小时，1小时环境、15分钟方向、5分钟收盘确认，原则上当日结束。",
+    description: "30分钟至8小时，4小时看大结构、30分钟定主线段、5分钟抓二/三买卖与右侧确认，原则上当日结束。",
     symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
-    environmentTimeframe: "1H",
-    directionTimeframe: "15m",
+    environmentTimeframe: "4H",
+    directionTimeframe: "30m",
     entryTimeframe: "5m",
     scanIntervalMinutes: 5,
     riskPerTradePct: 0.2,
@@ -225,10 +232,10 @@ const PROFILE_DEFINITIONS: Record<
 };
 
 const STRATEGY_ORDER: ThreeHorizonStrategyType[] = ["INTRADAY", "SWING", "POSITION"];
-const DAILY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_DAILY_LOSS_LIMIT_PCT", 2, 0.25, 5);
-const WEEKLY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_WEEKLY_LOSS_LIMIT_PCT", 4, 0.5, 10);
-const OPEN_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_OPEN_RISK_LIMIT_PCT_V3", 3, 0.5, 5);
-const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT_V64", 2, 0.5, 4);
+const DAILY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_DAILY_LOSS_LIMIT_PCT", 1, 0.25, 5);
+const WEEKLY_LOSS_LIMIT_PCT = envNumber("THREE_HORIZON_WEEKLY_LOSS_LIMIT_PCT", 2.5, 0.5, 10);
+const OPEN_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_OPEN_RISK_LIMIT_PCT_V72010", 1.25, 0.5, 5);
+const CRYPTO_GROUP_RISK_LIMIT_PCT = envNumber("MOOX_THREE_HORIZON_CRYPTO_GROUP_RISK_LIMIT_PCT_V72010", 1, 0.5, 4);
 const MAX_POSITION_NOTIONAL_PCT = envNumber("THREE_HORIZON_MAX_POSITION_NOTIONAL_PCT", 10, 1, 25);
 
 interface ProfileRow {
@@ -310,6 +317,7 @@ interface EvaluationResult {
 interface CandleSet {
   "5m": BitgetDemoCandle[];
   "15m": BitgetDemoCandle[];
+  "30m": BitgetDemoCandle[];
   "1H": BitgetDemoCandle[];
   "4H": BitgetDemoCandle[];
   "1D": BitgetDemoCandle[];
@@ -760,12 +768,14 @@ function evaluateIntraday(
   now: Date,
   livePrice?: number
 ): EvaluationResult {
-  const h1 = closedCandles(candles["1H"], "1H", now);
-  const m15 = closedCandles(candles["15m"], "15m", now);
+  const h4 = closedCandles(candles["4H"], "4H", now);
+  const m30 = closedCandles(candles["30m"], "30m", now);
   const m5 = closedCandles(candles["5m"], "5m", now);
   const prior = getHexagramDirectionPrior(symbol, profile.strategyType, now);
-  const h1Signal = technicalDirectionSignal(h1, 20, 50, 6);
-  const m15Signal = technicalDirectionSignal(m15, 8, 21, 8);
+  const h4Signal = technicalDirectionSignal(h4, 8, 20, 5);
+  const m30Signal = technicalDirectionSignal(m30, 8, 21, 6);
+  const chan30 = analyzeChanStructure(m30);
+  const chan5 = analyzeChanStructure(m5);
   const executionFocus = getAiTradingExecutionFocus(symbol, now);
   const focusMainDirection = executionFocus?.day?.mainDirection ?? executionFocus?.weeklyDirection ?? "NEUTRAL";
   const focusTacticalDirection = executionFocus?.day?.tacticalDirection ?? "NEUTRAL";
@@ -777,137 +787,201 @@ function evaluateIntraday(
     focusMainDirection !== "NEUTRAL" &&
     focusTacticalDirection !== "NEUTRAL" &&
     focusTacticalDirection !== focusMainDirection &&
-    h1Signal.direction === focusTacticalDirection &&
-    m15Signal.direction === focusTacticalDirection &&
-    Math.abs(h1Signal.score) >= 10 &&
-    Math.abs(m15Signal.score) >= 10
+    h4Signal.direction === focusTacticalDirection &&
+    m30Signal.direction === focusTacticalDirection &&
+    Math.abs(h4Signal.score) >= 8 &&
+    Math.abs(m30Signal.score) >= 8
   );
   const activeDirection = resolveActiveDirection({
-    primary: h1Signal,
-    secondary: m15Signal,
+    primary: h4Signal,
+    secondary: m30Signal,
     plan: undefined,
     prior: null,
-    primaryWeight: 0.72,
-    secondaryWeight: 0.28,
+    primaryWeight: 0.62,
+    secondaryWeight: 0.38,
   });
-  // MOOX defines the side. Price action only confirms the execution node.
-  // Countertrend is permitted only when the RESEARCH layer explicitly pre-marks
-  // a tactical reversal leg; 1H/15m evidence merely confirms timing.
-  const officialDirection = resolveOfficialMooxDirection({ plan, prior, strategyType: profile.strategyType, focusDirection: focusMainDirection });
+  // Direction is owned by formal MOOX research. 4H/30m/5m only decide whether
+  // the current node is executable; they may delay/block but never flip the side.
+  const officialDirection = resolveOfficialMooxDirection({
+    plan,
+    prior,
+    strategyType: profile.strategyType,
+    focusDirection: focusMainDirection,
+  });
   const mooxDirection = officialDirection.direction;
   const direction = strongCountertrend ? focusTacticalDirection : mooxDirection;
-  const latest15 = last(m15);
-  const previous15 = m15[m15.length - 2];
+
+  const latest30 = last(m30);
+  const previous30 = m30[m30.length - 2];
   const latest5 = last(m5);
   const previous5 = m5[m5.length - 2];
-  const ema15 = last(ema(m15.map((row) => row.close), 20)) ?? 0;
+  const ema30 = last(ema(m30.map((row) => row.close), 20)) ?? 0;
   const ema5Series = ema(m5.map((row) => row.close), 9);
   const ema5 = last(ema5Series) ?? 0;
   const previousEma5 = ema5Series[Math.max(0, ema5Series.length - 2)] ?? ema5;
-  const rsi15 = rsi(m15);
-  const atr15 = atr(m15);
+  const rsi30 = rsi(m30);
+  const atr30 = atr(m30);
   const forecast = strongCountertrend && executionFocus
     ? {
         score: executionFocus.countertrendConfluence,
-        label: `周内反向段已预先标记，1H/15m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
+        label: `周内反向段已预先标记，4H/30m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
         compatible: true,
       }
     : forecastCompatibility(direction, plan, profile.strategyType);
-  const structureMet = direction === "LONG"
-    ? Boolean(latest15 && latest15.close >= ema15 * 0.997 && rsi15 >= 42 && m15Signal.score >= -4)
+
+  const chan30Aligned = direction === "LONG"
+    ? chan30.buyPoint !== "NONE" || chan30.strokes.at(-1)?.direction === "UP"
     : direction === "SHORT"
-      ? Boolean(latest15 && latest15.close <= ema15 * 1.003 && rsi15 <= 58 && m15Signal.score <= 4)
+      ? chan30.sellPoint !== "NONE" || chan30.strokes.at(-1)?.direction === "DOWN"
+      : false;
+  const structureMet = direction === "LONG"
+    ? Boolean(latest30 && latest30.close >= ema30 * 0.995 && rsi30 >= 40 && m30Signal.score >= -6 && (!chan30.sufficient || chan30Aligned))
+    : direction === "SHORT"
+      ? Boolean(latest30 && latest30.close <= ema30 * 1.005 && rsi30 <= 60 && m30Signal.score <= 6 && (!chan30.sufficient || chan30Aligned))
+      : false;
+
+  const strictChanTrigger = direction === "LONG"
+    ? chan5.buyPoint === "SECOND" || chan5.buyPoint === "THIRD"
+    : direction === "SHORT"
+      ? chan5.sellPoint === "SECOND" || chan5.sellPoint === "THIRD"
       : false;
   const exactCross = direction === "LONG"
     ? Boolean(latest5 && previous5 && latest5.close > ema5 && previous5.close <= previousEma5 && latest5.close > latest5.open)
     : direction === "SHORT"
       ? Boolean(latest5 && previous5 && latest5.close < ema5 && previous5.close >= previousEma5 && latest5.close < latest5.open)
       : false;
-  const continuationTrigger = direction === "LONG"
-    ? Boolean(latest5 && previous5 && latest5.close > ema5 && latest5.close >= latest5.open && latest5.close >= previous5.close && m15Signal.score >= 4)
-    : direction === "SHORT"
-      ? Boolean(latest5 && previous5 && latest5.close < ema5 && latest5.close <= latest5.open && latest5.close <= previous5.close && m15Signal.score <= -4)
-      : false;
   const reclaimTrigger = direction === "LONG"
     ? Boolean(latest5 && previous5 && previous5.low <= previousEma5 * 1.0015 && latest5.close > ema5 && latest5.close > previous5.close)
     : direction === "SHORT"
       ? Boolean(latest5 && previous5 && previous5.high >= previousEma5 * 0.9985 && latest5.close < ema5 && latest5.close < previous5.close)
       : false;
+  const continuationTrigger = direction === "LONG"
+    ? Boolean(latest5 && previous5 && latest5.close > ema5 && latest5.close >= latest5.open && latest5.close >= previous5.close && m30Signal.score >= 4)
+    : direction === "SHORT"
+      ? Boolean(latest5 && previous5 && latest5.close < ema5 && latest5.close <= latest5.open && latest5.close <= previous5.close && m30Signal.score <= -4)
+      : false;
 
-  const pathRows = m15.slice(-16);
+  const pathRows = m30.slice(-12);
   const pathHigh = pathRows.length ? Math.max(...pathRows.map((row) => row.high)) : 0;
   const pathLow = pathRows.length ? Math.min(...pathRows.map((row) => row.low)) : 0;
   const dipPct = pathHigh > 0 ? Math.max(0, (pathHigh - pathLow) / pathHigh * 100) : 0;
-  const reboundPct = pathLow > 0 && latest15 ? Math.max(0, (latest15.close - pathLow) / pathLow * 100) : 0;
+  const reboundPct = pathLow > 0 && latest30 ? Math.max(0, (latest30.close - pathLow) / pathLow * 100) : 0;
   const rallyPct = pathLow > 0 ? Math.max(0, (pathHigh - pathLow) / pathLow * 100) : 0;
-  const reversalPct = pathHigh > 0 && latest15 ? Math.max(0, (pathHigh - latest15.close) / pathHigh * 100) : 0;
+  const reversalPct = pathHigh > 0 && latest30 ? Math.max(0, (pathHigh - latest30.close) / pathHigh * 100) : 0;
   const pathTurnTrigger = !strongCountertrend && plan?.setup === "BUY_DIP" && direction === "LONG"
     ? Boolean(
-        latest15 && previous15 &&
+        latest30 && previous30 &&
         dipPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
         reboundPct >= INTRADAY_PATH_CONFIRM_PCT &&
-        latest15.close > previous15.close
+        latest30.close > previous30.close &&
+        (exactCross || reclaimTrigger)
       )
     : !strongCountertrend && plan?.setup === "SELL_RALLY" && direction === "SHORT"
       ? Boolean(
-          latest15 && previous15 &&
+          latest30 && previous30 &&
           rallyPct >= INTRADAY_PATH_MIN_MOVE_PCT &&
           reversalPct >= INTRADAY_PATH_CONFIRM_PCT &&
-          latest15.close < previous15.close
+          latest30.close < previous30.close &&
+          (exactCross || reclaimTrigger)
         )
       : false;
-  const entryMet = exactCross || reclaimTrigger || continuationTrigger || pathTurnTrigger;
-  const entryTriggerLabel = pathTurnTrigger
-    ? plan?.setup === "BUY_DIP" ? "预测路径下探后出现市场回升确认" : "预测路径冲高后出现市场转弱确认"
-    : reclaimTrigger
-      ? "5分钟回踩/反抽后重新收回执行均线"
-      : exactCross
-        ? "5分钟收盘穿越执行均线"
-        : continuationTrigger
-          ? "5分钟顺势延续确认"
-          : "等待回踩收回、延续或路径转折确认";
+  // Highshan-style execution: the strict 5m Chan 2nd/3rd buy/sell is preferred.
+  // A closed-candle right-side reclaim/continuation may also trigger when 30m is
+  // aligned, so the system does not stay permanently idle waiting for a rare
+  // textbook pattern.
+  const rightSideTrigger = structureMet && (exactCross || reclaimTrigger || continuationTrigger || pathTurnTrigger);
+  const entryMet = strictChanTrigger || rightSideTrigger;
+  const entryTriggerLabel = strictChanTrigger
+    ? direction === "LONG"
+      ? `5分钟${chan5.buyPoint === "SECOND" ? "二买" : "三买"}确认`
+      : `5分钟${chan5.sellPoint === "SECOND" ? "二卖" : "三卖"}确认`
+    : pathTurnTrigger
+      ? plan?.setup === "BUY_DIP" ? "30分钟下探后5分钟右侧收回" : "30分钟冲高后5分钟右侧转弱"
+      : reclaimTrigger
+        ? "5分钟回踩/反抽后重新收回执行均线"
+        : exactCross
+          ? "5分钟收盘穿越执行均线"
+          : continuationTrigger
+            ? "5分钟顺势延续确认"
+            : "等待5分钟二/三买卖或右侧确认";
+
   const volumeAverage = average(m5.slice(-20).map((row) => row.volume));
   const volumeMet = Boolean(latest5 && (volumeAverage <= 0 || latest5.volume >= volumeAverage * 0.55));
-  const volatility = volatilityCondition(m15, atr15, 4.5);
+  const volatility = volatilityCondition(m30, atr30, 5.5);
   const priorCompatible = strongCountertrend || !prior || prior.direction === direction;
   const environmentAligned = strongCountertrend || activeDirection.direction === direction;
-  const environmentSoft = mooxDirection !== "NEUTRAL" && activeDirection.direction === "NEUTRAL" && Math.abs(activeDirection.strength) < 12;
+  const environmentSoft = mooxDirection !== "NEUTRAL" && activeDirection.direction === "NEUTRAL" && Math.abs(activeDirection.strength) < 14;
   const conditions: ThreeHorizonCondition[] = [
-    { key: "environment", label: "1小时执行环境", met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft), value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`, weight: 20 },
-    { key: "direction", label: "15分钟执行结构", met: structureMet, value: `收盘${latest15?.close ?? 0}，EMA20 ${round(ema15, 2)}，RSI ${round(rsi15, 1)}，趋势分${m15Signal.score}`, weight: 20 },
-    { key: "entry", label: "市场转折/入场触发", met: entryMet, value: `${entryTriggerLabel}；下探${round(dipPct, 2)}%/回升${round(reboundPct, 2)}%，冲高${round(rallyPct, 2)}%/回落${round(reversalPct, 2)}%`, weight: 20 },
+    {
+      key: "environment",
+      label: "4小时大结构",
+      met: direction !== "NEUTRAL" && (environmentAligned || environmentSoft),
+      value: `${activeDirection.label}；MOOX主方向${mooxDirection === "NEUTRAL" ? "未锁定" : mooxDirection === "LONG" ? "偏多" : "偏空"}${strongCountertrend ? "；当前仅执行预设反向段" : ""}`,
+      weight: 20,
+    },
+    {
+      key: "direction",
+      label: "30分钟主操作线段",
+      met: structureMet,
+      value: `收盘${latest30?.close ?? 0}，EMA20 ${round(ema30, 2)}，RSI ${round(rsi30, 1)}，趋势分${m30Signal.score}；缠论${chan30.sufficient ? `${chan30.trendState}/${chan30.buyPoint}/${chan30.sellPoint}` : "样本不足"}`,
+      weight: 25,
+    },
+    {
+      key: "entry",
+      label: "5分钟精确买卖点",
+      met: entryMet,
+      value: `${entryTriggerLabel}；二/三买=${chan5.buyPoint}，二/三卖=${chan5.sellPoint}`,
+      weight: 25,
+    },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
-    { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；不允许由技术结构自行决定多空", weight: 10 },
-    { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 20 },
+    { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；技术结构不能自行决定多空", weight: 10 },
+    { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 10 },
   ];
   const strength = strongCountertrend && executionFocus
     ? executionFocus.countertrendConfluence * directionValue(direction)
     : officialDirection.strength;
-  const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m15, atr15, plan, livePrice, {
+  const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m30, atr30, plan, livePrice, {
     directionStrength: strength,
     prior: strongCountertrend ? null : prior,
   });
-  if (!strongCountertrend || !executionFocus) return result;
-  if (!result.ready) {
-    return {
-      ...result,
-      raw: {
-        ...result.raw,
-        focusCountertrend: true,
-        focusMainDirection,
-        focusTacticalDirection,
-        focusCountertrendConfluence: executionFocus.countertrendConfluence,
-      },
-    };
-  }
-  return {
+  const withChan = {
     ...result,
-    executionTier: "PROBE",
-    riskScale: Math.min(result.riskScale || PROBE_RISK_SCALE, executionFocus.countertrendRiskScale),
-    rejectionCode: "FOCUS_COUNTERTREND_PROBE",
-    rejectionReason: `周内反向段与1H/15m形成强共振，只执行小仓探路；风险缩放至${Math.round(executionFocus.countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`,
     raw: {
       ...result.raw,
+      chanExecution: {
+        environment: "4H",
+        operation: "30m",
+        entry: "5m",
+        thirtyMinuteTrendState: chan30.trendState,
+        thirtyMinuteBuyPoint: chan30.buyPoint,
+        thirtyMinuteSellPoint: chan30.sellPoint,
+        fiveMinuteTrendState: chan5.trendState,
+        fiveMinuteBuyPoint: chan5.buyPoint,
+        fiveMinuteSellPoint: chan5.sellPoint,
+        fiveMinuteDivergence: chan5.divergence,
+        trigger: entryTriggerLabel,
+      },
+    },
+  };
+  if (!strongCountertrend || !executionFocus) return withChan;
+  if (!withChan.ready) return {
+    ...withChan,
+    raw: {
+      ...withChan.raw,
+      focusCountertrend: true,
+      focusMainDirection,
+      focusTacticalDirection,
+      focusCountertrendConfluence: executionFocus.countertrendConfluence,
+    },
+  };
+  return {
+    ...withChan,
+    executionTier: "PROBE",
+    riskScale: Math.min(withChan.riskScale || PROBE_RISK_SCALE, executionFocus.countertrendRiskScale),
+    rejectionCode: "FOCUS_COUNTERTREND_PROBE",
+    rejectionReason: `周内反向段与4H/30m形成强共振，只执行小仓探路；风险缩放至${Math.round(executionFocus.countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`,
+    raw: {
+      ...withChan.raw,
       focusCountertrend: true,
       focusMainDirection,
       focusTacticalDirection,
@@ -1789,6 +1863,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
   if (!environment.configured) {
     return {
       equityUsdt: null,
+      availableUsdt: null,
       dailyNetPnlUsdt: 0,
       weeklyNetPnlUsdt: 0,
       dailyLossPct: 0,
@@ -1811,7 +1886,14 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
       listActiveDecisionRows(),
       consecutiveStrategyLosses(),
     ]);
-    const equity = account.detectedUsdt || account.equityUsdt || account.availableUsdt || 0;
+    const rawEquity = account.detectedUsdt || account.equityUsdt || account.availableUsdt || 0;
+    const equity = environment.mode === "LIVE_EXPERIMENT"
+      ? Math.min(rawEquity, environment.liveInitialCapitalUsdt, 1000)
+      : rawEquity;
+    const rawAvailable = Number(account.availableUsdt);
+    const availableUsdt = Number.isFinite(rawAvailable)
+      ? Math.max(0, Math.min(rawAvailable, equity))
+      : equity;
     const dailyNet = pnlInWindow(closed, beijingStartOfDay(now));
     const weeklyNet = pnlInWindow(closed, beijingStartOfWeek(now));
     const dailyLossPct = equity > 0 && dailyNet < 0 ? Math.abs(dailyNet) / equity * 100 : 0;
@@ -1824,15 +1906,17 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
     const cryptoGroupRiskPct = equity > 0 ? cryptoRiskAmount / equity * 100 : 0;
     let blockReason = "";
     if (equity <= 0) blockReason = environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金。" : "未检测到可用于Demo交易的模拟资金。";
-    // Live V3 uses the explicit 100 USDT daily stop and 500 USDT peak drawdown
-    // enforced by the Bitget live-experiment ledger. Percentage limits remain for Demo.
-    else if (environment.mode !== "LIVE_EXPERIMENT" && dailyLossPct >= DAILY_LOSS_LIMIT_PCT) blockReason = `当日亏损达到${round(dailyLossPct, 2)}%，触发${DAILY_LOSS_LIMIT_PCT}%暂停线。`;
-    else if (environment.mode !== "LIVE_EXPERIMENT" && weeklyLossPct >= WEEKLY_LOSS_LIMIT_PCT) blockReason = `本周亏损达到${round(weeklyLossPct, 2)}%，触发${WEEKLY_LOSS_LIMIT_PCT}%暂停线。`;
+    // V7.20.10.0: the 1000U experiment uses the same percentage loss limits in
+    // live and demo. The lower Bitget live-experiment absolute stops remain a
+    // second independent kill switch, not a substitute for this portfolio gate.
+    else if (dailyLossPct >= DAILY_LOSS_LIMIT_PCT) blockReason = `当日亏损达到${round(dailyLossPct, 2)}%，触发${DAILY_LOSS_LIMIT_PCT}%暂停线。`;
+    else if (weeklyLossPct >= WEEKLY_LOSS_LIMIT_PCT) blockReason = `本周亏损达到${round(weeklyLossPct, 2)}%，触发${WEEKLY_LOSS_LIMIT_PCT}%暂停线。`;
     else if (openRiskPct >= OPEN_RISK_LIMIT_PCT) blockReason = `开放风险达到${round(openRiskPct, 2)}%，超过${OPEN_RISK_LIMIT_PCT}%上限。`;
     else if (cryptoGroupRiskPct >= CRYPTO_GROUP_RISK_LIMIT_PCT) blockReason = `加密货币风险组达到${round(cryptoGroupRiskPct, 2)}%，超过${CRYPTO_GROUP_RISK_LIMIT_PCT}%上限。`;
     else if (consecutiveLosses >= 3) blockReason = "三周期策略连续亏损3单，已禁止新开仓。";
     return {
       equityUsdt: equity || null,
+      availableUsdt: availableUsdt || null,
       dailyNetPnlUsdt: round(dailyNet, 2),
       weeklyNetPnlUsdt: round(weeklyNet, 2),
       dailyLossPct: round(dailyLossPct, 3),
@@ -1850,6 +1934,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
   } catch (error) {
     return {
       equityUsdt: null,
+      availableUsdt: null,
       dailyNetPnlUsdt: 0,
       weeklyNetPnlUsdt: 0,
       dailyLossPct: 0,
@@ -2030,22 +2115,23 @@ async function todayTradeCount(profile: ThreeHorizonStrategyProfile, now: Date):
 }
 
 async function loadCandleSet(symbol: BitgetSupportedSymbol): Promise<CandleSet> {
-  const intervals: BitgetCandleInterval[] = ["5m", "15m", "1H", "4H", "1D"];
+  const intervals: BitgetCandleInterval[] = ["5m", "15m", "30m", "1H", "4H", "1D"];
   const rows = await Promise.all(
     intervals.map((interval) =>
       getBitgetDemoCandles({
         symbol,
         interval,
-        limit: interval === "1D" ? 400 : 120,
+        limit: interval === "1D" ? 400 : interval === "5m" ? 180 : 120,
       })
     )
   );
   return {
     "5m": rows[0] ?? [],
     "15m": rows[1] ?? [],
-    "1H": rows[2] ?? [],
-    "4H": rows[3] ?? [],
-    "1D": rows[4] ?? [],
+    "30m": rows[2] ?? [],
+    "1H": rows[3] ?? [],
+    "4H": rows[4] ?? [],
+    "1D": rows[5] ?? [],
   };
 }
 
@@ -2122,7 +2208,7 @@ async function loadCommissioningCandleSet(symbol: BitgetSupportedSymbol): Promis
     getBitgetDemoCandles({ symbol, interval: "15m", limit: 80 }),
     getBitgetDemoCandles({ symbol, interval: "1H", limit: 80 }),
   ]);
-  return { "5m": m5, "15m": m15, "1H": h1, "4H": [], "1D": [] };
+  return { "5m": m5, "15m": m15, "30m": [], "1H": h1, "4H": [], "1D": [] };
 }
 
 function candleMomentumScore(candles: CandleSet, livePrice: number, now: Date): number {
@@ -2859,6 +2945,24 @@ async function manageActiveDecisions(now: Date): Promise<{
   return { managed: decisions.length, orderAttempts, orderSuccess, orderErrors, activeLedger };
 }
 
+function unifiedHorizonForStrategy(strategyType: ThreeHorizonStrategyType): "SHORT" | "MEDIUM" | "LONG" {
+  if (strategyType === "INTRADAY") return "SHORT";
+  if (strategyType === "SWING") return "MEDIUM";
+  return "LONG";
+}
+
+async function activeDecisionCountForStrategy(strategyType: ThreeHorizonStrategyType): Promise<number> {
+  if (!prisma) return 0;
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
+    `SELECT COUNT(*) AS count
+     FROM trade_three_horizon_decisions
+     WHERE strategy_type=$1
+       AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')`,
+    strategyType,
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
 async function calculatePositionSize(input: {
   profile: ThreeHorizonStrategyProfile;
   evaluation: EvaluationResult;
@@ -2974,6 +3078,13 @@ async function executeReadyDecision(input: {
     };
   }
   const environment = getBitgetDemoEnvironment();
+  const unifiedHorizon = unifiedHorizonForStrategy(input.profile.strategyType);
+  const unifiedSetting = environment.mode === "LIVE_EXPERIMENT"
+    ? await getUnifiedLiveSetting("official", unifiedHorizon)
+    : null;
+  const activeHorizonPositions = environment.mode === "LIVE_EXPERIMENT"
+    ? await activeDecisionCountForStrategy(input.profile.strategyType)
+    : 0;
   const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
   const horizonExecutionAllowed = environment.mode === "LIVE_EXPERIMENT"
     ? environment.executionAllowed && LIVE_ACTIVE_EXECUTION_ENABLED
@@ -2997,6 +3108,21 @@ async function executeReadyDecision(input: {
   if (!reliabilityGate.allowed) {
     blockCode = reliabilityGate.code;
     blockReason = reliabilityGate.reason;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && !unifiedSetting) {
+    blockCode = "UNIFIED_HORIZON_SETTING_MISSING";
+    blockReason = `${unifiedHorizon}实盘周期设置不可用，禁止新开仓。`;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && unifiedSetting && !unifiedSetting.enabled) {
+    blockCode = "UNIFIED_HORIZON_DISABLED";
+    blockReason = `${unifiedHorizon}周期已在会员实盘设置中关闭。`;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && unifiedSetting && activeHorizonPositions >= unifiedSetting.maxOpenPositions) {
+    blockCode = "UNIFIED_HORIZON_POSITION_CAP";
+    blockReason = `${unifiedHorizon}已有${activeHorizonPositions}笔活动仓位，达到该周期${unifiedSetting.maxOpenPositions}笔上限。`;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && unifiedSetting && input.risk.dailyLossPct >= unifiedSetting.dailyLossPercent) {
+    blockCode = "UNIFIED_DAILY_LOSS_LIMIT";
+    blockReason = `当日亏损${round(input.risk.dailyLossPct, 3)}%已达到${unifiedSetting.dailyLossPercent}%周期上限。`;
+  } else if (environment.mode === "LIVE_EXPERIMENT" && unifiedSetting && input.risk.weeklyLossPct >= unifiedSetting.weeklyLossPercent) {
+    blockCode = "UNIFIED_WEEKLY_LOSS_LIMIT";
+    blockReason = `本周亏损${round(input.risk.weeklyLossPct, 3)}%已达到${unifiedSetting.weeklyLossPercent}%周期上限。`;
   } else if (environment.mode === "LIVE_EXPERIMENT" && input.profile.mode !== "LIVE") {
     blockCode = "LIVE_PROFILE_REQUIRED";
     blockReason = "实盘实验只允许LIVE模式策略提交订单。";
@@ -3056,19 +3182,72 @@ async function executeReadyDecision(input: {
       riskReservedPct: 0,
     };
   }
-  let sizing: Awaited<ReturnType<typeof calculatePositionSize>>;
+  let sizing: {
+    quantity: number;
+    riskAmountUsdt: number;
+    riskPct: number;
+    leverage: number;
+    marginAmount: number;
+    notionalAmount: number;
+  };
   try {
     const equityUsdt = input.risk.equityUsdt;
     if (equityUsdt == null || equityUsdt <= 0) {
       throw new Error(environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金" : "未检测到可用模拟资金");
     }
-    sizing = await calculatePositionSize({
-      profile: input.profile,
-      evaluation: input.evaluation,
-      equityUsdt,
-      symbol: input.decision.symbol as BitgetSupportedSymbol,
-      riskScale: input.evaluation.riskScale,
-    });
+    if (environment.mode === "LIVE_EXPERIMENT") {
+      if (!unifiedSetting) throw new Error(`${unifiedHorizon}实盘周期设置不可用`);
+      const availableMargin = Math.min(input.risk.availableUsdt ?? equityUsdt, equityUsdt);
+      const calculated = calculateUnifiedLivePositionSize({
+        equity: equityUsdt,
+        availableMargin,
+        entryPrice: input.evaluation.entryPrice ?? 0,
+        stopPrice: input.evaluation.stopLoss ?? 0,
+        sizingMode: unifiedSetting.sizingMode,
+        sizingValue: unifiedSetting.sizingValue,
+        leverage: Math.min(unifiedSetting.leverage, environment.leverage),
+        maxMarginUsePercent: unifiedSetting.maxMarginUsePercent,
+        maxLossPercent: unifiedSetting.maxLossPercent,
+      });
+      if (!calculated.accepted) throw new Error(`Unified Live仓位计算拒绝：${calculated.reason ?? "UNKNOWN"}`);
+      const entryPrice = input.evaluation.entryPrice ?? 0;
+      const stopPrice = input.evaluation.stopLoss ?? 0;
+      const contract = await getContractConfig(input.decision.symbol as BitgetSupportedSymbol);
+      if (!(entryPrice > 0) || !(stopPrice > 0)) throw new Error("Unified Live入场价或止损价无效");
+      const maxNotional = Math.min(calculated.notionalAmount, environment.liveMaxPositionNotionalUsdt, 400);
+      const normalizedQuantity = Number(normalizeOrderSize(maxNotional / entryPrice, contract));
+      if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) throw new Error("Unified Live归一化下单数量无效");
+      const notionalAmount = normalizedQuantity * entryPrice;
+      const marginAmount = notionalAmount / calculated.leverage;
+      const stopDistancePercent = Math.abs(entryPrice - stopPrice) / entryPrice * 100;
+      const projectedLoss = notionalAmount * ((stopDistancePercent + 0.16) / 100);
+      const riskPct = projectedLoss / equityUsdt * 100;
+      if (riskPct > unifiedSetting.maxLossPercent + 1e-9) {
+        throw new Error(`归一化后风险${round(riskPct, 4)}%超过${unifiedSetting.maxLossPercent}%上限`);
+      }
+      sizing = {
+        quantity: normalizedQuantity,
+        riskAmountUsdt: round(projectedLoss, 4),
+        riskPct: round(riskPct, 4),
+        leverage: calculated.leverage,
+        marginAmount: round(marginAmount, 4),
+        notionalAmount: round(notionalAmount, 4),
+      };
+    } else {
+      const calculated = await calculatePositionSize({
+        profile: input.profile,
+        evaluation: input.evaluation,
+        equityUsdt,
+        symbol: input.decision.symbol as BitgetSupportedSymbol,
+        riskScale: input.evaluation.riskScale,
+      });
+      sizing = {
+        ...calculated,
+        leverage: environment.leverage,
+        marginAmount: round(calculated.quantity * (input.evaluation.entryPrice ?? 0) / environment.leverage, 4),
+        notionalAmount: round(calculated.quantity * (input.evaluation.entryPrice ?? 0), 4),
+      };
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : "下单前规格/风险检查失败";
     const disposition = classifyLiveOrderFailure("LOCAL_PREFLIGHT");
@@ -3103,6 +3282,7 @@ async function executeReadyDecision(input: {
       quantity: sizing.quantity,
       side: orderSide(current.direction),
       reduceOnly: false,
+      leverage: sizing.leverage,
       stopLoss: current.stopLoss ?? undefined,
       takeProfit: current.target2 ?? undefined,
     });
@@ -3114,13 +3294,42 @@ async function executeReadyDecision(input: {
       riskAmountUsdt: sizing.riskAmountUsdt,
       riskPct: sizing.riskPct,
       entryStage: 1,
-      rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "确认仓"}已提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}，风险${round(sizing.riskPct, 3)}%，使用宽ATR止损并预设第二目标。${order.warnings.join("；")}`,
+      rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "确认仓"}已提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}，风险${round(sizing.riskPct, 3)}%，使用逐仓${sizing.leverage}倍并预设第二目标。${order.warnings.join("；")}`,
     });
+    let custodyRegistrationFailed = false;
+    if (environment.mode === "LIVE_EXPERIMENT") {
+      try {
+        await registerUnifiedLiveStrategySlice({
+          ownerKey: "official",
+          strategyDecisionId: current.id,
+          symbol: current.symbol,
+          horizon: unifiedHorizon,
+          side: current.direction === "SHORT" ? "SHORT" : "LONG",
+          marginAmount: sizing.marginAmount,
+          notionalAmount: sizing.notionalAmount,
+          quantity: Number(order.size),
+          leverage: sizing.leverage,
+          entryPrice: current.entryPrice ?? input.evaluation.entryPrice ?? 0,
+          stopPrice: current.stopLoss,
+          target1: current.target1,
+          target2: current.target2,
+          maxHoldMinutes: input.profile.maxHoldingMinutes,
+          sourceKind: `THREE_HORIZON_${input.profile.strategyType}`,
+          technicalEntry: input.evaluation.conditions.find((condition) => condition.key === "entry")?.value ?? null,
+        });
+      } catch (registryError) {
+        custodyRegistrationFailed = true;
+        current = await updateDecision(current.id, {
+          rejectionCode: "UNIFIED_CUSTODY_REGISTRATION_PENDING",
+          rejectionReason: `${current.rejectionReason}；订单已成功发送，但Unified Live托管登记失败：${registryError instanceof Error ? registryError.message : "未知错误"}。本轮立即停止继续新开仓，后续托管将冻结新开仓直到对账修复。`,
+        });
+      }
+    }
     return {
       decision: current,
       attempted: true,
       success: true,
-      error: false,
+      error: custodyRegistrationFailed,
       riskReservedPct: sizing.riskPct,
     };
   } catch (error) {
@@ -3484,6 +3693,7 @@ export async function runThreeHorizonStrategyEngine(
   let leadTimeBlocks = 0;
   let riskBlocks = 0;
   let timeBudgetReached = false;
+  let entrySafetyStop = liveExperimentMode && commissioningError;
   let dynamicLiveSymbols: BitgetSupportedSymbol[] = [];
   if (liveExperimentMode) {
     try {
@@ -3505,7 +3715,7 @@ export async function runThreeHorizonStrategyEngine(
   });
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
-    if (timeBudgetReached) break;
+    if (timeBudgetReached || entrySafetyStop) break;
     const profileStartedAt = Date.now();
     let tradesToday = await todayTradeCount(profile, now);
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
@@ -3514,6 +3724,7 @@ export async function runThreeHorizonStrategyEngine(
     for (const symbol of freshProfileSymbols) eligibleUniverseSymbols.add(symbol);
     const selectedSymbols = freshProfileSymbols;
     for (const symbol of selectedSymbols) {
+      if (entrySafetyStop) break;
       if (Date.now() >= deadlineMs || Date.now() >= newEntryCutoffMs) {
         timeBudgetReached = true;
         break;
@@ -3645,7 +3856,10 @@ export async function runThreeHorizonStrategyEngine(
               reservedSymbols.add(symbol);
               reservedRiskPct += executed.riskReservedPct;
             }
-            if (executed.error) orderErrors += 1;
+            if (executed.error) {
+              orderErrors += 1;
+              if (liveExperimentMode) entrySafetyStop = true;
+            }
             }
           }
         }
@@ -3707,8 +3921,9 @@ export async function runThreeHorizonStrategyEngine(
         timeBudgetReached = true;
         break;
       }
+      if (entrySafetyStop) break;
     }
-    if (timeBudgetReached) break;
+    if (timeBudgetReached || entrySafetyStop) break;
     await markProfileScanned(profile, now);
     await reportProgress("PROFILE_COMPLETE", {
       profile: profile.strategyType,
@@ -3719,6 +3934,7 @@ export async function runThreeHorizonStrategyEngine(
   let dailyMinimumMessage = "";
   if (
     !timeBudgetReached &&
+    !entrySafetyStop &&
     liveExperimentMode &&
     LIVE_ACTIVITY_ENABLED &&
     Date.now() < newEntryCutoffMs &&
@@ -3841,16 +4057,18 @@ export async function runThreeHorizonStrategyEngine(
           reservedSymbols.add(candidate.symbol);
           reservedRiskPct += executed.riskReservedPct;
           messages.push(`${candidate.symbol}${candidate.direction === "LONG" ? "做多" : "做空"}实盘探路仓已提交，风险${round(executed.riskReservedPct, 3)}%`);
-        } else if (executed.error) {
-          orderErrors += 1;
-          messages.push(`${candidate.symbol}实盘下单失败：${promoted.rejectionReason}`);
         } else {
-          messages.push(`${candidate.symbol}被安全闸门拦截：${promoted.rejectionReason}`);
+          messages.push(`${candidate.symbol}${executed.error ? "实盘执行异常" : "被安全闸门拦截"}：${promoted.rejectionReason}`);
+        }
+        if (executed.error) {
+          orderErrors += 1;
+          entrySafetyStop = true;
         }
       }
       await syncAiTradePlanFromDecision(promoted, now, { force: true }).catch(() => undefined);
       const decisionIndex = decisions.findIndex((row) => row.id === promoted.id);
       if (decisionIndex >= 0) decisions[decisionIndex] = promoted;
+      if (entrySafetyStop) break;
     }
     dailyMinimumMessage = messages.length
       ? `实盘每日活动目标${executedToday}/${LIVE_ACTIVITY_TARGET}：${messages.join("；")}`
@@ -4014,7 +4232,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；方向明确${directionalDecisions}，入场触发${entryTriggers}，事前发布时间拦截${leadTimeBlocks}，风险拦截${riskBlocks}，可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
+    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；方向明确${directionalDecisions}，入场触发${entryTriggers}，事前发布时间拦截${leadTimeBlocks}，风险拦截${riskBlocks}，可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${entrySafetyStop ? "；本轮因实盘执行/托管异常已停止继续新开仓" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
   };
 }
 

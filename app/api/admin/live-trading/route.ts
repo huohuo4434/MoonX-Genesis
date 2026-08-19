@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
 import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
+import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
 import { getUnifiedLiveRuntimeStatus, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { claimUnifiedLivePosition, setUnifiedLiveMode } from "@/lib/trading-signals/unified-live-store";
 import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
@@ -30,8 +31,34 @@ export async function POST(request: NextRequest) {
     if (!["PAUSED", "MANAGE_ONLY", "LIVE"].includes(mode)) return NextResponse.json({ error: "INVALID_MODE" }, { status: 400 });
     const runtime = readUnifiedLiveRuntimeConfig();
     const status = await getUnifiedLiveRuntimeStatus("official");
-    if (mode === "LIVE" && (!runtime.allowLiveSwitch || status.audit?.freezeNewEntries || status.migrationRequired)) {
-      return NextResponse.json({ error: "LIVE_SWITCH_BLOCKED", runtime, blockers: status.audit?.issues ?? [] }, { status: 409 });
+    const bitget = getBitgetDemoEnvironment();
+    const liveRuntimeReady = runtime.mode === "LIVE"
+      && runtime.allowLiveSwitch
+      && runtime.allowNewEntriesByEnv
+      && runtime.positionManagementEnabled;
+    const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+    const bitgetReady = bitget.mode === "LIVE_EXPERIMENT"
+      && bitget.configured
+      && bitget.executionAllowed
+      && bitget.liveConfirmationAccepted
+      && Math.abs(bitget.liveInitialCapitalUsdt - 1000) < 0.01;
+    if (mode === "LIVE" && (!liveRuntimeReady || !bitgetReady || !strategyActiveExecutionEnabled || status.audit?.freezeNewEntries || status.migrationRequired)) {
+      return NextResponse.json({
+        error: "LIVE_SWITCH_BLOCKED",
+        runtime,
+        bitgetReadiness: {
+          mode: bitget.mode,
+          configured: bitget.configured,
+          executionAllowed: bitget.executionAllowed,
+          liveConfirmationAccepted: bitget.liveConfirmationAccepted,
+          initialCapitalUsdt: bitget.liveInitialCapitalUsdt,
+          strategyActiveExecutionEnabled,
+        },
+        blockers: [
+          ...(status.audit?.issues ?? []),
+          ...(!strategyActiveExecutionEnabled ? [{ code: "LEGACY_STRATEGY_EXECUTION_DISABLED", severity: "BLOCK", message: "MOOX_LIVE_ACTIVE_EXECUTION_V641 is explicitly false" }] : []),
+        ],
+      }, { status: 409 });
     }
     const account = await setUnifiedLiveMode({
       ownerKey: "official",

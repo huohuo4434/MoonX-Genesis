@@ -44,6 +44,7 @@ export type ThreeHorizonStrategyProfile = {
 
 export type ThreeHorizonRiskSnapshot = {
   equityUsdt: number | null;
+  availableUsdt: number | null;
   dailyNetPnlUsdt: number;
   weeklyNetPnlUsdt: number;
   dailyLossPct: number;

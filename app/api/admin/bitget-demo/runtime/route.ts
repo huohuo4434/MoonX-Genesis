@@ -13,6 +13,7 @@ import { auditBitgetLiveResumeReadiness } from "@/lib/bitget/live-resume-readine
 import { auditRecentBitgetLiveOrderFailures } from "@/lib/bitget/demo-client";
 import { guardRuntimeAdminAction } from "@/lib/bitget/runtime-admin-action-core";
 import { canStartMemberDeskSync } from "@/lib/bitget/runtime-deadline-core";
+import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -68,7 +69,11 @@ export async function POST(request: NextRequest) {
     // RUN_NOW reaches this branch only while not paused. RESUME itself never runs a trading cycle.
     const now = new Date();
     const absoluteDeadlineAt = new Date(Date.now() + 285_000);
-    const report = await runBitgetDemoServerRuntime(now, "ADMIN", { absoluteDeadlineAt });
+    const unifiedGate = live ? await evaluateUnifiedLiveNewEntryGate("official") : null;
+    const report = await runBitgetDemoServerRuntime(now, "ADMIN", {
+      absoluteDeadlineAt,
+      forceManageOnly: Boolean(live && !unifiedGate?.allowed),
+    });
     let memberDeskSync: { ok: true } | { ok: false; error: string } = { ok: true };
     try {
       if (!canStartMemberDeskSync(absoluteDeadlineAt.getTime())) {
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       memberDeskSync = { ok: false, error: error instanceof Error ? error.message : "会员台同步失败" };
     }
-    return NextResponse.json({ ok: true, report, memberDeskSync, state: await getBitgetRuntimeState() });
+    return NextResponse.json({ ok: true, report, unifiedGate, memberDeskSync, state: await getBitgetRuntimeState() });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "服务器执行操作失败" }, { status: 400 });
   }

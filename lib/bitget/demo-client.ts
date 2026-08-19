@@ -330,6 +330,26 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     ? Math.max(1, Math.min(live ? 2 : 3, Math.floor(leverageRaw)))
     : 2;
   const liveConfirmationAccepted = process.env.BITGET_LIVE_CONFIRMATION?.trim() === "I_ACCEPT_REAL_LOSS";
+  // V7.20.10.0: this deployment is an explicitly bounded 1000U real-money experiment.
+  // Even if an older environment variable contains a larger number, the live engine
+  // must not scale risk beyond the authorized 1000U capital slice.
+  const liveInitialCapitalUsdt = Math.min(1000, numericEnv("BITGET_LIVE_INITIAL_CAPITAL_USDT", 1000, 100, 100000));
+  const legacyLiveDailyLossUsdt = numericEnvAliases(
+    ["MOOX_LIVE_DAILY_LOSS_USDT_V3", "BITGET_LIVE_DAILY_LOSS_USDT"],
+    100, 1, 5000
+  );
+  const legacyLiveMaxDrawdownUsdt = numericEnvAliases(
+    ["MOOX_LIVE_MAX_DRAWDOWN_USDT_V3", "BITGET_LIVE_MAX_DRAWDOWN_USDT"],
+    500, 5, 10000
+  );
+  const requestedLiveDailyLossUsdt = process.env.MOOX_LIVE_DAILY_LOSS_USDT_V72010?.trim()
+    ? numericEnv("MOOX_LIVE_DAILY_LOSS_USDT_V72010", Math.max(1, liveInitialCapitalUsdt * 0.01), 1, 5000)
+    : legacyLiveDailyLossUsdt;
+  const requestedLiveMaxDrawdownUsdt = process.env.MOOX_LIVE_MAX_DRAWDOWN_USDT_V72010?.trim()
+    ? numericEnv("MOOX_LIVE_MAX_DRAWDOWN_USDT_V72010", Math.max(5, liveInitialCapitalUsdt * 0.05), 5, 10000)
+    : legacyLiveMaxDrawdownUsdt;
+  const liveDailyLossUsdt = Math.min(requestedLiveDailyLossUsdt, Math.max(1, liveInitialCapitalUsdt * 0.01));
+  const liveMaxDrawdownUsdt = Math.min(requestedLiveMaxDrawdownUsdt, Math.max(5, liveInitialCapitalUsdt * 0.05));
   // Vercel serverless egress IPs are not stable on the current plan.
   // Keep these compatibility fields, but IP binding is no longer a hard execution gate.
   const requireIpWhitelist = false;
@@ -346,31 +366,28 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
       : "未配置",
     leverage,
     liveConfirmationAccepted,
-    liveInitialCapitalUsdt: numericEnv("BITGET_LIVE_INITIAL_CAPITAL_USDT", 1000, 100, 100000),
+    liveInitialCapitalUsdt,
     liveDurationDays: Math.floor(numericEnv("BITGET_LIVE_DURATION_DAYS", 30, 1, 365)),
     // Prefer the current versioned names, but also honor the live variables already
     // present in the production Vercel project. This prevents valid risk settings from
     // being silently ignored after an upgrade.
-    liveMaxDrawdownUsdt: numericEnvAliases(
-      ["MOOX_LIVE_MAX_DRAWDOWN_USDT_V3", "BITGET_LIVE_MAX_DRAWDOWN_USDT"],
-      500, 5, 10000
-    ),
-    liveDailyLossUsdt: numericEnvAliases(
-      ["MOOX_LIVE_DAILY_LOSS_USDT_V3", "BITGET_LIVE_DAILY_LOSS_USDT"],
-      100, 1, 5000
-    ),
-    liveMaxPositionNotionalUsdt: numericEnv("BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT", 300, 10, 100000),
+    liveMaxDrawdownUsdt,
+    liveDailyLossUsdt,
+    liveMaxPositionNotionalUsdt: Math.min(400, numericEnvAliases(
+      ["MOOX_LIVE_MAX_POSITION_NOTIONAL_USDT_V72010", "BITGET_LIVE_MAX_POSITION_NOTIONAL_USDT"],
+      400, 10, 100000
+    )),
     liveMaxGrossNotionalPct: numericEnv("BITGET_LIVE_MAX_GROSS_NOTIONAL_PCT", 100, 20, 200),
-    liveMaxConcurrentPositions: resolveLiveCapacityV4({
+    liveMaxConcurrentPositions: Math.min(4, resolveLiveCapacityV4({
       v4: process.env.MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V4,
       v3: process.env.MOOX_LIVE_MAX_CONCURRENT_POSITIONS_V3,
       legacy: process.env.BITGET_LIVE_MAX_CONCURRENT_POSITIONS,
-    }),
-    liveMaxTradesPerDay: resolveLiveCapacityV4({
+    })),
+    liveMaxTradesPerDay: Math.min(6, resolveLiveCapacityV4({
       v4: process.env.MOOX_LIVE_MAX_TRADES_PER_DAY_V4,
       v3: process.env.MOOX_LIVE_MAX_TRADES_PER_DAY_V3,
       legacy: process.env.BITGET_LIVE_MAX_TRADES_PER_DAY,
-    }),
+    })),
     liveAllowedSymbols: liveAllowedSymbols(),
     requireIpWhitelist,
     allowNoIpWhitelist,
@@ -1417,18 +1434,22 @@ export function normalizeContractTriggerPrice(
 async function configureUtaSymbol(
   symbol: BitgetSupportedSymbol,
   posSide: "long" | "short",
-  settings: BitgetUtaSettings
+  settings: BitgetUtaSettings,
+  leverageOverride?: number,
 ): Promise<string[]> {
   const env = getBitgetDemoEnvironment();
+  const leverage = Number.isFinite(leverageOverride)
+    ? Math.max(1, Math.min(env.mode === "LIVE_EXPERIMENT" ? 2 : 3, Math.trunc(Number(leverageOverride))))
+    : env.leverage;
   const plan = planUtaLeverageConfiguration({
     settings,
     symbol,
-    leverage: env.leverage,
+    leverage,
     marginMode: "isolated",
     posSide,
     category: PRODUCT_TYPE,
   });
-  if (!plan.required) return [`UTA V3杠杆已就绪：${symbol}逐仓${env.leverage}倍`];
+  if (!plan.required) return [`UTA V3杠杆已就绪：${symbol}逐仓${leverage}倍`];
 
   try {
     await signedRequest<string>({
@@ -1442,7 +1463,7 @@ async function configureUtaSymbol(
     const verifiedPlan = planUtaLeverageConfiguration({
       settings: verifiedSettings,
       symbol,
-      leverage: env.leverage,
+      leverage,
       marginMode: "isolated",
       posSide,
       category: PRODUCT_TYPE,
@@ -1452,8 +1473,8 @@ async function configureUtaSymbol(
     }
     return [
       isUtaHedgeMode(settings.holdMode)
-        ? `UTA V3已设置${posSide === "long" ? "多头" : "空头"}逐仓${env.leverage}倍`
-        : `UTA V3已设置逐仓${env.leverage}倍`,
+        ? `UTA V3已设置${posSide === "long" ? "多头" : "空头"}逐仓${leverage}倍`
+        : `UTA V3已设置逐仓${leverage}倍`,
     ];
   } catch (error) {
     throw liveExecutionErrorFrom(error, {
@@ -1548,6 +1569,7 @@ type MarketExecutionPayload = {
   quantity: number;
   side: "buy" | "sell";
   reduceOnly: boolean;
+  leverage?: number;
   stopLoss?: number;
   takeProfit?: number;
   size: string;
@@ -1914,7 +1936,7 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
       configureAccount: acquired.action_type === "OPEN_MARKET"
         ? async () => {
             if (!preparedSettings) throw new Error("UTA账户设置未完成预读取");
-            await configureUtaSymbol(payload.symbol, posSide, preparedSettings);
+            await configureUtaSymbol(payload.symbol, posSide, preparedSettings, payload.leverage);
           }
         : undefined,
       queryExisting: () => getBitgetDemoOrderByClientOid(oid),
@@ -2084,6 +2106,7 @@ export async function placeBitgetDemoMarketOrder(input: {
   quantity: number;
   side: "buy" | "sell";
   reduceOnly: boolean;
+  leverage?: number;
   stopLoss?: number;
   takeProfit?: number;
 }): Promise<{

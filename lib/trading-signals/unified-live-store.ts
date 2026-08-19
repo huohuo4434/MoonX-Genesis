@@ -190,6 +190,88 @@ export async function claimUnifiedLivePosition(input: {
   });
 }
 
+
+export async function getUnifiedLiveSetting(
+  ownerKey: string,
+  horizon: UnifiedLiveHorizon,
+): Promise<UnifiedLiveHorizonSetting | null> {
+  const state = await getUnifiedLiveAccount(ownerKey);
+  if (!state.account) return null;
+  const row = state.account.settings.find((setting) => setting.horizon === horizon);
+  if (!row) return DEFAULT_UNIFIED_LIVE_SETTINGS.find((setting) => setting.horizon === horizon) ?? null;
+  return {
+    horizon: row.horizon as UnifiedLiveHorizon,
+    enabled: row.enabled,
+    sizingMode: row.sizingMode as UnifiedLiveHorizonSetting["sizingMode"],
+    sizingValue: row.sizingValue,
+    leverage: row.leverage,
+    maxOpenPositions: row.maxOpenPositions,
+    maxLossPercent: row.maxLossPercent,
+    dailyLossPercent: row.dailyLossPercent,
+    weeklyLossPercent: row.weeklyLossPercent,
+    maxMarginUsePercent: row.maxMarginUsePercent,
+    target1ReducePercent: row.target1ReducePercent,
+    isolatedMargin: true,
+  };
+}
+
+export async function registerUnifiedLiveStrategySlice(input: {
+  ownerKey: string;
+  strategyDecisionId: string;
+  symbol: string;
+  horizon: UnifiedLiveHorizon;
+  side: "LONG" | "SHORT";
+  marginAmount: number;
+  notionalAmount: number;
+  quantity: number;
+  leverage: number;
+  entryPrice: number;
+  stopPrice?: number | null;
+  target1?: number | null;
+  target2?: number | null;
+  maxHoldMinutes?: number;
+  sourceKind?: string;
+  technicalEntry?: string | null;
+}) {
+  const database = requireUnifiedLiveDatabase();
+  const account = await database.mooxUnifiedLiveAccount.findUniqueOrThrow({
+    where: { ownerKey: input.ownerKey },
+  });
+  const existing = await database.mooxUnifiedLiveSlice.findFirst({
+    where: {
+      accountId: account.id,
+      strategyDecisionId: input.strategyDecisionId,
+      status: { in: ["PENDING", "OPEN", "PARTIALLY_CLOSED"] },
+    },
+  });
+  if (existing) return existing;
+  return database.mooxUnifiedLiveSlice.create({
+    data: {
+      accountId: account.id,
+      symbol: input.symbol,
+      horizon: input.horizon,
+      side: input.side,
+      status: "PENDING",
+      sourceKind: input.sourceKind ?? "THREE_HORIZON_LIVE",
+      strategyDecisionId: input.strategyDecisionId,
+      marginAmount: Math.max(0, input.marginAmount),
+      notionalAmount: Math.max(0, input.notionalAmount),
+      quantity: Math.abs(input.quantity),
+      leverage: Math.min(input.ownerKey === "official" ? 2 : 10, Math.max(1, Math.trunc(input.leverage))),
+      entryPrice: input.entryPrice,
+      stopPrice: input.stopPrice ?? null,
+      target1: input.target1 ?? null,
+      target2: input.target2 ?? null,
+      maxHoldMinutes: input.maxHoldMinutes ?? UNIFIED_LIVE_HORIZON_LIMITS[input.horizon],
+      openedAt: new Date(),
+      lastManagedAt: new Date(),
+      nextCheckAt: new Date(Date.now() + 60_000),
+      technicalEntry: input.technicalEntry ?? null,
+      publicVisible: account.accountScope === "OFFICIAL",
+    },
+  });
+}
+
 export async function markUnifiedLiveManualClosures(ownerKey: string, sliceIds: string[]) {
   if (!sliceIds.length) return { count: 0 };
   const database = requireUnifiedLiveDatabase();

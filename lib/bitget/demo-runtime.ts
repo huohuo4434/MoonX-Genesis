@@ -78,8 +78,10 @@ const LOCK_SECONDS = 330;
 const EVENT_RETENTION_DAYS = 14;
 // Keep every live pass bounded so the one-minute cron can rotate through the
 // universe instead of timing out after repeatedly evaluating only its first symbol.
-const LIVE_STRATEGY_SYMBOLS_PER_RUN = 1;
-const LIVE_STRATEGY_BUDGET_MS = 70_000;
+const LIVE_STRATEGY_SYMBOLS_PER_RUN = Math.max(1, Math.min(4, Math.floor(Number(
+  process.env.MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2
+) || 2)));
+const LIVE_STRATEGY_BUDGET_MS = 55_000;
 
 interface RuntimeStateRow {
   paused: boolean;
@@ -893,7 +895,7 @@ export async function refreshBitgetRuntimeHealthOnly(
 export async function runBitgetDemoServerRuntime(
   now = new Date(),
   source: BitgetRuntimeSource = "CRON",
-  options: { absoluteDeadlineAt?: Date } = {}
+  options: { absoluteDeadlineAt?: Date; forceManageOnly?: boolean } = {}
 ): Promise<BitgetRuntimeRunReport> {
   const runtimeTiming = captureWallClockRunTiming({ businessNow: now });
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
@@ -973,7 +975,9 @@ export async function runBitgetDemoServerRuntime(
         });
       },
       syncLiveStatus: environment.mode === "LIVE_EXPERIMENT"
-        ? (syncOptions) => syncBitgetLiveExperimentStatus(now, syncOptions)
+        ? (syncOptions) => syncBitgetLiveExperimentStatus(now, {
+            allowStart: syncOptions.allowStart && !options.forceManageOnly,
+          })
         : undefined,
       onLiveStatus: async (status) => {
         await recordEvent({
@@ -1079,8 +1083,9 @@ export async function runBitgetDemoServerRuntime(
     });
 
     const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
-    const executionPaused = before.paused || !marketOk || !account.connected || !liveAllowsNewEntries;
-    if (startup.policy.allowNewEntries && marketOk && account.connected && liveAllowsNewEntries) {
+    const forcedManageOnly = Boolean(options.forceManageOnly);
+    const executionPaused = before.paused || forcedManageOnly || !marketOk || !account.connected || !liveAllowsNewEntries;
+    if (startup.policy.allowNewEntries && !forcedManageOnly && marketOk && account.connected && liveAllowsNewEntries) {
       if (environment.mode !== "LIVE_EXPERIMENT") {
         const [strategyResult, monitorResult] = await Promise.allSettled([
           runPredictionAutoTrader(now, {
@@ -1315,7 +1320,9 @@ export async function runBitgetDemoServerRuntime(
             ? `账户对账未通过，本轮禁止新开仓。${account.message}`
             : !liveAllowsNewEntries
               ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
-              : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
+              : forcedManageOnly
+                ? "Unified Live新开仓闸门未通过；本轮仅管理已有仓位。"
+                : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
       if (startup.policy.allowManageOnly && !engineFailure && (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active)) {
         try {
@@ -1396,8 +1403,10 @@ export async function runBitgetDemoServerRuntime(
     const finishedAt = new Date(wallFinish.finishedAtMs);
     finalMessage = engineFailure
       ? "Three-horizon engine failed; no post-engine order chain was started."
-      : before.paused
-      ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
+      : before.paused || forcedManageOnly
+      ? forcedManageOnly
+        ? "服务器心跳和对账已运行；Unified Live新开仓闸门未通过，本轮仅管理已有仓位。"
+        : "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
         ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
         : !account.connected
