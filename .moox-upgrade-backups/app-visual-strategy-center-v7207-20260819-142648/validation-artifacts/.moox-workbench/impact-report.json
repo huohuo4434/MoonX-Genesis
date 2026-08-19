@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-08-15T13:25:06.823Z",
+  "root": "C:\\MoonX-Genesis",
+  "changedFiles": [
+    "components/member/MemberTradingOnboarding.tsx",
+    "lib/data/conviction/focus-registry-core.ts",
+    "lib/trading-signals/ai-trading-focus.ts",
+    "lib/trading-signals/member-instrument-registry.ts",
+    "types/member-trading-plan.ts",
+    "tests/member-trading-instruments-phase22-v816.test.ts",
+    "tests/member-trading-signal-api-phase1-v816.test.ts",
+    "tests/member-bitget-local-agent-phase2-v816.test.ts"
+  ],
+  "categories": {
+    "liveTrading": [
+      "lib/trading-signals/ai-trading-focus.ts",
+      "lib/trading-signals/member-instrument-registry.ts"
+    ],
+    "authPayments": [],
+    "database": [],
+    "apiRoutes": [],
+    "ui": [
+      "components/member/MemberTradingOnboarding.tsx"
+    ],
+    "tests": [
+      "tests/member-trading-instruments-phase22-v816.test.ts",
+      "tests/member-trading-signal-api-phase1-v816.test.ts",
+      "tests/member-bitget-local-agent-phase2-v816.test.ts"
+    ],
+    "docs": []
+  },
+  "riskScore": 17,
+  "riskLevel": "HIGH",
+  "suggestedTests": [
+    "tests/featured-stocks.test.ts"
+  ],
+  "environmentVariables": [],
+  "findings": [],
+  "blockerCount": 0
+}

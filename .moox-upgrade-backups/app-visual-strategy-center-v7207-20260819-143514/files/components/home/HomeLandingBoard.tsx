@@ -9,8 +9,6 @@ import { isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import type { DailyForecast } from "@/types/daily-forecast";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-history";
 import { buildHomeResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
-import { HomeMobileAppView } from "@/components/home/HomeMobileAppView";
-import { getPublicUnifiedLiveSnapshot } from "@/lib/trading-signals/unified-live-public";
 
 const CORE_MARKETS = [
   { symbol: "BTC", name: "比特币" },
@@ -157,66 +155,18 @@ const MEMBER_ENTRIES = [
 export async function HomeLandingBoard() {
   noStore();
   const now = new Date();
-  const [todayResult, verificationResult, liveResult] = await Promise.allSettled([
+  const [todayResult, verificationResult] = await Promise.allSettled([
     getTodayForecastAccessPayload(now),
     getPublicAccuracyHistory(now),
-    getPublicUnifiedLiveSnapshot(),
   ]);
   const todayPayload = todayResult.status === "fulfilled" ? todayResult.value : null;
   const todayForecasts = todayPayload?.allowed ? todayPayload.forecasts : [];
   const marketRows = buildMarketRows(todayForecasts);
   const verificationItems = verificationResult.status === "fulfilled" ? selectVerification(verificationResult.value.items, now) : [];
   const todayAccessMessage = todayPayload && !todayPayload.allowed ? todayPayload.message : "今日观点正在整理中";
-  const publishedRows = marketRows.filter((row) => Boolean(row.forecast));
-  const mobileMarkets = publishedRows
-    .map((row) => {
-      const forecast = row.forecast!;
-      const relation = forecast.qimenAgreementLabel ?? "";
-      const resonanceRank = /共振/u.test(relation) ? 2 : /分歧/u.test(relation) ? 0 : 1;
-      return {
-        symbol: row.symbol,
-        name: row.name,
-        direction: homeDirection(forecast),
-        confidenceStars: confidenceStars(forecast),
-        resonance: relation,
-        support: cleanDailyLevel(forecast.supportLevels?.[0]),
-        resistance: cleanDailyLevel(forecast.resistanceLevels?.[0]),
-        reason: buildHomeResearchReason(forecast),
-        resonanceRank,
-      };
-    })
-    .sort((a, b) => b.resonanceRank - a.resonanceRank || b.confidenceStars - a.confidenceStars || a.symbol.localeCompare(b.symbol))
-    .slice(0, 3)
-    .map(({ resonanceRank: _resonanceRank, ...row }) => row);
-  const resonanceCount = publishedRows.filter((row) => /共振/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
-  const divergenceCount = publishedRows.filter((row) => /分歧/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
-  const livePublicReadable = liveResult.status === "fulfilled";
-  const openOfficialPositions = liveResult.status === "fulfilled"
-    ? liveResult.value.positions.filter((row) => !["CLOSED", "CANCELLED"].includes(String(row.status).toUpperCase())).length
-    : 0;
-  const mobileVerification = verificationItems.map(({ item }) => ({
-    id: item.forecastId,
-    assetName: item.assetName,
-    date: zhDate(item.forecastDate),
-    predicted: item.predictedDirection,
-    actual: item.actualDirection,
-    verdict: item.verdictLabel,
-  }));
 
   return (
     <main className="min-h-screen bg-[#06070b] text-white">
-      <HomeMobileAppView
-        canViewDaily={Boolean(todayPayload?.allowed)}
-        accessMessage={todayAccessMessage}
-        markets={mobileMarkets}
-        resonanceCount={resonanceCount}
-        divergenceCount={divergenceCount}
-        publishedCount={publishedRows.length}
-        livePublicReadable={livePublicReadable}
-        openOfficialPositions={openOfficialPositions}
-        verification={mobileVerification}
-      />
-      <div className="hidden md:block">
       <section id="daily-board" className="border-b border-white/5 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.20),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,190,210,0.13),transparent_28%),linear-gradient(180deg,#0d1020_0%,#06070b_100%)]">
         <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8">
           <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.38)] sm:p-7">
@@ -289,7 +239,6 @@ export async function HomeLandingBoard() {
           <div className="flex flex-wrap gap-3"><Link href="/member" className="rounded-full bg-violet-500 px-5 py-2.5 text-sm font-medium">会员频道</Link><Link href="/pricing" className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-medium text-white/80">查看会员价格</Link></div>
         </div>
       </section>
-      </div>
     </main>
   );
 }

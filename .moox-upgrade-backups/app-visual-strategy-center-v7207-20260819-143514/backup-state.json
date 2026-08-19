@@ -1,0 +1,52 @@
+﻿[
+    {
+        "path":  "components/home/HomeLandingBoard.tsx",
+        "existed":  true,
+        "hash":  "d5871ac29876a6f3500ded7ad078516dd11d3140de07ec535946f8c072fed09e"
+    },
+    {
+        "path":  "components/home/HomeMobileAppView.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "components/layout/MobileBottomNav.tsx",
+        "existed":  true,
+        "hash":  "4bb076d0b38db4c27e29bf1836f6845dbe2850be40b5ef68da088334780a3056"
+    },
+    {
+        "path":  "config/member-channel-navigation.ts",
+        "existed":  true,
+        "hash":  "c7978ae6d390d1c32f6496eed58684ad4e72a89f1bea724df1e3667a84e23e92"
+    },
+    {
+        "path":  "lib/presentation/strategy-center.ts",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "components/member/StrategyCenterPage.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "components/member/StrategyDetailPage.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "app/member/strategy/page.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "app/member/strategy/[strategyId]/page.tsx",
+        "existed":  false,
+        "hash":  null
+    },
+    {
+        "path":  "tests/app-visual-strategy-center-v7207.test.mjs",
+        "existed":  false,
+        "hash":  null
+    }
+]

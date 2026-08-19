@@ -1,7 +1,5 @@
 "use client";
 
-// MOOX_V7207_APP_BOTTOM_NAV
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MOBILE_BOTTOM_NAV } from "@/config/member-channel-navigation";
@@ -19,9 +17,7 @@ export function MobileBottomNav() {
           const itemHref = href(item.href);
           const active = item.href.startsWith("/#")
             ? pathname === "/" || pathname === "/en"
-            : item.key === "memberNav.channel"
-              ? pathname === itemHref
-              : pathname === itemHref || pathname.startsWith(`${itemHref}/`);
+            : pathname === itemHref || pathname.startsWith(`${itemHref}/`);
           const label = locale === "zh-CN" ? item.labelZh : (item.labelEn ?? t(item.key));
           return (
             <li key={item.key} className="flex-1">

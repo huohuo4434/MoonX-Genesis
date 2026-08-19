@@ -1,5 +1,5 @@
 /**
- * V7.20.7 app-shell navigation on top of the V7.20.4.2 isolated member-channel catalogue.
+ * V7.20.4.2 isolated member-channel navigation.
  *
  * This module deliberately does NOT replace config/navigation.ts. The current
  * project may contain newer routes or hand-edited work there. Header, footer,
@@ -33,7 +33,6 @@ export const NAV_ROUTES = {
   monthlyAnalysis: "/member/monthly",
   earlyAltcoinRadar: "/member/early-altcoin-radar",
   aiTradingDesk: "/member/ai-trading",
-  strategyCenter: "/member/strategy",
   technicalMethods: "/member/technical-methods",
   marketStructure: "/member/market-structure",
   consultations: "/member/consultations",
@@ -138,15 +137,6 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
     groupEn: "Tools & Services",
   },
   {
-    key: "memberNav.strategyCenter",
-    href: NAV_ROUTES.strategyCenter,
-    labelZh: "策略中心",
-    labelEn: "Strategy Center",
-    groupKey: "tools",
-    groupZh: "交易与服务",
-    groupEn: "Tools & Services",
-  },
-  {
     key: "memberNav.consultations",
     href: NAV_ROUTES.consultations,
     labelZh: "会员卜卦系统",
@@ -181,9 +171,9 @@ export const MEMBER_CHANNEL_NAV = MEMBER_RESEARCH_NAV;
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.home", href: NAV_ROUTES.home, labelZh: "首页", labelEn: "Home" },
-  { key: "memberNav.channel", href: NAV_ROUTES.memberChannel, labelZh: "研究", labelEn: "Research" },
-  { key: "memberNav.quantTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "交易", labelEn: "Trade" },
-  { key: "memberNav.strategyCenter", href: NAV_ROUTES.strategyCenter, labelZh: "策略", labelEn: "Strategy" },
+  { key: "memberNav.daily", href: NAV_ROUTES.memberDaily, labelZh: "日报", labelEn: "Daily" },
+  { key: "memberNav.weeklyReport", href: NAV_ROUTES.memberWeeklyReport, labelZh: "周报", labelEn: "Weekly" },
+  { key: "memberNav.quantTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "量化", labelEn: "Quant" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的", labelEn: "Account" },
 ];
 
@@ -205,7 +195,6 @@ export function buildPublicFooterColumns(_options?: {
   const member: NavItem[] = [
     { key: "footer.memberDaily", href: NAV_ROUTES.memberDaily, labelZh: "会员日报", labelEn: "Daily Report" },
     { key: "footer.memberWeekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周走势预测", labelEn: "Weekly Outlook" },
-    { key: "footer.memberStrategy", href: NAV_ROUTES.strategyCenter, labelZh: "策略中心", labelEn: "Strategy Center" },
     { key: "footer.memberMonthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月走势预测", labelEn: "Monthly Outlook" },
     { key: "footer.memberPicks", href: NAV_ROUTES.memberStockPicks, labelZh: "股票推荐", labelEn: "Stock Picks" },
     { key: "footer.memberConsult", href: NAV_ROUTES.consultations, labelZh: "会员卜卦", labelEn: "Divination" },
