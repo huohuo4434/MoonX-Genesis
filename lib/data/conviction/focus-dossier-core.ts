@@ -161,7 +161,7 @@ function parseAuxiliaryEvidence(technical: string | null, news: string | null): 
   if (!encoded) return null;
   try {
     const parsed = JSON.parse(encoded.slice(marker.length));
-    const chanTimeframes = Array.isArray(parsed.chanTimeframes) ? parsed.chanTimeframes.filter((item: unknown): item is "1D" => item === "1D") : [];
+    const chanTimeframes = Array.isArray(parsed.chanTimeframes) ? parsed.chanTimeframes.filter((item: unknown): item is "1H" | "1D" => item === "1H" || item === "1D") : [];
     return {
       closedMarketData: parsed.marketDataStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",
       chan: parsed.chanStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",
@@ -363,15 +363,17 @@ export function prepareNextFocusWeek(input: {
   if (!forecast) {
     return { assetId: input.assetId, targetStart: target.start, targetEnd: target.end, status: "AWAITING_FORMAL_EVIDENCE", forecastId: null, missingDates: focusDossierPeriodDates(target.start, target.end) };
   }
-  const present = new Set((forecast.dailyPath ?? []).map((day) => day.date));
-  const missingDates = focusDossierPeriodDates(target.start, target.end).filter((date) => !present.has(date));
+  // A formal weekly source is sufficient for preparation. Teacher-provided daily rows are
+  // optional because MOOX derives daily Liuyao from the locked period direction/path plus
+  // the target day's Ganzhi timing, then Qimen is generated independently. Do not mark a
+  // valid weekly source as incomplete merely because the teacher did not publish daily rows.
   return {
     assetId: input.assetId,
     targetStart: target.start,
     targetEnd: target.end,
-    status: missingDates.length ? "EVIDENCE_INCOMPLETE" : "READY",
+    status: "READY",
     forecastId: forecast.id,
-    missingDates,
+    missingDates: [],
   };
 }
 
@@ -486,7 +488,7 @@ export function buildFocusDossier(input: {
       ? { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version }
       : null,
     backgroundHorizons: backgrounds,
-    statusLabel: hasRollingRevision ? "未来节奏已按最新行情更新" : complete ? "双观点日分析已就绪" : "日分析正在补齐",
+    statusLabel: hasRollingRevision ? "未来节奏已按最新行情更新" : complete ? "双观点日分析已就绪" : "日分析生成检查中",
     conclusion: current.summary,
     periodStart: displayWindow.start,
     periodEnd: displayWindow.end,
@@ -559,7 +561,7 @@ export function buildMemberFocusDossier(input: {
     dailyAuthority: { forecastId: weekly.id, forecastType: "WEEK", direction: weekly.overallDirection, sourcePeriodStart: weekly.weekStart, sourcePeriodEnd: weekly.weekEnd, displayPeriodStart: weekly.weekStart, displayPeriodEnd: weekly.weekEnd, version: 1 },
     weeklyAuthority: null,
     backgroundHorizons: [],
-    statusLabel: complete ? "本期结论与逐日资料已发布" : "本期结论已发布；逐日资料待补齐",
+    statusLabel: complete ? "本期结论与逐日资料已发布" : "本期结论已发布；逐日生成状态待检查",
     conclusion: `${weekly.overallDirection}｜${weekly.headline}`,
     periodStart: weekly.weekStart,
     periodEnd: weekly.weekEnd,

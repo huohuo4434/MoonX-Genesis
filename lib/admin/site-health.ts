@@ -40,8 +40,15 @@ export type SiteHealthReport = {
   notes: string[];
 };
 
-function rowIds(rows: Array<{ assetId: string }>): Set<string> {
-  return new Set(rows.map((row) => row.assetId));
+function rowIds(rows: Array<{ assetId: string; liuyaoEvidence?: string; qimenEvidence?: string }>): Set<string> {
+  // A core daily row is only "ready" when both daily research viewpoints are present.
+  // This turns a missing Liuyao/Qimen leg into an automatic freshness repair instead
+  // of letting a direction-only row remain on the site for days.
+  return new Set(
+    rows
+      .filter((row) => Boolean(row.liuyaoEvidence?.trim()) && Boolean(row.qimenEvidence?.trim()))
+      .map((row) => row.assetId)
+  );
 }
 
 export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealthReport> {
@@ -83,7 +90,7 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
         .map((item) => ({
           assetId: item.assetId,
           assetName: item.assetName,
-          reason: "今天有交易时段，但尚未生成可展示的正式观点",
+          reason: "今天缺少完整六爻+奇门双观点，自动流水线将补跑",
         })),
     },
     {
@@ -96,7 +103,7 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
         .map((item) => ({
           assetId: item.assetId,
           assetName: item.assetName,
-          reason: "缺少覆盖下一交易日的正式预测或周度来源",
+          reason: "下一交易日缺少完整六爻+奇门双观点或正式周期来源",
         })),
     },
     {

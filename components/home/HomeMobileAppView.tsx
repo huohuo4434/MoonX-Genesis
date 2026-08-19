@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { HomeOfficialAccountTile } from "@/components/home/HomeOfficialAccountTile";
+import { HomeIntradayLevelPair } from "@/components/home/HomeIntradayLevelPair";
 
 export type MobileHomeMarket = {
   symbol: string;
@@ -61,7 +63,7 @@ export function HomeMobileAppView({
           {markets.length ? markets.map((market, index) => <Link key={market.symbol} href="/member/daily" className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
             <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.06] text-xs font-semibold text-white/60">{index + 1}</span><div><div className="font-semibold">{market.name}</div><div className="mt-0.5 text-xs text-white/35">{market.symbol} · {market.resonance || "关系待确认"}</div></div></div><div className="text-right"><div className="text-sm font-semibold text-violet-100">{market.direction}</div><div className="mt-1 text-[11px] tracking-[0.08em] text-amber-200">{"★".repeat(market.confidenceStars)}{"☆".repeat(Math.max(0, 5 - market.confidenceStars))}</div></div></div>
             {market.reason ? <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/48">{market.reason}</p> : null}
-            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-white/36"><span>支撑 {market.support}</span><span>压力 {market.resistance}</span></div>
+            <Suspense fallback={<div className="mt-3 text-[11px] text-white/30">1H技术位计算中…</div>}><HomeIntradayLevelPair symbol={market.symbol} direction={market.direction} fallbackSupport={market.support} fallbackResistance={market.resistance} mode="inline" /></Suspense>
           </Link>) : <div className="rounded-3xl border border-dashed border-white/10 p-5 text-sm text-white/40">今日研究尚未形成可展示的重点市场。</div>}
         </div>
       </section>

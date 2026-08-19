@@ -121,7 +121,7 @@ export function buildCalendarEvidence(
     dayElement: day.dayElement,
     ganzhiLabel: day.ganzhiLabel,
     relationToWeekly,
-    note: `目标日${day.ganzhiLabel}（${day.dayElement}）对「${normalizeFormalDirection(weeklyDirection)}」判断为${relationToWeekly}`,
+    note: `目标日${day.ganzhiLabel}：天干${day.dayElement}、地支${day.branchElement}；对「${normalizeFormalDirection(weeklyDirection)}」周势${relationToWeekly}`,
   };
 }
 
@@ -205,14 +205,15 @@ export function generateDailyFromWeekly(input: {
   const status = input.status ?? "DRAFT";
 
   const liuyaoEvidence = [
-    weekly.primaryHexagram ? `本周主卦${weekly.primaryHexagram}` : null,
-    weekly.changedHexagram ? `变卦${weekly.changedHexagram}` : null,
+    `日判${normalizeFormalDirection(direction)}`,
+    weekly.primaryHexagram ? `周卦${weekly.primaryHexagram}${weekly.changedHexagram ? `→${weekly.changedHexagram}` : ""}` : null,
+    `周势${normalizeFormalDirection(weekly.weeklyDirection)}`,
+    calendarEvidence.note,
+    moving.labels.length ? moving.labels.join("；") : null,
     conciseWeeklyReason(weekly.interpretation),
-    `主方向「${normalizeFormalDirection(weekly.weeklyDirection)}」`,
-    moving.labels.join("；"),
   ]
     .filter(Boolean)
-    .join("。");
+    .join("；");
 
   const baseRecord: GeneratedDailyForecastRecord = {
     id,

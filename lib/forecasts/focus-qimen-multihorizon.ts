@@ -352,7 +352,7 @@ function buildDailyRows(input: {
       direction: null,
       summary: equityWeekend
         ? "交易所休市：六爻不生成正式日走势；奇门只保留气机观察且不计验证。"
-        : "六爻逐日资料待补；奇门仍独立保留，不替六爻补造结论。",
+        : "日分析生成异常，请查看研究完整性自检。",
     };
     const qimen = buildFocusQimenParallelReading({
       assetId: input.assetId,

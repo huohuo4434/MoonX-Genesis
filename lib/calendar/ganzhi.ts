@@ -17,6 +17,10 @@ const STEM_ELEMENT: Record<(typeof STEMS)[number], string> = {
   壬: "水",
   癸: "水",
 };
+const BRANCH_ELEMENT: Record<(typeof BRANCHES)[number], string> = {
+  子: "水", 丑: "土", 寅: "木", 卯: "木", 辰: "土", 巳: "火",
+  午: "火", 未: "土", 申: "金", 酉: "金", 戌: "土", 亥: "水",
+};
 
 /** Civil date → UTC noon ms (calendar arithmetic only). */
 function utcNoonMs(y: number, m: number, d: number): number {
@@ -41,6 +45,7 @@ export type DayGanzhi = {
   dayStem: string;
   dayBranch: string;
   dayElement: string;
+  branchElement: string;
   ganzhiLabel: string;
   stemIndex: number;
   branchIndex: number;
@@ -57,6 +62,7 @@ export function getDayGanzhi(isoDate: string): DayGanzhi {
     dayStem,
     dayBranch,
     dayElement: STEM_ELEMENT[dayStem],
+    branchElement: BRANCH_ELEMENT[dayBranch],
     ganzhiLabel: `${dayStem}${dayBranch}`,
     stemIndex,
     branchIndex,
@@ -68,11 +74,15 @@ export function relateGanzhiToWeeklyDirection(
   day: DayGanzhi,
   weeklyDirection: string
 ): "增强" | "减弱" | "不变" {
-  const fireBoost = day.dayElement === "火" || day.dayElement === "木";
-  const metalWater = day.dayElement === "金" || day.dayElement === "水";
-  if (/上涨|先涨/.test(weeklyDirection) && fireBoost) return "增强";
-  if (/上涨|先涨/.test(weeklyDirection) && metalWater) return "减弱";
-  if (/下跌|先跌|回落/.test(weeklyDirection) && metalWater) return "增强";
-  if (/下跌|先跌|回落/.test(weeklyDirection) && fireBoost) return "减弱";
+  const scoreElement = (element: string) => element === "木" || element === "火" ? 1 : element === "金" || element === "水" ? -1 : 0;
+  const stemScore = scoreElement(day.dayElement);
+  const branchScore = scoreElement(day.branchElement);
+  const timingScore = stemScore + branchScore;
+  const bullish = /上涨|回升|反弹|修复|偏强|先跌后涨|探底回升/.test(weeklyDirection);
+  const bearish = /下跌|回落|回撤|偏弱|先涨后跌|冲高回落/.test(weeklyDirection);
+  if (bullish && timingScore > 0) return "增强";
+  if (bullish && timingScore < 0) return "减弱";
+  if (bearish && timingScore < 0) return "增强";
+  if (bearish && timingScore > 0) return "减弱";
   return "不变";
 }

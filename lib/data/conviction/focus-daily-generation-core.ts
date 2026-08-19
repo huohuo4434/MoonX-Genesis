@@ -10,6 +10,7 @@ import {
 import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { FOCUS_DAILY_MARKET_PREFIX } from "@/lib/weekly-source/generated-daily-namespace-core";
 import { buildFocusQimenParallelReading } from "@/lib/forecasts/focus-qimen-parallel";
+import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
 
 const DAY_MS = 86_400_000;
 export type FocusDailySourceKind = "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_PERIOD_DERIVED" | "MOOX_ROLLING_REVISION";
@@ -23,7 +24,7 @@ export type FocusDailyAuxiliaryEvidence = {
   realizedPhase?: FocusRealizedPhase;
   marketDataStatus?: "AVAILABLE" | "UNAVAILABLE";
   chanStatus?: "AVAILABLE" | "UNAVAILABLE";
-  chanTimeframes?: Array<"1D">;
+  chanTimeframes?: Array<"1H" | "1D">;
   chanStage?: string | null;
   sessionMovePct?: number | null;
   recentMovePct?: number | null;
@@ -35,19 +36,22 @@ export type FocusDailyQuoteCapability = { available: boolean; market: "CRYPTO" |
 export type FocusDailyChanCapability = {
   catalogSupported: boolean;
   instrument: string | null;
-  analyzedTimeframes: Array<"1D">;
+  analyzedTimeframes: Array<"1H" | "1D">;
   reason: string | null;
 };
 
 const CHAN_FOCUS_INSTRUMENTS: Readonly<Record<string, string>> = Object.freeze({
-  BTC: "BTCUSDT", ETH: "ETHUSDT", SNDK: "SNDK", MU: "MU", GOOGL: "GOOGL", GOOG: "GOOGL", MSFT: "MSFT",
+  BTC: "BTCUSDT", ETH: "ETHUSDT", SOL: "SOLUSDT", HYPE: "HYPEUSDT", ASTEROID: "ASTEROID-DEX",
+  SNDK: "SNDK", MU: "MU", NBIS: "NBIS", GOOGL: "GOOGL", GOOG: "GOOGL", MSFT: "MSFT",
   TSLA: "TSLA", LITE: "LITE", SPCX: "SPCX",
+  "002460": "002460.SZ", "300784": "300784.SZ", "300562": "300562.SZ", "688825": "688825.SS",
+  "00700": "0700.HK", "0700": "0700.HK", "688111": "688111.SS",
 });
 
 export function focusDailyChanCapability(symbolInput: string): FocusDailyChanCapability {
   const instrument = CHAN_FOCUS_INSTRUMENTS[symbolInput.trim().toUpperCase()] ?? null;
   return instrument
-    ? { catalogSupported: true, instrument, analyzedTimeframes: ["1D"], reason: null }
+    ? { catalogSupported: true, instrument, analyzedTimeframes: ["1H"], reason: null }
     : { catalogSupported: false, instrument: null, analyzedTimeframes: [], reason: "CHAN_INSTRUMENT_UNAVAILABLE" };
 }
 export function focusDailyQuoteCapability(input: { symbol: string; assetType?: string; exchange?: string | null }): FocusDailyQuoteCapability {
@@ -119,19 +123,22 @@ function exactDatedKeyEvidence(authority: ConvictionPeriodForecast, forecastDate
     .map((item) => ({ date: forecastDate, type: item.source, label: item.label }));
 }
 
-function encodeCalendarEvidence(authority: ConvictionPeriodForecast, forecastDate: string): CalendarEvidence | null {
+function encodeCalendarEvidence(authority: ConvictionPeriodForecast, forecastDate: string): CalendarEvidence {
+  const day = getDayGanzhi(forecastDate);
+  const relationToWeekly = relateGanzhiToWeeklyDirection(day, authority.direction);
   const evidence = exactDatedKeyEvidence(authority, forecastDate);
-  if (!evidence.length) return null;
   const source = authority.keyDates?.find((item) => item.date === forecastDate);
+  const explicitGanzhi = source?.ganzhi?.trim();
+  const keyMarker = evidence.length ? `；FOCUS_KEY_DAY_EVIDENCE=${JSON.stringify(evidence)}` : "";
   return {
     calendarDateChina: forecastDate,
-    dayStem: "",
-    dayBranch: "",
-    dayElement: "",
-    ganzhiLabel: source?.ganzhi ?? "",
-    relationToWeekly: "不变",
-    note: `FOCUS_KEY_DAY_EVIDENCE=${JSON.stringify(evidence)}`,
-  } as CalendarEvidence;
+    dayStem: day.dayStem,
+    dayBranch: day.dayBranch,
+    dayElement: day.dayElement,
+    ganzhiLabel: explicitGanzhi || day.ganzhiLabel,
+    relationToWeekly,
+    note: `日干支=${day.ganzhiLabel}；天干${day.dayElement}；地支${day.branchElement}；对周期方向=${relationToWeekly}${keyMarker}`,
+  };
 }
 
 export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly: ConvictionPeriodForecast; asOfDate: string; nowMs: number; auxiliary: FocusDailyAuxiliaryEvidence; latest: readonly GeneratedDailyForecastRecord[]; mode?: "CURRENT" | "NEXT" }): { all: GeneratedDailyForecastRecord[]; append: GeneratedDailyForecastRecord[] } {
@@ -169,7 +176,7 @@ export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly
       liuyaoDirection,
     });
     const calendarEvidence = encodeCalendarEvidence(authority, forecastDate);
-    const teacherQimenKeyDate = exactDatedKeyEvidence(authority, forecastDate).some((item) => item.type === "QIMEN") ? calendarEvidence?.note ?? null : null;
+    const teacherQimenKeyDate = exactDatedKeyEvidence(authority, forecastDate).some((item) => item.type === "QIMEN") ? calendarEvidence.note : null;
     const qimenEvidence = [qimenReading.evidence, teacherQimenKeyDate].filter((value): value is string => Boolean(value)).join("；") || null;
     const evidenceKey = stableHash(JSON.stringify({ sourceId: authority.id, sourceVersion: authority.version, forecastDate, liuyaoDirection, liuyaoSummary, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? authority.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? authority.invalidationLevel ?? null, auxiliary: input.auxiliary.evidenceKey, qimen: qimenReading.verificationKey }));
     const previous = latestByDate.get(forecastDate) ?? null, version = previous ? previous.version + 1 : 1, probs = probabilities(direction);

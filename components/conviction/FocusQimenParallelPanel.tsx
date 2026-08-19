@@ -6,7 +6,7 @@ import type {
 } from "@/lib/forecasts/focus-qimen-multihorizon";
 import type { FocusQimenRelation } from "@/lib/forecasts/focus-qimen-parallel";
 
-const DAY_STATE = { OCCURRED: "已发生", TODAY: "今日", PENDING: "待验证", MISSING: "待补" } as const;
+const DAY_STATE = { OCCURRED: "已发生", TODAY: "今日", PENDING: "待验证", MISSING: "系统检查" } as const;
 
 function relationClass(relation: FocusQimenRelation): string {
   if (relation === "RESONANCE") return "border-amber-300/25 bg-amber-300/[0.06] text-amber-100";
@@ -33,7 +33,7 @@ function DailyRows({ rows }: { rows: FocusDualMethodDailyRow[] }) {
           {visibleRows.map((row) => (
             <tr key={row.date} className="align-top bg-black/10">
               <td className="whitespace-nowrap px-3 py-4"><p className="text-body-sm font-medium text-white">{row.date}</p><p className="mt-1 text-[11px] text-white/35">{DAY_STATE[row.state]}</p></td>
-              <td className="max-w-[280px] px-3 py-4"><Badge variant="outline" className={directionClass(row.liuyaoDirection)}>{row.liuyaoDirection ?? "待补"}</Badge><p className="mt-2 text-caption leading-6 text-white/58">{row.liuyaoSummary}</p></td>
+              <td className="max-w-[280px] px-3 py-4"><Badge variant="outline" className={directionClass(row.liuyaoDirection)}>{row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-white/58">{row.liuyaoSummary}</p></td>
               <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.qimen.direction)}>{row.qimen.direction}</Badge><p className="mt-2 text-caption leading-6 text-violet-100/65">{row.qimen.mysticNote}</p></td>
               <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.rhythmDirection)}>{row.rhythmDirection ?? row.liuyaoDirection ?? "震荡"}</Badge><p className="mt-2 text-caption leading-6 text-cyan-100/65">{row.rhythmSummary ?? row.liuyaoSummary}</p></td>
               <td className="whitespace-nowrap px-3 py-4"><Badge variant="outline" className={relationClass(row.relation)}>{row.relationLabel}</Badge></td>

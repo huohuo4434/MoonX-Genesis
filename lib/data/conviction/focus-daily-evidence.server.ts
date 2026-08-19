@@ -5,26 +5,68 @@ import { findXIntelligenceSummaryForMarket } from "@/lib/trading-signals/x-intel
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { focusDailyQuoteCapability, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
 import { resolveFocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-evidence-core";
+import { getIntradayTechnicalLevels, intradayFocusKey } from "@/lib/market-data/intraday-chan-levels";
 
-export async function loadFocusDailyAuxiliaryEvidence(input: { symbol: string; assetType?: string; exchange?: string | null; asOfDate: string; now: Date }): Promise<FocusDailyAuxiliaryEvidence> {
+export async function loadFocusDailyAuxiliaryEvidence(input: {
+  assetId?: string;
+  symbol: string;
+  assetType?: string;
+  exchange?: string | null;
+  asOfDate: string;
+  now: Date;
+}): Promise<FocusDailyAuxiliaryEvidence> {
   const capability = focusDailyQuoteCapability(input);
-  return resolveFocusDailyAuxiliaryEvidence({
-    symbol: input.symbol,
-    quoteSymbol: capability.quoteSymbol,
-    asOfDate: input.asOfDate,
-    dependencies: {
-      loadXMentions24h: async () => {
-        const snapshot = await getXIntelligenceSnapshot({ now: input.now });
-        if (!snapshot.databaseAvailable) throw new Error("focus-x-intelligence-unavailable");
-        return findXIntelligenceSummaryForMarket(snapshot.aggregate.summaries, input.symbol)?.mentions24h ?? null;
+  const [base, intraday] = await Promise.all([
+    resolveFocusDailyAuxiliaryEvidence({
+      symbol: input.symbol,
+      quoteSymbol: capability.quoteSymbol,
+      asOfDate: input.asOfDate,
+      dependencies: {
+        loadXMentions24h: async () => {
+          const snapshot = await getXIntelligenceSnapshot({ now: input.now });
+          if (!snapshot.databaseAvailable) throw new Error("focus-x-intelligence-unavailable");
+          return findXIntelligenceSummaryForMarket(snapshot.aggregate.summaries, input.symbol)?.mentions24h ?? null;
+        },
+        loadBars: capability.available
+          ? async () => fetchRecentDailyBarsForForecast({
+            quoteSymbol: capability.quoteSymbol!,
+            market: capability.market as DailyAccuracyMarket,
+            asOfDate: input.asOfDate,
+          })
+          : null,
       },
-      loadBars: capability.available
-        ? async () => fetchRecentDailyBarsForForecast({
-          quoteSymbol: capability.quoteSymbol!,
-          market: capability.market as DailyAccuracyMarket,
-          asOfDate: input.asOfDate,
-        })
-        : null,
-    },
-  });
+    }),
+    input.assetId
+      ? getIntradayTechnicalLevels(intradayFocusKey(input.assetId)).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  if (!intraday || intraday.source === "UNAVAILABLE") return base;
+  const intradayMove = intraday.move24hPct;
+  const intradayPhase = intradayMove != null && intradayMove >= 4
+    ? "EARLY_RALLY" as const
+    : intradayMove != null && intradayMove <= -4
+      ? "EARLY_DROP" as const
+      : "NONE" as const;
+  const realizedPhase = base.realizedPhase && base.realizedPhase !== "NONE"
+    ? base.realizedPhase
+    : intradayPhase;
+  return {
+    ...base,
+    evidenceKey: `${base.evidenceKey};INTRADAY=${intraday.source}:${intraday.support}:${intraday.resistance}`,
+    supportLevels: [intraday.support],
+    resistanceLevels: [intraday.resistance],
+    technicalEvidence: [
+      `缠论1H支撑${intraday.support}`,
+      `缠论1H压力${intraday.resistance}`,
+      base.technicalEvidence,
+    ].filter(Boolean).join("；"),
+    marketDataStatus: "AVAILABLE",
+    chanStatus: "AVAILABLE",
+    chanTimeframes: ["1H"],
+    chanStage: `1H:${intraday.source}`,
+    currentPrice: intraday.currentPrice ?? base.currentPrice ?? null,
+    recentMovePct: base.recentMovePct ?? intradayMove,
+    realizedPhase,
+  };
 }

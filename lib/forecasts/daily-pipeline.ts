@@ -460,10 +460,13 @@ export async function runDailyForecastPipeline(input?: {
           snapshot: snapshot ?? emptySnapshot(),
           previousVersionId: latest?.id ?? null,
         });
+        // The daily Liuyao view is the weekly-source decomposition for this target day
+        // (including moving-line/Ganzhi timing and any allowed future rhythm revision).
+        // Qimen must compare against that DAILY Liuyao view, not the coarse weekly label.
         record = applyQimenFirstToGeneratedDaily(record, {
-          liuyaoDirection: weekly.weeklyDirection,
+          liuyaoDirection: record.direction,
           previousQimenEvidence: latest?.qimenEvidence ?? null,
-        }); // MOOX_QIMEN_FIRST_V72005_PRE_TECH
+        }); // MOOX_QIMEN_FIRST_DAILY_LIUYAO_V72080
         const approvedXOverlay = await getApprovedXForecastOverlay(market, now).catch(() => null);
         record = applyApprovedXOverlayToGeneratedDaily(record, approvedXOverlay); // MOOX_X_APPROVED_V72051_POST_QIMEN
         // Every core market, including ETH, must receive its own current technical levels.

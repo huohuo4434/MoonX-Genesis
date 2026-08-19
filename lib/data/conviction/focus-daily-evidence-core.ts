@@ -1,6 +1,4 @@
-import { analyzeChanStructure } from "@/lib/trading-signals/chan-structure-core";
-import { deriveChanStage } from "@/lib/trading-signals/chan-stage-core";
-import { filterClosedFocusDailyBars, focusDailyChanCapability, type FocusClosedDailyBar, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
+import { filterClosedFocusDailyBars, type FocusClosedDailyBar, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
 
 export type FocusDailyAuxiliaryDependencies = {
   loadBars: (() => Promise<readonly FocusClosedDailyBar[]>) | null;
@@ -74,8 +72,6 @@ export function buildFocusClosedMarketAuxiliaryEvidence(input: {
   const first = recent[0]!;
   const lastClosed = recent.at(-1)!;
   const current = all.filter((bar) => bar.date === input.asOfDate).at(-1) ?? null;
-  const support = Math.min(...recent.map((bar) => bar.low), ...(current ? [current.low] : []));
-  const resistance = Math.max(...recent.map((bar) => bar.high), ...(current ? [current.high] : []));
   const recentMove = (lastClosed.close - first.open) / first.open;
   const sessionMove = current ? (current.close - lastClosed.close) / lastClosed.close : null;
   const realizedPhase = (sessionMove != null && sessionMove >= 0.025) || recentMove >= 0.04
@@ -84,32 +80,24 @@ export function buildFocusClosedMarketAuxiliaryEvidence(input: {
       ? "EARLY_DROP"
       : "NONE";
 
-  const chanCapability = focusDailyChanCapability(input.symbol);
-  const chanStructure = chanCapability.catalogSupported
-    ? analyzeChanStructure(closed.map((bar) => ({ timestamp: Date.parse(`${bar.date}T00:00:00Z`), open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: null })))
-    : null;
-  const chanStage = chanStructure ? deriveChanStage(chanStructure) : null;
   const sessionPct = roundPct(sessionMove);
   const recentPct = roundPct(recentMove);
   const technicalParts = [
     current && sessionPct != null ? `今日${sessionPct >= 0 ? "+" : ""}${sessionPct}%` : null,
     recentPct != null ? `近5日${recentPct >= 0 ? "+" : ""}${recentPct}%` : null,
-    `支撑${support}`,
-    `压力${resistance}`,
-    chanStage ? `缠论1D:${chanStage.code}` : null,
   ].filter((value): value is string => Boolean(value));
 
   return {
-    evidenceKey: JSON.stringify({ quoteSymbol: input.quoteSymbol, lastClosed, current, support, resistance, xMentions24h: input.xMentions24h, realizedPhase, chanStage: chanStage?.code ?? null }),
-    supportLevels: [String(support)],
-    resistanceLevels: [String(resistance)],
+    evidenceKey: JSON.stringify({ quoteSymbol: input.quoteSymbol, lastClosed, current, xMentions24h: input.xMentions24h, realizedPhase }),
+    supportLevels: [],
+    resistanceLevels: [],
     technicalEvidence: technicalParts.join("；"),
     newsEvidence: input.xMentions24h == null ? null : `X情报近24小时提及${input.xMentions24h}次。`,
     realizedPhase,
     marketDataStatus: "AVAILABLE",
-    chanStatus: chanCapability.catalogSupported ? "AVAILABLE" : "UNAVAILABLE",
-    chanTimeframes: chanCapability.analyzedTimeframes,
-    chanStage: chanStage ? `1D:${chanStage.code}` : null,
+    chanStatus: "UNAVAILABLE",
+    chanTimeframes: [],
+    chanStage: null,
     sessionMovePct: sessionPct,
     recentMovePct: recentPct,
     currentPrice: current?.close ?? lastClosed.close,

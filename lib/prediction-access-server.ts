@@ -125,20 +125,28 @@ async function applyQimenToAccessRows(rows: DailyForecast[]): Promise<DailyForec
       import("@/lib/forecasts/daily-pipeline"),
     ]);
     const pureByDate = new Map<string, ReturnType<typeof generateCoreMarketsFromWeeklyPure>>();
-    const weeklyAuxFor = (forecast: DailyForecast): string | null => {
-      if (forecast.liuyaoEvidence) return forecast.liuyaoEvidence;
+    const pureDailyFor = (forecast: DailyForecast) => {
       let rowsForDate = pureByDate.get(forecast.forecastForDate);
       if (!rowsForDate) {
         rowsForDate = generateCoreMarketsFromWeeklyPure(forecast.forecastForDate, "LOCKED");
         pureByDate.set(forecast.forecastForDate, rowsForDate);
       }
       const canonical = canonicalAssetCode(forecast.symbol);
-      return rowsForDate.find((row) => canonicalAssetCode(row.marketCode) === canonical)?.liuyaoEvidence ?? null;
+      return rowsForDate.find((row) => canonicalAssetCode(row.marketCode) === canonical) ?? null;
     };
-    return rows.map((forecast) => applyQimenFirstToGeneratedDaily(forecast, {
-      liuyaoDirection: weeklyAuxFor(forecast),
-      previousQimenEvidence: forecast.qimenEvidence ?? null,
-    }));
+    return rows.map((forecast) => {
+      const pure = pureDailyFor(forecast);
+      const liuyaoEvidence = forecast.liuyaoEvidence || pure?.liuyaoEvidence || undefined;
+      const evidenceDay = liuyaoEvidence?.match(/日判[：:=]?\s*([^；。]+)/u)?.[1]?.trim();
+      // Pure generation is pre-Qimen. Its direction is the daily Liuyao view derived
+      // from the locked weekly source + target-day Ganzhi/moving-line timing.
+      const liuyaoDirection = evidenceDay || pure?.direction || null;
+      const enriched = liuyaoEvidence && !forecast.liuyaoEvidence ? { ...forecast, liuyaoEvidence } : forecast;
+      return applyQimenFirstToGeneratedDaily(enriched, {
+        liuyaoDirection,
+        previousQimenEvidence: forecast.qimenEvidence ?? null,
+      });
+    });
   } catch (error) {
     console.warn("[prediction-access] Qimen-first access overlay skipped", error);
     return rows;

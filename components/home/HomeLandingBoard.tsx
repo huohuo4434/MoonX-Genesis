@@ -11,6 +11,7 @@ import type { DailyForecast } from "@/types/daily-forecast";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-history";
 import { buildHomeResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
 import { HomeMobileAppView } from "@/components/home/HomeMobileAppView";
+import { HomeIntradayLevelPair } from "@/components/home/HomeIntradayLevelPair";
 // V7.20.7 compatibility note: getPublicUnifiedLiveSnapshot moved off the homepage critical render path in V7.20.8.
 
 const CORE_MARKETS = [
@@ -85,68 +86,34 @@ function buildMarketRows(forecasts: DailyForecast[]) {
   return CORE_MARKETS.map((market) => ({ ...market, forecast: bySymbol.get(market.symbol) }));
 }
 
-type VerificationSelection = { item: PublicAccuracyHistoryItem; weightedRate: number; samples: number };
+type VerificationSelection = { item: PublicAccuracyHistoryItem };
 
-function verificationPoints(item: PublicAccuracyHistoryItem): number | null {
-  if (item.verdict === "FULL_HIT" || item.verdict === "HIT") return 1;
-  if (item.verdict === "PARTIAL_HIT") return 0.5;
-  if (item.verdict === "MISS") return 0;
-  return null;
-}
+function selectVerification(items: PublicAccuracyHistoryItem[], now = new Date()): VerificationSelection[] {
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const core = items
+    .filter((item) => CORE_MARKETS.some((market) => market.symbol === canonicalSymbol(item.symbol)))
+    .filter((item) => item.forecastDate < todayKey);
+  const targetDate = core.map((item) => item.forecastDate).sort().at(-1);
+  if (!targetDate) return [];
 
-function selectVerification(items: PublicAccuracyHistoryItem[], now = new Date()) {
-  const cutoff = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-  const deduped: PublicAccuracyHistoryItem[] = [];
+  const accepted = new Set(["HIT", "FULL_HIT", "PARTIAL_HIT"]);
   const seen = new Set<string>();
-  for (const item of [...items].sort((a, b) => String(b.verifiedAt).localeCompare(String(a.verifiedAt)))) {
-    const symbol = canonicalSymbol(item.symbol);
-    if (!CORE_MARKETS.some((market) => market.symbol === symbol)) continue;
-    const key = `${symbol}|${item.forecastDate}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(item);
-  }
-
-  const stats = new Map<string, { samples: number; points: number; latest: string }>();
-  for (const item of deduped) {
-    const verifiedMs = Date.parse(item.verifiedAt);
-    if (!Number.isFinite(verifiedMs) || verifiedMs < cutoff) continue;
-    const points = verificationPoints(item);
-    if (points == null) continue;
-    const symbol = canonicalSymbol(item.symbol);
-    const row = stats.get(symbol) ?? { samples: 0, points: 0, latest: "" };
-    row.samples += 1;
-    row.points += points;
-    row.latest = row.latest > item.verifiedAt ? row.latest : item.verifiedAt;
-    stats.set(symbol, row);
-  }
-
-  const rankedSymbols = [...stats.entries()]
-    .map(([symbol, row]) => ({
-      symbol,
-      ...row,
-      weightedRate: row.samples ? row.points / row.samples : 0,
-      // Small-sample correction prevents a single lucky 1/1 market from always ranking first.
-      rankScore: (row.points + 1) / (row.samples + 2),
-    }))
-    .sort((a, b) => b.rankScore - a.rankScore || b.weightedRate - a.weightedRate || b.samples - a.samples || b.latest.localeCompare(a.latest))
-    .slice(0, 3);
-
   const selected: VerificationSelection[] = [];
-  for (const ranked of rankedSymbols) {
-    const latest = deduped.find((item) => canonicalSymbol(item.symbol) === ranked.symbol);
-    if (latest) selected.push({ item: latest, weightedRate: ranked.weightedRate, samples: ranked.samples });
-  }
-
-  if (selected.length >= 3) return selected;
-  for (const item of deduped) {
+  for (const item of core
+    .filter((row) => row.forecastDate === targetDate && accepted.has(row.verdict))
+    .sort((a, b) => String(b.verifiedAt).localeCompare(String(a.verifiedAt)))) {
     const symbol = canonicalSymbol(item.symbol);
-    if (selected.some((current) => canonicalSymbol(current.item.symbol) === symbol)) continue;
-    const row = stats.get(symbol);
-    selected.push({ item, weightedRate: row && row.samples ? row.points / row.samples : 0, samples: row?.samples ?? 0 });
-    if (selected.length === 3) break;
+    if (seen.has(symbol)) continue;
+    seen.add(symbol);
+    selected.push({ item });
   }
-  return selected;
+  return selected.sort((a, b) => {
+    const left = CORE_MARKETS.findIndex((market) => market.symbol === canonicalSymbol(a.item.symbol));
+    const right = CORE_MARKETS.findIndex((market) => market.symbol === canonicalSymbol(b.item.symbol));
+    return left - right;
+  });
 }
 
 const MEMBER_ENTRIES = [
@@ -238,8 +205,7 @@ async function HomeLandingData() {
                         <td className="rounded-l-2xl px-3 py-3"><div className="font-medium">{name}</div><div className="mt-1 text-xs text-white/42">{symbol}</div></td>
                         <td className="px-3 py-3">{direction ? <><span className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}>{direction}</span>{researchReason ? <p className="mt-2 max-w-[360px] text-xs leading-5 text-white/58">{researchReason}</p> : null}</> : <span className="text-sm text-white/45">待发布</span>}</td>
                         <td className="px-3 py-3">{confidence ? <><span className="font-mono text-base tracking-[0.16em] text-amber-200">{starsText(confidence)}</span>{forecast?.qimenAgreementLabel ? <div className="mt-1 text-[11px] text-white/42">{forecast.qimenAgreementLabel}</div> : null}</> : <span className="text-white/35">—</span>}</td>
-                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? cleanDailyLevel(forecast.supportLevels?.[0]) : "—"}</td>
-                        <td className="px-3 py-3 text-sm text-white/74">{forecast ? cleanDailyLevel(forecast.resistanceLevels?.[0]) : "—"}</td>
+                        {forecast ? <Suspense fallback={<><td className="px-3 py-3 text-sm text-white/40">计算中…</td><td className="px-3 py-3 text-sm text-white/40">计算中…</td></>}><HomeIntradayLevelPair symbol={symbol} direction={direction} fallbackSupport={forecast.supportLevels?.[0]} fallbackResistance={forecast.resistanceLevels?.[0]} /></Suspense> : <><td className="px-3 py-3 text-sm text-white/35">—</td><td className="px-3 py-3 text-sm text-white/35">—</td></>}
                         <td className="rounded-r-2xl px-3 py-3 text-xs text-white/42">{forecast ? zhDateTime(forecast.updatedAt || forecast.publishedAt) : "—"}</td>
                       </tr>;
                     })}
@@ -292,7 +258,7 @@ async function HomeMobileVerificationData({ nowIso }: { nowIso: string }) {
   const verification = await loadHomeVerification(nowIso);
   return (
     <section className="px-4 pb-24 pt-5 md:hidden">
-      <div className="flex items-center justify-between"><div><p className="text-[11px] tracking-[0.18em] text-white/35">VERIFICATION</p><h2 className="mt-1 text-lg font-semibold">最近验证</h2></div><Link href="/verification" className="text-xs text-emerald-200">历史 →</Link></div>
+      <div className="flex items-center justify-between"><div><p className="text-[11px] tracking-[0.18em] text-white/35">VERIFICATION</p><h2 className="mt-1 text-lg font-semibold">昨日命中</h2></div><Link href="/verification" className="text-xs text-emerald-200">历史 →</Link></div>
       <div className="mt-3 overflow-hidden rounded-3xl border border-white/8 bg-white/[0.025]">
         {verification.length ? verification.map(({ item }) => <div key={item.forecastId} className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-xs text-white/38">{zhDate(item.forecastDate)} · 预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className="shrink-0 rounded-full border border-emerald-400/18 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">{item.verdictLabel}</span></div>) : <div className="p-5 text-sm text-white/40">暂无可展示的已验证记录。</div>}
       </div>
@@ -305,9 +271,9 @@ async function HomeDesktopVerificationData({ nowIso }: { nowIso: string }) {
   return (
     <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8">
       <div className="rounded-3xl border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,25,26,.98),rgba(8,9,14,.98))] p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">验证精选</p><h2 className="mt-2 text-2xl font-semibold">九大市场近期表现较稳的3个市场</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">日验证</p><h2 className="mt-2 text-2xl font-semibold">上一交易日验证 · 只展示命中与部分命中</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
         <div className="mt-5 grid gap-3">
-          {verificationItems.length ? verificationItems.map(({ item, weightedRate, samples }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">近30天加权命中 {samples ? `${Math.round(weightedRate * 100)}% · ${samples}个有效样本` : "样本积累中"}</div><div className="mt-1 text-sm text-white/48">最近验证 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
+          {verificationItems.length ? verificationItems.map(({ item }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">验证日期 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
         </div>
       </div>
     </section>

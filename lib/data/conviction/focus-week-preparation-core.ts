@@ -29,8 +29,8 @@ export type FocusDailyCoverageRow = {
   quoteProvider: "CRYPTO" | "HK" | "CN" | "US" | null;
   quoteSymbol: string | null;
   chanMapping: "AVAILABLE" | "UNAVAILABLE";
-  chanTimeframes: Array<"1D">;
-  chanStage: "RUNTIME_1D_EVIDENCE_REQUIRED" | "UNAVAILABLE";
+  chanTimeframes: Array<"1H" | "1D">;
+  chanStage: "RUNTIME_1H_EVIDENCE_REQUIRED" | "UNAVAILABLE";
   rollingCapability: "CLOSED_BARS_AND_X" | "WEEKLY_AND_OPTIONAL_X_ONLY";
   confirmationAvailable: boolean;
   invalidationAvailable: boolean;
@@ -44,9 +44,13 @@ export function buildFocusDailyCoverageReport(evidence: readonly FocusWeekEviden
     const authority = current ?? next;
     const quote = focusDailyQuoteCapability({ symbol: asset.symbol ?? asset.assetId, assetType: asset.assetType, exchange: asset.exchange });
     const chan = focusDailyChanCapability(asset.symbol ?? asset.assetId);
-    const gaps = [!current && "CURRENT_AUTHORITY_MISSING", !next && "NEXT_WEEK_MISSING", current && !current.dailyPath?.length && "CURRENT_DAILY_SOURCE_DERIVED", next && !next.dailyPath?.length && "NEXT_TEACHER_DAILY_MISSING", !quote.available && "QUOTE_MAPPING_UNAVAILABLE", !authority?.confirmationLevel && "CONFIRMATION_MISSING", !authority?.invalidationLevel && "INVALIDATION_MISSING"].filter((value): value is string => Boolean(value));
+    const gaps = [
+      !current && "CURRENT_AUTHORITY_MISSING",
+      !quote.available && !chan.catalogSupported && "MARKET_PROGRESS_SOURCE_UNAVAILABLE",
+      !chan.catalogSupported && "INTRADAY_1H_MAPPING_UNAVAILABLE",
+    ].filter((value): value is string => Boolean(value));
     const inventory = asset.forecasts.filter((row) => row.status === "published" && Date.parse(row.publishedAt) <= nowMs && Date.parse(row.lockedAt) <= nowMs).map((row) => ({ id: row.id, type: row.forecastType, start: row.periodStart, end: row.periodEnd, version: row.version }));
-    return { assetId: asset.assetId, formalPeriodInventory: inventory, currentWeekId: current?.id ?? null, nextWeekId: next?.id ?? null, teacherDailyCount: authority?.dailyPath?.length ?? 0, currentTeacherDailyCount: current?.dailyPath?.length ?? 0, nextTeacherDailyCount: next?.dailyPath?.length ?? 0, generatedDailyCount: 0, rollingRevisionCount: 0, latestGeneratedVersion: 0, currentKeyDayCount: current?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, nextKeyDayCount: next?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, backgroundHorizons: [...new Set(inventory.filter((row) => !row.type.startsWith("WEEK")).map((row) => row.type))], quoteMapping: quote.available ? "AVAILABLE" as const : "UNAVAILABLE" as const, quoteProvider: quote.market, quoteSymbol: quote.quoteSymbol, chanMapping: chan.catalogSupported ? "AVAILABLE" as const : "UNAVAILABLE" as const, chanTimeframes: chan.analyzedTimeframes, chanStage: chan.catalogSupported ? "RUNTIME_1D_EVIDENCE_REQUIRED" as const : "UNAVAILABLE" as const, rollingCapability: quote.available ? "CLOSED_BARS_AND_X" as const : "WEEKLY_AND_OPTIONAL_X_ONLY" as const, confirmationAvailable: Boolean(authority?.confirmationLevel), invalidationAvailable: Boolean(authority?.invalidationLevel), gapReasons: gaps };
+    return { assetId: asset.assetId, formalPeriodInventory: inventory, currentWeekId: current?.id ?? null, nextWeekId: next?.id ?? null, teacherDailyCount: authority?.dailyPath?.length ?? 0, currentTeacherDailyCount: current?.dailyPath?.length ?? 0, nextTeacherDailyCount: next?.dailyPath?.length ?? 0, generatedDailyCount: 0, rollingRevisionCount: 0, latestGeneratedVersion: 0, currentKeyDayCount: current?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, nextKeyDayCount: next?.keyDates?.filter((item) => Boolean(item.date)).length ?? 0, backgroundHorizons: [...new Set(inventory.filter((row) => !row.type.startsWith("WEEK")).map((row) => row.type))], quoteMapping: quote.available ? "AVAILABLE" as const : "UNAVAILABLE" as const, quoteProvider: quote.market, quoteSymbol: quote.quoteSymbol, chanMapping: chan.catalogSupported ? "AVAILABLE" as const : "UNAVAILABLE" as const, chanTimeframes: chan.analyzedTimeframes, chanStage: chan.catalogSupported ? "RUNTIME_1H_EVIDENCE_REQUIRED" as const : "UNAVAILABLE" as const, rollingCapability: quote.available || chan.catalogSupported ? "CLOSED_BARS_AND_X" as const : "WEEKLY_AND_OPTIONAL_X_ONLY" as const, confirmationAvailable: Boolean(authority?.confirmationLevel), invalidationAvailable: Boolean(authority?.invalidationLevel), gapReasons: gaps };
   }).sort((a, b) => a.assetId.localeCompare(b.assetId));
 }
 

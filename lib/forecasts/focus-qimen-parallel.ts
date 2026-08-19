@@ -12,6 +12,7 @@
  *   stem used to identify an asset is not itself treated as bullish or bearish.
  */
 import { buildMooxQimenChartForAudit } from "@/lib/forecasts/qimen-first-policy";
+import { classifyDailyDirection } from "@/lib/forecasts/daily-direction-family";
 
 export const MOOX_FOCUS_QIMEN_PARALLEL_VERSION = "FOCUS_QIMEN_PARALLEL_V1_20260818";
 export const MOOX_FOCUS_QIMEN_ACCURACY_BASELINE = "2026-08-18";
@@ -322,16 +323,8 @@ function resolveUseGod(assetId: string, symbol?: string | null): FocusQimenUseGo
   };
 }
 function normalizeDirection(value: string | null | undefined): FocusQimenDirectionCode | null {
-  if (!value) return null;
-  const text = value.trim();
-  const upper = text.toUpperCase();
-  if (["UP", "BULLISH", "LONG"].includes(upper)) return "UP";
-  if (["DOWN", "BEARISH", "SHORT"].includes(upper)) return "DOWN";
-  if (["SIDEWAYS", "NEUTRAL", "RANGE"].includes(upper)) return "SIDEWAYS";
-  if (/先涨后跌|冲高回落|震荡下跌|看跌|下跌|偏空/.test(text)) return "DOWN";
-  if (/先跌后涨|探底回升|震荡上涨|看涨|上涨|偏多|上扬|反弹/.test(text)) return "UP";
-  if (/震荡|横盘|中性|观察|观望|分化/.test(text)) return "SIDEWAYS";
-  return null;
+  const family = classifyDailyDirection(value);
+  return family === "UP" ? "UP" : family === "DOWN" ? "DOWN" : family === "SIDEWAYS" ? "SIDEWAYS" : null;
 }
 function directionLabel(direction: FocusQimenDirectionCode): Exclude<FocusQimenDirection, "休市观察"> {
   if (direction === "UP") return "上涨";
@@ -348,7 +341,7 @@ function relationLabel(relation: FocusQimenRelation): string {
   if (relation === "RESONANCE") return "两法同向";
   if (relation === "DIVERGENCE") return "两法分歧";
   if (relation === "NOT_COMPARABLE") return "休市不比较";
-  return "六爻待补";
+  return "双观点数据链异常";
 }
 function palacePhrase(palace: PalaceState | null, stem: string, direction: FocusQimenDirectionCode): string {
   if (!palace) return direction === "UP" ? "阳机渐聚，势有启处。" : direction === "DOWN" ? "阴气内收，先防回落。" : "阴阳相持，静候破局。";
@@ -491,7 +484,7 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
     score: available ? scored.score : null,
     summary: equityWeekend
       ? "交易所休市：奇门保留为周末气机观察，不生成可验证的正式涨跌结论。"
-      : `奇门独立判断${formalDirection}${available ? `，置信度${scored.confidence}%` : ""}；不因六爻同向或分歧而改分。`,
+      : `奇门：${formalDirection}${available ? `，置信度${scored.confidence}%` : ""}。`,
     mysticNote,
     useGod,
     useGodBasis: definition.basis,

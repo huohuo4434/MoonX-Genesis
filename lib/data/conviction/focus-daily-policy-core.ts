@@ -1,4 +1,6 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
+import { classifyDailyDirection } from "@/lib/forecasts/daily-direction-family";
 
 const DAY_MS = 86_400_000;
 
@@ -39,9 +41,19 @@ export function selectFocusCurrentAuthority(input: {
 }
 
 export function focusAuthorityBias(forecast: Pick<ConvictionPeriodForecast, "direction" | "summary" | "expectedPath">): FocusAuthorityBias {
-  const text = `${forecast.direction} ${forecast.summary} ${forecast.expectedPath}`;
-  if (/先跌后涨|探底回升|上涨|看涨|偏多|反弹|修复|走强|上行|BULL|LONG/i.test(text)) return "UP";
-  if (/先涨后跌|冲高回落|下跌|看跌|偏空|回落|走弱|下行|BEAR|SHORT/i.test(text)) return "DOWN";
+  // The explicit locked period direction is authoritative. Summary/path wording may
+  // describe a counter-trend leg and must never flip the base family.
+  const explicit = classifyDailyDirection(forecast.direction);
+  if (explicit === "UP") return "UP";
+  if (explicit === "DOWN") return "DOWN";
+  if (explicit === "SIDEWAYS") return "MIXED";
+
+  const path = classifyDailyDirection(forecast.expectedPath);
+  if (path === "UP") return "UP";
+  if (path === "DOWN") return "DOWN";
+  const summary = classifyDailyDirection(forecast.summary);
+  if (summary === "UP") return "UP";
+  if (summary === "DOWN") return "DOWN";
   return "MIXED";
 }
 
@@ -69,39 +81,70 @@ export function focusAuthorityDates(authority: ConvictionPeriodForecast, asOfDat
   return Array.from({ length: Math.floor((last - first) / DAY_MS) + 1 }, (_, index) => dateKey(first + index * DAY_MS));
 }
 
-export function focusAuthorityDerivedStep(authority: ConvictionPeriodForecast, date: string, asOfDate: string): { direction: string; summary: string } {
-  const source = authority.dailyPath?.find((day) => day.date === date);
-  if (source) return { direction: source.direction, summary: source.summary };
+export function focusAuthorityDerivedStep(
+  authority: ConvictionPeriodForecast,
+  date: string,
+  asOfDate: string
+): { direction: string; summary: string; ganzhiLabel: string; relationToPeriod: "增强" | "减弱" | "不变" } {
+  const day = getDayGanzhi(date);
+  const relationToPeriod = relateGanzhiToWeeklyDirection(day, authority.direction);
+  const source = authority.dailyPath?.find((item) => item.date === date);
+  if (source) {
+    return {
+      direction: source.direction,
+      summary: source.summary,
+      ganzhiLabel: day.ganzhiLabel,
+      relationToPeriod,
+    };
+  }
 
   const dates = focusAuthorityDates(authority, asOfDate);
   const index = Math.max(0, dates.indexOf(date));
-  const text = `${authority.direction} ${authority.expectedPath} ${authority.summary}`;
-  if (/先跌后涨|探底回升/i.test(text)) {
+  const explicitPath = `${authority.direction} ${authority.expectedPath}`;
+  let base: { direction: string; summary: string };
+
+  if (/先跌后涨|探底回升/u.test(explicitPath)) {
     const steps = [
       ["回撤观察", "先看回撤承接"], ["探底", "观察低点是否止住"], ["企稳", "低位企稳观察"],
       ["修复", "进入修复窗口"], ["反弹", "修复延续"], ["整固", "反弹后整固"], ["偏强", "等待进一步确认"],
     ] as const;
     const hit = steps[Math.min(index, steps.length - 1)]!;
-    return { direction: hit[0], summary: hit[1] };
-  }
-  if (/先涨后跌|冲高回落/i.test(text)) {
+    base = { direction: hit[0], summary: hit[1] };
+  } else if (/先涨后跌|冲高回落/u.test(explicitPath)) {
     const steps = [
       ["偏强", "先看上冲"], ["冲高", "观察上方兑现"], ["高位震荡", "高位换手"],
       ["回落", "进入回撤窗口"], ["回撤观察", "观察回撤深度"], ["企稳观察", "等待稳定"], ["震荡", "复核阶段节奏"],
     ] as const;
     const hit = steps[Math.min(index, steps.length - 1)]!;
-    return { direction: hit[0], summary: hit[1] };
+    base = { direction: hit[0], summary: hit[1] };
+  } else {
+    const bias = focusAuthorityBias(authority);
+    if (bias === "UP") {
+      const steps = ["震荡偏强", "上涨", "回踩观察", "修复上涨", "震荡偏强", "上涨", "震荡偏强"] as const;
+      base = { direction: steps[index % steps.length]!, summary: "偏多周期内观察推进、回踩与再确认" };
+    } else if (bias === "DOWN") {
+      const steps = ["震荡偏弱", "下跌", "反抽观察", "回落", "震荡偏弱", "下跌", "震荡偏弱"] as const;
+      base = { direction: steps[index % steps.length]!, summary: "偏空周期内观察回落、反抽与再确认" };
+    } else {
+      const steps = ["震荡", "偏强观察", "震荡", "偏弱观察", "震荡", "企稳观察", "震荡"] as const;
+      base = { direction: steps[index % steps.length]!, summary: "周期方向偏震荡，按日干支观察强弱切换" };
+    }
   }
-  const bias = focusAuthorityBias(authority);
-  if (bias === "UP") {
-    const steps = ["震荡偏强", "上涨", "回踩观察", "修复上涨", "震荡偏强", "上涨", "震荡偏强"];
-    return { direction: steps[index % steps.length]!, summary: "偏多结构下观察推进、回踩与再确认" };
-  }
-  if (bias === "DOWN") {
-    const steps = ["震荡偏弱", "下跌", "反抽观察", "回落", "震荡偏弱", "下跌", "震荡偏弱"];
-    return { direction: steps[index % steps.length]!, summary: "偏空结构下观察回落、反抽与再确认" };
-  }
-  return { direction: "震荡", summary: "区间震荡，等待方向选择" };
+
+  const family = classifyDailyDirection(base.direction);
+  let direction = base.direction;
+  if (relationToPeriod === "减弱" && family === "UP" && !/回踩|整固/u.test(direction)) direction = "回踩观察";
+  if (relationToPeriod === "减弱" && family === "DOWN" && !/反抽|企稳/u.test(direction)) direction = "反抽观察";
+  if (relationToPeriod === "增强" && family === "UP" && /观察|震荡/u.test(direction)) direction = "震荡偏强";
+  if (relationToPeriod === "增强" && family === "DOWN" && /观察|震荡/u.test(direction)) direction = "震荡偏弱";
+
+  const timing = `${day.ganzhiLabel}（干${day.dayElement}、支${day.branchElement}）${relationToPeriod}`;
+  return {
+    direction,
+    summary: `${base.summary}；日干支${timing}`,
+    ganzhiLabel: day.ganzhiLabel,
+    relationToPeriod,
+  };
 }
 
 export function focusFutureRhythmRevision(input: {

@@ -9,6 +9,9 @@ import { generateAndStoreXScanReport } from "@/lib/trading-signals/x-scan-report
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route-handler";
+import { buildResearchIntegrityAudit } from "@/lib/research-integrity/audit";
+import { STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
+import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 
 import type { ContentFreshnessItem, ContentFreshnessPolicy, ContentFreshnessReport } from "@/types/content-freshness";
 
@@ -17,7 +20,8 @@ export const CONTENT_FRESHNESS_POLICIES: readonly ContentFreshnessPolicy[] = [
   { key: "today", label: "首页／会员日报·今日预测", scheduleZh: "每3小时滚动生成；每15分钟自检缺失并补跑", hardDeadlineZh: "北京时间07:45前应具备当日可交易市场覆盖", repairMode: "AUTO", noteZh: "只从已锁定研究生成，不伪造周/月卦。" },
   { key: "tomorrow", label: "下一交易日预测", scheduleZh: "每3小时滚动生成；每15分钟自检缺失并补跑", hardDeadlineZh: "北京时间19:30后应具备下一交易日覆盖", repairMode: "AUTO", noteZh: "自检发现缺项后重跑日预测流水线。" },
   { key: "verification", label: "首页预测回顾／历史验证", scheduleZh: "每小时验证已收盘市场；每15分钟自检补偿", hardDeadlineZh: "收盘后进入可验证状态即更新", repairMode: "AUTO", noteZh: "首页直接读取公开验证库；不再靠静态回顾卡。" },
-  { key: "focus", label: "重点关注逐日走势", scheduleZh: "每日10:00准备；每15分钟自检缺失并补跑", hardDeadlineZh: "当前有效周有正式证据时应覆盖逐日记录", repairMode: "AUTO", noteZh: "缺少正式周证据时只报警，不补造方向。" },
+  { key: "focus", label: "重点关注逐日走势", scheduleZh: "每2小时滚动；每15分钟自检", hardDeadlineZh: "有当前正式周/月/长期研究时应自动生成逐日双观点", repairMode: "AUTO", noteZh: "日六爻由当前正式周期研究按周内路径和目标日干支自动拆分；未来日期可随已发生行情重排。" },
+  { key: "integrity", label: "研究完整性", scheduleZh: "每15分钟自检", hardDeadlineZh: "九大市场与全部重点关注不应出现来源、双观点或1H技术位结构缺项", repairMode: "CHECK_ONLY", noteZh: "结构性缺项立即标记；可安全补跑的数据链由其他自动修复项负责。" },
   { key: "weekly", label: "会员周走势预测", scheduleZh: "周六20:00准备下一周，周内保持锁定版本", hardDeadlineZh: "周一07:30前应有当前周正式研究", repairMode: "CHECK_ONLY", noteZh: "周卦属于研究源，不允许自检程序伪造。" },
   { key: "monthly", label: "会员月走势预测", scheduleZh: "月末滚动准备，下月首日复核", hardDeadlineZh: "新月首日08:30前应有当前月有效研究", repairMode: "CHECK_ONLY", noteZh: "月卦缺失只报警，等待正式研究。" },
 ] as const;
@@ -43,13 +47,54 @@ function daysBetween(a: string, b: string): number {
   return Number.isFinite(aa) && Number.isFinite(bb) ? Math.floor((aa - bb) / 86_400_000) : 999;
 }
 
+function addUtcDays(date: string, days: number): string {
+  const ms = Date.parse(`${date}T00:00:00Z`);
+  return Number.isFinite(ms) ? new Date(ms + days * 86_400_000).toISOString().slice(0, 10) : date;
+}
+
+async function readFocusRuntimeDailyCoverage(asOfDate: string): Promise<{ ready: number; expected: number; missing: number } | null> {
+  const db = prisma;
+  if (!db) return null;
+  const dates = [asOfDate, addUtcDays(asOfDate, 1)];
+  const codes = STATIC_FOCUS_ASSET_IDS.map(focusDailyMarketCode);
+  try {
+    const rows = await db.generatedDailyForecast.findMany({
+      where: {
+        marketCode: { in: codes },
+        forecastDate: { in: dates },
+        status: { in: ["PUBLISHED", "LOCKED"] },
+      },
+      select: { marketCode: true, forecastDate: true },
+    });
+    const pairs = new Set(rows.map((row) => `${row.marketCode}|${row.forecastDate}`));
+    const expected = codes.length * dates.length;
+    return { ready: pairs.size, expected, missing: Math.max(0, expected - pairs.size) };
+  } catch {
+    return null;
+  }
+}
+
 async function evaluate(now: Date): Promise<ContentFreshnessReport> {
   const [site, history, x] = await Promise.all([
     buildSiteHealthReport(now),
     getPublicAccuracyHistory(now).catch(() => null),
     getXIntelligenceSnapshot({ force: true, now }).catch(() => null),
   ]);
+  const [focusRuntime, integrity] = await Promise.all([
+    readFocusRuntimeDailyCoverage(site.beijingDate),
+    Promise.resolve(buildResearchIntegrityAudit({ asOfDate: site.beijingDate, nowMs: now.getTime() })),
+  ]);
   const base = site.sections.filter((section) => ["today", "tomorrow", "weekly", "monthly", "focus"].includes(section.key)).map(sectionItem);
+  const focusBase = base.find((item) => item.key === "focus");
+  if (focusBase && focusRuntime) {
+    focusBase.ready = focusRuntime.ready;
+    focusBase.expected = focusRuntime.expected;
+    focusBase.status = focusRuntime.missing === 0 ? "OK" : focusRuntime.ready === 0 ? "MISSING" : "ATTENTION";
+    focusBase.detailZh = focusRuntime.missing === 0
+      ? `今日+次日逐日双观点运行覆盖完整 ${focusRuntime.ready}/${focusRuntime.expected}`
+      : `今日+次日逐日双观点覆盖 ${focusRuntime.ready}/${focusRuntime.expected}，缺失 ${focusRuntime.missing} 项，将自动补跑`;
+    focusBase.repairable = true;
+  }
   const xItem: ContentFreshnessItem = {
     key: "x",
     label: "X博主扫描与观点矩阵",
@@ -72,8 +117,18 @@ async function evaluate(now: Date): Promise<ContentFreshnessReport> {
     lastUpdatedAt: latestDate,
     repairable: true,
   };
-  const order = ["x", "today", "tomorrow", "verification", "focus", "weekly", "monthly"];
-  const map = new Map([...base, xItem, verificationItem].map((item) => [item.key, item]));
+  const integrityItem: ContentFreshnessItem = {
+    key: "integrity",
+    label: "研究完整性",
+    status: integrity.summary.criticalIssues === 0 ? "OK" : "ATTENTION",
+    detailZh: `九大市场 ${integrity.summary.coreOk}/${integrity.summary.coreTotal}；重点关注结构 ${integrity.summary.focusOk}/${integrity.summary.focusTotal}；${focusRuntime ? `今日+次日运行数据 ${focusRuntime.ready}/${focusRuntime.expected}；` : ""}结构缺项 ${integrity.summary.criticalIssues}。`,
+    ready: integrity.summary.coreOk + integrity.summary.focusOk,
+    expected: integrity.summary.coreTotal + integrity.summary.focusTotal,
+    lastUpdatedAt: integrity.generatedAt,
+    repairable: false,
+  };
+  const order = ["x", "today", "tomorrow", "verification", "focus", "integrity", "weekly", "monthly"];
+  const map = new Map([...base, xItem, verificationItem, integrityItem].map((item) => [item.key, item]));
   const items = order.flatMap((key) => map.get(key) ? [map.get(key)!] : []);
   return {
     version: 1,

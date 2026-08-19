@@ -5,12 +5,16 @@ import {
   formatAssetPrice,
 } from "@/lib/market-data/price-levels";
 import { listDailyVerificationResults } from "@/lib/data/daily-accuracy-store";
+import {
+  getIntradayTechnicalLevelMap,
+  type IntradayTechnicalLevels,
+} from "@/lib/market-data/intraday-chan-levels";
 
 export type MemberDailyTechnicalView = {
   support: string;
   resistance: string;
   invalidation: string;
-  source: "VERIFIED_OHLC" | "FORECAST_SNAPSHOT" | "LOCKED_LEVELS" | "UNAVAILABLE";
+  source: "CHAN_1H" | "SWING_1H" | "FALLBACK" | "VERIFIED_OHLC" | "FORECAST_SNAPSHOT" | "LOCKED_LEVELS" | "UNAVAILABLE";
 };
 
 type Ohlc = {
@@ -224,10 +228,28 @@ function lockedView(forecast: DailyForecast): MemberDailyTechnicalView | null {
 export async function buildMemberDailyTechnicalViews(
   forecasts: DailyForecast[]
 ): Promise<Record<string, MemberDailyTechnicalView>> {
-  const results = await listDailyVerificationResults().catch(() => []);
+  // 1H is the tactical source of truth for today's support/resistance. Load the
+  // nine markets in parallel and cache them for five minutes; never serialize
+  // 18 remote calls for today + tomorrow.
+  const uniqueSymbols = [...new Set(forecasts.map((forecast) => normalizeSymbol(forecast.symbol)))];
+  const [intraday, results] = await Promise.all([
+    getIntradayTechnicalLevelMap(uniqueSymbols).catch((): Record<string, IntradayTechnicalLevels> => ({})),
+    listDailyVerificationResults().catch(() => []),
+  ]);
   const output: Record<string, MemberDailyTechnicalView> = {};
 
   for (const forecast of forecasts) {
+    const live = intraday[normalizeSymbol(forecast.symbol)];
+    if (live && live.source !== "UNAVAILABLE") {
+      const direction = forecast.directionLabel || forecast.direction;
+      output[forecast.id] = {
+        support: live.support,
+        resistance: live.resistance,
+        invalidation: invalidationFor(direction, live.support, live.resistance),
+        source: live.source,
+      };
+      continue;
+    }
     const aliases = symbolAliases(forecast.symbol);
     const byDate = new Map<string, { bar: Ohlc; verifiedAt: string }>();
 

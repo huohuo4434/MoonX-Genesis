@@ -69,7 +69,7 @@ export function buildDailyInvalidation(forecast: DailyForecast): string {
   const support = cleanDailyLevel(forecast.supportLevels?.[0]);
   const resistance = cleanDailyLevel(forecast.resistanceLevels?.[0]);
   const direction = forecast.directionLabel || forecast.direction;
-  if (support === "行情数据异常" || resistance === "行情数据异常") return "行情数据异常，等待自动补算";
+  if (support === "行情数据异常" || resistance === "行情数据异常") return "1H技术位刷新中";
   if (/上涨|回升|看涨/u.test(direction)) return `有效跌破${support}，今日看涨判断失效`;
   if (/下跌|回落|看跌/u.test(direction)) return `有效站上${resistance}，今日看跌判断失效`;
   return `有效突破${resistance}或跌破${support}，今日震荡判断失效`;

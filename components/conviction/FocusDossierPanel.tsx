@@ -1,11 +1,8 @@
 import { Badge, Card } from "@/components/ui";
 import { FocusQimenParallelPanel } from "@/components/conviction/FocusQimenParallelPanel";
+import { FocusIntradayTechnicalCards } from "@/components/conviction/FocusIntradayTechnicalCards";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
 import type { FocusDossierView } from "@/types/focus-dossier";
-
-function joinLevels(values: readonly string[]): string {
-  return values.length ? values.join(" / ") : "—";
-}
 
 export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossierView }) {
   const dossier = projectPublicAttribution(rawDossier);
@@ -13,10 +10,6 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
   const primaryConclusion = nextReady ? dossier.nextWeek!.conclusion : dossier.conclusion;
   const primaryStart = nextReady ? dossier.nextWeek!.periodStart : dossier.periodStart;
   const primaryEnd = nextReady ? dossier.nextWeek!.periodEnd : dossier.periodEnd;
-  const supportLevels = nextReady ? dossier.nextWeek!.supportLevels : dossier.supportLevels;
-  const resistanceLevels = nextReady ? dossier.nextWeek!.resistanceLevels : dossier.resistanceLevels;
-  const confirmation = nextReady ? dossier.nextWeek!.confirmation : dossier.confirmation;
-  const invalidation = nextReady ? dossier.nextWeek!.invalidation : dossier.invalidation;
   const authorityLabel = nextReady
     ? "WEEK · 下一期"
     : dossier.dailyAuthority
@@ -40,21 +33,11 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
           <p className="mt-1 text-body-sm text-white/75">{primaryStart && primaryEnd ? `${primaryStart} 至 ${primaryEnd}` : "—"}</p>
           <p className="mt-1 text-[11px] text-white/35">{authorityLabel}</p>
         </Card>
-        <Card padding="sm" className="border-emerald-300/15 bg-emerald-300/[0.025]">
-          <p className="text-caption text-emerald-100/70">支撑</p>
-          <p className="mt-1 text-body-sm text-white/80">{joinLevels(supportLevels)}</p>
-        </Card>
-        <Card padding="sm" className="border-rose-300/15 bg-rose-300/[0.025]">
-          <p className="text-caption text-rose-100/70">压力</p>
-          <p className="mt-1 text-body-sm text-white/80">{joinLevels(resistanceLevels)}</p>
-        </Card>
-        <Card padding="sm" className="border-white/[0.08] bg-black/20">
-          <p className="text-caption text-white/40">确认 / 失效</p>
-          <p className="mt-1 text-body-sm text-emerald-100/75">{confirmation ?? "—"}</p>
-          <p className="mt-1 text-body-sm text-rose-100/75">{invalidation ?? "—"}</p>
-        </Card>
+        <FocusIntradayTechnicalCards
+          assetId={dossier.assetId}
+          direction={dossier.dailyPath.find((day) => day.date === dossier.asOfDate)?.rhythmDirection ?? dossier.dailyPath.find((day) => day.date === dossier.asOfDate)?.direction ?? dossier.dailyAuthority?.direction}
+        />
       </div>
-
       <FocusQimenParallelPanel view={dossier.qimenParallel} />
 
       {dossier.nextWeek && !nextReady ? (

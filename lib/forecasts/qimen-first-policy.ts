@@ -852,8 +852,8 @@ function palaceStatusText(palace: PalaceState): string {
 
 function agreementLabel(agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS"): string {
   if (agreement === "RESONANCE") return "共振";
-  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "冲突-奇门优先";
-  return "无明确六爻信号";
+  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "分歧";
+  return "六爻日判未生成";
 }
 
 function renderQimenEvidence(input: {
@@ -986,8 +986,8 @@ function agreementDisplayLabel(
   agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS",
 ): string {
   if (agreement === "RESONANCE") return "奇六共振";
-  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "奇六分歧·奇门为纲";
-  return "奇门主判";
+  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "奇六分歧";
+  return "奇门单读";
 }
 
 function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {}): JsonRecord {
@@ -1094,9 +1094,9 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   next.qimenMysticNote = qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor });
   next.qimenAgreementLabel = agreementDisplayLabel(agreement);
 
-  const summary = `${renderFormalDirection(signal.direction)}，置信度${confidence}%；`
-    + `${agreement === "RESONANCE" ? "与六爻共振" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "与六爻冲突，按规则保留奇门方向并降置信度" : "六爻仅作辅助"}；`
-    + "技术分析只负责支撑、压力、入场与失效位";
+  const liuyaoText = liuyaoDirection ? renderFormalDirection(liuyaoDirection) : "未生成";
+  const relationText = agreement === "RESONANCE" ? "同向" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "分歧" : "待核";
+  const summary = `奇门：${renderFormalDirection(signal.direction)}（${confidence}%）；六爻：${liuyaoText}；关系：${relationText}`;
   appendMethodSummary(next, summary);
   return next;
 }

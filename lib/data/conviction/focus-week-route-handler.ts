@@ -40,7 +40,7 @@ export async function runFocusWeekRouteHandler(input: {
     const result = await modules.runFocusWeekPreparation({
       authorized: true, asOfDate, nowMs: capturedNow.getTime(), readEvidence: modules.listStaticFocusEvidence,
       loadLatest: (asset, dates) => modules.listLatestGeneratedDailiesForMarketDates(modules.focusDailyMarketCode(asset.assetId), dates),
-      loadAuxiliary: (asset) => modules.loadFocusDailyAuxiliaryEvidence({ symbol: asset.symbol ?? asset.assetId, assetType: asset.assetType, exchange: asset.exchange, asOfDate, now: capturedNow }),
+      loadAuxiliary: (asset) => modules.loadFocusDailyAuxiliaryEvidence({ assetId: asset.assetId, symbol: asset.symbol ?? asset.assetId, assetType: asset.assetType, exchange: asset.exchange, asOfDate, now: capturedNow }),
       persistBatch: modules.appendPublishedGeneratedDailyBatch, scheduleMode: "DAILY_ROLLING",
     });
     return Response.json(result, { status: result.kind === "PREPARED" && !result.ok ? 500 : 200 });
