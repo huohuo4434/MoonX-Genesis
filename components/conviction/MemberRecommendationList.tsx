@@ -1,3 +1,4 @@
+// MOOX_V7206_CRYPTO_PICK_LABELS
 "use client";
 
 import Link from "next/link";
@@ -25,6 +26,27 @@ type RecommendationRow = {
   priority: number;
 };
 
+function cryptoRisk(slug: string, fallback: string): string {
+  if (slug === "btc" || slug === "eth") return "中";
+  if (slug === "sol" || slug === "hype") return "高";
+  if (slug === "asteroid") return "极高";
+  return fallback;
+}
+
+function cryptoRating(slug: string, fallback: string): string {
+  if (slug === "btc") return "A+";
+  if (slug === "eth" || slug === "sol") return "A";
+  if (slug === "hype" || slug === "asteroid") return "A-";
+  return fallback;
+}
+
+function ratingLabel(value: string, en: boolean): string {
+  const key = value.trim().toUpperCase().replace("−", "-");
+  const mapZh: Record<string, string> = { "A+": "A+ · 核心跟踪", A: "A · 重点跟踪", "A-": "A− · 高波动观察", B: "B · 实验观察" };
+  const mapEn: Record<string, string> = { "A+": "A+ · Core", A: "A · Focus", "A-": "A− · High-volatility", B: "B · Experimental" };
+  return (en ? mapEn[key] : mapZh[key]) ?? value;
+}
+
 function mergeRows(payload: ConvictionListPagePayload, kind: RecommendationKind): RecommendationRow[] {
   const cardBySlug = new Map<string, ConvictionPublicCard>(payload.cards.map((card) => [card.slug, card]));
   const signalBySlug = new Map((payload.resonanceSignals ?? []).map((signal) => [signal.slug, signal]));
@@ -42,9 +64,9 @@ function mergeRows(payload: ConvictionListPagePayload, kind: RecommendationKind)
         detailHref: teaser.detailHref ?? card?.detailHref ?? `/featured-stocks/${teaser.slug}`,
         summaryZh: card?.summaryZh ?? teaser.hookZh,
         summaryEn: card?.summaryEn ?? teaser.hookEn,
-        riskZh: card?.riskLevel ?? teaser.riskZh ?? "中高",
-        rating: card?.rating ?? teaser.rating ?? "研究中",
-        updatedAt: card?.researchUpdatedAt ?? null,
+        riskZh: kind === "CRYPTO" ? cryptoRisk(teaser.slug, card?.riskLevel ?? teaser.riskZh ?? "高") : card?.riskLevel ?? teaser.riskZh ?? "中高",
+        rating: kind === "CRYPTO" ? cryptoRating(teaser.slug, card?.rating ?? teaser.rating ?? "B") : card?.rating ?? teaser.rating ?? "研究中",
+        updatedAt: kind === "CRYPTO" ? payload.asOfDate : card?.researchUpdatedAt ?? null,
         signal: signalBySlug.get(teaser.slug) ?? null,
         priority: signalOrder.get(teaser.slug) ?? 1000 + teaser.priority,
       };
@@ -78,12 +100,12 @@ export function MemberRecommendationList({ payload, kind }: { payload: Convictio
               <p className="text-xl font-semibold text-white">{en ? row.nameEn : row.nameZh}</p>
               <p className="mt-1 font-mono text-caption text-white/40">{row.symbol}</p>
             </div>
-            <div className="flex flex-wrap gap-2"><Badge variant="outline">{en ? `Rating ${row.rating}` : `评级 ${row.rating}`}</Badge><Badge variant="outline">{en ? `Risk ${row.riskZh}` : `风险 ${row.riskZh}`}</Badge></div>
+            <div className="flex flex-wrap gap-2"><Badge variant="outline">{en ? ratingLabel(row.rating, true) : ratingLabel(row.rating, false)}</Badge><Badge variant="outline">{en ? `Risk ${row.riskZh}` : `风险 ${row.riskZh}`}</Badge></div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-3 py-1 text-body-sm font-semibold ${signalTone(row.signal)}`}>{signalLabel(row.signal, en)}</span>{row.signal ? <span className="text-caption text-white/45">{row.signal.strengthZh}</span> : null}</div>
           <p className="mt-3 line-clamp-3 text-body-sm leading-6 text-white/58">{en ? row.summaryEn : row.summaryZh}</p>
           {row.signal?.evidenceZh?.length ? <p className="mt-3 text-caption leading-6 text-violet-100/55">{row.signal.evidenceZh.slice(0, 2).join(" · ")}</p> : null}
-          <div className="mt-4 flex items-center justify-between gap-3 text-caption text-white/38"><span>{row.updatedAt ? (en ? `Updated ${row.updatedAt.slice(0, 10)}` : `更新 ${row.updatedAt.slice(0, 10)}`) : (en ? "Open dossier" : "进入专题")}</span><span className="text-violet-200/80">{en ? "Details →" : "查看详情 →"}</span></div>
+          <div className="mt-4 flex items-center justify-between gap-3 text-caption text-white/38"><span>{row.updatedAt ? (kind === "CRYPTO" ? (en ? `Daily analysis ${row.updatedAt.slice(0, 10)}` : `今日分析 ${row.updatedAt.slice(0, 10)}`) : (en ? `Updated ${row.updatedAt.slice(0, 10)}` : `更新 ${row.updatedAt.slice(0, 10)}`)) : (en ? "Open dossier" : "进入专题")}</span><span className="text-violet-200/80">{en ? "Details →" : "查看详情 →"}</span></div>
         </Link>
       ))}
       {!rows.length ? <div className="rounded-2xl border border-white/[0.08] p-5 text-body-sm text-white/55">{en ? "No published recommendations yet." : "暂无已发布推荐。"}</div> : null}

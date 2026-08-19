@@ -1,11 +1,14 @@
+// MOOX_V7206_ALTCOIN_RADAR_TABLE
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
+import { evaluateExperimentalQimenAt, type ExperimentalQimenSnapshot } from "@/lib/forecasts/qimen-first-policy";
 
 export type EarlyAltcoinVerdict = "EARLY_CANDIDATE" | "WAIT_PULLBACK" | "TOO_HOT" | "AVOID" | "WATCH";
 export type EarlyAltcoinMarketStage = "ONCHAIN_ONLY" | "EARLY_CEX" | "DEX_AND_CEX" | "UNKNOWN";
 export type EarlyAltcoinSourceTier = "S" | "A" | "NORMAL";
+export type EarlyAltcoinXHeat = "UNKNOWN" | "COLD" | "LIGHT" | "WARM" | "HOT" | "OVERHEATED";
 
 export type EarlyAltcoinCandidate = {
   id: string;
@@ -13,9 +16,12 @@ export type EarlyAltcoinCandidate = {
   name: string | null;
   sourceTier: EarlyAltcoinSourceTier;
   sourceLabelZh: string;
+  sourceHandle: string;
   postedAt: string;
   postUrl: string;
   postExcerptZh: string;
+  sourceMentionPriceUsd: number | null;
+  returnSinceSourceMentionPct: number | null;
   contractAddress: string | null;
   chainId: string | null;
   dexName: string | null;
@@ -33,8 +39,17 @@ export type EarlyAltcoinCandidate = {
   marketCapUsd: number | null;
   fdvUsd: number | null;
   pairAgeHours: number | null;
+  pairCreatedAt: string | null;
   buys24h: number | null;
   sells24h: number | null;
+  xMentions24h: number | null;
+  xMentions7d: number | null;
+  xHeat: EarlyAltcoinXHeat;
+  xHeatZh: string;
+  qimenGenesis: ExperimentalQimenSnapshot | null;
+  qimenCurrent: ExperimentalQimenSnapshot | null;
+  qimenRelationZh: string;
+  qimenAnchorZh: string;
   firstSeenAt: string;
   firstSeenPriceUsd: number | null;
   returnSinceFirstSeenPct: number | null;
@@ -49,7 +64,7 @@ export type EarlyAltcoinCandidate = {
 };
 
 export type EarlyAltcoinRadarReport = {
-  version: 1;
+  version: 2;
   generatedAt: string;
   conclusionZh: string;
   actionSummaryZh: string[];
@@ -79,10 +94,11 @@ type BaselineEntry = {
 };
 type BaselineState = Record<string, BaselineEntry>;
 
-const STATE_REPORT = "early_altcoin_radar_report_v1";
-const STATE_BASELINES = "early_altcoin_radar_baselines_v1";
+const STATE_REPORT = "early_altcoin_radar_report_v2";
+const STATE_BASELINES = "early_altcoin_radar_baselines_v2";
 const BITGET_BASE = "https://api.bitget.com";
 const DEX_BASE = "https://api.dexscreener.com";
+const X_API_BASE = "https://api.x.com";
 
 const SOURCE_PRIORITY: Record<string, { tier: EarlyAltcoinSourceTier; score: number; labelZh: string }> = {
   btckik: { tier: "S", score: 30, labelZh: "S级重点发现源" },
@@ -105,6 +121,68 @@ function iso(value: Date | string): string { const d = value instanceof Date ? v
 function normalizedHandle(value: string): string { return value.replace(/^@+/, "").trim().toLowerCase(); }
 function normalizedSymbol(value: string): string { return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 function unique<T>(values: T[]): T[] { return Array.from(new Set(values)); }
+
+function extractSourceMentionPriceUsd(raw: string): number | null {
+  const patterns = [
+    /(?:price|entry|buy|bought|at|价格|现价|入场|买入)[\s:=：@$]*([0-9]+(?:\.[0-9]+)?(?:e-?\d+)?)/i,
+    /(?:\$|USDT\s*)\s*([0-9]+\.[0-9]{4,})\b/i,
+  ];
+  for (const pattern of patterns) {
+    const match = raw.match(pattern);
+    const value = match?.[1] ? Number(match[1]) : Number.NaN;
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
+function xHeatLabel(heat: EarlyAltcoinXHeat): string {
+  if (heat === "COLD") return "几乎无人提及";
+  if (heat === "LIGHT") return "少量提及";
+  if (heat === "WARM") return "正在升温";
+  if (heat === "HOT") return "热门";
+  if (heat === "OVERHEATED") return "过热";
+  return "热度待取";
+}
+
+function classifyXHeat(mentions24h: number, mentions7d: number): EarlyAltcoinXHeat {
+  if (mentions7d < 5) return "COLD";
+  if (mentions7d < 20 && mentions24h < 8) return "LIGHT";
+  if (mentions7d < 80 && mentions24h < 25) return "WARM";
+  if (mentions7d >= 200 || mentions24h >= 60 || (mentions7d >= 80 && mentions24h >= mentions7d * 0.5)) return "OVERHEATED";
+  return "HOT";
+}
+
+function xSearchQuery(symbol: string, contract: string | null): string {
+  if (contract) return `"${contract}" -is:retweet`;
+  return `($${symbol} OR #${symbol} OR "${symbol} token") -is:retweet`;
+}
+
+async function fetchXHeat(symbol: string, contract: string | null): Promise<{ mentions24h: number | null; mentions7d: number | null; heat: EarlyAltcoinXHeat }> {
+  const bearer = process.env.X_BEARER_TOKEN?.trim() ?? "";
+  if (!bearer) return { mentions24h: null, mentions7d: null, heat: "UNKNOWN" };
+  const params = new URLSearchParams({ query: xSearchQuery(symbol, contract), granularity: "hour" });
+  const response = await fetch(`${X_API_BASE}/2/tweets/counts/recent?${params}`, {
+    cache: "no-store",
+    headers: { Accept: "application/json", Authorization: `Bearer ${bearer}`, "User-Agent": "MOOX-Altcoin-Heat/1.0" },
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!response?.ok) return { mentions24h: null, mentions7d: null, heat: "UNKNOWN" };
+  const payload = record(await response.json().catch(() => null));
+  const rows = array(payload.data).map(record);
+  const mentions7d = rows.reduce((sum, row) => sum + Math.max(0, numberOrNull(row.tweet_count) ?? 0), 0);
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const mentions24h = rows.reduce((sum, row) => {
+    const end = Date.parse(text(row.end));
+    return Number.isFinite(end) && end >= cutoff ? sum + Math.max(0, numberOrNull(row.tweet_count) ?? 0) : sum;
+  }, 0);
+  return { mentions24h, mentions7d, heat: classifyXHeat(mentions24h, mentions7d) };
+}
+
+function qimenRelation(genesis: ExperimentalQimenSnapshot | null, current: ExperimentalQimenSnapshot | null): string {
+  if (!genesis?.available || !current?.available) return "奇门数据不足";
+  if (genesis.direction === current.direction) return `先天/当前共振·${current.direction}`;
+  return `先天${genesis.direction} / 当前${current.direction}`;
+}
 
 function parsedSymbols(parsed: unknown): string[] {
   const p = record(typeof parsed === "string" ? (() => { try { return JSON.parse(parsed); } catch { return {}; } })() : parsed);
@@ -240,9 +318,11 @@ function candidateScore(input: {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function verdictFor(score: number, liquidityUsd: number | null, change24hPct: number | null, returnPct: number | null): EarlyAltcoinVerdict {
+function verdictFor(score: number, liquidityUsd: number | null, change24hPct: number | null, returnPct: number | null, xHeat: EarlyAltcoinXHeat): EarlyAltcoinVerdict {
   if ((liquidityUsd ?? 0) > 0 && (liquidityUsd ?? 0) < 10_000) return "AVOID";
+  if (xHeat === "OVERHEATED") return "TOO_HOT";
   if ((change24hPct ?? 0) >= 100 || (returnPct ?? 0) >= 100) return "TOO_HOT";
+  if (xHeat === "HOT" && (change24hPct ?? 0) >= 35) return "WAIT_PULLBACK";
   if (score >= 65) return "EARLY_CANDIDATE";
   if (score >= 50) return "WAIT_PULLBACK";
   return "WATCH";
@@ -299,10 +379,12 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
 
   const candidates: EarlyAltcoinCandidate[] = [];
   const boundedInputs = candidateInputs.slice(0, 32);
+  let xHeatBudget = 12;
   for (let offset = 0; offset < boundedInputs.length; offset += 8) {
     const batch = boundedInputs.slice(offset, offset + 8);
     const built = await Promise.all(batch.map(async (input): Promise<EarlyAltcoinCandidate | null> => {
     const source = sourceInfo(input.row.username);
+    const sourceMentionPriceUsd = extractSourceMentionPriceUsd(input.row.text);
     const search = input.contract ?? input.symbol;
     const pairs = await dexPairs(search).catch(() => []);
     const pair = bestDexPair(pairs, input.contract, input.symbol);
@@ -318,19 +400,34 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
     const change1hPct = dexMetric(pair, "priceChange", "h1");
     const change6hPct = dexMetric(pair, "priceChange", "h6");
     const change24hPct = dexMetric(pair, "priceChange", "h24");
-    const pairCreatedAt = pair ? numberOrNull(pair.pairCreatedAt) : null;
-    const pairAgeHours = pairCreatedAt !== null ? Math.max(0, (now.getTime() - pairCreatedAt) / 3_600_000) : null;
+    const pairCreatedAtMs = pair ? numberOrNull(pair.pairCreatedAt) : null;
+    const pairCreatedAt = pairCreatedAtMs !== null ? new Date(pairCreatedAtMs).toISOString() : null;
+    const pairAgeHours = pairCreatedAtMs !== null ? Math.max(0, (now.getTime() - pairCreatedAtMs) / 3_600_000) : null;
     const symbolPair = `${resolvedSymbol}USDT`;
     const bitgetSpot = bitget.spot.has(symbolPair);
     const bitgetFutures = bitget.futures.has(symbolPair);
     const stage = marketStage(bitgetSpot, bitgetFutures, pair, pairAgeHours);
     const id = contractAddress ? `${chainId ?? "chain"}:${contractAddress.toLowerCase()}` : `${normalizedHandle(input.row.username)}:${resolvedSymbol}`;
-    const baseline = baselines[id] ?? { firstSeenAt: iso(input.row.posted_at), firstPriceUsd: currentPriceUsd, maxObservedReturnPct: null, sourceTier: source.tier };
+    const baseline = baselines[id] ?? { firstSeenAt: now.toISOString(), firstPriceUsd: currentPriceUsd, maxObservedReturnPct: null, sourceTier: source.tier };
     const returnPct = baseline.firstPriceUsd !== null && currentPriceUsd !== null && baseline.firstPriceUsd > 0 ? ((currentPriceUsd / baseline.firstPriceUsd) - 1) * 100 : null;
     const maxObservedReturnPct = returnPct === null ? baseline.maxObservedReturnPct : Math.max(baseline.maxObservedReturnPct ?? returnPct, returnPct);
     baselines[id] = { ...baseline, maxObservedReturnPct, sourceTier: source.tier };
-    const score = candidateScore({ sourceScore: source.score, contract: contractAddress, pairAgeHours, liquidityUsd, volume24hUsd, change24hPct, bitgetSpot, bitgetFutures, pair });
-    const verdict = verdictFor(score, liquidityUsd, change24hPct, returnPct);
+    const returnSinceSourceMentionPct = sourceMentionPriceUsd !== null && currentPriceUsd !== null && sourceMentionPriceUsd > 0
+      ? ((currentPriceUsd / sourceMentionPriceUsd) - 1) * 100
+      : null;
+    const canFetchHeat = xHeatBudget > 0;
+    if (canFetchHeat) xHeatBudget -= 1;
+    const heat = canFetchHeat
+      ? await fetchXHeat(resolvedSymbol, contractAddress).catch(() => ({ mentions24h: null, mentions7d: null, heat: "UNKNOWN" as EarlyAltcoinXHeat }))
+      : { mentions24h: null, mentions7d: null, heat: "UNKNOWN" as EarlyAltcoinXHeat };
+    const genesisCastAt = pairCreatedAt ?? iso(input.row.posted_at);
+    const [qimenGenesis, qimenCurrent] = await Promise.all([
+      Promise.resolve().then(() => evaluateExperimentalQimenAt(resolvedSymbol, genesisCastAt)).catch(() => null),
+      Promise.resolve().then(() => evaluateExperimentalQimenAt(resolvedSymbol, now)).catch(() => null),
+    ]);
+    const scoreBase = candidateScore({ sourceScore: source.score, contract: contractAddress, pairAgeHours, liquidityUsd, volume24hUsd, change24hPct, bitgetSpot, bitgetFutures, pair });
+    const score = Math.max(0, Math.min(100, scoreBase + (heat.heat === "LIGHT" ? 5 : heat.heat === "WARM" ? 2 : heat.heat === "OVERHEATED" ? -15 : 0)));
+    const verdict = verdictFor(score, liquidityUsd, change24hPct, returnPct, heat.heat);
     const decision = conclusion(verdict, stage);
     const reasons: string[] = [
       `${source.labelZh}首次/近期发现`,
@@ -340,6 +437,8 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
     if (liquidityUsd !== null) reasons.push(`DEX流动性约$${Math.round(liquidityUsd).toLocaleString("en-US")}`);
     if (volume24hUsd !== null) reasons.push(`24h成交约$${Math.round(volume24hUsd).toLocaleString("en-US")}`);
     if (returnPct !== null) reasons.push(`MOOX首次记录后表现${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(1)}%`);
+    if (heat.mentions7d !== null) reasons.push(`X近7天约${heat.mentions7d}条提及：${xHeatLabel(heat.heat)}`);
+    if (qimenGenesis?.available && qimenCurrent?.available) reasons.push(`实验奇门：${qimenRelation(qimenGenesis, qimenCurrent)}`);
 
     return {
       id,
@@ -347,9 +446,12 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
       name,
       sourceTier: source.tier,
       sourceLabelZh: source.labelZh,
+      sourceHandle: `@${normalizedHandle(input.row.username)}`,
       postedAt: iso(input.row.posted_at),
       postUrl: input.row.post_url,
       postExcerptZh: input.row.text.replace(/\s+/g, " ").trim().slice(0, 180),
+      sourceMentionPriceUsd,
+      returnSinceSourceMentionPct,
       contractAddress,
       chainId,
       dexName: pair ? text(pair.dexId) || null : null,
@@ -367,8 +469,17 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
       marketCapUsd: pair ? numberOrNull(pair.marketCap) : null,
       fdvUsd: pair ? numberOrNull(pair.fdv) : null,
       pairAgeHours,
+      pairCreatedAt,
       buys24h: txCount(pair, "buys"),
       sells24h: txCount(pair, "sells"),
+      xMentions24h: heat.mentions24h,
+      xMentions7d: heat.mentions7d,
+      xHeat: heat.heat,
+      xHeatZh: xHeatLabel(heat.heat),
+      qimenGenesis,
+      qimenCurrent,
+      qimenRelationZh: qimenRelation(qimenGenesis, qimenCurrent),
+      qimenAnchorZh: pairCreatedAt ? "首池创建时间" : "博主发布时间（无链上创建时间）",
       firstSeenAt: baseline.firstSeenAt,
       firstSeenPriceUsd: baseline.firstPriceUsd,
       returnSinceFirstSeenPct: returnPct,
@@ -399,7 +510,7 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
     : candidates.slice(0, 5).map((row) => `${row.symbol}：${row.actionZh}`);
 
   const report: EarlyAltcoinRadarReport = {
-    version: 1,
+    version: 2,
     generatedAt: now.toISOString(),
     conclusionZh,
     actionSummaryZh,
@@ -407,7 +518,7 @@ export async function generateAndStoreEarlyAltcoinRadar(now = new Date()): Promi
     earlyCandidateCount: early.length,
     sourceHealthZh: "重点扫描：1个S级早期发现源 + 2个A级早期发现源；S级单一信号允许先进入雷达，但不能绕过链上与流动性核验。",
     candidates: candidates.slice(0, 30),
-    noteZh: "早期山寨币雷达只负责发现与研究，不会自动触发Bitget或链上交易。未上交易所的币风险极高，合约地址、流动性、池子年龄和安全性必须先核验。",
+    noteZh: "热度来自X最近7天公开提及计数；实验奇门使用首池创建时间作为先天锚点、当前扫描时间作为当前盘。两者都只用于研究筛选，不触发交易。",
   };
   await Promise.all([writeState(STATE_BASELINES, baselines), writeState(STATE_REPORT, report)]);
   return report;

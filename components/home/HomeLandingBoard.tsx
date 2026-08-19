@@ -1,3 +1,4 @@
+// MOOX_V7206_VERIFICATION_RANKING
 // MOOX_V72052_HOME_FRESH
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
@@ -81,21 +82,65 @@ function buildMarketRows(forecasts: DailyForecast[]) {
   return CORE_MARKETS.map((market) => ({ ...market, forecast: bySymbol.get(market.symbol) }));
 }
 
-function selectVerification(items: PublicAccuracyHistoryItem[]) {
-  const sorted = [...items].sort((a, b) => {
-    const verified = String(b.verifiedAt).localeCompare(String(a.verifiedAt));
-    if (verified !== 0) return verified;
-    const date = b.forecastDate.localeCompare(a.forecastDate);
-    if (date !== 0) return date;
-    return b.version - a.version;
-  });
-  const selected: PublicAccuracyHistoryItem[] = [];
+type VerificationSelection = { item: PublicAccuracyHistoryItem; weightedRate: number; samples: number };
+
+function verificationPoints(item: PublicAccuracyHistoryItem): number | null {
+  if (item.verdict === "FULL_HIT" || item.verdict === "HIT") return 1;
+  if (item.verdict === "PARTIAL_HIT") return 0.5;
+  if (item.verdict === "MISS") return 0;
+  return null;
+}
+
+function selectVerification(items: PublicAccuracyHistoryItem[], now = new Date()) {
+  const cutoff = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+  const deduped: PublicAccuracyHistoryItem[] = [];
   const seen = new Set<string>();
-  for (const item of sorted) {
-    const key = `${canonicalSymbol(item.symbol)}|${item.forecastDate}`;
+  for (const item of [...items].sort((a, b) => String(b.verifiedAt).localeCompare(String(a.verifiedAt)))) {
+    const symbol = canonicalSymbol(item.symbol);
+    if (!CORE_MARKETS.some((market) => market.symbol === symbol)) continue;
+    const key = `${symbol}|${item.forecastDate}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    selected.push(item);
+    deduped.push(item);
+  }
+
+  const stats = new Map<string, { samples: number; points: number; latest: string }>();
+  for (const item of deduped) {
+    const verifiedMs = Date.parse(item.verifiedAt);
+    if (!Number.isFinite(verifiedMs) || verifiedMs < cutoff) continue;
+    const points = verificationPoints(item);
+    if (points == null) continue;
+    const symbol = canonicalSymbol(item.symbol);
+    const row = stats.get(symbol) ?? { samples: 0, points: 0, latest: "" };
+    row.samples += 1;
+    row.points += points;
+    row.latest = row.latest > item.verifiedAt ? row.latest : item.verifiedAt;
+    stats.set(symbol, row);
+  }
+
+  const rankedSymbols = [...stats.entries()]
+    .map(([symbol, row]) => ({
+      symbol,
+      ...row,
+      weightedRate: row.samples ? row.points / row.samples : 0,
+      // Small-sample correction prevents a single lucky 1/1 market from always ranking first.
+      rankScore: (row.points + 1) / (row.samples + 2),
+    }))
+    .sort((a, b) => b.rankScore - a.rankScore || b.weightedRate - a.weightedRate || b.samples - a.samples || b.latest.localeCompare(a.latest))
+    .slice(0, 3);
+
+  const selected: VerificationSelection[] = [];
+  for (const ranked of rankedSymbols) {
+    const latest = deduped.find((item) => canonicalSymbol(item.symbol) === ranked.symbol);
+    if (latest) selected.push({ item: latest, weightedRate: ranked.weightedRate, samples: ranked.samples });
+  }
+
+  if (selected.length >= 3) return selected;
+  for (const item of deduped) {
+    const symbol = canonicalSymbol(item.symbol);
+    if (selected.some((current) => canonicalSymbol(current.item.symbol) === symbol)) continue;
+    const row = stats.get(symbol);
+    selected.push({ item, weightedRate: row && row.samples ? row.points / row.samples : 0, samples: row?.samples ?? 0 });
     if (selected.length === 3) break;
   }
   return selected;
@@ -104,7 +149,7 @@ function selectVerification(items: PublicAccuracyHistoryItem[]) {
 const MEMBER_ENTRIES = [
   { href: "/member/daily", eyebrow: "会员日报", title: "今天与下一交易日", body: "方向、关键位、失效条件和当天风险，一页看完。", tone: "violet" },
   { href: "/member/weekly-report", eyebrow: "会员周报", title: "本周机会与风险", body: "只保留最值得跟踪的机会、主要风险和行动清单。", tone: "cyan" },
-  { href: "/member/ai-trading", eyebrow: "量化交易", title: "计划、持仓与风控", body: "查看量化计划、执行状态、保护单与风险闸门。", tone: "pink" },
+  { href: "/member/ai-trading", eyebrow: "AI交易研究", title: "计划、持仓与盈亏", body: "查看研究计划、管理员账户持仓和每单已实现盈亏。", tone: "pink" },
 ] as const;
 
 export async function HomeLandingBoard() {
@@ -117,7 +162,7 @@ export async function HomeLandingBoard() {
   const todayPayload = todayResult.status === "fulfilled" ? todayResult.value : null;
   const todayForecasts = todayPayload?.allowed ? todayPayload.forecasts : [];
   const marketRows = buildMarketRows(todayForecasts);
-  const verificationItems = verificationResult.status === "fulfilled" ? selectVerification(verificationResult.value.items) : [];
+  const verificationItems = verificationResult.status === "fulfilled" ? selectVerification(verificationResult.value.items, now) : [];
   const todayAccessMessage = todayPayload && !todayPayload.allowed ? todayPayload.message : "今日观点正在整理中";
 
   return (
@@ -181,9 +226,9 @@ export async function HomeLandingBoard() {
 
       <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,25,26,.98),rgba(8,9,14,.98))] p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">最近验证</p><h2 className="mt-2 text-2xl font-semibold">预测结果公开留档</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">验证精选</p><h2 className="mt-2 text-2xl font-semibold">九大市场近期表现较稳的3个市场</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
           <div className="mt-5 grid gap-3">
-            {verificationItems.length ? verificationItems.map((item) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">预测日期 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
+            {verificationItems.length ? verificationItems.map(({ item, weightedRate, samples }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">近30天加权命中 {samples ? `${Math.round(weightedRate * 100)}% · ${samples}个有效样本` : "样本积累中"}</div><div className="mt-1 text-sm text-white/48">最近验证 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
           </div>
         </div>
       </section>

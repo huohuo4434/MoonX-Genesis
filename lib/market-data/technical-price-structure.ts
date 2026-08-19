@@ -1,3 +1,4 @@
+// MOOX_V7206_CHAN_LEVEL_FALLBACK
 /**
  * Technical Price Structure Engine
  * Support/resistance zones from real OHLC structure.
@@ -11,6 +12,9 @@ import {
   type PriceLevelTexts,
 } from "@/lib/market-data/price-levels";
 import { resolveCanonicalQuoteSymbol } from "@/lib/market-data/quote-symbols";
+import { loadChanCandles } from "@/lib/market-data/chan-market-data";
+import { loadChanInstrumentCatalog } from "@/lib/market-data/chan-instrument-catalog.server";
+import { resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
 
 export const TECHNICAL_PRICE_DATA_UNAVAILABLE =
   "TECHNICAL_PRICE_DATA_UNAVAILABLE";
@@ -191,6 +195,103 @@ async function fetchYahooDaily(
     : new Error(
         `${TECHNICAL_PRICE_DATA_UNAVAILABLE}: no daily bars for ${quoteSymbol}`
       );
+}
+
+function shanghaiDateKey(timestampMs: number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(timestampMs));
+}
+
+function chanCandidates(symbol: string, quoteSymbol: string): string[] {
+  const key = symbol.trim().toUpperCase();
+  const quote = quoteSymbol.trim().toUpperCase();
+  const map: Record<string, string[]> = {
+    BTC: ["BTCUSDT", "BTC"],
+    ETH: ["ETHUSDT", "ETH"],
+    SPX: ["SPX500", "SPX", "SPY"],
+    NDX: ["NAS100", "QQQ"],
+    GOLD: ["XAU", "PAXG", "XAUT"],
+    SILVER: ["XAG"],
+    WTI: ["CL"],
+  };
+  return Array.from(new Set([...(map[key] ?? []), quote].filter(Boolean)));
+}
+
+async function fetchChanDaily(
+  symbol: string,
+  quoteSymbol: string,
+  asOfDate: string
+): Promise<{ bars: OhlcBar[]; dataSource: string }> {
+  const catalog = await loadChanInstrumentCatalog().catch(() => ({ instruments: [], source: "FALLBACK" as const }));
+  const capturedNowMs = new Date(`${asOfDate}T00:00:00+08:00`).getTime();
+  let best: { bars: OhlcBar[]; dataSource: string } | null = null;
+  for (const candidate of chanCandidates(symbol, quoteSymbol)) {
+    const instrument = resolveChanInstrument(candidate, catalog.instruments);
+    if (!instrument) continue;
+    const result = await loadChanCandles({
+      symbol: candidate,
+      timeframe: "1D",
+      instrument,
+      capturedNowMs,
+      timeoutMs: 4500,
+    }).catch(() => null);
+    if (!result?.candles.length) continue;
+    const bars = result.candles
+      .map((bar) => ({
+        date: shanghaiDateKey(bar.timestamp),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      }))
+      .filter((bar) => bar.date < asOfDate)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!bars.length) continue;
+    const row = {
+      bars,
+      dataSource: `chan-${instrument.provider.toLowerCase()}:${instrument.providerSymbol}`,
+    };
+    if (!best || row.bars.length > best.bars.length) best = row;
+    if (row.bars.length >= 20) return row;
+  }
+  if (best) return best;
+  throw new Error(`${TECHNICAL_PRICE_DATA_UNAVAILABLE}: no Chan bars for ${symbol}`);
+}
+
+async function loadTechnicalBars(input: {
+  symbol: string;
+  quoteSymbol: string;
+  asOfDate: string;
+}): Promise<{ bars: OhlcBar[]; dataSource: string }> {
+  const preferChan = ["BTC", "ETH", "SPX", "NDX", "GOLD", "SILVER", "WTI"].includes(input.symbol.toUpperCase());
+  const loaders = preferChan
+    ? [
+        () => fetchChanDaily(input.symbol, input.quoteSymbol, input.asOfDate),
+        () => fetchYahooDaily(input.quoteSymbol, input.asOfDate),
+      ]
+    : [
+        () => fetchYahooDaily(input.quoteSymbol, input.asOfDate),
+        () => fetchChanDaily(input.symbol, input.quoteSymbol, input.asOfDate),
+      ];
+  let best: { bars: OhlcBar[]; dataSource: string } | null = null;
+  let lastError: unknown = null;
+  for (const loader of loaders) {
+    try {
+      const result = await loader();
+      if (!best || result.bars.length > best.bars.length) best = result;
+      if (result.bars.length >= 20) return result;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (best?.bars.length) return best;
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`${TECHNICAL_PRICE_DATA_UNAVAILABLE}: no reliable bars for ${input.symbol}`);
 }
 
 function ema(values: number[], period: number): number[] {
@@ -505,10 +606,11 @@ export async function buildTechnicalPriceStructure(input: {
     input.quoteSymbol
   );
 
-  const { bars, dataSource } = await fetchYahooDaily(
-    canonicalQuoteSymbol,
-    input.forecastDate
-  );
+  const { bars, dataSource } = await loadTechnicalBars({
+    symbol: input.symbol,
+    quoteSymbol: canonicalQuoteSymbol,
+    asOfDate: input.forecastDate,
+  });
 
   if (bars.length < 3) {
     throw new Error(

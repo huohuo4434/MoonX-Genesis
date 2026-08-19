@@ -1,3 +1,4 @@
+// MOOX_V7206_CONVICTION_DAILY_DATE
 /**
  * Server loaders for Conviction List public + member payloads.
  */
@@ -154,6 +155,8 @@ export type ConvictionListPagePayload = {
   resonanceSignals: WatchlistResonanceSignal[] | null;
   /** Shared Monday-Sunday window used by the current resonance ranking. */
   resonanceWindow: { start: string; end: string; labelZh: string };
+  /** Daily recomputation date for member recommendation list surfaces. */
+  asOfDate: string;
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
@@ -185,6 +188,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     rankOrder: [], // V7.17: weekly ranking is member-only; never leak through the public dossier index.
     resonanceSignals: fullAccess ? resonanceSignals : null,
     resonanceWindow,
+    asOfDate,
   };
 }
 

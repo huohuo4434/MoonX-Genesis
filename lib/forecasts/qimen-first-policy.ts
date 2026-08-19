@@ -1,3 +1,4 @@
+// MOOX_V7206_ALTCOIN_QIMEN_EXPERIMENT
 /*
  * MOOX V7.20.1 — Qimen-first daily resonance research policy
  *
@@ -1142,4 +1143,38 @@ export function buildMooxQimenChartForAudit(castAt: string | Date): QimenChart {
   const date = castAt instanceof Date ? castAt : new Date(castAt);
   if (Number.isNaN(date.getTime())) throw new Error("Invalid Qimen cast time");
   return buildQimenChart(date);
+}
+
+export type ExperimentalQimenSnapshot = {
+  protocol: "MOOX_ALTCOIN_QIMEN_EXPERIMENT_V1";
+  castAt: string;
+  available: boolean;
+  direction: "上涨" | "下跌" | "震荡";
+  confidence: number;
+  score: number;
+  noteZh: string;
+  yongshenSource: "TEACHER_ASSET_ANCHOR" | "GENERIC_TIME_DAY_PROTOCOL";
+};
+
+/**
+ * Research-only Qimen snapshot for experimental altcoin screening.
+ * It never writes forecasts and never has execution authority.
+ */
+export function evaluateExperimentalQimenAt(asset: string, castAt: string | Date): ExperimentalQimenSnapshot {
+  const date = castAt instanceof Date ? castAt : new Date(castAt);
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid experimental Qimen cast time");
+  const chart = buildQimenChart(date);
+  const signal = directionFromChart(chart, asset);
+  return {
+    protocol: "MOOX_ALTCOIN_QIMEN_EXPERIMENT_V1",
+    castAt: chart.castAt,
+    available: chart.invariants.valid,
+    direction: chart.invariants.valid ? renderFormalDirection(signal.direction) : "震荡",
+    confidence: chart.invariants.valid ? signal.confidence : 0,
+    score: signal.score,
+    noteZh: chart.invariants.valid
+      ? qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor })
+      : "盘面结构校验未通过，本次实验信号不采用。",
+    yongshenSource: signal.anchor ? "TEACHER_ASSET_ANCHOR" : "GENERIC_TIME_DAY_PROTOCOL",
+  };
 }
