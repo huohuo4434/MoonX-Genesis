@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import { buildStrategyEnsembleSnapshot } from "@/lib/trading-signals/strategy-ensemble";
+import { persistStrategyEnsembleSnapshot } from "@/lib/trading-signals/strategy-ensemble-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,5 +14,8 @@ function authorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  return NextResponse.json(await runUnifiedLiveCustodyCycle({ trigger: "CRON_CUSTODIAN", ownerKey: "official" }));
+  const custody = await runUnifiedLiveCustodyCycle({ trigger: "CRON_CUSTODIAN", ownerKey: "official" });
+  const ensemble = await buildStrategyEnsembleSnapshot();
+  const persisted = await persistStrategyEnsembleSnapshot(ensemble, "official");
+  return NextResponse.json({ custody, ensemble, persisted, newOrdersPlaced: 0, execution: "ADMIN_CONFIRMATION_REQUIRED" });
 }
