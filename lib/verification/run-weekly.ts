@@ -6,6 +6,8 @@ import { fetchRecentDailyBarsForForecast } from "@/lib/market-data/daily-prices"
 import { resolveCanonicalQuoteSymbol } from "@/lib/market-data/quote-symbols";
 import { classifyWeeklyPath, resolveWeeklyVerificationMarket, scoreWeeklyVerification } from "@/lib/verification/weekly-verification-core";
 
+const WEEKLY_SCORE_VERSION = "WEEKLY_SCORE_V2_END_DIRECTION_FIRST";
+
 export async function runWeeklyVerification(now = new Date()) {
   if (!prisma) {
     return { scanned: 0, verified: 0, skipped: 0, errors: ["Database unavailable"] };
@@ -24,7 +26,7 @@ export async function runWeeklyVerification(now = new Date()) {
     const existing = await prisma.weeklyVerificationRecord.findUnique({
       where: { weeklyAnalysisId: record.id },
     });
-    if (existing && existing.result !== "PENDING") {
+    if (existing && existing.result !== "PENDING" && existing.explanation?.includes(WEEKLY_SCORE_VERSION)) {
       report.skipped += 1;
       continue;
     }
@@ -52,19 +54,23 @@ export async function runWeeklyVerification(now = new Date()) {
             actualPattern,
             result: "UNVERIFIABLE",
             dataSource: `market-data:${quoteSymbol}`,
-            explanation: "有效交易日数据不足，不进入准确率分母。",
+            explanation: `[${WEEKLY_SCORE_VERSION}] 有效交易日数据不足，不进入准确率分母。`,
             verifiedAt: now,
           },
           update: {
             actualPattern,
             result: "UNVERIFIABLE",
             dataSource: `market-data:${quoteSymbol}`,
-            explanation: "有效交易日数据不足，不进入准确率分母。",
+            explanation: `[${WEEKLY_SCORE_VERSION}] 有效交易日数据不足，不进入准确率分母。`,
             verifiedAt: now,
           },
         });
         continue;
       }
+      const firstBar = bars[0]!;
+      const lastBar = bars.at(-1)!;
+      const netChangePct = ((lastBar.close - firstBar.open) / Math.max(firstBar.open, 1e-9)) * 100;
+      const netLabel = `${netChangePct >= 0 ? "+" : ""}${netChangePct.toFixed(2)}%`;
       const scored = scoreWeeklyVerification(record.overallDirection, actualPattern);
       await prisma.weeklyVerificationRecord.upsert({
         where: { weeklyAnalysisId: record.id },
@@ -80,14 +86,14 @@ export async function runWeeklyVerification(now = new Date()) {
           ...scored,
           levelScore: null,
           dataSource: `market-data:${quoteSymbol}`,
-          explanation: `预测${record.overallDirection}，实际${actualPattern}。周度方向和路径分开计分。`,
+          explanation: `[${WEEKLY_SCORE_VERSION}] 预测${record.overallDirection}，实际${actualPattern}，周初→周末净变化${netLabel}。净方向优先；“震荡上涨/震荡下跌”允许周内不同先后路径，只要最终方向一致且确有波动；只有明确预测反转顺序时才严格核对先后路径。`,
           verifiedAt: now,
         },
         update: {
           actualPattern,
           ...scored,
           dataSource: `market-data:${quoteSymbol}`,
-          explanation: `预测${record.overallDirection}，实际${actualPattern}。周度方向和路径分开计分。`,
+          explanation: `[${WEEKLY_SCORE_VERSION}] 预测${record.overallDirection}，实际${actualPattern}，周初→周末净变化${netLabel}。净方向优先；“震荡上涨/震荡下跌”允许周内不同先后路径，只要最终方向一致且确有波动；只有明确预测反转顺序时才严格核对先后路径。`,
           verifiedAt: now,
         },
       });

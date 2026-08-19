@@ -27,6 +27,9 @@ test("weekly path classification and scoring preserve full partial and miss outc
     { open: 97, high: 105, low: 96, close: 104 },
   ]), "先跌后涨");
   assert.deepEqual(scoreWeeklyVerification("先跌后涨", "先跌后涨"), { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 });
-  assert.deepEqual(scoreWeeklyVerification("震荡上涨", "上涨"), { result: "PARTIAL_HIT", directionScore: 45, pathScore: 20, totalScore: 65 });
+  assert.deepEqual(scoreWeeklyVerification("震荡上涨", "先跌后涨"), { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 });
+  assert.deepEqual(scoreWeeklyVerification("震荡上涨", "上涨"), { result: "PARTIAL_HIT", directionScore: 50, pathScore: 25, totalScore: 75 });
+  assert.deepEqual(scoreWeeklyVerification("震荡下跌", "先涨后跌"), { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 });
+  assert.deepEqual(scoreWeeklyVerification("上涨", "先跌后涨"), { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 });
   assert.deepEqual(scoreWeeklyVerification("先涨后跌", "上涨"), { result: "MISS", directionScore: 0, pathScore: 0, totalScore: 0 });
 });

@@ -29,15 +29,96 @@ export function classifyWeeklyPath(bars: ReadonlyArray<{ open: number; high: num
   return "震荡";
 }
 
+// MOOX_V72066_WEEKLY_END_DIRECTION_FIRST
 function directionFamily(pattern: string): "UP" | "DOWN" | "RANGE" {
   if (/先跌后涨|探底回升|震荡上涨|上涨/.test(pattern)) return "UP";
   if (/先涨后跌|冲高回落|震荡下跌|下跌/.test(pattern)) return "DOWN";
   return "RANGE";
 }
 
+function isSwingUp(pattern: string): boolean {
+  return /震荡上涨|先跌后涨|探底回升/.test(pattern);
+}
+
+function isSwingDown(pattern: string): boolean {
+  return /震荡下跌|先涨后跌|冲高回落/.test(pattern);
+}
+
+/**
+ * Weekly verification V2:
+ * 1) End-of-week net direction is the primary contract for 上涨/下跌/震荡上涨/震荡下跌.
+ * 2) "震荡上涨" does not require one specific intrawweek order. 先跌后涨/探底回升 with a net-up close
+ *    is a full hit because it is a volatile week that ultimately finished higher.
+ * 3) Exact path order is only a hard requirement when the forecast explicitly says 先跌后涨/探底回升
+ *    or 先涨后跌/冲高回落.
+ */
 export function scoreWeeklyVerification(predicted: WeeklyOverallDirection, actual: string) {
-  if (predicted === actual) return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
-  if (directionFamily(predicted) === directionFamily(actual)) return { result: "PARTIAL_HIT", directionScore: 45, pathScore: 20, totalScore: 65 } as const;
-  if (predicted === "震荡" && /震荡/.test(actual)) return { result: "PARTIAL_HIT", directionScore: 35, pathScore: 20, totalScore: 55 } as const;
+  if (predicted === "暂无判断" || predicted === "观望") {
+    return { result: "UNVERIFIABLE", directionScore: 0, pathScore: 0, totalScore: 0 } as const;
+  }
+
+  if (predicted === actual) {
+    return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+  }
+
+  const actualFamily = directionFamily(actual);
+
+  // Generic direction forecasts do not impose an intrawweek path requirement.
+  if (predicted === "上涨" && actualFamily === "UP") {
+    return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+  }
+  if (predicted === "下跌" && actualFamily === "DOWN") {
+    return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+  }
+
+  // A choppy forecast is about both net direction and the presence of intrawweek swings,
+  // not one mandatory order of the high/low. This is the key V2 correction.
+  if (predicted === "震荡上涨") {
+    if (isSwingUp(actual)) {
+      return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+    }
+    if (actualFamily === "UP") {
+      return { result: "PARTIAL_HIT", directionScore: 50, pathScore: 25, totalScore: 75 } as const;
+    }
+  }
+  if (predicted === "震荡下跌") {
+    if (isSwingDown(actual)) {
+      return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+    }
+    if (actualFamily === "DOWN") {
+      return { result: "PARTIAL_HIT", directionScore: 50, pathScore: 25, totalScore: 75 } as const;
+    }
+  }
+
+  if (predicted === "震荡") {
+    if (actual === "震荡") {
+      return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+    }
+    if (/震荡上涨|震荡下跌/.test(actual)) {
+      return { result: "PARTIAL_HIT", directionScore: 35, pathScore: 35, totalScore: 70 } as const;
+    }
+    if (/先跌后涨|探底回升|先涨后跌|冲高回落/.test(actual)) {
+      return { result: "PARTIAL_HIT", directionScore: 30, pathScore: 30, totalScore: 60 } as const;
+    }
+  }
+
+  // Explicit sequence forecasts still need the predicted reversal order for a full hit.
+  if (predicted === "先跌后涨" || predicted === "探底回升") {
+    if (/先跌后涨|探底回升/.test(actual)) {
+      return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+    }
+    if (actualFamily === "UP") {
+      return { result: "PARTIAL_HIT", directionScore: 45, pathScore: 20, totalScore: 65 } as const;
+    }
+  }
+  if (predicted === "先涨后跌" || predicted === "冲高回落") {
+    if (/先涨后跌|冲高回落/.test(actual)) {
+      return { result: "FULL_HIT", directionScore: 50, pathScore: 40, totalScore: 90 } as const;
+    }
+    if (actualFamily === "DOWN") {
+      return { result: "PARTIAL_HIT", directionScore: 45, pathScore: 20, totalScore: 65 } as const;
+    }
+  }
+
   return { result: "MISS", directionScore: 0, pathScore: 0, totalScore: 0 } as const;
 }
