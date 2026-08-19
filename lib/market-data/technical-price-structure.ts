@@ -1,4 +1,4 @@
-// MOOX_V7206_CHAN_LEVEL_FALLBACK
+// MOOX_V72064_INTERNAL_OHLC_FALLBACK
 /**
  * Technical Price Structure Engine
  * Support/resistance zones from real OHLC structure.
@@ -26,6 +26,105 @@ export type OhlcBar = {
   low: number;
   close: number;
 };
+
+function verificationSymbolAliases(symbol: string): Set<string> {
+  const key = symbol.trim().toUpperCase();
+  const aliases: Record<string, string[]> = {
+    BTC: ["BTC"],
+    ETH: ["ETH"],
+    SPX: ["SPX"],
+    NDX: ["NDX"],
+    SSEC: ["SSEC", "SHCOMP", "000001.SS"],
+    SHCOMP: ["SSEC", "SHCOMP", "000001.SS"],
+    HSTECH: ["HSTECH"],
+    GOLD: ["GOLD", "GLD", "XAU", "GC=F"],
+    GLD: ["GOLD", "GLD", "XAU", "GC=F"],
+    SILVER: ["SILVER", "SI", "XAG", "SI=F"],
+    WTI: ["WTI", "CL", "CL=F"],
+  };
+  return new Set((aliases[key] ?? [key]).map((value) => value.toUpperCase()));
+}
+
+/**
+ * First-party fallback: MOOX verification already persists realized OHLC for
+ * the nine core markets. Reusing those locked observations makes technical
+ * levels independent from a temporary Yahoo/Bitget/Orderly outage.
+ * Only rows with real high/low/close are accepted; no high/low is invented.
+ */
+async function fetchVerifiedDailyBars(
+  symbol: string,
+  asOfDate: string
+): Promise<{ bars: OhlcBar[]; dataSource: string }> {
+  const { listDailyVerificationResults } = await import(
+    "@/lib/data/daily-accuracy-store"
+  );
+  const aliases = verificationSymbolAliases(symbol);
+  const results = await listDailyVerificationResults();
+  const byDate = new Map<
+    string,
+    { bar: OhlcBar; verifiedAt: string }
+  >();
+
+  for (const result of results) {
+    if (result.forecastDate >= asOfDate) continue;
+    if (!aliases.has(String(result.symbol ?? "").trim().toUpperCase())) continue;
+
+    const high = result.actualHigh;
+    const low = result.actualLow;
+    const close = result.actualClose;
+    const open =
+      typeof result.actualOpen === "number" && Number.isFinite(result.actualOpen)
+        ? result.actualOpen
+        : result.previousClose;
+
+    if (
+      typeof high !== "number" ||
+      typeof low !== "number" ||
+      !Number.isFinite(high) ||
+      !Number.isFinite(low) ||
+      !Number.isFinite(close) ||
+      !Number.isFinite(open) ||
+      high <= 0 ||
+      low <= 0 ||
+      close <= 0 ||
+      open <= 0 ||
+      high < Math.max(open, close) ||
+      low > Math.min(open, close)
+    ) {
+      continue;
+    }
+
+    const current = byDate.get(result.forecastDate);
+    if (!current || result.verifiedAt > current.verifiedAt) {
+      byDate.set(result.forecastDate, {
+        bar: {
+          date: result.forecastDate,
+          open,
+          high,
+          low,
+          close,
+        },
+        verifiedAt: result.verifiedAt,
+      });
+    }
+  }
+
+  const bars = [...byDate.values()]
+    .map((row) => row.bar)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-120);
+
+  if (bars.length < 3) {
+    throw new Error(
+      `${TECHNICAL_PRICE_DATA_UNAVAILABLE}: insufficient verified OHLC for ${symbol}`
+    );
+  }
+
+  return {
+    bars,
+    dataSource: `moox-verified-ohlc:${symbol.toUpperCase()}`,
+  };
+}
 
 type TechnicalZone = {
   low: number;
@@ -268,7 +367,7 @@ async function loadTechnicalBars(input: {
   asOfDate: string;
 }): Promise<{ bars: OhlcBar[]; dataSource: string }> {
   const preferChan = ["BTC", "ETH", "SPX", "NDX", "GOLD", "SILVER", "WTI"].includes(input.symbol.toUpperCase());
-  const loaders = preferChan
+  const remoteLoaders = preferChan
     ? [
         () => fetchChanDaily(input.symbol, input.quoteSymbol, input.asOfDate),
         () => fetchYahooDaily(input.quoteSymbol, input.asOfDate),
@@ -277,6 +376,10 @@ async function loadTechnicalBars(input: {
         () => fetchYahooDaily(input.quoteSymbol, input.asOfDate),
         () => fetchChanDaily(input.symbol, input.quoteSymbol, input.asOfDate),
       ];
+  const loaders = [
+    () => fetchVerifiedDailyBars(input.symbol, input.asOfDate),
+    ...remoteLoaders,
+  ];
   let best: { bars: OhlcBar[]; dataSource: string } | null = null;
   let lastError: unknown = null;
   for (const loader of loaders) {
