@@ -184,6 +184,11 @@ const USE_GOD_REGISTRY: Readonly<Record<string, FocusQimenUseGodDefinition>> = O
     primary: ["丙"], secondary: ["庚"], basis: "MOOX_INDUSTRY_OVERLAY", label: "丙为能源智火，庚为车机",
     note: "MOOX对象层：电动车、能源与AI为用，机械制造为辅。",
   },
+  spcx: {
+    assetId: "spcx", displayName: "SpaceX / SPCX", assetClass: "EQUITY", aliases: ["SPCX", "SPACEX"],
+    primary: ["丙"], secondary: ["庚"], basis: "MOOX_INDUSTRY_OVERLAY", label: "丙观动能，庚观制造",
+    note: "MOOX对象层：航天、卫星网络与高端制造并看。",
+  },
   "lexin-medical": {
     assetId: "lexin-medical", displayName: "乐心医疗", assetClass: "EQUITY", aliases: ["300562", "乐心医疗"],
     primary: ["乙"], secondary: ["丁"], basis: "MOOX_INDUSTRY_OVERLAY", label: "乙为医护，丁为电子",
@@ -472,7 +477,7 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
     : `时干${chart.pillars.hour.stem}（辅日干${chart.pillars.day.stem}）`;
   const contextLabel = options.contextLabel ? `；周期=${options.contextLabel}` : "";
   const evidence = available
-    ? `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；角色=与六爻并列且不覆盖${contextLabel}；起局=${chart.castAt}；对象=${definition.displayName}；用神=${useGod}；依据=${definition.basis}；得分=${scored.score}；置信=${scored.confidence}；证据=${scored.evidenceRows.map((row) => `${row.role}@${row.palace}宫:${row.score}`).join("|")}`
+    ? `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；角色=奇门独立观点${contextLabel}；起局=${chart.castAt}；对象=${definition.displayName}；用神=${useGod}；依据=${definition.basis}；得分=${scored.score}；置信=${scored.confidence}；证据=${scored.evidenceRows.map((row) => `${row.role}@${row.palace}宫:${row.score}`).join("|")}`
     : `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；奇门不可用=盘面结构校验失败；保留六爻原始方向`;
   return {
     policyVersion: MOOX_FOCUS_QIMEN_PARALLEL_VERSION,

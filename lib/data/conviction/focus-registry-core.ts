@@ -15,6 +15,9 @@ export const STATIC_FOCUS_ASSET_IDS = Object.freeze([
   "msft",
   "tencent",
   "kingsoft-office",
+  "tsla",
+  "lite",
+  "spcx",
 ] as const);
 
 export type StaticFocusAssetId = (typeof STATIC_FOCUS_ASSET_IDS)[number];
@@ -44,6 +47,9 @@ export const STATIC_MEMBER_AUTOMATION_FOCUS: Readonly<Record<StaticFocusAssetId,
   msft: { assetId: "msft", canonicalSymbol: "MSFTUSDT", displayName: "微软", assetClass: "EQUITY" },
   tencent: { assetId: "tencent", canonicalSymbol: "TENCENTUSDT", displayName: "腾讯", assetClass: "EQUITY" },
   "kingsoft-office": { assetId: "kingsoft-office", canonicalSymbol: null, displayName: "金山办公", assetClass: "EQUITY" },
+  tsla: { assetId: "tsla", canonicalSymbol: null, displayName: "特斯拉", assetClass: "EQUITY" },
+  lite: { assetId: "lite", canonicalSymbol: null, displayName: "Lumentum", assetClass: "EQUITY" },
+  spcx: { assetId: "spcx", canonicalSymbol: null, displayName: "SpaceX / SPCX", assetClass: "EQUITY" },
 });
 
 export function listStaticMemberAutomationFocus(): MemberAutomationFocusDefinition[] {

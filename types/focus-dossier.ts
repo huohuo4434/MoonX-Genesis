@@ -32,9 +32,11 @@ export type FocusDossierDay = {
   state: "OCCURRED" | "TODAY" | "PENDING" | "MISSING";
   direction: string | null;
   summary: string;
+  rhythmDirection?: string | null;
+  rhythmSummary?: string | null;
   confirmation: string | null;
   invalidation: string | null;
-  sourceKind?: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION" | null;
+  sourceKind?: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_PERIOD_DERIVED" | "MOOX_ROLLING_REVISION" | null;
   version?: number | null;
   asOfDate?: string | null;
   rollingReason?: string | null;
@@ -62,7 +64,17 @@ export type FocusDossierView = {
   assetId: string;
   asOfDate: string;
   evidenceStatus: FocusDossierEvidenceStatus;
-  reportSchemaVersion: "2026-08-15.v1";
+  reportSchemaVersion: "2026-08-15.v1" | "2026-08-19.v2";
+  dailyAuthority: {
+    forecastId: string;
+    forecastType: string;
+    direction: string;
+    sourcePeriodStart: string;
+    sourcePeriodEnd: string;
+    displayPeriodStart: string;
+    displayPeriodEnd: string;
+    version: number;
+  } | null;
   weeklyAuthority: {
     direction: string;
     periodStart: string;
@@ -83,7 +95,7 @@ export type FocusDossierView = {
     validationStatus: string | null;
     publishedAt: string | null;
     previousVersionId: string | null;
-    sourceKind: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_ROLLING_REVISION" | null;
+    sourceKind: "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_PERIOD_DERIVED" | "MOOX_ROLLING_REVISION" | null;
     revisionReason: string | null;
     qimenEvidence: string | null;
   }>;

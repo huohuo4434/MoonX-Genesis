@@ -3,7 +3,7 @@ import type { DailyAccuracyMarket } from "@/types/daily-accuracy";
 import { fetchRecentDailyBarsForForecast } from "@/lib/market-data/daily-prices";
 import { findXIntelligenceSummaryForMarket } from "@/lib/trading-signals/x-intelligence-overlay";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
-import { filterClosedFocusDailyBars, focusDailyQuoteCapability, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
+import { focusDailyQuoteCapability, type FocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-generation-core";
 import { resolveFocusDailyAuxiliaryEvidence } from "@/lib/data/conviction/focus-daily-evidence-core";
 
 export async function loadFocusDailyAuxiliaryEvidence(input: { symbol: string; assetType?: string; exchange?: string | null; asOfDate: string; now: Date }): Promise<FocusDailyAuxiliaryEvidence> {
@@ -19,14 +19,11 @@ export async function loadFocusDailyAuxiliaryEvidence(input: { symbol: string; a
         return findXIntelligenceSummaryForMarket(snapshot.aggregate.summaries, input.symbol)?.mentions24h ?? null;
       },
       loadBars: capability.available
-        ? async () => filterClosedFocusDailyBars(
-          await fetchRecentDailyBarsForForecast({
-            quoteSymbol: capability.quoteSymbol!,
-            market: capability.market as DailyAccuracyMarket,
-            asOfDate: input.asOfDate,
-          }),
-          input.asOfDate
-        )
+        ? async () => fetchRecentDailyBarsForForecast({
+          quoteSymbol: capability.quoteSymbol!,
+          market: capability.market as DailyAccuracyMarket,
+          asOfDate: input.asOfDate,
+        })
         : null,
     },
   });

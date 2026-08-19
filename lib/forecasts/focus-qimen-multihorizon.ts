@@ -28,6 +28,8 @@ export type FocusDualMethodDailyRow = {
   state: "OCCURRED" | "TODAY" | "PENDING" | "MISSING";
   liuyaoDirection: string | null;
   liuyaoSummary: string;
+  rhythmDirection: string | null;
+  rhythmSummary: string | null;
   qimen: FocusQimenParallelReading;
   relation: FocusQimenRelation;
   relationLabel: string;
@@ -126,6 +128,8 @@ export type FocusQimenDailyPathInput = {
   state: "OCCURRED" | "TODAY" | "PENDING" | "MISSING";
   direction: string | null;
   summary: string;
+  rhythmDirection?: string | null;
+  rhythmSummary?: string | null;
 };
 
 export type FocusQimenAuditInput = {
@@ -339,7 +343,7 @@ function buildDailyRows(input: {
   const byDate = new Map(input.dailyPath.map((day) => [day.date, day]));
   const periodDates = dateRange(input.periodStart, input.periodEnd);
   const sourceDates = [...new Set(input.dailyPath.map((day) => day.date))].sort().slice(0, MAX_DAILY_ROWS);
-  const dates = periodDates.length ? periodDates : sourceDates;
+  const dates = sourceDates.length ? sourceDates : periodDates;
   return dates.map((date) => {
     const equityWeekend = definition.assetClass === "EQUITY" && [0, 6].includes(new Date(`${date}T00:00:00.000Z`).getUTCDay());
     const source = byDate.get(date) ?? {
@@ -361,6 +365,8 @@ function buildDailyRows(input: {
       state: source.state,
       liuyaoDirection: source.direction,
       liuyaoSummary: source.summary,
+      rhythmDirection: source.rhythmDirection ?? source.direction,
+      rhythmSummary: source.rhythmSummary ?? source.summary,
       qimen,
       relation: qimen.relation,
       relationLabel: qimen.relationLabel,
@@ -425,8 +431,8 @@ export function buildFocusQimenParallelView(input: {
   return {
     policyVersion: MOOX_FOCUS_QIMEN_MULTI_HORIZON_VERSION,
     protocol: "PARALLEL_METHOD_NO_OVERRIDE",
-    title: "六爻 × 奇门｜多周期双法对照",
-    notice: "六爻观变，奇门察势；同向记为共振，相左保留分歧。两套体系并列展示，任何一方都不覆盖另一方。",
+    title: "六爻 × 奇门",
+    notice: "每日并列两个观点；当前节奏随最新行情更新。",
     sourceBoundary: `老师资料支持按目标日/周/月等明确周期起局并复盘，但未提供可直接编程复现的通用月家或年家金融断法；因此周、月、年等均标注为“时家奇门·周期起局”。${definition.basis === "MOOX_INDUSTRY_OVERLAY" ? "当前产品用神属于透明行业对象映射，不冒充老师固定口诀。" : ""}`,
     useGod: {
       displayName: definition.displayName,

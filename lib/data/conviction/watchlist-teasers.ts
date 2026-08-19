@@ -287,12 +287,36 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     slug: "lite", assetType: "STOCK", nameZh: "Lumentum", nameEn: "Lumentum", symbol: "LITE", detailHref: "/featured-stocks/lite", rating: "A", riskZh: "高",
     eyebrowZh: "AI光通信专题 · 六爻与波浪分层", eyebrowEn: "AI-optics dossier · Liu Yao plus wave execution",
     headlineZh: "LITE：长期方向和眼前买点必须分开看", headlineEn: "LITE: the long-term direction and the current entry are two different questions",
-    hookZh: "连续三周、到9月底和到年底已经拆开；波浪点位只负责执行，不会反向改写六爻方向。精确方向与关键位留在会员档案。",
-    hookEn: "Three weekly windows, the Sep path and year-end are separated. Wave levels guide execution only; exact calls remain member-only.",
+    hookZh: "连续三周、到9月底和到年底已经拆开；会员档案会同步给出短期节奏、关键位与风险窗口。",
+    hookEn: "Three weekly windows, the September path and year-end are separated, with timing and key levels inside the member dossier.",
     coverageZh: "连续三周 / 9月底 / 年底 / 波浪执行", coverageEn: "3 weeks / September / year-end / wave execution",
     lockedPreviewZh: ["短期回踩窗口", "转强阶段", "年底方向", "结构失效与目标"], lockedPreviewEn: ["Pullback window", "Strength phase", "Year-end direction", "Invalidation and targets"], accent: "cyan", priority: 9.0,
   },
 
+  {
+    slug: "ganfeng-lithium", assetType: "STOCK", nameZh: "赣锋锂业", nameEn: "Ganfeng Lithium", symbol: "002460", detailHref: "/featured-stocks/ganfeng-lithium", rating: "A", riskZh: "高",
+    eyebrowZh: "锂资源专题 · 8—10月", eyebrowEn: "Lithium dossier · Aug–Oct",
+    headlineZh: "赣锋锂业：8—10月节奏已经拆开", headlineEn: "Ganfeng Lithium: the Aug–Oct path is mapped by stage",
+    hookZh: "8月、9月和10月分别研究，会员档案同步展示六爻、奇门、逐日节奏与关键位。", hookEn: "August, September and October are tracked separately with dual-method views, daily rhythm and key levels.",
+    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
+    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "emerald", priority: 18,
+  },
+  {
+    slug: "lian-tech", assetType: "STOCK", nameZh: "利安科技", nameEn: "Lian Technology", symbol: "300784", detailHref: "/featured-stocks/lian-tech", rating: "A-", riskZh: "高",
+    eyebrowZh: "精密制造专题 · 8—10月", eyebrowEn: "Precision manufacturing · Aug–Oct",
+    headlineZh: "利安科技：当前阶段与后续窗口分开看", headlineEn: "Lian Technology: current action and later windows are separated",
+    hookZh: "已有月度六爻资料会自动拆成未来日分析，并同步生成奇门观点和滚动节奏。", hookEn: "Existing monthly evidence now feeds forward daily research with Qimen and rolling rhythm updates.",
+    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
+    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "slate", priority: 19,
+  },
+  {
+    slug: "lexin-medical", assetType: "STOCK", nameZh: "乐心医疗", nameEn: "Lexin Medical", symbol: "300562", detailHref: "/featured-stocks/lexin-medical", rating: "A-", riskZh: "高",
+    eyebrowZh: "医疗科技专题 · 8—10月", eyebrowEn: "Health-tech dossier · Aug–Oct",
+    headlineZh: "乐心医疗：月度证据已经接入逐日研究", headlineEn: "Lexin Medical: monthly evidence now feeds the daily research layer",
+    hookZh: "现有六爻资料不会再停在月度卡片，会员档案会连续生成未来日分析、奇门观点与关键位。", hookEn: "Existing Liu Yao research now continues into forward daily analysis, Qimen views and key levels.",
+    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
+    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "violet", priority: 20,
+  },
 ];
 
 export const WATCHLIST_TEASER_BY_SLUG = Object.fromEntries(

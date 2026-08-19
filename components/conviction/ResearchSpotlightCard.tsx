@@ -101,7 +101,7 @@ export default function ResearchSpotlightCard({ teaser, card, mode, signal, rank
 
         {mode === "fullAccess" && signal ? (
           <section className={`mt-4 rounded-xl border p-4 ${signal.direction === "BULLISH" ? "border-emerald-300/20 bg-emerald-300/[.045]" : signal.direction === "BEARISH" ? "border-rose-300/20 bg-rose-300/[.045]" : "border-amber-300/20 bg-amber-300/[.035]"}`}>
-            <p className="font-mono text-caption uppercase tracking-[.14em] text-white/40">{en ? "TARGET-WEEK MOOX CALL" : "目标周 MOOX 唯一方向"}</p>
+            <p className="font-mono text-caption uppercase tracking-[.14em] text-white/40">{en ? "TARGET-WEEK MOOX CALL" : "目标周 MOOX 方向"}</p>
             <p className="mt-2 text-xl font-semibold text-white">{signal.direction === "BULLISH" ? "↑ 看涨" : signal.direction === "BEARISH" ? "↓ 看跌" : "↔ 方向不明确"} · {signal.strengthZh}</p>
             {targetWeekLabel ? <p className="mt-1 text-caption text-white/45">{en ? "Target week" : "目标周"}：{targetWeekLabel}</p> : null}
             <p className="mt-2 text-caption leading-relaxed text-white/60">{signal.evidenceZh.join(" · ")}</p>

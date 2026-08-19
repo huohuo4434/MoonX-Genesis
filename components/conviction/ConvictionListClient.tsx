@@ -31,7 +31,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
   const signalBySlug = useMemo(() => new Map((payload.resonanceSignals ?? []).map((signal) => [signal.slug, signal])), [payload.resonanceSignals]);
   const visible = useMemo(
     () => WATCHLIST_TEASERS
-      .filter((teaser) => teaser.slug === "spcx" || cardBySlug.has(teaser.slug))
+      .filter((teaser) => cardBySlug.has(teaser.slug))
       .filter((teaser) => filter === "ALL" || teaser.assetType === filter)
       .sort((a, b) => (rankIndex.get(a.slug) ?? 999) - (rankIndex.get(b.slug) ?? 999) || a.priority - b.priority),
     [cardBySlug, filter, rankIndex]
@@ -47,7 +47,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
   const filters = en
     ? ([['ALL', 'All'], ['STOCK', 'Stocks'], ['CRYPTO', 'Crypto']] as const)
     : ([['ALL', '全部'], ['STOCK', '股票'], ['CRYPTO', '加密资产']] as const);
-  const trackedCount = payload.trackedCount + (cardBySlug.has("spcx") ? 0 : 1);
+  const trackedCount = payload.trackedCount;
   const weekLabel = payload.resonanceWindow.labelZh;
 
   return (
@@ -107,7 +107,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
               <p className="mt-2 max-w-3xl text-body-sm leading-7 text-white/58">
                 {payload.mode === "publicOnly"
                   ? (en ? "The front of the list contains the setups with the clearest concentration of research signals. Public view tells you what deserves attention first; the full direction and timing stay locked." : "靠前不代表最热，而是当前研究里最值得先盯的几只。公开页只告诉你谁值得优先看；真正方向、关键时间和执行区进入专题后才揭晓。")
-                  : (en ? "Higher-ranked dossiers have stronger target-week alignment. Bullish and bearish opportunities can both rank near the top; execution levels are shown inside each dossier." : "越靠前，目标周信号越集中。看多和看空机会都可能排在前面；进入专题后直接看唯一方向、周内节奏和执行位置。")}
+                  : (en ? "Higher-ranked dossiers have stronger target-week alignment. Bullish and bearish opportunities can both rank near the top; execution levels are shown inside each dossier." : "越靠前，目标周信号越集中。看多和看空机会都可能排在前面；进入专题后直接看方向、周内节奏和执行位置。")}
               </p>
             </div>
             <span className="rounded-full border border-amber-300/20 bg-amber-300/[.07] px-3 py-1.5 text-caption text-amber-100/85">

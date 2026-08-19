@@ -53,7 +53,7 @@ function mergeRows(payload: ConvictionListPagePayload, kind: RecommendationKind)
   const signalOrder = new Map((payload.resonanceSignals ?? []).map((signal, index) => [signal.slug, index]));
   return WATCHLIST_TEASERS
     .filter((teaser) => teaser.assetType === kind)
-    .filter((teaser) => teaser.slug === "spcx" || cardBySlug.has(teaser.slug))
+    .filter((teaser) => cardBySlug.has(teaser.slug))
     .map((teaser) => {
       const card = cardBySlug.get(teaser.slug);
       return {

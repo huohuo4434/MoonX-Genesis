@@ -12,6 +12,9 @@ import { listNbisPeriodForecasts } from "@/lib/data/conviction/nbis-liuyao-20260
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
 import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-forecasts";
+import { listTSLAPeriodForecasts20260816 } from "@/lib/data/conviction/tsla-liuyao-20260816";
+import { listLITEPeriodForecasts20260816 } from "@/lib/data/conviction/lite-liuyao-20260816";
+import { listSpcxPeriodForecasts } from "@/lib/data/conviction/spcx-forecasts";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
@@ -30,6 +33,9 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "tencent": return listTencentPeriodForecasts();
     case "kingsoft-office": return listVibeFocusPeriodForecasts(assetId);
     case "mu": return listMuHypePeriodForecasts(assetId);
+    case "tsla": return listTSLAPeriodForecasts20260816();
+    case "lite": return listLITEPeriodForecasts20260816();
+    case "spcx": return listSpcxPeriodForecasts();
     default: return [];
   }
 }

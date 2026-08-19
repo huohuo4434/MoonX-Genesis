@@ -9,6 +9,7 @@ import type {
 } from "@/types/focus-dossier";
 import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { buildFocusQimenParallelView } from "@/lib/forecasts/focus-qimen-multihorizon";
+import { focusAuthorityDerivedStep, focusAuthorityDisplayWindow, selectFocusCurrentAuthority } from "@/lib/data/conviction/focus-daily-policy-core";
 
 const DAY_MS = 86_400_000;
 const MAX_DISPLAY_PERIOD_DAYS = 62;
@@ -168,7 +169,7 @@ function parseAuxiliaryEvidence(technical: string | null, news: string | null): 
       chanStage: typeof parsed.chanStage === "string" ? parsed.chanStage : null,
       technical: (technical ?? "").split("; ").filter((part) => !part.startsWith(marker)).join("; ") || null,
       macroNews: news,
-      note: "辅助证据只调整日内节奏，不改变正式锁定周方向。",
+      note: "用于更新未来节奏与技术位。",
     };
   } catch { return null; }
 }
@@ -184,12 +185,14 @@ function sourceDayToView(
       date,
       state: "MISSING",
       direction: null,
-      summary: "该日正式证据待更新；不生成占位预测。",
+      summary: date < asOfDate ? "历史日分析未发布。" : "日分析待生成。",
+      rhythmDirection: null,
+      rhythmSummary: null,
       confirmation: null,
       invalidation: null,
     };
   }
-  const state: FocusDossierDay["state"] = day.status === "已验证"
+  const state: FocusDossierDay["state"] = day.status === "已验证" || date < asOfDate
     ? "OCCURRED"
     : date === asOfDate ? "TODAY" : "PENDING";
   return {
@@ -197,6 +200,8 @@ function sourceDayToView(
     state,
     direction: day.direction,
     summary: day.summary,
+    rhythmDirection: day.direction,
+    rhythmSummary: day.summary,
     confirmation: day.confirmation ?? null,
     invalidation: day.riskNote ?? null,
   };
@@ -217,13 +222,20 @@ function generatedDailyView(
     })
     .sort((left, right) => right.version - left.version || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? ""))[0];
   if (!generated) return null;
-  const sourceKind = generated.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] as FocusDossierDay["sourceKind"];
+  const sourceKind = generated.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_PERIOD_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] as FocusDossierDay["sourceKind"];
   const generatedAsOf = generated.liuyaoEvidence?.match(/AS_OF=(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+  const originalDirection = generated.liuyaoEvidence?.match(/FOCUS_LIUYAO_DIRECTION=([^;]+)/)?.[1];
+  const originalSummary = generated.liuyaoEvidence?.match(/FOCUS_LIUYAO_SUMMARY=([^;]+)/)?.[1];
+  const decode = (value: string | undefined, fallback: string) => { try { return value ? decodeURIComponent(value) : fallback; } catch { return fallback; } };
+  const liuyaoDirection = decode(originalDirection, generated.direction === "NEUTRAL" ? "震荡" : generated.direction);
+  const liuyaoSummary = decode(originalSummary, generated.expectedPath);
   return {
     date,
     state: date === asOfDate ? "TODAY" : "PENDING",
-    direction: generated.direction === "NEUTRAL" ? "观察" : generated.direction,
-    summary: generated.expectedPath,
+    direction: liuyaoDirection,
+    summary: liuyaoSummary,
+    rhythmDirection: generated.direction === "NEUTRAL" ? "震荡" : generated.direction,
+    rhythmSummary: generated.expectedPath,
     confirmation: generated.confirmationLevel,
     invalidation: generated.invalidationLevel,
     sourceKind: sourceKind ?? null,
@@ -294,7 +306,8 @@ function emptyDossier(input: {
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: nextReady || monthlyEvidence ? "INCOMPLETE" : "MISSING",
-    reportSchemaVersion: "2026-08-15.v1",
+    reportSchemaVersion: "2026-08-19.v2",
+    dailyAuthority: null,
     weeklyAuthority: null,
     backgroundHorizons: input.backgroundHorizons,
     statusLabel: nextReady
@@ -372,7 +385,7 @@ export function buildFocusDossier(input: {
   supplementalEvidence?: readonly FocusSupplementalEvidence[];
 }): FocusDossierView {
   const weekly = weeklyForecasts(input.forecasts, input.nowMs);
-  const current = latest(weekly.filter((item) => item.periodStart <= input.asOfDate && item.periodEnd >= input.asOfDate));
+  const current = selectFocusCurrentAuthority({ forecasts: input.forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs });
   const nextWindow = nextMondayWindow(input.asOfDate);
   const next = latest(weekly.filter((item) => item.periodStart === nextWindow.start && item.periodEnd === nextWindow.end));
   const monthly = latest(input.forecasts.filter((item) =>
@@ -383,25 +396,57 @@ export function buildFocusDossier(input: {
   const supplementalEvidence = input.supplementalEvidence ?? [];
   const backgrounds = backgroundHorizons(input.forecasts, input.nowMs, input.asOfDate);
   if (!current) {
-    return attachFocusQimenParallel(emptyDossier({ assetId: input.assetId, asOfDate: input.asOfDate, next, monthly, longTerm, supplementalEvidence, backgroundHorizons: backgrounds, generatedDailies: input.generatedDailies ?? [], nowMs: input.nowMs }), input.forecasts, input.nowMs);
+    return attachFocusQimenParallel(emptyDossier({
+      assetId: input.assetId,
+      asOfDate: input.asOfDate,
+      next,
+      monthly,
+      longTerm,
+      supplementalEvidence,
+      backgroundHorizons: backgrounds,
+      generatedDailies: input.generatedDailies ?? [],
+      nowMs: input.nowMs,
+    }), input.forecasts, input.nowMs);
   }
 
+  const displayWindow = focusAuthorityDisplayWindow(current, input.asOfDate);
   const sourceDays = new Map((current.dailyPath ?? []).map((day) => [day.date, day]));
   const generatedDays = new Map((input.generatedDailies ?? []).filter((day) => {
     const publishedAt = day.publishedAt ? Date.parse(day.publishedAt) : Number.NaN;
     return day.sourceWeeklyForecastId === current.id && ["PUBLISHED", "LOCKED"].includes(day.status) &&
       Number.isFinite(publishedAt) && publishedAt <= input.nowMs;
   }).sort((a, b) => a.forecastDate.localeCompare(b.forecastDate) || a.version - b.version).map((day) => [day.forecastDate, day]));
-  const requiredDates = focusDossierPeriodDates(current.periodStart, current.periodEnd);
+
+  const requiredDates = focusDossierPeriodDates(displayWindow.start, displayWindow.end);
   const dailyPath: FocusDossierDay[] = requiredDates.map((date) => {
     const sourceDay = sourceDays.get(date);
     const generated = sourceDay?.status === "已验证" ? null : generatedDays.get(date);
-    if (generated) {
-      return generatedDailyView(current, date, input.asOfDate, [generated], input.nowMs)!;
+    if (generated) return generatedDailyView(current, date, input.asOfDate, [generated], input.nowMs)!;
+    if (sourceDay) return { ...sourceDayToView(date, input.asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(current, date) };
+    if (date < input.asOfDate) {
+      return { date, state: "OCCURRED", direction: null, summary: "历史日分析未发布。", rhythmDirection: null, rhythmSummary: null, confirmation: null, invalidation: null, keyDayEvidence: forecastKeyDayEvidence(current, date) };
     }
-    return { ...sourceDayToView(date, input.asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(current, date) };
+    const derived = focusAuthorityDerivedStep(current, date, input.asOfDate);
+    const sourceKind: FocusDossierDay["sourceKind"] = current.forecastType.startsWith("WEEK") ? "MOOX_WEEK_DERIVED" : "MOOX_PERIOD_DERIVED";
+    return {
+      date,
+      state: date === input.asOfDate ? "TODAY" : "PENDING",
+      direction: derived.direction,
+      summary: derived.summary,
+      rhythmDirection: derived.direction,
+      rhythmSummary: derived.summary,
+      confirmation: current.confirmationLevel ?? null,
+      invalidation: current.invalidationLevel ?? null,
+      sourceKind,
+      version: current.version,
+      asOfDate: input.asOfDate,
+      rollingReason: null,
+      keyDayEvidence: forecastKeyDayEvidence(current, date),
+      auxiliaryEvidence: null,
+    };
   });
-  const complete = requiredDates.length > 0 && dailyPath.every((day) => day.state !== "MISSING");
+  const activeDaily = dailyPath.filter((day) => day.date >= input.asOfDate);
+  const complete = activeDaily.length > 0 && activeDaily.every((day) => day.direction && day.state !== "MISSING");
   const dailyAuditRows = (input.generatedDailyAudit ?? []).map((row) => ({
     forecastDate: row.forecastDate,
     version: row.version,
@@ -410,31 +455,41 @@ export function buildFocusDossier(input: {
     validationStatus: row.validationStatus,
     publishedAt: row.publishedAt,
     previousVersionId: row.previousVersionId,
-    sourceKind: (row.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] ?? null) as FocusDossierView["dailyAuditRows"][number]["sourceKind"],
+    sourceKind: (row.liuyaoEvidence?.match(/FOCUS_SOURCE_KIND=(TEACHER_DAILY|MOOX_WEEK_DERIVED|MOOX_PERIOD_DERIVED|MOOX_ROLLING_REVISION)/)?.[1] ?? null) as FocusDossierView["dailyAuditRows"][number]["sourceKind"],
     revisionReason: row.revisionReason,
     qimenEvidence: row.qimenEvidence,
   }));
   const nextWeek = nextForecastView(next, input.asOfDate, input.generatedDailies ?? [], input.nowMs);
   const asOfMs = parseDateKey(input.asOfDate);
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
-  const highlightPreparedNext = Boolean(weekend && nextWeek?.dailyEvidenceReady);
+  const highlightPreparedNext = Boolean(current.forecastType.startsWith("WEEK") && weekend && nextWeek?.dailyEvidenceReady);
+  const hasRollingRevision = dailyPath.some((day) => day.sourceKind === "MOOX_ROLLING_REVISION");
+
   return attachFocusQimenParallel({
     executionAuthority: "RESEARCH_ONLY",
     tradingEligible: false,
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: complete ? "READY" : "INCOMPLETE",
-    reportSchemaVersion: "2026-08-15.v1",
-    weeklyAuthority: { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version },
+    reportSchemaVersion: "2026-08-19.v2",
+    dailyAuthority: {
+      forecastId: current.id,
+      forecastType: current.forecastType,
+      direction: current.direction,
+      sourcePeriodStart: current.periodStart,
+      sourcePeriodEnd: current.periodEnd,
+      displayPeriodStart: displayWindow.start,
+      displayPeriodEnd: displayWindow.end,
+      version: current.version,
+    },
+    weeklyAuthority: current.forecastType.startsWith("WEEK")
+      ? { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version }
+      : null,
     backgroundHorizons: backgrounds,
-    statusLabel: highlightPreparedNext
-      ? "本期资料仍保留；下周逐日证据已准备"
-      : complete
-        ? generatedDays.size > 0 ? "本期结论已锁定；逐日研究已发布" : "本期资料完整并已锁定"
-      : "本期结论已锁定；逐日资料待补齐",
+    statusLabel: hasRollingRevision ? "未来节奏已按最新行情更新" : complete ? "双观点日分析已就绪" : "日分析正在补齐",
     conclusion: current.summary,
-    periodStart: current.periodStart,
-    periodEnd: current.periodEnd,
+    periodStart: displayWindow.start,
+    periodEnd: displayWindow.end,
     dailyPath,
     dailyAuditRows,
     supportLevels: current.supportLevels,
@@ -442,10 +497,10 @@ export function buildFocusDossier(input: {
     confirmation: current.confirmationLevel ?? null,
     invalidation: current.invalidationLevel ?? null,
     occurred: dailyPath.filter((day) => day.state === "OCCURRED").map((day) => `${day.date} ${day.summary}`),
-    pendingVerification: dailyPath.filter((day) => day.state !== "OCCURRED").map((day) => `${day.date} ${day.summary}`),
+    pendingVerification: dailyPath.filter((day) => day.state !== "OCCURRED").map((day) => `${day.date} ${day.rhythmSummary ?? day.summary}`),
     nextWeek,
     displayScope: highlightPreparedNext ? "NEXT_PERIOD_READY" : "CURRENT_PERIOD",
-    weeklyEvidenceStatus: "READY",
+    weeklyEvidenceStatus: current.forecastType.startsWith("WEEK") ? "READY" : "MISSING",
     dailyEvidenceStatus: complete ? "READY" : "INCOMPLETE",
     monthlyEvidence: monthly ? {
       periodStart: monthly.periodStart,
@@ -490,8 +545,8 @@ export function buildMemberFocusDossier(input: {
   const dailyPath: FocusDossierDay[] = dates.map((date) => {
     const day = validDaily.get(date);
     return day
-      ? { date, state: date === input.asOfDate ? "TODAY" : "PENDING", direction: day.direction, summary: day.headline, confirmation: day.confirmation ?? null, invalidation: day.invalidation }
-      : { date, state: "MISSING", direction: null, summary: "该日正式资料待更新；不生成占位预测。", confirmation: null, invalidation: null };
+      ? { date, state: date < input.asOfDate ? "OCCURRED" : date === input.asOfDate ? "TODAY" : "PENDING", direction: day.direction, summary: day.headline, rhythmDirection: day.direction, rhythmSummary: day.headline, confirmation: day.confirmation ?? null, invalidation: day.invalidation }
+      : { date, state: "MISSING", direction: null, summary: date < input.asOfDate ? "历史日分析未发布。" : "日分析待生成。", confirmation: null, invalidation: null };
   });
   const complete = dates.length > 0 && dailyPath.every((day) => day.state !== "MISSING");
   return attachFocusQimenParallel({
@@ -500,7 +555,8 @@ export function buildMemberFocusDossier(input: {
     assetId: input.assetId,
     asOfDate: input.asOfDate,
     evidenceStatus: complete ? "READY" : "INCOMPLETE",
-    reportSchemaVersion: "2026-08-15.v1",
+    reportSchemaVersion: "2026-08-19.v2",
+    dailyAuthority: { forecastId: weekly.id, forecastType: "WEEK", direction: weekly.overallDirection, sourcePeriodStart: weekly.weekStart, sourcePeriodEnd: weekly.weekEnd, displayPeriodStart: weekly.weekStart, displayPeriodEnd: weekly.weekEnd, version: 1 },
     weeklyAuthority: null,
     backgroundHorizons: [],
     statusLabel: complete ? "本期结论与逐日资料已发布" : "本期结论已发布；逐日资料待补齐",

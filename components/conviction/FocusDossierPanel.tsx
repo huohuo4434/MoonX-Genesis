@@ -1,168 +1,122 @@
 import { Badge, Card } from "@/components/ui";
-import type { FocusDossierView } from "@/types/focus-dossier";
-import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
-import { focusPrimaryDailyEvidenceStatus } from "@/lib/data/conviction/focus-dossier-core";
 import { FocusQimenParallelPanel } from "@/components/conviction/FocusQimenParallelPanel";
+import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
+import type { FocusDossierView } from "@/types/focus-dossier";
 
-const DAY_STATE = {
-  OCCURRED: "已发生",
-  TODAY: "今日",
-  PENDING: "待验证",
-  MISSING: "待更新",
-} as const;
+function joinLevels(values: readonly string[]): string {
+  return values.length ? values.join(" / ") : "—";
+}
 
-const EVIDENCE_LABEL = {
-  READY: "完整",
-  INCOMPLETE: "待补齐",
-  MISSING: "缺失",
-} as const;
-
-export function FocusDossierPanel({ dossier:rawDossier }: { dossier: FocusDossierView }) {
-  const dossier=projectPublicAttribution(rawDossier);
-  const nextReady = dossier.displayScope === "NEXT_PERIOD_READY" && dossier.nextWeek?.dailyEvidenceReady;
-  const ready = Boolean(nextReady || dossier.evidenceStatus === "READY");
-  const primaryDailyEvidenceStatus = focusPrimaryDailyEvidenceStatus(dossier);
-  const primaryPath = nextReady ? dossier.nextWeek!.dailyPath : dossier.dailyPath;
+export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossierView }) {
+  const dossier = projectPublicAttribution(rawDossier);
+  const nextReady = dossier.displayScope === "NEXT_PERIOD_READY" && Boolean(dossier.nextWeek?.dailyEvidenceReady);
   const primaryConclusion = nextReady ? dossier.nextWeek!.conclusion : dossier.conclusion;
   const primaryStart = nextReady ? dossier.nextWeek!.periodStart : dossier.periodStart;
   const primaryEnd = nextReady ? dossier.nextWeek!.periodEnd : dossier.periodEnd;
-  const primaryConfirmation = nextReady ? dossier.nextWeek!.confirmation : dossier.confirmation;
-  const primaryInvalidation = nextReady ? dossier.nextWeek!.invalidation : dossier.invalidation;
-  const primaryVersion = nextReady ? dossier.nextWeek!.version : dossier.version;
-  const primarySource = nextReady ? dossier.nextWeek!.source : dossier.source;
-  const primaryLockedAt = nextReady ? dossier.nextWeek!.lockedAt : dossier.lockedAt;
+  const supportLevels = nextReady ? dossier.nextWeek!.supportLevels : dossier.supportLevels;
+  const resistanceLevels = nextReady ? dossier.nextWeek!.resistanceLevels : dossier.resistanceLevels;
+  const confirmation = nextReady ? dossier.nextWeek!.confirmation : dossier.confirmation;
+  const invalidation = nextReady ? dossier.nextWeek!.invalidation : dossier.invalidation;
+  const authorityLabel = nextReady
+    ? "WEEK · 下一期"
+    : dossier.dailyAuthority
+      ? `${dossier.dailyAuthority.forecastType} · V${dossier.dailyAuthority.version}`
+      : "待更新";
 
   return (
     <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[linear-gradient(145deg,rgba(14,22,30,.98),rgba(8,10,14,.98))] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-caption uppercase tracking-[0.16em] text-cyan-200/60">MOOX 重点关注统一档案</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
-            {nextReady ? "下周已准备（未来期）" : "本期唯一结论"}
-          </h2>
-          {nextReady ? (
-            <p className="mt-1 text-caption text-amber-100/70">{dossier.weeklyEvidenceStatus === "READY" ? "本期资料仍按原周期保留" : "本期资料缺失或已结束"}；以下内容属于下一期，不提前冒充本期结论。</p>
-          ) : null}
-          <p className="mt-2 max-w-4xl text-body-sm leading-7 text-white/75">
-            {primaryConclusion ?? "本期正式锁定周证据尚未发布；不使用过期周预测填充当前结论。"}
-          </p>
+        <div className="max-w-4xl">
+          <p className="font-mono text-caption uppercase tracking-[0.16em] text-cyan-200/60">MOOX 重点关注</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">{nextReady ? "下一期研究" : "当前研究"}</h2>
+          <p className="mt-2 text-body-sm leading-7 text-white/75">{primaryConclusion ?? "研究正在更新。"}</p>
         </div>
-        <Badge variant="outline" className={ready ? "border-emerald-300/25 text-emerald-100" : "border-amber-300/25 text-amber-100"}>
-          {dossier.statusLabel}
-        </Badge>
+        <Badge variant="outline" className="border-cyan-300/25 text-cyan-100">{dossier.statusLabel}</Badge>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
-          <p className="text-caption text-white/40">{nextReady ? "下周期（未来）" : "本期周期"}</p>
-          <p className="mt-1 text-body-sm text-white/75">{primaryStart && primaryEnd ? `${primaryStart} 至 ${primaryEnd}` : "待更新"}</p>
+          <p className="text-caption text-white/40">周期</p>
+          <p className="mt-1 text-body-sm text-white/75">{primaryStart && primaryEnd ? `${primaryStart} 至 ${primaryEnd}` : "—"}</p>
+          <p className="mt-1 text-[11px] text-white/35">{authorityLabel}</p>
         </Card>
-        <Card padding="sm" className="border-white/[0.08] bg-black/20">
-          <p className="text-caption text-white/40">证据覆盖</p>
-          <p className="mt-1 text-body-sm text-white/75">周：{dossier.weeklyEvidenceStatus === "READY" ? "完整" : "缺失"} · 日：{EVIDENCE_LABEL[primaryDailyEvidenceStatus]} · 月：{dossier.monthlyEvidence ? "可用" : "缺失"}</p>
+        <Card padding="sm" className="border-emerald-300/15 bg-emerald-300/[0.025]">
+          <p className="text-caption text-emerald-100/70">支撑</p>
+          <p className="mt-1 text-body-sm text-white/80">{joinLevels(supportLevels)}</p>
+        </Card>
+        <Card padding="sm" className="border-rose-300/15 bg-rose-300/[0.025]">
+          <p className="text-caption text-rose-100/70">压力</p>
+          <p className="mt-1 text-body-sm text-white/80">{joinLevels(resistanceLevels)}</p>
         </Card>
         <Card padding="sm" className="border-white/[0.08] bg-black/20">
           <p className="text-caption text-white/40">确认 / 失效</p>
-          <p className="mt-1 text-body-sm text-white/75">{primaryConfirmation ?? "本期不设确认位"}</p>
-          <p className="mt-1 text-caption text-white/45">{primaryInvalidation ?? "未提供正式失效位"}</p>
-        </Card>
-        <Card padding="sm" className="border-white/[0.08] bg-black/20">
-          <p className="text-caption text-white/40">发布 / 版本 / 来源</p>
-          <p className="mt-1 text-body-sm text-white/75">{nextReady || dossier.publicationStatus === "PUBLISHED" ? "已发布" : "待发布"} · {primaryVersion ? `V${primaryVersion}` : "未提供版本号"} · {primarySource ?? "来源待提供"}</p>
-          <p className="mt-1 text-caption text-white/40">{primaryLockedAt ? `已锁定 ${primaryLockedAt}` : dossier.lockStatus === "LOCK_NOT_PROVIDED" ? "未提供锁定时间，不声明已锁定" : "锁定状态待提供"}</p>
+          <p className="mt-1 text-body-sm text-emerald-100/75">{confirmation ?? "—"}</p>
+          <p className="mt-1 text-body-sm text-rose-100/75">{invalidation ?? "—"}</p>
         </Card>
       </div>
-
-      <Card padding="sm" className="border-cyan-300/15 bg-cyan-300/[0.025]">
-        <p className="text-caption font-semibold text-cyan-100">正式周方向权威</p>
-        {dossier.weeklyAuthority ? (
-          <p className="mt-2 text-body-sm text-white/70">{dossier.weeklyAuthority.direction} · {dossier.weeklyAuthority.periodStart} 至 {dossier.weeklyAuthority.periodEnd} · V{dossier.weeklyAuthority.version}</p>
-        ) : <p className="mt-2 text-body-sm text-amber-100/70">缺少当前正式锁定周证据：详细报告保持 WAIT / MISSING，不由技术、行情或外部信息补造方向。</p>}
-      </Card>
-
-      {dossier.monthlyEvidence ? (
-        <Card padding="sm" className="border-violet-300/15 bg-violet-300/[0.035]">
-          <p className="text-caption font-medium text-violet-100">月度正式结论</p>
-          <p className="mt-1 text-caption text-white/45">{dossier.monthlyEvidence.periodStart} 至 {dossier.monthlyEvidence.periodEnd} · {dossier.monthlyEvidence.version ? `V${dossier.monthlyEvidence.version}` : "未提供版本号"}</p>
-          <p className="mt-2 text-body-sm leading-7 text-white/70">{dossier.monthlyEvidence.conclusion}</p>
-          {dossier.weeklyEvidenceStatus === "MISSING" ? <p className="mt-2 text-caption text-amber-100/70">周证据缺失 · 日证据缺失；月结论不能机械拆成逐日预测。</p> : null}
-        </Card>
-      ) : null}
 
       <FocusQimenParallelPanel view={dossier.qimenParallel} />
 
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-body font-semibold text-white">{nextReady ? "下一期六爻原始逐日证据（未来期）" : "本期六爻原始逐日证据"}</h3>
-          <p className="text-caption text-white/40">以下保留六爻原始证据与技术辅助；上方双法表不会改写这里的正式六爻内容。</p>
-        </div>
-        {primaryPath.length ? (
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-            {primaryPath.map((day) => (
-              <article key={day.date} className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
-                <div className="flex items-center justify-between gap-2"><p className="text-body-sm font-medium text-white">{day.date}</p><Badge variant="outline">{DAY_STATE[day.state]}</Badge></div>
-                <p className="mt-2 text-caption text-cyan-100/70">
-                  {day.direction ?? (dossier.weeklyAuthority
-                    ? `正式周方向：${dossier.weeklyAuthority.direction} · 日节奏待生成`
-                    : "缺少正式周方向")}
-                </p>
-                <p className="mt-2 text-caption leading-6 text-white/55">{day.summary}</p>
-                {day.keyDayEvidence?.map((item) => <p key={`${item.type}-${item.label}`} className="mt-2 text-[11px] text-violet-100/60">关键日证据 · {item.type} · {item.label}</p>)}
-                {day.auxiliaryEvidence ? <p className="mt-2 text-[11px] text-white/40">闭合行情 {day.auxiliaryEvidence.closedMarketData} · Chan {day.auxiliaryEvidence.chan}{day.auxiliaryEvidence.chanStage ? ` / ${day.auxiliaryEvidence.chanStage}` : ""}</p> : null}
-                {day.sourceKind ? <p className="mt-2 text-[11px] text-white/35">{day.sourceKind} · V{day.version ?? 1} · as-of {day.asOfDate ?? "—"}</p> : null}
-              </article>
-            ))}
-          </div>
-        ) : <p className="mt-3 rounded-lg border border-amber-300/15 bg-amber-300/[0.03] p-3 text-body-sm text-amber-100/70">本期正式逐日资料待更新。</p>}
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card padding="sm" className="border-emerald-300/15 bg-emerald-300/[0.025]"><p className="text-caption font-semibold text-emerald-100">周验证（核心 / 首要）</p><p className="mt-2 text-caption text-white/55">正式锁定周结论是主验证对象；日度滚动只记录实现路径，不改写周结论。</p></Card>
-        <Card padding="sm" className="border-white/[0.08] bg-black/20"><p className="text-caption font-medium text-amber-100">待验证</p><ul className="mt-2 space-y-1 text-caption text-white/55">{dossier.pendingVerification.length ? dossier.pendingVerification.slice(0, 4).map((item) => <li key={item}>· {item}</li>) : <li>· 暂无待验证条目</li>}</ul></Card>
-        <Card padding="sm" className="border-white/[0.08] bg-black/20">
-          <p className="text-caption font-medium text-cyan-100">下周预告</p>
-          {dossier.nextWeek ? <><p className="mt-2 text-caption text-white/70">{dossier.nextWeek.periodStart} 至 {dossier.nextWeek.periodEnd}</p><p className="mt-2 text-caption leading-6 text-white/55">{dossier.nextWeek.conclusion}</p><p className="mt-2 text-caption text-amber-100/60">{dossier.nextWeek.dailyEvidenceReady ? "逐日证据已齐；到期前仍标记为未来期" : "逐日证据待补齐；不生成每日占位结论"}</p></> : <p className="mt-2 text-caption text-white/50">下周正式证据待发布。</p>}
-        </Card>
-      </div>
-
-      <details className="rounded-lg border border-white/[0.08] bg-black/15 p-3">
-        <summary className="cursor-pointer text-body-sm text-white/70">完整日度审计（含失败、部分命中、未验证与全部历史版本）</summary>
-        {dossier.dailyAuditRows.length ? (
-          <ul className="mt-3 space-y-2 text-caption text-white/55">
-            {dossier.dailyAuditRows.map((row) => (
-              <li key={`${row.forecastDate}-${row.version}-${row.publishedAt ?? "unpublished"}`} className="rounded-md border border-white/[0.06] p-2">
-                <p>{row.forecastDate} · V{row.version} · {row.direction} · {row.validationStatus ?? "UNVERIFIED"}</p>
-                <p className="mt-1">{row.path}</p>
-                <p className="mt-1 text-white/35">来源：{row.sourceKind ?? "未标注"} · 发布时间：{row.publishedAt ?? "未发布"} · 前版：{row.previousVersionId ?? "无"}</p>
-                {row.revisionReason ? <p className="mt-1 text-white/35">修订原因：{row.revisionReason}</p> : null}
-              </li>
-            ))}
-          </ul>
-        ) : <p className="mt-3 text-caption text-white/45">尚无持久化日度版本；不会以最新摘要冒充完整审计。</p>}
-      </details>
-
-      {dossier.supplementalEvidence.length ? (
-        <details className="rounded-lg border border-amber-300/15 bg-amber-300/[0.025] p-3">
-          <summary className="cursor-pointer text-body-sm text-amber-100/80">易老师综合研究补充（不改正式方向）</summary>
-          <div className="mt-3 space-y-3">
-            {dossier.supplementalEvidence.map((item) => (
-              <article key={item.id} className="rounded-lg border border-white/[0.07] bg-black/15 p-3 text-caption leading-6 text-white/55">
-                <p className="text-white/75">{item.periodStart} 至 {item.periodEnd} · {item.status} · RESEARCH_ONLY</p>
-                <p>{item.status === "FORWARD_AUXILIARY" ? "前瞻辅助证据" : "历史补充档案"} · 原始来源与路径仅供管理员审计 · 不计入正式命中</p>
-                <p>{item.summary ?? item.gapNote ?? "内容待可靠结构化。"}</p>
-                <p className="text-rose-100/60">不回填正式预测，不计入历史命中。</p>
-              </article>
-            ))}
+      {dossier.nextWeek && !nextReady ? (
+        <details className="rounded-xl border border-cyan-300/12 bg-cyan-300/[0.02] p-3">
+          <summary className="cursor-pointer text-body-sm text-cyan-100/75">下一期</summary>
+          <div className="mt-3 space-y-2 text-caption leading-6 text-white/55">
+            <p>{dossier.nextWeek.periodStart} 至 {dossier.nextWeek.periodEnd}</p>
+            <p>{dossier.nextWeek.conclusion}</p>
+            <p>日分析：{dossier.nextWeek.dailyEvidenceReady ? "已生成" : "生成中"}</p>
           </div>
         </details>
       ) : null}
 
-      <details className="rounded-lg border border-white/[0.08] bg-black/15 p-3">
-        <summary className="cursor-pointer text-body-sm text-white/70">长期背景（不替代本期结论）</summary>
-        <p className="mt-2 text-caption leading-6 text-white/50">{dossier.longTermBackground ?? "长期正式资料待更新。"}</p>
-        {dossier.backgroundHorizons.length ? <div className="mt-3 space-y-2 text-caption text-white/50">{dossier.backgroundHorizons.map((item) => <details key={`${item.forecastType}-${item.periodStart}-${item.version}`} className="rounded-md border border-white/[0.06] p-2"><summary>{item.forecastType} · {item.periodStart} 至 {item.periodEnd} · V{item.version}</summary><p className="mt-2">{item.conclusion}</p>{item.dailyPath.length ? <ul className="mt-2 space-y-1">{item.dailyPath.map((day) => <li key={day.date}>{day.date} · {day.direction ?? "待更新"} · {day.summary}</li>)}</ul> : null}</details>)}</div> : null}
-      </details>
-      <p className="text-caption text-white/35">研究权限：RESEARCH_ONLY · 不具备交易执行资格</p>
+      {dossier.backgroundHorizons.length || dossier.monthlyEvidence || dossier.longTermBackground ? (
+        <details className="rounded-xl border border-white/[0.08] bg-black/15 p-3">
+          <summary className="cursor-pointer text-body-sm text-white/70">多周期背景</summary>
+          <div className="mt-3 space-y-3 text-caption leading-6 text-white/55">
+            {dossier.monthlyEvidence ? (
+              <div className="rounded-lg border border-violet-300/12 bg-violet-300/[0.025] p-3">
+                <p className="text-violet-100/75">月度 · {dossier.monthlyEvidence.periodStart} 至 {dossier.monthlyEvidence.periodEnd}</p>
+                <p className="mt-1">{dossier.monthlyEvidence.conclusion}</p>
+              </div>
+            ) : null}
+            {dossier.backgroundHorizons.map((item) => (
+              <div key={`${item.forecastType}-${item.periodStart}-${item.version}`} className="rounded-lg border border-white/[0.06] p-3">
+                <p className="text-white/70">{item.forecastType} · {item.periodStart} 至 {item.periodEnd} · V{item.version}</p>
+                <p className="mt-1">{item.conclusion}</p>
+              </div>
+            ))}
+            {dossier.longTermBackground ? <p>{dossier.longTermBackground}</p> : null}
+          </div>
+        </details>
+      ) : null}
+
+      {dossier.dailyAuditRows.length ? (
+        <details className="rounded-xl border border-white/[0.08] bg-black/15 p-3">
+          <summary className="cursor-pointer text-body-sm text-white/70">日分析版本与验证</summary>
+          <ul className="mt-3 space-y-2 text-caption text-white/55">
+            {dossier.dailyAuditRows.map((row) => (
+              <li key={`${row.forecastDate}-${row.version}-${row.publishedAt ?? "unpublished"}`} className="rounded-lg border border-white/[0.06] p-3">
+                <p className="text-white/75">{row.forecastDate} · V{row.version} · {row.direction} · {row.validationStatus ?? "待验证"}</p>
+                <p className="mt-1">{row.path}</p>
+                {row.revisionReason ? <p className="mt-1 text-cyan-100/50">更新：{row.revisionReason}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {dossier.supplementalEvidence.length ? (
+        <details className="rounded-xl border border-amber-300/12 bg-amber-300/[0.02] p-3">
+          <summary className="cursor-pointer text-body-sm text-amber-100/75">补充研究</summary>
+          <div className="mt-3 space-y-2 text-caption leading-6 text-white/55">
+            {dossier.supplementalEvidence.map((item) => (
+              <div key={item.id} className="rounded-lg border border-white/[0.06] p-3">
+                <p className="text-white/70">{item.periodStart} 至 {item.periodEnd}</p>
+                <p className="mt-1">{item.summary ?? item.gapNote ?? "内容待更新。"}</p>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

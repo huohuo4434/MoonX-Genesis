@@ -35,23 +35,18 @@ import {
   aSharePeriodLabel20260810,
   aSharePeriodMeta20260810,
   isAShareResearchAssetId,
-  type AShareResearchAssetId,
 } from "@/lib/data/conviction/a-share-liuyao-20260810";
 import {
   TSLA_PERIOD_ORDER,
   TSLA_VISIBLE_PERIOD_ORDER,
-  listTSLAPeriodForecasts20260816,
   tslaPeriodLabel20260816,
   tslaPeriodMeta20260816,
-  type TSLAResearchAssetId,
 } from "@/lib/data/conviction/tsla-liuyao-20260816";
 import {
   LITE_PERIOD_ORDER,
   LITE_VISIBLE_PERIOD_ORDER,
-  listLITEPeriodForecasts20260816,
   litePeriodLabel20260816,
   litePeriodMeta20260816,
-  type LITEResearchAssetId,
 } from "@/lib/data/conviction/lite-liuyao-20260816";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
@@ -88,7 +83,6 @@ import {
   VIBE_FOCUS_PERIOD_ORDER,
   VIBE_FOCUS_VISIBLE_PERIOD_ORDER,
   vibeFocusPeriodMeta,
-  type VibeFocusAssetId,
 } from "@/lib/data/conviction/vibe-focus-forecasts";
 import {
   GOOGLE_PERIOD_ORDER,
@@ -136,8 +130,9 @@ import type {
   MemberStockVerificationResult,
   MemberStockWeeklyMemberView,
 } from "@/types/member-stock";
-import { STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
+import { STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
+import { SPCX_PERIOD_ORDER, SPCX_VISIBLE_PERIOD_ORDER, spcxPeriodMeta } from "@/lib/data/conviction/spcx-forecasts";
 
 export type ConvictionListPagePayload = {
   mode: "publicOnly" | "fullAccess";
@@ -244,33 +239,17 @@ function filterPastVerifiedHistory(
   });
 }
 
-type StaticPeriodAssetId =
-  | "cxmt"
-  | "asteroid"
-  | "sandisk"
-  | "nbis"
-  | "mu"
-  | "hype"
-  | "sol"
-  | "eth"
-  | "btc"
-  | VibeFocusAssetId
-  | AShareResearchAssetId
-  | TSLAResearchAssetId
-  | LITEResearchAssetId;
+type StaticPeriodAssetId = StaticFocusAssetId;
 // V7.17.3 A-share static dossiers
 
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
-  if (value === "tsla" || value === "lite") return true;
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
 }
 
 function staticPublished(assetId: StaticPeriodAssetId) {
-  if (assetId === "tsla") return listTSLAPeriodForecasts20260816();
-  if (assetId === "lite") return listLITEPeriodForecasts20260816();
   return listStaticFocusForecasts(assetId);
 }
 
@@ -305,9 +284,8 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "googl") return GOOGLE_PERIOD_ORDER;
   if (assetId === "msft") return MSFT_PERIOD_ORDER;
   if (assetId === "tencent") return TENCENT_PERIOD_ORDER;
-  if (assetId === "kingsoft-office") {
-    return VIBE_FOCUS_PERIOD_ORDER;
-  }
+  if (assetId === "kingsoft-office") return VIBE_FOCUS_PERIOD_ORDER;
+  if (assetId === "spcx") return SPCX_PERIOD_ORDER;
   return PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -326,9 +304,8 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "googl") return GOOGLE_VISIBLE_PERIOD_ORDER;
   if (assetId === "msft") return MSFT_VISIBLE_PERIOD_ORDER;
   if (assetId === "tencent") return TENCENT_VISIBLE_PERIOD_ORDER;
-  if (assetId === "kingsoft-office") {
-    return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
-  }
+  if (assetId === "kingsoft-office") return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
+  if (assetId === "spcx") return SPCX_VISIBLE_PERIOD_ORDER;
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -480,9 +457,8 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "googl") return googlePeriodMeta();
   if (assetId === "msft") return msftPeriodMeta();
   if (assetId === "tencent") return tencentPeriodMeta();
-  if (assetId === "kingsoft-office") {
-    return vibeFocusPeriodMeta(assetId);
-  }
+  if (assetId === "kingsoft-office") return vibeFocusPeriodMeta(assetId);
+  if (assetId === "spcx") return spcxPeriodMeta();
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({
     type,
@@ -566,11 +542,13 @@ export async function getConvictionDetailPayload(
     if (baseDossier.periodStart && baseDossier.periodEnd) {
       try {
         const { listFocusGeneratedDailyAuditVersions, listLatestGeneratedDailiesForMarketDates } = await import("@/lib/weekly-source/store");
-        const sourceForecast = publishedForecasts.find((forecast) =>
-          forecast.periodStart === baseDossier.periodStart &&
-          forecast.periodEnd === baseDossier.periodEnd &&
-          forecast.version === baseDossier.version
-        );
+        const sourceForecast = baseDossier.dailyAuthority
+          ? publishedForecasts.find((forecast) => forecast.id === baseDossier.dailyAuthority!.forecastId) ?? null
+          : publishedForecasts.find((forecast) =>
+              forecast.periodStart === baseDossier.periodStart &&
+              forecast.periodEnd === baseDossier.periodEnd &&
+              forecast.version === baseDossier.version
+            ) ?? null;
         const marketCode = focusDailyMarketCode(staticPeriodAsset);
         [generatedDailies, generatedDailyAudit] = await Promise.all([
           loadFocusDossierGeneratedDailies({
@@ -750,6 +728,7 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   msft: "微软",
   tencent: "腾讯",
   "kingsoft-office": "金山办公",
+  spcx: "SPCX",
 };
 
 /** Admin freshness guard: a finished weekly study cannot remain silently current. */
