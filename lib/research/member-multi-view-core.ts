@@ -1,4 +1,4 @@
-// MOOX_MEMBER_MULTI_VIEW_CORE_V72093
+// MOOX_MEMBER_MULTI_VIEW_CORE_V720107_ASSET_MATRIX
 
 export type MultiViewDirection = "BULLISH" | "BEARISH" | "NEUTRAL";
 export type MultiViewHorizon = "SHORT" | "MEDIUM" | "LONG" | "UNSPECIFIED";
@@ -117,6 +117,24 @@ const ASSET_RULES: ReadonlyArray<{ label: string; patterns: readonly string[] }>
   { label: "SNDK", patterns: ["sndk", "sandisk", "闪迪"] },
   { label: "NVDA", patterns: ["nvda", "英伟达", "nvidia"] },
   { label: "TSLA", patterns: ["tsla", "特斯拉", "tesla"] },
+  { label: "AAPL", patterns: ["$aapl", " aapl ", "苹果", "apple"] },
+  { label: "MSFT", patterns: ["$msft", " msft ", "微软", "microsoft"] },
+  { label: "META", patterns: ["$meta", " meta ", "meta platforms", "脸书", "facebook"] },
+  { label: "AMZN", patterns: ["$amzn", " amzn ", "亚马逊", "amazon"] },
+  { label: "AVGO", patterns: ["$avgo", " avgo ", "博通", "broadcom"] },
+  { label: "AMD", patterns: ["$amd", " amd ", "超威", "advanced micro devices"] },
+  { label: "TSM", patterns: ["$tsm", " tsm ", "台积电", "台積電", "tsmc"] },
+  { label: "PLTR", patterns: ["$pltr", " pltr ", "palantir"] },
+  { label: "MSTR", patterns: ["$mstr", " mstr ", "microstrategy", "strategy公司"] },
+  { label: "COIN", patterns: ["$coin", " coinbase", "coinbase"] },
+  { label: "NBIS", patterns: ["$nbis", " nbis ", "nebius"] },
+  { label: "NFLX", patterns: ["$nflx", " nflx ", "奈飞", "netflix"] },
+  { label: "ORCL", patterns: ["$orcl", " orcl ", "甲骨文", "oracle"] },
+  { label: "CRWV", patterns: ["$crwv", " crwv ", "coreweave"] },
+  { label: "SOL", patterns: ["$sol", " sol ", "solana"] },
+  { label: "XRP", patterns: ["$xrp", " xrp ", "瑞波", "ripple"] },
+  { label: "BNB", patterns: ["$bnb", " bnb ", "binance coin"] },
+  { label: "DOGE", patterns: ["$doge", " doge ", "狗狗币", "dogecoin"] },
 ];
 
 const BULLISH_WORDS = ["看涨", "偏多", "多头", "做多", "上涨", "上行", "反弹", "新高", "抄底", "买入", "低吸", "转强", "突破压力"] as const;
@@ -171,6 +189,10 @@ export function classifyMultiViewTheory(rawText: string): TheoryReading[] {
 
 export function classifyMultiViewDirection(rawText: string): MultiViewDirection {
   const text = rawText.toLowerCase();
+  const explicitBull = /看涨|看多|偏多|做多|多单|买入|低吸|bullish|long/.test(text);
+  const explicitBear = /看跌|看空|偏空|做空|空单|卖出|减仓|bearish|short/.test(text);
+  if (explicitBull && !explicitBear) return "BULLISH";
+  if (explicitBear && !explicitBull) return "BEARISH";
   const bull = BULLISH_WORDS.reduce((score, word) => score + countKeyword(text, word), 0);
   const bear = BEARISH_WORDS.reduce((score, word) => score + countKeyword(text, word), 0);
   const neutral = NEUTRAL_WORDS.reduce((score, word) => score + countKeyword(text, word), 0);
@@ -357,4 +379,62 @@ export function buildMultiViewBrief(
     summary: summarizeMultiView(rawText),
     levels: extractMultiViewLevels(rawText),
   };
+}
+
+
+// V7.20.10.7: explicit per-post time window / cashtag extraction for the member asset matrix.
+export function extractMultiViewTimeWindows(rawText: string): string[] {
+  const text = stripMultiViewIdentity(rawText);
+  const values = new Set<string>();
+  const patterns = [
+    /20\d{2}[年\/.\-]\d{1,2}(?:[月\/.\-]\d{1,2}(?:日|号)?)?\s*(?:至|到|[-~—])\s*20?\d{0,2}[年\/.\-]?\d{1,2}[月\/.\-]\d{1,2}(?:日|号)?/g,
+    /\d{1,2}月\d{1,2}(?:日|号)?\s*(?:至|到|[-~—])\s*(?:\d{1,2}月)?\d{1,2}(?:日|号)?/g,
+    /\d{1,2}[\/.\-]\d{1,2}\s*(?:至|到|[-~—])\s*\d{1,2}[\/.\-]\d{1,2}/g,
+    /(?:本周|下周|未来\s*\d{1,2}\s*(?:天|周|个月)|未来一周|未来两周|本月|下月|月底|月初|年底前|年内|中期选举前)/g,
+    /(?:8|9|10|11|12)月(?:上旬|中旬|下旬|底|初)?/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const value = normalize(match[0] ?? "");
+      if (value) values.add(value);
+    }
+  }
+  return [...values].slice(0, 6);
+}
+
+export function extractMultiViewCashtags(rawText: string): string[] {
+  const values = new Set<string>();
+  for (const match of rawText.matchAll(/\$([A-Za-z][A-Za-z0-9]{1,9})\b/g)) {
+    const ticker = (match[1] ?? "").toUpperCase();
+    if (ticker && !["USD", "USDT", "USDC"].includes(ticker)) values.add(ticker);
+  }
+  return [...values].slice(0, 12);
+}
+
+export function summarizeMultiViewForAsset(rawText: string, asset: string, maxChars = 240): string {
+  const cleaned = stripMultiViewIdentity(rawText);
+  const normalizedAsset = asset.toUpperCase().replace(/USDT$/, "");
+  const assetRule = ASSET_RULES.find((rule) => rule.label === normalizedAsset);
+  const needles = new Set<string>([
+    normalizedAsset.toLowerCase(),
+    `$${normalizedAsset.toLowerCase()}`,
+    ...(assetRule?.patterns ?? []).map((value) => value.trim().toLowerCase()),
+  ]);
+  const pieces = cleaned
+    .split(/(?<=[。！？!?；;])|\n+/)
+    .map(cleanSentence)
+    .filter((sentence) => sentence.length >= 6 && sentence.length <= 360);
+  const ranked = pieces.map((sentence, index) => {
+    const lower = sentence.toLowerCase();
+    const assetHit = [...needles].some((needle) => needle && lower.includes(needle));
+    const marketSignal = IMPORTANT_PATTERNS.reduce((score, pattern) => score + (pattern.test(sentence) ? 2 : 0), 0);
+    return { sentence, index, score: (assetHit ? 8 : 0) + marketSignal };
+  });
+  const assetHits = ranked.filter((item) => item.score >= 8);
+  const chosen = (assetHits.length ? assetHits : ranked.filter((item) => item.score > 0))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 3)
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.sentence);
+  return clampText((chosen.length ? chosen : pieces.slice(0, 2).map((item) => item)).join(" ") || "暂无可归纳内容。", maxChars);
 }

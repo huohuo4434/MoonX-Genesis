@@ -1,9 +1,10 @@
+// MOOX_V720107_X_10D_REFRESH_CRON: full-registry incremental scan + first 10-day history backfill.
 // MOOX_EXTERNAL_ANALYST_V1
 import { NextResponse, type NextRequest } from "next/server";
 import { refreshExternalAnalystSignals } from "@/lib/trading-signals/external-analyst-signals";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;

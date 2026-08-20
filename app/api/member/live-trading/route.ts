@@ -1,3 +1,4 @@
+// MOOX_V720106_LIVE_HEARTBEAT_DIAGNOSTICS: expose authoritative cron/runtime heartbeat to member diagnostics.
 import { NextRequest, NextResponse } from "next/server";
 import {
   isUnifiedLiveAdmin,
@@ -17,6 +18,7 @@ import {
 import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { getThreeHorizonStrategyDashboard } from "@/lib/trading-signals/three-horizon-strategy";
 import type { ThreeHorizonStrategyDecision } from "@/types/three-horizon-strategy";
+import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
 
 // MOOX_V720105_LIVE_VISIBILITY: authoritative positions + plans + no-order diagnosis for the member live page.
 export const dynamic = "force-dynamic";
@@ -25,22 +27,6 @@ export const runtime = "nodejs";
 const ACTIVE_SLICE_STATUSES = new Set(["PENDING", "OPEN", "PARTIALLY_CLOSED", "ORPHAN_PENDING_CLAIM"]);
 const PLAN_STATUSES = new Set(["OBSERVING", "READY", "SHADOW_READY", "BLOCKED"]);
 const EXECUTION_STATUSES = new Set(["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSED", "ERROR"]);
-
-type StoredLiveSlice = {
-  id?: string;
-  symbol?: string;
-  horizon?: string;
-  side?: string;
-  status?: string;
-  quantity?: number;
-  leverage?: number;
-  entryPrice?: number;
-  stopPrice?: number | null;
-  target1?: number | null;
-  target2?: number | null;
-  openedAt?: Date | string | null;
-  lastManagedAt?: Date | string | null;
-};
 
 function strategyToHorizon(strategyType: string): "SHORT" | "MEDIUM" | "LONG" {
   if (strategyType === "INTRADAY") return "SHORT";
@@ -127,7 +113,6 @@ function summarizeNoOrderDiagnosis(input: {
   bitgetExecutionAllowed: boolean;
   bitgetMode: string;
   exchangeSnapshotAvailable: boolean;
-  exchangeSnapshotChecked: boolean;
   riskBlocked: boolean;
   riskBlockReason?: string;
   positionsCount: number;
@@ -149,7 +134,7 @@ function summarizeNoOrderDiagnosis(input: {
   if (!input.bitgetConfigured) reasons.push("Bitget 实盘 API 配置未完整就绪。");
   if (!input.bitgetExecutionAllowed) reasons.push("Bitget 真实执行尚未授权，或真实亏损确认变量无效。");
   if (!input.gateAllowed) reasons.push(...input.gateReasons.map((reason) => `Unified Live 新开仓闸门：${reason}`));
-  if (input.exchangeSnapshotChecked && !input.exchangeSnapshotAvailable && input.bitgetConfigured) reasons.push("当前无法读取 Bitget 权威持仓快照；系统会 fail-closed 停止新开仓。");
+  if (!input.exchangeSnapshotAvailable && input.bitgetConfigured) reasons.push("当前无法读取 Bitget 权威持仓快照；系统会 fail-closed 停止新开仓。");
   if (input.riskBlocked) reasons.push(`风险引擎正在阻断新仓：${input.riskBlockReason || "RISK_BLOCKED"}`);
 
   if (input.positionsCount === 0 && input.orderAttemptsToday === 0 && input.readyToday === 0 && input.plansCount > 0) {
@@ -203,7 +188,10 @@ export async function GET(request: NextRequest) {
 
   const runtimeConfig = readUnifiedLiveRuntimeConfig();
   const bitget = getBitgetDemoEnvironment();
-  const strategyDashboard = await getThreeHorizonStrategyDashboard().catch(() => null);
+  const [strategyDashboard, bitgetRuntime] = await Promise.all([
+    getThreeHorizonStrategyDashboard().catch(() => null),
+    getBitgetRuntimeState().catch(() => null),
+  ]);
   const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
   const baseNewEntryGate = await evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
     allowed: false,
@@ -226,7 +214,7 @@ export async function GET(request: NextRequest) {
         getBitgetDemoClosedPositions(20),
       ]);
       exchangeSnapshotAvailable = true;
-      const slices = (officialStored.account?.slices ?? []) as StoredLiveSlice[];
+      const slices = officialStored.account?.slices ?? [];
       authoritativePositions = positions.map((position) => {
         const slice = slices.find((row) =>
           ACTIVE_SLICE_STATUSES.has(String(row.status))
@@ -271,7 +259,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!authoritativePositions.length) {
-    authoritativePositions = ((officialStored.account?.slices ?? []) as StoredLiveSlice[])
+    authoritativePositions = (officialStored.account?.slices ?? [])
       .filter((slice) => ACTIVE_SLICE_STATUSES.has(String(slice.status)))
       .slice(0, 20)
       .map((slice) => ({
@@ -326,7 +314,6 @@ export async function GET(request: NextRequest) {
     bitgetExecutionAllowed: bitget.executionAllowed,
     bitgetMode: bitget.mode,
     exchangeSnapshotAvailable,
-    exchangeSnapshotChecked: officialControl,
     riskBlocked: strategyDashboard?.risk.blocked === true,
     riskBlockReason: strategyDashboard?.risk.blockReason,
     positionsCount: authoritativePositions.length,
@@ -336,6 +323,13 @@ export async function GET(request: NextRequest) {
     openedToday: totals.openedToday,
     recentErrors,
   });
+  if (bitgetRuntime) {
+    if (bitgetRuntime.paused) diagnosis.reasons.unshift(`Bitget服务器执行已暂停：${bitgetRuntime.pauseReason || "PAUSED"}`);
+    if (!bitgetRuntime.cronSecretConfigured) diagnosis.reasons.unshift("CRON_SECRET未配置，生产定时任务无法通过鉴权。");
+    if (bitgetRuntime.heartbeatAgeSeconds == null) diagnosis.reasons.unshift("Bitget服务器运行时尚无心跳记录。");
+    else if (bitgetRuntime.heartbeatAgeSeconds > 180) diagnosis.reasons.unshift(`Bitget服务器心跳距今${bitgetRuntime.heartbeatAgeSeconds}秒，超过3分钟。`);
+    if (bitgetRuntime.lastError) diagnosis.reasons.push(`Bitget运行时最近错误：${bitgetRuntime.lastError}`);
+  }
 
   const state = authoritativePositions.length
     ? "LIVE_POSITION_OPEN"
@@ -349,7 +343,19 @@ export async function GET(request: NextRequest) {
     lastScanAt,
     runnerFresh: diagnosis.runnerFresh,
     lastScanAgeSeconds: diagnosis.lastScanAgeSeconds,
-    exchangeSnapshotAvailable: officialControl ? exchangeSnapshotAvailable : undefined,
+    runtimeHeartbeat: bitgetRuntime ? {
+      serverHealthy: bitgetRuntime.serverHealthy,
+      paused: bitgetRuntime.paused,
+      pauseReason: bitgetRuntime.pauseReason,
+      cronSecretConfigured: bitgetRuntime.cronSecretConfigured,
+      lastHeartbeatAt: bitgetRuntime.lastHeartbeatAt,
+      heartbeatAgeSeconds: bitgetRuntime.heartbeatAgeSeconds,
+      lastStrategyAt: bitgetRuntime.lastStrategyAt,
+      lastOrderAttemptAt: bitgetRuntime.lastOrderAttemptAt,
+      lastOrderSuccessAt: bitgetRuntime.lastOrderSuccessAt,
+      lastError: bitgetRuntime.lastError,
+    } : null,
+    exchangeSnapshotAvailable,
     positions: authoritativePositions,
     recentClosedPositions: officialControl ? recentClosedPositions : [],
     plans,

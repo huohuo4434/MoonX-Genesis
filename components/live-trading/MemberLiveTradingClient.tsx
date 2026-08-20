@@ -1,6 +1,5 @@
 "use client";
-
-// MOOX_V720105_LIVE_VISIBILITY_UI: positions + plans + execution diagnosis.
+// MOOX_V720106_LIVE_HEARTBEAT_UI: separate minute-runner heartbeat from three-horizon scan freshness.
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 
@@ -103,6 +102,18 @@ type OfficialFeed = {
   lastScanAt?: string | null;
   runnerFresh?: boolean;
   lastScanAgeSeconds?: number | null;
+  runtimeHeartbeat?: {
+    serverHealthy?: boolean;
+    paused?: boolean;
+    pauseReason?: string;
+    cronSecretConfigured?: boolean;
+    lastHeartbeatAt?: string | null;
+    heartbeatAgeSeconds?: number | null;
+    lastStrategyAt?: string | null;
+    lastOrderAttemptAt?: string | null;
+    lastOrderSuccessAt?: string | null;
+    lastError?: string;
+  } | null;
   exchangeSnapshotAvailable?: boolean;
   positions?: LivePosition[];
   recentClosedPositions?: ClosedPosition[];
@@ -375,6 +386,8 @@ export default function MemberLiveTradingClient() {
   const diagnostics = liveState?.strategyDiagnostics;
   const feed = liveState?.officialFeed;
   const positions = feed?.positions ?? [];
+  const runtimeHeartbeat = feed?.runtimeHeartbeat;
+  const cronHeartbeatFresh = runtimeHeartbeat?.heartbeatAgeSeconds != null && runtimeHeartbeat.heartbeatAgeSeconds <= 180;
   const plans = feed?.plans ?? [];
   const executions = feed?.recentExecutions ?? [];
   const closed = feed?.recentClosedPositions ?? [];
@@ -391,14 +404,19 @@ export default function MemberLiveTradingClient() {
         </p>
         <div className="mt-4 rounded-2xl bg-white/5 p-4 text-sm text-slate-300">{status}</div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-xs text-slate-500">自动交易总状态</p>
             <p className={`mt-2 font-semibold ${feed?.state === "BLOCKED" ? "text-amber-300" : "text-emerald-300"}`}>{systemStateLabel(feed?.state)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-xs text-slate-500">服务器扫描</p>
-            <p className={`mt-2 font-semibold ${feed?.runnerFresh ? "text-emerald-300" : "text-rose-300"}`}>{feed?.runnerFresh ? "正常" : "未确认 / 可能停滞"}</p>
+            <p className="text-xs text-slate-500">每分钟 Cron 心跳</p>
+            <p className={`mt-2 font-semibold ${cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "text-emerald-300" : "text-rose-300"}`}>{cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "正常" : runtimeHeartbeat?.paused ? "已暂停" : "未确认 / 超时"}</p>
+            <p className="mt-1 text-xs text-slate-500">最后：{fmtTime(runtimeHeartbeat?.lastHeartbeatAt)}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs text-slate-500">三周期策略扫描</p>
+            <p className={`mt-2 font-semibold ${feed?.runnerFresh ? "text-emerald-300" : "text-rose-300"}`}>{feed?.runnerFresh ? "正常" : "未扫描 / 被总闸门阻断"}</p>
             <p className="mt-1 text-xs text-slate-500">最后：{fmtTime(feed?.lastScanAt)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

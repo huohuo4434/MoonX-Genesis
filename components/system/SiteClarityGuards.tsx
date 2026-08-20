@@ -1,4 +1,5 @@
 "use client";
+// MOOX_V720107_ASSET_MATRIX_GUARD: never replace server-structured asset opinion matrix with legacy DOM reconstruction.
 
 import { useEffect } from "react";
 import {
@@ -714,6 +715,10 @@ function enhanceMemberMultiView(): void {
 
   const main = document.querySelector<HTMLElement>("main");
   if (!main) return;
+  // V7.20.10.6: the member page now renders privacy-safe researcher cards on the server.
+  // Do not scrape/rebuild that page in the browser; the old DOM reconstruction lost
+  // researcher identity after public-attribution redaction and produced an empty panel.
+  if (main.dataset.mooxServerMultiView === "1" || main.dataset.mooxAssetOpinionMatrix === "v720107" || main.querySelector('[data-moox-server-multi-view="1"], [data-moox-asset-opinion-matrix="v720107"]')) return;
 
   const originals = Array.from(main.children).filter(
     (child): child is HTMLElement => child instanceof HTMLElement && child.id !== MULTI_VIEW_PANEL_ID,

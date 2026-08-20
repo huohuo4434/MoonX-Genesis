@@ -1,12 +1,36 @@
 {
   "site_url": "https://mooxintel.com",
   "accounts": [
+    "jiujinshan2022",
     "btckik",
     "BTCTW0",
     "haliluya8911",
-    "mat78704"
+    "Deltaking888",
+    "btcpiggy",
+    "Meta8Mate",
+    "ximihoo1",
+    "cfsq143",
+    "big_hunter11",
+    "hibtc37",
+    "Cycle_King1913",
+    "Lvzhishi",
+    "formnoshape",
+    "thankUcrypto",
+    "Young852560",
+    "pcwler66",
+    "shawnus88896948",
+    "yijiangren",
+    "laban_li",
+    "iiiinvest",
+    "ArtofSpecuycky",
+    "roger73005305",
+    "thewindisfree",
+    "mat78704",
+    "eastweb3eth",
+    "WallStreet0Name"
   ],
-  "max_posts_per_account": 15,
-  "lookback_hours": 168,
-  "timeout_seconds": 60
+  "max_posts_per_account": 20,
+  "lookback_hours": 240,
+  "timeout_seconds": 60,
+  "history_backfill_posts_per_account": 120
 }

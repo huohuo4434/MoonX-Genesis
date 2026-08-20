@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$ProjectDir = "C:\MoonX-Genesis"
 )
 
@@ -49,16 +49,20 @@ $config = if (Test-Path -LiteralPath $ConfigPath) {
 } else {
   [pscustomobject]@{
     site_url = "https://mooxintel.com"
-    accounts = @("btckik", "BTCTW0", "haliluya8911", "mat78704")
-    max_posts_per_account = 15
-    lookback_hours = 168
+    accounts = @("jiujinshan2022", "btckik", "BTCTW0", "haliluya8911", "Deltaking888", "btcpiggy", "Meta8Mate", "ximihoo1", "cfsq143", "big_hunter11", "hibtc37", "Cycle_King1913", "Lvzhishi", "formnoshape", "thankUcrypto", "Young852560", "pcwler66", "shawnus88896948", "yijiangren", "laban_li", "iiiinvest", "ArtofSpecuycky", "roger73005305", "thewindisfree", "mat78704", "eastweb3eth", "WallStreet0Name")
+    max_posts_per_account = 20
+    lookback_hours = 240
+    history_backfill_posts_per_account = 120
     timeout_seconds = 60
   }
 }
 
-$requiredAccounts = @("btckik", "BTCTW0", "haliluya8911", "mat78704")
+$requiredAccounts = @("jiujinshan2022", "btckik", "BTCTW0", "haliluya8911", "Deltaking888", "btcpiggy", "Meta8Mate", "ximihoo1", "cfsq143", "big_hunter11", "hibtc37", "Cycle_King1913", "Lvzhishi", "formnoshape", "thankUcrypto", "Young852560", "pcwler66", "shawnus88896948", "yijiangren", "laban_li", "iiiinvest", "ArtofSpecuycky", "roger73005305", "thewindisfree", "mat78704", "eastweb3eth", "WallStreet0Name")
 $existingAccounts = @($config.accounts | ForEach-Object { [string]$_ })
 $config.accounts = @($existingAccounts + $requiredAccounts | Sort-Object -Unique)
+if (-not $config.PSObject.Properties['max_posts_per_account'] -or [int]$config.max_posts_per_account -lt 20) { $config | Add-Member -NotePropertyName max_posts_per_account -NotePropertyValue 20 -Force }
+if (-not $config.PSObject.Properties['history_backfill_posts_per_account'] -or [int]$config.history_backfill_posts_per_account -lt 120) { $config | Add-Member -NotePropertyName history_backfill_posts_per_account -NotePropertyValue 120 -Force }
+if (-not $config.PSObject.Properties['lookback_hours'] -or [int]$config.lookback_hours -lt 240) { $config | Add-Member -NotePropertyName lookback_hours -NotePropertyValue 240 -Force }
 
 $siteUrl = Read-Host "MOOX site URL (press Enter for $($config.site_url))"
 if (-not $siteUrl.Trim()) { $siteUrl = [string]$config.site_url }

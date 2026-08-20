@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
-COLLECTOR_VERSION = "7.2.2"
+COLLECTOR_VERSION = "7.20.10.7"
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MOOX-X-Collector"
 CONFIG_PATH = APP_DIR / "config.json"
 CREDENTIALS_PATH = APP_DIR / "credentials.dpapi"
@@ -297,22 +297,30 @@ def main() -> int:
         raise RuntimeError("config.json没有配置观察账号")
 
     site_url = str(config.get("site_url", "https://mooxintel.com")).strip()
-    max_posts = max(1, min(50, int(config.get("max_posts_per_account", 15))))
-    lookback_hours = max(1, min(24 * 30, int(config.get("lookback_hours", 168))))
+    max_posts = max(1, min(50, int(config.get("max_posts_per_account", 20))))
+    history_backfill_posts = max(max_posts, min(200, int(config.get("history_backfill_posts_per_account", 120))))
+    lookback_hours = max(1, min(24 * 30, int(config.get("lookback_hours", 240))))
     timeout = max(15, min(120, int(config.get("timeout_seconds", 60))))
-    state = load_json(STATE_PATH, {"sent_ids": []})
+    state = load_json(STATE_PATH, {"sent_ids": [], "history10d_backfilled_accounts": []})
     sent_ids = set(str(value) for value in state.get("sent_ids", []))
+    history_backfilled = set(str(value).lower() for value in state.get("history10d_backfilled_accounts", []))
 
     errors: list[str] = []
     accounts_succeeded = 0
     collected: list[dict[str, str]] = []
+    newly_backfilled: set[str] = set()
     for index, username in enumerate(accounts):
         try:
-            rows = fetch_user_posts(username, max_posts, credentials, timeout)
+            normalized_username = username.lower()
+            needs_history_backfill = normalized_username not in history_backfilled
+            limit = history_backfill_posts if needs_history_backfill else max_posts
+            rows = fetch_user_posts(username, limit, credentials, timeout)
             fresh = [row for row in rows if within_lookback(row, lookback_hours)]
-            collected.extend(row for row in fresh if f"{username.lower()}:{row['id']}" not in sent_ids)
+            collected.extend(row for row in fresh if f"{normalized_username}:{row['id']}" not in sent_ids)
             accounts_succeeded += 1
-            log(f"{username}: 读取{len(rows)}条，时间范围内{len(fresh)}条")
+            if needs_history_backfill:
+                newly_backfilled.add(normalized_username)
+            log(f"{username}: 读取{len(rows)}条，10天范围内{len(fresh)}条" + ("（历史回补）" if needs_history_backfill else ""))
         except Exception as error:  # noqa: BLE001
             message = f"{username}: {error}"
             errors.append(message)
@@ -324,7 +332,9 @@ def main() -> int:
         f"{row['username'].lower()}:{row['id']}": row
         for row in collected
     }
-    pending = list(unique.values())[:120]
+    # The ingest endpoint already batches safely. Do not truncate the first 10-day
+    # backfill to 120 rows, otherwise older posts from later accounts would never arrive.
+    pending = sorted(unique.values(), key=lambda item: item["createdAt"], reverse=True)[:4000]
     collector_meta = {
         "accountsAttempted": len(accounts),
         "accountsSucceeded": accounts_succeeded,
@@ -348,9 +358,14 @@ def main() -> int:
         raise RuntimeError("MOOX接收接口返回失败：" + json.dumps(response, ensure_ascii=False)[:800])
     sent_ids.update(f"{row['username'].lower()}:{row['id']}" for row in pending)
 
-    trimmed_ids = list(sent_ids)[-5000:]
+    history_backfilled.update(newly_backfilled)
+    trimmed_ids = list(sent_ids)[-12000:]
     STATE_PATH.write_text(
-        json.dumps({"sent_ids": trimmed_ids, "updated_at": utc_now()}, ensure_ascii=False, indent=2),
+        json.dumps({
+            "sent_ids": trimmed_ids,
+            "history10d_backfilled_accounts": sorted(history_backfilled),
+            "updated_at": utc_now(),
+        }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     status = {
@@ -358,6 +373,10 @@ def main() -> int:
         "version": COLLECTOR_VERSION,
         "checked_at": utc_now(),
         "accounts": accounts,
+        "lookback_hours": lookback_hours,
+        "history_backfill_posts_per_account": history_backfill_posts,
+        "history_backfilled_accounts": len(history_backfilled),
+        "history_backfill_pending_accounts": max(0, len(accounts) - len(history_backfilled)),
         "accounts_attempted": len(accounts),
         "accounts_succeeded": accounts_succeeded,
         "new_posts": len(pending),

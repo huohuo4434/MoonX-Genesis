@@ -1,11 +1,8 @@
+// MOOX_V720107_X_10D_BACKFILL: full registry + incremental 10-day server history backfill.
 // MOOX_EXTERNAL_ANALYST_V1
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import {
-  analystSourceFromUsername,
-  parseExternalAnalystPost,
-} from "@/lib/trading-signals/external-analyst-parser";
 import { prepareExternalAnalystCollectorPosts, type PreparedCollectorPost } from "@/lib/trading-signals/external-analyst-collector-core";
 import { buildExternalAnalystOverlayFromRows } from "@/lib/trading-signals/external-analyst-aggregation-core";
 import type {
@@ -151,40 +148,94 @@ async function markRefresh(report: ExternalAnalystRefreshReport): Promise<void> 
   );
 }
 
-async function xUserId(username: string, bearerToken: string): Promise<string> {
-  const payload = await fetchJson(
-    `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}`,
-    { headers: { authorization: `Bearer ${bearerToken}` } }
-  ) as { data?: { id?: string }; errors?: Array<{ detail?: string }> };
-  const id = payload.data?.id;
-  if (!id) throw new Error(payload.errors?.[0]?.detail || `无法解析X用户 ${username}`);
-  return id;
+async function xUserIds(usernames: string[], bearerToken: string): Promise<Map<string, string>> {
+  const rows = new Map<string, string>();
+  for (let index = 0; index < usernames.length; index += 100) {
+    const batch = usernames.slice(index, index + 100);
+    if (!batch.length) continue;
+    const url = new URL("https://api.x.com/2/users/by");
+    url.searchParams.set("usernames", batch.join(","));
+    const payload = await fetchJson(url.toString(), {
+      headers: { authorization: `Bearer ${bearerToken}` },
+    }) as { data?: Array<{ id?: string; username?: string }>; errors?: Array<{ detail?: string }> };
+    for (const row of payload.data ?? []) {
+      if (row.id && row.username) rows.set(row.username.toLowerCase(), row.id);
+    }
+    if (!payload.data?.length && payload.errors?.length) {
+      throw new Error(payload.errors[0]?.detail || "无法批量解析X用户");
+    }
+  }
+  return rows;
 }
 
-async function fetchXPosts(username: string, bearerToken: string): Promise<ExternalAnalystFeedPostInput[]> {
-  const userId = await xUserId(username, bearerToken);
-  const url = new URL(`https://api.x.com/2/users/${encodeURIComponent(userId)}/tweets`);
-  url.searchParams.set("max_results", "10");
-  url.searchParams.set("exclude", "retweets,replies");
-  url.searchParams.set("tweet.fields", "created_at");
-  const payload = await fetchJson(url.toString(), {
-    headers: { authorization: `Bearer ${bearerToken}` },
-  }) as {
-    data?: Array<{ id?: string; text?: string; created_at?: string }>;
-    errors?: Array<{ detail?: string }>;
-  };
-  if (!payload.data && payload.errors?.length) {
-    throw new Error(payload.errors[0]?.detail || `读取 ${username} 帖子失败`);
+async function latestStoredPostTimes(): Promise<Map<string, string>> {
+  const values = new Map<string, string>();
+  if (!prisma) return values;
+  const rows = await prisma.$queryRawUnsafe<Array<{ username: string; latest_at: Date | string }>>(`
+    SELECT LOWER(username) AS username, MAX(posted_at) AS latest_at
+    FROM trade_external_analyst_posts
+    WHERE posted_at >= NOW() - INTERVAL '10 days'
+    GROUP BY LOWER(username)
+  `);
+  for (const row of rows) {
+    const date = row.latest_at instanceof Date ? row.latest_at : new Date(row.latest_at);
+    if (!Number.isNaN(date.getTime())) values.set(row.username, date.toISOString());
   }
-  return (payload.data ?? [])
-    .filter((row): row is { id: string; text: string; created_at?: string } => Boolean(row.id && row.text))
-    .map((row) => ({
-      username,
-      id: row.id,
-      text: row.text,
-      createdAt: row.created_at ?? new Date().toISOString(),
-      url: `https://x.com/${username}/status/${row.id}`,
-    }));
+  return values;
+}
+
+function xFetchStartAt(now: Date, latestAt: string | undefined): { startAt: string; backfill: boolean } {
+  const cutoff = now.getTime() - 10 * 24 * 60 * 60 * 1000;
+  if (!latestAt || !Number.isFinite(Date.parse(latestAt))) return { startAt: new Date(cutoff).toISOString(), backfill: true };
+  const latest = Date.parse(latestAt);
+  if (latest < cutoff) return { startAt: new Date(cutoff).toISOString(), backfill: true };
+  // Re-read a small overlap so delayed posts / API boundary timestamps remain idempotently covered.
+  return { startAt: new Date(Math.max(cutoff, latest - 30 * 60 * 1000)).toISOString(), backfill: false };
+}
+
+async function fetchXPostsByUserId(input: {
+  username: string;
+  userId: string;
+  bearerToken: string;
+  startAt: string;
+  backfill: boolean;
+}): Promise<ExternalAnalystFeedPostInput[]> {
+  const posts: ExternalAnalystFeedPostInput[] = [];
+  let paginationToken = "";
+  const maxPages = input.backfill
+    ? Math.max(1, Math.min(3, envNumber("MOOX_X_BACKFILL_MAX_PAGES", 2, 1, 3)))
+    : 1;
+  for (let page = 0; page < maxPages; page += 1) {
+    const url = new URL(`https://api.x.com/2/users/${encodeURIComponent(input.userId)}/tweets`);
+    url.searchParams.set("max_results", "100");
+    url.searchParams.set("exclude", "retweets,replies");
+    url.searchParams.set("tweet.fields", "created_at");
+    url.searchParams.set("start_time", input.startAt);
+    if (paginationToken) url.searchParams.set("pagination_token", paginationToken);
+    const payload = await fetchJson(url.toString(), {
+      headers: { authorization: `Bearer ${input.bearerToken}` },
+    }) as {
+      data?: Array<{ id?: string; text?: string; created_at?: string }>;
+      meta?: { next_token?: string };
+      errors?: Array<{ detail?: string }>;
+    };
+    if (!payload.data && payload.errors?.length) {
+      throw new Error(payload.errors[0]?.detail || `读取 ${input.username} 帖子失败`);
+    }
+    for (const row of payload.data ?? []) {
+      if (!row.id || !row.text) continue;
+      posts.push({
+        username: input.username,
+        id: row.id,
+        text: row.text,
+        createdAt: row.created_at ?? new Date().toISOString(),
+        url: `https://x.com/${input.username}/status/${row.id}`,
+      });
+    }
+    paginationToken = payload.meta?.next_token ?? "";
+    if (!paginationToken) break;
+  }
+  return posts;
 }
 
 async function fetchConfiguredJsonFeed(feedUrl: string): Promise<ExternalAnalystFeedPostInput[]> {
@@ -209,48 +260,6 @@ async function fetchConfiguredJsonFeed(feedUrl: string): Promise<ExternalAnalyst
     }];
   });
 }
-
-async function storePost(
-  post: ExternalAnalystFeedPostInput,
-  forcedSource?: ExternalAnalystSource
-): Promise<boolean> {
-  if (!prisma) return false;
-  const source = forcedSource ?? analystSourceFromUsername(post.username);
-  if (!source) return false;
-  const postedAt = new Date(post.createdAt);
-  if (Number.isNaN(postedAt.getTime())) return false;
-  const parsed = parseExternalAnalystPost({
-    source,
-    username: post.username,
-    postId: post.id,
-    postUrl: post.url ?? `https://x.com/${post.username}/status/${post.id}`,
-    postedAt: postedAt.toISOString(),
-    text: post.text,
-  });
-  const id = `${source}:${post.id}`;
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO trade_external_analyst_posts(
-       id, source, username, post_id, post_url, posted_at, text, parsed, fetched_at, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6::timestamptz,$7,$8::jsonb,NOW(),NOW(),NOW())
-     ON CONFLICT (source, post_id) DO UPDATE SET
-       post_url = EXCLUDED.post_url,
-       posted_at = EXCLUDED.posted_at,
-       text = EXCLUDED.text,
-       parsed = EXCLUDED.parsed,
-       fetched_at = NOW(),
-       updated_at = NOW()`,
-    id,
-    source,
-    post.username,
-    post.id,
-    parsed.postUrl,
-    parsed.postedAt,
-    parsed.text,
-    JSON.stringify(parsed)
-  );
-  return parsed.symbols.length > 0;
-}
-
 
 async function storeCollectorPostsBatch(
   posts: PreparedCollectorPost[]
@@ -439,6 +448,52 @@ export async function ingestExternalAnalystCollectorPosts(input: {
   return report;
 }
 
+async function fetchRegistryPostsWithConcurrency(
+  handles: string[],
+  bearerToken: string,
+  errors: string[],
+  now: Date,
+): Promise<ExternalAnalystFeedPostInput[]> {
+  const concurrency = Math.max(1, Math.min(6, envNumber("MOOX_X_SERVER_FETCH_CONCURRENCY", 3, 1, 6)));
+  const posts: ExternalAnalystFeedPostInput[] = [];
+  const [userIds, latestByHandle] = await Promise.all([
+    xUserIds(handles, bearerToken),
+    latestStoredPostTimes(),
+  ]);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, handles.length) }, async () => {
+    while (cursor < handles.length) {
+      const index = cursor;
+      cursor += 1;
+      const username = handles[index];
+      if (!username) continue;
+      const userId = userIds.get(username.toLowerCase());
+      if (!userId) {
+        errors.push(`${username}: X用户ID未解析`);
+        continue;
+      }
+      try {
+        const range = xFetchStartAt(now, latestByHandle.get(username.toLowerCase()));
+        posts.push(...await fetchXPostsByUserId({ username, userId, bearerToken, ...range }));
+      } catch (error) {
+        errors.push(`${username}: ${error instanceof Error ? error.message : "X API读取失败"}`);
+      }
+    }
+  });
+  await Promise.all(workers);
+  return posts;
+}
+
+function serverWatchHandles(): string[] {
+  const extras = (process.env.MOOX_X_WATCH_ACCOUNTS ?? "")
+    .split(",")
+    .map((value) => value.replace(/^@/, "").trim())
+    .filter(Boolean);
+  return Array.from(new Map(
+    [...configuredXWatchHandles(), ...extras].map((value) => [value.toLowerCase(), value] as const),
+  ).values());
+}
+
 export async function refreshExternalAnalystSignals(
   now = new Date(),
   options: { force?: boolean } = {}
@@ -500,13 +555,7 @@ export async function refreshExternalAnalystSignals(
 
   if (bearerToken) {
     source = "X_API";
-    for (const analyst of ANALYSTS) {
-      try {
-        posts.push(...await fetchXPosts(analyst.username, bearerToken));
-      } catch (error) {
-        errors.push(`${analyst.username}: ${error instanceof Error ? error.message : "X API读取失败"}`);
-      }
-    }
+    posts = await fetchRegistryPostsWithConcurrency(serverWatchHandles(), bearerToken, errors, now);
   } else if (feedUrl) {
     source = "JSON_FEED";
     try {
@@ -519,13 +568,23 @@ export async function refreshExternalAnalystSignals(
   const unique = Array.from(new Map(posts.map((post) => [`${post.username.toLowerCase()}:${post.id}`, post] as const)).values());
   let storedPosts = 0;
   let parsedSignals = 0;
-  for (const post of unique) {
+  const allowedAccounts = configuredCollectorAccounts();
+  const generalRegistryAccounts = new Map(
+    X_SOURCE_REGISTRY.map((entry) => [normalizeXSourceHandle(entry.handle), entry.family] as const),
+  );
+  // prepareExternalAnalystCollectorPosts intentionally caps one untrusted batch.
+  // Process server feeds in bounded chunks so a 27-account scan does not silently
+  // discard the latter half of the registry.
+  for (let index = 0; index < unique.length; index += 100) {
+    const chunk = unique.slice(index, index + 100);
+    const prepared = prepareExternalAnalystCollectorPosts({ posts: chunk, allowedAccounts, generalRegistryAccounts });
+    for (const rejected of prepared.rejected) errors.push(`${rejected.username}/${rejected.id}: ${rejected.reason}`);
     try {
-      const parsed = await storePost(post);
-      storedPosts += 1;
-      if (parsed) parsedSignals += 1;
+      const stored = await storeCollectorPostsBatch(prepared.accepted);
+      storedPosts += stored.storedPosts;
+      parsedSignals += stored.parsedSignals;
     } catch (error) {
-      errors.push(`${post.username}/${post.id}: ${error instanceof Error ? error.message : "写入失败"}`);
+      errors.push(`SERVER_BATCH_STORE_FAILED: ${error instanceof Error ? error.message : "STORE_FAILED"}`);
     }
   }
 
@@ -539,7 +598,7 @@ export async function refreshExternalAnalystSignals(
     parsedSignals,
     checkedAt,
     message: configured
-      ? `已读取${unique.length}条帖子，写入${storedPosts}条，其中${parsedSignals}条含可映射交易品种。`
+      ? `已扫描${source === "X_API" ? serverWatchHandles().length : "Feed"}个来源，读取${unique.length}条帖子，写入${storedPosts}条，其中${parsedSignals}条含可映射交易品种；X API会按数据库最新时间增量拉取，缺历史的账号自动回补最近10天。`
       : "尚未配置X_BEARER_TOKEN或MOOX_EXTERNAL_ANALYST_FEED_URL；策略继续运行，但不会自动读取新帖子。",
     errors,
   };

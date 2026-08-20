@@ -1,3 +1,4 @@
+// MOOX_V720107_EXTERNAL_PARSER_DIRECTION_DETAIL
 // MOOX_EXTERNAL_ANALYST_V1_1
 import type {
   ExternalAnalystParsedPost,
@@ -23,11 +24,11 @@ const SYMBOL_ALIASES: Array<[string, string[]]> = [
 ];
 
 const LONG_WORDS = [
-  "看多", "做多", "加仓多", "多单", "多头", "反弹", "上涨", "继续涨", "突破", "站稳",
+  "看多", "看涨", "偏多", "做多", "加仓多", "多单", "多头", "反弹", "上涨", "继续涨", "突破", "站稳",
   "新一轮上涨", "阶段性底部", "支撑有效", "向上", "回调结束", "buy", "long", "bullish",
 ];
 const SHORT_WORDS = [
-  "看空", "做空", "加仓空", "空单", "空头", "下跌", "继续跌", "跌破", "失守", "回落",
+  "看空", "看跌", "偏空", "做空", "加仓空", "空单", "空头", "下跌", "继续跌", "跌破", "失守", "回落",
   "深度回调", "反弹结束", "向下", "sell", "short", "bearish",
 ];
 
