@@ -61,7 +61,8 @@ test("short-term execution is 4H -> 30m -> 5m and only execution timing can chan
   assert.match(strategy, /Direction is owned by formal MOOX research/);
   assert.match(strategy, /Math\.min\(rawEquity, environment\.liveInitialCapitalUsdt, 1000\)/);
   assert.match(strategy, /Math\.min\(unifiedSetting\.leverage, environment\.leverage\)/);
-  assert.match(strategy, /Math\.min\(calculated\.notionalAmount, environment\.liveMaxPositionNotionalUsdt, 400\)/);
+  assert.match(strategy, /const liveRiskScale = clamp\(input\.evaluation\.riskScale \?\? 1, 0\.1, 1\)/);
+  assert.match(strategy, /Math\.min\(calculated\.notionalAmount \* liveRiskScale, environment\.liveMaxPositionNotionalUsdt, 400\)/);
 });
 
 test("live sizing comes from unified short-medium-long settings and successful orders are registered for custody", () => {

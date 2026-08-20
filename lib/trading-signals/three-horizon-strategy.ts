@@ -80,6 +80,7 @@ import {
 import { getHexagramDirectionPrior, type HexagramDirectionPrior } from "@/lib/trading-signals/hexagram-direction-priors";
 import { getMarketBaziRegimePrior } from "@/lib/trading-signals/market-bazi-regime";
 import { evaluateCryptoCrossAssetGuard } from "@/lib/trading-signals/crypto-cross-asset-policy";
+import { applyOctober2026LongRiskScale, getOctober2026AssetRisk } from "@/lib/research/october-2026-flash-crash-risk";
 import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { buildXIntelligenceTradeUniverseBoost } from "@/lib/trading-signals/market-environment";
@@ -3263,7 +3264,11 @@ async function executeReadyDecision(input: {
       const stopPrice = input.evaluation.stopLoss ?? 0;
       const contract = await getContractConfig(input.decision.symbol as BitgetSupportedSymbol);
       if (!(entryPrice > 0) || !(stopPrice > 0)) throw new Error("Unified Live入场价或止损价无效");
-      const maxNotional = Math.min(calculated.notionalAmount, environment.liveMaxPositionNotionalUsdt, 400);
+      // V7.20.10.2: LIVE must honor the same bounded riskScale used by Bazi,
+      // BTC/ETH divergence and the October flash-crash risk prior. Earlier LIVE sizing
+      // could ignore those overlays because Unified Live sizing used only the saved setting.
+      const liveRiskScale = clamp(input.evaluation.riskScale ?? 1, 0.1, 1);
+      const maxNotional = Math.min(calculated.notionalAmount * liveRiskScale, environment.liveMaxPositionNotionalUsdt, 400);
       const normalizedQuantity = Number(normalizeOrderSize(maxNotional / entryPrice, contract));
       if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) throw new Error("Unified Live归一化下单数量无效");
       const notionalAmount = normalizedQuantity * entryPrice;
@@ -3825,6 +3830,33 @@ export async function runThreeHorizonStrategyEngine(
               raw: { ...evaluation.raw, cryptoCrossAssetGuard: crossAssetGuard },
             };
           }
+        }
+        // MOOX_V720102_OCTOBER_FLASH_CRASH_GUARD
+        // Locked medium-horizon Liu-Yao risk prior. It never flips direction or creates an entry;
+        // it can only reduce NEW LONG exposure during the September/October risk window.
+        const octoberFlashCrashRisk = getOctober2026AssetRisk(symbol, now);
+        const currentOctoberRiskScale = evaluation.riskScale ?? 1;
+        const octoberAdjustedRiskScale = applyOctober2026LongRiskScale(
+          currentOctoberRiskScale,
+          evaluation.direction,
+          octoberFlashCrashRisk,
+        );
+        if (octoberAdjustedRiskScale < currentOctoberRiskScale) {
+          evaluation = {
+            ...evaluation,
+            riskScale: octoberAdjustedRiskScale,
+            raw: {
+              ...evaluation.raw,
+              october2026FlashCrashRisk: {
+                state: octoberFlashCrashRisk.state,
+                stateLabelZh: octoberFlashCrashRisk.stateLabelZh,
+                sensitivity: octoberFlashCrashRisk.sensitivity,
+                sensitivityLabelZh: octoberFlashCrashRisk.sensitivityLabelZh,
+                longRiskScale: octoberFlashCrashRisk.longRiskScale,
+                lockedAt: octoberFlashCrashRisk.lockedAt,
+              },
+            },
+          };
         }
         let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;

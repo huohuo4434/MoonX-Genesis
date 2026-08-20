@@ -16,6 +16,7 @@ import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server"
 import type { DailyForecast } from "@/types/daily-forecast";
 import { buildDailyResearchReason } from "@/lib/forecasts/daily-display-reason";
 import { buildMemberDailyTechnicalViews, type MemberDailyTechnicalView } from "@/lib/forecasts/member-daily-live-levels";
+import { getOctober2026AssetRisk, getOctober2026FlashCrashRisk } from "@/lib/research/october-2026-flash-crash-risk";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,10 +48,12 @@ function ForecastTable({
   title,
   forecasts,
   technicalViews,
+  riskAsOf,
 }: {
   title: string;
   forecasts: DailyForecast[];
   technicalViews: Record<string, MemberDailyTechnicalView>;
+  riskAsOf: Date;
 }) {
   const rows = forecasts
     .filter(isHumanPublishedForecast)
@@ -68,16 +71,18 @@ function ForecastTable({
         <div className="overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2">
           <table className="min-w-[900px] w-full border-separate border-spacing-y-2 text-left">
             <thead className="text-caption text-foreground-tertiary">
-              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">方向</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
+              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">方向</th><th className="px-3 py-2">10月风险</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
             </thead>
             <tbody>
               {rows.map((forecast) => {
                 const direction = displayDirection(forecast);
                 const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
+                const octoberRisk = getOctober2026AssetRisk(forecast.symbol, riskAsOf);
                 return (
                   <tr key={forecast.id} className="bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
                     <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
                     <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span>{qimenAgreementLabel(forecast) ? <div className="mt-1 text-caption text-foreground-tertiary">{qimenAgreementLabel(forecast)}</div> : null}</td>
+                    <td className="max-w-[170px] px-3 py-3"><div className="text-body-sm font-semibold text-amber-100">{octoberRisk.stateLabelZh}</div><div className="mt-1 text-caption text-foreground-tertiary">{octoberRisk.sensitivityLabelZh}</div></td>
                     <td className="max-w-[330px] px-3 py-3 text-body-sm text-foreground-secondary">{buildDailyResearchReason(forecast)}</td>
                     <td className="px-3 py-3 text-body-sm font-medium">{technical.support}</td>
                     <td className="px-3 py-3 text-body-sm font-medium">{technical.resistance}</td>
@@ -110,6 +115,7 @@ export default async function MemberDailyPage() {
   const tomorrowRows = tomorrow.mode === "member" ? tomorrow.forecasts : [];
   const allRows = [...todayRows, ...tomorrowRows];
   const technicalViews = await buildMemberDailyTechnicalViews(allRows);
+  const octoberFlashCrashRisk = getOctober2026FlashCrashRisk(now);
   const latest = allRows
     .map((row) => row.updatedAt || row.publishedAt)
     .filter((value): value is string => Boolean(value))
@@ -130,8 +136,19 @@ export default async function MemberDailyPage() {
               </div>
             </header>
 
-            <ForecastTable title="今日市场" forecasts={todayRows} technicalViews={technicalViews} />
-            <ForecastTable title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} />
+            <Card padding="md" className="border border-amber-300/20 bg-amber-300/[0.04]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <Text variant="body-sm" weight="semibold" className="text-amber-100">10月闪崩风险先验 · {octoberFlashCrashRisk.stateLabelZh}</Text>
+                  <Text variant="caption" color="secondary" className="mt-1 block">{octoberFlashCrashRisk.summaryZh}</Text>
+                </div>
+                <Badge variant="outline">{octoberFlashCrashRisk.windowLabelZh}</Badge>
+              </div>
+              <Text variant="caption" color="tertiary" className="mt-2 block">该风险先验只影响仓位、杠杆与追涨纪律，不反向修改奇门锁定的日度方向；9大市场仍按各自结构独立判断。</Text>
+            </Card>
+
+            <ForecastTable title="今日市场" forecasts={todayRows} technicalViews={technicalViews} riskAsOf={now} />
+            <ForecastTable title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} riskAsOf={now} />
 
             <div className="flex flex-wrap gap-3">
               <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">查看周走势预测</Link>

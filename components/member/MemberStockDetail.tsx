@@ -6,6 +6,7 @@ import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { getOctober2026AssetRisk } from "@/lib/research/october-2026-flash-crash-risk";
 import type {
   MemberBenefitStock,
   MemberStockDailyMemberView,
@@ -235,6 +236,8 @@ export function MemberStockDetailView({
   ].filter(Boolean) as Array<{ key: "today" | "tomorrow" | "weekly" | "history"; label: string }>;
 
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>(tabs[0]?.key ?? "today");
+  const riskReference = new Date(updatedAt || today?.publishedAt || weekly?.publishedAt || "2026-08-20T00:00:00+08:00");
+  const octoberAssetRisk = getOctober2026AssetRisk(stock.symbol, riskReference, stock.market);
 
   return (
     <div className="mx-auto w-full max-w-container space-y-4 px-4 py-8 sm:px-6 lg:px-8">
@@ -272,6 +275,19 @@ export function MemberStockDetailView({
           </Text>
         ) : null}
       </div>
+
+      {octoberAssetRisk.state !== "INACTIVE" ? (
+        <Card padding="md" className="border border-amber-300/20 bg-amber-300/[0.04]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <Text variant="body-sm" weight="semibold" className="text-amber-100">10月闪崩风险先验 · {octoberAssetRisk.stateLabelZh}</Text>
+              <Text variant="caption" color="secondary" className="mt-1 block break-words">{octoberAssetRisk.sensitivityLabelZh}。{octoberAssetRisk.noteZh}</Text>
+            </div>
+            <Badge variant="outline">{octoberAssetRisk.windowLabelZh}</Badge>
+          </div>
+          <Text variant="caption" color="tertiary" className="mt-2 block">中周期风险先验只调整仓位、杠杆和追涨纪律，不反向修改该个股已经锁定的正式方向。</Text>
+        </Card>
+      ) : null}
 
       {ipoHighVolWarning ? (
         <Card padding="md" className="border border-warning/30 bg-warning/5">

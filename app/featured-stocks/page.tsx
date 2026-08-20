@@ -26,7 +26,7 @@ export default async function FeaturedStocksPage() {
   const payload = await getConvictionListPagePayload();
   return (
     <main>
-      <ConvictionListClient payload={payload} />
+      <ConvictionListClient payload={payload} riskAsOf={new Date().toISOString()} />
     </main>
   );
 }

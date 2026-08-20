@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { formatDateChina } from "@/lib/utils/datetime";
 import type { ConvictionListPagePayload } from "@/lib/data/conviction/access";
 import { WATCHLIST_TEASERS } from "@/lib/data/conviction/watchlist-teasers";
+import { getOctober2026FlashCrashRisk } from "@/lib/research/october-2026-flash-crash-risk";
 
 function formatDate(value: string, en: boolean): string {
   if (!en) return formatDateChina(value);
@@ -21,7 +22,7 @@ function formatDate(value: string, en: boolean): string {
   }).format(date);
 }
 
-export function ConvictionListClient({ payload }: { payload: ConvictionListPagePayload }) {
+export function ConvictionListClient({ payload, riskAsOf }: { payload: ConvictionListPagePayload; riskAsOf: string }) {
   const { locale, href } = useLocale();
   const en = locale === "en";
   const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO">("ALL");
@@ -49,6 +50,7 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
     : ([['ALL', '全部'], ['STOCK', '股票'], ['CRYPTO', '加密资产']] as const);
   const trackedCount = payload.trackedCount;
   const weekLabel = payload.resonanceWindow.labelZh;
+  const octoberFlashCrashRisk = getOctober2026FlashCrashRisk(new Date(riskAsOf));
 
   return (
     <div className="min-h-screen bg-[#07080a] text-white">
@@ -82,6 +84,23 @@ export function ConvictionListClient({ payload }: { payload: ConvictionListPageP
             {en ? "Confirm this device to display full paid research." : "当前付费账号需要确认本设备后才能显示完整研究。"}
             <Link className="ml-1 underline" href={href("/account#account-security")}>{en ? "Manage trusted devices" : "管理登录设备"}</Link>
           </div>
+        ) : null}
+
+        {payload.mode === "fullAccess" ? (
+          <section className="mt-6 rounded-[20px] border border-amber-300/20 bg-amber-300/[.04] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-caption uppercase tracking-[.16em] text-amber-200/60">OCTOBER RISK PRIOR</p>
+                <h2 className="mt-2 text-xl font-semibold text-amber-100">{en ? "October flash-crash risk window" : `10月闪崩风险先验 · ${octoberFlashCrashRisk.stateLabelZh}`}</h2>
+                <p className="mt-2 max-w-4xl text-body-sm leading-7 text-white/58">
+                  {en
+                    ? "A locked medium-horizon risk prior flags October, especially after Cold Dew through late October. It changes risk discipline only and never rewrites the formal daily direction."
+                    : `${octoberFlashCrashRisk.summaryZh} 重点关注高Beta、AI、半导体、存储与热门成长股；个股仍必须按自身奇门方向和4H—30m—5m结构独立执行。`}
+                </p>
+              </div>
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/[.06] px-3 py-1.5 text-caption text-amber-100/85">{en ? "Risk overlay only" : octoberFlashCrashRisk.windowLabelZh}</span>
+            </div>
+          </section>
         ) : null}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
