@@ -11,10 +11,10 @@
  * - Direction comes from the use-god palace's door/star/deity/season/status; the
  *   stem used to identify an asset is not itself treated as bullish or bearish.
  */
-import { buildMooxQimenChartForAudit } from "@/lib/forecasts/qimen-first-policy";
+import { buildMooxQimenChartForAudit, evaluateExperimentalQimenAt } from "@/lib/forecasts/qimen-first-policy";
 import { classifyDailyDirection } from "@/lib/forecasts/daily-direction-family";
 
-export const MOOX_FOCUS_QIMEN_PARALLEL_VERSION = "FOCUS_QIMEN_PARALLEL_V1_20260818";
+export const MOOX_FOCUS_QIMEN_PARALLEL_VERSION = "FOCUS_QIMEN_PARALLEL_V2_WU_SEMANTIC_20260820";
 export const MOOX_FOCUS_QIMEN_ACCURACY_BASELINE = "2026-08-18";
 
 export type FocusQimenDirectionCode = "UP" | "DOWN" | "SIDEWAYS";
@@ -453,24 +453,33 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
   const chart = buildMooxQimenChartForAudit(castAt) as FocusQimenChart;
   const available = Boolean(chart.invariants.valid);
   const scored = scoreChart(chart, definition);
+  const teacherSemantic = definition.basis === "TEACHER_EXPLICIT" || definition.basis === "TEACHER_CASE"
+    ? evaluateExperimentalQimenAt(input.symbol ?? input.assetId, castAt)
+    : null;
+  const effectiveDirection: FocusQimenDirectionCode = teacherSemantic?.available
+    ? teacherSemantic.direction === "上涨" ? "UP" : teacherSemantic.direction === "下跌" ? "DOWN" : "SIDEWAYS"
+    : scored.direction;
+  const effectiveConfidence = teacherSemantic?.available ? teacherSemantic.confidence : scored.confidence;
+  const effectiveScore = teacherSemantic?.available ? teacherSemantic.score : scored.score;
   const equityWeekend = !options.forceComparable && definition.assetClass === "EQUITY" && isWeekend(input.forecastDate);
-  const formalDirection: FocusQimenDirection = equityWeekend ? "休市观察" : directionLabel(scored.direction);
-  const relation = relationFor(scored.direction, input.liuyaoDirection, !equityWeekend && available);
+  const formalDirection: FocusQimenDirection = equityWeekend ? "休市观察" : directionLabel(effectiveDirection);
+  const relation = relationFor(effectiveDirection, input.liuyaoDirection, !equityWeekend && available);
   const defaultValidation = validationFor(definition, input.forecastDate, available);
   const validation = {
     status: options.validationStatus ?? defaultValidation.status,
     eligible: options.verificationEligible ?? defaultValidation.eligible,
   };
   const primaryStem = definition.primary[0] ?? chart.pillars.hour.stem;
+  const semanticMysticNote = teacherSemantic?.teacherNotes[0] ?? palacePhrase(scored.primaryPalace, primaryStem, effectiveDirection);
   const mysticNote = equityWeekend
-    ? `${palacePhrase(scored.primaryPalace, primaryStem, scored.direction)} 休市日仅作气机观察，不计正式走势验证。`
-    : palacePhrase(scored.primaryPalace, primaryStem, scored.direction);
+    ? `${semanticMysticNote} 休市日仅作气机观察，不计正式走势验证。`
+    : semanticMysticNote;
   const useGod = definition.primary.length
     ? `${definition.primary.join("/")}${definition.secondary.length ? `（辅${definition.secondary.join("/")}）` : ""}`
     : `时干${chart.pillars.hour.stem}（辅日干${chart.pillars.day.stem}）`;
   const contextLabel = options.contextLabel ? `；周期=${options.contextLabel}` : "";
   const evidence = available
-    ? `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；角色=奇门独立观点${contextLabel}；起局=${chart.castAt}；对象=${definition.displayName}；用神=${useGod}；依据=${definition.basis}；得分=${scored.score}；置信=${scored.confidence}；证据=${scored.evidenceRows.map((row) => `${row.role}@${row.palace}宫:${row.score}`).join("|")}`
+    ? `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；角色=奇门独立观点${contextLabel}；起局=${chart.castAt}；对象=${definition.displayName}；用神=${useGod}；依据=${definition.basis}；得分=${effectiveScore}；置信=${effectiveConfidence}；老师语义=${teacherSemantic?.teacherNotes.join("/") ?? "无专属老师语义，沿用MOOX对象层"}；证据=${scored.evidenceRows.map((row) => `${row.role}@${row.palace}宫:${row.score}`).join("|")}`
     : `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；奇门不可用=盘面结构校验失败；保留六爻原始方向`;
   return {
     policyVersion: MOOX_FOCUS_QIMEN_PARALLEL_VERSION,
@@ -478,13 +487,13 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
     assetId: input.assetId,
     forecastDate: input.forecastDate,
     available,
-    directionCode: available ? scored.direction : null,
+    directionCode: available ? effectiveDirection : null,
     direction: available ? formalDirection : "震荡",
-    confidence: available ? scored.confidence : null,
-    score: available ? scored.score : null,
+    confidence: available ? effectiveConfidence : null,
+    score: available ? effectiveScore : null,
     summary: equityWeekend
       ? "交易所休市：奇门保留为周末气机观察，不生成可验证的正式涨跌结论。"
-      : `奇门：${formalDirection}${available ? `，置信度${scored.confidence}%` : ""}。`,
+      : `奇门：${formalDirection}${available ? `，置信度${effectiveConfidence}%` : ""}。`,
     mysticNote,
     useGod,
     useGodBasis: definition.basis,

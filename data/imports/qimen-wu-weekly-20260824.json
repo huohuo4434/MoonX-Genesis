@@ -1,0 +1,126 @@
+{
+  "version": "WU_QIMEN_WEEKLY_20260824_V1",
+  "source": {
+    "teacher": "吴昌烨",
+    "series": "太一研究院周度奇门预测",
+    "targetStart": "2026-08-24",
+    "targetEndTeacher": "2026-08-29",
+    "videoRecordedAt": "2026-08-20T10:00:00+08:00",
+    "sourceType": "USER_SUPPLIED_VTT_AND_SCREENSHOTS",
+    "rawTranscriptBundled": false,
+    "note": "仅保存用户提供字幕中可核对的结构化结论与时间戳，不重新编写未出现的老师结论。"
+  },
+  "chartAudit": {
+    "mooxChartMatchesTeacherBoard": true,
+    "castAt": "2026-08-20T10:00:00+08:00",
+    "fourPillars": "丙午/丙申/丙寅/癸巳",
+    "mode": "阴遁2局上元",
+    "chiefStar": "天英@乾6",
+    "chiefDoor": "景门@离9",
+    "finding": "MOOX现有时家奇门排盘与老师白板盘结构一致；主要偏差来自解释层，而非排盘算法。"
+  },
+  "macroRegime": {
+    "timestamp": "00:08:35-00:11:39",
+    "structures": ["值符临马星", "庚加癸大格", "开门", "辛加庚/白虎出力背景"],
+    "teacherConclusion": "趋势要改、波动明显放大；开门提供波动中的赚钱/抄底机会，但不是单边看涨。新手不宜参与，熟练交易者可利用大波动。整体下行压力仍在，同时存在未来托底/救市力量。",
+    "eventWindows": {
+      "downside": ["亥", "卯", "未"],
+      "downsideMeaning": "下跌或小黑天鹅风险窗口",
+      "rescue": ["寅", "午", "戌"],
+      "rescueMeaning": "可能出现救市/托底行为"
+    },
+    "macroRisks": ["美债/流动性竞争", "日本央行加息风险", "AI基建融资占用资金"]
+  },
+  "assets": [
+    {
+      "asset": "US_BROAD",
+      "teacherAnchor": ["丙"],
+      "timestamp": "00:11:43-00:12:14",
+      "structures": ["丙加壬", "腾蛇"],
+      "direction": "震荡",
+      "volatility": "高",
+      "path": "盘中涨一下又跌一下，锯齿形上下徘徊，多空加剧。"
+    },
+    {
+      "asset": "SPX",
+      "teacherAnchor": ["丁", "丙"],
+      "timestamp": "00:12:17-00:12:59",
+      "structures": ["丁火中宫", "乙加丁修复分支", "丁转坎受水克分支"],
+      "direction": "震荡",
+      "volatility": "高",
+      "path": "超级大的分化行情；有些股票会涨得很好，但同时波动很大。"
+    },
+    {
+      "asset": "SOX",
+      "teacherAnchor": ["癸", "乙"],
+      "timestamp": "00:12:59-00:13:32",
+      "structures": ["癸水卯宫", "下临乙木", "天心保护意图但能量弱"],
+      "direction": "震荡",
+      "volatility": "高",
+      "path": "有保护意图但难度大，老师形容为火中取栗；非K线高手最好回避。"
+    },
+    {
+      "asset": "SHCOMP",
+      "teacherAnchor": ["己", "庚"],
+      "timestamp": "00:13:32-00:14:27",
+      "structures": ["己土", "白虎天蓬上压", "下方托底", "庚金对立情绪"],
+      "direction": "震荡",
+      "volatility": "高",
+      "path": "4000附近高度承压，但下方存在国家队托底，进入宽幅震荡。"
+    },
+    {
+      "asset": "CSI_A500",
+      "teacherAnchor": ["甲", "庚"],
+      "timestamp": "00:14:27-00:14:47",
+      "structures": ["甲申庚"],
+      "direction": "下跌",
+      "volatility": "中高",
+      "path": "老师明确短线上已经可以卖/先退出一部分；长期仍看好。"
+    },
+    {
+      "asset": "STAR50",
+      "teacherAnchor": ["己"],
+      "timestamp": "00:14:47-00:15:01",
+      "structures": ["己土", "天蓬托底语义"],
+      "direction": "震荡",
+      "volatility": "中高",
+      "path": "若回到约1500点，老师认为是值得买入的条件性机会，并判断下方空间有限。",
+      "priceConditionIsSourceSpecific": true
+    },
+    {
+      "asset": "HSTECH",
+      "teacherAnchor": ["庚", "癸"],
+      "timestamp": "00:15:01-00:15:22",
+      "structures": ["庚下临癸"],
+      "direction": "下跌",
+      "volatility": "中高",
+      "path": "近期可能轻微向下调整，但不影响长期大方向看多。"
+    },
+    {
+      "asset": "BTC",
+      "teacherAnchor": ["戊", "壬"],
+      "timestamp": "00:15:22-00:16:35",
+      "structures": ["戊土能量泄", "壬加辛腾蛇状", "九地", "天柱"],
+      "direction": "震荡",
+      "volatility": "高",
+      "downsideTail": "极高",
+      "pathOrder": "UNKNOWN",
+      "path": "当前窄幅盘整，多空分化将加剧；接下来某一天可能出现暴跌。老师明确不知道是先上扬再跌还是直接跌，系统不得补写顺序。"
+    },
+    {
+      "asset": "GOLD",
+      "teacherAnchor": ["辛"],
+      "timestamp": "00:16:35-00:17:08",
+      "structures": ["辛金能量不足", "辛落离宫受克"],
+      "direction": "下跌",
+      "volatility": "中",
+      "path": "近期小幅回调；回调被老师视为更远端重新布局的机会，不等同长期看空。"
+    }
+  ],
+  "explicitlyNotCovered": ["ETH", "NDX", "SILVER", "WTI"],
+  "revisionDiscipline": {
+    "timestamp": "00:17:30-00:18:46",
+    "teacherRevision": "老师将此前‘8月下半月可能全球同步上扬’修正为‘接下来一周有一定程度波动，而非直接单边上扬’，并说明不是悲观，而是风险仍未解除。",
+    "mooxRule": "新周盘可以前瞻修正月度情景，但不得删除或改写旧月度预测；历史验证需保留修订时间。"
+  }
+}

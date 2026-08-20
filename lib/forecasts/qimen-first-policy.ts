@@ -20,8 +20,13 @@ import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regi
  * - This module contains no order, leverage, payment or membership operation.
  */
 
+import { getWuWeeklyCalibration, getWuWeeklyEventWindow } from "../data/qimen-wu-weekly-20260824";
+
 export const MOOX_QIMEN_ENGINE_VERSION = "MOOX_QIMEN_TIME_ROTATING_V3_20260818";
-export const MOOX_QIMEN_POLICY_VERSION = "QIMEN_PRIMARY_LIUYAO_AUX_MARKET_BAZI_REGIME_V3";
+export const MOOX_QIMEN_POLICY_VERSION = "QIMEN_PRIMARY_WU_SEMANTIC_LIUYAO_AUX_MARKET_BAZI_REGIME_V4";
+// Keep the deterministic cast seed stable across interpretation upgrades so an
+// already-scheduled market date does not silently receive a different master chart.
+const MOOX_QIMEN_CAST_SEED_VERSION = "QIMEN_PRIMARY_TEACHER_YONGSHEN_LIUYAO_AUX_V2";
 
 type JsonRecord = Record<string, unknown>;
 type QimenDirection = "UP" | "DOWN" | "SIDEWAYS";
@@ -231,33 +236,47 @@ const TEACHER_ASSET_ANCHORS: Record<string, TeacherAssetAnchor> = {
   },
   NDX: {
     primary: ["丙"],
-    secondary: ["丁"],
-    basis: "TEACHER_EXPLICIT",
-    note: "吴老师本周美股资料：美股以丙火结合丁火观察；纳指沿用美股类别锚点",
+    basis: "TEACHER_CASE",
+    note: "吴老师2026-08-24周度视频未单列纳指；仅保留美股丙火类别背景，不冒充纳指专属口诀",
   },
   SHCOMP: {
-    primary: ["庚"],
-    secondary: ["己"],
+    primary: ["己"],
+    secondary: ["庚"],
     basis: "TEACHER_EXPLICIT",
-    note: "吴老师A股案例：观察庚金，并结合己土",
+    note: "吴老师2026-08-24周度视频明确：A股先看己土，并以庚金观察对立情绪/变化",
   },
   HSTECH: {
     primary: ["庚"],
-    secondary: ["丙"],
+    secondary: ["癸"],
     basis: "TEACHER_EXPLICIT",
-    note: "吴老师恒生科技案例：庚金与丙火配合",
+    note: "吴老师2026-08-24周度视频明确：恒生科技取庚金，并特别观察庚下临癸的泄气关系",
+  },
+  SOX: {
+    primary: ["癸"],
+    secondary: ["乙"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师2026-08-24周度视频明确：费城半导体看癸水，并结合下临乙木与天心保护力度",
+  },
+  A500: {
+    primary: ["甲"],
+    secondary: ["庚"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师2026-08-24周度视频明确：中证A500按甲木/甲申庚关系观察",
+  },
+  STAR50: {
+    primary: ["己"],
+    basis: "TEACHER_EXPLICIT",
+    note: "吴老师2026-08-24周度视频明确：科创50按己土观察；约1500点只作为该期条件性机会，不固化成永久价位",
   },
   GLD: {
     primary: ["辛"],
-    secondary: ["乙"],
     basis: "TEACHER_EXPLICIT",
-    note: "吴老师黄金案例：辛金，并观察辛乙组合",
+    note: "吴老师2026-08-24周度视频明确：黄金取辛金，重点看辛金自身旺衰与落宫受克",
   },
   GOLD: {
     primary: ["辛"],
-    secondary: ["乙"],
     basis: "TEACHER_EXPLICIT",
-    note: "吴老师黄金案例：辛金，并观察辛乙组合",
+    note: "吴老师2026-08-24周度视频明确：黄金取辛金，重点看辛金自身旺衰与落宫受克",
   },
   SILVER: {
     primary: ["丙"],
@@ -653,12 +672,166 @@ function findHeavenPalace(chart: QimenChart, stem: string): PalaceNumber | null 
 function resolveTeacherAnchor(asset: string): TeacherAssetAnchor | null {
   const code = asset.toUpperCase();
   if (TEACHER_ASSET_ANCHORS[code]) return TEACHER_ASSET_ANCHORS[code];
+  if (/^BTC|BITCOIN|比特币/.test(code)) return TEACHER_ASSET_ANCHORS.BTC ?? null;
   if (/^SPX|S&P|标普/.test(code)) return TEACHER_ASSET_ANCHORS.SPX ?? null;
   if (/^NDX|NASDAQ|纳指/.test(code)) return TEACHER_ASSET_ANCHORS.NDX ?? null;
+  if (/SHCOMP|SSEC|000001|上证|A股/.test(code)) return TEACHER_ASSET_ANCHORS.SHCOMP ?? null;
+  if (/HSTECH|恒生科技/.test(code)) return TEACHER_ASSET_ANCHORS.HSTECH ?? null;
+  if (/SOX|SOXX|费城半导体|PHLX/.test(code)) return TEACHER_ASSET_ANCHORS.SOX ?? null;
+  if (/CSI.?A?500|A500|中证A500/.test(code)) return TEACHER_ASSET_ANCHORS.A500 ?? null;
+  if (/STAR.?50|科创50|000688/.test(code)) return TEACHER_ASSET_ANCHORS.STAR50 ?? null;
   if (/^GOLD|XAU|GC=F/.test(code)) return TEACHER_ASSET_ANCHORS.GOLD ?? null;
   if (/^SILVER|XAG|SI=F|SLV/.test(code)) return TEACHER_ASSET_ANCHORS.SILVER ?? null;
   if (/^WTI|CL=F|BRENT|OIL/.test(code)) return TEACHER_ASSET_ANCHORS.WTI ?? null;
   return null;
+}
+
+type TeacherSemanticVolatility = "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
+type TeacherSemanticRisk = "NORMAL" | "ELEVATED" | "HIGH" | "EXTREME";
+type TeacherSemanticPathOrder = "KNOWN" | "UNKNOWN";
+
+interface TeacherSemanticCalibration {
+  version: "WU_SEMANTIC_V1_20260820";
+  directionOverride: QimenDirection | null;
+  confidenceCap: number | null;
+  volatility: TeacherSemanticVolatility;
+  downsideTail: TeacherSemanticRisk;
+  rescueSupport: TeacherSemanticRisk;
+  pathOrder: TeacherSemanticPathOrder;
+  notes: string[];
+}
+
+const VOLATILITY_RANK: Record<TeacherSemanticVolatility, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, EXTREME: 3 };
+const RISK_RANK: Record<TeacherSemanticRisk, number> = { NORMAL: 0, ELEVATED: 1, HIGH: 2, EXTREME: 3 };
+
+function maxVolatility(a: TeacherSemanticVolatility, b: TeacherSemanticVolatility): TeacherSemanticVolatility {
+  return VOLATILITY_RANK[a] >= VOLATILITY_RANK[b] ? a : b;
+}
+
+function maxRisk(a: TeacherSemanticRisk, b: TeacherSemanticRisk): TeacherSemanticRisk {
+  return RISK_RANK[a] >= RISK_RANK[b] ? a : b;
+}
+
+function palaceForHeavenStem(chart: QimenChart, stem: string): PalaceState | null {
+  const palace = findHeavenPalace(chart, stem);
+  return palace ? chart.palaces.find((item) => item.palace === palace) ?? null : null;
+}
+
+/**
+ * Teacher-alignment layer learned from Wu Changye's 2026-08-24 weekly video.
+ * It does not replace the standard chart calculation.  It only interprets
+ * structures the teacher explicitly demonstrated, and only when the same
+ * structure is actually present again.  Unknown branches stay unknown.
+ */
+function teacherSemanticCalibration(
+  chart: QimenChart,
+  asset: string,
+  anchor: TeacherAssetAnchor | null,
+): TeacherSemanticCalibration {
+  const code = asset.toUpperCase();
+  const result: TeacherSemanticCalibration = {
+    version: "WU_SEMANTIC_V1_20260820",
+    directionOverride: null,
+    confidenceCap: null,
+    volatility: "MEDIUM",
+    downsideTail: "NORMAL",
+    rescueSupport: "NORMAL",
+    pathOrder: "KNOWN",
+    notes: [],
+  };
+
+  const chief = chart.palaces.find((item) => item.palace === chart.chiefStarPalace) ?? null;
+  if (chief?.horse && chief.heavenStem === "庚" && chief.earthStem === "癸" && chief.door === "开门") {
+    result.volatility = "EXTREME";
+    result.notes.push("值符临马且庚加癸大格配开门：先判趋势切换与大波动，不把开门机械等同单边上涨");
+  }
+
+  // 亥卯未/寅午戌 are TARGET-DAY event windows, not cast-day signals.
+  // They are materialized by the weekly calendar layer; never infer them from chart.pillars.day.
+
+  if (/^SPX|S&P|标普/.test(code)) {
+    const dingEarth = findEarthPalace(chart, "丁");
+    if (dingEarth === 5) {
+      result.directionOverride = "SIDEWAYS";
+      result.confidenceCap = 66;
+      result.volatility = maxVolatility(result.volatility, "HIGH");
+      result.notes.push("标普丁火居中：乙加丁可修复，但转坎又受水克，按老师处理为大分化/双向高波动而非单边");
+    }
+  }
+
+  if (/SHCOMP|SSEC|000001|上证|A股/.test(code)) {
+    const ji = palaceForHeavenStem(chart, "己");
+    if (ji?.deity === "白虎" && ji.star === "天蓬") {
+      result.directionOverride = "SIDEWAYS";
+      result.confidenceCap = 65;
+      result.volatility = maxVolatility(result.volatility, "HIGH");
+      result.downsideTail = maxRisk(result.downsideTail, "ELEVATED");
+      result.rescueSupport = maxRisk(result.rescueSupport, "ELEVATED");
+      result.notes.push("A股己土上临白虎天蓬：上方承压；老师同时看到下方托底，合并为宽幅震荡而非强多");
+    }
+  }
+
+  if (/HSTECH|恒生科技/.test(code)) {
+    const geng = palaceForHeavenStem(chart, "庚");
+    if (geng?.earthStem === "癸") {
+      result.directionOverride = "DOWN";
+      result.confidenceCap = 68;
+      result.volatility = maxVolatility(result.volatility, "HIGH");
+      result.notes.push("恒生科技庚下临癸：按老师解释为庚金泄气，短线轻微向下调整；不等同长期转空");
+    }
+  }
+
+  if (/^BTC|BITCOIN|比特币/.test(code)) {
+    const ren = palaceForHeavenStem(chart, "壬");
+    if (ren?.earthStem === "辛" && ren.star === "天柱" && ren.deity === "九地") {
+      result.directionOverride = "SIDEWAYS";
+      result.confidenceCap = 64;
+      result.volatility = maxVolatility(result.volatility, "HIGH");
+      result.downsideTail = maxRisk(result.downsideTail, "EXTREME");
+      result.pathOrder = "UNKNOWN";
+      result.notes.push("BTC壬加辛、九地、天柱：先识别窄幅盘整和多空分化，同时保留单日暴跌尾部风险");
+      result.notes.push("老师明确未判断暴跌前是否先上冲，因此路径顺序必须标记UNKNOWN，禁止系统补写");
+    }
+  }
+
+  if (/^GOLD|XAU|GC=F|GLD|黄金/.test(code)) {
+    const xin = palaceForHeavenStem(chart, "辛");
+    if (xin?.element === "火") {
+      result.directionOverride = "DOWN";
+      result.confidenceCap = 68;
+      result.notes.push("黄金辛金落离火宫受克且能量不足：按老师处理为近期小幅回调，而非机械判长期转空");
+    }
+  }
+
+  if (/SOX|SOXX|费城半导体|PHLX/.test(code)) {
+    const gui = palaceForHeavenStem(chart, "癸");
+    if (gui?.earthStem === "乙" && gui.star === "天心") {
+      result.directionOverride = "SIDEWAYS";
+      result.confidenceCap = 63;
+      result.volatility = maxVolatility(result.volatility, "HIGH");
+      result.rescueSupport = maxRisk(result.rescueSupport, "ELEVATED");
+      result.notes.push("SOX癸临乙并见天心：有保护/贵人意图但天心力量弱，按老师定义为火中取栗而非清晰多头");
+    }
+  }
+
+  if (/CSI.?A?500|A500|中证A500/.test(code) && chart.xunHead === "甲申") {
+    result.confidenceCap = 68;
+    result.volatility = maxVolatility(result.volatility, "HIGH");
+    result.downsideTail = maxRisk(result.downsideTail, "ELEVATED");
+    result.notes.push("中证A500遇甲申庚结构：提高变化/短线退出敏感度；本期老师的‘短线可卖’只写入8/24周盘，不永久固化成DOWN");
+  }
+
+  if (/STAR.?50|科创50|000688/.test(code)) {
+    const ji = palaceForHeavenStem(chart, "己");
+    if (ji?.star === "天蓬") {
+      result.confidenceCap = 68;
+      result.rescueSupport = maxRisk(result.rescueSupport, "HIGH");
+      result.notes.push("科创50己土遇天蓬：按老师案例提高下方承接/托底语义；1500仅为本期资料条件价位，不永久固化方向或价格");
+    }
+  }
+
+  if (!anchor) result.notes.push("该资产缺少老师明确产品用神，本层仅保留宏观/日期语义，不补写专属口诀");
+  return result;
 }
 
 function directionFromChart(chart: QimenChart, asset: string): {
@@ -667,6 +840,9 @@ function directionFromChart(chart: QimenChart, asset: string): {
   confidence: number;
   anchor: TeacherAssetAnchor | null;
   evidence: Array<{ role: string; palace: PalaceNumber; score: number }>;
+  rawScore: number;
+  rawDirection: QimenDirection;
+  semantic: TeacherSemanticCalibration;
 } {
   const teacherAnchor = resolveTeacherAnchor(asset);
   const roles: Array<{ role: string; palace: PalaceNumber | null; weight: number; objectRole?: boolean }> = [];
@@ -711,12 +887,29 @@ function directionFromChart(chart: QimenChart, asset: string): {
     weighted += score * item.weight;
     totalWeight += item.weight;
   }
-  const score = totalWeight > 0 ? weighted / totalWeight : 0;
-  const direction: QimenDirection = score >= 0.65 ? "UP" : score <= -0.65 ? "DOWN" : "SIDEWAYS";
+  const rawScore = totalWeight > 0 ? weighted / totalWeight : 0;
+  const rawDirection: QimenDirection = rawScore >= 0.65 ? "UP" : rawScore <= -0.65 ? "DOWN" : "SIDEWAYS";
+  const semantic = teacherSemanticCalibration(chart, asset, teacherAnchor);
+  const direction = semantic.directionOverride ?? rawDirection;
+  let score = rawScore;
+  if (semantic.directionOverride === "UP" && score < 0.65) score = 0.7;
+  if (semantic.directionOverride === "DOWN" && score > -0.65) score = -0.7;
+  if (semantic.directionOverride === "SIDEWAYS") score = clamp(score, -0.5, 0.5);
   const base = direction === "SIDEWAYS" ? 54 : 59;
   const anchorBonus = teacherAnchor?.basis === "TEACHER_EXPLICIT" ? 3 : teacherAnchor ? 1 : 0;
-  const confidence = clamp(Math.round(base + Math.abs(score) * 7 + anchorBonus), 50, 90);
-  return { direction, score: round(score), confidence, anchor: teacherAnchor, evidence };
+  let confidence = clamp(Math.round(base + Math.abs(score) * 7 + anchorBonus), 50, 90);
+  if (semantic.confidenceCap != null) confidence = Math.min(confidence, semantic.confidenceCap);
+  if (semantic.pathOrder === "UNKNOWN") confidence = Math.min(confidence, 64);
+  return {
+    direction,
+    score: round(score),
+    rawScore: round(rawScore),
+    rawDirection,
+    confidence,
+    anchor: teacherAnchor,
+    evidence,
+    semantic,
+  };
 }
 
 function hashText(text: string): number {
@@ -814,7 +1007,7 @@ function deterministicCastAt(
   const parts = parseDateOnly(targetDate) ?? { year: 2026, month: 1, day: 1 };
   // One daily master chart is shared across assets; product differentiation comes
   // from product-specific yongshen, matching the teacher workflow more closely.
-  const seed = hashText(`${targetDate}|DAILY_MASTER|${MOOX_QIMEN_POLICY_VERSION}`);
+  const seed = hashText(`${targetDate}|DAILY_MASTER|${MOOX_QIMEN_CAST_SEED_VERSION}`);
   const hourChoices = [19, 20, 21, 22] as const;
   const minuteChoices = [7, 17, 29, 37, 49] as const;
   const hour = requiredAt(hourChoices, seed % hourChoices.length, "research-window hour");
@@ -867,8 +1060,10 @@ function renderQimenEvidence(input: {
   category: keyof typeof FINANCIAL_YONGSHEN.categories;
   assetAnchor: TeacherAssetAnchor | null;
   agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS";
+  rawScore?: number;
+  semantic?: TeacherSemanticCalibration;
 }): string {
-  const { chart, direction, confidence, score, category, assetAnchor, agreement } = input;
+  const { chart, direction, confidence, score, category, assetAnchor, agreement, rawScore, semantic } = input;
   const palaceText = chart.palaces.map((palace) => {
     const heaven = palace.heavenStem ?? "—";
     const star = palace.star ?? "—";
@@ -882,6 +1077,8 @@ function renderQimenEvidence(input: {
     `奇门主判=${directionText}`,
     `置信度=${confidence}%`,
     `评分=${score}`,
+    `数字原始评分=${rawScore ?? score}`,
+    `老师语义校准=${semantic ? `${semantic.version}|波动${semantic.volatility}|下行尾险${semantic.downsideTail}|托底${semantic.rescueSupport}|路径${semantic.pathOrder}${semantic.notes.length ? `|${semantic.notes.join("/")}` : ""}` : "未启用"}`,
     `起局=${chart.castAt}`,
     `体系=${chart.method}`,
     `四柱=${chart.pillars.year.text}/${chart.pillars.month.text}/${chart.pillars.day.text}/${chart.pillars.hour.text}`,
@@ -1026,10 +1223,25 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       : marketBaziRelation === "QIMEN_SIDEWAYS"
         ? -2
         : 0;
+  const weeklyTeacherCalibration = getWuWeeklyCalibration(asset, targetDate);
+  const weeklyTeacherEvent = getWuWeeklyEventWindow(targetDate);
+  let weeklyTeacherAdjustment = 0;
+  if (weeklyTeacherCalibration) {
+    if (weeklyTeacherCalibration.directionCode === signal.direction) weeklyTeacherAdjustment += 3;
+    else if (weeklyTeacherCalibration.directionCode === "SIDEWAYS" && signal.direction !== "SIDEWAYS") weeklyTeacherAdjustment -= 4;
+    else if (weeklyTeacherCalibration.directionCode !== "UNSPECIFIED" && signal.direction !== "SIDEWAYS") weeklyTeacherAdjustment -= 6;
+    if (weeklyTeacherCalibration.pathOrder === "UNKNOWN") weeklyTeacherAdjustment -= 2;
+  }
+  if (weeklyTeacherEvent?.kind === "DOWNSIDE_BLACK_SWAN_RISK") {
+    weeklyTeacherAdjustment += signal.direction === "DOWN" ? 2 : signal.direction === "UP" ? -3 : 0;
+  } else if (weeklyTeacherEvent?.kind === "RESCUE_SUPPORT") {
+    weeklyTeacherAdjustment += signal.direction === "UP" ? 2 : signal.direction === "DOWN" ? -3 : 0;
+  }
   const confidence = clamp(
-    signal.confidence +
-      (agreement === "RESONANCE" ? 5 : agreement === "CONFLICT_QIMEN_PREVAILS" ? -9 : 0) +
-      marketBaziAdjustment,
+    signal.confidence
+      + (agreement === "RESONANCE" ? 5 : agreement === "CONFLICT_QIMEN_PREVAILS" ? -9 : 0)
+      + marketBaziAdjustment
+      + weeklyTeacherAdjustment,
     42,
     92,
   );
@@ -1069,10 +1281,17 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
         category,
         assetAnchor: signal.anchor,
         agreement,
+        rawScore: signal.rawScore,
+        semantic: signal.semantic,
       });
-      next.qimenEvidence = marketBaziRegime
-        ? `${qimenEvidence}；资产八字月度先验=${marketBaziRegime.direction === "UP" ? "上涨" : "下跌"}/${marketBaziRegime.weightPct}%/${marketBaziRelation === "ALIGN" ? "同向" : marketBaziRelation === "CONFLICT" ? "分歧" : "奇门震荡"}；八字不可单独改写奇门`
-        : qimenEvidence;
+      next.qimenEvidence = [
+        qimenEvidence,
+        marketBaziRegime
+          ? `资产八字月度先验=${marketBaziRegime.direction === "UP" ? "上涨" : "下跌"}/${marketBaziRegime.weightPct}%/${marketBaziRelation === "ALIGN" ? "同向" : marketBaziRelation === "CONFLICT" ? "分歧" : "奇门震荡"}；八字不可单独改写奇门`
+          : null,
+        `吴老师周度校准=${weeklyTeacherCalibration ? `${weeklyTeacherCalibration.directionZh}|波动${weeklyTeacherCalibration.volatility}|尾险${weeklyTeacherCalibration.downsideTail}|路径${weeklyTeacherCalibration.pathOrder}|${weeklyTeacherCalibration.summaryZh}` : "本期无该资产专属结论"}`,
+        `吴老师目标日窗口=${weeklyTeacherEvent ? `${weeklyTeacherEvent.ganzhi}|${weeklyTeacherEvent.kind}|${weeklyTeacherEvent.noteZh}` : "无"}`,
+      ].filter((value): value is string => Boolean(value)).join("；");
     }
   } else if ("qimenEvidence" in record || "marketCode" in record || "forecastDate" in record || "forecastForDate" in record) {
     next.qimenEvidence = `奇门不可用=盘面结构校验失败；起局=${chart.castAt}；规则=保留原方向并禁止奇门覆盖`;
@@ -1088,6 +1307,12 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
     formalDirection: renderFormalDirection(signal.direction),
     confidence,
     score: signal.score,
+    rawDigitalScore: signal.rawScore,
+    rawDigitalDirection: signal.rawDirection,
+    teacherSemanticCalibration: signal.semantic,
+    weeklyTeacherCalibration,
+    weeklyTeacherEvent,
+    weeklyTeacherConfidenceAdjustment: weeklyTeacherAdjustment,
     assetCategory: category,
     yongshen: {
       primary: [...FINANCIAL_YONGSHEN.core.primary],
@@ -1117,8 +1342,8 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
     evidence: signal.evidence,
     chart,
     sourceBoundary: {
-      teacherEvidence: "吴老师产品用神锚点 + 开挂的金兔子日/时干、值符值使、门星神与旺衰象意",
-      mooxDigitalProtocol: "上涨/下跌/震荡评分为MOOX可复现规则，不冒充老师未公开的人工取宫法",
+      teacherEvidence: "吴老师产品用神锚点 + 2026-08-24周度语义校准 + 金兔子日/时干、值符值使、门星神与旺衰象意",
+      mooxDigitalProtocol: "数字评分仅作可复现底层；遇老师已明确示范的同结构时先走语义校准，仍不冒充老师未公开的人工取宫法",
     },
   };
   next.methodPriority = "QIMEN_PRIMARY_LIUYAO_AUXILIARY_TECHNICAL_EXECUTION";
@@ -1128,7 +1353,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   next.marketBaziRegime = marketBaziRegime
     ? { ...marketBaziRegime, relationToQimen: marketBaziRelation, canOverrideQimen: false }
     : null;
-  next.qimenMysticNote = qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor });
+  next.qimenMysticNote = signal.semantic.notes[0] ?? qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor });
   const baziLabel = marketBaziRegime
     ? `；资产八字${marketBaziRegime.direction === "UP" ? "偏多" : "偏空"}${marketBaziRelation === "CONFLICT" ? "·与奇门分歧" : marketBaziRelation === "ALIGN" ? "·同向" : ""}`
     : "";
@@ -1193,6 +1418,12 @@ export type ExperimentalQimenSnapshot = {
   direction: "上涨" | "下跌" | "震荡";
   confidence: number;
   score: number;
+  rawScore: number;
+  volatility: TeacherSemanticVolatility;
+  downsideTail: TeacherSemanticRisk;
+  rescueSupport: TeacherSemanticRisk;
+  pathOrder: TeacherSemanticPathOrder;
+  teacherNotes: string[];
   noteZh: string;
   yongshenSource: "TEACHER_ASSET_ANCHOR" | "GENERIC_TIME_DAY_PROTOCOL";
 };
@@ -1213,8 +1444,14 @@ export function evaluateExperimentalQimenAt(asset: string, castAt: string | Date
     direction: chart.invariants.valid ? renderFormalDirection(signal.direction) : "震荡",
     confidence: chart.invariants.valid ? signal.confidence : 0,
     score: signal.score,
+    rawScore: signal.rawScore,
+    volatility: signal.semantic.volatility,
+    downsideTail: signal.semantic.downsideTail,
+    rescueSupport: signal.semantic.rescueSupport,
+    pathOrder: signal.semantic.pathOrder,
+    teacherNotes: [...signal.semantic.notes],
     noteZh: chart.invariants.valid
-      ? qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor })
+      ? signal.semantic.notes[0] ?? qimenMysticLine(chart, { direction: signal.direction, anchor: signal.anchor })
       : "盘面结构校验未通过，本次实验信号不采用。",
     yongshenSource: signal.anchor ? "TEACHER_ASSET_ANCHOR" : "GENERIC_TIME_DAY_PROTOCOL",
   };

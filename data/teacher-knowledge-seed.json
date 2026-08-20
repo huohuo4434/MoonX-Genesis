@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-10T10:45:00.000Z",
+  "updatedAt": "2026-08-20T19:29:00+08:00",
   "lessons": [
     {
       "id": "seed_lesson_0001",
@@ -3904,6 +3904,51 @@
       "updatedAt": "2026-08-18T00:00:00.000Z",
       "content": "正式日分析顺序：奇门遁甲第一主判 → 六爻辅助印证/风险提示 → 技术结构给支撑压力与执行位。奇门与六爻同向记为共振，信心星级上调；相左则标记奇六分歧，以奇门为纲并主动降低置信度。技术分析不得反向覆盖玄学方向。",
       "source": "User-confirmed MOOX daily methodology 2026-08-18"
+    },
+    {
+      "id": "wu_qimen_weekly_20260824_lesson",
+      "lessonCode": "TL-WU-QM-20260824",
+      "title": "吴昌烨：2026-08-24至08-29周度奇门预测与方法校准",
+      "teacherName": "吴昌烨",
+      "courseSeries": "太一研究院·周度奇门预测",
+      "lessonNumber": "2026-08-24-WEEK",
+      "lessonDate": "2026-08-20",
+      "originalFileName": "810a4b22-a268-4dd9-a4fb-78add136a9b9.vtt",
+      "sourceType": "VIDEO_TRANSCRIPT",
+      "assets": [
+        "US_STOCKS",
+        "SPX",
+        "SOX",
+        "SHCOMP",
+        "CSI_A500",
+        "STAR50",
+        "HSTECH",
+        "BTC",
+        "GOLD"
+      ],
+      "timeframes": [
+        "WEEK",
+        "2026-08-24/2026-08-29"
+      ],
+      "tags": [
+        "奇门",
+        "吴老师",
+        "周度",
+        "对象用神",
+        "格局",
+        "波动",
+        "风险窗口",
+        "老师校准"
+      ],
+      "rawTranscript": "结构化学习备忘：值符临马、庚加癸大格配开门先判趋势变化与大波动，不直接判多；美股丙加壬腾蛇状为锯齿反复；SPX丁火居中有乙加丁修复与转坎受克两分支；SOX癸水配乙、天心保护但力量弱；A股明确先看己土，上压与下托并存为宽幅震荡；A500看甲申庚，短线可卖；科创50看己土，约1500只属于本期资料的条件性机会；恒科庚下临癸短线泄气；BTC戊壬并看，壬加辛、九地、天柱对应盘整分化与单日暴跌尾险且先后路径未知；黄金辛金落离受克为小回调。亥卯未为风险窗口，寅午戌为托底/救市可能窗口。老师明确修正此前下半月全球同步上扬观点为高波动而非单边。",
+      "cleanedTranscript": "",
+      "summary": "本期资料证明MOOX排盘结构与老师白板一致，主要误差来自解释层：固定正负打分不能替代对象用神、格局语义、旺衰泄耗、波动/尾险/托底分轴和未知路径纪律。",
+      "adminNotes": "依据用户提供VTT和两张截图整理。未在本期单列ETH、NDX、WTI、白银，系统不得冒充老师已给这些资产的专属周度结论。",
+      "status": "APPROVED",
+      "version": 1,
+      "createdBy": "user-import-20260820",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
     }
   ],
   "versions": [],
@@ -5422,6 +5467,345 @@
         "方法一致度"
       ],
       "scope": "DAILY_PUBLIC_MARKET"
+    },
+    {
+      "id": "wu_qimen_rule_semantic_axes",
+      "ruleCode": "MR-WU-QM-0201",
+      "title": "奇门金融判断必须把方向、波动、尾部风险和托底分开",
+      "category": "MARKET_APPLICATION",
+      "conditions": [
+        "金融市场奇门盘",
+        "门星神出现强烈波动/救市/黑天鹅象"
+      ],
+      "analysisSteps": [
+        "先定位对象用神",
+        "判断对象旺衰与格局",
+        "分别输出direction/volatility/downsideTail/rescueSupport",
+        "最后决定是否能给单一方向"
+      ],
+      "conclusion": "同一盘可以方向中性但尾部风险极高；不得把所有信息压成一个多空分数。",
+      "exceptions": [
+        "没有老师明确语义的结构仍保留MOOX可复现底层，但降低老师对齐置信度。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "多轴",
+        "波动",
+        "尾险",
+        "托底"
+      ],
+      "priority": 100,
+      "confidence": 96,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "本期美股、BTC均显示方向与波动/尾险不可压成同一个符号。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_functional_symbols",
+      "ruleCode": "MR-WU-QM-0202",
+      "title": "门星神按功能解释，不使用永久固定多空符号",
+      "category": "MARKET_APPLICATION",
+      "conditions": [
+        "使用开门、驿马、腾蛇、九地、天蓬、白虎等解释金融盘"
+      ],
+      "analysisSteps": [
+        "先看对象和格局",
+        "再解释门星神的功能",
+        "根据上下文决定其影响是方向、波动、托底还是风险"
+      ],
+      "conclusion": "开门不等于永远看涨、驿马不等于看多、九地/天蓬也不能永久写成利空。",
+      "exceptions": [
+        "老师在其他案例有不同语义时保留案例上下文，禁止一条口诀覆盖所有资产。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "开门",
+        "驿马",
+        "腾蛇",
+        "九地",
+        "天蓬",
+        "白虎"
+      ],
+      "priority": 98,
+      "confidence": 95,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "本期庚加癸大格配开门被老师解释为大波动中的交易/抄底机会，而不是单边上涨。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_combo_first",
+      "ruleCode": "MR-WU-QM-0203",
+      "title": "格局组合优先于单个符号加减分",
+      "category": "MARKET_APPLICATION",
+      "conditions": [
+        "对象宫出现明确天盘+地盘组合"
+      ],
+      "analysisSteps": [
+        "读取天盘干/地盘干组合",
+        "结合对象身份与门星神",
+        "再看旺衰空墓刑迫",
+        "最后输出方向与路径"
+      ],
+      "conclusion": "庚加癸、丙加壬、乙加丁、壬加辛等组合必须先按老师案例语义识别，不能拆成两个干的正负分相加。",
+      "exceptions": [
+        "组合只在结构真正重复时复用，不把本期案例无限外推。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "格局",
+        "庚加癸",
+        "丙加壬",
+        "乙加丁",
+        "壬加辛"
+      ],
+      "priority": 97,
+      "confidence": 94,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "老师本期依次用庚加癸大格、丙加壬腾蛇状、乙加丁修复、壬加辛盘整分化解释市场。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_object_strength",
+      "ruleCode": "MR-WU-QM-0204",
+      "title": "对象用神必须检查落宫受克与泄耗",
+      "category": "PROSPERITY_DECLINE",
+      "conditions": [
+        "已经有老师明确的资产对象干"
+      ],
+      "analysisSteps": [
+        "查对象天盘/地盘所在宫",
+        "检查宫五行克生与上下干关系",
+        "结合月令与空墓刑迫",
+        "把结果用于对象实际行动力"
+      ],
+      "conclusion": "对象干本身不是多空票；落宫受克或生出泄气可令短线转弱。",
+      "exceptions": [
+        "长期趋势与短周期泄气分开，不能用一周泄气覆盖长期观点。"
+      ],
+      "applicableAssets": [
+        "SHCOMP",
+        "HSTECH",
+        "GOLD",
+        "BTC",
+        "SPX",
+        "SOX"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "对象用神",
+        "受克",
+        "泄气",
+        "旺衰"
+      ],
+      "priority": 99,
+      "confidence": 96,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "本期恒科庚下临癸被解释为泄气，黄金辛落离宫被解释为受克回调。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_unknown_path",
+      "ruleCode": "MR-WU-QM-0205",
+      "title": "老师没有给出的先后路径必须保持未知",
+      "category": "EXCEPTION",
+      "conditions": [
+        "老师只确认风险事件/方向，但明确说不知道先后顺序"
+      ],
+      "analysisSteps": [
+        "记录已知结论",
+        "把pathOrder标记UNKNOWN",
+        "列出允许分支",
+        "等待真实盘面和低周期结构确认"
+      ],
+      "conclusion": "不得为了文案完整自行补写“先涨后跌”或“直接下跌”。",
+      "exceptions": [
+        "后续新盘或老师补充明确路径时，只能前瞻更新。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "未知路径",
+        "禁止补写",
+        "分支"
+      ],
+      "priority": 100,
+      "confidence": 99,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "BTC本期明确说可能暴跌，但不能判断先上扬再跌还是直接跌。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_event_windows",
+      "ruleCode": "MR-WU-QM-0206",
+      "title": "亥卯未风险日与寅午戌托底日只做事件窗口",
+      "category": "TIMING",
+      "conditions": [
+        "目标周期包含对应地支日"
+      ],
+      "analysisSteps": [
+        "用目标交易日万年历转换地支",
+        "亥卯未提高下跌/小黑天鹅风险",
+        "寅午戌提高托底/救市可能",
+        "与当天对象盘和技术结构再确认"
+      ],
+      "conclusion": "事件窗口不等同确定涨跌；严禁把起局日地支误当目标日地支。",
+      "exceptions": [
+        "资产休市日只记录风险观察，不计正式交易日验证。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "亥卯未",
+        "寅午戌",
+        "风险日",
+        "救市日"
+      ],
+      "priority": 96,
+      "confidence": 93,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "老师本期明确区分：亥卯未是下跌/小黑天鹅，寅午戌是救市行为，两者概念不同。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_revision",
+      "ruleCode": "MR-WU-QM-0207",
+      "title": "新周盘可以前瞻修正月度情景但不能改历史",
+      "category": "MARKET_APPLICATION",
+      "conditions": [
+        "月度观点仍在有效期内",
+        "出现更新的周度奇门盘"
+      ],
+      "analysisSteps": [
+        "保留原月度版本",
+        "记录周盘修订时间和原因",
+        "仅修正未来未发生区间",
+        "事后按原版本与修订版分别验证"
+      ],
+      "conclusion": "更细、更近的新盘可以降低或重构未来情景权重，但历史预测必须锁定。",
+      "exceptions": [
+        "不得用已发生行情作为重新起盘选择结果的理由。"
+      ],
+      "applicableAssets": [
+        "ALL_FINANCIAL"
+      ],
+      "applicableTimeframes": [
+        "WEEK",
+        "MONTH"
+      ],
+      "keywords": [
+        "修订",
+        "锁盘",
+        "前瞻"
+      ],
+      "priority": 100,
+      "confidence": 97,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "老师本期将此前“下半月可能全球同步上扬”前瞻修正为“有一定程度波动，而非直接单边上扬”。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
+    },
+    {
+      "id": "wu_qimen_rule_asset_map_20260820",
+      "ruleCode": "MR-WU-QM-0208",
+      "title": "吴老师最新金融对象用神映射优先更新",
+      "category": "USE_GOD",
+      "conditions": [
+        "同一资产存在旧映射与本期老师明确口述映射冲突"
+      ],
+      "analysisSteps": [
+        "以最新明确口述更新对象主用神",
+        "旧映射保留来源审计",
+        "未明确资产不自行扩展"
+      ],
+      "conclusion": "最新明确映射：美股背景丙、SPX丁、SOX癸+乙、A股己+庚、A500甲/庚、科创50己、恒科庚+癸、BTC戊+壬、黄金辛。",
+      "exceptions": [
+        "本期未单列ETH、NDX、WTI、白银，不得冒充老师已给专属映射/周度结论。"
+      ],
+      "applicableAssets": [
+        "SPX",
+        "SOX",
+        "SHCOMP",
+        "CSI_A500",
+        "STAR50",
+        "HSTECH",
+        "BTC",
+        "GOLD"
+      ],
+      "applicableTimeframes": [
+        "DAY",
+        "WEEK"
+      ],
+      "keywords": [
+        "用神映射",
+        "吴老师"
+      ],
+      "priority": 100,
+      "confidence": 99,
+      "sourceLessonId": "wu_qimen_weekly_20260824_lesson",
+      "sourceQuote": "老师本期逐项口述上述对象用神，A股明确说“我们看到己土”。",
+      "sourceTextStart": null,
+      "sourceTextEnd": null,
+      "status": "APPROVED",
+      "createdAt": "2026-08-20T19:29:00+08:00",
+      "updatedAt": "2026-08-20T19:29:00+08:00"
     }
   ],
   "cases": [

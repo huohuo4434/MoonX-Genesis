@@ -1,5 +1,5 @@
 {
-  "version": "7.20.0.5",
+  "version": "7.20.10.9",
   "policy": "QIMEN_PRIMARY_LIUYAO_AUXILIARY_TECHNICAL_EXECUTION",
   "publicMarketBaziVote": false,
   "castTime": {
@@ -48,6 +48,157 @@
   "sourceBoundary": {
     "teacherExplicit": "TEACHER_EVIDENCE",
     "mooxDerived": "MOOX_DIGITAL_PROTOCOL",
-    "undisclosedManualPalaceSelection": "NOT_CLAIMED"
+    "undisclosedManualPalaceSelection": "NOT_CLAIMED",
+    "wuWeekly20260824": "只结构化老师在该期明确说出的对象用神、格局、风险窗口和结论；未单列ETH/NDX/WTI/白银，不冒充老师已给结论。"
+  },
+  "interpretationVersion": "WU_SEMANTIC_V1_20260820",
+  "teacherAlignment": {
+    "source": "吴昌烨2026-08-24至08-29周度预测（用户提供VTT/截图，视频拍摄于2026-08-20 10:00）",
+    "chartCalculation": "KEEP_EXISTING_TIME_QIMEN_ENGINE",
+    "coreFinding": "当前排盘与老师白板盘一致，误差主要来自解释层，不改排盘算法。",
+    "axes": [
+      "direction",
+      "volatility",
+      "downsideTail",
+      "rescueSupport",
+      "pathOrder"
+    ],
+    "discipline": [
+      "先识别对象用神与天盘/地盘关系，再看门星神、旺衰、空墓刑迫；不把门星神固定成单一多空分值。",
+      "值符/值使/驿马/格局先用于判断市场状态和波动级别，再决定是否能输出明确方向。",
+      "老师明确不知道先涨后跌还是直接跌时，系统必须记录UNKNOWN_PATH，不补写路径。",
+      "周度新盘可以前瞻修正月度情景，但不得改写已经锁定的历史预测。",
+      "老师自评允许完全应验/部分应验/未应验，验证不得事后改口。"
+    ],
+    "functionalSemantics": {
+      "开门": "交易/获利机会，遇大格+驿马时可表示高波动中的抄底或套利，不等同单边上涨。",
+      "驿马": "变化/加速/趋势切换放大器，不是多头票。",
+      "腾蛇": "反复、迷惑、锯齿、多空缠斗；重点影响波动和路径确定性。",
+      "九地": "下沉、底部、盘整/潜伏；不能机械记为利空。",
+      "天蓬": "语境相关；本期A股/科创50案例被老师解释为下方托底/守城力量，不能固定记为利空。",
+      "白虎": "压力/猛烈风险放大，需结合对象宫与上下承接判断。"
+    },
+    "combinationCases": [
+      {
+        "pattern": "庚+癸",
+        "context": "值符临马+开门",
+        "meaning": "大格/大变化；优先判趋势切换和大波动，有抄底机会但不是直接看涨。"
+      },
+      {
+        "pattern": "丙+壬",
+        "context": "美股",
+        "meaning": "腾蛇状；盘中涨跌反复、锯齿震荡、多空加剧。"
+      },
+      {
+        "pattern": "乙+丁",
+        "context": "SPX修复分支",
+        "meaning": "修复条件较好；但丁若转坎受水克则形成另一条下压分支。"
+      },
+      {
+        "pattern": "壬+辛",
+        "context": "BTC+九地+天柱",
+        "meaning": "窄幅盘整/腾蛇状，随后多空分化并保留单日暴跌尾部风险。"
+      },
+      {
+        "pattern": "辛落离宫",
+        "context": "GOLD",
+        "meaning": "辛金受火克、能量弱，短期偏小回调；不自动等于长期转空。"
+      },
+      {
+        "pattern": "庚下临癸",
+        "context": "HSTECH",
+        "meaning": "庚金泄气，短线偏轻微向下调整；长期观点独立。"
+      }
+    ],
+    "eventWindows": {
+      "downsideRiskBranches": [
+        "亥",
+        "卯",
+        "未"
+      ],
+      "downsideMeaning": "下跌/小黑天鹅风险窗口；仅提高风险等级，不机械指定当日收盘方向。",
+      "rescueBranches": [
+        "寅",
+        "午",
+        "戌"
+      ],
+      "rescueMeaning": "救市/托底可能窗口；仅增加修复分支，不机械指定上涨。",
+      "calendarRule": "必须用目标交易日干支转换，严禁误用起局日地支。"
+    },
+    "latestTeacherAssetAnchors": {
+      "US_BROAD": {
+        "primary": [
+          "丙"
+        ],
+        "note": "美股整体背景"
+      },
+      "SPX": {
+        "primary": [
+          "丁"
+        ],
+        "secondary": [
+          "丙"
+        ],
+        "note": "标普500"
+      },
+      "SOX": {
+        "primary": [
+          "癸"
+        ],
+        "secondary": [
+          "乙"
+        ],
+        "note": "费城半导体"
+      },
+      "SHCOMP": {
+        "primary": [
+          "己"
+        ],
+        "secondary": [
+          "庚"
+        ],
+        "note": "A股明确先看己土；庚用于对立情绪/变化"
+      },
+      "CSI_A500": {
+        "primary": [
+          "甲"
+        ],
+        "secondary": [
+          "庚"
+        ],
+        "note": "甲申庚关系"
+      },
+      "STAR50": {
+        "primary": [
+          "己"
+        ],
+        "note": "科创50；1500仅为本期资料的条件价位，不永久固化"
+      },
+      "HSTECH": {
+        "primary": [
+          "庚"
+        ],
+        "secondary": [
+          "癸"
+        ],
+        "note": "恒生科技，庚下临癸泄气"
+      },
+      "BTC": {
+        "primary": [
+          "戊"
+        ],
+        "secondary": [
+          "壬"
+        ],
+        "note": "BTC"
+      },
+      "GOLD": {
+        "primary": [
+          "辛"
+        ],
+        "note": "黄金"
+      }
+    },
+    "legacyFixedScorePolicy": "旧固定门/星/神多空分只作为低层可复现提示；若与老师已明确示范的同结构语义冲突，老师语义层优先，且必须保留原始数字分用于审计。"
   }
 }
