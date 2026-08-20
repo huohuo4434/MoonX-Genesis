@@ -49,6 +49,8 @@ const TOOLS: ChannelCard[] = [
 const EXPERIMENTS: ChannelCard[] = [
   { href: "/member/early-altcoin-radar", title: "山寨币雷达", eyebrow: "早期线索", description: "观察候选资产、热点与资金异动；暂不直接触发实盘。", experimental: true },
   { href: "/member/market-structure", title: "多源K线", eyebrow: "行情实验室", description: "多交易所K线与市场微观结构，用于技术确认和风险过滤。", experimental: true },
+  { href: "/member/alpha-feed", title: "多方观点", eyebrow: "匿名观点", description: "匿名汇总关注博主的核心观点、方向、周期、关键点位与理论方法；随现有X情报自动更新。", experimental: true },
+
 ];
 
 function CardGrid({ title, subtitle, cards }: { title: string; subtitle: string; cards: ChannelCard[] }) {
