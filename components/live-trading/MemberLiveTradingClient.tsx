@@ -1,5 +1,7 @@
 "use client";
 
+// MOOX_V720105_LIVE_VISIBILITY_UI: positions + plans + execution diagnosis.
+
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 type Setting = {
@@ -17,6 +19,104 @@ type Setting = {
   isolatedMargin: true;
 };
 
+type LivePosition = {
+  source?: string;
+  id?: string;
+  symbol?: string;
+  horizon?: string | null;
+  side?: string;
+  status?: string;
+  quantity?: number;
+  leverage?: number;
+  marginMode?: string | null;
+  entryPrice?: number;
+  markPrice?: number | null;
+  unrealizedPnlUsdt?: number | null;
+  profitRate?: number | null;
+  stopPrice?: number | null;
+  target1?: number | null;
+  target2?: number | null;
+  openedAt?: string | null;
+  lastManagedAt?: string | null;
+};
+
+type TradePlan = {
+  id?: string;
+  strategyType?: string;
+  horizon?: string;
+  strategyLabel?: string;
+  symbol?: string;
+  status?: string;
+  direction?: string;
+  confidence?: number;
+  currentPrice?: number | null;
+  entryPrice?: number | null;
+  stopLoss?: number | null;
+  target1?: number | null;
+  target2?: number | null;
+  conditionsMet?: number;
+  conditionsTotal?: number;
+  unmetConditions?: string[];
+  rejectionCode?: string;
+  rejectionReason?: string;
+  expiresAt?: string | null;
+  updatedAt?: string;
+};
+
+type ExecutionRow = {
+  id?: string;
+  strategyType?: string;
+  horizon?: string;
+  symbol?: string;
+  status?: string;
+  direction?: string;
+  confidence?: number;
+  entryPrice?: number | null;
+  stopLoss?: number | null;
+  target1?: number | null;
+  target2?: number | null;
+  quantity?: number | null;
+  riskAmountUsdt?: number | null;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  realizedPnlUsdt?: number | null;
+  rejectionReason?: string;
+  updatedAt?: string;
+};
+
+type ClosedPosition = {
+  positionId?: string;
+  symbol?: string;
+  side?: string;
+  openPrice?: number;
+  closePrice?: number;
+  quantity?: number;
+  netProfitUsdt?: number;
+  realizedPnlUsdt?: number;
+  openedAt?: string | null;
+  closedAt?: string | null;
+};
+
+type OfficialFeed = {
+  state?: "LIVE_POSITION_OPEN" | "READY_WAITING_TRIGGER" | "BLOCKED" | string;
+  generatedAt?: string;
+  lastScanAt?: string | null;
+  runnerFresh?: boolean;
+  lastScanAgeSeconds?: number | null;
+  exchangeSnapshotAvailable?: boolean;
+  positions?: LivePosition[];
+  recentClosedPositions?: ClosedPosition[];
+  plans?: TradePlan[];
+  recentExecutions?: ExecutionRow[];
+  diagnosis?: string[];
+  today?: {
+    scansToday?: number;
+    readyToday?: number;
+    orderAttemptsToday?: number;
+    openedToday?: number;
+  };
+};
+
 type LiveStatusPayload = {
   migrationRequired?: boolean;
   scope?: "OFFICIAL" | "MEMBER";
@@ -30,11 +130,7 @@ type LiveStatusPayload = {
     settings?: Setting[];
     slices?: Array<Record<string, unknown>>;
   } | null;
-  newEntryGate?: {
-    allowed?: boolean;
-    reasons?: string[];
-    mode?: string;
-  };
+  newEntryGate?: { allowed?: boolean; reasons?: string[]; mode?: string };
   runtimeConfig?: {
     mode?: string;
     allowLiveSwitch?: boolean;
@@ -52,6 +148,7 @@ type LiveStatusPayload = {
     maxTradesPerDay?: number;
     strategyActiveExecutionEnabled?: boolean;
   };
+  officialFeed?: OfficialFeed;
   strategyDiagnostics?: {
     generatedAt?: string;
     databaseReady?: boolean;
@@ -88,6 +185,7 @@ type LiveStatusPayload = {
 };
 
 const labels = { SHORT: "短线 2—6小时", MEDIUM: "中线 1—7天", LONG: "长线 1—4周" } as const;
+const horizonName: Record<string, string> = { INTRADAY: "短线", SWING: "中线", POSITION: "长线", SHORT: "短线", MEDIUM: "中线", LONG: "长线" };
 const defaultSettings: Setting[] = [
   { horizon: "SHORT", enabled: true, sizingMode: "FIXED_MARGIN", sizingValue: 200, leverage: 2, maxOpenPositions: 2, maxLossPercent: 0.35, dailyLossPercent: 1, weeklyLossPercent: 2.5, maxMarginUsePercent: 20, target1ReducePercent: 30, isolatedMargin: true },
   { horizon: "MEDIUM", enabled: true, sizingMode: "EQUITY_PERCENT", sizingValue: 8, leverage: 2, maxOpenPositions: 2, maxLossPercent: 0.5, dailyLossPercent: 1, weeklyLossPercent: 2.5, maxMarginUsePercent: 25, target1ReducePercent: 35, isolatedMargin: true },
@@ -104,19 +202,59 @@ function gateReasonLabel(reason: string) {
     ACCOUNT_NEW_ENTRIES_DISABLED: "官方账户尚未点击启用实盘",
     POSITION_MANAGEMENT_DISABLED: "已有仓位托管没有启用",
     CUSTODY_BLOCKER_PRESENT: "交易所持仓/保护单对账存在阻断项",
-    LEGACY_STRATEGY_EXECUTION_DISABLED: "旧兼容策略执行开关被显式关闭（MOOX_LIVE_ACTIVE_EXECUTION_V641=false）",
+    LEGACY_STRATEGY_EXECUTION_DISABLED: "策略执行兼容开关被显式关闭（MOOX_LIVE_ACTIVE_EXECUTION_V641=false）",
   };
   return labelsByReason[reason] ?? reason;
+}
+
+function fmt(value: unknown, digits = 2) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  return number.toLocaleString(undefined, { maximumFractionDigits: digits });
+}
+
+function fmtTime(value?: string | null) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleString();
+}
+
+function directionLabel(value?: string) {
+  if (value === "LONG") return "做多";
+  if (value === "SHORT") return "做空";
+  return value || "—";
+}
+
+function planStatusLabel(value?: string) {
+  const map: Record<string, string> = {
+    OBSERVING: "观察中",
+    READY: "条件已满足",
+    SHADOW_READY: "影子准备",
+    BLOCKED: "被风控/条件拦截",
+    ORDER_SUBMITTED: "已提交订单",
+    OPEN: "持仓中",
+    PARTIAL: "部分止盈",
+    CLOSED: "已平仓",
+    ERROR: "执行异常",
+  };
+  return map[value ?? ""] ?? value ?? "—";
+}
+
+function systemStateLabel(state?: string) {
+  if (state === "LIVE_POSITION_OPEN") return "已有真实持仓，系统正在托管";
+  if (state === "READY_WAITING_TRIGGER") return "链路已通，等待策略触发";
+  return "尚有阻断，暂不会新开仓";
 }
 
 export default function MemberLiveTradingClient() {
   const [settings, setSettings] = useState<Setting[]>(defaultSettings);
   const [status, setStatus] = useState("正在读取实盘托管状态……");
-  const [positions, setPositions] = useState<Array<Record<string, unknown>>>([]);
   const [liveState, setLiveState] = useState<LiveStatusPayload | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean; syncSettings?: boolean }) => {
+    const silent = options?.silent === true;
+    const syncSettings = options?.syncSettings !== false;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 10000);
     try {
@@ -124,31 +262,35 @@ export default function MemberLiveTradingClient() {
       const payload = await response.json() as LiveStatusPayload;
       setLiveState(payload);
       if (payload?.migrationRequired) {
-        setStatus("实盘数据表尚未迁移。自动交易不会开仓，先完成数据库迁移。");
+        if (!silent) setStatus("实盘数据表尚未迁移。自动交易不会开仓，先完成数据库迁移。");
         return;
       }
-      if (Array.isArray(payload?.account?.settings) && payload.account.settings.length === 3) {
+      if (syncSettings && Array.isArray(payload?.account?.settings) && payload.account.settings.length === 3) {
         setSettings(payload.account.settings);
       }
-      setPositions(Array.isArray(payload?.account?.slices) ? payload.account.slices : []);
-      if (payload.officialControl) {
-        const allowed = payload.newEntryGate?.allowed === true;
-        setStatus(allowed
-          ? "官方1000U账户：自动新开仓闸门已通过；每分钟服务器任务会扫描三周期策略，命中条件后可真实下单。"
-          : "官方1000U账户：目前只管理已有仓位，不会新开仓。下方会显示具体阻断原因。");
-      } else {
-        setStatus(payload?.account
-          ? `个人托管配置：${payload.account.mode ?? "MANAGE_ONLY"}。会员密钥仍只保存在自己的电脑/VPS，网站不会代替本地代理下单。`
-          : "暂无个人实盘账户记录");
+      if (!silent) {
+        if (payload.officialControl) {
+          const feed = payload.officialFeed;
+          setStatus(`${systemStateLabel(feed?.state)}。${feed?.positions?.length ? `当前${feed.positions.length}笔真实持仓。` : "当前无真实持仓。"}`);
+        } else {
+          setStatus(payload?.account
+            ? `个人托管配置：${payload.account.mode ?? "MANAGE_ONLY"}。下方同时展示MOOX官方1000U真实策略账户的持仓与计划。`
+            : "暂无个人实盘账户记录；下方仍可查看MOOX官方1000U账户。"
+          );
+        }
       }
     } catch {
-      setStatus("10秒内未取得状态。当前不会因此自动开仓，请稍后刷新。");
+      if (!silent) setStatus("10秒内未取得状态。当前不会因此自动开仓，请稍后刷新。");
     } finally {
       window.clearTimeout(timer);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load({ syncSettings: true });
+    const interval = window.setInterval(() => void load({ silent: true, syncSettings: false }), 30_000);
+    return () => window.clearInterval(interval);
+  }, [load]);
 
   const officialControl = liveState?.officialControl === true;
   const maxLeverage = officialControl ? 2 : 10;
@@ -169,7 +311,7 @@ export default function MemberLiveTradingClient() {
           : "个人风险设置已保存。是否允许新开仓仍由你的本地实盘代理决定。"
         : "保存失败，请检查设置范围、登录状态或数据库迁移。"
       );
-      if (response.ok) await load();
+      if (response.ok) await load({ syncSettings: true });
     } finally {
       setBusy(false);
     }
@@ -200,7 +342,7 @@ export default function MemberLiveTradingClient() {
           : "已切回只管理模式：停止新开仓，已有仓位继续托管。"
         );
       }
-      await load();
+      await load({ syncSettings: true });
     } finally {
       setBusy(false);
     }
@@ -231,7 +373,11 @@ export default function MemberLiveTradingClient() {
   const blockers = liveState?.newEntryGate?.reasons ?? [];
   const bitgetReady = liveState?.bitgetReadiness;
   const diagnostics = liveState?.strategyDiagnostics;
-  const horizonName: Record<string, string> = { INTRADAY: "短线", SWING: "中线", POSITION: "长线" };
+  const feed = liveState?.officialFeed;
+  const positions = feed?.positions ?? [];
+  const plans = feed?.plans ?? [];
+  const executions = feed?.recentExecutions ?? [];
+  const closed = feed?.recentClosedPositions ?? [];
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 text-white">
@@ -240,21 +386,43 @@ export default function MemberLiveTradingClient() {
         <h1 className="mt-3 text-3xl font-semibold">AI实盘交易</h1>
         <p className="mt-3 text-sm leading-7 text-slate-300">
           {officialControl
-            ? "管理员当前控制的是MOOX官方1000U真实实验账户。奇门/正式研究负责方向，4H—30m—5m缠论负责短线执行；所有新单仍受逐仓、止损、日/周亏损、组合风险和对账闸门约束。"
-            : "会员的Bitget密钥保存在自己的电脑或VPS，不上传网站；必须关闭提币与划转权限并绑定固定IP。奇门、六爻决定方向，缠论与技术只确认点位。"}
+            ? "管理员控制MOOX官方1000U真实实验账户。奇门/正式研究负责方向，4H—30m—5m缠论负责短线执行；新单仍受逐仓、止损、日/周亏损、组合风险和对账闸门约束。"
+            : "这里同时展示MOOX官方1000U真实策略账户的持仓、计划和执行状态。你的个人Bitget密钥仍只保存在自己的电脑或VPS，不上传网站。"}
         </p>
         <div className="mt-4 rounded-2xl bg-white/5 p-4 text-sm text-slate-300">{status}</div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs text-slate-500">自动交易总状态</p>
+            <p className={`mt-2 font-semibold ${feed?.state === "BLOCKED" ? "text-amber-300" : "text-emerald-300"}`}>{systemStateLabel(feed?.state)}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs text-slate-500">服务器扫描</p>
+            <p className={`mt-2 font-semibold ${feed?.runnerFresh ? "text-emerald-300" : "text-rose-300"}`}>{feed?.runnerFresh ? "正常" : "未确认 / 可能停滞"}</p>
+            <p className="mt-1 text-xs text-slate-500">最后：{fmtTime(feed?.lastScanAt)}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs text-slate-500">真实持仓</p>
+            <p className="mt-2 text-xl font-semibold">{positions.length} 笔</p>
+            <p className="mt-1 text-xs text-slate-500">{feed?.exchangeSnapshotAvailable ? "Bitget UTA权威快照" : "MOOX托管记录"}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs text-slate-500">今日真实执行</p>
+            <p className="mt-2 text-xl font-semibold">{feed?.today?.orderAttemptsToday ?? 0} 次尝试 / {feed?.today?.openedToday ?? 0} 开仓</p>
+            <p className="mt-1 text-xs text-slate-500">当前计划 {plans.length} 条</p>
+          </div>
+        </div>
 
         {officialControl ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm">
               <p className="font-semibold text-cyan-200">1000U 实验账户状态</p>
               <p className="mt-2 text-slate-300">自动新开仓：{liveState?.newEntryGate?.allowed ? "已允许" : "未允许"}</p>
-              <p className="mt-1 text-slate-300">Bitget：{bitgetReady?.mode ?? "—"} / {bitgetReady?.configured ? "密钥已配置" : "密钥未就绪"} / {bitgetReady?.executionAllowed ? "真实执行已授权" : "真实执行未授权"} / {bitgetReady?.strategyActiveExecutionEnabled === false ? "策略执行兼容开关已关闭" : "策略执行兼容开关可用"}</p>
+              <p className="mt-1 text-slate-300">Bitget：{bitgetReady?.mode ?? "—"} / {bitgetReady?.configured ? "密钥已配置" : "密钥未就绪"} / {bitgetReady?.executionAllowed ? "真实执行已授权" : "真实执行未授权"}</p>
               <p className="mt-1 text-slate-300">实验本金上限：{liveState?.experimentCapitalUsdt ?? 1000}U；单标的名义仓上限：{bitgetReady?.maxPositionNotionalUsdt ?? 400}U；最大同时仓位：{bitgetReady?.maxConcurrentPositions ?? 4}</p>
             </div>
             <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm">
-              <p className="font-semibold text-amber-200">当前阻断原因</p>
+              <p className="font-semibold text-amber-200">Unified Live 当前阻断</p>
               {blockers.length ? (
                 <ul className="mt-2 space-y-1 text-slate-300">{blockers.map((reason) => <li key={reason}>• {gateReasonLabel(reason)}</li>)}</ul>
               ) : <p className="mt-2 text-emerald-300">无 Unified Live 阻断项。</p>}
@@ -282,7 +450,7 @@ export default function MemberLiveTradingClient() {
             <>
               <button disabled={busy} className="rounded-xl border border-emerald-400/30 px-5 py-3 text-emerald-200 disabled:opacity-50" onClick={() => void setOfficialMode("LIVE")}>启用1000U实盘</button>
               <button disabled={busy} className="rounded-xl border border-amber-400/30 px-5 py-3 text-amber-200 disabled:opacity-50" onClick={() => void setOfficialMode("MANAGE_ONLY")}>停止新开仓</button>
-              <button disabled={busy} className="rounded-xl border border-white/15 px-5 py-3 disabled:opacity-50" onClick={() => void load()}>刷新实盘状态</button>
+              <button disabled={busy} className="rounded-xl border border-white/15 px-5 py-3 disabled:opacity-50" onClick={() => void load({ syncSettings: true })}>立即刷新状态</button>
             </>
           ) : (
             <>
@@ -293,6 +461,72 @@ export default function MemberLiveTradingClient() {
         </div>
       </section>
 
+      <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">当前真实持仓</h2>
+            <p className="mt-1 text-sm text-slate-400">管理员优先读取Bitget UTA权威持仓；会员看到官方策略账户的安全只读持仓快照。</p>
+          </div>
+          <p className="text-xs text-slate-500">每30秒自动刷新 · {fmtTime(feed?.generatedAt)}</p>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-400"><tr><th className="p-2">周期</th><th className="p-2">标的</th><th className="p-2">方向</th><th className="p-2">数量</th><th className="p-2">杠杆</th><th className="p-2">开仓</th><th className="p-2">现价</th><th className="p-2">浮盈亏</th><th className="p-2">止损 / TP</th></tr></thead>
+            <tbody>
+              {positions.map((position) => (
+                <tr key={String(position.id ?? `${position.symbol}-${position.side}`)} className="border-t border-white/10">
+                  <td className="p-2">{horizonName[String(position.horizon ?? "")] ?? position.horizon ?? "—"}</td>
+                  <td className="p-2 font-medium">{position.symbol ?? "—"}</td>
+                  <td className="p-2">{directionLabel(position.side)}</td>
+                  <td className="p-2">{fmt(position.quantity, 6)}</td>
+                  <td className="p-2">{fmt(position.leverage, 0)}x</td>
+                  <td className="p-2">{fmt(position.entryPrice, 4)}</td>
+                  <td className="p-2">{fmt(position.markPrice, 4)}</td>
+                  <td className={`p-2 ${Number(position.unrealizedPnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{position.unrealizedPnlUsdt == null ? "—" : `${fmt(position.unrealizedPnlUsdt)} U`}</td>
+                  <td className="p-2 text-xs text-slate-400">SL {fmt(position.stopPrice, 4)} / T1 {fmt(position.target1, 4)} / T2 {fmt(position.target2, 4)}</td>
+                </tr>
+              ))}
+              {!positions.length && <tr><td colSpan={9} className="p-8 text-center text-slate-400">当前没有真实持仓。下面会说明是“没有触发”还是“系统被阻断”。</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
+        <h2 className="text-xl font-semibold">待执行 / 观察计划</h2>
+        <p className="mt-1 text-sm text-slate-400">计划不等于已下单。READY代表条件基本满足；OBSERVING代表方向存在但仍在等结构/5分钟触发；BLOCKED会直接写明原因。</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {plans.map((plan) => (
+            <article key={String(plan.id)} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><span className="font-semibold">{plan.symbol ?? "—"}</span><span className="ml-2 text-xs text-violet-300">{horizonName[plan.strategyType ?? plan.horizon ?? ""] ?? plan.strategyLabel ?? "策略"}</span></div>
+                <span className="text-xs text-slate-400">{planStatusLabel(plan.status)}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
+                <p>方向：<span className="font-medium text-white">{directionLabel(plan.direction)}</span></p>
+                <p>置信：{fmt(plan.confidence, 0)}%</p>
+                <p>参考入场：{fmt(plan.entryPrice, 4)}</p>
+                <p>当前价：{fmt(plan.currentPrice, 4)}</p>
+                <p>止损：{fmt(plan.stopLoss, 4)}</p>
+                <p>TP1 / TP2：{fmt(plan.target1, 4)} / {fmt(plan.target2, 4)}</p>
+              </div>
+              <p className="mt-3 text-xs text-slate-400">条件：{plan.conditionsMet ?? 0}/{plan.conditionsTotal ?? 0}{plan.unmetConditions?.length ? ` · 还差：${plan.unmetConditions.join("、")}` : ""}</p>
+              {plan.rejectionReason ? <p className="mt-2 text-xs text-amber-300">当前未执行：{plan.rejectionReason}</p> : null}
+              <p className="mt-2 text-xs text-slate-500">更新 {fmtTime(plan.updatedAt)} · 失效 {fmtTime(plan.expiresAt)}</p>
+            </article>
+          ))}
+          {!plans.length && <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-400">当前没有方向明确的待执行计划。若服务器扫描正常，这表示策略暂未找到值得准备下单的候选。</div>}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
+        <h2 className="text-xl font-semibold">为什么现在没有下单 / 系统排查</h2>
+        <div className="mt-4 space-y-2">
+          {(feed?.diagnosis ?? []).map((reason, index) => <div key={`${index}-${reason}`} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">{index + 1}. {reason}</div>)}
+          {!(feed?.diagnosis ?? []).length && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">没有发现阻断项。</div>}
+        </div>
+      </section>
+
       {officialControl ? (
         <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -300,7 +534,7 @@ export default function MemberLiveTradingClient() {
               <h2 className="text-xl font-semibold">三周期自动扫描诊断</h2>
               <p className="mt-1 text-sm text-slate-400">短线为4H环境 → 30分钟主线段 → 5分钟执行；这里直接告诉你今天扫描了多少、为什么没下单。</p>
             </div>
-            <p className="text-xs text-slate-500">诊断更新时间：{diagnostics?.generatedAt ? new Date(diagnostics.generatedAt).toLocaleString() : "—"}</p>
+            <p className="text-xs text-slate-500">诊断更新时间：{fmtTime(diagnostics?.generatedAt)}</p>
           </div>
           {!diagnostics?.databaseReady ? (
             <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">策略决策表尚未就绪，先完成数据库迁移。</div>
@@ -309,47 +543,24 @@ export default function MemberLiveTradingClient() {
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
                 {(diagnostics.horizons ?? []).map((row) => (
                   <article key={row.strategyType ?? row.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold">{horizonName[row.strategyType ?? ""] ?? row.label ?? "策略"}</h3>
-                      <span className="text-xs text-slate-500">{row.lastScanAt ? new Date(row.lastScanAt).toLocaleString() : "尚未扫描"}</span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
-                      <p>今日扫描：{row.stats?.scansToday ?? 0}</p>
-                      <p>评估标的：{row.stats?.symbolsEvaluatedToday ?? 0}</p>
-                      <p>可执行：{row.stats?.readyToday ?? 0}</p>
-                      <p>被拦截：{row.stats?.blockedToday ?? 0}</p>
-                      <p>下单尝试：{row.stats?.orderAttemptsToday ?? 0}</p>
-                      <p>已开仓：{row.stats?.openedToday ?? 0}</p>
-                    </div>
-                    <div className="mt-4 border-t border-white/10 pt-3">
-                      <p className="text-xs font-medium text-slate-400">最近未成交/状态</p>
-                      {(row.recent ?? []).length ? (
-                        <ul className="mt-2 space-y-2 text-xs text-slate-400">
-                          {(row.recent ?? []).map((decision, index) => (
-                            <li key={`${decision.symbol ?? "asset"}-${decision.updatedAt ?? index}`}>
-                              <span className="text-slate-200">{decision.symbol ?? "—"}</span> · {decision.direction ?? "—"} · {decision.status ?? "—"}
-                              {decision.rejectionReason ? <span> · {decision.rejectionReason}</span> : null}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : <p className="mt-2 text-xs text-slate-500">暂无策略决策记录。</p>}
-                    </div>
+                    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{horizonName[row.strategyType ?? ""] ?? row.label ?? "策略"}</h3><span className="text-xs text-slate-500">{fmtTime(row.lastScanAt)}</span></div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300"><p>今日扫描：{row.stats?.scansToday ?? 0}</p><p>评估标的：{row.stats?.symbolsEvaluatedToday ?? 0}</p><p>可执行：{row.stats?.readyToday ?? 0}</p><p>被拦截：{row.stats?.blockedToday ?? 0}</p><p>下单尝试：{row.stats?.orderAttemptsToday ?? 0}</p><p>已开仓：{row.stats?.openedToday ?? 0}</p></div>
+                    <div className="mt-4 border-t border-white/10 pt-3"><p className="text-xs font-medium text-slate-400">最近状态</p>{(row.recent ?? []).length ? <ul className="mt-2 space-y-2 text-xs text-slate-400">{(row.recent ?? []).map((decision, index) => <li key={`${decision.symbol ?? "asset"}-${decision.updatedAt ?? index}`}><span className="text-slate-200">{decision.symbol ?? "—"}</span> · {decision.direction ?? "—"} · {decision.status ?? "—"}{decision.rejectionReason ? <span> · {decision.rejectionReason}</span> : null}</li>)}</ul> : <p className="mt-2 text-xs text-slate-500">暂无策略决策记录。</p>}</div>
                   </article>
                 ))}
               </div>
-              {diagnostics.risk?.blocked ? (
-                <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-100">风险引擎当前阻断：{diagnostics.risk.blockReason || "RISK_BLOCKED"}</div>
-              ) : null}
+              {diagnostics.risk?.blocked ? <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-100">风险引擎当前阻断：{diagnostics.risk.blockReason || "RISK_BLOCKED"}</div> : null}
             </>
           )}
         </section>
       ) : null}
 
       <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
-        <h2 className="text-xl font-semibold">{officialControl ? "官方1000U三周期托管记录" : "我的三周期托管记录"}</h2>
+        <h2 className="text-xl font-semibold">最近真实执行记录</h2>
         <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-sm"><thead className="text-left text-slate-400"><tr><th className="p-2">类型</th><th className="p-2">标的</th><th className="p-2">方向</th><th className="p-2">状态</th><th className="p-2">杠杆</th><th className="p-2">最近管理</th></tr></thead><tbody>{positions.map((position) => <tr key={String(position.id)} className="border-t border-white/10"><td className="p-2">{String(position.horizon)}</td><td className="p-2">{String(position.symbol)}</td><td className="p-2">{String(position.side)}</td><td className="p-2">{String(position.status)}</td><td className="p-2">{String(position.leverage)}x</td><td className="p-2">{position.lastManagedAt ? new Date(String(position.lastManagedAt)).toLocaleString() : "待检查"}</td></tr>)}{!positions.length && <tr><td colSpan={6} className="p-8 text-center text-slate-400">暂无托管持仓。这里不会展示模拟单。</td></tr>}</tbody></table>
+          <table className="min-w-full text-sm"><thead className="text-left text-slate-400"><tr><th className="p-2">周期</th><th className="p-2">标的</th><th className="p-2">方向</th><th className="p-2">状态</th><th className="p-2">入场</th><th className="p-2">数量</th><th className="p-2">已实现盈亏</th><th className="p-2">更新</th></tr></thead><tbody>{executions.map((row) => <tr key={String(row.id)} className="border-t border-white/10"><td className="p-2">{horizonName[row.strategyType ?? row.horizon ?? ""] ?? "—"}</td><td className="p-2">{row.symbol ?? "—"}</td><td className="p-2">{directionLabel(row.direction)}</td><td className="p-2">{planStatusLabel(row.status)}</td><td className="p-2">{fmt(row.entryPrice, 4)}</td><td className="p-2">{fmt(row.quantity, 6)}</td><td className={`p-2 ${Number(row.realizedPnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{row.realizedPnlUsdt == null ? "—" : `${fmt(row.realizedPnlUsdt)} U`}</td><td className="p-2 text-xs text-slate-400">{fmtTime(row.updatedAt)}</td></tr>)}{!executions.length && <tr><td colSpan={8} className="p-8 text-center text-slate-400">暂无真实下单/成交记录。</td></tr>}</tbody></table>
         </div>
+        {officialControl && closed.length ? <p className="mt-3 text-xs text-slate-500">Bitget最近已平仓记录已同步 {closed.length} 笔，用于与MOOX执行记录交叉核对。</p> : null}
       </section>
     </main>
   );
