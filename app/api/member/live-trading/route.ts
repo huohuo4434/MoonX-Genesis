@@ -1,3 +1,4 @@
+// MOOX_V720108_LIVE_ACTIVATION_DIAGNOSTICS: diagnose migration/env/exchange/cron even while Unified Live DB is missing.
 // MOOX_V720106_LIVE_HEARTBEAT_DIAGNOSTICS: expose authoritative cron/runtime heartbeat to member diagnostics.
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -164,27 +165,20 @@ export async function GET(request: NextRequest) {
     accountScope,
     displayName: officialControl ? "MOOX Official 1000U" : actor.email,
   });
-  if (!ensured.ok) {
-    return NextResponse.json({
-      migrationRequired: true,
-      account: null,
-      scope: accountScope,
-      officialControl,
-      officialFeed: {
-        state: "BLOCKED",
-        positions: [],
-        plans: [],
-        recentExecutions: [],
-        diagnosis: ["Unified Live 数据库迁移未完成。"],
-      },
-    });
-  }
+  const migrationRequired = !ensured.ok;
 
-  const custody = officialControl
+  // V7.20.10.8: do NOT return early when Unified Live tables are missing.
+  // We still need to diagnose Vercel env, Bitget read-only access and cron heartbeat,
+  // otherwise the UI falsely reports "keys not ready" simply because DB migration is pending.
+  const custody = officialControl && !migrationRequired
     ? await runUnifiedLiveCustodyCycle({ trigger: "OFFICIAL_MEMBER_STATUS", ownerKey: "official" }).catch(() => null)
     : null;
-  const result = await getUnifiedLiveAccount(ownerKey);
-  const officialStored = officialControl ? result : await getUnifiedLiveAccount("official");
+  const result = migrationRequired
+    ? { migrationRequired: true, account: null }
+    : await getUnifiedLiveAccount(ownerKey);
+  const officialStored = officialControl
+    ? result
+    : await getUnifiedLiveAccount("official").catch(() => ({ migrationRequired: true, account: null }));
 
   const runtimeConfig = readUnifiedLiveRuntimeConfig();
   const bitget = getBitgetDemoEnvironment();
@@ -204,16 +198,20 @@ export async function GET(request: NextRequest) {
     : { ...baseNewEntryGate, allowed: false, reasons: [...baseNewEntryGate.reasons, "LEGACY_STRATEGY_EXECUTION_DISABLED"] };
 
   let exchangeSnapshotAvailable = Boolean(custody?.audit?.snapshotAvailable);
+  let bitgetReadOnlyAttempted = false;
+  let bitgetReadOnlyOk = false;
   let authoritativePositions: Array<Record<string, unknown>> = [];
   let recentClosedPositions: Array<Record<string, unknown>> = [];
 
   if (officialControl && bitget.configured) {
+    bitgetReadOnlyAttempted = true;
     try {
       const [positions, closed] = await Promise.all([
         getBitgetDemoCurrentPositions(),
         getBitgetDemoClosedPositions(20),
       ]);
       exchangeSnapshotAvailable = true;
+      bitgetReadOnlyOk = true;
       const slices = officialStored.account?.slices ?? [];
       authoritativePositions = positions.map((position) => {
         const slice = slices.find((row) =>
@@ -337,6 +335,55 @@ export async function GET(request: NextRequest) {
       ? "READY_WAITING_TRIGGER"
       : "BLOCKED";
 
+  const envChecks = [
+    { name: "MOOX_UNIFIED_LIVE_MODE", ok: runtimeConfig.mode === "LIVE", expected: "LIVE", secret: false },
+    { name: "MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH", ok: runtimeConfig.allowLiveSwitch === true, expected: "true", secret: false },
+    { name: "MOOX_UNIFIED_LIVE_NEW_ENTRIES", ok: runtimeConfig.allowNewEntriesByEnv === true, expected: "true", secret: false },
+    { name: "MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT", ok: runtimeConfig.positionManagementEnabled === true, expected: "true", secret: false },
+    { name: "MOOX_LIVE_ACTIVE_EXECUTION_V641", ok: strategyActiveExecutionEnabled, expected: "true / 未显式设为false", secret: false },
+    { name: "BITGET_TRADING_MODE", ok: bitget.mode === "LIVE_EXPERIMENT", expected: "LIVE_EXPERIMENT", secret: false },
+    { name: "BITGET_LIVE_API_KEY", ok: Boolean(process.env.BITGET_LIVE_API_KEY?.trim()), expected: "已配置", secret: true },
+    { name: "BITGET_LIVE_SECRET_KEY", ok: Boolean(process.env.BITGET_LIVE_SECRET_KEY?.trim()), expected: "已配置", secret: true },
+    { name: "BITGET_LIVE_PASSPHRASE", ok: Boolean(process.env.BITGET_LIVE_PASSPHRASE?.trim()), expected: "已配置", secret: true },
+    { name: "BITGET_LIVE_EXECUTION_ALLOWED", ok: process.env.BITGET_LIVE_EXECUTION_ALLOWED?.trim().toLowerCase() === "true", expected: "true", secret: false },
+    { name: "BITGET_LIVE_CONFIRMATION", ok: bitget.liveConfirmationAccepted, expected: "I_ACCEPT_REAL_LOSS", secret: false },
+    { name: "BITGET_LIVE_INITIAL_CAPITAL_USDT", ok: Math.abs(bitget.liveInitialCapitalUsdt - 1000) < 0.01, expected: "1000", secret: false },
+    { name: "CRON_SECRET", ok: bitgetRuntime?.cronSecretConfigured === true || Boolean(process.env.CRON_SECRET?.trim()), expected: "已配置", secret: true },
+  ];
+  const environmentReady = envChecks.every((item) => item.ok);
+  const databaseReady = !officialStored.migrationRequired;
+  const strategyDatabaseReady = strategyDashboard?.databaseReady === true;
+  const exchangeReadOnlyReady = bitget.configured && bitgetReadOnlyOk;
+  const cronReady = Boolean(bitgetRuntime?.cronSecretConfigured)
+    && bitgetRuntime?.heartbeatAgeSeconds != null
+    && bitgetRuntime.heartbeatAgeSeconds <= 180
+    && !bitgetRuntime.paused;
+  const custodyReady = databaseReady && custody?.audit?.freezeNewEntries !== true;
+  const readyForAccountSwitch = databaseReady
+    && strategyDatabaseReady
+    && environmentReady
+    && exchangeReadOnlyReady
+    && cronReady
+    && custodyReady;
+  const accountLiveEnabled = result.account?.mode === "LIVE" && result.account?.newEntriesEnabled === true;
+
+  const activation = {
+    version: "7.20.10.8",
+    targetMigration: "20260818143000_moox_unified_live_v72031",
+    databaseReady,
+    strategyDatabaseReady,
+    environmentReady,
+    exchangeReadOnlyAttempted: bitgetReadOnlyAttempted,
+    exchangeReadOnlyReady,
+    cronReady,
+    custodyReady,
+    readyForAccountSwitch,
+    accountLiveEnabled,
+    fullyLive: readyForAccountSwitch && accountLiveEnabled && newEntryGate.allowed === true,
+    missingEnv: envChecks.filter((item) => !item.ok).map((item) => item.name),
+    envChecks,
+  };
+
   const officialFeed = {
     state,
     generatedAt: new Date().toISOString(),
@@ -372,6 +419,7 @@ export async function GET(request: NextRequest) {
       officialControl: false,
       localAgentRequired: true,
       officialFeed,
+      activation,
     });
   }
 
@@ -383,6 +431,7 @@ export async function GET(request: NextRequest) {
     experimentCapitalUsdt: 1000,
     runtimeConfig,
     newEntryGate,
+    activation,
     bitgetReadiness: {
       mode: bitget.mode,
       configured: bitget.configured,
