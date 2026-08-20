@@ -1,5 +1,4 @@
 "use client";
-// MOOX_V720110_FAST_STATUS_UI: tolerate bounded exchange snapshots and never render fake red blockers before status loads.
 // MOOX_V720108_LIVE_ACTIVATION_UI: render migration/env/exchange/cron/account activation steps without false key alarms.
 // MOOX_V720106_LIVE_HEARTBEAT_UI: separate minute-runner heartbeat from three-horizon scan freshness.
 
@@ -287,10 +286,9 @@ export default function MemberLiveTradingClient() {
     const silent = options?.silent === true;
     const syncSettings = options?.syncSettings !== false;
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 20000);
+    const timer = window.setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch("/api/member/live-trading", { cache: "no-store", signal: controller.signal });
-      if (!response.ok) throw new Error(`LIVE_STATUS_HTTP_${response.status}`);
       const payload = await response.json() as LiveStatusPayload;
       setLiveState(payload);
       if (payload?.migrationRequired) {
@@ -311,7 +309,7 @@ export default function MemberLiveTradingClient() {
         }
       }
     } catch {
-      if (!silent) setStatus("20秒内仍未取得状态。当前不会因此自动开仓；请点“立即刷新状态”，若持续出现则检查生产API日志。");
+      if (!silent) setStatus("10秒内未取得状态。当前不会因此自动开仓，请稍后刷新。");
     } finally {
       window.clearTimeout(timer);
     }
@@ -323,7 +321,6 @@ export default function MemberLiveTradingClient() {
     return () => window.clearInterval(interval);
   }, [load]);
 
-  const statusLoaded = liveState !== null;
   const officialControl = liveState?.officialControl === true;
   const maxLeverage = officialControl ? 2 : 10;
   const update = (index: number, patch: Partial<Setting>) => setSettings((rows) => rows.map((row, i) => i === index ? { ...row, ...patch, isolatedMargin: true } : row));
@@ -420,27 +417,25 @@ export default function MemberLiveTradingClient() {
         <p className="text-xs tracking-[0.25em] text-violet-300">MEMBER LIVE EXECUTION</p>
         <h1 className="mt-3 text-3xl font-semibold">AI实盘交易</h1>
         <p className="mt-3 text-sm leading-7 text-slate-300">
-          {!statusLoaded
-            ? "正在读取MOOX官方1000U真实策略账户状态。状态尚未返回前，本页不会把未知状态误报成系统阻断。"
-            : officialControl
-              ? "管理员控制MOOX官方1000U真实实验账户。奇门/正式研究负责方向，4H—30m—5m缠论负责短线执行；新单仍受逐仓、止损、日/周亏损、组合风险和对账闸门约束。"
-              : "这里同时展示MOOX官方1000U真实策略账户的持仓、计划和执行状态。你的个人Bitget密钥仍只保存在自己的电脑或VPS，不上传网站。"}
+          {officialControl
+            ? "管理员控制MOOX官方1000U真实实验账户。奇门/正式研究负责方向，4H—30m—5m缠论负责短线执行；新单仍受逐仓、止损、日/周亏损、组合风险和对账闸门约束。"
+            : "这里同时展示MOOX官方1000U真实策略账户的持仓、计划和执行状态。你的个人Bitget密钥仍只保存在自己的电脑或VPS，不上传网站。"}
         </p>
         <div className="mt-4 rounded-2xl bg-white/5 p-4 text-sm text-slate-300">{status}</div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-xs text-slate-500">自动交易总状态</p>
-            <p className={`mt-2 font-semibold ${!statusLoaded ? "text-slate-300" : feed?.state === "BLOCKED" ? "text-amber-300" : "text-emerald-300"}`}>{statusLoaded ? systemStateLabel(feed?.state) : "正在读取状态…"}</p>
+            <p className={`mt-2 font-semibold ${feed?.state === "BLOCKED" ? "text-amber-300" : "text-emerald-300"}`}>{systemStateLabel(feed?.state)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-xs text-slate-500">每分钟 Cron 心跳</p>
-            <p className={`mt-2 font-semibold ${!statusLoaded ? "text-slate-300" : cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "text-emerald-300" : "text-rose-300"}`}>{!statusLoaded ? "正在读取…" : cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "正常" : runtimeHeartbeat?.paused ? "已暂停" : "未确认 / 超时"}</p>
+            <p className={`mt-2 font-semibold ${cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "text-emerald-300" : "text-rose-300"}`}>{cronHeartbeatFresh && !runtimeHeartbeat?.paused ? "正常" : runtimeHeartbeat?.paused ? "已暂停" : "未确认 / 超时"}</p>
             <p className="mt-1 text-xs text-slate-500">最后：{fmtTime(runtimeHeartbeat?.lastHeartbeatAt)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-xs text-slate-500">三周期策略扫描</p>
-            <p className={`mt-2 font-semibold ${!statusLoaded ? "text-slate-300" : feed?.runnerFresh ? "text-emerald-300" : "text-rose-300"}`}>{!statusLoaded ? "正在读取…" : feed?.runnerFresh ? "正常" : "未扫描 / 被总闸门阻断"}</p>
+            <p className={`mt-2 font-semibold ${feed?.runnerFresh ? "text-emerald-300" : "text-rose-300"}`}>{feed?.runnerFresh ? "正常" : "未扫描 / 被总闸门阻断"}</p>
             <p className="mt-1 text-xs text-slate-500">最后：{fmtTime(feed?.lastScanAt)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

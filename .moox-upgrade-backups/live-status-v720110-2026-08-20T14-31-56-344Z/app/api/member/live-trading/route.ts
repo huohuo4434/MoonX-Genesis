@@ -1,4 +1,3 @@
-// MOOX_V720110_FAST_LIVE_STATUS: bounded read-only status endpoint; page load must never run custody synchronously.
 // MOOX_V720108_LIVE_ACTIVATION_DIAGNOSTICS: diagnose migration/env/exchange/cron even while Unified Live DB is missing.
 // MOOX_V720106_LIVE_HEARTBEAT_DIAGNOSTICS: expose authoritative cron/runtime heartbeat to member diagnostics.
 import { NextRequest, NextResponse } from "next/server";
@@ -17,6 +16,7 @@ import {
   ensureUnifiedLiveAccount,
   getUnifiedLiveAccount,
 } from "@/lib/trading-signals/unified-live-store";
+import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { getThreeHorizonStrategyDashboard } from "@/lib/trading-signals/three-horizon-strategy";
 import type { ThreeHorizonStrategyDecision } from "@/types/three-horizon-strategy";
 import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
@@ -28,27 +28,6 @@ export const runtime = "nodejs";
 const ACTIVE_SLICE_STATUSES = new Set(["PENDING", "OPEN", "PARTIALLY_CLOSED", "ORPHAN_PENDING_CLAIM"]);
 const PLAN_STATUSES = new Set(["OBSERVING", "READY", "SHADOW_READY", "BLOCKED"]);
 const EXECUTION_STATUSES = new Set(["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSED", "ERROR"]);
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
-function isFreshIso(value: string | null | undefined, maxAgeSeconds: number): boolean {
-  if (!value) return false;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return false;
-  return Date.now() - parsed <= maxAgeSeconds * 1000;
-}
 
 function strategyToHorizon(strategyType: string): "SHORT" | "MEDIUM" | "LONG" {
   if (strategyType === "INTRADAY") return "SHORT";
@@ -188,8 +167,12 @@ export async function GET(request: NextRequest) {
   });
   const migrationRequired = !ensured.ok;
 
-  // Status pages are read-only. Custody/reconciliation belongs to the minute runner;
-  // running it inside a member GET made the UI exceed its 10s timeout and hid admin controls.
+  // V7.20.10.8: do NOT return early when Unified Live tables are missing.
+  // We still need to diagnose Vercel env, Bitget read-only access and cron heartbeat,
+  // otherwise the UI falsely reports "keys not ready" simply because DB migration is pending.
+  const custody = officialControl && !migrationRequired
+    ? await runUnifiedLiveCustodyCycle({ trigger: "OFFICIAL_MEMBER_STATUS", ownerKey: "official" }).catch(() => null)
+    : null;
   const result = migrationRequired
     ? { migrationRequired: true, account: null }
     : await getUnifiedLiveAccount(ownerKey);
@@ -199,45 +182,38 @@ export async function GET(request: NextRequest) {
 
   const runtimeConfig = readUnifiedLiveRuntimeConfig();
   const bitget = getBitgetDemoEnvironment();
-  const [strategyDashboard, bitgetRuntime, baseNewEntryGate] = await Promise.all([
+  const [strategyDashboard, bitgetRuntime] = await Promise.all([
     getThreeHorizonStrategyDashboard().catch(() => null),
     getBitgetRuntimeState().catch(() => null),
-    evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
-      allowed: false,
-      reasons: [error instanceof Error ? error.message : "UNIFIED_LIVE_GATE_UNAVAILABLE"],
-      mode: "MANAGE_ONLY" as const,
-      positionManagementContinues: true,
-    })),
   ]);
   const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+  const baseNewEntryGate = await evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
+    allowed: false,
+    reasons: [error instanceof Error ? error.message : "UNIFIED_LIVE_GATE_UNAVAILABLE"],
+    mode: "MANAGE_ONLY" as const,
+    positionManagementContinues: true,
+  }));
   const newEntryGate = strategyActiveExecutionEnabled
     ? baseNewEntryGate
     : { ...baseNewEntryGate, allowed: false, reasons: [...baseNewEntryGate.reasons, "LEGACY_STRATEGY_EXECUTION_DISABLED"] };
 
-  // The minute runner already persists an account snapshot. Use that immediately so the page can
-  // establish readiness without waiting on a fresh exchange round-trip. A best-effort live snapshot
-  // is still attempted below, but it is capped so it can never stall the whole status response.
-  const cachedExchangeReady = bitgetRuntime?.account?.connected === true
-    && isFreshIso(bitgetRuntime.account.checkedAt, 300);
-  let exchangeSnapshotAvailable = cachedExchangeReady;
-  let bitgetReadOnlyAttempted = cachedExchangeReady;
-  let bitgetReadOnlyOk = cachedExchangeReady;
+  let exchangeSnapshotAvailable = Boolean(custody?.audit?.snapshotAvailable);
+  let bitgetReadOnlyAttempted = false;
+  let bitgetReadOnlyOk = false;
   let authoritativePositions: Array<Record<string, unknown>> = [];
   let recentClosedPositions: Array<Record<string, unknown>> = [];
 
   if (officialControl && bitget.configured) {
     bitgetReadOnlyAttempted = true;
     try {
-      const snapshot = await withTimeout(Promise.all([
+      const [positions, closed] = await Promise.all([
         getBitgetDemoCurrentPositions(),
         getBitgetDemoClosedPositions(20),
-      ]), 4_500);
-      if (snapshot) {
-        const [positions, closed] = snapshot;
-        exchangeSnapshotAvailable = true;
-        bitgetReadOnlyOk = true;
-        const slices = officialStored.account?.slices ?? [];
-        authoritativePositions = positions.map((position) => {
+      ]);
+      exchangeSnapshotAvailable = true;
+      bitgetReadOnlyOk = true;
+      const slices = officialStored.account?.slices ?? [];
+      authoritativePositions = positions.map((position) => {
         const slice = slices.find((row) =>
           ACTIVE_SLICE_STATUSES.has(String(row.status))
           && String(row.symbol).toUpperCase() === position.symbol
@@ -263,22 +239,20 @@ export async function GET(request: NextRequest) {
           lastManagedAt: slice?.lastManagedAt ?? null,
         };
       });
-        recentClosedPositions = closed.slice(0, 12).map((row) => ({
-          positionId: row.positionId,
-          symbol: row.symbol,
-          side: row.posSide === "short" ? "SHORT" : "LONG",
-          openPrice: row.openPriceAvg,
-          closePrice: row.closePriceAvg,
-          quantity: row.closeTotalPos || row.openTotalPos,
-          netProfitUsdt: row.netProfit,
-          realizedPnlUsdt: row.cumRealisedPnl,
-          openedAt: row.createdAt,
-          closedAt: row.updatedAt,
-        }));
-      }
+      recentClosedPositions = closed.slice(0, 12).map((row) => ({
+        positionId: row.positionId,
+        symbol: row.symbol,
+        side: row.posSide === "short" ? "SHORT" : "LONG",
+        openPrice: row.openPriceAvg,
+        closePrice: row.closePriceAvg,
+        quantity: row.closeTotalPos || row.openTotalPos,
+        netProfitUsdt: row.netProfit,
+        realizedPnlUsdt: row.cumRealisedPnl,
+        openedAt: row.createdAt,
+        closedAt: row.updatedAt,
+      }));
     } catch {
-      // Preserve the cached cron snapshot. A temporary Bitget read timeout must not make the
-      // whole member status request fail or incorrectly erase a recent successful health check.
+      exchangeSnapshotAvailable = false;
     }
   }
 
@@ -384,7 +358,7 @@ export async function GET(request: NextRequest) {
     && bitgetRuntime?.heartbeatAgeSeconds != null
     && bitgetRuntime.heartbeatAgeSeconds <= 180
     && !bitgetRuntime.paused;
-  const custodyReady = databaseReady && !(newEntryGate.reasons ?? []).includes("CUSTODY_BLOCKER_PRESENT");
+  const custodyReady = databaseReady && custody?.audit?.freezeNewEntries !== true;
   const readyForAccountSwitch = databaseReady
     && strategyDatabaseReady
     && environmentReady

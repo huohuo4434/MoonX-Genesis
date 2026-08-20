@@ -1,0 +1,114 @@
+{
+  "time": "2026-08-20T13:24:27.271Z",
+  "target": "20260818143000_moox_unified_live_v72031",
+  "pendingBefore": [
+    "20260801010000_trade_signal_api",
+    "20260801030000_trading_signal_v2",
+    "20260801050000_prediction_auto_trader",
+    "20260803010000_member_device_security",
+    "20260804010000_three_horizon_strategies",
+    "20260804030000_strategy_validation_phase3",
+    "20260804050000_trade_reliability_phase4",
+    "20260804070000_ai_trade_plan_publishing",
+    "20260807010000_trade_reliability_live_mode",
+    "20260809123000_ai_trade_plan_forecast_binding",
+    "20260811143000_live_commissioning_safe_retry",
+    "20260813180500_runtime_lock_owner_fencing",
+    "20260815190000_member_signal_api_paper",
+    "20260818143000_moox_unified_live_v72031"
+  ],
+  "actions": [
+    {
+      "id": "20260801010000_trade_signal_api",
+      "action": "RESOLVED_EXISTING",
+      "present": 10,
+      "total": 10,
+      "superseded": false
+    },
+    {
+      "id": "20260801030000_trading_signal_v2",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 24,
+      "total": 30
+    },
+    {
+      "id": "20260801050000_prediction_auto_trader",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 4,
+      "total": 6
+    },
+    {
+      "id": "20260803010000_member_device_security",
+      "action": "RESOLVED_EXISTING",
+      "present": 11,
+      "total": 11,
+      "superseded": false
+    },
+    {
+      "id": "20260804010000_three_horizon_strategies",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 4,
+      "total": 5
+    },
+    {
+      "id": "20260804030000_strategy_validation_phase3",
+      "action": "RESOLVED_EXISTING",
+      "present": 13,
+      "total": 13,
+      "superseded": false
+    },
+    {
+      "id": "20260804050000_trade_reliability_phase4",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 7,
+      "total": 10
+    },
+    {
+      "id": "20260804070000_ai_trade_plan_publishing",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 6,
+      "total": 10
+    },
+    {
+      "id": "20260807010000_trade_reliability_live_mode",
+      "action": "RESOLVED_EXISTING",
+      "present": 3,
+      "total": 3,
+      "superseded": false
+    },
+    {
+      "id": "20260809123000_ai_trade_plan_forecast_binding",
+      "action": "RESOLVED_EXISTING",
+      "present": 8,
+      "total": 9,
+      "superseded": true
+    },
+    {
+      "id": "20260811143000_live_commissioning_safe_retry",
+      "action": "RESOLVED_EXISTING",
+      "present": 1,
+      "total": 1,
+      "superseded": false
+    },
+    {
+      "id": "20260813180500_runtime_lock_owner_fencing",
+      "action": "RESOLVED_EXISTING",
+      "present": 1,
+      "total": 1,
+      "superseded": false
+    },
+    {
+      "id": "20260815190000_member_signal_api_paper",
+      "action": "RESOLVED_EXISTING",
+      "present": 11,
+      "total": 11,
+      "superseded": false
+    },
+    {
+      "id": "20260818143000_moox_unified_live_v72031",
+      "action": "EXECUTED_AND_RESOLVED",
+      "presentBefore": 0,
+      "total": 14
+    }
+  ]
+}
