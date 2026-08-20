@@ -1,4 +1,5 @@
 import { BtcEthCycleComparison } from "@/components/research/BtcEthCycleComparison";
+import { CryptoLiuyaoSupplementPanel } from "@/components/research/CryptoLiuyaoSupplementPanel";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
@@ -40,6 +41,7 @@ export default async function MemberBtcEthCyclePage() {
     <main className="mx-auto w-full max-w-container px-4 py-10 sm:px-6 lg:px-8">
       <MemberDeviceHeartbeat />
       <BtcEthCycleComparison {...getBtcEthCycleBundle()} />
+      <div className="mt-10"><CryptoLiuyaoSupplementPanel /></div>
     </main>
   );
 }

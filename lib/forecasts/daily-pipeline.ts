@@ -18,6 +18,7 @@ import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
 import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { findBtcAuxiliaryWeeklyLiuyao20260820 } from "@/lib/data/crypto-liuyao-supplement-20260820";
 import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guidance";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
@@ -112,7 +113,32 @@ function btcResearchAsWeeklySource(
         item.periodEnd >= forecastDate
     )
     .sort((a, b) => b.version - a.version)[0];
-  if (!hit) return null;
+// MOOX_V720104_BTC_AUX_WEEKLY_QIMEN_PIPELINE
+  if (!hit) {
+    const auxiliary = findBtcAuxiliaryWeeklyLiuyao20260820(forecastDate);
+    if (!auxiliary) return null;
+    return {
+      id: auxiliary.id,
+      marketCode: "BTC",
+      periodStart: auxiliary.periodStart,
+      periodEnd: auxiliary.periodEnd,
+      primaryHexagram: auxiliary.primaryHexagram,
+      changedHexagram: auxiliary.changingHexagram,
+      movingLines: [],
+      specialPatterns: ["LIUYAO_AUX_WEEKLY_QIMEN_PRIMARY"],
+      weeklyDirection: auxiliary.direction,
+      weeklyPath: auxiliary.expectedPath,
+      interpretation: auxiliary.teacherMethodSummary,
+      riskSummary: [auxiliary.riskNote, `目标月令：${auxiliary.targetMonthEvidence}`].join("；"),
+      sourceType: "LIUYAO_WEEKLY",
+      version: 1,
+      status: "LOCKED",
+      publishedAt: auxiliary.lockedAt,
+      lockedAt: auxiliary.lockedAt,
+      createdAt: auxiliary.lockedAt,
+      updatedAt: auxiliary.lockedAt,
+    };
+  }
 
   const pointGate = getCryptoPointGuidanceForDate("BTC", forecastDate);
   const weeklyDirection =
