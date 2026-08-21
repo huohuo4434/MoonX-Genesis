@@ -16,13 +16,23 @@ export async function deliverConsultationQuotaForPaidOrder(orderId: string) {
   if (error) throw new Error(`CONSULTATION_QUOTA_DELIVERY_FAILED:${error.message}`);
   return data;
 }
+export async function ensureInitialConsultationQuotaForActiveMember(userId: string) {
+  const { data, error } = await admin().rpc("grant_initial_consultation_quota_for_active_member", { p_user_id: userId });
+  if (error) throw new Error(`CONSULTATION_INITIAL_QUOTA_DELIVERY_FAILED:${error.message}`);
+  return data;
+}
 export async function bootstrapConsultationQuota(userId: string) {
   const { error: expiryError } = await admin().rpc("expire_consultation_info_holds", { p_user_id: userId });
   if (expiryError) throw new Error(`CONSULTATION_HOLD_EXPIRY_FAILED:${expiryError.message}`);
   const { data, error } = await admin().from("payment_orders").select("id,status,metadata,membership_expires_at").eq("user_id", userId)
     .in("status", ["paid", "overpaid", "manual_review"]).order("membership_expires_at",{ascending:true}).order("id",{ascending:true});
   if (error) throw new Error(`CONSULTATION_PAID_ORDER_READ_FAILED:${error.message}`);
-  return bootstrapPaidOrderQuotaCore((data??[]).map(row=>({...row,metadata:(row.metadata??{}) as Record<string,unknown>})),deliverConsultationQuotaForPaidOrder);
+  const delivered=await bootstrapPaidOrderQuotaCore((data??[]).map(row=>({...row,metadata:(row.metadata??{}) as Record<string,unknown>})),deliverConsultationQuotaForPaidOrder);
+  // Legacy/manual membership activations may have no payment_order. The database
+  // function is membership-validated and idempotent, so refreshing cannot mint
+  // another allowance or replace an existing paid-order grant.
+  await ensureInitialConsultationQuotaForActiveMember(userId);
+  return delivered;
 }
 export async function getConsultationQuota(userId: string) {
   const capturedNow=new Date().toISOString();
