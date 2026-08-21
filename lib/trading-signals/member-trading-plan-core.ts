@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { AiTradePlan } from "@/types/ai-trade-plan";
 import type { ChanMultiTimeframeDecision } from "@/types/chan-execution";
 import type { MemberTradingPlan, MemberTradingPlanState } from "@/types/member-trading-plan";
+import { buildMemberMethodologySelection } from "@/lib/trading-signals/member-methodology-core";
 
 const ACTIVE_SOURCE_STATUSES = new Set(["PUBLISHED", "WATCHING", "ARMED", "OPEN", "REDUCED"]);
 
@@ -54,6 +55,7 @@ function statusReason(state: MemberTradingPlanState, chan: ChanMultiTimeframeDec
   if (state === "NO_AUTHORITY") return "没有当前有效且已发布锁定的正式预测，禁止生成执行候选。";
   if (state === "INVALID_LEVEL_GEOMETRY") return "止损、参考价与止盈顺序无效，执行点位已隐藏且禁止执行。";
   if (state === "INSTRUMENT_UNAVAILABLE") return "该重点关注品种不是Bitget当前在线的精确合约，仅供研究。";
+  if (state === "METHODOLOGY_WAIT") return "所选试运行方法的可追溯证据尚未齐全，保持等待。";
   if (state === "CONFLICT_WAIT") return "正式方向与缠论结构冲突，保持等待。";
   if (state === "RISK_REDUCE") return "已有计划处于持仓管理阶段，只允许减仓或保护，不新增敞口。";
   if (state === "EXIT_OR_PROTECT") return "计划已结束或失效，只允许退出与保护。";
@@ -81,6 +83,7 @@ export function buildMemberTradingPlan(input: {
   currentPrice: number | null;
   generatedAt: string;
   instrument: MemberTradingPlan["instrument"];
+  methodology?: { selected: unknown; conditions: unknown };
 }): MemberTradingPlan {
   const nowMs = Date.parse(input.generatedAt);
   const formal = Number.isFinite(nowMs) && isMemberPlanFormal(input.plan, nowMs);
@@ -95,16 +98,28 @@ export function buildMemberTradingPlan(input: {
   else if (formal && input.instrument.availability !== "AVAILABLE") state = "INSTRUMENT_UNAVAILABLE";
   const controlling = input.chan.timeframeSignals.find((row) => row.timeframe === "4H")
     ?? input.chan.timeframeSignals[0];
+  const methodology = buildMemberMethodologySelection({
+    selected: input.methodology?.selected,
+    conditions: input.methodology?.conditions ?? [],
+    chanAvailable: input.chan.timeframeSignals.length > 0 && input.chan.timeframeSignals.every((row) => row.available && row.complete),
+  });
+  // Methodology evidence is an additional entry gate. It must not hide a
+  // stronger fail-closed reason such as missing authority, invalid levels,
+  // unavailable instruments or a Chan conflict.
+  if ((state === "LONG_READY" || state === "SHORT_READY") && !methodology.eligible) {
+    state = "METHODOLOGY_WAIT";
+  }
   const revisionId = createHash("sha256").update(JSON.stringify({
     source: input.plan.contentHash,
     version: input.plan.version,
     state,
     action: input.chan.action,
+    methodology: methodology.selected,
     stages: input.chan.timeframeSignals.map((row) => [row.timeframe, row.stage.code]),
     confirmation: input.chan.confirmation,
     invalidation: input.chan.invalidation,
   })).digest("hex").slice(0, 24);
-  const ready = geometryValid && input.instrument.availability === "AVAILABLE" && (state === "LONG_READY" || state === "SHORT_READY");
+  const ready = geometryValid && methodology.eligible && input.instrument.availability === "AVAILABLE" && (state === "LONG_READY" || state === "SHORT_READY");
   const exposeLevels = formal && geometryValid;
   return {
     schema: "moonx.member.trading-plan.v1",
@@ -170,5 +185,6 @@ export function buildMemberTradingPlan(input: {
       researchOnlyExcluded: true,
       sourcePlanContentHash: input.plan.contentHash,
     },
+    methodology,
   };
 }

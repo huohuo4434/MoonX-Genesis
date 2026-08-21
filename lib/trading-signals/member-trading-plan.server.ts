@@ -5,6 +5,8 @@ import { buildMemberTradingPlan, isMemberPlanFormal } from "@/lib/trading-signal
 import type { AiTradePlan } from "@/types/ai-trade-plan";
 import type { ChanMultiTimeframeFrame } from "@/types/chan-execution";
 import type { MemberTradingPlan } from "@/types/member-trading-plan";
+import type { MemberMethodologyId } from "@/types/member-methodology";
+import { prisma } from "@/lib/prisma";
 
 function normalizeRequestedSymbol(value: string): string {
   const symbol = value.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 20);
@@ -30,6 +32,7 @@ function latestPlan(plans: readonly AiTradePlan[], symbol: string, nowMs: number
 export async function loadCurrentMemberTradingPlan(input: {
   symbol: string;
   now?: Date;
+  methodology?: MemberMethodologyId | string;
 }): Promise<MemberTradingPlan | null> {
   const symbol = normalizeRequestedSymbol(input.symbol);
   if (!symbol) return null;
@@ -76,12 +79,22 @@ export async function loadCurrentMemberTradingPlan(input: {
   const currentPrice = latestCandle && Number.isFinite(candleMs) && capturedNowMs >= candleMs && capturedNowMs - candleMs <= 2 * 60 * 60_000
     ? latestCandle.close
     : null;
+  let methodologyConditions: unknown = [];
+  if (prisma && sourcePlan.sourceDecisionId) {
+    const rows = await prisma.$queryRaw<Array<{ conditions: unknown }>>`
+      SELECT conditions FROM trade_three_horizon_decisions
+      WHERE id = ${sourcePlan.sourceDecisionId}
+      LIMIT 1
+    `.catch(() => []);
+    methodologyConditions = rows[0]?.conditions ?? [];
+  }
   return buildMemberTradingPlan({
     plan: sourcePlan,
     chan,
     currentPrice: currentPrice != null && Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null,
     generatedAt: now.toISOString(),
     instrument: executionInstrument,
+    methodology: { selected: input.methodology, conditions: methodologyConditions },
   });
 }
 

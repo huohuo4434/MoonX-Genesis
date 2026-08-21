@@ -11,12 +11,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CONFIG_KEYS = new Set([
-  "MOOX_BASE_URL", "MOOX_SIGNAL_TOKEN", "MOOX_SYMBOLS", "MOOX_AGENT_MODE",
+  "MOOX_SIGNAL_TOKEN", "MOOX_SYMBOLS", "MOOX_AGENT_MODE",
   "MOOX_AGENT_STATE_FILE", "MOOX_AGENT_KILL_SWITCH", "BITGET_API_KEY",
   "BITGET_API_SECRET", "BITGET_API_PASSPHRASE", "MOOX_MAX_RISK_PER_TRADE_PCT",
   "MOOX_MAX_POSITION_PCT", "MOOX_MAX_TOTAL_POSITION_PCT", "MOOX_MAX_ACCOUNT_LEVERAGE",
-  "MOOX_ENABLE_LIVE", "MOOX_LIVE_CONFIRMATION",
+  "MOOX_ENABLE_LIVE", "MOOX_LIVE_CONFIRMATION", "MOOX_METHOD",
 ]);
+
+const METHODOLOGIES = new Set(["LIUYAO", "QIMEN", "LIUYAO_QIMEN", "LIUYAO_CHAN", "QIMEN_CHAN", "LIUYAO_QIMEN_CHAN"]);
+const MOOX_PLAN_ORIGIN = "https://mooxintel.com";
 
 export function parseLocalConfig(text) {
   const values = {};
@@ -64,6 +67,12 @@ function required(name) {
 function mode() {
   const value = (process.env.MOOX_AGENT_MODE || "PAPER").trim().toUpperCase();
   if (!["PAPER", "DRY_RUN", "LIVE"].includes(value)) throw new Error("MOOX_AGENT_MODE只能是 PAPER、DRY_RUN 或 LIVE");
+  return value;
+}
+
+export function methodology(environment = process.env) {
+  const value = String(environment.MOOX_METHOD || "LIUYAO_CHAN").trim().toUpperCase();
+  if (!METHODOLOGIES.has(value)) throw new Error("MOOX_METHOD不是支持的六种试运行方法");
   return value;
 }
 
@@ -131,9 +140,9 @@ async function bitgetRequest(method, requestPath, { params, payload } = {}) {
 }
 
 async function mooxPlan(symbol) {
-  const base = (process.env.MOOX_BASE_URL || "https://mooxintel.com").replace(/\/$/, "");
   const token = required("MOOX_SIGNAL_TOKEN");
-  return jsonRequest(`${base}/api/v1/member/trading/plans/current?symbol=${encodeURIComponent(symbol)}`, {
+  return jsonRequest(`${MOOX_PLAN_ORIGIN}/api/v1/member/trading/plans/current?symbol=${encodeURIComponent(symbol)}&methodology=${encodeURIComponent(methodology())}`, {
+    redirect: "error",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
 }
@@ -163,6 +172,7 @@ export function validatePlan(plan, now = Date.now(), requestedSymbol = "") {
   if (!plan?.evidence?.formalPublishedPlanOnly || !plan?.evidence?.researchOnlyExcluded) errors.push("研究证据隔离标记缺失");
   if (typeof plan?.evidence?.sourcePlanContentHash !== "string" || plan.evidence.sourcePlanContentHash.trim().length < 8) errors.push("锁定计划内容身份缺失");
   if (!plan?.risk?.memberLocalAgentEligible || plan?.risk?.serverExecutionAllowed !== false) errors.push("计划未授权会员本地Agent候选");
+  if (plan?.methodology?.selected !== methodology() || plan?.methodology?.trial !== true || !plan?.methodology?.eligible) errors.push(`所选试运行方法不可执行：${plan?.methodology?.reason || "证据不完整"}`);
   if (!plan?.risk?.tradingEligible || !["LONG_READY", "SHORT_READY"].includes(plan?.state)) errors.push("计划尚未进入READY");
   if (plan?.state === "LONG_READY" && plan?.authority?.direction !== "LONG") errors.push("多头状态与正式方向冲突");
   if (plan?.state === "SHORT_READY" && plan?.authority?.direction !== "SHORT") errors.push("空头状态与正式方向冲突");
@@ -618,7 +628,7 @@ export async function main() {
     try { validatePlan({ schema: "bad" }); } catch { rejectsInvalidPlan = true; }
     let rejectsLiveWithoutOptIn = false;
     try { assertLiveOptIn("LIVE", {}); } catch { rejectsLiveWithoutOptIn = true; }
-    console.log(JSON.stringify({ ok: Boolean(signature) && rejectsInvalidPlan && rejectsLiveWithoutOptIn, version: VERSION, defaultMode: mode(), liveConfirmation: LIVE_CONFIRMATION }));
+    console.log(JSON.stringify({ ok: Boolean(signature) && rejectsInvalidPlan && rejectsLiveWithoutOptIn, version: VERSION, defaultMode: mode(), defaultMethodology: methodology(), liveConfirmation: LIVE_CONFIRMATION }));
     return;
   }
   const runMode = mode();
@@ -633,7 +643,7 @@ export async function main() {
       results.push({ symbol, status: "FAILED_CLOSED", error: error instanceof Error ? error.message : String(error) });
     }
   }
-  console.log(JSON.stringify({ version: VERSION, mode: runMode, killSwitch: KILL_FILE, results }, null, 2));
+  console.log(JSON.stringify({ version: VERSION, mode: runMode, methodology: methodology(), killSwitch: KILL_FILE, results }, null, 2));
   if (results.some((row) => row.status === "FAILED_CLOSED")) process.exitCode = 1;
 }
 

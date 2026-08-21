@@ -2,9 +2,8 @@
 # 第一次只做PAPER：只需要把会员页生成的一次性只读Token粘贴到下面。
 MOOX_SIGNAL_TOKEN=
 MOOX_SYMBOLS=BTCUSDT
+MOOX_METHOD=LIUYAO_CHAN
 MOOX_AGENT_MODE=PAPER
-MOOX_BASE_URL=https://mooxintel.com
-
 # 下面三项PAPER不需要填写。只有准备做DRY_RUN连接检查时才在自己电脑填写。
 # 这些内容绝对不要发给MOOX、客服、Discord或任何人。
 BITGET_API_KEY=

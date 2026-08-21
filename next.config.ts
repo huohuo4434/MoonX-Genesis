@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  outputFileTracingIncludes: {
+    "/api/v1/member/trading/artifacts/[artifact]": ["./private-assets/member-trading/**/*"],
+  },
   images: {
     formats: ["image/avif", "image/webp"],
   },

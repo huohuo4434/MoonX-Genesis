@@ -8,6 +8,11 @@
 - Windows新手下载一键ZIP；高级用户才需要单独下载 `moox-bitget-local-agent.mjs` 和环境变量模板。
 - 在会员页创建仅有 `plans:read` 权限的 MOOX Token；它只显示一次。
 - Bitget Key 只给 UTA 交易与必要只读权限，不给提币或划转权限。LIVE 模式必须绑定 IP 白名单。
+- 在本地配置选择六种试运行筛选方法之一；所选证据缺失或分歧时保持等待。
+
+## 六种试运行方法
+
+`MOOX_METHOD` 可选：`LIUYAO`、`QIMEN`、`LIUYAO_QIMEN`、`LIUYAO_CHAN`、`QIMEN_CHAN`、`LIUYAO_QIMEN_CHAN`。方法选择只决定哪些前置研究证据必须齐全；所有LIVE订单仍必须通过统一行情新鲜度、入场几何、止损、仓位、日亏损、回撤和交易所保护单闸门。推荐从 `LIUYAO_CHAN` 的 PAPER 开始。
 
 ## 2. 首次运行：PAPER
 
@@ -22,6 +27,8 @@ node .\moox-bitget-local-agent.mjs
 PAPER 不需要 Bitget 密钥，也不会请求交易所私有接口。
 
 ## 3. 连接检查：DRY_RUN
+
+在Bitget网页进入“个人中心 → API管理 → 创建API”。创建UTA API：只允许 `uta_mgt` 读取和 `uta_trade` 交易，不允许 withdraw、transfer、提币或划转；LIVE必须绑定本机/VPS固定IPv4。保存创建时自己设置的Passphrase、API Key和只显示一次的Secret Key。
 
 把 Bitget 三项凭证只设置到本机环境变量，然后：
 
@@ -47,6 +54,8 @@ node .\moox-bitget-local-agent.mjs
 ```
 
 Agent 只接受 FORMAL、已发布、已锁定、仍有效、条件全部满足、缠论周期完整且快照不超过 120 秒的 READY 计划。任何冲突、缺失或接口异常都停止执行。
+
+目前六种方法仍处于试运行阶段。不要使用大仓位、借贷资金或高杠杆；默认上限也不是收益保证。
 
 ## 5. 急停与恢复
 

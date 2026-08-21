@@ -28,7 +28,7 @@ test("focus registry uses exact online Bitget intersection without similar subst
 test("member automation union covers every static focus asset and exact official online contracts", () => {
   const staticFocus = listStaticMemberAutomationFocus();
   assert.deepEqual(staticFocus.map((row) => row.assetId), [...STATIC_FOCUS_ASSET_IDS]);
-  assert.equal(staticFocus.length, 16);
+  assert.ok(staticFocus.length >= 16, "focus registry may grow but must not silently shrink");
   const union = listAiTradingFocusRegistry();
   for (const assetId of STATIC_FOCUS_ASSET_IDS) assert.equal(union.filter((row) => row.assetId === assetId).length, 1, assetId);
   const mappedSymbols = union.map((row) => row.canonicalSymbol).filter((value): value is string => value != null);
@@ -46,7 +46,7 @@ test("member automation union covers every static focus asset and exact official
     { symbol: "ASTEROIDUSDT", category: "USDT-FUTURES", status: "online" },
   ];
   const rows = intersectFocusWithBitget({ focus: staticFocus, contracts, discoveredAt: "2026-08-15T12:00:00.000Z" });
-  assert.equal(rows.length, 16);
+  assert.equal(rows.length, staticFocus.length);
   const available = rows.filter((row) => row.availability === "AVAILABLE").map((row) => row.bitgetSymbol).sort();
   assert.deepEqual(available, [...onlineSymbols].sort());
   for (const assetId of ["ganfeng-lithium", "lian-tech", "lexin-medical", "cxmt", "asteroid", "kingsoft-office"]) {

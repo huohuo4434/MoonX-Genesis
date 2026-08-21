@@ -7,6 +7,11 @@ import type { ChanMultiTimeframeDecision, ChanStage } from "../types/chan-execut
 
 const now = "2026-08-15T12:00:00.000Z";
 const instrument = { assetId: "btc", canonicalSymbol: "BTCUSDT", displayName: "比特币", assetClass: "CRYPTO" as const, bitgetSymbol: "BTCUSDT", availability: "AVAILABLE" as const, executionScope: "PAPER_LOCAL" as const, discoveredAt: now };
+const methodology = { selected: "LIUYAO_CHAN", conditions: [{ key: "hexagram", label: "六爻周卦", value: "正式锁定方向", met: true }] };
+
+function build(input: Parameters<typeof buildMemberTradingPlan>[0]) {
+  return buildMemberTradingPlan({ ...input, methodology });
+}
 
 function sourcePlan(patch: Partial<AiTradePlan> = {}): AiTradePlan {
   return {
@@ -55,7 +60,7 @@ function chan(direction: "BULL" | "BEAR", patch: Partial<ChanMultiTimeframeDecis
 }
 
 test("locked formal direction plus aligned complete Chan becomes paper-only LONG_READY", () => {
-  const result = buildMemberTradingPlan({ plan: sourcePlan({ status: "ARMED" }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
+  const result = build({ plan: sourcePlan({ status: "ARMED" }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
   assert.equal(result.state, "LONG_READY");
   assert.equal(result.authority.valid, true);
   assert.equal(result.risk.tradingEligible, true);
@@ -68,12 +73,12 @@ test("locked formal direction plus aligned complete Chan becomes paper-only LONG
 });
 
 test("missing lock fails closed and Chan conflict always waits", () => {
-  const unlocked = buildMemberTradingPlan({
+  const unlocked = build({
     plan: sourcePlan({ forecastLockedAt: null }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument,
   });
   assert.equal(unlocked.state, "NO_AUTHORITY");
   assert.equal(unlocked.risk.tradingEligible, false);
-  const conflict = buildMemberTradingPlan({
+  const conflict = build({
     plan: sourcePlan(),
     chan: chan("BEAR", { authoritativeDirection: "BULL", reasons: ["STRUCTURE_OPPOSES_AUTHORITY"] }),
     currentPrice: 67200,
@@ -84,28 +89,28 @@ test("missing lock fails closed and Chan conflict always waits", () => {
 });
 
 test("candidate or merely watching source can never become Paper-ready", () => {
-  const candidate = buildMemberTradingPlan({
+  const candidate = build({
     plan: sourcePlan({ tier: "CANDIDATE", status: "ARMED" }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument,
   });
   assert.equal(candidate.state, "NO_AUTHORITY");
   assert.equal(candidate.risk.tradingEligible, false);
-  const watching = buildMemberTradingPlan({
+  const watching = build({
     plan: sourcePlan({ status: "WATCHING" }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument,
   });
   assert.equal(watching.state, "WAIT_CONFIRMATION");
   assert.equal(watching.risk.tradingEligible, false);
-  const partial = buildMemberTradingPlan({
+  const partial = build({
     plan: sourcePlan({ status: "ARMED", conditionsMet: 3, conditionsTotal: 4 }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument,
   });
   assert.equal(partial.state, "WAIT_CONFIRMATION");
 });
 
 test("NO_AUTHORITY and invalid level geometry never serialize stale stop or targets", () => {
-  const noAuthority = buildMemberTradingPlan({ plan: sourcePlan({ forecastLockedAt: null }), chan: chan("BULL"), currentPrice: 62986.9, generatedAt: now, instrument });
+  const noAuthority = build({ plan: sourcePlan({ forecastLockedAt: null }), chan: chan("BULL"), currentPrice: 62986.9, generatedAt: now, instrument });
   assert.equal(noAuthority.execution.levelStatus, "HIDDEN_NO_AUTHORITY");
   assert.equal(noAuthority.execution.stopLoss, null);
   assert.equal(noAuthority.execution.takeProfits, null);
-  const invalid = buildMemberTradingPlan({ plan: sourcePlan({ status: "ARMED", protectiveStop: 64387, target1: 65000, target2: 66000, target3: 67000 }), chan: chan("BULL"), currentPrice: 62986.9, generatedAt: now, instrument });
+  const invalid = build({ plan: sourcePlan({ status: "ARMED", protectiveStop: 64387, target1: 65000, target2: 66000, target3: 67000 }), chan: chan("BULL"), currentPrice: 62986.9, generatedAt: now, instrument });
   assert.equal(invalid.state, "INVALID_LEVEL_GEOMETRY");
   assert.equal(invalid.execution.levelStatus, "INVALID_LEVEL_GEOMETRY");
   assert.equal(invalid.execution.stopLoss, null);
@@ -114,12 +119,12 @@ test("NO_AUTHORITY and invalid level geometry never serialize stale stop or targ
 });
 
 test("core geometry binds the whole entry zone for LONG and SHORT", () => {
-  const invaded = buildMemberTradingPlan({ plan: sourcePlan({ status: "ARMED", protectiveStop: 67100 }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
+  const invaded = build({ plan: sourcePlan({ status: "ARMED", protectiveStop: 67100 }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
   assert.equal(invaded.state, "INVALID_LEVEL_GEOMETRY");
-  const reversed = buildMemberTradingPlan({ plan: sourcePlan({ status: "ARMED", entryZoneLow: 67500, entryZoneHigh: 67000 }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
+  const reversed = build({ plan: sourcePlan({ status: "ARMED", entryZoneLow: 67500, entryZoneHigh: 67000 }), chan: chan("BULL"), currentPrice: 67200, generatedAt: now, instrument });
   assert.equal(reversed.state, "INVALID_LEVEL_GEOMETRY");
   const shortPlan = sourcePlan({ status: "ARMED", direction: "SHORT", entryZoneLow: 66800, entryZoneHigh: 67200, protectiveStop: 68000, target1: 66000, target2: 65000, target3: 64000 });
-  const shortResult = buildMemberTradingPlan({ plan: shortPlan, chan: chan("BEAR"), currentPrice: 67000, generatedAt: now, instrument });
+  const shortResult = build({ plan: shortPlan, chan: chan("BEAR"), currentPrice: 67000, generatedAt: now, instrument });
   assert.equal(shortResult.state, "SHORT_READY");
 });
 

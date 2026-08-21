@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
   }
   if (!rate.ok) return NextResponse.json({ error: "请求过于频繁" }, { status: 429 });
   const symbol = request.nextUrl.searchParams.get("symbol")?.trim() || "BTC";
+  const methodology = request.nextUrl.searchParams.get("methodology")?.trim() || "LIUYAO_CHAN";
   const { loadCurrentMemberTradingPlan } = await import("@/lib/trading-signals/member-trading-plan.server");
-  const plan = await loadCurrentMemberTradingPlan({ symbol });
+  const plan = await loadCurrentMemberTradingPlan({ symbol, methodology });
   if (!plan) return NextResponse.json({ error: "该品种暂无已发布交易计划" }, { status: 404 });
   return NextResponse.json(plan, {
     headers: {

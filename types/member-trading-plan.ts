@@ -1,3 +1,5 @@
+import type { MemberMethodologySelection } from "@/types/member-methodology";
+
 export type MemberTradingPlanState =
   | "LONG_READY"
   | "SHORT_READY"
@@ -7,6 +9,7 @@ export type MemberTradingPlanState =
   | "EXIT_OR_PROTECT"
   | "INVALID_LEVEL_GEOMETRY"
   | "INSTRUMENT_UNAVAILABLE"
+  | "METHODOLOGY_WAIT"
   | "NO_AUTHORITY";
 
 export type MemberTradingInstrument = {
@@ -84,6 +87,7 @@ export type MemberTradingPlan = {
     researchOnlyExcluded: true;
     sourcePlanContentHash: string;
   };
+  methodology: MemberMethodologySelection;
 };
 
 export type MemberPaperEvent = {

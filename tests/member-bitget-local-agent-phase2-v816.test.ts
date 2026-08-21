@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
 // The downloadable artifact is intentionally plain ESM with no package dependency.
 // @ts-expect-error JavaScript download artifact has no declaration file.
-import { assertAccountSettings, assertContract, assertLiveOptIn, assertPermissionSafety, bitgetSignature, clockOffset, confirmedOrderIdentity, executionGeometryValid, executionQuote, findExistingLiveRecord, normalizedPrice, normalizedQuantity, positionList, preflightDisposition, recoveryMarketPrice, strategyProtectionMatches, updateRiskLedger, validatePlan, validateRecoveryPlan } from "../public/downloads/moox-bitget-local-agent.mjs";
+import { assertAccountSettings, assertContract, assertLiveOptIn, assertPermissionSafety, bitgetSignature, clockOffset, confirmedOrderIdentity, executionGeometryValid, executionQuote, findExistingLiveRecord, normalizedPrice, normalizedQuantity, positionList, preflightDisposition, recoveryMarketPrice, strategyProtectionMatches, updateRiskLedger, validatePlan, validateRecoveryPlan } from "../private-assets/member-trading/moox-bitget-local-agent.mjs";
 
 const now = Date.parse("2026-08-15T12:00:00.000Z");
 const plan = {
@@ -14,6 +14,7 @@ const plan = {
   authority: { valid: true, forecastId: "f1", forecastVersion: "v1", publishedAt: "2026-08-10T00:00:00.000Z", lockedAt: "2026-08-10T00:00:00.000Z", validUntil: "2026-08-17T00:00:00.000Z", direction: "LONG" },
   evidence: { formalPublishedPlanOnly: true, researchOnlyExcluded: true, sourcePlanContentHash: "content-hash-locked" },
   risk: { memberLocalAgentEligible: true, serverExecutionAllowed: false, tradingEligible: true },
+  methodology: { selected: "LIUYAO_CHAN", label: "4. 六爻＋缠论", trial: true, liuyaoAvailable: true, qimenAvailable: false, chanAvailable: true, eligible: true, reason: "证据齐全" },
   chan: { timeframes: ["30m", "1H", "4H", "1D"].map((timeframe) => ({ timeframe, available: true, complete: true })) },
   execution: { levelStatus: "VALID", currentPrice: 67000, entryZone: [66800, 67200], stopLoss: 66000, takeProfits: [68000, 69000, 70000] },
 };
@@ -54,7 +55,7 @@ test("existing LIVE protection recovery uses a fresh exact Bitget mark without e
   assert.equal(recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "BTCUSDT", markPrice: "67100", ts: String(now - 1000) }, now), 67100);
   assert.throws(() => recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "ETHUSDT", markPrice: "67100", ts: String(now - 1000) }, now), /品种/);
   assert.throws(() => recoveryMarketPrice("BTCUSDT", { category: "USDT-FUTURES", symbol: "BTCUSDT", markPrice: "67100", ts: String(now - 6000) }, now), /超过5秒/);
-  const source = readFileSync("public/downloads/moox-bitget-local-agent.mjs", "utf8");
+  const source = readFileSync("private-assets/member-trading/moox-bitget-local-agent.mjs", "utf8");
   assert.ok(source.indexOf("findExistingLiveRecord(state, payload, symbol)") < source.indexOf("const plan = validatePlan(payload"));
   assert.match(source, /recoveryMarketPrice\(symbol, await marketTicker\(symbol\)\)/);
 });
@@ -123,7 +124,7 @@ test("crash recovery disposition precedes kill and unrelated-position rejection"
 });
 
 test("agent defaults to PAPER and preserves reconciliation, preset protection and kill-switch boundaries", () => {
-  const source = readFileSync("public/downloads/moox-bitget-local-agent.mjs", "utf8");
+  const source = readFileSync("private-assets/member-trading/moox-bitget-local-agent.mjs", "utf8");
   assert.match(source, /MOOX_AGENT_MODE \|\| "PAPER"/);
   assert.match(source, /\/api\/v2\/public\/time/);
   assert.match(source, /response\?\.data\?\.list/);
@@ -141,12 +142,19 @@ test("agent defaults to PAPER and preserves reconciliation, preset protection an
   assert.doesNotMatch(source, /\/api\/v\d+\/.*(?:withdraw|transfer)/i);
 });
 
-test("member UI exposes plan, personal Paper, read-only token lifecycle and downloads without exchange secret upload", () => {
+test("member UI exposes plans, methodology, read-only token lifecycle and local-only downloads", () => {
   const ui = readFileSync("components/member/MemberTradingOnboarding.tsx", "utf8");
   const page = readFileSync("app/member/ai-trading/page.tsx", "utf8");
-  for (const value of ["/api/v1/member/trading/plans/current", "/api/v1/member/trading/paper", "/api/v1/member/trading/api-keys", "expectedPlanId", "expectedPlanVersion", "expectedRevisionId", "method: \"DELETE\"", "/downloads/moox-bitget-local-agent.mjs"]) assert.ok(ui.includes(value), value);
-  assert.match(ui, /本站没有也不会提供上传这些密钥的输入框/);
+  for (const value of ["/api/v1/member/trading/plans/current", "/api/v1/member/trading/api-keys", "/api/v1/member/trading/artifacts/", "method: \"DELETE\"", "MEMBER_METHODOLOGIES", "MOOX_METHOD="]) assert.ok(ui.includes(value), value);
+  assert.match(ui, /本站没有也不会提供上传这些交易所密钥的输入框/);
   assert.doesNotMatch(ui, /name=["'](?:apiKey|secret|passphrase)/i);
   assert.match(page, /MemberTradingOnboarding/);
   assert.doesNotMatch(page, /AiTradingDeskClient|createMemberAiTradingDeskPlaceholder/);
+  const artifactRoute = readFileSync("app/api/v1/member/trading/artifacts/[artifact]/route.ts", "utf8");
+  assert.match(artifactRoute, /getMemberDevicePageAccess/);
+  assert.match(artifactRoute, /checkMemberApiRateLimit/);
+  assert.match(artifactRoute, /private-assets.*member-trading/s);
+  assert.match(artifactRoute, /Content-Range/);
+  for (const path of ["public/downloads/MOOX-Bitget-Windows.zip", "public/downloads/moox-bitget-local-agent.mjs", "public/tutorials/MOOX会员Bitget接入教程.mp4"]) assert.equal(existsSync(path), false, path);
+  assert.ok(statSync("private-assets/member-trading/MOOX会员Bitget接入教程.mp4").size < 4_000_000, "video must remain below the authenticated function response budget");
 });

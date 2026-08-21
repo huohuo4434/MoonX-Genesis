@@ -5,19 +5,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 // @ts-expect-error Download artifact intentionally has no declaration file.
-import { parseLocalConfig } from "../public/downloads/moox-bitget-local-agent.mjs";
+import { parseLocalConfig } from "../private-assets/member-trading/moox-bitget-local-agent.mjs";
 
-const zipPath = "public/downloads/MOOX-Bitget-Windows.zip";
-const packageDir = "public/downloads/windows-package";
+const zipPath = "private-assets/member-trading/MOOX-Bitget-Windows.zip";
+const packageDir = "private-assets/member-trading/windows-package";
 
 test("native Chinese config parser is allowlisted, deterministic and never needs dotenv", () => {
   assert.deepEqual(parseLocalConfig("# 注释\nMOOX_SIGNAL_TOKEN=mxm_test\nMOOX_AGENT_MODE=PAPER\nBITGET_API_SECRET=a#b=c\n"), {
     MOOX_SIGNAL_TOKEN: "mxm_test", MOOX_AGENT_MODE: "PAPER", BITGET_API_SECRET: "a#b=c",
   });
   assert.throws(() => parseLocalConfig("UNKNOWN_SECRET=value"), /不支持的名称/);
+  assert.throws(() => parseLocalConfig("MOOX_BASE_URL=https://evil.example"), /不支持的名称/);
   assert.throws(() => parseLocalConfig("MOOX_AGENT_MODE=PAPER\nMOOX_AGENT_MODE=LIVE"), /重复填写/);
-  const agent = readFileSync("public/downloads/moox-bitget-local-agent.mjs", "utf8");
+  const agent = readFileSync("private-assets/member-trading/moox-bitget-local-agent.mjs", "utf8");
   assert.match(agent, /MOOX配置\.txt/);
+  assert.match(agent, /const MOOX_PLAN_ORIGIN = "https:\/\/mooxintel\.com"/);
+  assert.doesNotMatch(agent, /process\.env\.MOOX_BASE_URL/);
+  assert.match(agent, /redirect: "error"/);
   assert.doesNotMatch(agent, /dotenv|console\.log\([^\n]*(?:BITGET_API_SECRET|BITGET_API_PASSPHRASE)/i);
 });
 
@@ -74,9 +78,9 @@ test("launchers are double-click safe and cannot implicitly enable LIVE", () => 
 
 test("member UI leads with ZIP and simple 1-2-3 while keeping advanced files folded", () => {
   const ui = readFileSync("components/member/MemberTradingOnboarding.tsx", "utf8");
-  assert.match(ui, /MOOX-Bitget-Windows\.zip/);
+  assert.match(ui, /\/api\/v1\/member\/trading\/artifacts\/windows/);
   assert.match(ui, /下载Windows一键包（推荐）/);
   for (const phrase of ["1. 下载并解压ZIP", "2. 创建Token并粘贴", "3. 双击启动PAPER", "本包没有LIVE按钮", "高级用户：单独下载原始文件"]) assert.ok(ui.includes(phrase), phrase);
-  assert.ok(ui.indexOf("MOOX-Bitget-Windows.zip") < ui.indexOf("moox-bitget-local-agent.mjs"));
+  assert.ok(ui.indexOf("artifacts/windows") < ui.indexOf("artifacts/agent"));
   assert.match(ui, /<details/);
 });
