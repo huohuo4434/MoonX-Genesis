@@ -31,10 +31,11 @@ LIUYAO / QIMEN / LIUYAO_QIMEN / LIUYAO_CHAN / QIMEN_CHAN / LIUYAO_QIMEN_CHAN
 ------------------------
 1. 在Bitget网页“个人中心 → API管理 → 创建API”创建UTA API Key。
 2. 权限只选择UTA管理读取（uta_mgt）和UTA交易（uta_trade）；绝对不要选择withdraw、transfer、提币或划转。
-3. LIVE必须绑定运行这台电脑/VPS的固定IPv4白名单；没有固定IP请保持PAPER。
-4. 创建时自己设置Passphrase，创建完成后保存API Key和Secret Key；Secret通常只显示一次。
-5. 只在自己电脑的“MOOX配置.txt”填写BITGET_API_KEY、BITGET_API_SECRET和BITGET_API_PASSPHRASE。
-6. 双击“2-检查DRY_RUN.bat”。它只检查，不下单，并建立日亏损/回撤基线。
+3. IP白名单由你选择：有固定公网IPv4时建议绑定，并保持 MOOX_REQUIRE_IP_WHITELIST=true。
+4. 没有固定公网IP时，可不绑定，并把 MOOX_REQUIRE_IP_WHITELIST=false；安全性会降低，但仍必须关闭withdraw、transfer、提币和划转权限。
+5. 创建时自己设置Passphrase，创建完成后保存API Key和Secret Key；Secret通常只显示一次。
+6. 只在自己电脑的“MOOX配置.txt”填写BITGET_API_KEY、BITGET_API_SECRET和BITGET_API_PASSPHRASE。
+7. 双击“2-检查DRY_RUN.bat”。它只检查，不下单，并建立日亏损/回撤基线。
 
 如何急停
 --------

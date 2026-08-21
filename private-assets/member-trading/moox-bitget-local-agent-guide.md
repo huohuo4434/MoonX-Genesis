@@ -7,7 +7,7 @@
 - 安装 Node.js 20 或更高版本。
 - Windows新手下载一键ZIP；高级用户才需要单独下载 `moox-bitget-local-agent.mjs` 和环境变量模板。
 - 在会员页创建仅有 `plans:read` 权限的 MOOX Token；它只显示一次。
-- Bitget Key 只给 UTA 交易与必要只读权限，不给提币或划转权限。LIVE 模式必须绑定 IP 白名单。
+- Bitget Key 只给 UTA 交易与必要只读权限，不给提币或划转权限。固定公网 IP 用户推荐绑定白名单；动态 IP 用户可关闭强制白名单，但风险更高。
 - 在本地配置选择六种试运行筛选方法之一；所选证据缺失或分歧时保持等待。
 
 ## 六种试运行方法
@@ -28,7 +28,12 @@ PAPER 不需要 Bitget 密钥，也不会请求交易所私有接口。
 
 ## 3. 连接检查：DRY_RUN
 
-在Bitget网页进入“个人中心 → API管理 → 创建API”。创建UTA API：只允许 `uta_mgt` 读取和 `uta_trade` 交易，不允许 withdraw、transfer、提币或划转；LIVE必须绑定本机/VPS固定IPv4。保存创建时自己设置的Passphrase、API Key和只显示一次的Secret Key。
+在Bitget网页进入“个人中心 → API管理 → 创建API”。创建UTA API：只允许 `uta_mgt` 读取和 `uta_trade` 交易，不允许 withdraw、transfer、提币或划转。保存创建时自己设置的Passphrase、API Key和只显示一次的Secret Key。
+
+IP 白名单二选一：
+
+- `MOOX_REQUIRE_IP_WHITELIST=true`（默认、推荐）：适合固定公网 IPv4 或固定出口 IP；LIVE 检测不到白名单就拒绝开仓。
+- `MOOX_REQUIRE_IP_WHITELIST=false`：适合家庭宽带、移动网络、动态 IP 或没有固定公网 IP 的会员；可以运行 LIVE，但 API Key 泄露后的风险更高。务必关闭提现/划转权限、使用独立 API Key、定期轮换，电脑异常时立即在 Bitget 删除 Key。
 
 把 Bitget 三项凭证只设置到本机环境变量，然后：
 
@@ -40,7 +45,7 @@ $env:MOOX_AGENT_MODE="DRY_RUN"
 node .\moox-bitget-local-agent.mjs
 ```
 
-DRY_RUN 会核对权限、IP、Bitget服务器时间、UTA账户模式、双向持仓、逐仓配置、全账户持仓和合约参数，并建立本地日亏损/回撤基线，但不提交订单。首次 LIVE 前必须至少成功运行一次 DRY_RUN；v1只要发现账户已有任何 USDT 合约持仓就拒绝新增敞口。
+DRY_RUN 会核对权限、所选 IP 白名单策略、Bitget服务器时间、UTA账户模式、双向持仓、逐仓配置、全账户持仓和合约参数，并建立本地日亏损/回撤基线，但不提交订单。首次 LIVE 前必须至少成功运行一次 DRY_RUN；v1只要发现账户已有任何 USDT 合约持仓就拒绝新增敞口。
 
 ## 4. LIVE 必须本地双重确认
 

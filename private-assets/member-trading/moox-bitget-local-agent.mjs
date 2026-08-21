@@ -15,7 +15,7 @@ const CONFIG_KEYS = new Set([
   "MOOX_AGENT_STATE_FILE", "MOOX_AGENT_KILL_SWITCH", "BITGET_API_KEY",
   "BITGET_API_SECRET", "BITGET_API_PASSPHRASE", "MOOX_MAX_RISK_PER_TRADE_PCT",
   "MOOX_MAX_POSITION_PCT", "MOOX_MAX_TOTAL_POSITION_PCT", "MOOX_MAX_ACCOUNT_LEVERAGE",
-  "MOOX_ENABLE_LIVE", "MOOX_LIVE_CONFIRMATION", "MOOX_METHOD",
+  "MOOX_ENABLE_LIVE", "MOOX_LIVE_CONFIRMATION", "MOOX_METHOD", "MOOX_REQUIRE_IP_WHITELIST",
 ]);
 
 const METHODOLOGIES = new Set(["LIUYAO", "QIMEN", "LIUYAO_QIMEN", "LIUYAO_CHAN", "QIMEN_CHAN", "LIUYAO_QIMEN_CHAN"]);
@@ -46,7 +46,7 @@ if (existsSync(LOCAL_CONFIG_PATH)) {
   }
 }
 
-export const VERSION = "1.0.0";
+export const VERSION = "1.1.0";
 export const LIVE_CONFIRMATION = "I_ACCEPT_LOCAL_LIVE_RISK";
 export const CATEGORY = "USDT-FUTURES";
 const BITGET_BASE = "https://api.bitget.com";
@@ -74,6 +74,12 @@ export function methodology(environment = process.env) {
   const value = String(environment.MOOX_METHOD || "LIUYAO_CHAN").trim().toUpperCase();
   if (!METHODOLOGIES.has(value)) throw new Error("MOOX_METHOD不是支持的六种试运行方法");
   return value;
+}
+
+export function requireIpWhitelist(environment = process.env) {
+  const value = String(environment.MOOX_REQUIRE_IP_WHITELIST ?? "true").trim().toLowerCase();
+  if (!['true', 'false'].includes(value)) throw new Error("MOOX_REQUIRE_IP_WHITELIST只能是 true 或 false");
+  return value === "true";
 }
 
 function numberEnv(name, fallback, min, max) {
@@ -202,14 +208,16 @@ export function validateRecoveryPlan(plan, record, requestedSymbol) {
   return plan;
 }
 
-export function assertPermissionSafety(info, runMode) {
+export function assertPermissionSafety(info, runMode, environment = process.env) {
   const permissions = Array.isArray(info?.permissions) ? info.permissions.map((value) => String(value).toLowerCase()) : [];
   const dangerous = permissions.filter((value) => FORBIDDEN_PERMISSIONS.some((word) => value.includes(word)));
   if (dangerous.length) throw new Error(`API Key含禁止权限：${dangerous.join(",")}`);
   if (!permissions.includes("uta_trade")) throw new Error("API Key缺少 uta_trade 权限");
   if (!permissions.includes("uta_mgt")) throw new Error("API Key缺少 uta_mgt 只读权限，无法核对账户与风控");
   if (runMode === "LIVE" && info?.permType !== "read-and-write") throw new Error("LIVE要求Bitget读写API Key");
-  if (runMode === "LIVE" && !String(info?.ips || "").trim()) throw new Error("LIVE要求Bitget API Key绑定IP白名单");
+  if (runMode !== "PAPER" && requireIpWhitelist(environment) && !String(info?.ips || "").trim()) {
+    throw new Error("已选择强制IP白名单，但Bitget API Key未绑定IP；请绑定固定公网IPv4，或在理解风险后把MOOX_REQUIRE_IP_WHITELIST改为false");
+  }
   return true;
 }
 
@@ -628,7 +636,7 @@ export async function main() {
     try { validatePlan({ schema: "bad" }); } catch { rejectsInvalidPlan = true; }
     let rejectsLiveWithoutOptIn = false;
     try { assertLiveOptIn("LIVE", {}); } catch { rejectsLiveWithoutOptIn = true; }
-    console.log(JSON.stringify({ ok: Boolean(signature) && rejectsInvalidPlan && rejectsLiveWithoutOptIn, version: VERSION, defaultMode: mode(), defaultMethodology: methodology(), liveConfirmation: LIVE_CONFIRMATION }));
+    console.log(JSON.stringify({ ok: Boolean(signature) && rejectsInvalidPlan && rejectsLiveWithoutOptIn, version: VERSION, defaultMode: mode(), defaultMethodology: methodology(), ipWhitelistRequired: requireIpWhitelist(), liveConfirmation: LIVE_CONFIRMATION }));
     return;
   }
   const runMode = mode();
@@ -643,7 +651,7 @@ export async function main() {
       results.push({ symbol, status: "FAILED_CLOSED", error: error instanceof Error ? error.message : String(error) });
     }
   }
-  console.log(JSON.stringify({ version: VERSION, mode: runMode, methodology: methodology(), killSwitch: KILL_FILE, results }, null, 2));
+  console.log(JSON.stringify({ version: VERSION, mode: runMode, methodology: methodology(), ipWhitelistRequired: requireIpWhitelist(), ipWhitelistWarning: requireIpWhitelist() ? null : "IP白名单已由会员关闭；请确保无提现/划转权限并定期轮换API Key", killSwitch: KILL_FILE, results }, null, 2));
   if (results.some((row) => row.status === "FAILED_CLOSED")) process.exitCode = 1;
 }
 

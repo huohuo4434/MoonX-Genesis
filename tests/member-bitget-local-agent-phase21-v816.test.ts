@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 // @ts-expect-error Download artifact intentionally has no declaration file.
-import { parseLocalConfig } from "../private-assets/member-trading/moox-bitget-local-agent.mjs";
+import { assertPermissionSafety, parseLocalConfig, requireIpWhitelist } from "../private-assets/member-trading/moox-bitget-local-agent.mjs";
 
 const zipPath = "private-assets/member-trading/MOOX-Bitget-Windows.zip";
 const packageDir = "private-assets/member-trading/windows-package";
@@ -25,6 +25,18 @@ test("native Chinese config parser is allowlisted, deterministic and never needs
   assert.doesNotMatch(agent, /dotenv|console\.log\([^\n]*(?:BITGET_API_SECRET|BITGET_API_PASSPHRASE)/i);
 });
 
+test("member can choose an IP whitelist policy without weakening permission checks", () => {
+  const safe = { permissions: ["uta_mgt", "uta_trade"], permType: "read-and-write", ips: "" };
+  assert.equal(requireIpWhitelist({}), true);
+  assert.equal(requireIpWhitelist({ MOOX_REQUIRE_IP_WHITELIST: "false" }), false);
+  assert.throws(() => requireIpWhitelist({ MOOX_REQUIRE_IP_WHITELIST: "maybe" }), /只能是 true 或 false/);
+  assert.throws(() => assertPermissionSafety(safe, "LIVE", { MOOX_REQUIRE_IP_WHITELIST: "true" }), /强制IP白名单/);
+  assert.throws(() => assertPermissionSafety(safe, "DRY_RUN", { MOOX_REQUIRE_IP_WHITELIST: "true" }), /强制IP白名单/);
+  assert.equal(assertPermissionSafety(safe, "DRY_RUN", { MOOX_REQUIRE_IP_WHITELIST: "false" }), true);
+  assert.equal(assertPermissionSafety(safe, "LIVE", { MOOX_REQUIRE_IP_WHITELIST: "false" }), true);
+  assert.throws(() => assertPermissionSafety({ ...safe, permissions: ["uta_mgt", "uta_trade", "withdraw"] }, "LIVE", { MOOX_REQUIRE_IP_WHITELIST: "false" }), /禁止权限/);
+});
+
 test("Windows ZIP contains novice launchers and no embedded member token", () => {
   const temp = mkdtempSync(join(tmpdir(), "moox-win-package-"));
   try {
@@ -38,6 +50,7 @@ test("Windows ZIP contains novice launchers and no embedded member token", () =>
     assert.doesNotMatch(config, /mxm_[A-Za-z0-9_-]{20,}/);
     assert.match(config, /^MOOX_AGENT_MODE=PAPER$/m);
     assert.match(config, /^MOOX_ENABLE_LIVE=false$/m);
+    assert.match(config, /^MOOX_REQUIRE_IP_WHITELIST=true$/m);
     const selfTest = execFileSync(process.execPath, [join(temp, "moox-bitget-local-agent.mjs"), "--self-test"], { encoding: "utf8" });
     assert.match(selfTest, /"defaultMode":"PAPER"/);
     const env = { ...process.env };
@@ -83,4 +96,5 @@ test("member UI leads with ZIP and simple 1-2-3 while keeping advanced files fol
   for (const phrase of ["1. 下载并解压ZIP", "2. 创建Token并粘贴", "3. 双击启动PAPER", "本包没有LIVE按钮", "高级用户：单独下载原始文件"]) assert.ok(ui.includes(phrase), phrase);
   assert.ok(ui.indexOf("artifacts/windows") < ui.indexOf("artifacts/agent"));
   assert.match(ui, /<details/);
+  for (const phrase of ["IP 白名单开关", "绑定固定公网 IP（推荐）", "不绑定 IP（动态网络）", "MOOX_REQUIRE_IP_WHITELIST="]) assert.ok(ui.includes(phrase), phrase);
 });

@@ -32,6 +32,7 @@ export function MemberTradingOnboarding() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [methodology, setMethodology] = useState<MemberMethodologyId>("LIUYAO_CHAN");
+  const [requireIpWhitelist, setRequireIpWhitelist] = useState(true);
 
   const refresh = useCallback(async (nextSymbol = symbol) => {
     if (!nextSymbol) return;
@@ -98,6 +99,27 @@ export function MemberTradingOnboarding() {
       </video>
     </div>
 
+    <div className="rounded-3xl border border-cyan-300/15 bg-[#0a0c12] p-5 sm:p-7">
+      <h2 className="text-2xl font-semibold">IP 白名单开关</h2>
+      <p className="mt-2 text-sm leading-7 text-white/55">Bitget 不强制所有 API Key 都绑定公网 IP。固定公网 IPv4 用户建议开启；家庭宽带、移动网络或动态 IP 用户可以关闭。这个选择只保存在您自己的配置文件中，网站不接收您的 Bitget 白名单内容。</p>
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <button type="button" aria-pressed={requireIpWhitelist} onClick={() => setRequireIpWhitelist(true)} className={`rounded-2xl border p-4 text-left ${requireIpWhitelist ? "border-emerald-300/45 bg-emerald-400/[0.08]" : "border-white/[0.08] bg-white/[0.025]"}`}>
+          <div className="font-semibold">绑定固定公网 IP（推荐）</div>
+          <p className="mt-2 text-xs leading-6 text-white/50">把运行 Agent 的固定出口 IPv4 填入 Bitget 白名单；检测不到白名单时，LIVE 拒绝新开仓。</p>
+        </button>
+        <button type="button" aria-pressed={!requireIpWhitelist} onClick={() => setRequireIpWhitelist(false)} className={`rounded-2xl border p-4 text-left ${!requireIpWhitelist ? "border-amber-300/45 bg-amber-400/[0.08]" : "border-white/[0.08] bg-white/[0.025]"}`}>
+          <div className="font-semibold">不绑定 IP（动态网络）</div>
+          <p className="mt-2 text-xs leading-6 text-white/50">适合没有固定公网 IP 的会员。仍可接入，但 Key 泄露风险更高；必须关闭提现和划转权限并定期轮换 Key。</p>
+        </button>
+      </div>
+      <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-4">
+        <p className="text-xs text-white/45">请在本机 MOOX配置.txt 中填写：</p>
+        <code className="mt-2 block text-sm text-cyan-100">MOOX_REQUIRE_IP_WHITELIST={requireIpWhitelist ? "true" : "false"}</code>
+        <button type="button" className="mt-2 text-xs text-cyan-200" onClick={() => void navigator.clipboard.writeText(`MOOX_REQUIRE_IP_WHITELIST=${requireIpWhitelist ? "true" : "false"}`)}>复制这一行</button>
+      </div>
+      {!requireIpWhitelist ? <p className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] p-3 text-xs leading-6 text-amber-100">关闭白名单不会开启提现权限，也不会放宽止损、仓位、回撤、行情新鲜度和保护单检查。若电脑中毒或 Key 可能泄露，请立即在 Bitget 删除该 API Key。</p> : null}
+    </div>
+
     <div className="rounded-3xl border border-white/10 bg-[#0a0c12] p-5 sm:p-7">
       <h2 className="text-2xl font-semibold">一步一步接入</h2>
       <ol className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -108,8 +130,8 @@ export function MemberTradingOnboarding() {
           ["4", "先运行PAPER", "双击“1-启动PAPER.bat”。PAPER不连接Bitget，不会产生真实订单。"],
           ["5", "创建Bitget UTA API", "个人中心→API管理→创建API；只给uta_mgt读取和uta_trade交易，禁止提币与划转。"],
           ["6", "只在本机粘贴三项", "把API Key、Secret Key、Passphrase粘贴到本机MOOX配置.txt，绝不粘贴到网站或发给客服。"],
-          ["7", "绑定固定IPv4", "准备LIVE必须绑定运行Agent的固定IPv4；没有固定IP就保持PAPER。"],
-          ["8", "运行DRY_RUN", "双击“2-检查DRY_RUN.bat”，检查权限、IP、账户模式和风险基线，不下单。"],
+          ["7", "选择IP白名单", "有固定公网IPv4建议绑定；没有固定IP可选择关闭，并在本机配置 MOOX_REQUIRE_IP_WHITELIST=false。"],
+          ["8", "运行DRY_RUN", "双击“2-检查DRY_RUN.bat”，检查权限、所选IP策略、账户模式和风险基线，不下单。"],
           ["9", "小仓试运行", "LIVE没有双击按钮，必须本机命令行双重确认；不熟悉命令行请停留在PAPER/DRY_RUN。"],
         ].map(([number, title, detail]) => <li key={number} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="text-xs text-amber-200">STEP {number}</div><div className="mt-1 font-semibold">{title}</div><p className="mt-2 text-xs leading-6 text-white/45">{detail}</p></li>)}
       </ol>
