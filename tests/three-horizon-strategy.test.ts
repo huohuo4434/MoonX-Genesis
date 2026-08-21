@@ -260,7 +260,7 @@ test("database migration is additive and seeds only shadow profiles", () => {
 test("v6.4.1 live active execution keeps one small activation target without removing hard caps", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");
-  assert.match(source, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
+  assert.match(source, /MOOX_TRADING_CONTROL_MODE/);
   assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);
   assert.match(source, /MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);

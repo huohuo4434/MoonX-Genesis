@@ -19,6 +19,10 @@ import {
 import { createHash, createHmac, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { auditFailureReferencesCore } from "@/lib/bitget/live-order-audit-core";
+import {
+  readAuthoritativeTradingControlMode,
+  readUnifiedLiveRuntimeConfig,
+} from "@/lib/trading-signals/unified-live-config";
 
 const BASE_URL = "https://api.bitget.com";
 const PRODUCT_TYPE = "USDT-FUTURES";
@@ -261,6 +265,7 @@ function numericEnvAliases(
 }
 
 function tradingMode(): BitgetTradingMode {
+  if (readAuthoritativeTradingControlMode().configured) return "LIVE_EXPERIMENT";
   const raw = process.env.BITGET_TRADING_MODE?.trim().toUpperCase();
   return ["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"].includes(raw ?? "")
     ? "LIVE_EXPERIMENT"
@@ -330,6 +335,8 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     ? Math.max(1, Math.min(live ? 2 : 3, Math.floor(leverageRaw)))
     : 2;
   const liveConfirmationAccepted = process.env.BITGET_LIVE_CONFIRMATION?.trim() === "I_ACCEPT_REAL_LOSS";
+  const authoritativeControl = readAuthoritativeTradingControlMode();
+  const unifiedRuntime = readUnifiedLiveRuntimeConfig();
   // V7.20.10.0: this deployment is an explicitly bounded 1000U real-money experiment.
   // Even if an older environment variable contains a larger number, the live engine
   // must not scale risk beyond the authorized 1000U capital slice.
@@ -358,7 +365,9 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
     mode: env.mode,
     configured,
     executionAllowed: live
-      ? process.env.BITGET_LIVE_EXECUTION_ALLOWED?.toLowerCase() === "true" && liveConfirmationAccepted
+      ? (authoritativeControl.configured
+          ? unifiedRuntime.positionManagementEnabled
+          : process.env.BITGET_LIVE_EXECUTION_ALLOWED?.toLowerCase() === "true") && liveConfirmationAccepted
       : process.env.BITGET_DEMO_EXECUTION_ALLOWED?.toLowerCase() === "true",
     testOrderAllowed: !live && process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
     apiKeyMasked: env.apiKey
@@ -1263,7 +1272,22 @@ export async function syncBitgetLiveExperimentStatus(
 async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedSymbol; size: string }): Promise<void> {
   const environment = getBitgetDemoEnvironment();
   if (environment.mode !== "LIVE_EXPERIMENT") return;
-  if (!environment.executionAllowed) throw new Error("BITGET_LIVE_EXECUTION_ALLOWED尚未开启或真实风险确认无效");
+  if (!environment.executionAllowed) throw new Error("交易控制模式未授权执行，或真实风险确认无效");
+  if (!readUnifiedLiveRuntimeConfig().allowNewEntriesByEnv) {
+    throw new Error("交易控制模式禁止新增敞口");
+  }
+  if (!prisma) throw new Error("实盘账户安全锁不可用，禁止新增敞口");
+  const officialAccount = await prisma.mooxUnifiedLiveAccount.findUnique({
+    where: { ownerKey: "official" },
+    select: { mode: true, newEntriesEnabled: true, positionManagementEnabled: true },
+  });
+  if (
+    officialAccount?.mode !== "LIVE"
+    || !officialAccount.newEntriesEnabled
+    || !officialAccount.positionManagementEnabled
+  ) {
+    throw new Error("实盘账户处于只管理或暂停状态，禁止新增敞口");
+  }
   if (!environment.liveAllowedSymbols.includes(input.symbol)) throw new Error(`${input.symbol}不在实盘实验允许品种中`);
   const experiment = await readBitgetLiveExperimentStatus(new Date());
   if (!experiment.active) throw new Error(experiment.stopReason || `实盘实验状态为${experiment.status}，禁止新开仓`);

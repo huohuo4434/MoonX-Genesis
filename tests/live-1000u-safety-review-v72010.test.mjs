@@ -36,20 +36,27 @@ test("cron does not bypass the existing idempotent execution outbox", () => {
   assert.match(client, /createOutboxIntent/);
   assert.match(client, /runIdempotentOrderDispatch/);
   assert.match(client, /getBitgetDemoOrderByClientOid/);
+  assert.match(client, /readUnifiedLiveRuntimeConfig\(\)\.allowNewEntriesByEnv/);
+  assert.match(client, /officialAccount\?\.mode !== "LIVE"/);
+  assert.match(client, /!officialAccount\.newEntriesEnabled/);
+  assert.match(client, /!officialAccount\.positionManagementEnabled/);
 });
 
 test("no code default silently flips unified runtime to LIVE", () => {
   const config = read("lib/trading-signals/unified-live-config.ts");
   assert.match(config, /String\(value \?\? "MANAGE_ONLY"\)/);
+  assert.match(config, /return \{ configured: true, mode: "PAUSED" \}/);
   assert.match(config, /MOOX_UNIFIED_LIVE_NEW_ENTRIES, false/);
   assert.match(config, /MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH, false/);
 });
 
 test("official live switch always preserves position management and MANAGE_ONLY is risk-reducing", () => {
   const route = read("app/api/admin/live-trading/route.ts");
+  const reliability = read("lib/trading-signals/trading-reliability.ts");
   assert.match(route, /newEntriesEnabled: mode === "LIVE"/);
   assert.match(route, /positionManagementEnabled: mode !== "PAUSED"/);
-  assert.match(route, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
+  assert.match(route, /isUnifiedLiveActiveExecutionEnabled/);
+  assert.match(reliability, /readUnifiedLiveRuntimeConfig\(\)\.positionManagementEnabled/);
 });
 
 test("live does not create quota-filling or commissioning trades by default", () => {

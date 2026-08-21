@@ -9,6 +9,7 @@ import {
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { paymentNotifyTo, sendRawEmail } from "@/lib/email/notifications";
+import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import {
   getBitgetDemoCurrentPositions,
   getBitgetDemoEnvironment,
@@ -522,7 +523,7 @@ async function repairMissingProtections(input: {
   const environment = getBitgetDemoEnvironment();
   const legacyHorizonToggle = process.env.BITGET_DEMO_THREE_HORIZON_EXECUTION_ALLOWED?.toLowerCase();
   const horizonAllowed = environment.mode === "LIVE_EXPERIMENT"
-    ? process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false"
+    ? readUnifiedLiveRuntimeConfig().positionManagementEnabled
     : legacyHorizonToggle !== "false";
   if (!environment.executionAllowed || !horizonAllowed || !prisma) return repairs;
 

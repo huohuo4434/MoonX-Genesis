@@ -22,7 +22,7 @@ test("prediction cron now delegates to the existing three-horizon server runtime
   assert.match(cron, /evaluateUnifiedLiveNewEntryGate\("official"\)/);
   assert.match(cron, /runBitgetDemoServerRuntime\(now, "CRON"/);
   assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
-  assert.match(cron, /MOOX_LIVE_ACTIVE_EXECUTION_V641/);
+  assert.match(cron, /isUnifiedLiveActiveExecutionEnabled/);
   assert.match(cron, /Date\.now\(\) \+ 285_000/);
   assert.match(cron, /CRON_SECRET/);
   assert.doesNotMatch(cron, /placeBitgetDemoMarketOrder/);

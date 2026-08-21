@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
 import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
+import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
 
 // MOOX_V72010_1000U_AUTO_CRON: authoritative minute runner; never places orders directly.
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     positionManagementContinues: true,
   }));
 
-  const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+  const strategyActiveExecutionEnabled = isUnifiedLiveActiveExecutionEnabled();
   const autoEntryAllowed = unifiedGate.allowed && strategyActiveExecutionEnabled;
   const effectiveGate = strategyActiveExecutionEnabled
     ? unifiedGate

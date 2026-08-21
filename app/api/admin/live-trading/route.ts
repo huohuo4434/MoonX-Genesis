@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
-import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
+import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
 import { getUnifiedLiveRuntimeStatus, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { claimUnifiedLivePosition, setUnifiedLiveMode } from "@/lib/trading-signals/unified-live-store";
@@ -9,18 +9,18 @@ import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-t
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function admin(request: NextRequest) {
+async function requireAdmin(request: NextRequest) {
   const actor = await resolveUnifiedLiveActor(request);
   return (await isUnifiedLiveAdmin(actor)) ? actor : null;
 }
 
 export async function GET(request: NextRequest) {
-  if (!(await admin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   return NextResponse.json(await getUnifiedLiveRuntimeStatus("official"));
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await admin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const action = String(payload?.action ?? "").toUpperCase();
   if (action === "RUN_AUDIT") {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       && runtime.allowLiveSwitch
       && runtime.allowNewEntriesByEnv
       && runtime.positionManagementEnabled;
-    const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+    const strategyActiveExecutionEnabled = isUnifiedLiveActiveExecutionEnabled();
     const bitgetReady = bitget.mode === "LIVE_EXPERIMENT"
       && bitget.configured
       && bitget.executionAllowed
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         },
         blockers: [
           ...(status.audit?.issues ?? []),
-          ...(!strategyActiveExecutionEnabled ? [{ code: "LEGACY_STRATEGY_EXECUTION_DISABLED", severity: "BLOCK", message: "MOOX_LIVE_ACTIVE_EXECUTION_V641 is explicitly false" }] : []),
+          ...(!strategyActiveExecutionEnabled ? [{ code: "TRADING_CONTROL_MODE_BLOCKED", severity: "BLOCK", message: "交易控制模式当前不允许新开仓" }] : []),
         ],
       }, { status: 409 });
     }

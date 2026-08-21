@@ -30,12 +30,22 @@ V4值优先；未配置V4时确定性使用新授权默认值10。V3及无版本
 
 `BITGET_LIVE_MAX_DRAWDOWN_USDT`、`BITGET_LIVE_DAILY_LOSS_USDT`及其V3别名继续有效；它们不是容量变量，也未被V4弃用。
 
-## 必须保持的实盘授权
+## 简化后的实盘授权
 
-- `BITGET_TRADING_MODE=LIVE_EXPERIMENT`（也接受`LIVE`）
-- `BITGET_LIVE_EXECUTION_ALLOWED=true`
+- `MOOX_TRADING_CONTROL_MODE=LIVE`
 - `BITGET_LIVE_CONFIRMATION=I_ACCEPT_REAL_LOSS`
 - 正确的实盘API Key、Secret和Passphrase
+
+日常操作只使用`MOOX_TRADING_CONTROL_MODE`：`LIVE`允许策略新开仓并管理仓位，
+`MANAGE_ONLY`禁止新开仓但继续管理保护单与退出，`PAUSED`暂停交易执行并保留只读审计。
+`BITGET_LIVE_CONFIRMATION`是一次性的真实亏损确认，不是日常开关。
+
+旧的`BITGET_TRADING_MODE`、`BITGET_LIVE_EXECUTION_ALLOWED`、
+`MOOX_UNIFIED_LIVE_*`和`MOOX_LIVE_ACTIVE_EXECUTION_V641`仅在新控制变量未配置时兼容读取，
+不得再作为新部署的操作入口。数据库账户模式仍作为运行时安全锁：托管审计、保护单缺失、
+对账异常等情况可以把它降级为`MANAGE_ONLY`，但不能自行恢复为`LIVE`。
+所有Bitget非减仓市价单都会在最底层同时检查这一数据库安全锁，旧后台入口也不能绕过；
+减仓、补保护单和只读对账不依赖新开仓许可。
 
 ## 默认参数
 

@@ -17,7 +17,7 @@ test('preserves V6.4 live staged execution state', () => {
 });
 
 test('preserves live mode and real-money gates', () => {
-  assert.equal(has(strategy, 'MOOX_LIVE_ACTIVE_EXECUTION_V641'), true);
+  assert.equal(has(strategy, 'MOOX_TRADING_CONTROL_MODE'), true);
   assert.equal(has(strategy, 'profile.mode !== "LIVE"'), true);
   assert.equal(has(plans, '"BITGET_LIVE"'), true);
   assert.equal(has(plans, 'profile.mode === "LIVE" ? "BITGET_LIVE" : "BITGET_DEMO"'), true);

@@ -28,6 +28,8 @@ import {
   type NewExposureAction,
 } from "@/lib/trading-signals/weekly-long-entry-timing-core";
 import { resolveFormalExternalOverlayDirection } from "@/lib/trading-signals/external-analyst-aggregation-core";
+import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
+import { protectExecutionLifecycleStatus } from "@/lib/trading-signals/decision-status-transition-core";
 import { prisma } from "@/lib/prisma";
 import {
   cancelBitgetDemoStrategyOrder,
@@ -116,15 +118,12 @@ const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
 ];
 const LIVE_COMMISSIONING_PREFERRED_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
-// MOOX_LIVE_ACTIVE_EXECUTION_V641
-// The ten-market live engine remains behind the existing real-money authorization gates:
-// BITGET_TRADING_MODE, BITGET_LIVE_EXECUTION_ALLOWED and BITGET_LIVE_CONFIRMATION.
-// This extra switch is only an emergency kill switch and defaults to enabled once those
-// explicit real-money gates have already been accepted.
+// MOOX_TRADING_CONTROL_MODE is the single operational control. Legacy
+// MOOX_LIVE_ACTIVE_EXECUTION_V641 remains compatibility-only when it is absent.
 const LIVE_COMMISSIONING_ENABLED =
   process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
-  process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+  isUnifiedLiveActiveExecutionEnabled();
 const LIVE_ACTIVITY_ENABLED = LIVE_ACTIVE_EXECUTION_ENABLED;
 const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
@@ -2118,11 +2117,17 @@ async function updateDecision(
   );
   const current = currentRows[0];
   if (!current) throw new Error("三周期策略决策不存在");
+  const transition = protectExecutionLifecycleStatus({
+    currentStatus: current.status,
+    requestedStatus: fields.status ?? current.status,
+    bitgetOrderId: current.bitget_order_id,
+    closedAt: current.closed_at,
+  });
   await prisma.$executeRaw`
     UPDATE trade_three_horizon_decisions SET
-      status = ${fields.status ?? current.status},
-      rejection_code = ${fields.rejectionCode ?? current.rejection_code},
-      rejection_reason = ${fields.rejectionReason ?? current.rejection_reason},
+      status = ${transition.status},
+      rejection_code = ${transition.preserveExecutionMetadata ? current.rejection_code : fields.rejectionCode ?? current.rejection_code},
+      rejection_reason = ${transition.preserveExecutionMetadata ? current.rejection_reason : fields.rejectionReason ?? current.rejection_reason},
       current_price = ${fields.currentPrice === undefined ? current.current_price : fields.currentPrice},
       entry_price = ${fields.entryPrice === undefined ? current.entry_price : fields.entryPrice},
       quantity = ${fields.quantity === undefined ? current.quantity : fields.quantity},
@@ -4358,7 +4363,7 @@ export async function getThreeHorizonStrategyDashboard(
         ? (LIVE_ACTIVITY_TARGET > 0
             ? `实盘主动执行已开启：允许池动态Top10三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔合格激活目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
             : "实盘主动执行已开启：允许池动态Top10三周期扫描、MOOX方向+市场节点触发、分批探路仓、最高2倍逐仓及现有实盘风控上限生效；不为凑单强制交易。")
-        : "实盘主动执行未获授权：请检查BITGET_TRADING_MODE、BITGET_LIVE_EXECUTION_ALLOWED、BITGET_LIVE_CONFIRMATION及MOOX_LIVE_ACTIVE_EXECUTION_V641。"
+        : "实盘主动执行未获授权：请检查MOOX_TRADING_CONTROL_MODE与BITGET_LIVE_CONFIRMATION。"
       : executionEnvironmentAllowed
         ? `主动Demo执行已开启：全动态Top10品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
         : "主动Demo执行当前关闭。请确认BITGET_DEMO_EXECUTION_ALLOWED=true；MOOX_DEMO_ACTIVE_EXECUTION_V64或旧兼容开关若显式设为false，也会立即停止新开仓。",

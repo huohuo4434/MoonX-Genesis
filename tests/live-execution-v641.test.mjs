@@ -24,7 +24,7 @@ test("existing Vercel live variables are honored", () => {
 
 test("live execution keeps one activation target with small risk and hard caps", () => {
   for (const token of [
-    "MOOX_LIVE_ACTIVE_EXECUTION_V641",
+    "MOOX_TRADING_CONTROL_MODE",
     'MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4',
     "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
     "MOOX_LIVE_SYMBOL_TRADE_CAP_V641",
@@ -36,7 +36,7 @@ test("live execution keeps one activation target with small risk and hard caps",
 
 test("live orders remain behind explicit authorization and all safety gates", () => {
   for (const token of [
-    "BITGET_LIVE_EXECUTION_ALLOWED",
+    "MOOX_TRADING_CONTROL_MODE",
     "BITGET_LIVE_CONFIRMATION",
     "I_ACCEPT_REAL_LOSS",
     "getTradingReliabilityOpeningGate",

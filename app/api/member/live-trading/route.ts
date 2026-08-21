@@ -12,7 +12,10 @@ import {
   getBitgetDemoEnvironment,
 } from "@/lib/bitget/demo-client";
 import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
-import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
+import {
+  isUnifiedLiveActiveExecutionEnabled,
+  readUnifiedLiveRuntimeConfig,
+} from "@/lib/trading-signals/unified-live-config";
 import {
   ensureUnifiedLiveAccount,
   getUnifiedLiveAccount,
@@ -209,7 +212,7 @@ export async function GET(request: NextRequest) {
       positionManagementContinues: true,
     })),
   ]);
-  const strategyActiveExecutionEnabled = process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641?.toLowerCase() !== "false";
+  const strategyActiveExecutionEnabled = isUnifiedLiveActiveExecutionEnabled();
   const newEntryGate = strategyActiveExecutionEnabled
     ? baseNewEntryGate
     : { ...baseNewEntryGate, allowed: false, reasons: [...baseNewEntryGate.reasons, "LEGACY_STRATEGY_EXECUTION_DISABLED"] };
@@ -362,16 +365,10 @@ export async function GET(request: NextRequest) {
       : "BLOCKED";
 
   const envChecks = [
-    { name: "MOOX_UNIFIED_LIVE_MODE", ok: runtimeConfig.mode === "LIVE", expected: "LIVE", secret: false },
-    { name: "MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH", ok: runtimeConfig.allowLiveSwitch === true, expected: "true", secret: false },
-    { name: "MOOX_UNIFIED_LIVE_NEW_ENTRIES", ok: runtimeConfig.allowNewEntriesByEnv === true, expected: "true", secret: false },
-    { name: "MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT", ok: runtimeConfig.positionManagementEnabled === true, expected: "true", secret: false },
-    { name: "MOOX_LIVE_ACTIVE_EXECUTION_V641", ok: strategyActiveExecutionEnabled, expected: "true / 未显式设为false", secret: false },
-    { name: "BITGET_TRADING_MODE", ok: bitget.mode === "LIVE_EXPERIMENT", expected: "LIVE_EXPERIMENT", secret: false },
+    { name: "MOOX_TRADING_CONTROL_MODE", ok: runtimeConfig.controlSource === "MOOX_TRADING_CONTROL_MODE" && runtimeConfig.mode === "LIVE", expected: "LIVE", secret: false },
     { name: "BITGET_LIVE_API_KEY", ok: Boolean(process.env.BITGET_LIVE_API_KEY?.trim()), expected: "已配置", secret: true },
     { name: "BITGET_LIVE_SECRET_KEY", ok: Boolean(process.env.BITGET_LIVE_SECRET_KEY?.trim()), expected: "已配置", secret: true },
     { name: "BITGET_LIVE_PASSPHRASE", ok: Boolean(process.env.BITGET_LIVE_PASSPHRASE?.trim()), expected: "已配置", secret: true },
-    { name: "BITGET_LIVE_EXECUTION_ALLOWED", ok: process.env.BITGET_LIVE_EXECUTION_ALLOWED?.trim().toLowerCase() === "true", expected: "true", secret: false },
     { name: "BITGET_LIVE_CONFIRMATION", ok: bitget.liveConfirmationAccepted, expected: "I_ACCEPT_REAL_LOSS", secret: false },
     { name: "BITGET_LIVE_INITIAL_CAPITAL_USDT", ok: Math.abs(bitget.liveInitialCapitalUsdt - 1000) < 0.01, expected: "1000", secret: false },
     { name: "CRON_SECRET", ok: bitgetRuntime?.cronSecretConfigured === true || Boolean(process.env.CRON_SECRET?.trim()), expected: "已配置", secret: true },
