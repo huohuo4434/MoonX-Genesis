@@ -514,8 +514,8 @@ function buildMultiViewPanel(groups: MultiViewResearcherGroup[], english: boolea
     lineHeight: "1.75",
   }));
   header.appendChild(createEl("p", english
-    ? "External viewpoints are supplementary intelligence only. They cannot override MOOX Qimen direction and do not trigger live trading."
-    : "外部观点只作为辅助情报：不能覆盖 MOOX 奇门正式方向，也不能单独触发实盘交易。", {
+    ? "External viewpoints are supplementary intelligence only. They cannot override the MOOX official direction and do not trigger live trading."
+    : "外部观点只作为辅助情报：不能覆盖 MOOX 正式方向，也不能单独触发实盘交易。", {
     margin: "10px 0 0",
     opacity: ".62",
     fontSize: "13px",
