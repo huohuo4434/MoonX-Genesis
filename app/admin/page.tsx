@@ -25,7 +25,8 @@ export default async function AdminHomePage() {
     loadTodayForecastRows(now),
     loadTomorrowForecastRows(now),
   ]);
-  const stats = verificationSnapshot.daily.stats;
+  const dailyStats = verificationSnapshot.daily.stats;
+  const weeklyStats = verificationSnapshot.weekly.stats;
   const pending = paymentQueue.pendingCount;
   const recentAuto = [...paymentQueue.autoAttention, ...paymentQueue.autoProcessing].slice(0, 5);
   const recentLegacy = paymentQueue.legacyPending.slice(0, Math.max(0, 5 - recentAuto.length));
@@ -41,9 +42,9 @@ export default async function AdminHomePage() {
     { label: "今日观点数", value: String(todayRows.length) },
     { label: "下一交易日观点数", value: String(tomorrowRows.length) },
     { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
-    { label: "公开验证样本", value: String(stats.verifiedCount) },
+    { label: "日度复盘样本", value: String(dailyStats.verifiedCount) },
     { label: "公开待验证", value: String(verificationSnapshot.pending.length + verificationSnapshot.weekly.stats.pending) },
-    { label: "公开加权命中率", value: stats.weightedHitRate == null ? "暂无样本" : `${(stats.weightedHitRate * 100).toFixed(1)}%` },
+    { label: "周度加权命中率", value: weeklyStats.weightedAccuracyPct == null ? "暂无样本" : `${weeklyStats.weightedAccuracyPct.toFixed(1)}%` },
     { label: "老师课程", value: `${tlcStats.lessonCount}节` },
     { label: "老师规则", value: `${tlcStats.ruleCount}条` },
     { label: "老师案例", value: `${tlcStats.caseCount}个` },
