@@ -4,7 +4,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
-import { X_SOURCE_REGISTRY, xSourceFamilyForHandle } from "@/lib/trading-signals/x-source-registry.server";
+import { X_SOURCE_REGISTRY, xSourceFamilyForHandle, xSourceRegistryEntryForHandle } from "@/lib/trading-signals/x-source-registry.server";
 import {
   anonymizeMultiViewResearcher,
   classifyMultiViewDirection,
@@ -14,6 +14,8 @@ import {
   extractMultiViewCashtags,
   extractMultiViewLevels,
   extractMultiViewTimeWindows,
+  filterMultiViewSourceAssets,
+  redactMultiViewSourceHandles,
   summarizeMultiViewForAsset,
   type MultiViewDirection,
   type MultiViewHorizon,
@@ -36,6 +38,10 @@ export type MemberAssetOpinionEntry = {
 
 export type MemberAssetResearcherOpinion = {
   researcherCode: string;
+  memberAlias: string | null;
+  specialty: string | null;
+  priorityTier: 1 | 2 | null;
+  priorityRank: number | null;
   family: string;
   overallDirection: MemberAssetOpinionDirection;
   latestDirection: MultiViewDirection;
@@ -172,6 +178,11 @@ function numberLabel(value: number): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: Math.abs(value) < 1 ? 6 : 2 });
 }
 
+/** Remove monitored identities before any member-facing summary or extracted text is built. */
+function redactMemberSourceHandles(value: string): string {
+  return redactMultiViewSourceHandles(value, X_SOURCE_REGISTRY.map((entry) => entry.handle));
+}
+
 function parsedLevels(parsed: Partial<ExternalAnalystParsedPost>): MultiViewLevel[] {
   const rows: MultiViewLevel[] = [];
   const add = (label: MultiViewLevel["label"], values: unknown) => {
@@ -198,19 +209,21 @@ function targetLabels(parsed: Partial<ExternalAnalystParsedPost>, levels: MultiV
   return targets.slice(0, 6);
 }
 
-function assetsForRow(row: StoredPostRow): string[] {
+const MEMBER_SOURCE_HANDLES = X_SOURCE_REGISTRY.map((entry) => entry.handle);
+
+function assetsForRow(row: StoredPostRow, memberSafeText: string): string[] {
   const parsed = parseParsedPost(row.parsed);
   const values = new Set<string>();
   if (Array.isArray(parsed.symbols)) {
-    for (const symbol of parsed.symbols) {
+    for (const symbol of filterMultiViewSourceAssets(parsed.symbols.map(String), MEMBER_SOURCE_HANDLES)) {
       const display = displaySymbol(String(symbol));
       if (display) values.add(display);
     }
   }
-  for (const asset of extractMultiViewAssets(row.text)) values.add(asset);
-  for (const ticker of extractMultiViewCashtags(row.text)) values.add(ticker);
-  if (!values.size && /美联储|利率|流动性|大盘|美股|市场|风险偏好|宏观/i.test(row.text)) values.add("MACRO");
-  return [...values].slice(0, 10);
+  for (const asset of extractMultiViewAssets(memberSafeText)) values.add(asset);
+  for (const ticker of extractMultiViewCashtags(memberSafeText)) values.add(ticker);
+  if (!values.size && /美联储|利率|流动性|大盘|美股|市场|风险偏好|宏观/i.test(memberSafeText)) values.add("MACRO");
+  return filterMultiViewSourceAssets([...values], MEMBER_SOURCE_HANDLES).slice(0, 10);
 }
 
 function overallDirection(entries: MemberAssetOpinionEntry[]): MemberAssetOpinionDirection {
@@ -224,7 +237,16 @@ function overallDirection(entries: MemberAssetOpinionEntry[]): MemberAssetOpinio
 
 function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
   const allowed = new Set(X_SOURCE_REGISTRY.map((row) => row.handle.toLowerCase()));
-  const assetResearcher = new Map<string, Map<string, { family: string; entries: MemberAssetOpinionEntry[]; theoryText: string[] }>>();
+  type ResearcherBucket = {
+    family: string;
+    memberAlias: string | null;
+    specialty: string | null;
+    priorityTier: 1 | 2 | null;
+    priorityRank: number | null;
+    entries: MemberAssetOpinionEntry[];
+    theoryText: string[];
+  };
+  const assetResearcher = new Map<string, Map<string, ResearcherBucket>>();
 
   for (const row of rows) {
     const username = String(row.username ?? "").replace(/^@/, "").trim().toLowerCase();
@@ -232,7 +254,8 @@ function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
     const postedAt = iso(row.posted_at);
     if (!postedAt) continue;
     const parsed = parseParsedPost(row.parsed);
-    const assets = assetsForRow(row);
+    const memberSafeText = redactMemberSourceHandles(row.text);
+    const assets = assetsForRow(row, memberSafeText);
     if (!assets.length) continue;
     const direction = mapParsedDirection(parsed.direction, row.text);
     const horizon = mapParsedHorizon(parsed.horizon, row.text);
@@ -241,19 +264,30 @@ function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
     for (const level of fallbackLevels) {
       if (!levels.some((item) => item.label === level.label && item.value === level.value)) levels.push(level);
     }
-    const parsedWindows = Array.isArray(parsed.timeWindows) ? parsed.timeWindows.map(String).filter(Boolean) : [];
-    const timeWindows = [...new Set([...parsedWindows, ...extractMultiViewTimeWindows(row.text)])].slice(0, 6);
+    const parsedWindows = Array.isArray(parsed.timeWindows)
+      ? parsed.timeWindows.map((value) => redactMemberSourceHandles(String(value))).filter(Boolean)
+      : [];
+    const timeWindows = [...new Set([...parsedWindows, ...extractMultiViewTimeWindows(memberSafeText)])].slice(0, 6);
     const code = anonymizeMultiViewResearcher(`@${username}`, 0);
     const family = familyLabel(xSourceFamilyForHandle(username));
+    const profile = xSourceRegistryEntryForHandle(username);
 
     for (const asset of assets) {
-      const assetMap = assetResearcher.get(asset) ?? new Map<string, { family: string; entries: MemberAssetOpinionEntry[]; theoryText: string[] }>();
-      const current = assetMap.get(code) ?? { family, entries: [], theoryText: [] };
+      const assetMap = assetResearcher.get(asset) ?? new Map<string, ResearcherBucket>();
+      const current = assetMap.get(code) ?? {
+        family,
+        memberAlias: profile?.memberAlias ?? null,
+        specialty: profile?.specialty ?? null,
+        priorityTier: profile?.priorityTier ?? null,
+        priorityRank: profile?.priorityRank ?? null,
+        entries: [],
+        theoryText: [],
+      };
       current.entries.push({
         postedAt,
         direction,
         horizon,
-        summary: summarizeMultiViewForAsset(row.text, asset, 260),
+        summary: summarizeMultiViewForAsset(memberSafeText, asset, 260),
         timeWindows,
         levels: levels.slice(0, 8),
         targets: targetLabels(parsed, levels),
@@ -281,6 +315,10 @@ function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
       }
       opinions.push({
         researcherCode,
+        memberAlias: raw.memberAlias,
+        specialty: raw.specialty,
+        priorityTier: raw.priorityTier,
+        priorityRank: raw.priorityRank,
         family: raw.family,
         overallDirection: overallDirection(entries),
         latestDirection: entries[0]?.direction ?? "NEUTRAL",
@@ -290,7 +328,15 @@ function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
         entries,
       });
     }
-    opinions.sort((a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt));
+    opinions.sort((a, b) => {
+      const tierA = a.priorityTier ?? 9;
+      const tierB = b.priorityTier ?? 9;
+      if (tierA !== tierB) return tierA - tierB;
+      const rankA = a.priorityRank ?? 999;
+      const rankB = b.priorityRank ?? 999;
+      if (rankA !== rankB) return rankA - rankB;
+      return Date.parse(b.latestAt) - Date.parse(a.latestAt);
+    });
     const counts = opinions.reduce((acc, opinion) => {
       if (opinion.overallDirection === "BULLISH") acc.bull += 1;
       else if (opinion.overallDirection === "BEARISH") acc.bear += 1;

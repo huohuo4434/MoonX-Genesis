@@ -88,6 +88,24 @@ export function summarizeMultiViewConsensus(input: {
   };
 }
 
+/**
+ * Conservative promotion gate for future external-source verification.
+ * A source receives no predictive weight before ten locked, time-bounded samples.
+ * Even a strong source remains a small research overlay and never owns direction.
+ */
+export function multiViewVerifiedResearchWeight(input: {
+  sampleCount: number;
+  weightedHitRatePct: number | null;
+}): 0 | 1 | 2 | 3 {
+  const samples = Math.max(0, Math.floor(input.sampleCount));
+  const rate = input.weightedHitRatePct;
+  if (samples < 10 || rate == null || !Number.isFinite(rate)) return 0;
+  if (rate >= 70) return 3;
+  if (rate >= 65) return 2;
+  if (rate >= 60) return 1;
+  return 0;
+}
+
 const METHOD_RULES: ReadonlyArray<{
   theory: MultiViewTheory;
   keywords: readonly string[];
@@ -338,6 +356,32 @@ export function stripMultiViewIdentity(rawText: string): string {
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/** Final registry-aware redaction for member surfaces; handles may be bare, @-prefixed or embedded in prose. */
+export function redactMultiViewSourceHandles(rawText: string, handles: readonly string[]): string {
+  const patterns = handles
+    .map((handle) => handle.replace(/^@+/, "").trim())
+    .filter(Boolean)
+    .map((handle) => handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!patterns.length) return rawText;
+  const handlePattern = new RegExp(
+    `(^|[^A-Za-z0-9_@])@?(?:${patterns.join("|")})(?=$|[^A-Za-z0-9_])`,
+    "gi",
+  );
+  return rawText
+    .replace(handlePattern, (_match, prefix: string) => prefix)
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+/** Prevent a monitored identity from being rendered as an asset/cashtag label. */
+export function filterMultiViewSourceAssets(values: readonly string[], handles: readonly string[]): string[] {
+  const blocked = new Set(handles.map((handle) => handle.replace(/^[@$]+/, "").replace(/[^A-Za-z0-9_]/g, "").toLowerCase()).filter(Boolean));
+  return values.filter((value) => {
+    const normalized = String(value).replace(/^[@$]+/, "").replace(/[^A-Za-z0-9_]/g, "").toLowerCase();
+    return Boolean(normalized) && !blocked.has(normalized);
+  });
 }
 
 const IMPORTANT_PATTERNS = [

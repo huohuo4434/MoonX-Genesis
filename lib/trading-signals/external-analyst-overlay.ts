@@ -1,5 +1,6 @@
 // MOOX_EXTERNAL_ANALYST_V1
 import type { ExternalAnalystOverlay } from "@/types/external-analyst";
+import { multiViewVerifiedResearchWeight } from "@/lib/research/member-multi-view-core";
 import type {
   ThreeHorizonCondition,
   ThreeHorizonDirection,
@@ -79,6 +80,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   overlay: ExternalAnalystOverlay | null;
   strategyType: ThreeHorizonStrategyType;
   primaryForecastDirection: ThreeHorizonDirection;
+  externalVerification?: { sampleCount: number; weightedHitRatePct: number | null };
 }): T {
   const { evaluation, overlay, strategyType, primaryForecastDirection } = input;
   if (!overlay || !evaluation.entryPrice || evaluation.direction === "NEUTRAL") return evaluation;
@@ -87,6 +89,10 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   const gannReference = overlay.sources?.includes("BTCTW0")
     ?? Boolean(overlay.roles?.some((role) => role === "GANN_LEVEL_CYCLE" || role === "GANN_SWING")
       || overlay.sourceLabels.some((value) => /BTCTW0/i.test(value)));
+  const verifiedResearchWeightPct = multiViewVerifiedResearchWeight(
+    input.externalVerification ?? { sampleCount: 0, weightedHitRatePct: null },
+  );
+  const verifiedGannReference = gannReference && verifiedResearchWeightPct > 0;
   const hasFormalDirection = primaryForecastDirection !== "NEUTRAL";
   const matDirection = matResonance ? directionFromObservations(overlay, "MAT78704") : "NEUTRAL";
   const matAligned = matResonance
@@ -126,13 +132,17 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
       alignment: isAligned ? "ALIGNED" : "CONFLICT",
       authority: "RESEARCH_ONLY",
       consensusEligible: false,
+      verifiedResearchWeightPct,
+      minimumVerifiedSamples: 10,
       applied: false,
       rule: "六爻周度/月度方向优先；公开市场资金线索仅辅助入场、止盈、止损和时间窗口，不得独立反转方向。",
     },
   };
 
   if (!isAligned) {
-    const confidencePenalty = matResonance && matDirection === "NEUTRAL" ? 0 : 3;
+    const confidencePenalty = matResonance
+      ? (matDirection === "NEUTRAL" ? 0 : 3)
+      : verifiedResearchWeightPct;
     return {
       ...evaluation,
       confidence: clamp(evaluation.confidence - confidencePenalty, 0, 100),
@@ -152,7 +162,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
   let target2 = evaluation.target2;
   const original = { stopLoss, target1, target2 };
 
-  if (gannReference && evaluation.direction === "LONG") {
+  if (verifiedGannReference && evaluation.direction === "LONG") {
     const support = nearestBelow(supports, entry);
     if (support) {
       const candidate = support * (1 - bufferPct / 100);
@@ -166,7 +176,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
     if (first) target1 = target1 == null ? first : Math.min(target1, first);
     if (second) target2 = target2 == null ? second : Math.max(target1 ?? entry, Math.min(target2, second));
     else if (first && target2 == null) target2 = first;
-  } else if (gannReference) {
+  } else if (verifiedGannReference) {
     const resistance = nearestAbove(resistances, entry);
     if (resistance) {
       const candidate = resistance * (1 + bufferPct / 100);
@@ -192,7 +202,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
     ? rr(evaluation.direction, entry, original.stopLoss as number, original.target2 as number)
     : 0;
   const levelsChanged = stopLoss !== original.stopLoss || target1 !== original.target1 || target2 !== original.target2;
-  const applied = Boolean(gannReference && levelsChanged && validStop && validTarget1 && validTarget2 && rewardRisk >= 1.2 && (originalRewardRisk <= 0 || rewardRisk >= originalRewardRisk));
+  const applied = Boolean(verifiedGannReference && levelsChanged && validStop && validTarget1 && validTarget2 && rewardRisk >= 1.2 && (originalRewardRisk <= 0 || rewardRisk >= originalRewardRisk));
 
   const externalRaw = baseRaw.externalAnalyst as Record<string, unknown>;
   const raw = {
@@ -208,7 +218,7 @@ export function applyExternalAnalystOverlay<T extends EvaluationLike>(input: {
 
   return {
     ...evaluation,
-    confidence: clamp(evaluation.confidence + (matResonance ? 3 : overlay.direction === "NEUTRAL" ? 1 : 4), 0, 100),
+    confidence: clamp(evaluation.confidence + (matResonance ? 3 : verifiedResearchWeightPct), 0, 100),
     stopLoss: applied ? stopLoss : evaluation.stopLoss,
     target1: applied ? target1 : evaluation.target1,
     target2: applied ? target2 : evaluation.target2,

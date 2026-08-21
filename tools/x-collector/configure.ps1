@@ -49,7 +49,7 @@ $config = if (Test-Path -LiteralPath $ConfigPath) {
 } else {
   [pscustomobject]@{
     site_url = "https://mooxintel.com"
-    accounts = @("jiujinshan2022", "btckik", "BTCTW0", "haliluya8911", "Deltaking888", "btcpiggy", "Meta8Mate", "ximihoo1", "cfsq143", "big_hunter11", "hibtc37", "Cycle_King1913", "Lvzhishi", "formnoshape", "thankUcrypto", "Young852560", "pcwler66", "shawnus88896948", "yijiangren", "laban_li", "iiiinvest", "ArtofSpecuycky", "roger73005305", "thewindisfree", "mat78704", "eastweb3eth", "WallStreet0Name")
+    accounts = @("BTCTW0", "formnoshape", "btcpiggy", "yijiangren", "laban_li", "WallStreet0Name", "ximihoo1", "KeHenryA8", "iiiinvest", "coseryaya", "jiujinshan2022", "btckik", "haliluya8911", "Deltaking888", "Meta8Mate", "cfsq143", "big_hunter11", "hibtc37", "Cycle_King1913", "Lvzhishi", "thankUcrypto", "Young852560", "pcwler66", "shawnus88896948", "ArtofSpecuycky", "roger73005305", "thewindisfree", "mat78704", "eastweb3eth")
     max_posts_per_account = 20
     lookback_hours = 240
     history_backfill_posts_per_account = 120
@@ -57,9 +57,24 @@ $config = if (Test-Path -LiteralPath $ConfigPath) {
   }
 }
 
-$requiredAccounts = @("jiujinshan2022", "btckik", "BTCTW0", "haliluya8911", "Deltaking888", "btcpiggy", "Meta8Mate", "ximihoo1", "cfsq143", "big_hunter11", "hibtc37", "Cycle_King1913", "Lvzhishi", "formnoshape", "thankUcrypto", "Young852560", "pcwler66", "shawnus88896948", "yijiangren", "laban_li", "iiiinvest", "ArtofSpecuycky", "roger73005305", "thewindisfree", "mat78704", "eastweb3eth", "WallStreet0Name")
+$ProductionAccountsPath = Join-Path $PSScriptRoot "production-accounts.txt"
+if (-not (Test-Path -LiteralPath $ProductionAccountsPath)) {
+  throw "Production account registry was not found: $ProductionAccountsPath"
+}
+$requiredAccounts = @(Get-Content -LiteralPath $ProductionAccountsPath -Encoding UTF8 | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($requiredAccounts.Count -ne 29) { throw "Production account registry must contain exactly 29 accounts." }
 $existingAccounts = @($config.accounts | ForEach-Object { [string]$_ })
-$config.accounts = @($existingAccounts + $requiredAccounts | Sort-Object -Unique)
+$seenAccounts = @{}
+$orderedAccounts = [System.Collections.Generic.List[string]]::new()
+foreach ($account in @($requiredAccounts + $existingAccounts)) {
+  $cleanAccount = $account.Trim()
+  $accountKey = $cleanAccount.ToLowerInvariant()
+  if ($accountKey -and -not $seenAccounts.ContainsKey($accountKey)) {
+    $seenAccounts[$accountKey] = $true
+    [void]$orderedAccounts.Add($cleanAccount)
+  }
+}
+$config.accounts = @($orderedAccounts)
 if (-not $config.PSObject.Properties['max_posts_per_account'] -or [int]$config.max_posts_per_account -lt 20) { $config | Add-Member -NotePropertyName max_posts_per_account -NotePropertyValue 20 -Force }
 if (-not $config.PSObject.Properties['history_backfill_posts_per_account'] -or [int]$config.history_backfill_posts_per_account -lt 120) { $config | Add-Member -NotePropertyName history_backfill_posts_per_account -NotePropertyValue 120 -Force }
 if (-not $config.PSObject.Properties['lookback_hours'] -or [int]$config.lookback_hours -lt 240) { $config | Add-Member -NotePropertyName lookback_hours -NotePropertyValue 240 -Force }

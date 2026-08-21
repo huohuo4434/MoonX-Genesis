@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { buildMultiViewResearcherAlias, summarizeMultiViewConsensus } from "../lib/research/member-multi-view-core";
+import { buildMultiViewResearcherAlias, filterMultiViewSourceAssets, multiViewVerifiedResearchWeight, redactMultiViewSourceHandles, summarizeMultiViewConsensus } from "../lib/research/member-multi-view-core";
 
 const root=path.resolve(import.meta.dirname,"..");
 const read=(file:string)=>fs.readFileSync(path.join(root,file),"utf8");
@@ -28,4 +28,47 @@ test("member report contains the large asset table and 15-minute health surface"
   assert.match(page,/扫描\/汇总 每15分钟/);
   assert.match(server,/reportCronSchedule: "\*\/15 \* \* \* \*"/);
   assert.match(server,/WHERE posted_at >= NOW\(\) - INTERVAL '10 days'/);
+});
+
+test("external analyst weight stays zero until enough verified samples",()=>{
+  assert.equal(multiViewVerifiedResearchWeight({sampleCount:9,weightedHitRatePct:100}),0);
+  assert.equal(multiViewVerifiedResearchWeight({sampleCount:10,weightedHitRatePct:59.9}),0);
+  assert.equal(multiViewVerifiedResearchWeight({sampleCount:10,weightedHitRatePct:60}),1);
+  assert.equal(multiViewVerifiedResearchWeight({sampleCount:20,weightedHitRatePct:65}),2);
+  assert.equal(multiViewVerifiedResearchWeight({sampleCount:30,weightedHitRatePct:70}),3);
+});
+
+test("priority analysts are ranked, anonymized by specialty and compared with MOOX",()=>{
+  const page=read("app/member/alpha-feed/page.tsx");
+  const registry=read("lib/trading-signals/x-source-registry.server.ts");
+  const config=JSON.parse(read("tools/x-collector/default-config.json")) as {accounts:string[]};
+  const productionAccounts=read("tools/x-collector/production-accounts.txt").trim().split(/\r?\n/);
+  for(const token of ["重点分析师｜一眼对照表","与MOOX同向","与MOOX相反","未完成验证前权重 0%"]){
+    assert.ok(page.includes(token),token);
+  }
+  for(const token of ["江恩跨市场分析师","低风险策略分析师","奇门周期分析师","建模趋势分析师","宏观趋势分析师","周期轮动分析师","短线交易分析师","前沿资产分析师","山寨动量分析师"]){
+    assert.ok(registry.includes(token),token);
+  }
+  assert.deepEqual(config.accounts.slice(0,10),["BTCTW0","formnoshape","btcpiggy","yijiangren","laban_li","WallStreet0Name","ximihoo1","KeHenryA8","iiiinvest","coseryaya"]);
+  assert.deepEqual(productionAccounts,config.accounts);
+  assert.equal(new Set(productionAccounts.map((value)=>value.toLowerCase())).size,productionAccounts.length);
+  assert.doesNotMatch(page,/@BTCTW0|@formnoshape|@btcpiggy|@yijiangren|@laban_li|@WallStreet0Name|@ximihoo1|@KeHenryA8|@iiiinvest|@coseryaya/);
+  assert.match(page,/value === "上涨" \|\| value === "震荡上涨"/);
+  assert.match(page,/value === "下跌" \|\| value === "震荡下跌"/);
+  assert.doesNotMatch(page,/value === "先跌后涨"\) return "BULLISH"|value === "先涨后跌"\) return "BEARISH"/);
+  const memberServer=read("lib/trading-signals/member-multi-view.server.ts");
+  assert.match(memberServer,/redactMemberSourceHandles/);
+  assert.match(memberServer,/summarizeMultiViewForAsset\(memberSafeText/);
+  const configure=read("tools/x-collector/configure.ps1");
+  assert.doesNotMatch(configure,/Sort-Object -Unique/);
+  assert.match(configure,/production-accounts\.txt/);
+  assert.match(configure,/requiredAccounts \+ \$existingAccounts/);
+  for(const handle of productionAccounts){
+    for(const sample of [`${handle}认为BTC看涨，目标78000。`,`@${handle} BTC看涨。`,`https://x.com/${handle} BTC看涨。`,`${handle.toUpperCase()} says BTC bullish.`]){
+      assert.doesNotMatch(redactMultiViewSourceHandles(sample,productionAccounts),new RegExp(handle,"i"),`${handle}: ${sample}`);
+    }
+  }
+  assert.deepEqual(filterMultiViewSourceAssets(["BTC","$KeHenryA8","BTCTW0","ETH"],productionAccounts),["BTC","ETH"]);
+  assert.match(memberServer,/assetsForRow\(row, memberSafeText\)/);
+  assert.match(memberServer,/filterMultiViewSourceAssets\(parsed\.symbols\.map\(String\), MEMBER_SOURCE_HANDLES\)/);
 });

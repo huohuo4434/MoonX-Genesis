@@ -14,8 +14,10 @@ import {
   type MemberAssetResearcherOpinion,
 } from "@/lib/trading-signals/member-multi-view.server";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
-import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN, PUBLIC_ATTRIBUTION_DISCLOSURE_ZH } from "@/lib/presentation/public-attribution";
+import { projectPublicAttribution, PUBLIC_ATTRIBUTION_DISCLOSURE_EN, PUBLIC_ATTRIBUTION_DISCLOSURE_ZH } from "@/lib/presentation/public-attribution";
 import { buildMultiViewResearcherAlias, summarizeMultiViewConsensus } from "@/lib/research/member-multi-view-core";
+import { loadTodayForecastRows } from "@/lib/prediction-access-server";
+import { displayMarketCode, normalizeOfficialDirection, type OfficialDirection } from "@/lib/forecasts/formal-direction";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -54,6 +56,43 @@ function directionVariant(value: MemberAssetOpinionDirection): "success" | "dang
   if (value === "BEARISH") return "danger";
   if (value === "MIXED") return "warning";
   return "outline";
+}
+
+type DirectionRelation = "SAME" | "OPPOSITE" | "UNCLEAR";
+
+function researcherAlias(opinion: MemberAssetResearcherOpinion): string {
+  return opinion.memberAlias ?? buildMultiViewResearcherAlias(opinion.researcherCode, opinion.theories);
+}
+
+function canonicalForecastSymbol(value: string): string {
+  const normalized = displayMarketCode(value).toUpperCase();
+  if (normalized === "000001.SS" || normalized === "SSEC" || normalized === "SSE") return "SHCOMP";
+  return normalized;
+}
+
+function officialDirectionSide(value: OfficialDirection | null): MemberAssetOpinionEntry["direction"] {
+  if (value === "上涨" || value === "震荡上涨") return "BULLISH";
+  if (value === "下跌" || value === "震荡下跌") return "BEARISH";
+  // 路径型方向必须结合当前所处阶段才能比较；缺少阶段证据时保持不可比。
+  return "NEUTRAL";
+}
+
+function directionRelation(external: MemberAssetOpinionEntry["direction"], official: OfficialDirection | null): DirectionRelation {
+  const moox = officialDirectionSide(official);
+  if (external === "NEUTRAL" || moox === "NEUTRAL") return "UNCLEAR";
+  return external === moox ? "SAME" : "OPPOSITE";
+}
+
+function relationLabel(value: DirectionRelation, en: boolean): string {
+  if (value === "SAME") return en ? "Aligned" : "与MOOX同向";
+  if (value === "OPPOSITE") return en ? "Opposite alert" : "与MOOX相反";
+  return en ? "Not comparable" : "暂不比较";
+}
+
+function relationClass(value: DirectionRelation): string {
+  if (value === "SAME") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-200";
+  if (value === "OPPOSITE") return "border-rose-300/30 bg-rose-300/10 text-rose-200";
+  return "border-amber-200/20 bg-amber-200/[0.07] text-amber-100";
 }
 
 function sourceLabel(value: string, en: boolean): string {
@@ -123,7 +162,9 @@ function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearc
             {rows.map((opinion) => (
               <tr key={`${direction}:${opinion.researcherCode}`} className="border-t border-white/[0.07] align-top">
                 <td className="px-4 py-4">
-                  <Text variant="body-sm" weight="semibold" className="block">{buildMultiViewResearcherAlias(opinion.researcherCode, opinion.theories)}</Text>
+                  <Text variant="body-sm" weight="semibold" className="block">{researcherAlias(opinion)}</Text>
+                  {opinion.priorityTier ? <Badge variant={opinion.priorityTier === 1 ? "success" : "outline"} className="mt-2">{en ? `Tier ${opinion.priorityTier}` : `第${opinion.priorityTier === 1 ? "一" : "二"}梯队`}</Badge> : null}
+                  {opinion.specialty ? <Text variant="caption" color="secondary" className="mt-2 block leading-relaxed">{opinion.specialty}</Text> : null}
                   <Text variant="caption" color="tertiary" className="mt-1 block">{opinion.family}</Text>
                   <Badge variant={directionVariant(opinion.overallDirection)} className="mt-2">{directionLabel(opinion.overallDirection, en)}</Badge>
                   <Text variant="caption" color="tertiary" className="mt-2 block">{en ? `${opinion.postCount} posts` : `${opinion.postCount}帖`}</Text>
@@ -164,6 +205,70 @@ function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearc
         </table>
       </div>
     </div>
+  );
+}
+
+function PriorityComparisonTable({
+  groups,
+  officialByAsset,
+  en,
+}: {
+  groups: MemberAssetOpinionGroup[];
+  officialByAsset: Map<string, OfficialDirection>;
+  en: boolean;
+}) {
+  const rows = groups.flatMap((group) => group.opinions
+    .filter((opinion) => opinion.priorityTier != null)
+    .map((opinion) => ({ group, opinion, latest: opinion.entries[0] })))
+    .filter((row): row is typeof row & { latest: MemberAssetOpinionEntry } => Boolean(row.latest))
+    .sort((a, b) => {
+      const tier = (a.opinion.priorityTier ?? 9) - (b.opinion.priorityTier ?? 9);
+      if (tier) return tier;
+      const rank = (a.opinion.priorityRank ?? 999) - (b.opinion.priorityRank ?? 999);
+      if (rank) return rank;
+      return Date.parse(b.latest.postedAt) - Date.parse(a.latest.postedAt);
+    });
+  if (!rows.length) return null;
+  return (
+    <Card padding="none" className="overflow-hidden border border-cyan-300/15">
+      <div className="border-b border-white/[0.08] px-5 py-4">
+        <Heading as="h2" size="h3">{en ? "Priority Analyst Comparison" : "重点分析师｜一眼对照表"}</Heading>
+        <Text variant="body-sm" color="secondary" className="mt-1 block">{en ? "Priority tier, anonymous specialty, latest view and its relationship to the current MOOX official direction." : "按第一、第二梯队排序，只显示专业代号、最新观点和它与MOOX正式方向的关系。绿色同向，红色相反，黄色表示方向或周期暂不具备可比性。"}</Text>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[1180px] w-full border-collapse text-left">
+          <thead className="bg-white/[0.04] text-xs text-white/55">
+            <tr>
+              <th className="px-4 py-3 font-medium">{en ? "Tier" : "梯队"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Analyst" : "匿名代号 / 擅长"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Asset" : "资产"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Latest external view" : "最新外部观点"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "MOOX official" : "MOOX正式方向"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Relationship" : "关系提醒"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Accuracy / weight" : "准确率 / 权重"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ group, opinion, latest }) => {
+              const official = officialByAsset.get(group.asset) ?? null;
+              const relation = directionRelation(latest.direction, official);
+              return (
+                <tr key={`priority:${group.asset}:${opinion.researcherCode}`} className="border-t border-white/[0.07] align-top text-sm">
+                  <td className="px-4 py-3"><Badge variant={opinion.priorityTier === 1 ? "success" : "outline"}>{en ? `Tier ${opinion.priorityTier}` : `第${opinion.priorityTier === 1 ? "一" : "二"}梯队`}</Badge><Text variant="caption" color="tertiary" className="mt-1 block">#{opinion.priorityRank}</Text></td>
+                  <td className="px-4 py-3"><Text variant="body-sm" weight="semibold">{researcherAlias(opinion)}</Text><Text variant="caption" color="secondary" className="mt-1 block max-w-56 leading-relaxed">{opinion.specialty ?? opinion.family}</Text></td>
+                  <td className="px-4 py-3 font-semibold text-cyan-100">{group.displayAsset}</td>
+                  <td className="px-4 py-3"><div className="flex flex-wrap items-center gap-2"><Badge variant={latest.direction === "BULLISH" ? "success" : latest.direction === "BEARISH" ? "danger" : "outline"}>{entryDirectionLabel(latest.direction, en)}</Badge><Badge variant="outline">{horizonLabel(latest.horizon, en)}</Badge><Text variant="caption" color="tertiary">{dateShort(latest.postedAt)}</Text></div><Text variant="body-sm" color="secondary" className="mt-2 block max-w-xl leading-relaxed">{latest.summary}</Text></td>
+                  <td className="px-4 py-3"><Text variant="body-sm" weight="semibold" className="text-cyan-100">{official ?? (en ? "Waiting" : "等待发布")}</Text></td>
+                  <td className="px-4 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${relationClass(relation)}`}>{relationLabel(relation, en)}</span></td>
+                  <td className="px-4 py-3"><Text variant="body-sm" color="secondary">{en ? "Building samples" : "样本积累中"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{en ? "Weight 0% until verified" : "未完成验证前权重 0%"}</Text></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-white/[0.08] px-5 py-3 text-xs leading-5 text-white/45">{en ? "External accuracy uses only locked, time-bounded historical calls. Fewer than 10 verified samples = 0%; at 60%/65%/70% weighted accuracy the research overlay may rise to 1%/2%/3%, never directional authority." : "后续准确率只用事前锁定、周期明确、结果可验证的历史观点计算：少于10个有效样本一律0%；加权命中率达到60%/65%/70%后，研究辅助权重才可升至1%/2%/3%，最高3%，永远不取得正式方向权。"}</div>
+    </Card>
   );
 }
 
@@ -258,9 +363,18 @@ export default async function AlphaFeedPage() {
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
-  const snapshot = await getMemberMultiViewSnapshot().catch(() => null);
-  const groups = snapshot?.assets ?? [];
-  const health = snapshot?.health;
+  const now = new Date();
+  const [snapshot, todayForecasts] = await Promise.all([
+    getMemberMultiViewSnapshot(now).catch(() => null),
+    loadTodayForecastRows(now).catch(() => []),
+  ]);
+  const report = projectPublicAttribution(snapshot, { locale: en ? "en" : "zh" });
+  const groups = report?.assets ?? [];
+  const officialByAsset = new Map<string, OfficialDirection>();
+  for (const forecast of todayForecasts) {
+    officialByAsset.set(canonicalForecastSymbol(forecast.symbol), normalizeOfficialDirection(forecast.directionLabel ?? forecast.direction));
+  }
+  const health = report?.health;
   const bullishAssets = groups.filter((group) => group.bullishResearchers > group.bearishResearchers).map((group) => group.displayAsset);
   const bearishAssets = groups.filter((group) => group.bearishResearchers > group.bullishResearchers).map((group) => group.displayAsset);
 
@@ -276,7 +390,7 @@ export default async function AlphaFeedPage() {
             : "先按币或股票归类，再逐行列不同研究者。每条都保留发帖日期、方向、周期、理论；若原帖明确写了几号到几号、目标价、支撑压力，会单独列出。"}</Text>
           <Text variant="body-sm" color="tertiary" className="mt-2 block">{en
             ? "Names, usernames and source links never reach the member page. External views remain supplementary intelligence."
-            : "博主名称、用户名和原帖链接继续全部隐藏。外部观点只做辅助情报，不覆盖MOOX奇门正式方向，也不单独触发实盘。"}</Text>
+            : "博主名称、用户名和原帖链接继续全部隐藏。外部观点只做辅助情报，不覆盖MOOX正式方向，也不单独触发实盘。"}</Text>
         </div>
 
         <Card padding="lg" className="border border-cyan-300/15 bg-cyan-300/[0.035]">
@@ -312,6 +426,8 @@ export default async function AlphaFeedPage() {
           <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bullish-leading assets" : "当前看多占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bullishAssets.length ? bullishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
           <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bearish-leading assets" : "当前看跌占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
         </div>
+
+        <PriorityComparisonTable groups={groups} officialByAsset={officialByAsset} en={en} />
 
         <ConsensusTable groups={groups} en={en} />
 

@@ -178,11 +178,24 @@ test("pure MAT research never reports Gann levels as applied", () => {
   assert.deepEqual((result.raw.externalAnalyst as { adjustedLevels: unknown }).adjustedLevels, { stopLoss: 95, target1: 108, target2: 112 });
 });
 
-test("Gann applied is true only when accepted levels actually change the plan", () => {
+test("Gann remains research-only without ten verified samples", () => {
   const evaluation = { direction: "LONG" as const, confidence: 60, forecastScore: 70, conditions: [], currentPrice: 100, entryPrice: 100, stopLoss: null, target1: null, target2: null, ready: false, raw: {} };
   const overlay: ExternalAnalystOverlay = { symbol: "BTCUSDT", strategyType: "SWING", direction: "NEUTRAL", confidence: 60, supportLevels: [95], resistanceLevels: [110, 118], targetLevels: [], invalidationLevels: [], timeWindows: [], sourceLabels: ["BTCTW0"], sourceUrls: [], summaries: [], newestPostedAt: "2026-08-14T00:00:00Z", sources: ["BTCTW0"], roles: ["GANN_LEVEL_CYCLE"] };
   const result = applyExternalAnalystOverlay({ evaluation, overlay, strategyType: "SWING", primaryForecastDirection: "LONG" });
+  assert.equal((result.raw.externalAnalyst as { applied: boolean }).applied, false);
+  assert.equal((result.raw.externalAnalyst as { verifiedResearchWeightPct: number }).verifiedResearchWeightPct, 0);
+  assert.equal(result.confidence, evaluation.confidence);
+  assert.equal(result.stopLoss, evaluation.stopLoss);
+  assert.equal(result.target2, evaluation.target2);
+});
+
+test("Gann may refine levels only after the verification gate and stays capped at three", () => {
+  const evaluation = { direction: "LONG" as const, confidence: 60, forecastScore: 70, conditions: [], currentPrice: 100, entryPrice: 100, stopLoss: null, target1: null, target2: null, ready: false, raw: {} };
+  const overlay: ExternalAnalystOverlay = { symbol: "BTCUSDT", strategyType: "SWING", direction: "NEUTRAL", confidence: 60, supportLevels: [95], resistanceLevels: [110, 118], targetLevels: [], invalidationLevels: [], timeWindows: [], sourceLabels: ["BTCTW0"], sourceUrls: [], summaries: [], newestPostedAt: "2026-08-14T00:00:00Z", sources: ["BTCTW0"], roles: ["GANN_LEVEL_CYCLE"] };
+  const result = applyExternalAnalystOverlay({ evaluation, overlay, strategyType: "SWING", primaryForecastDirection: "LONG", externalVerification: { sampleCount: 10, weightedHitRatePct: 70 } });
   assert.equal((result.raw.externalAnalyst as { applied: boolean }).applied, true);
+  assert.equal((result.raw.externalAnalyst as { verifiedResearchWeightPct: number }).verifiedResearchWeightPct, 3);
+  assert.equal(result.confidence, 63);
   assert.notEqual(result.stopLoss, evaluation.stopLoss);
   assert.notEqual(result.target2, evaluation.target2);
 });
@@ -199,7 +212,7 @@ test("BTCTW0 rejects vague numbers but accepts explicit symbol and Gann context"
 test("Gann refinement cannot reduce an already valid original reward risk", () => {
   const evaluation = { direction: "LONG" as const, confidence: 60, forecastScore: 70, conditions: [], currentPrice: 100, entryPrice: 100, stopLoss: 90, target1: 115, target2: 130, ready: false, raw: {} };
   const overlay: ExternalAnalystOverlay = { symbol: "BTCUSDT", strategyType: "SWING", direction: "LONG", confidence: 65, supportLevels: [95], resistanceLevels: [110, 118], targetLevels: [], invalidationLevels: [], timeWindows: [], sourceLabels: ["BTCTW0"], sourceUrls: [], summaries: [], newestPostedAt: "2026-08-14T00:00:00Z", sources: ["BTCTW0"], roles: ["GANN_LEVEL_CYCLE"] };
-  const result = applyExternalAnalystOverlay({ evaluation, overlay, strategyType: "SWING", primaryForecastDirection: "LONG" });
+  const result = applyExternalAnalystOverlay({ evaluation, overlay, strategyType: "SWING", primaryForecastDirection: "LONG", externalVerification: { sampleCount: 10, weightedHitRatePct: 70 } });
   assert.equal(result.stopLoss, 90);
   assert.equal(result.target2, 130);
   assert.match(String((result.raw.externalAnalyst as { rejection?: string }).rejection), /低于原计划/);
