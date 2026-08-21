@@ -15,6 +15,7 @@ import {
 } from "@/lib/trading-signals/member-multi-view.server";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { PUBLIC_ATTRIBUTION_DISCLOSURE_EN, PUBLIC_ATTRIBUTION_DISCLOSURE_ZH } from "@/lib/presentation/public-attribution";
+import { buildMultiViewResearcherAlias, summarizeMultiViewConsensus } from "@/lib/research/member-multi-view-core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -87,6 +88,18 @@ function distinctDates(opinion: MemberAssetResearcherOpinion): string[] {
   return [...rows].slice(0, 10);
 }
 
+function topMethods(group: MemberAssetOpinionGroup): string[] {
+  const scores = new Map<string, number>();
+  for (const opinion of group.opinions) {
+    for (const item of opinion.theories) scores.set(item.theory, (scores.get(item.theory) ?? 0) + item.score);
+  }
+  return [...scores.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN")).slice(0, 3).map(([method]) => method);
+}
+
+function changedResearchers(group: MemberAssetOpinionGroup): number {
+  return group.opinions.filter((opinion) => opinion.overallDirection === "MIXED").length;
+}
+
 function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearcherOpinion[]; direction: MemberAssetOpinionDirection; en: boolean }) {
   const rows = opinions.filter((item) => item.overallDirection === direction);
   if (!rows.length) return null;
@@ -110,7 +123,7 @@ function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearc
             {rows.map((opinion) => (
               <tr key={`${direction}:${opinion.researcherCode}`} className="border-t border-white/[0.07] align-top">
                 <td className="px-4 py-4">
-                  <Text variant="body-sm" weight="semibold" className="block">{opinion.researcherCode}</Text>
+                  <Text variant="body-sm" weight="semibold" className="block">{buildMultiViewResearcherAlias(opinion.researcherCode, opinion.theories)}</Text>
                   <Text variant="caption" color="tertiary" className="mt-1 block">{opinion.family}</Text>
                   <Badge variant={directionVariant(opinion.overallDirection)} className="mt-2">{directionLabel(opinion.overallDirection, en)}</Badge>
                   <Text variant="caption" color="tertiary" className="mt-2 block">{en ? `${opinion.postCount} posts` : `${opinion.postCount}帖`}</Text>
@@ -151,6 +164,51 @@ function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearc
         </table>
       </div>
     </div>
+  );
+}
+
+function ConsensusTable({ groups, en }: { groups: MemberAssetOpinionGroup[]; en: boolean }) {
+  if (!groups.length) return null;
+  return (
+    <Card padding="none" className="overflow-hidden border border-white/[0.09]">
+      <div className="border-b border-white/[0.08] px-5 py-4">
+        <Heading as="h2" size="h3">{en ? "Core Asset Consensus" : "核心资产共识总表"}</Heading>
+        <Text variant="body-sm" color="secondary" className="mt-1 block">{en ? "One row per asset: current balance, consensus, dominant methods and opinion changes." : "每个资产一行：当前多空分布、共识强度、主要方法和观点变化。"}</Text>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[980px] w-full border-collapse text-left">
+          <thead className="bg-white/[0.04] text-xs text-white/55">
+            <tr>
+              <th className="px-4 py-3 font-medium">{en ? "Asset" : "资产"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Leading view" : "当前占优"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Consensus" : "共识强度"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "View distribution" : "观点分布"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Main methods" : "主要方法"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Changes" : "观点变化"}</th>
+              <th className="px-4 py-3 font-medium">{en ? "Latest" : "最近更新"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const consensus = summarizeMultiViewConsensus({ bullish: group.bullishResearchers, bearish: group.bearishResearchers, mixed: group.mixedResearchers, neutral: group.neutralResearchers });
+              const methods = topMethods(group);
+              const changed = changedResearchers(group);
+              return (
+                <tr key={`consensus:${group.asset}`} className="border-t border-white/[0.07] text-sm">
+                  <td className="px-4 py-3"><a className="font-semibold text-cyan-100 hover:text-cyan-50" href={`#asset-${group.asset.toLowerCase()}`}>{group.displayAsset}</a><Text variant="caption" color="tertiary" className="mt-1 block">{group.totalResearchers}{en ? " analysts" : "位分析师"} · {group.totalPosts}{en ? " posts" : "帖"}</Text></td>
+                  <td className="px-4 py-3"><Badge variant={directionVariant(consensus.direction)}>{directionLabel(consensus.direction, en)}</Badge></td>
+                  <td className="px-4 py-3"><Text variant="body-sm" weight="semibold">{consensus.percent}%</Text><Text variant="caption" color="tertiary" className="ml-1">n={consensus.sampleSize}</Text></td>
+                  <td className="px-4 py-3"><span className="text-emerald-200">{en ? "Bull" : "多"} {group.bullishResearchers}</span><span className="mx-2 text-white/30">/</span><span className="text-rose-200">{en ? "Bear" : "空"} {group.bearishResearchers}</span><span className="mx-2 text-white/30">/</span><span className="text-amber-100">{en ? "Mixed" : "变"} {group.mixedResearchers}</span><span className="mx-2 text-white/30">/</span><span className="text-white/55">{en ? "Wait" : "等"} {group.neutralResearchers}</span></td>
+                  <td className="px-4 py-3">{methods.length ? methods.join(" · ") : (en ? "Unclassified" : "待归类")}</td>
+                  <td className="px-4 py-3"><Badge variant={changed ? "warning" : "outline"}>{changed ? (en ? `${changed} changed` : `${changed}位变化`) : (en ? "Stable" : "暂无变化")}</Badge></td>
+                  <td className="px-4 py-3 text-white/60">{dateShort(group.latestAt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -254,6 +312,8 @@ export default async function AlphaFeedPage() {
           <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bullish-leading assets" : "当前看多占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bullishAssets.length ? bullishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
           <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bearish-leading assets" : "当前看跌占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
         </div>
+
+        <ConsensusTable groups={groups} en={en} />
 
         {groups.length ? (
           <div className="flex flex-wrap gap-2">

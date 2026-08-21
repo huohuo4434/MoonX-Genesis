@@ -38,6 +38,56 @@ export type MultiViewBrief = {
   levels: MultiViewLevel[];
 };
 
+export type MultiViewConsensusDirection = MultiViewDirection | "MIXED";
+
+const THEORY_ANALYST_LABELS: Record<MultiViewTheory, string> = {
+  "缠论": "缠论分析师",
+  "江恩": "江恩分析师",
+  "艾略特波浪": "波浪分析师",
+  "周期": "周期分析师",
+  "宏观": "宏观分析师",
+  "基本面/财报": "基本面分析师",
+  "量价": "量价分析师",
+  "价格行为": "价格行为分析师",
+  "六爻": "六爻分析师",
+  "奇门": "奇门分析师",
+  "八字/命理": "命理周期分析师",
+  "综合技术": "综合技术分析师",
+};
+
+/** Member-facing alias only. The stable numeric suffix prevents same-school collisions. */
+export function buildMultiViewResearcherAlias(
+  researcherCode: string,
+  theories: readonly Pick<TheoryReading, "theory">[],
+): string {
+  const primary = theories[0]?.theory ?? "综合技术";
+  const suffix = researcherCode.match(/\d{4}/)?.[0] ?? String(1000 + (stableHash(researcherCode) % 9000));
+  return `${THEORY_ANALYST_LABELS[primary]} ${suffix}`;
+}
+
+export function summarizeMultiViewConsensus(input: {
+  bullish: number;
+  bearish: number;
+  mixed: number;
+  neutral: number;
+}): { direction: MultiViewConsensusDirection; percent: number; sampleSize: number } {
+  const sampleSize = Math.max(0, input.bullish) + Math.max(0, input.bearish) + Math.max(0, input.mixed) + Math.max(0, input.neutral);
+  if (!sampleSize) return { direction: "NEUTRAL", percent: 0, sampleSize: 0 };
+  const directional = [
+    ["BULLISH", Math.max(0, input.bullish)],
+    ["BEARISH", Math.max(0, input.bearish)],
+    ["MIXED", Math.max(0, input.mixed)],
+    ["NEUTRAL", Math.max(0, input.neutral)],
+  ] as const;
+  const max = Math.max(...directional.map((row) => row[1]));
+  const leaders = directional.filter((row) => row[1] === max && row[1] > 0);
+  return {
+    direction: leaders.length === 1 ? leaders[0]![0] : "MIXED",
+    percent: Math.round((max / sampleSize) * 100),
+    sampleSize,
+  };
+}
+
 const METHOD_RULES: ReadonlyArray<{
   theory: MultiViewTheory;
   keywords: readonly string[];
