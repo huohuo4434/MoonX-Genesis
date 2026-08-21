@@ -126,7 +126,7 @@ export default function AdminLiveTradingClient() {
             className="rounded-xl bg-red-500/20 px-4 py-2 text-red-200"
             onClick={() => action({ action: "SET_MODE", mode: "PAUSED" })}
           >
-            完全暂停
+            停止自动交易（保留紧急风控）
           </button>
           <button
             className="rounded-xl bg-emerald-500/20 px-4 py-2 text-emerald-200"

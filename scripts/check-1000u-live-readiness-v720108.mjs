@@ -55,22 +55,29 @@ console.log(`Project: ${ROOT}`);
 const migrationFile = join(ROOT, "prisma", "migrations", TARGET, "migration.sql");
 console.log(`Unified Live migration source: ${existsSync(migrationFile) ? "OK" : "MISSING"} (${TARGET})`);
 
+const authoritativeControl = String(process.env.MOOX_TRADING_CONTROL_MODE ?? "").trim().toUpperCase();
+const operationalChecks = authoritativeControl
+  ? [["MOOX_TRADING_CONTROL_MODE=LIVE", authoritativeControl === "LIVE"]]
+  : [
+      ["LEGACY MOOX_UNIFIED_LIVE_MODE=LIVE", String(process.env.MOOX_UNIFIED_LIVE_MODE ?? "").trim().toUpperCase() === "LIVE"],
+      ["LEGACY MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH=true", bool("MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH")],
+      ["LEGACY MOOX_UNIFIED_LIVE_NEW_ENTRIES=true", bool("MOOX_UNIFIED_LIVE_NEW_ENTRIES")],
+      ["LEGACY MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT=true", process.env.MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT == null || bool("MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT")],
+      ["LEGACY MOOX_LIVE_ACTIVE_EXECUTION_V641 not false", String(process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641 ?? "true").trim().toLowerCase() !== "false"],
+      ["LEGACY BITGET_TRADING_MODE=LIVE_EXPERIMENT", ["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"].includes(String(process.env.BITGET_TRADING_MODE ?? "").trim().toUpperCase())],
+      ["LEGACY BITGET_LIVE_EXECUTION_ALLOWED=true", bool("BITGET_LIVE_EXECUTION_ALLOWED")],
+    ];
 const envChecks = [
-  ["MOOX_UNIFIED_LIVE_MODE=LIVE", String(process.env.MOOX_UNIFIED_LIVE_MODE ?? "").trim().toUpperCase() === "LIVE"],
-  ["MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH=true", bool("MOOX_UNIFIED_LIVE_ALLOW_LIVE_SWITCH")],
-  ["MOOX_UNIFIED_LIVE_NEW_ENTRIES=true", bool("MOOX_UNIFIED_LIVE_NEW_ENTRIES")],
-  ["MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT=true (or code default)", process.env.MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT == null || bool("MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT")],
-  ["MOOX_LIVE_ACTIVE_EXECUTION_V641 not false", String(process.env.MOOX_LIVE_ACTIVE_EXECUTION_V641 ?? "true").trim().toLowerCase() !== "false"],
-  ["BITGET_TRADING_MODE=LIVE_EXPERIMENT", ["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"].includes(String(process.env.BITGET_TRADING_MODE ?? "").trim().toUpperCase())],
+  ...operationalChecks,
   ["BITGET_LIVE_API_KEY present", has("BITGET_LIVE_API_KEY")],
   ["BITGET_LIVE_SECRET_KEY present", has("BITGET_LIVE_SECRET_KEY")],
   ["BITGET_LIVE_PASSPHRASE present", has("BITGET_LIVE_PASSPHRASE")],
-  ["BITGET_LIVE_EXECUTION_ALLOWED=true", bool("BITGET_LIVE_EXECUTION_ALLOWED")],
   ["BITGET_LIVE_CONFIRMATION=I_ACCEPT_REAL_LOSS", String(process.env.BITGET_LIVE_CONFIRMATION ?? "").trim() === "I_ACCEPT_REAL_LOSS"],
   ["BITGET_LIVE_INITIAL_CAPITAL_USDT=1000 (or code default)", process.env.BITGET_LIVE_INITIAL_CAPITAL_USDT == null || Math.abs(Number(process.env.BITGET_LIVE_INITIAL_CAPITAL_USDT) - 1000) < 0.01],
   ["CRON_SECRET present", has("CRON_SECRET")],
 ];
 console.log("\nLocal/linked production env presence (values/secrets are NOT printed):");
+console.log(authoritativeControl ? "Control source: MOOX_TRADING_CONTROL_MODE" : "Control source: LEGACY COMPATIBILITY");
 for (const [label, ok] of envChecks) console.log(`${ok ? "[OK]" : "[--]"} ${label}`);
 
 try {
