@@ -27,6 +27,27 @@ function time(value: string | null): string {
   }).format(date);
 }
 
+function price(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return value.toLocaleString("zh-CN", { maximumFractionDigits: 8 });
+}
+
+function direction(value: "LONG" | "SHORT"): string {
+  return value === "LONG" ? "做多" : "做空";
+}
+
+function orderStatus(value: string): string {
+  const labels: Record<string, string> = {
+    ORDER_SUBMITTED: "订单已提交",
+    OPEN: "持仓中",
+    PARTIAL: "已部分止盈",
+    CLOSING: "平仓处理中",
+    CLOSED: "已平仓",
+    ERROR: "执行异常",
+  };
+  return labels[value] ?? value;
+}
+
 export function StrategyCenterPage({ snapshot }: { snapshot: StrategyCenterSnapshot }) {
   return (
     <main className="min-h-screen bg-[#06070b] pb-24 text-white md:pb-12">
@@ -41,6 +62,54 @@ export function StrategyCenterPage({ snapshot }: { snapshot: StrategyCenterSnaps
         </div>
 
         <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-5 text-white/45">{snapshot.dataNotice}</div>
+
+        <section className="mt-6 rounded-3xl border border-amber-300/15 bg-[linear-gradient(145deg,rgba(52,38,14,.62),rgba(8,9,14,.98))] p-4 sm:p-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium tracking-[0.18em] text-amber-200/75">MEMBER LIVE ORDERS</p>
+              <h2 className="mt-2 text-xl font-semibold">会员实盘策略清单</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/50">玄学只负责锁定方向与时序，技术结构只负责开单价格、止盈止损和入场确认。以下理由读取开仓时已保存的记录，不根据结果事后改写。</p>
+            </div>
+            <span className="rounded-full border border-amber-200/15 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">共 {snapshot.liveOrders.length} 笔真实记录</span>
+          </div>
+
+          <div className="mt-5 grid gap-4">
+            {snapshot.liveOrders.map((order) => <article key={order.id} className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-xs text-violet-100">{order.horizonLabel}</span>
+                  <h3 className="text-lg font-semibold">{order.symbol}</h3>
+                  <span className={order.direction === "LONG" ? "text-emerald-300" : "text-rose-300"}>{direction(order.direction)}</span>
+                </div>
+                <div className="text-right text-xs text-white/45"><div>{orderStatus(order.status)}</div><div className="mt-1">开单 {time(order.openedAt)}</div></div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">开单价格</div><div className="mt-1 font-semibold">{price(order.entryPrice)}</div></div>
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">止损价格</div><div className="mt-1 font-semibold text-rose-200">{price(order.stopLoss)}</div></div>
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">第一止盈</div><div className="mt-1 font-semibold text-emerald-200">{price(order.target1)}</div></div>
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">第二止盈</div><div className="mt-1 font-semibold text-emerald-200">{price(order.target2)}</div></div>
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">数量</div><div className="mt-1 font-semibold">{price(order.quantity)}</div></div>
+                <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-white/35">计划风险</div><div className="mt-1 font-semibold">{order.riskAmountUsdt == null ? "—" : `${price(order.riskAmountUsdt)} U`}</div></div>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-violet-300/10 bg-violet-400/[0.05] p-4">
+                  <div className="text-sm font-medium text-violet-100">玄学怎么预测</div>
+                  <ul className="mt-2 space-y-2 text-sm leading-6 text-white/65">{order.metaphysicalReasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>
+                </div>
+                <div className="rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.04] p-4">
+                  <div className="text-sm font-medium text-cyan-100">为什么在这个价格开单</div>
+                  {order.executionReasons.length
+                    ? <ul className="mt-2 space-y-2 text-sm leading-6 text-white/65">{order.executionReasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>
+                    : <p className="mt-2 text-sm leading-6 text-white/45">该订单没有保存完整的技术入场说明，不补写事后理由。</p>}
+                </div>
+              </div>
+              <div className="mt-3 text-[11px] text-white/25">Bitget订单号：{order.bitgetOrderId}</div>
+            </article>)}
+            {!snapshot.liveOrders.length && <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-center text-sm text-white/45">当前没有已确认的真实开单记录。系统不会用模拟单或观察计划填充这里。</div>}
+          </div>
+        </section>
 
         <div className="mt-6 hidden overflow-hidden rounded-3xl border border-white/10 bg-white/[0.025] md:block">
           <table className="w-full text-left text-sm">
