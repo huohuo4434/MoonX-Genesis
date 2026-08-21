@@ -104,6 +104,30 @@ export function isTerminalVerificationVerdict(v: DailyVerdict | string | null | 
   return Boolean(v && TERMINAL_VERIFICATION_VERDICTS.has(v as DailyVerdict));
 }
 
+function canonicalForecastKey(forecast: DailyForecastRecord): string {
+  return `${forecast.market}:${forecast.symbol.trim().toUpperCase()}:${forecast.forecastDate}`;
+}
+
+function isLaterCanonicalForecast(candidate: DailyForecastRecord, current: DailyForecastRecord): boolean {
+  if (candidate.originalVersion !== current.originalVersion) return candidate.originalVersion > current.originalVersion;
+  const published = candidate.publishedAt.localeCompare(current.publishedAt);
+  if (published !== 0) return published > 0;
+  const updated = candidate.updatedAt.localeCompare(current.updatedAt);
+  return updated !== 0 ? updated > 0 : candidate.id.localeCompare(current.id) > 0;
+}
+
+/** One public forecast per market, symbol and date; all older versions remain in the audit store. */
+export function selectCanonicalDailyForecasts(forecasts: readonly DailyForecastRecord[]): DailyForecastRecord[] {
+  const selected = new Map<string, DailyForecastRecord>();
+  for (const forecast of forecasts) {
+    if (forecast.isSystemTest || forecast.status === "draft" || forecast.status === "invalid") continue;
+    const key = canonicalForecastKey(forecast);
+    const current = selected.get(key);
+    if (!current || isLaterCanonicalForecast(forecast, current)) selected.set(key, forecast);
+  }
+  return [...selected.values()];
+}
+
 function inLastDays(isoDate: string, days: number, now: Date): boolean {
   const t = new Date(`${isoDate}T12:00:00Z`).getTime();
   return t >= now.getTime() - days * 24 * 60 * 60 * 1000;
@@ -127,6 +151,7 @@ export function filterPublicAccuracyHistory(input: {
   const now = input.now ?? new Date();
   const todayKey = getChinaDateKey(now);
   const forecastById = new Map(input.forecasts.map((f) => [f.id, f]));
+  const canonicalForecastIds = new Set(selectCanonicalDailyForecasts(input.forecasts).map((forecast) => forecast.id));
 
   const items: PublicAccuracyHistoryItem[] = [];
   for (const r of input.results) {
@@ -145,8 +170,7 @@ export function filterPublicAccuracyHistory(input: {
 
     const f = forecastById.get(r.forecastId);
     if (f) {
-      if (f.status === "draft") continue;
-      if (f.isSystemTest) continue;
+      if (!canonicalForecastIds.has(f.id)) continue;
     }
 
     // HSTECH ETF-scale closes (e.g. 4.644) must never enter public accuracy.

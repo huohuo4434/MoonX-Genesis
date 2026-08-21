@@ -39,11 +39,16 @@ test("early realized rally revises only today and future, preserves the past, an
   const first = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: current, asOfDate: "2026-08-13", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" });
   assert.deepEqual(first.all.map((row) => row.forecastDate), ["2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16"]);
   assert.ok(first.all.slice(1).every((row) => /整固|兑现/.test(row.expectedPath)));
-  assert.ok(first.all.every((row) => row.liuyaoEvidence?.includes("MOOX_ROLLING_REVISION")));
+  assert.doesNotMatch(first.all[0]!.liuyaoEvidence ?? "", /MOOX_ROLLING_REVISION/, "the already-open as-of day is immutable");
+  assert.ok(first.all.slice(1).every((row) => row.liuyaoEvidence?.includes("MOOX_ROLLING_REVISION")));
   const same = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: current, asOfDate: "2026-08-13", nowMs: NOW + 1_000, auxiliary, latest: first.all, mode: "CURRENT" });
   assert.equal(same.append.length, 0);
-  const changed = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: current, asOfDate: "2026-08-13", nowMs: NOW + 2_000, auxiliary: { ...auxiliary, evidenceKey: "closed-v2" }, latest: first.all, mode: "CURRENT" });
-  assert.ok(changed.append.every((row, index) => row.version === 2 && row.previousVersionId === first.all[index]!.id));
+  const enrichmentOnly = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: current, asOfDate: "2026-08-13", nowMs: NOW + 2_000, auxiliary: { ...auxiliary, evidenceKey: "closed-v2", newsEvidence: "X提及次数变化", supportLevels: ["10.1"], resistanceLevels: ["12.1"] }, latest: first.all, mode: "CURRENT" });
+  assert.equal(enrichmentOnly.append.length, 0, "volatile enrichment must not create a new published forecast version");
+  const phaseChanged = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: current, asOfDate: "2026-08-13", nowMs: NOW + 3_000, auxiliary: { ...auxiliary, realizedPhase: "EARLY_DROP" }, latest: first.all, mode: "CURRENT" });
+  const firstByDate = new Map(first.all.map((row) => [row.forecastDate, row]));
+  assert.equal(phaseChanged.append.length, 3);
+  assert.ok(phaseChanged.append.every((row) => row.version === 2 && row.previousVersionId === firstByDate.get(row.forecastDate)?.id));
 });
 
 test("teacher daily remains authoritative and missing quote mapping derives path without fake levels", () => {

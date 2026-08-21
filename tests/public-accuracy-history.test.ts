@@ -6,6 +6,7 @@ import {
   filterPublicAccuracyHistory,
   isPublicCountableVerdict,
   isPublicFinalVerdict,
+  selectCanonicalDailyForecasts,
 } from "../lib/accuracy/public-history-filter.ts";
 import type { DailyForecastRecord, DailyVerificationResult } from "../types/daily-accuracy.ts";
 
@@ -62,6 +63,23 @@ describe("china date key", () => {
 });
 
 describe("public accuracy history filter", () => {
+  test("keeps one canonical version per symbol and date while retaining old rows outside the public projection", () => {
+    const v1 = forecast({ id: "df-v1", originalVersion: 1, publishedAt: "2026-08-01T12:00:00.000Z" });
+    const v2 = forecast({ id: "df-v2", originalVersion: 2, publishedAt: "2026-08-01T15:00:00.000Z" });
+    const invalidV3 = forecast({ id: "df-v3", originalVersion: 3, status: "invalid", publishedAt: "2026-08-01T15:30:00.000Z" });
+    assert.deepEqual(selectCanonicalDailyForecasts([v1, invalidV3, v2]).map((row) => row.id), ["df-v2"]);
+    const items = filterPublicAccuracyHistory({
+      forecasts: [v1, v2, invalidV3],
+      results: [
+        result({ forecastId: "df-v1", verdict: "MISS", verdictLabel: "未命中" }),
+        result({ forecastId: "df-v2", verdict: "HIT", verdictLabel: "命中" }),
+        result({ forecastId: "df-v3", verdict: "MISS", verdictLabel: "未命中" }),
+      ],
+      now: NOW,
+    });
+    assert.deepEqual(items.map((item) => [item.forecastId, item.verdict]), [["df-v2", "HIT"]]);
+  });
+
   test("1-4: today pending never visible for any audience (role-agnostic filter)", () => {
     const todayPending = forecast({
       id: "today",

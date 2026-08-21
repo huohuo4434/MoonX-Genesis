@@ -178,7 +178,13 @@ export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly
     const calendarEvidence = encodeCalendarEvidence(authority, forecastDate);
     const teacherQimenKeyDate = exactDatedKeyEvidence(authority, forecastDate).some((item) => item.type === "QIMEN") ? calendarEvidence.note : null;
     const qimenEvidence = [qimenReading.evidence, teacherQimenKeyDate].filter((value): value is string => Boolean(value)).join("；") || null;
-    const evidenceKey = stableHash(JSON.stringify({ sourceId: authority.id, sourceVersion: authority.version, forecastDate, liuyaoDirection, liuyaoSummary, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? authority.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? authority.invalidationLevel ?? null, auxiliary: input.auxiliary.evidenceKey, qimen: qimenReading.verificationKey }));
+    // A published forecast gets a new version only when its forecast meaning changes.
+    // Live prices, intraday Chan levels and X mention counts are enrichment data and may
+    // change on every cron run; including them here previously created dozens of
+    // indistinguishable versions for the same asset/date. The current as-of date is
+    // already carried by the source marker, while a realised phase change alters
+    // sourceKind/direction/path and therefore still creates an auditable revision.
+    const evidenceKey = stableHash(JSON.stringify({ sourceId: authority.id, sourceVersion: authority.version, forecastDate, liuyaoDirection, liuyaoSummary, direction, path, sourceKind, confirmation: sourceDay?.confirmation ?? authority.confirmationLevel ?? null, risk: sourceDay?.riskNote ?? authority.invalidationLevel ?? null, qimen: qimenReading.verificationKey }));
     const previous = latestByDate.get(forecastDate) ?? null, version = previous ? previous.version + 1 : 1, probs = probabilities(direction);
     const technicalEvidence = [
       input.auxiliary.technicalEvidence,

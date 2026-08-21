@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { getCurrentUser, isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
-import { listPublishedStocks } from "@/lib/data/stocks-store";
 import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
 import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
@@ -17,10 +16,9 @@ export const revalidate = 0;
 
 export default async function AdminHomePage() {
   const now = new Date();
-  const [user, users, stocks, verificationSnapshot, paymentQueue, tlcStats, todayRows, tomorrowRows] = await Promise.all([
+  const [user, users, verificationSnapshot, paymentQueue, tlcStats, todayRows, tomorrowRows] = await Promise.all([
     getCurrentUser(),
     listAllAuthUsers(),
-    listPublishedStocks(),
     getPublicVerificationSnapshot(),
     getAdminPaymentQueueSummary(200),
     getKnowledgeGrowthStats(),
@@ -42,7 +40,6 @@ export default async function AdminHomePage() {
     { label: "待审核付款", value: String(pending) },
     { label: "今日观点数", value: String(todayRows.length) },
     { label: "下一交易日观点数", value: String(tomorrowRows.length) },
-    { label: "已发布个股", value: String(stocks.length) },
     { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
     { label: "公开验证样本", value: String(stats.verifiedCount) },
     { label: "公开待验证", value: String(verificationSnapshot.pending.length + verificationSnapshot.weekly.stats.pending) },

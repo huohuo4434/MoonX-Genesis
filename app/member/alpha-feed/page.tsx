@@ -350,7 +350,7 @@ export default async function AlphaFeedPage() {
   const en = locale === "en";
   const gate = await getMemberDevicePageAccess();
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
-    return <main><Section spacing="lg"><PublicFeaturePreview
+    return <main data-moox-alpha-feed-native="1"><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Member multi-view · Public preview" : "会员多方观点 · 公开预览"}
       title={en ? "See every important view by asset" : "按资产一眼看懂近10天所有重要观点"}
       description={en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}
@@ -379,7 +379,7 @@ export default async function AlphaFeedPage() {
   const bearishAssets = groups.filter((group) => group.bearishResearchers > group.bullishResearchers).map((group) => group.displayAsset);
 
   return (
-    <main data-moox-server-multi-view="1" data-moox-asset-opinion-matrix="v720107">
+    <main data-moox-alpha-feed-native="1" data-moox-server-multi-view="1" data-moox-asset-opinion-matrix="v720107">
       <Section spacing="lg">
         <MemberDeviceHeartbeat />
         <div className="max-w-6xl">
