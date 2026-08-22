@@ -111,4 +111,5 @@ test("INTC member dossier distinguishes the locked source period from its seven-
     "2026-08-22至2026-12-31",
   ]);
   assert.ok(dossier.qimenParallel.horizonRows.every((row) => row.methodLabel === "奇门证据不足" && row.verificationEligible === false));
+  assert.doesNotMatch(JSON.stringify(dossier.qimenParallel), /易老师|Yi interpretation/);
 });

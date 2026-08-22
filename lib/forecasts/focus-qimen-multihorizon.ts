@@ -420,10 +420,10 @@ export function buildFocusQimenParallelView(input: {
     protocol: "PARALLEL_METHOD_NO_OVERRIDE",
     title: "六爻 × 奇门",
     notice: definition.basis === "GENERIC_TIME_STEM"
-      ? "六爻为原始周期卦；奇门因老师用神依据不足暂不生成方向。"
+      ? "六爻为原始周期卦；奇门因固定用神依据不足暂不生成方向。"
       : "每日并列两个观点；当前节奏随最新行情更新。",
     sourceBoundary: definition.basis === "GENERIC_TIME_STEM"
-      ? "没有老师固定用神或可追溯案例时，奇门失败关闭，不起局、不判断同向或分歧。"
+      ? "没有固定用神依据或可追溯案例时，奇门失败关闭，不起局、不判断同向或分歧。"
       : `老师资料支持按目标日/周/月等明确周期起局并复盘，但未提供可直接编程复现的通用月家或年家金融断法；因此周、月、年等均标注为“时家奇门·周期起局”。${definition.basis === "MOOX_INDUSTRY_OVERLAY" ? "当前产品用神属于透明行业对象映射，不冒充老师固定口诀。" : ""}`,
     useGod: {
       displayName: definition.displayName,

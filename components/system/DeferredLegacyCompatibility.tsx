@@ -43,7 +43,7 @@ export function DeferredLegacyCompatibility() {
   return (
     <Suspense fallback={null}>
       <DeferredMemberWelcomeGuide />
-      <DeferredDirectionGuard key={`direction-${pathname}`} />
+      {!watchlist ? <DeferredDirectionGuard key={`direction-${pathname}`} /> : null}
       {home ? <DeferredTomorrowFallback /> : null}
       {watchlist ? <DeferredWatchlistFallback key={`watchlist-${pathname}`} /> : null}
     </Suspense>

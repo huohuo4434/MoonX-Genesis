@@ -489,11 +489,15 @@ export function buildFocusDossier(input: {
       ? { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version }
       : null,
     backgroundHorizons: backgrounds,
-    statusLabel: hasRollingRevision
-      ? "未来节奏已按最新行情更新"
-      : complete
-        ? isPeriodDerived ? "周期卦派生 · 不是独立日卦" : "双观点日分析已就绪"
-        : "日分析生成检查中",
+    statusLabel: isPeriodDerived
+      ? hasRollingRevision
+        ? "周期卦派生 · 不是独立日卦 · 节奏已更新"
+        : "周期卦派生 · 不是独立日卦"
+      : hasRollingRevision
+        ? "未来节奏已按最新行情更新"
+        : complete
+          ? "双观点日分析已就绪"
+          : "日分析生成检查中",
     conclusion: current.summary,
     periodStart: displayWindow.start,
     periodEnd: displayWindow.end,

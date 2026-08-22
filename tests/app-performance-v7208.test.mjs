@@ -45,6 +45,7 @@ assert.match(deferred, /requestIdleCallback/);
 assert.match(deferred, /lazy\(\(\) =>/);
 assert.match(deferred, /DeferredMemberWelcomeGuide/);
 assert.match(deferred, /watchlist = \/\\\/featured-stocks\\\//);
+assert.match(deferred, /!watchlist \? <DeferredDirectionGuard/);
 
 const guard = read("components/system/PlainLanguageDirectionGuard.tsx");
 assert.match(guard, /requestAnimationFrame\(flush\)/);
