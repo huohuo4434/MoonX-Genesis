@@ -30,15 +30,18 @@ function DailyRows({ rows }: { rows: FocusDualMethodDailyRow[] }) {
           <tr><th className="px-3 py-3">日期</th><th className="px-3 py-3">六爻</th><th className="px-3 py-3">奇门</th><th className="px-3 py-3">当前节奏</th><th className="px-3 py-3">关系</th></tr>
         </thead>
         <tbody className="divide-y divide-white/[0.07]">
-          {visibleRows.map((row) => (
-            <tr key={row.date} className="align-top bg-black/10">
-              <td className="whitespace-nowrap px-3 py-4"><p className="text-body-sm font-medium text-white">{row.date}</p><p className="mt-1 text-[11px] text-white/35">{DAY_STATE[row.state]}</p></td>
-              <td className="max-w-[280px] px-3 py-4"><Badge variant="outline" className={directionClass(row.liuyaoDirection)}>{row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-white/58">{row.liuyaoSummary}</p></td>
-              <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.qimen.direction)}>{row.qimen.direction}</Badge><p className="mt-2 text-caption leading-6 text-violet-100/65">{row.qimen.mysticNote}</p></td>
-              <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.rhythmDirection)}>{row.rhythmDirection ?? row.liuyaoDirection ?? "震荡"}</Badge><p className="mt-2 text-caption leading-6 text-cyan-100/65">{row.rhythmSummary ?? row.liuyaoSummary}</p></td>
-              <td className="whitespace-nowrap px-3 py-4"><Badge variant="outline" className={relationClass(row.relation)}>{row.relationLabel}</Badge></td>
-            </tr>
-          ))}
+          {visibleRows.map((row) => {
+            const closedSession = row.qimen.direction === "休市观察";
+            return (
+              <tr key={row.date} className="align-top bg-black/10">
+                <td className="whitespace-nowrap px-3 py-4"><p className="text-body-sm font-medium text-white">{row.date}</p><p className="mt-1 text-[11px] text-white/35">{DAY_STATE[row.state]}</p></td>
+                <td className="max-w-[280px] px-3 py-4"><Badge variant="outline" className={directionClass(row.liuyaoDirection)}>{closedSession ? "休市观察" : row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-white/58">{row.liuyaoSummary}</p></td>
+                <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.qimen.direction)}>{row.qimen.direction}</Badge><p className="mt-2 text-caption leading-6 text-violet-100/65">{row.qimen.mysticNote}</p></td>
+                <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.rhythmDirection)}>{closedSession ? "休市观察" : row.rhythmDirection ?? row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-cyan-100/65">{row.rhythmSummary ?? row.liuyaoSummary}</p></td>
+                <td className="whitespace-nowrap px-3 py-4"><Badge variant="outline" className={relationClass(row.relation)}>{row.relationLabel}</Badge></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

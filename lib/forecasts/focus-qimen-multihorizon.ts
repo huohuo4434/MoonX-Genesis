@@ -17,6 +17,7 @@ import {
   type FocusQimenUseGodBasis,
   type FocusQimenValidationStatus,
 } from "@/lib/forecasts/focus-qimen-parallel";
+import { focusClosedSessionSummary, isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 
 const DAY_MS = 86_400_000;
 const MAX_DAILY_ROWS = 7;
@@ -332,14 +333,21 @@ function buildDailyRows(input: {
   const sourceDates = [...new Set(input.dailyPath.map((day) => day.date))].sort().slice(0, MAX_DAILY_ROWS);
   const dates = periodDates.length ? periodDates : sourceDates;
   return dates.map((date) => {
-    const equityWeekend = definition.assetClass === "EQUITY" && [0, 6].includes(new Date(`${date}T00:00:00.000Z`).getUTCDay());
-    const source = byDate.get(date) ?? {
+    const closedSession = definition.assetClass === "EQUITY" && !isFocusTradingDay(input.assetId, date);
+    const existing = byDate.get(date);
+    const closedSummary = focusClosedSessionSummary(input.assetId);
+    const source = closedSession ? {
+      date,
+      state: existing?.state ?? "PENDING" as const,
+      direction: null,
+      summary: closedSummary,
+      rhythmDirection: null,
+      rhythmSummary: closedSummary,
+    } : existing ?? {
       date,
       state: "MISSING" as const,
       direction: null,
-      summary: equityWeekend
-        ? "交易所休市：六爻不生成正式日走势；奇门只保留气机观察且不计验证。"
-        : "日分析生成异常，请查看研究完整性自检。",
+      summary: "日分析生成异常，请查看研究完整性自检。",
     };
     const qimen = buildFocusQimenParallelReading({
       assetId: input.assetId,

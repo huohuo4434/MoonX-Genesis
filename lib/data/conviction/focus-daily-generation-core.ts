@@ -11,6 +11,7 @@ import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekl
 import { FOCUS_DAILY_MARKET_PREFIX } from "@/lib/weekly-source/generated-daily-namespace-core";
 import { buildFocusQimenParallelReading } from "@/lib/forecasts/focus-qimen-parallel";
 import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
+import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 
 const DAY_MS = 86_400_000;
 export type FocusDailySourceKind = "TEACHER_DAILY" | "MOOX_WEEK_DERIVED" | "MOOX_PERIOD_DERIVED" | "MOOX_ROLLING_REVISION";
@@ -155,7 +156,7 @@ export function buildFocusDailyPublicationBatch(input: { assetId: string; weekly
   const sourceDays = new Map((authority.dailyPath ?? []).map((day) => [day.date, day]));
   const publishedAt = new Date(input.nowMs).toISOString();
   const periodDates = dates(expected.start, expected.end);
-  const all = periodDates.filter((forecastDate) => mode === "NEXT" || forecastDate >= input.asOfDate).map((forecastDate) => {
+  const all = periodDates.filter((forecastDate) => (mode === "NEXT" || forecastDate >= input.asOfDate) && isFocusTradingDay(input.assetId, forecastDate)).map((forecastDate) => {
     const sourceDay = sourceDays.get(forecastDate);
     const base = sourceDay
       ? { direction: sourceDay.direction.trim(), summary: sourceDay.summary.trim() }

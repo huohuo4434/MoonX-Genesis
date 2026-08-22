@@ -13,6 +13,7 @@
  */
 import { buildMooxQimenChartForAudit, evaluateExperimentalQimenAt } from "@/lib/forecasts/qimen-first-policy";
 import { classifyDailyDirection } from "@/lib/forecasts/daily-direction-family";
+import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 
 export const MOOX_FOCUS_QIMEN_PARALLEL_VERSION = "FOCUS_QIMEN_PARALLEL_V2_WU_SEMANTIC_20260820";
 export const MOOX_FOCUS_QIMEN_ACCURACY_BASELINE = "2026-08-18";
@@ -454,6 +455,7 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
   liuyaoDirection?: string | null;
 }, options: FocusQimenParallelBuildOptions = {}): FocusQimenParallelReading {
   const definition = resolveUseGod(input.assetId, input.symbol);
+  const closedSession = !options.forceComparable && definition.assetClass === "EQUITY" && !isFocusTradingDay(input.assetId, input.forecastDate);
   if (definition.basis === "GENERIC_TIME_STEM") {
     return {
       policyVersion: MOOX_FOCUS_QIMEN_PARALLEL_VERSION,
@@ -462,11 +464,11 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
       forecastDate: input.forecastDate,
       available: false,
       directionCode: null,
-      direction: "资料不足",
+      direction: closedSession ? "休市观察" : "资料不足",
       confidence: null,
       score: null,
-      summary: "奇门：固定用神依据不足，暂不生成方向。",
-      mysticNote: definition.note,
+      summary: closedSession ? "交易所休市：不生成可验证的正式涨跌结论。" : "奇门：固定用神依据不足，暂不生成方向。",
+      mysticNote: closedSession ? `${definition.note} 休市日仅作背景观察，不计正式走势验证。` : definition.note,
       useGod: "未建立固定用神",
       useGodBasis: definition.basis,
       useGodNote: definition.note,
@@ -474,8 +476,8 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
       chartSummary: "未起局：固定用神依据不足",
       evidence: `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；奇门不可用=固定用神依据不足；保留六爻原始方向`,
       relation: "NOT_COMPARABLE",
-      relationLabel: "奇门证据不足",
-      validationStatus: "UNAVAILABLE",
+      relationLabel: closedSession ? "休市不比较" : "奇门证据不足",
+      validationStatus: closedSession ? "NOT_ELIGIBLE" : "UNAVAILABLE",
       verificationEligible: false,
       verificationKey: options.verificationKey ?? `focus-qimen:${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}:${input.assetId}:${input.forecastDate}`,
     };
@@ -492,17 +494,16 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
     : scored.direction;
   const effectiveConfidence = teacherSemantic?.available ? teacherSemantic.confidence : scored.confidence;
   const effectiveScore = teacherSemantic?.available ? teacherSemantic.score : scored.score;
-  const equityWeekend = !options.forceComparable && definition.assetClass === "EQUITY" && isWeekend(input.forecastDate);
-  const formalDirection: FocusQimenDirection = equityWeekend ? "休市观察" : directionLabel(effectiveDirection);
-  const relation = relationFor(effectiveDirection, input.liuyaoDirection, !equityWeekend && available);
-  const defaultValidation = validationFor(definition, input.forecastDate, available);
+  const formalDirection: FocusQimenDirection = closedSession ? "休市观察" : directionLabel(effectiveDirection);
+  const relation = relationFor(effectiveDirection, input.liuyaoDirection, !closedSession && available);
+  const defaultValidation = closedSession ? { status: "NOT_ELIGIBLE" as const, eligible: false } : validationFor(definition, input.forecastDate, available);
   const validation = {
     status: options.validationStatus ?? defaultValidation.status,
     eligible: options.verificationEligible ?? defaultValidation.eligible,
   };
   const primaryStem = definition.primary[0] ?? chart.pillars.hour.stem;
   const semanticMysticNote = teacherSemantic?.teacherNotes[0] ?? palacePhrase(scored.primaryPalace, primaryStem, effectiveDirection);
-  const mysticNote = equityWeekend
+  const mysticNote = closedSession
     ? `${semanticMysticNote} 休市日仅作气机观察，不计正式走势验证。`
     : semanticMysticNote;
   const useGod = definition.primary.length
@@ -519,11 +520,11 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
     forecastDate: input.forecastDate,
     available,
     directionCode: available ? effectiveDirection : null,
-    direction: available ? formalDirection : "震荡",
+    direction: closedSession ? "休市观察" : available ? formalDirection : "震荡",
     confidence: available ? effectiveConfidence : null,
     score: available ? effectiveScore : null,
-    summary: equityWeekend
-      ? "交易所休市：奇门保留为周末气机观察，不生成可验证的正式涨跌结论。"
+    summary: closedSession
+      ? "交易所休市：奇门只保留休市日气机观察，不生成可验证的正式涨跌结论。"
       : `奇门：${formalDirection}${available ? `，置信度${effectiveConfidence}%` : ""}。`,
     mysticNote,
     useGod,

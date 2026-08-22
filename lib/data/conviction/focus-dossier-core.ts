@@ -10,6 +10,7 @@ import type {
 import type { CalendarEvidence, GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { buildFocusQimenParallelView } from "@/lib/forecasts/focus-qimen-multihorizon";
 import { focusAuthorityDerivedStep, focusAuthorityDisplayWindow, selectFocusCurrentAuthority } from "@/lib/data/conviction/focus-daily-policy-core";
+import { focusClosedSessionSummary, isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 
 const DAY_MS = 86_400_000;
 const MAX_DISPLAY_PERIOD_DAYS = 62;
@@ -421,6 +422,25 @@ export function buildFocusDossier(input: {
 
   const requiredDates = focusDossierPeriodDates(displayWindow.start, displayWindow.end);
   const dailyPath: FocusDossierDay[] = requiredDates.map((date) => {
+    if (!isFocusTradingDay(input.assetId, date)) {
+      const summary = focusClosedSessionSummary(input.assetId);
+      return {
+        date,
+        state: date < input.asOfDate ? "OCCURRED" : date === input.asOfDate ? "TODAY" : "PENDING",
+        direction: null,
+        summary,
+        rhythmDirection: null,
+        rhythmSummary: summary,
+        confirmation: null,
+        invalidation: null,
+        sourceKind: current.forecastType.startsWith("WEEK") ? "MOOX_WEEK_DERIVED" : "MOOX_PERIOD_DERIVED",
+        version: current.version,
+        asOfDate: input.asOfDate,
+        rollingReason: null,
+        keyDayEvidence: forecastKeyDayEvidence(current, date),
+        auxiliaryEvidence: null,
+      };
+    }
     const sourceDay = sourceDays.get(date);
     const generated = sourceDay?.status === "已验证" ? null : generatedDays.get(date);
     if (generated) return generatedDailyView(current, date, input.asOfDate, [generated], input.nowMs)!;
@@ -447,7 +467,7 @@ export function buildFocusDossier(input: {
       auxiliaryEvidence: null,
     };
   });
-  const activeDaily = dailyPath.filter((day) => day.date >= input.asOfDate);
+  const activeDaily = dailyPath.filter((day) => day.date >= input.asOfDate && isFocusTradingDay(input.assetId, day.date));
   const complete = activeDaily.length > 0 && activeDaily.every((day) => day.direction && day.state !== "MISSING");
   const dailyAuditRows = (input.generatedDailyAudit ?? []).map((row) => ({
     forecastDate: row.forecastDate,
@@ -507,8 +527,8 @@ export function buildFocusDossier(input: {
     resistanceLevels: current.resistanceLevels,
     confirmation: current.confirmationLevel ?? null,
     invalidation: current.invalidationLevel ?? null,
-    occurred: dailyPath.filter((day) => day.state === "OCCURRED").map((day) => `${day.date} ${day.summary}`),
-    pendingVerification: dailyPath.filter((day) => day.state !== "OCCURRED").map((day) => `${day.date} ${day.rhythmSummary ?? day.summary}`),
+    occurred: dailyPath.filter((day) => day.state === "OCCURRED" && isFocusTradingDay(input.assetId, day.date)).map((day) => `${day.date} ${day.summary}`),
+    pendingVerification: dailyPath.filter((day) => day.state !== "OCCURRED" && isFocusTradingDay(input.assetId, day.date)).map((day) => `${day.date} ${day.rhythmSummary ?? day.summary}`),
     nextWeek,
     displayScope: highlightPreparedNext ? "NEXT_PERIOD_READY" : "CURRENT_PERIOD",
     weeklyEvidenceStatus: current.forecastType.startsWith("WEEK") ? "READY" : "MISSING",
