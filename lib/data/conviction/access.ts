@@ -133,6 +133,7 @@ import type {
 import { STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { SPCX_PERIOD_ORDER, SPCX_VISIBLE_PERIOD_ORDER, spcxPeriodMeta } from "@/lib/data/conviction/spcx-forecasts";
+import { INTEL_PERIOD_LABELS, INTEL_PERIOD_ORDER, INTEL_VISIBLE_PERIOD_ORDER, intelPeriodMeta } from "@/lib/data/conviction/intel-liuyao-20260822";
 
 export type ConvictionListPagePayload = {
   mode: "publicOnly" | "fullAccess";
@@ -286,6 +287,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "tencent") return TENCENT_PERIOD_ORDER;
   if (assetId === "kingsoft-office") return VIBE_FOCUS_PERIOD_ORDER;
   if (assetId === "spcx") return SPCX_PERIOD_ORDER;
+  if (assetId === "intel") return INTEL_PERIOD_ORDER;
   return PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -306,6 +308,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "tencent") return TENCENT_VISIBLE_PERIOD_ORDER;
   if (assetId === "kingsoft-office") return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
   if (assetId === "spcx") return SPCX_VISIBLE_PERIOD_ORDER;
+  if (assetId === "intel") return INTEL_VISIBLE_PERIOD_ORDER;
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -336,6 +339,9 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
   }
   if (assetId === "nbis") {
     return NBIS_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
+  }
+  if (assetId === "intel") {
+    return INTEL_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
   }
   if (assetId === "asteroid" && type === "WEEK") {
     return { ...ASTEROID_PERIOD_LABELS[type], zh: "本周逐日" };
@@ -459,6 +465,7 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "tencent") return tencentPeriodMeta();
   if (assetId === "kingsoft-office") return vibeFocusPeriodMeta(assetId);
   if (assetId === "spcx") return spcxPeriodMeta();
+  if (assetId === "intel") return intelPeriodMeta();
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({
     type,
@@ -729,6 +736,7 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   tencent: "腾讯",
   "kingsoft-office": "金山办公",
   spcx: "SPCX",
+  intel: "英特尔",
 };
 
 /** Admin freshness guard: a finished weekly study cannot remain silently current. */

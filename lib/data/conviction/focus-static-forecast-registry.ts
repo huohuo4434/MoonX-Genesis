@@ -15,6 +15,7 @@ import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-f
 import { listTSLAPeriodForecasts20260816 } from "@/lib/data/conviction/tsla-liuyao-20260816";
 import { listLITEPeriodForecasts20260816 } from "@/lib/data/conviction/lite-liuyao-20260816";
 import { listSpcxPeriodForecasts } from "@/lib/data/conviction/spcx-forecasts";
+import { listIntelPeriodForecasts } from "@/lib/data/conviction/intel-liuyao-20260822";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
@@ -36,6 +37,7 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "tsla": return listTSLAPeriodForecasts20260816();
     case "lite": return listLITEPeriodForecasts20260816();
     case "spcx": return listSpcxPeriodForecasts();
+    case "intel": return listIntelPeriodForecasts();
     default: return [];
   }
 }

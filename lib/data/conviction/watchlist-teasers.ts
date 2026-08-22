@@ -30,6 +30,28 @@ export type WatchlistTeaser = {
  */
 export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
   {
+    slug: "intel",
+    assetType: "STOCK",
+    nameZh: "英特尔",
+    nameEn: "Intel",
+    symbol: "INTC",
+    detailHref: "/featured-stocks/intel",
+    rating: "A-",
+    riskZh: "高",
+    eyebrowZh: "半导体专题 · 三周期新卦",
+    eyebrowEn: "Semiconductor dossier · three new horizons",
+    headlineZh: "英特尔：三段周期已经接成一条路线，关键不在一天的涨跌",
+    headlineEn: "Intel: three horizons now form one path; the key is larger than a single session",
+    hookZh: "短段、中段和年底结构已经统一归档。公开层只说明研究覆盖；完整方向、卦象证据和阶段风险留在会员专题。",
+    hookEn: "The short, medium and year-end structures are now archived together. The full direction, chart evidence and phase risks remain inside the member dossier.",
+    coverageZh: "8月底 / 9月底 / 到年底 / 原始六爻证据",
+    coverageEn: "Late August / September / year end / original Liu Yao evidence",
+    lockedPreviewZh: ["三周期正式方向", "主卦与变卦证据", "阶段路线", "风险观察窗口"],
+    lockedPreviewEn: ["Three-horizon direction", "Primary/change evidence", "Phase roadmap", "Risk windows"],
+    accent: "indigo",
+    priority: 2.5,
+  },
+  {
     slug: "spcx",
     assetType: "STOCK",
     nameZh: "SPCX",
