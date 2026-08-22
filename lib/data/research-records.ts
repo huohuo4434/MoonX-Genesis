@@ -32,6 +32,7 @@ import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoin
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { btcMarketBazi20260820Records } from "@/lib/data/btc-market-bazi-20260820";
+import { cycleResearchFcx20260822Records } from "@/lib/data/cycle-research-fcx-20260822";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
 import {
@@ -1425,6 +1426,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...wtiPathExt20260807Records,
     ...btcLiuyao20260727Records,
     ...btcMarketBazi20260820Records,
+    ...cycleResearchFcx20260822Records,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
