@@ -16,6 +16,7 @@ test("INTC is published in the focus registry without implicit live-trading auth
   assert.equal(asset.symbol, "INTC");
   assert.equal(asset.exchange, "NASDAQ");
   assert.equal(asset.isPublished, true);
+  assert.doesNotMatch(`${asset.thesisZh.join(" ")} ${asset.catalystsZh.join(" ")} ${asset.risksZh.join(" ")}`, /磨底|转强|先升|主升|游魂|归魂|官鬼/);
   assert.ok(STATIC_FOCUS_ASSET_IDS.includes("intel"));
   assert.equal(STATIC_MEMBER_AUTOMATION_FOCUS.intel.canonicalSymbol, null);
   assert.equal(getAssetPresentation("INTC")?.assetId, "intel");
