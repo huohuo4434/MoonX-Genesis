@@ -25,7 +25,7 @@ export type FocusDailyAuxiliaryEvidence = {
   realizedPhase?: FocusRealizedPhase;
   marketDataStatus?: "AVAILABLE" | "UNAVAILABLE";
   chanStatus?: "AVAILABLE" | "UNAVAILABLE";
-  chanTimeframes?: Array<"1H" | "1D">;
+  chanTimeframes?: Array<"1H" | "4H" | "1D">;
   chanStage?: string | null;
   sessionMovePct?: number | null;
   recentMovePct?: number | null;

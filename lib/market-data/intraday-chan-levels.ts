@@ -2,11 +2,16 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { loadChanCandles } from "@/lib/market-data/chan-market-data";
-import { analyzeChanStructure } from "@/lib/trading-signals/chan-structure-core";
 import type { ChanCandle, ChanInstrument } from "@/types/chan-execution";
 import { classifyDailyDirection } from "@/lib/forecasts/daily-direction-family";
+import { aggregateContinuousFourHourCandles } from "@/lib/market-data/chan-market-data-core";
+import {
+  deriveChanStructuralLevels,
+  formatStructuralPrice,
+  type ChanLevelSource,
+} from "@/lib/market-data/chan-structural-levels-core";
 
-export const MOOX_INTRADAY_LEVEL_VERSION = "INTRADAY_CHAN_1H_V1_20260819";
+export const MOOX_INTRADAY_LEVEL_VERSION = "GAOSHAN_CHAN_4H_PRIMARY_V2_20260823";
 
 export type IntradayTechnicalLevels = {
   key: string;
@@ -17,8 +22,10 @@ export type IntradayTechnicalLevels = {
   move24hPct: number | null;
   supportValue: number | null;
   resistanceValue: number | null;
-  source: "CHAN_1H" | "SWING_1H" | "FALLBACK" | "UNAVAILABLE";
+  source: ChanLevelSource;
   sourceLabel: string;
+  primaryTimeframe: "4H" | "1H" | null;
+  structureBasis: "ACTIVE_CENTER" | "CONFIRMED_STRUCTURE" | "SWING_RANGE" | null;
   capturedAt: string;
   error: string | null;
 };
@@ -94,96 +101,31 @@ export function listIntradayTechnicalTargetKeys(): string[] {
   return Object.keys(TARGETS).filter((key) => key === "FOCUS:ASTEROID" || TARGETS[key] !== null);
 }
 
-function validCandles(rows: ChanCandle[]): ChanCandle[] {
-  return rows
-    .filter((row) => Number.isFinite(row.timestamp) && row.open > 0 && row.high >= row.low && row.low > 0 && row.close > 0)
-    .sort((a, b) => a.timestamp - b.timestamp)
-    .slice(-72);
-}
-
-function trueRange(row: ChanCandle, previous?: ChanCandle): number {
-  if (!previous) return row.high - row.low;
-  return Math.max(row.high - row.low, Math.abs(row.high - previous.close), Math.abs(row.low - previous.close));
-}
-
-function atr(rows: ChanCandle[]): number {
-  const sample = rows.slice(-14);
-  if (!sample.length) return 0;
-  return sample.reduce((sum, row, index) => sum + trueRange(row, index ? sample[index - 1] : undefined), 0) / sample.length;
-}
-
-function nearestBelow(values: number[], price: number): number | null {
-  return values.filter((value) => Number.isFinite(value) && value > 0 && value < price).sort((a, b) => b - a)[0] ?? null;
-}
-function nearestAbove(values: number[], price: number): number | null {
-  return values.filter((value) => Number.isFinite(value) && value > price).sort((a, b) => a - b)[0] ?? null;
-}
-
-function clamp(value: number, low: number, high: number): number {
-  return Math.max(low, Math.min(high, value));
-}
-
-function decimals(price: number): number {
-  if (price >= 10_000) return 0;
-  if (price >= 1_000) return 1;
-  if (price >= 1) return 2;
-  if (price >= 0.01) return 4;
-  return 6;
-}
-
 export function formatIntradayPrice(value: number): string {
-  const places = decimals(Math.abs(value));
-  return value.toLocaleString("en-US", { minimumFractionDigits: places, maximumFractionDigits: places });
+  return formatStructuralPrice(value);
 }
 
-function formatZone(base: number, width: number): string {
-  const low = base - width;
-  const high = base + width;
-  const a = formatIntradayPrice(low);
-  const b = formatIntradayPrice(high);
-  return a === b ? a : `${a}—${b}`;
-}
-
-export function deriveIntradayTechnicalLevels(key: string, candlesInput: ChanCandle[], capturedAt: string): IntradayTechnicalLevels | null {
-  const candles = validCandles(candlesInput);
-  const last = candles.at(-1);
-  if (!last || candles.length < 12) return null;
-  const price = last.close;
-  const reference24h = candles.at(Math.max(0, candles.length - 25))?.close ?? candles[0]?.close ?? price;
-  const move24hPct = reference24h > 0 ? ((price - reference24h) / reference24h) * 100 : null;
-  const structure = analyzeChanStructure(candles);
-  const recent = candles.slice(-36);
-  const volatility = Math.max(atr(candles), price * 0.0015);
-
-  const belowCandidates: number[] = [];
-  const aboveCandidates: number[] = [];
-  for (const zone of structure.zones.slice(-4)) {
-    if (zone.low < price) belowCandidates.push(zone.low, Math.min(zone.high, price - Number.EPSILON));
-    if (zone.high > price) aboveCandidates.push(zone.high, Math.max(zone.low, price + Number.EPSILON));
-  }
-  for (const fractal of structure.fractals.slice(-10)) {
-    if (fractal.kind === "BOTTOM") belowCandidates.push(fractal.price);
-    else aboveCandidates.push(fractal.price);
-  }
-  belowCandidates.push(...recent.map((row) => row.low));
-  aboveCandidates.push(...recent.map((row) => row.high));
-
-  const supportValue = nearestBelow(belowCandidates, price) ?? price - volatility * 0.75;
-  const resistanceValue = nearestAbove(aboveCandidates, price) ?? price + volatility * 0.75;
-  // Tight 1H tactical zones: half-width is capped at 0.25% of price and 12% of 1H ATR.
-  const width = clamp(volatility * 0.12, price * 0.0004, price * 0.0025);
-  const source = structure.sufficient && structure.zones.length ? "CHAN_1H" as const : "SWING_1H" as const;
+export function deriveIntradayTechnicalLevels(
+  key: string,
+  candlesInput: ChanCandle[],
+  capturedAt: string,
+  timeframe: "4H" | "1H" = "4H"
+): IntradayTechnicalLevels | null {
+  const derived = deriveChanStructuralLevels({ candles: candlesInput, timeframe });
+  if (!derived) return null;
   return {
     key,
-    support: formatZone(supportValue, width),
-    resistance: formatZone(resistanceValue, width),
+    support: derived.support,
+    resistance: derived.resistance,
     invalidation: "—",
-    currentPrice: price,
-    move24hPct,
-    supportValue,
-    resistanceValue,
-    source,
-    sourceLabel: source === "CHAN_1H" ? "缠论1H近端结构" : "1H近端摆动",
+    currentPrice: derived.currentPrice,
+    move24hPct: derived.move24hPct,
+    supportValue: derived.supportValue,
+    resistanceValue: derived.resistanceValue,
+    source: derived.source,
+    sourceLabel: derived.sourceLabel,
+    primaryTimeframe: derived.primaryTimeframe,
+    structureBasis: derived.structureBasis,
     capturedAt,
     error: null,
   };
@@ -250,17 +192,20 @@ async function loadAsteroid1hCandles(): Promise<ChanCandle[]> {
   }));
 }
 
-function unavailableLevel(keyInput: string, error: string, label = "1H行情刷新中"): IntradayTechnicalLevels {
+function unavailableLevel(keyInput: string, error: string, label = "4H结构行情刷新中"): IntradayTechnicalLevels {
   const key = keyInput.startsWith("FOCUS:") ? keyInput.toUpperCase() : canonicalKey(keyInput);
   return {
     key, support: "—", resistance: "—", invalidation: "—", currentPrice: null, move24hPct: null,
     supportValue: null, resistanceValue: null, source: "UNAVAILABLE", sourceLabel: label,
+    primaryTimeframe: null, structureBasis: null,
     capturedAt: new Date().toISOString(), error,
   };
 }
 
 /**
- * Load only successful 1H snapshots into Next cache. Transient network failures throw so
+ * Load only successful structural snapshots into Next cache. 4H is the main
+ * support/resistance map; 1H is a tactical fallback only when 4H cannot be built.
+ * Transient network failures throw so
  * unstable_cache will not freeze an "UNAVAILABLE" result for the full five-minute TTL.
  */
 async function loadRawSuccessful(keyInput: string): Promise<IntradayTechnicalLevels> {
@@ -269,14 +214,23 @@ async function loadRawSuccessful(keyInput: string): Promise<IntradayTechnicalLev
   const capturedAt = new Date().toISOString();
   if (!instrument) {
     if (key !== "FOCUS:ASTEROID") throw new Error("INSTRUMENT_UNAVAILABLE");
-    const computed = deriveIntradayTechnicalLevels(key, await loadAsteroid1hCandles(), capturedAt);
-    if (!computed) throw new Error("INSUFFICIENT_1H_BARS");
+    const oneHour = await loadAsteroid1hCandles();
+    const fourHour = aggregateContinuousFourHourCandles(oneHour, Date.now());
+    const computed = deriveIntradayTechnicalLevels(key, fourHour, capturedAt, "4H")
+      ?? deriveIntradayTechnicalLevels(key, oneHour, capturedAt, "1H");
+    if (!computed) throw new Error("INSUFFICIENT_STRUCTURAL_BARS");
     return computed;
   }
-  const loaded = await loadChanCandles({ symbol: instrument.symbol, timeframe: "1H", instrument, timeoutMs: 4_500 });
-  const computed = deriveIntradayTechnicalLevels(key, loaded.candles, capturedAt);
-  if (!computed) throw new Error(loaded.error ?? "INSUFFICIENT_1H_BARS");
-  return computed;
+  // Keep the sequential 1H fallback inside the member client's seven-second
+  // deadline: 3.2s primary budget + 1.6s fallback budget.
+  const fourHour = await loadChanCandles({ symbol: instrument.symbol, timeframe: "4H", instrument, timeoutMs: 3_200 });
+  const primary = deriveIntradayTechnicalLevels(key, fourHour.candles, capturedAt, "4H");
+  if (primary) return primary;
+
+  const oneHour = await loadChanCandles({ symbol: instrument.symbol, timeframe: "1H", instrument, timeoutMs: 1_600 });
+  const tacticalFallback = deriveIntradayTechnicalLevels(key, oneHour.candles, capturedAt, "1H");
+  if (!tacticalFallback) throw new Error(fourHour.error ?? oneHour.error ?? "INSUFFICIENT_STRUCTURAL_BARS");
+  return tacticalFallback;
 }
 
 const cachedLoad = unstable_cache(loadRawSuccessful, [MOOX_INTRADAY_LEVEL_VERSION], { revalidate: 300 });
@@ -286,7 +240,7 @@ export async function getIntradayTechnicalLevels(key: string, direction?: string
   try {
     level = await cachedLoad(key);
   } catch (error) {
-    return unavailableLevel(key, error instanceof Error ? error.message : "INTRADAY_1H_UNAVAILABLE");
+    return unavailableLevel(key, error instanceof Error ? error.message : "STRUCTURAL_LEVELS_UNAVAILABLE");
   }
   const family = classifyDailyDirection(direction);
   const invalidation = family === "UP"

@@ -14,7 +14,7 @@ export type MemberDailyTechnicalView = {
   support: string;
   resistance: string;
   invalidation: string;
-  source: "CHAN_1H" | "SWING_1H" | "FALLBACK" | "VERIFIED_OHLC" | "FORECAST_SNAPSHOT" | "LOCKED_LEVELS" | "UNAVAILABLE";
+  source: "CHAN_4H" | "SWING_4H" | "CHAN_1H" | "SWING_1H" | "FALLBACK" | "VERIFIED_OHLC" | "FORECAST_SNAPSHOT" | "LOCKED_LEVELS" | "UNAVAILABLE";
 };
 
 type Ohlc = {
@@ -228,9 +228,9 @@ function lockedView(forecast: DailyForecast): MemberDailyTechnicalView | null {
 export async function buildMemberDailyTechnicalViews(
   forecasts: DailyForecast[]
 ): Promise<Record<string, MemberDailyTechnicalView>> {
-  // 1H is the tactical source of truth for today's support/resistance. Load the
-  // nine markets in parallel and cache them for five minutes; never serialize
-  // 18 remote calls for today + tomorrow.
+  // Gao Shan hierarchy: the headline levels come from the 4H center/segment
+  // map. 1H is only a tactical fallback. Load each unique market once for both
+  // today and tomorrow, and cache successful snapshots for five minutes.
   const uniqueSymbols = [...new Set(forecasts.map((forecast) => normalizeSymbol(forecast.symbol)))];
   const [intraday, results] = await Promise.all([
     getIntradayTechnicalLevelMap(uniqueSymbols).catch((): Record<string, IntradayTechnicalLevels> => ({})),

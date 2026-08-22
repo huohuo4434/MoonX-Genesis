@@ -75,16 +75,21 @@ test("all core9 and all 19 focus assets have 1H tactical target mappings", () =>
   }
 });
 
-test("1H tactical zones are tight and transient failures are not cached as valid snapshots", () => {
+test("4H structural levels are primary and transient failures are not cached as valid snapshots", () => {
   const s = read("lib/market-data/intraday-chan-levels.ts");
-  assert.match(s, /price \* 0\.0025/);
-  assert.match(s, /timeoutMs: 4_500/);
+  const core = read("lib/market-data/chan-structural-levels-core.ts");
+  assert.match(s, /GAOSHAN_CHAN_4H_PRIMARY/);
+  assert.match(s, /timeframe: "4H"/);
+  assert.match(core, /ACTIVE_CENTER/);
+  assert.match(core, /confirmedFiveBarSwings/);
+  assert.match(s, /timeoutMs: 3_200/);
+  assert.match(s, /timeoutMs: 1_600/);
   assert.match(s, /loadRawSuccessful/);
-  assert.match(s, /throw new Error\("INSUFFICIENT_1H_BARS"\)/);
+  assert.match(s, /throw new Error\("INSUFFICIENT_STRUCTURAL_BARS"\)/);
   assert.match(s, /source: "UNAVAILABLE"/);
 });
 
-test("homepage uses streamed 1H levels and previous completed verification date only", () => {
+test("homepage uses streamed 4H-first levels and previous completed verification date only", () => {
   const s = read("components/home/HomeLandingBoard.tsx");
   assert.match(s, /HomeIntradayLevelPair/);
   assert.match(s, /item\.forecastDate < todayKey/);
@@ -94,7 +99,7 @@ test("homepage uses streamed 1H levels and previous completed verification date 
   assert.doesNotMatch(s, /近期表现较稳的3个市场/);
 });
 
-test("focus detail uses client-safe 1H cards and never imports server-only loader into the client graph", () => {
+test("focus detail uses client-safe 4H-first cards and never imports server-only loader into the client graph", () => {
   const s = read("components/conviction/FocusDossierPanel.tsx");
   const live = read("components/conviction/FocusIntradayTechnicalCards.tsx");
   const api = read("app/api/member/intraday-levels/route.ts");
@@ -112,9 +117,10 @@ test("focus detail uses client-safe 1H cards and never imports server-only loade
   assert.doesNotMatch(s, /周期确认：/);
 });
 
-test("member daily prioritizes 1H levels for all core forecasts", () => {
+test("member daily prioritizes 4H structural levels for all core forecasts", () => {
   const s = read("lib/forecasts/member-daily-live-levels.ts");
   assert.match(s, /getIntradayTechnicalLevelMap/);
+  assert.match(s, /headline levels come from the 4H center\/segment/);
   assert.match(s, /live && live\.source !== "UNAVAILABLE"/);
 });
 

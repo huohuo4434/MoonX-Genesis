@@ -8,6 +8,7 @@ import {
   isValidChanCandle,
   parseOrderlyTvCandles,
   parseYahooChanCandles,
+  type YahooFourHourSessionProfile,
 } from "@/lib/market-data/chan-market-data-core";
 import { resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
 import { loadMultiSourceCryptoCandles } from "@/lib/market-data/multi-source-crypto";
@@ -30,8 +31,14 @@ async function fetchYahooCandles(input: {
   capturedNowMs: number;
   signal: AbortSignal;
 }): Promise<ChanCandle[]> {
+  const continuousFutures = input.providerSymbol.toUpperCase().endsWith("=F");
+  const fourHourProfile: YahooFourHourSessionProfile = /\.(?:SS|SZ)$/iu.test(input.providerSymbol)
+    ? "CN_EQUITY"
+    : /\.HK$|^\^HSTECH$/iu.test(input.providerSymbol)
+      ? "HK_EQUITY"
+      : "US_EQUITY";
   const queryTimeframe = input.timeframe === "4H"
-    ? "30m"
+    ? continuousFutures ? "1h" : "30m"
     : input.timeframe === "1H"
       ? "1h"
       : input.timeframe === "1D"
@@ -54,10 +61,13 @@ async function fetchYahooCandles(input: {
   });
   if (!response.ok) throw new Error(`YAHOO_HTTP_${response.status}`);
   const parsed = parseYahooChanCandles(await response.json());
+  if (input.timeframe === "4H" && continuousFutures) {
+    return aggregateContinuousFourHourCandles(parsed.candles, input.capturedNowMs).slice(-120);
+  }
   const sourceFrame = input.timeframe === "4H" ? "30m" : input.timeframe;
   const closed = filterYahooClosedCandles(parsed.candles, sourceFrame, input.capturedNowMs, parsed.timeZone);
   return input.timeframe === "4H"
-    ? aggregateYahooFourHourCandles(closed, parsed.timeZone, input.capturedNowMs).slice(-120)
+    ? aggregateYahooFourHourCandles(closed, parsed.timeZone, input.capturedNowMs, fourHourProfile).slice(-120)
     : closed.slice(-160);
 }
 

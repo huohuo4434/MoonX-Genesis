@@ -51,20 +51,21 @@ export async function loadFocusDailyAuxiliaryEvidence(input: {
   const realizedPhase = base.realizedPhase && base.realizedPhase !== "NONE"
     ? base.realizedPhase
     : intradayPhase;
+  const chanTimeframe = intraday.primaryTimeframe ?? "1H";
   return {
     ...base,
     evidenceKey: `${base.evidenceKey};INTRADAY=${intraday.source}:${intraday.support}:${intraday.resistance}`,
     supportLevels: [intraday.support],
     resistanceLevels: [intraday.resistance],
     technicalEvidence: [
-      `缠论1H支撑${intraday.support}`,
-      `缠论1H压力${intraday.resistance}`,
+      `缠论${chanTimeframe}支撑${intraday.support}`,
+      `缠论${chanTimeframe}压力${intraday.resistance}`,
       base.technicalEvidence,
     ].filter(Boolean).join("；"),
     marketDataStatus: "AVAILABLE",
     chanStatus: "AVAILABLE",
-    chanTimeframes: ["1H"],
-    chanStage: `1H:${intraday.source}`,
+    chanTimeframes: [chanTimeframe],
+    chanStage: `${chanTimeframe}:${intraday.source}`,
     currentPrice: intraday.currentPrice ?? base.currentPrice ?? null,
     recentMovePct: base.recentMovePct ?? intradayMove,
     realizedPhase,

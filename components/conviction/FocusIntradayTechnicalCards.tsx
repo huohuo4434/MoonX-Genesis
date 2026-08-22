@@ -8,8 +8,9 @@ type IntradayLevelDto = {
   support: string;
   resistance: string;
   invalidation: string;
-  source: "CHAN_1H" | "SWING_1H" | "FALLBACK" | "UNAVAILABLE";
+  source: "CHAN_4H" | "SWING_4H" | "CHAN_1H" | "SWING_1H" | "FALLBACK" | "UNAVAILABLE";
   sourceLabel: string;
+  primaryTimeframe: "4H" | "1H" | null;
   capturedAt: string;
   error: string | null;
 };
@@ -72,18 +73,19 @@ export function FocusIntradayTechnicalCards({
   const live = Boolean(levels && levels.source !== "UNAVAILABLE");
   const support = live ? levels!.support : "—";
   const resistance = live ? levels!.resistance : "—";
-  const invalidation = live ? levels!.invalidation : state.status === "loading" ? "计算1H结构…" : "1H行情刷新中";
-  const source = live ? levels!.sourceLabel : state.status === "loading" ? "正在读取1H结构" : "1H行情刷新中";
+  const invalidation = live ? levels!.invalidation : state.status === "loading" ? "计算4H结构…" : "4H行情刷新中";
+  const source = live ? levels!.sourceLabel : state.status === "loading" ? "正在读取4H主结构" : "4H行情刷新中";
+  const timeframeLabel = levels?.primaryTimeframe === "1H" ? "1H战术降级" : "4H主结构";
 
   return (
     <>
       <Card padding="sm" className="border-emerald-300/15 bg-emerald-300/[0.025]">
-        <p className="text-caption text-emerald-100/70">当日支撑</p>
+        <p className="text-caption text-emerald-100/70">当日支撑 · {timeframeLabel}</p>
         <p className="mt-1 text-body-sm font-semibold text-white/85">{support}</p>
         <p className="mt-1 text-[11px] text-white/35">{source}</p>
       </Card>
       <Card padding="sm" className="border-rose-300/15 bg-rose-300/[0.025]">
-        <p className="text-caption text-rose-100/70">当日压力</p>
+        <p className="text-caption text-rose-100/70">当日压力 · {timeframeLabel}</p>
         <p className="mt-1 text-body-sm font-semibold text-white/85">{resistance}</p>
         <p className="mt-1 text-[11px] text-white/35">{source}</p>
       </Card>

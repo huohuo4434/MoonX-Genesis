@@ -162,7 +162,7 @@ function parseAuxiliaryEvidence(technical: string | null, news: string | null): 
   if (!encoded) return null;
   try {
     const parsed = JSON.parse(encoded.slice(marker.length));
-    const chanTimeframes = Array.isArray(parsed.chanTimeframes) ? parsed.chanTimeframes.filter((item: unknown): item is "1H" | "1D" => item === "1H" || item === "1D") : [];
+    const chanTimeframes = Array.isArray(parsed.chanTimeframes) ? parsed.chanTimeframes.filter((item: unknown): item is "1H" | "4H" | "1D" => item === "1H" || item === "4H" || item === "1D") : [];
     return {
       closedMarketData: parsed.marketDataStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",
       chan: parsed.chanStatus === "AVAILABLE" ? "AVAILABLE" : "UNAVAILABLE",

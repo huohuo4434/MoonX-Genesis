@@ -120,14 +120,38 @@ export function filterYahooClosedCandles(candles: ChanCandle[], timeframe: ChanT
   });
 }
 
-export function aggregateYahooFourHourCandles(candles: ChanCandle[], timeZone: string, capturedNowMs: number): ChanCandle[] {
+export type YahooFourHourSessionProfile = "US_EQUITY" | "CN_EQUITY" | "HK_EQUITY";
+
+const YAHOO_FOUR_HOUR_CHUNKS: Record<YahooFourHourSessionProfile, readonly (readonly number[])[]> = {
+  // A market session does not divide evenly into four-hour bars. The final
+  // closing-session chunk is retained once every underlying 30m candle closes,
+  // so headline structure never silently drops the most important tail.
+  US_EQUITY: [
+    [570, 600, 630, 660, 690, 720, 750, 780],
+    [810, 840, 870, 900, 930],
+  ],
+  // Mainland exchanges trade exactly four real hours with a lunch recess.
+  CN_EQUITY: [[570, 600, 630, 660, 780, 810, 840, 870]],
+  HK_EQUITY: [
+    [570, 600, 630, 660, 690, 780, 810, 840],
+    [870, 900, 930],
+  ],
+};
+
+export function aggregateYahooFourHourCandles(
+  candles: ChanCandle[],
+  timeZone: string,
+  capturedNowMs: number,
+  profile: YahooFourHourSessionProfile = "US_EQUITY"
+): ChanCandle[] {
+  const expectedChunks = YAHOO_FOUR_HOUR_CHUNKS[profile];
+  const allowedStarts = new Set(expectedChunks.flat());
   const bySession = new Map<string, ChanCandle[]>();
   for (const candle of candles) {
     const minute = marketMinuteOfDay(candle.timestamp, timeZone);
-    // US regular-session 30m bars start from 09:30 through 15:30 local time.
-    // Filtering locally keeps an upstream pre/post-market regression from
-    // silently changing the meaning of a four-hour structure.
-    if (minute < 9 * 60 + 30 || minute >= 16 * 60 || candle.timestamp + intervalMs("30m") > capturedNowMs) continue;
+    // Session-specific starts reject extended hours without treating an
+    // exchange lunch recess as missing market data.
+    if (!allowedStarts.has(minute) || candle.timestamp + intervalMs("30m") > capturedNowMs) continue;
     const key = marketDateKey(candle.timestamp, timeZone);
     const rows = bySession.get(key) ?? [];
     rows.push(candle);
@@ -136,18 +160,17 @@ export function aggregateYahooFourHourCandles(candles: ChanCandle[], timeZone: s
   const output: ChanCandle[] = [];
   for (const rows of bySession.values()) {
     rows.sort((a, b) => a.timestamp - b.timestamp);
-    // Yahoo regular-session 30m data supplies thirteen bars. Only the first
-    // complete eight-bar block is a real four-hour candle; the remainder is not fabricated.
-    for (let index = 0; index + 8 <= rows.length; index += 8) {
-      const chunk = rows.slice(index, index + 8);
-      if (chunk.some((row, chunkIndex) => chunkIndex > 0 && row.timestamp - chunk[chunkIndex - 1]!.timestamp !== intervalMs("30m"))) continue;
+    for (const expectedStarts of expectedChunks) {
+      const chunk = expectedStarts.map((minute) => rows.find((row) => marketMinuteOfDay(row.timestamp, timeZone) === minute));
+      if (chunk.some((row) => !row)) continue;
+      const complete = chunk as ChanCandle[];
       output.push({
-        timestamp: chunk[0]!.timestamp,
-        open: chunk[0]!.open,
-        high: Math.max(...chunk.map((row) => row.high)),
-        low: Math.min(...chunk.map((row) => row.low)),
-        close: chunk.at(-1)!.close,
-        volume: chunk.every((row) => row.volume != null) ? chunk.reduce((sum, row) => sum + row.volume!, 0) : null,
+        timestamp: complete[0]!.timestamp,
+        open: complete[0]!.open,
+        high: Math.max(...complete.map((row) => row.high)),
+        low: Math.min(...complete.map((row) => row.low)),
+        close: complete.at(-1)!.close,
+        volume: complete.every((row) => row.volume != null) ? complete.reduce((sum, row) => sum + row.volume!, 0) : null,
       });
     }
   }

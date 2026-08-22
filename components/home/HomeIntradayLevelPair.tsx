@@ -16,7 +16,7 @@ export async function HomeIntradayLevelPair({
   const levels = await getIntradayTechnicalLevels(symbol, direction).catch(() => null);
   const support = levels && levels.source !== "UNAVAILABLE" ? levels.support : "—";
   const resistance = levels && levels.source !== "UNAVAILABLE" ? levels.resistance : "—";
-  const title = levels && levels.source !== "UNAVAILABLE" ? levels.sourceLabel : "1H行情刷新中";
+  const title = levels && levels.source !== "UNAVAILABLE" ? levels.sourceLabel : "4H结构行情刷新中";
 
   if (mode === "inline") {
     return <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-white/36" title={title}><span>支撑 {support}</span><span>压力 {resistance}</span></div>;

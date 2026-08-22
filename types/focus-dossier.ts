@@ -11,7 +11,7 @@ export type FocusKeyDayEvidence = {
 export type FocusAuxiliaryEvidenceView = {
   closedMarketData: "AVAILABLE" | "UNAVAILABLE";
   chan: "AVAILABLE" | "UNAVAILABLE";
-  chanTimeframes: Array<"1H" | "1D">;
+  chanTimeframes: Array<"1H" | "4H" | "1D">;
   chanStage: string | null;
   technical: string | null;
   macroNews: string | null;

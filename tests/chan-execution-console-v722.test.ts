@@ -201,6 +201,52 @@ test("Yahoo 4H aggregation rejects gaps, extended hours, and unclosed bars", () 
   assert.equal(aggregateYahooFourHourCandles(regular, "America/New_York", Date.parse("2026-08-14T16:45:00Z")).length, 0);
 });
 
+test("Yahoo 4H aggregation preserves fully closed US and Hong Kong closing-session tails", () => {
+  const bar = (iso: string, close: number) => ({
+    timestamp: Date.parse(iso), open: close - 1, high: close + 1, low: close - 2, close, volume: 1,
+  });
+  const us = Array.from({ length: 13 }, (_, index) => bar(
+    `2026-08-14T${String(13 + Math.floor((30 + index * 30) / 60)).padStart(2, "0")}:${String((30 + index * 30) % 60).padStart(2, "0")}:00Z`,
+    100 + index,
+  ));
+  const usResult = aggregateYahooFourHourCandles(us, "America/New_York", Date.parse("2026-08-14T20:01:00Z"));
+  assert.equal(usResult.length, 2);
+  assert.equal(usResult[1]?.close, 112);
+  assert.equal(usResult[1]?.high, 113);
+
+  const hk = [
+    "01:30", "02:00", "02:30", "03:00", "03:30", "05:00", "05:30", "06:00",
+    "06:30", "07:00", "07:30",
+  ].map((time, index) => bar(`2026-08-14T${time}:00Z`, 200 + index));
+  const hkResult = aggregateYahooFourHourCandles(hk, "Asia/Hong_Kong", Date.parse("2026-08-14T08:01:00Z"), "HK_EQUITY");
+  assert.equal(hkResult.length, 2);
+  assert.equal(hkResult[1]?.close, 210);
+  assert.equal(hkResult[1]?.high, 211);
+});
+
+test("Yahoo 4H aggregation respects mainland and Hong Kong lunch sessions", () => {
+  const bar = (iso: string, close: number) => ({
+    timestamp: Date.parse(iso), open: close - 1, high: close + 1, low: close - 2, close, volume: 1,
+  });
+  const mainland = [
+    bar("2026-08-14T01:30:00Z", 1), bar("2026-08-14T02:00:00Z", 2),
+    bar("2026-08-14T02:30:00Z", 3), bar("2026-08-14T03:00:00Z", 4),
+    bar("2026-08-14T05:00:00Z", 5), bar("2026-08-14T05:30:00Z", 6),
+    bar("2026-08-14T06:00:00Z", 7), bar("2026-08-14T06:30:00Z", 8),
+  ];
+  const hongKong = [
+    bar("2026-08-14T01:30:00Z", 1), bar("2026-08-14T02:00:00Z", 2),
+    bar("2026-08-14T02:30:00Z", 3), bar("2026-08-14T03:00:00Z", 4),
+    bar("2026-08-14T03:30:00Z", 5), bar("2026-08-14T05:00:00Z", 6),
+    bar("2026-08-14T05:30:00Z", 7), bar("2026-08-14T06:00:00Z", 8),
+  ];
+  const captured = Date.parse("2026-08-14T08:00:00Z");
+  assert.equal(aggregateYahooFourHourCandles(mainland, "Asia/Shanghai", captured, "CN_EQUITY").length, 1);
+  assert.equal(aggregateYahooFourHourCandles(hongKong, "Asia/Hong_Kong", captured, "HK_EQUITY").length, 1);
+  assert.equal(aggregateYahooFourHourCandles(mainland.slice(1), "Asia/Shanghai", captured, "CN_EQUITY").length, 0);
+  assert.equal(aggregateYahooFourHourCandles(hongKong.slice(0, 7), "Asia/Hong_Kong", captured, "HK_EQUITY").length, 0);
+});
+
 test("Yahoo daily candles exclude the current exchange date and arbitrary safe US tickers resolve", () => {
   const previous = { timestamp: Date.parse("2026-08-14T13:30:00Z"), open: 100, high: 102, low: 99, close: 101, volume: 10 };
   const current = { ...previous, timestamp: Date.parse("2026-08-15T13:30:00Z") };
