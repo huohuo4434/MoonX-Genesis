@@ -34,7 +34,7 @@ function DailyRows({ rows }: { rows: FocusDualMethodDailyRow[] }) {
             const closedSession = row.qimen.direction === "休市观察";
             return (
               <tr key={row.date} className="align-top bg-black/10">
-                <td className="whitespace-nowrap px-3 py-4"><p className="text-body-sm font-medium text-white">{row.date}</p><p className="mt-1 text-[11px] text-white/35">{DAY_STATE[row.state]}</p></td>
+                <td className="whitespace-nowrap px-3 py-4"><p className="text-body-sm font-medium text-white">{row.date}</p><p className="mt-1 text-[11px] text-white/35">{closedSession ? "休市" : DAY_STATE[row.state]}</p></td>
                 <td className="max-w-[280px] px-3 py-4"><Badge variant="outline" className={directionClass(row.liuyaoDirection)}>{closedSession ? "休市观察" : row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-white/58">{row.liuyaoSummary}</p></td>
                 <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.qimen.direction)}>{row.qimen.direction}</Badge><p className="mt-2 text-caption leading-6 text-violet-100/65">{row.qimen.mysticNote}</p></td>
                 <td className="max-w-[300px] px-3 py-4"><Badge variant="outline" className={directionClass(row.rhythmDirection)}>{closedSession ? "休市观察" : row.rhythmDirection ?? row.liuyaoDirection ?? "系统未生成"}</Badge><p className="mt-2 text-caption leading-6 text-cyan-100/65">{row.rhythmSummary ?? row.liuyaoSummary}</p></td>

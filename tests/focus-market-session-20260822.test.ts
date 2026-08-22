@@ -7,6 +7,7 @@ import { buildFocusDetailedReport } from "../lib/data/conviction/focus-dossier-c
 import { focusSessionMarket, isFocusTradingDay } from "../lib/data/conviction/focus-market-session";
 import { buildFocusQimenParallelReading } from "../lib/forecasts/focus-qimen-parallel";
 import { INTEL_PERIOD_FORECASTS } from "../lib/data/conviction/intel-liuyao-20260822";
+import { readFileSync } from "node:fs";
 
 const NOW = Date.parse("2026-08-22T12:00:00+08:00");
 
@@ -57,4 +58,9 @@ test("Qimen also fails closed on a weekday exchange holiday, not only Saturday a
   assert.equal(holiday.relation, "NOT_COMPARABLE");
   assert.equal(holiday.validationStatus, "NOT_ELIGIBLE");
   assert.equal(holiday.verificationEligible, false);
+});
+
+test("member table labels a closed row as closed instead of pending verification", () => {
+  const source = readFileSync("components/conviction/FocusQimenParallelPanel.tsx", "utf8");
+  assert.match(source, /closedSession \? "休市" : DAY_STATE\[row\.state\]/);
 });
