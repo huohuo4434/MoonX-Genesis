@@ -466,6 +466,7 @@ export function buildFocusDossier(input: {
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
   const highlightPreparedNext = Boolean(current.forecastType.startsWith("WEEK") && weekend && nextWeek?.dailyEvidenceReady);
   const hasRollingRevision = dailyPath.some((day) => day.sourceKind === "MOOX_ROLLING_REVISION");
+  const isPeriodDerived = !current.forecastType.startsWith("WEEK") && !(current.dailyPath?.length);
 
   return attachFocusQimenParallel({
     executionAuthority: "RESEARCH_ONLY",
@@ -488,7 +489,11 @@ export function buildFocusDossier(input: {
       ? { direction: current.direction, periodStart: current.periodStart, periodEnd: current.periodEnd, version: current.version }
       : null,
     backgroundHorizons: backgrounds,
-    statusLabel: hasRollingRevision ? "未来节奏已按最新行情更新" : complete ? "双观点日分析已就绪" : "日分析生成检查中",
+    statusLabel: hasRollingRevision
+      ? "未来节奏已按最新行情更新"
+      : complete
+        ? isPeriodDerived ? "周期卦派生 · 不是独立日卦" : "双观点日分析已就绪"
+        : "日分析生成检查中",
     conclusion: current.summary,
     periodStart: displayWindow.start,
     periodEnd: displayWindow.end,

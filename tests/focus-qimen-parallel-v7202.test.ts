@@ -12,6 +12,7 @@ const REQUIRED_ASSETS = [
   "ganfeng-lithium", "lian-tech", "lexin-medical", "cxmt", "asteroid", "sandisk",
   "nbis", "mu", "hype", "sol", "eth", "btc", "googl", "msft", "tencent",
   "kingsoft-office", "tsla", "lite",
+  "spcx", "intel",
 ] as const;
 
 function forecast(input: {
@@ -48,12 +49,19 @@ function forecast(input: {
   };
 }
 
-test("18个重点关注标的均有透明用神配置", () => {
+test("20个重点关注标的均有透明用神配置", () => {
   const registry = getFocusQimenUseGodRegistry();
   assert.deepEqual(Object.keys(registry).sort(), [...REQUIRED_ASSETS].sort());
   assert.equal(registry.btc?.basis, "TEACHER_EXPLICIT");
   assert.equal(registry.sandisk?.basis, "MOOX_INDUSTRY_OVERLAY");
   assert.match(registry.sandisk?.note ?? "", /未发现老师固定SNDK用神表/);
+  assert.equal(registry.intel?.basis, "GENERIC_TIME_STEM");
+  const intel = buildFocusQimenParallelReading({ assetId: "intel", symbol: "INTC", forecastDate: "2026-08-24", liuyaoDirection: "上涨" });
+  assert.equal(intel.available, false);
+  assert.equal(intel.direction, "资料不足");
+  assert.equal(intel.relation, "NOT_COMPARABLE");
+  assert.equal(intel.validationStatus, "UNAVAILABLE");
+  assert.equal(intel.castAt, "");
 });
 
 test("奇门结论不受六爻方向反向改写，只改变共振关系", () => {

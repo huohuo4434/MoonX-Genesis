@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 const EXPECTED = [
   "ganfeng-lithium", "lian-tech", "lexin-medical", "cxmt", "asteroid", "sandisk", "nbis", "mu",
-  "hype", "sol", "eth", "btc", "googl", "msft", "tencent", "kingsoft-office", "tsla", "lite", "spcx",
+  "hype", "sol", "eth", "btc", "googl", "msft", "tencent", "kingsoft-office", "tsla", "lite", "spcx", "intel",
 ];
 const read = (path) => readFileSync(path, "utf8");
 
@@ -15,7 +15,7 @@ function declaredFocusIds() {
   return [...match[1].matchAll(/"([^"]+)"/g)].map((row) => row[1]);
 }
 
-test("one canonical 19-asset universe drives focus research", () => {
+test("one canonical 20-asset universe drives focus research", () => {
   const ids = declaredFocusIds();
   assert.deepEqual(ids, EXPECTED);
   const teasers = read("lib/data/conviction/watchlist-teasers.ts");

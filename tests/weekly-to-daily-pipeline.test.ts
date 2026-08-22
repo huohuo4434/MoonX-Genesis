@@ -276,8 +276,8 @@ describe("access + empty + methodology + asteroid + referral", () => {
   });
 
   test("ganzhi deterministic", () => {
-    const g = getDayGanzhi("1984-02-02");
-    assert.equal(g.ganzhiLabel, "甲子");
+    assert.equal(getDayGanzhi("1984-02-02").ganzhiLabel, "丙寅");
+    assert.equal(getDayGanzhi("2026-08-22").ganzhiLabel, "戊辰");
   });
 
   test("core daily markets list is 9", () => {

@@ -43,7 +43,7 @@ export type FocusQimenHorizonReading = {
   periodLabel: string;
   periodStart: string;
   periodEnd: string;
-  methodLabel: "时家奇门·周期起局";
+  methodLabel: "时家奇门·周期起局" | "奇门证据不足";
   liuyaoDirection: string;
   liuyaoSummary: string;
   qimenDirection: string;
@@ -209,21 +209,6 @@ const PERIOD_ORDER: Readonly<Record<ConvictionForecastType, number>> = Object.fr
   YEAR_10: 11,
 });
 
-const PERIOD_LABEL: Readonly<Record<ConvictionForecastType, string>> = Object.freeze({
-  TODAY: "当日",
-  TOMORROW: "下一交易日",
-  WEEK: "本周",
-  WEEK_2: "第二周",
-  WEEK_3: "第三周",
-  WEEK_4: "第四周",
-  MONTH_1: "一个月",
-  MONTH_3: "三个月",
-  YEAR_1: "一年",
-  YEAR_3: "三年",
-  YEAR_5: "五年",
-  YEAR_10: "十年",
-});
-
 export function focusQimenUseGodBasisLabel(basis: FocusQimenUseGodBasis): string {
   if (basis === "TEACHER_EXPLICIT") return "老师明确案例";
   if (basis === "TEACHER_CASE") return "老师案例推导";
@@ -282,7 +267,7 @@ export function buildFocusQimenHorizonReading(input: {
     ? firstWeekday(input.forecast.periodStart, input.forecast.periodEnd)
     : input.forecast.periodStart;
   const validation = periodValidation(input.forecast, anchorDate);
-  const periodLabel = `${PERIOD_LABEL[input.forecast.forecastType]}｜${input.forecast.periodStart}至${input.forecast.periodEnd}`;
+  const periodLabel = `${input.forecast.periodStart}至${input.forecast.periodEnd}`;
   const verificationKey = `focus-qimen-period:${MOOX_FOCUS_QIMEN_MULTI_HORIZON_VERSION}:${input.assetId}:${input.forecast.id}:v${input.forecast.version}`;
   const reading = buildFocusQimenParallelReadingWithOptions({
     assetId: input.assetId,
@@ -305,7 +290,7 @@ export function buildFocusQimenHorizonReading(input: {
     periodLabel,
     periodStart: input.forecast.periodStart,
     periodEnd: input.forecast.periodEnd,
-    methodLabel: "时家奇门·周期起局",
+    methodLabel: reading.available ? "时家奇门·周期起局" : "奇门证据不足",
     liuyaoDirection: input.forecast.direction,
     liuyaoSummary: input.forecast.summary,
     qimenDirection: reading.direction,
@@ -322,13 +307,15 @@ export function buildFocusQimenHorizonReading(input: {
     useGodBasis: reading.useGodBasis,
     useGodBasisLabel: focusQimenUseGodBasisLabel(reading.useGodBasis),
     useGodNote: reading.useGodNote,
-    validationStatus: validation.status,
-    verificationEligible: validation.eligible,
+    validationStatus: reading.validationStatus,
+    verificationEligible: reading.verificationEligible,
     verificationKey,
     retroactiveNotice: validation.status === "RETROACTIVE_BASELINE"
       ? `该六爻周期已在${MOOX_FOCUS_QIMEN_ACCURACY_BASELINE}前开始；本条是历史补盘基线，不计奇门命中率。`
       : null,
-    evidence: `${reading.evidence}；周期方法=时家奇门周期起局，不冒充月家/年家奇门`,
+    evidence: reading.available
+      ? `${reading.evidence}；周期方法=时家奇门周期起局，不冒充月家/年家奇门`
+      : reading.evidence,
   };
 }
 
@@ -343,7 +330,7 @@ function buildDailyRows(input: {
   const byDate = new Map(input.dailyPath.map((day) => [day.date, day]));
   const periodDates = dateRange(input.periodStart, input.periodEnd);
   const sourceDates = [...new Set(input.dailyPath.map((day) => day.date))].sort().slice(0, MAX_DAILY_ROWS);
-  const dates = sourceDates.length ? sourceDates : periodDates;
+  const dates = periodDates.length ? periodDates : sourceDates;
   return dates.map((date) => {
     const equityWeekend = definition.assetClass === "EQUITY" && [0, 6].includes(new Date(`${date}T00:00:00.000Z`).getUTCDay());
     const source = byDate.get(date) ?? {
@@ -432,8 +419,12 @@ export function buildFocusQimenParallelView(input: {
     policyVersion: MOOX_FOCUS_QIMEN_MULTI_HORIZON_VERSION,
     protocol: "PARALLEL_METHOD_NO_OVERRIDE",
     title: "六爻 × 奇门",
-    notice: "每日并列两个观点；当前节奏随最新行情更新。",
-    sourceBoundary: `老师资料支持按目标日/周/月等明确周期起局并复盘，但未提供可直接编程复现的通用月家或年家金融断法；因此周、月、年等均标注为“时家奇门·周期起局”。${definition.basis === "MOOX_INDUSTRY_OVERLAY" ? "当前产品用神属于透明行业对象映射，不冒充老师固定口诀。" : ""}`,
+    notice: definition.basis === "GENERIC_TIME_STEM"
+      ? "六爻为原始周期卦；奇门因老师用神依据不足暂不生成方向。"
+      : "每日并列两个观点；当前节奏随最新行情更新。",
+    sourceBoundary: definition.basis === "GENERIC_TIME_STEM"
+      ? "没有老师固定用神或可追溯案例时，奇门失败关闭，不起局、不判断同向或分歧。"
+      : `老师资料支持按目标日/周/月等明确周期起局并复盘，但未提供可直接编程复现的通用月家或年家金融断法；因此周、月、年等均标注为“时家奇门·周期起局”。${definition.basis === "MOOX_INDUSTRY_OVERLAY" ? "当前产品用神属于透明行业对象映射，不冒充老师固定口诀。" : ""}`,
     useGod: {
       displayName: definition.displayName,
       label: definition.label,

@@ -1,7 +1,8 @@
 /**
  * Asia/Shanghai day stem/branch (干支) — deterministic, no network.
- * Based on Julian day offset from known anchor 1984-02-02 = 甲子日.
+ * Uses the same source-locked calendar as sexagenary-calendar.ts.
  */
+import { getSexagenaryDay } from "@/lib/calendar/sexagenary-calendar";
 
 const STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"] as const;
 const BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"] as const;
@@ -22,24 +23,6 @@ const BRANCH_ELEMENT: Record<(typeof BRANCHES)[number], string> = {
   午: "火", 未: "土", 申: "金", 酉: "金", 戌: "土", 亥: "水",
 };
 
-/** Civil date → UTC noon ms (calendar arithmetic only). */
-function utcNoonMs(y: number, m: number, d: number): number {
-  return Date.UTC(y, m - 1, d, 12, 0, 0);
-}
-
-/** Days since Unix epoch for a YYYY-MM-DD calendar date. */
-function dayIndex(iso: string): number {
-  const [ys, ms, ds] = iso.split("-");
-  const y = Number(ys);
-  const m = Number(ms);
-  const d = Number(ds);
-  return Math.floor(utcNoonMs(y, m, d) / 86_400_000);
-}
-
-/** 1984-02-02 = 甲子 (index 0). */
-const ANCHOR_ISO = "1984-02-02";
-const ANCHOR_INDEX = dayIndex(ANCHOR_ISO);
-
 export type DayGanzhi = {
   calendarDateChina: string;
   dayStem: string;
@@ -52,7 +35,7 @@ export type DayGanzhi = {
 };
 
 export function getDayGanzhi(isoDate: string): DayGanzhi {
-  const offset = ((dayIndex(isoDate) - ANCHOR_INDEX) % 60 + 60) % 60;
+  const offset = getSexagenaryDay(isoDate).index;
   const stemIndex = offset % 10;
   const branchIndex = offset % 12;
   const dayStem = STEMS[stemIndex]!;

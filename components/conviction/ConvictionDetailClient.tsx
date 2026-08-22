@@ -529,6 +529,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
     "lian-tech",
     "lexin-medical",
     "spcx",
+    "intel",
   ].includes(a.slug);
   const isAsteroid = a.slug === "asteroid";
   const tabs = payload.periodSlots;

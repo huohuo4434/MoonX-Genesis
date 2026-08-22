@@ -18,7 +18,7 @@ export const MOOX_FOCUS_QIMEN_PARALLEL_VERSION = "FOCUS_QIMEN_PARALLEL_V2_WU_SEM
 export const MOOX_FOCUS_QIMEN_ACCURACY_BASELINE = "2026-08-18";
 
 export type FocusQimenDirectionCode = "UP" | "DOWN" | "SIDEWAYS";
-export type FocusQimenDirection = "上涨" | "下跌" | "震荡" | "休市观察";
+export type FocusQimenDirection = "上涨" | "下跌" | "震荡" | "休市观察" | "资料不足";
 export type FocusQimenUseGodBasis =
   | "TEACHER_EXPLICIT"
   | "TEACHER_CASE"
@@ -189,6 +189,11 @@ const USE_GOD_REGISTRY: Readonly<Record<string, FocusQimenUseGodDefinition>> = O
     assetId: "spcx", displayName: "SpaceX / SPCX", assetClass: "EQUITY", aliases: ["SPCX", "SPACEX"],
     primary: ["丙"], secondary: ["庚"], basis: "MOOX_INDUSTRY_OVERLAY", label: "丙观动能，庚观制造",
     note: "MOOX对象层：航天、卫星网络与高端制造并看。",
+  },
+  intel: {
+    assetId: "intel", displayName: "英特尔", assetClass: "EQUITY", aliases: ["INTC", "INTEL", "英特尔"],
+    primary: [], secondary: [], basis: "GENERIC_TIME_STEM", label: "等待老师用神依据",
+    note: "当前未提供老师针对INTC的固定用神或可追溯案例，因此不生成奇门方向，也不参与六爻共振比较。",
   },
   "lexin-medical": {
     assetId: "lexin-medical", displayName: "乐心医疗", assetClass: "EQUITY", aliases: ["300562", "乐心医疗"],
@@ -449,6 +454,32 @@ export function buildFocusQimenParallelReadingWithOptions(input: {
   liuyaoDirection?: string | null;
 }, options: FocusQimenParallelBuildOptions = {}): FocusQimenParallelReading {
   const definition = resolveUseGod(input.assetId, input.symbol);
+  if (definition.basis === "GENERIC_TIME_STEM") {
+    return {
+      policyVersion: MOOX_FOCUS_QIMEN_PARALLEL_VERSION,
+      protocol: "PARALLEL_METHOD_NO_OVERRIDE",
+      assetId: input.assetId,
+      forecastDate: input.forecastDate,
+      available: false,
+      directionCode: null,
+      direction: "资料不足",
+      confidence: null,
+      score: null,
+      summary: "奇门：老师用神依据不足，暂不生成方向。",
+      mysticNote: definition.note,
+      useGod: "未建立老师用神",
+      useGodBasis: definition.basis,
+      useGodNote: definition.note,
+      castAt: "",
+      chartSummary: "未起局：老师用神依据不足",
+      evidence: `协议=${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}；奇门不可用=老师用神依据不足；保留六爻原始方向`,
+      relation: "NOT_COMPARABLE",
+      relationLabel: "奇门证据不足",
+      validationStatus: "UNAVAILABLE",
+      verificationEligible: false,
+      verificationKey: options.verificationKey ?? `focus-qimen:${MOOX_FOCUS_QIMEN_PARALLEL_VERSION}:${input.assetId}:${input.forecastDate}`,
+    };
+  }
   const castAt = castAtForDate(input.forecastDate, options.castSalt);
   const chart = buildMooxQimenChartForAudit(castAt) as FocusQimenChart;
   const available = Boolean(chart.invariants.valid);
