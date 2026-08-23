@@ -349,15 +349,26 @@ export async function getTodayForecastAccessPayload(
   now = new Date()
 ): Promise<TodayForecastAccessPayload> {
   noStore();
-  // V7.20.8: auth/device resolution and forecast reads are independent. Run them
-  // together so homepage latency is the slower branch instead of the sum of both.
-  const [{ access }, rows] = await Promise.all([
-    resolveTodayPredictionAccess(now),
-    loadTodayForecastRows(now),
-  ]);
-  const teaser = toTodayPublicTeaserMeta(rows);
+  // Resolve visibility before any database, external-view or technical work.
+  // Anonymous and pre-release callers must never wait for content they cannot see.
+  let accessTimer: ReturnType<typeof setTimeout> | undefined;
+  const { access } = await Promise.race([
+    resolveTodayPredictionAccess(now).catch((error) => {
+      console.warn("[today] access resolution failed closed", error);
+      return { access: checkTodayPredictionAccess({ user: null, now }) };
+    }),
+    new Promise<{ access: TodayPredictionAccess }>((resolve) => {
+      accessTimer = setTimeout(
+        () => resolve({ access: checkTodayPredictionAccess({ user: null, now }) }),
+        1_500
+      );
+    }),
+  ]).finally(() => {
+    if (accessTimer) clearTimeout(accessTimer);
+  });
 
   if (!access.allowed) {
+    const teaser = toTodayPublicTeaserMeta(getPublicTodayForecasts(now));
     if (access.reason === "LOGIN_REQUIRED") {
       return {
         allowed: false,
@@ -380,6 +391,8 @@ export async function getTodayForecastAccessPayload(
     };
   }
 
+  const rows = await loadTodayForecastRowsWithDeadline(now);
+
   return {
     allowed: true,
     access,
@@ -387,6 +400,38 @@ export async function getTodayForecastAccessPayload(
     verifying: rows.some((f) => f.status === "published"),
     teaser: null,
   };
+}
+
+async function loadTodayForecastRowsWithDeadline(now: Date): Promise<DailyForecast[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const rows = await Promise.race([
+      loadTodayForecastRows(now),
+      new Promise<DailyForecast[]>((resolve) => {
+        timer = setTimeout(() => resolve([]), 1_800);
+      }),
+    ]);
+    if (rows.length) return rows;
+  } catch (error) {
+    console.warn("[today] primary forecast read degraded", error);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  // This fallback is local and source-locked. It derives the current day from
+  // the active weekly/stage record and does not invent a separate daily chart.
+  try {
+    const { buildWeeklyDerivedFallbacks } = await import("@/lib/forecasts/public-daily-fallback");
+    const today = getBeijingTodayKey(now);
+    return sortByDailyAssetOrder(
+      buildWeeklyDerivedFallbacks(today, "public")
+        .filter(isHumanPublishedForecast)
+        .map((forecast) => applyTodayFacingCopy(sanitizeForecastForClient(forecast), now))
+    );
+  } catch (error) {
+    console.error("[today] source-locked fallback unavailable", error);
+    return [];
+  }
 }
 
 export async function getTomorrowForecastAccessPayload(

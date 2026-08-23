@@ -194,9 +194,11 @@ export function AdminConsultationQueue() {
     setMessage(nextMessage);
   }
 
-  const editable = detailData?.request.status === "SUBMITTED" || detailData?.request.status === "HUMAN_REVIEW" || detailData?.request.status === "DRAFT_READY";
+  const recoverable = detailData?.request.status === "SYSTEM_FAILED";
+  const normalEditable = detailData?.request.status === "SUBMITTED" || detailData?.request.status === "HUMAN_REVIEW" || detailData?.request.status === "DRAFT_READY";
+  const editable = recoverable || normalEditable;
   const approvable = detailData?.request.status === "HUMAN_REVIEW" || detailData?.request.status === "DRAFT_READY";
-  const rejectable = editable || detailData?.request.status === "NEEDS_INFO";
+  const rejectable = normalEditable || detailData?.request.status === "NEEDS_INFO";
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.5fr)]">
@@ -228,11 +230,12 @@ export function AdminConsultationQueue() {
             <Text variant="caption" color="secondary" className="mt-1 block">直接根据会员问题和原始卦象填写，不调用AI自动解卦。</Text>
             <textarea value={content} onChange={(event) => setContent(event.target.value)} className="mt-3 min-h-64 w-full rounded-md border bg-transparent p-3" placeholder="在这里直接输入你的解卦与答复……" />
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button disabled={!editable} onClick={() => void action("EDIT")}>保存人工草稿</Button>
-              <Button disabled={!editable} variant="outline" onClick={() => void action("NEEDS_INFO")}>要求补资料</Button>
+              <Button disabled={!editable} onClick={() => void action("EDIT")}>{recoverable ? "恢复并保存人工草稿" : "保存人工草稿"}</Button>
+              <Button disabled={!normalEditable} variant="outline" onClick={() => void action("NEEDS_INFO")}>要求补资料</Button>
               <Button disabled={!rejectable} variant="outline" onClick={() => void action("REJECT")}>拒绝并退回权益</Button>
               <Button disabled={!approvable} onClick={() => void action("APPROVE")}>易老师最终批准</Button>
             </div>
+            {recoverable ? <Text variant="caption" color="secondary" className="mt-2 block">本申请之前自动处理失败；保存时会恢复原申请和原权益预留，不会重复扣除。</Text> : null}
             {!approvable ? <Text variant="caption" color="secondary" className="mt-2 block">先保存人工草稿，确认内容后再最终批准。</Text> : null}
             {message ? <Text variant="caption" className="mt-2 block">{message}</Text> : null}
           </Card>

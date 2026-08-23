@@ -22,6 +22,23 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 const path = "/member/daily";
 
+async function within<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    console.warn("[member-daily] dependency degraded", error);
+    return fallback;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   return buildLocalizedPageMetadata({
@@ -116,13 +133,13 @@ export default async function MemberDailyPage() {
 
   const now = new Date();
   const [today, tomorrow] = await Promise.all([
-    getTodayForecastAccessPayload(now),
-    getTomorrowSectionPayload(now),
+    within(getTodayForecastAccessPayload(now), null, 2_600),
+    within(getTomorrowSectionPayload(now), null, 2_600),
   ]);
-  const todayRows = today.allowed ? today.forecasts : [];
-  const tomorrowRows = tomorrow.mode === "member" ? tomorrow.forecasts : [];
+  const todayRows = today?.allowed ? today.forecasts : [];
+  const tomorrowRows = tomorrow?.mode === "member" ? tomorrow.forecasts : [];
   const allRows = [...todayRows, ...tomorrowRows];
-  const technicalViews = await buildMemberDailyTechnicalViews(allRows);
+  const technicalViews = await within(buildMemberDailyTechnicalViews(allRows), {}, 1_200);
   const octoberFlashCrashRisk = getOctober2026FlashCrashRisk(now);
   const latest = allRows
     .map((row) => row.updatedAt || row.publishedAt)

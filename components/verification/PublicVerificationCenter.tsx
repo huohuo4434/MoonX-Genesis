@@ -71,10 +71,10 @@ function dateMs(date: string): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-function inRange(date: string, range: RangeFilter): boolean {
+function inRange(date: string, range: RangeFilter, asOfMs: number): boolean {
   if (range === "ALL") return true;
   const days = range === "30D" ? 30 : 90;
-  return dateMs(date) >= Date.now() - days * 86_400_000;
+  return dateMs(date) >= asOfMs - days * 86_400_000;
 }
 
 function resultText(result: UnifiedRow["result"], en: boolean): string {
@@ -192,6 +192,10 @@ export function PublicVerificationCenter({
   const [range, setRange] = useState<RangeFilter>("90D");
   const [period, setPeriod] = useState<PeriodFilter>(DEFAULT_PUBLIC_VERIFICATION_PERIOD);
   const [asset, setAsset] = useState("ALL");
+  const generatedAtMs = useMemo(() => {
+    const value = new Date(generatedAt).getTime();
+    return Number.isFinite(value) ? value : 0;
+  }, [generatedAt]);
 
   const allRows = useMemo<UnifiedRow[]>(() => {
     const daily: UnifiedRow[] = dailyItems.map((item) => {
@@ -244,10 +248,10 @@ export function PublicVerificationCenter({
   }, [allRows, en]);
 
   const filteredRows = useMemo(
-    () => allRows.filter((row) => inRange(row.date, range))
+    () => allRows.filter((row) => inRange(row.date, range, generatedAtMs))
       .filter((row) => row.period === period)
       .filter((row) => asset === "ALL" || row.symbol === asset),
-    [allRows, range, period, asset]
+    [allRows, range, period, asset, generatedAtMs]
   );
 
   const detailSelection = useMemo(
@@ -272,7 +276,7 @@ export function PublicVerificationCenter({
       .map(([symbol, value]) => ({ symbol, ...value, rate: value.count ? value.score / value.count : 0 }))
       .sort((a, b) => b.rate - a.rate || b.count - a.count)
       .slice(0, 8);
-  }, [filteredRows]);
+  }, [filteredRows, en]);
 
   const starBuckets = useMemo(() => publicStarAccuracyBreakdown(dailyItems), [dailyItems]);
   const ratedSamples = starBuckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0);

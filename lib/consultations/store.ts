@@ -92,6 +92,11 @@ export async function getAdminConsultationDetail(requestId:string,actorId:string
   return {request:{id:request.id,kind:request.kind,status:request.status,missingFields:request.missing_fields,currentVersion:request.current_version,createdAt:request.created_at,updatedAt:request.updated_at},privateInput,latest};
 }
 export async function setConsultationStatus(requestId:string,actorId:string,expected:ConsultationStatus[],status:Extract<ConsultationStatus,"SUBMITTED"|"AI_DRAFTING"|"DRAFT_READY"|"HUMAN_REVIEW"|"NEEDS_INFO">,missing:string[]=[]){const {data,error}=await admin().rpc("transition_consultation_request",{p_request_id:requestId,p_actor_id:actorId,p_expected:expected,p_target:status,p_missing_fields:missing,p_hold_until:status==="NEEDS_INFO"?new Date(Date.now()+7*86400000).toISOString():null});if(error||!data)throw new Error("CONSULTATION_TRANSITION_CONFLICT");}
+export async function recoverConsultationForHumanReview(requestId:string,actorId:string){
+  const {data,error}=await admin().rpc("recover_failed_consultation_for_human_review",{p_request_id:requestId,p_actor_id:actorId});
+  if(error||!data)throw new Error(`CONSULTATION_RECOVERY_FAILED:${error?.message??"NO_ROW"}`);
+  return data;
+}
 export async function releaseConsultation(requestId:string,actorId:string,target:"REJECTED"|"CANCELLED"|"SYSTEM_FAILED"|"INFO_EXPIRED",reason:string){
   const expected:Record<typeof target,ConsultationStatus[]>={
     REJECTED:["SUBMITTED","DRAFT_READY","HUMAN_REVIEW","NEEDS_INFO"],

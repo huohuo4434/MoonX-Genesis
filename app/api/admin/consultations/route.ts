@@ -41,8 +41,11 @@ export async function POST(request:NextRequest){
   if(!body.id||!body.action)return NextResponse.json({ok:false,error:"INVALID_BODY"},{status:400});
   try{
     if(body.action==="EDIT"){
-      const current=await m.getAdminConsultation(body.id);if(!["SUBMITTED","DRAFT_READY","HUMAN_REVIEW"].includes(String(current.status)))throw new Error("INVALID_STATE");
       if(typeof body.content!=="string"||body.content.trim().length<20)throw new Error("CONTENT_REQUIRED");
+      const current=await m.getAdminConsultation(body.id);
+      const currentStatus=String(current.status);
+      if(!["SUBMITTED","DRAFT_READY","HUMAN_REVIEW","SYSTEM_FAILED"].includes(currentStatus))throw new Error("INVALID_STATE");
+      if(currentStatus==="SYSTEM_FAILED")await m.recoverConsultationForHumanReview(body.id,adminUser.id);
       const version=await m.appendResponseVersion({requestId:body.id,authorKind:"ADMIN_EDIT",authorId:adminUser.id,content:body.content.trim()});
       await m.setConsultationStatus(body.id,adminUser.id,["SUBMITTED","DRAFT_READY","HUMAN_REVIEW"],"HUMAN_REVIEW");
       return NextResponse.json({ok:true,version:version.version});

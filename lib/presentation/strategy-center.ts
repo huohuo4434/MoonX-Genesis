@@ -168,12 +168,23 @@ function modeLabel(mode: string | undefined): string {
   return "待读取";
 }
 
+const STRATEGY_READ_TIMEOUT_MS = 2_500;
+
 async function readRows<T>(sql: string): Promise<T[]> {
   if (!prisma) return [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await prisma.$queryRawUnsafe<T[]>(sql);
-  } catch {
+    return await Promise.race([
+      prisma.$queryRawUnsafe<T[]>(sql),
+      new Promise<T[]>((resolve) => {
+        timer = setTimeout(() => resolve([]), STRATEGY_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (error) {
+    console.warn("[strategy-center] read degraded", error);
     return [];
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
