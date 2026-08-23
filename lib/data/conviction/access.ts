@@ -42,12 +42,6 @@ import {
   tslaPeriodLabel20260816,
   tslaPeriodMeta20260816,
 } from "@/lib/data/conviction/tsla-liuyao-20260816";
-import {
-  LITE_PERIOD_ORDER,
-  LITE_VISIBLE_PERIOD_ORDER,
-  litePeriodLabel20260816,
-  litePeriodMeta20260816,
-} from "@/lib/data/conviction/lite-liuyao-20260816";
 import { CONVICTION_MEMBER_LOCKS } from "@/lib/data/conviction/seed";
 import {
   LONGXIN_FULL_PERIOD_ORDER,
@@ -132,7 +126,6 @@ import type {
 } from "@/types/member-stock";
 import { STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
-import { SPCX_PERIOD_ORDER, SPCX_VISIBLE_PERIOD_ORDER, spcxPeriodMeta } from "@/lib/data/conviction/spcx-forecasts";
 import { INTEL_PERIOD_LABELS, INTEL_PERIOD_ORDER, INTEL_VISIBLE_PERIOD_ORDER, intelPeriodMeta } from "@/lib/data/conviction/intel-liuyao-20260822";
 
 export type ConvictionListPagePayload = {
@@ -245,6 +238,8 @@ type StaticPeriodAssetId = StaticFocusAssetId;
 
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
+const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "YEAR_1"];
+const SPCX_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_5"];
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
@@ -272,7 +267,7 @@ export async function listStaticFocusEvidence(): Promise<Array<{
 
 function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "tsla") return TSLA_PERIOD_ORDER;
-  if (assetId === "lite") return LITE_PERIOD_ORDER;
+  if (assetId === "lite") return LITE_REVISED_PERIOD_ORDER;
   if (isAShareResearchAssetId(assetId)) return A_SHARE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_FULL_PERIOD_ORDER;
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
@@ -286,14 +281,14 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "msft") return MSFT_PERIOD_ORDER;
   if (assetId === "tencent") return TENCENT_PERIOD_ORDER;
   if (assetId === "kingsoft-office") return VIBE_FOCUS_PERIOD_ORDER;
-  if (assetId === "spcx") return SPCX_PERIOD_ORDER;
+  if (assetId === "spcx") return SPCX_REVISED_PERIOD_ORDER;
   if (assetId === "intel") return INTEL_PERIOD_ORDER;
   return PERIOD_ORDER_BY_ASSET[assetId];
 }
 
 function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "tsla") return TSLA_VISIBLE_PERIOD_ORDER;
-  if (assetId === "lite") return LITE_VISIBLE_PERIOD_ORDER;
+  if (assetId === "lite") return LITE_REVISED_PERIOD_ORDER;
   if (isAShareResearchAssetId(assetId)) return A_SHARE_VISIBLE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
   if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
@@ -307,14 +302,37 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "msft") return MSFT_VISIBLE_PERIOD_ORDER;
   if (assetId === "tencent") return TENCENT_VISIBLE_PERIOD_ORDER;
   if (assetId === "kingsoft-office") return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
-  if (assetId === "spcx") return SPCX_VISIBLE_PERIOD_ORDER;
+  if (assetId === "spcx") return SPCX_REVISED_PERIOD_ORDER;
   if (assetId === "intel") return INTEL_VISIBLE_PERIOD_ORDER;
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
   if (assetId === "tsla") return tslaPeriodLabel20260816(type);
-  if (assetId === "lite") return litePeriodLabel20260816(type);
+  if (assetId === "lite") {
+    const liteLabels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_2: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_3: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_4: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+      MONTH_1: { zh: "酉月 9/7–10/7", en: "You month · Sep 7–Oct 7", emptyZh: "酉月研究尚未发布" },
+      YEAR_1: { zh: "2027", en: "2027", emptyZh: "2027研究尚未发布" },
+    };
+    if (liteLabels[type]) return liteLabels[type]!;
+  }
+  if (assetId === "spcx") {
+    const spcxLabels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_2: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_3: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_4: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+      MONTH_1: { zh: "酉月 9/7–10/7", en: "You month · Sep 7–Oct 7", emptyZh: "酉月研究尚未发布" },
+      MONTH_3: { zh: "3个月", en: "3M", emptyZh: "3个月研究尚未发布" },
+      YEAR_1: { zh: "1年", en: "1Y", emptyZh: "1年研究尚未发布" },
+      YEAR_5: { zh: "5年", en: "5Y", emptyZh: "5年研究尚未发布" },
+    };
+    if (spcxLabels[type]) return spcxLabels[type]!;
+  }
   if (isAShareResearchAssetId(assetId)) return aSharePeriodLabel20260810(type);
   if (assetId === "hype") return periodLabelForHype20260809(type);
   if (assetId === "sol") return periodLabelForSol20260809(type);
@@ -452,7 +470,15 @@ async function attachAdminKeyDates(
 
 function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "tsla") return tslaPeriodMeta20260816();
-  if (assetId === "lite") return litePeriodMeta20260816();
+  if (assetId === "lite" || assetId === "spcx") {
+    const published = staticPublished(assetId);
+    return visibleOrder(assetId).map((type) => ({
+      type,
+      labelZh: periodLabelForAsset(assetId, type).zh,
+      emptyZh: periodLabelForAsset(assetId, type).emptyZh,
+      hasResearch: published.some((forecast) => forecast.forecastType === type && forecast.status === "published"),
+    }));
+  }
   if (isAShareResearchAssetId(assetId)) return aSharePeriodMeta20260810(assetId);
   if (assetId === "sandisk") return sandiskPeriodMeta();
   if (assetId === "nbis") return nbisPeriodMeta();
@@ -464,7 +490,6 @@ function publicPeriodMeta(assetId: StaticPeriodAssetId) {
   if (assetId === "msft") return msftPeriodMeta();
   if (assetId === "tencent") return tencentPeriodMeta();
   if (assetId === "kingsoft-office") return vibeFocusPeriodMeta(assetId);
-  if (assetId === "spcx") return spcxPeriodMeta();
   if (assetId === "intel") return intelPeriodMeta();
   const published = staticPublished(assetId);
   return visibleOrder(assetId).map((type) => ({

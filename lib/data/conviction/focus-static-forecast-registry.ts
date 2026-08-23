@@ -18,6 +18,7 @@ import { listSpcxPeriodForecasts } from "@/lib/data/conviction/spcx-forecasts";
 import { listIntelPeriodForecasts } from "@/lib/data/conviction/intel-liuyao-20260822";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listCryptoSeptemberForecastRevisions20260823 } from "@/lib/data/conviction/crypto-september-revisions-20260823";
+import { listSpcxLiteLiuyaoRevisions20260823 } from "@/lib/data/conviction/spcx-lite-liuyao-20260823";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
@@ -36,8 +37,8 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "kingsoft-office": return listVibeFocusPeriodForecasts(assetId);
     case "mu": return listMuHypePeriodForecasts(assetId);
     case "tsla": return listTSLAPeriodForecasts20260816();
-    case "lite": return listLITEPeriodForecasts20260816();
-    case "spcx": return listSpcxPeriodForecasts();
+    case "lite": return [...listLITEPeriodForecasts20260816(), ...listSpcxLiteLiuyaoRevisions20260823("lite")];
+    case "spcx": return [...listSpcxPeriodForecasts(), ...listSpcxLiteLiuyaoRevisions20260823("spcx")];
     case "intel": return listIntelPeriodForecasts();
     default: return [];
   }
