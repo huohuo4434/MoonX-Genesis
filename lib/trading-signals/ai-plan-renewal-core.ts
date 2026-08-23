@@ -45,7 +45,10 @@ export type ForecastBoundStoredPlan = {
 export function forecastHorizonForStrategy(
   strategyType: "INTRADAY" | "SWING" | "POSITION"
 ): LockedForecastBinding["horizon"] {
-  if (strategyType === "INTRADAY") return "DAY";
+  // The binding horizon is the formal direction authority, not the execution
+  // candle. Weekly/stage Liuyao owns both intraday and swing direction; the
+  // shorter candles remain timing, entry, stop and target inputs only.
+  if (strategyType === "INTRADAY") return "WEEK";
   if (strategyType === "SWING") return "WEEK";
   return "MONTH";
 }

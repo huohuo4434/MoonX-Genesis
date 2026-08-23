@@ -346,13 +346,14 @@ test("commissioning preference never adds BTC or ETH unless liveAllowedSymbols c
 });
 
 
-test("strategy horizon binding is DAY/WEEK/MONTH for intraday/swing/position", () => {
-  assert.equal(forecastHorizonForStrategy("INTRADAY"), "DAY");
+test("intraday and swing bind weekly direction authority while position binds monthly", () => {
+  assert.equal(forecastHorizonForStrategy("INTRADAY"), "WEEK");
   assert.equal(forecastHorizonForStrategy("SWING"), "WEEK");
   assert.equal(forecastHorizonForStrategy("POSITION"), "MONTH");
 });
 
 test("new plan group identity is isolated by strategy and symbol for all three horizons", () => {
+  assert.equal(forecastPlanGroupIdentity({ strategyType: "INTRADAY", symbol: "BTCUSDT", horizon: "WEEK" }), "forecast:INTRADAY:BTCUSDT:WEEK");
   assert.equal(forecastPlanGroupIdentity({ strategyType: "INTRADAY", symbol: "HYPEUSDT", horizon: "DAY" }), "forecast:INTRADAY:HYPEUSDT:DAY");
   assert.equal(forecastPlanGroupIdentity({ strategyType: "INTRADAY", symbol: "QQQUSDT", horizon: "DAY" }), "forecast:INTRADAY:QQQUSDT:DAY");
   assert.equal(forecastPlanGroupIdentity({ strategyType: "SWING", symbol: "HYPEUSDT", horizon: "WEEK" }), "forecast:SWING:HYPEUSDT:WEEK");
