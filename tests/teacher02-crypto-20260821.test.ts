@@ -41,14 +41,14 @@ test("member weekly view uses the new version without exposing internal provenan
   const btc = published.find((item) => item.assetId === "bitcoin");
   const eth = published.find((item) => item.assetId === "eth");
 
-  assert.equal(btc?.id, "WEEKLY-BTC-20260824-V5");
+  assert.equal(btc?.id, "WEEKLY-BTC-20260824-V6");
   assert.equal(eth?.id, "WEEKLY-ETH-20260824-V3");
   assert.equal(btc?.overallDirection, "探底回升");
   assert.equal(eth?.overallDirection, "探底回升");
   assert.match(btc?.weeklyPath ?? "", /24日至25日先下探.*26日02:24 UTC后修复/);
   assert.match(eth?.weeklyPath ?? "", /30日06:00 UTC后.*山地剥/);
 
-  const fullBtc = listAllPublishedWeeklyAnalyses().find((item) => item.id === "WEEKLY-BTC-20260824-V5");
+  const fullBtc = listAllPublishedWeeklyAnalyses().find((item) => item.id === "WEEKLY-BTC-20260824-V6");
   assert.ok(fullBtc);
   const memberJson = JSON.stringify(toWeeklyMemberView(fullBtc));
   assert.doesNotMatch(memberJson, /网站相关|六爻狼叔|T02-CRYPTO/);
