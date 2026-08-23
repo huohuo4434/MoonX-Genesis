@@ -618,6 +618,7 @@ export async function getExternalAnalystOverlay(
     FROM trade_external_analyst_posts
     WHERE posted_at >= $1::timestamptz - INTERVAL '45 days'
       AND posted_at <= $1::timestamptz
+      AND source <> 'SUBSTACK_CYCLE'
     ORDER BY posted_at DESC
     LIMIT 160
   `, now.toISOString());
@@ -635,6 +636,7 @@ export async function getLatestExternalAnalystPosts(input: {
         `SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
          FROM trade_external_analyst_posts
          WHERE source = $1
+           AND source <> 'SUBSTACK_CYCLE'
          ORDER BY posted_at DESC
          LIMIT $2`,
         input.source,
@@ -643,6 +645,7 @@ export async function getLatestExternalAnalystPosts(input: {
     : await prisma.$queryRawUnsafe<StoredRow[]>(
         `SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
          FROM trade_external_analyst_posts
+         WHERE source <> 'SUBSTACK_CYCLE'
          ORDER BY posted_at DESC
          LIMIT $1`,
         limit
