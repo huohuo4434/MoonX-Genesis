@@ -11,6 +11,10 @@ import {
   type ConvictionForecastType,
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
+import {
+  TEACHER02_CRYPTO_DAILY_PATH_20260824,
+  TEACHER02_CRYPTO_SOURCE_20260821,
+} from "@/lib/data/teacher02-crypto-20260821";
 
 export const ETH_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "MONTH_1"];
 
@@ -176,6 +180,68 @@ export const ETH_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
     sourceType: "ICHING_RESEARCH",
     publishedAt: PUBLISHED_AT,
     lockedAt: PUBLISHED_AT,
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "ETH-W4-20260824-V2",
+    assetId: "eth",
+    forecastType: "WEEK_4",
+    periodStart: "2026-08-24",
+    periodEnd: "2026-08-30",
+    direction: "探底回升",
+    upProbability: 42,
+    sidewaysProbability: 36,
+    downProbability: 22,
+    summary:
+      "最新完整老师周卦明确先下探、再修复、周末蓄势回升；ETH申月月卦又确认8月26日后修复增强，但8月30日06:00 UTC后重新进入承压背景。原ETH自起周卦只作第二证据。",
+    expectedPath:
+      "8月24日至25日冲高受阻后下探并寻找低点 → 26日02:24 UTC后修复但不直线主升 → 27日至28日宽幅换手 → 29日至30日震荡回升，随后重新防月卦承压。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["老师完整周卦先失后得", "ETH申月月卦支持周中修复", "周末水天需资金回补"],
+    risks: ["周初快速下探", "周中上下插针", "8月30日06:00 UTC后月卦重新承压"],
+    consensusStars: 5,
+    consensusLabel: "老师周卦、ETH月卦与原ETH周卦同向，老师周卦优先",
+    methodViews: [
+      {
+        id: TEACHER02_CRYPTO_SOURCE_20260821.id,
+        label: "六爻市场老师·周卦30",
+        direction: "探底回升",
+        weight: 80,
+        summary: "24日至25日先下探，26日后修复，周末蓄势回升。",
+      },
+      {
+        id: "eth-liuyiao-w4-self",
+        label: "网站六爻复核",
+        direction: "探底回升",
+        weight: 20,
+        summary: "官鬼动化财，保留先处理风险再修复的同向旁证。",
+      },
+    ],
+    keyDates: [
+      { date: "2026-08-25", type: "阶段低点", label: "周初低点与止跌回收候选", source: "LIUYAO", confidence: 82, note: "原文统一采用UTC。" },
+      { date: "2026-08-26", type: "转折", label: "02:24 UTC后进入修复段", source: "LIUYAO", confidence: 82, note: "ETH月卦同向校准，修复仍非连续主升。" },
+      { date: "2026-08-27", type: "波动放大", label: "宽幅拉锯与上下插针", source: "LIUYAO", confidence: 76 },
+      { date: "2026-08-29", type: "转折", label: "06:00 UTC后进入水天需蓄势段", source: "LIUYAO", confidence: 76 },
+      { date: "2026-08-30", type: "下跌风险", label: "06:00 UTC后月卦重新承压", source: "LIUYAO", confidence: 78, note: "只限制后续延续性，不倒推取消周末修复。" },
+    ],
+    dailyPath: TEACHER02_CRYPTO_DAILY_PATH_20260824.map((day) => ({
+      ...day,
+      status: "预测" as const,
+      consensusStars: day.date === "2026-08-25" || day.date === "2026-08-26" || day.date === "2026-08-30" ? 5 as const : 4 as const,
+    })),
+    ichingEvidence: {
+      primaryHexagram: TEACHER02_CRYPTO_SOURCE_20260821.primaryHexagram,
+      changingHexagram: TEACHER02_CRYPTO_SOURCE_20260821.changingHexagram,
+      notes:
+        "老师原图：本卦水火既济，互卦火水未济，变卦水天需；ETH申月月卦雷水解于8月30日06:00 UTC结束、山地剥接掌。原ETH火雷噬嗑→山雷颐降为第二证据。",
+    },
+    version: 2,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: TEACHER02_CRYPTO_SOURCE_20260821.ingestedAt,
+    lockedAt: TEACHER02_CRYPTO_SOURCE_20260821.ingestedAt,
     validationStatus: "UNVERIFIED",
   },
   {

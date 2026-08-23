@@ -162,6 +162,12 @@ function btcResearchAsWeeklySource(
     riskSummary: [hit.risks.join("；") || hit.riskLevel, pointGate?.invalidationRule]
       .filter(Boolean)
       .join("；"),
+    dailyPath: hit.dailyPath?.map((day) => ({
+      date: day.date,
+      direction: day.direction,
+      summary: day.summary,
+      riskNote: day.riskNote,
+    })),
     sourceType: "LIUYAO_WEEKLY",
     version: hit.version,
     status: "LOCKED",
@@ -205,6 +211,12 @@ function ethResearchAsWeeklySource(
     riskSummary: [hit.risks.join("；") || hit.riskLevel, pointGate?.invalidationRule]
       .filter(Boolean)
       .join("；"),
+    dailyPath: hit.dailyPath?.map((day) => ({
+      date: day.date,
+      direction: day.direction,
+      summary: day.summary,
+      riskNote: day.riskNote,
+    })),
     sourceType: "LIUYAO_WEEKLY",
     version: hit.version,
     status: "LOCKED",

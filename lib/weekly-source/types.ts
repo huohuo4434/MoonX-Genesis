@@ -23,6 +23,13 @@ export type WeeklyForecastSourceRecord = {
   weeklyPath: string;
   interpretation: string;
   riskSummary: string;
+  /** Explicit teacher-authored daily path. Never derive or fabricate when absent. */
+  dailyPath?: Array<{
+    date: string;
+    direction: string;
+    summary: string;
+    riskNote?: string | null;
+  }>;
   sourceType: WeeklySourceType;
   version: number;
   status: WeeklySourceStatus;

@@ -152,6 +152,11 @@ export function generateDailyFromWeekly(input: {
 
   let direction = directionForDay(weekly, progress, moving.active);
   let path = pathForDay(weekly, progress);
+  const explicitDaily = weekly.dailyPath?.find((item) => item.date === forecastDate);
+  if (explicitDaily) {
+    direction = normalizeFormalDirection(explicitDaily.direction);
+    path = explicitDaily.summary;
+  }
   let probs = baseProbabilities(direction);
   const calendarEvidence = buildCalendarEvidence(forecastDate, weekly.weeklyDirection);
   if (calendarEvidence.relationToWeekly === "增强" && probs.up >= probs.down) {
@@ -231,7 +236,7 @@ export function generateDailyFromWeekly(input: {
     invalidationLevel: null,
     riskLevel: /高/.test(weekly.riskSummary) ? "高" : "中高",
     catalysts: [],
-    risks: [weekly.riskSummary],
+    risks: [weekly.riskSummary, explicitDaily?.riskNote].filter(Boolean) as string[],
     liuyaoEvidence,
     qimenEvidence: null,
     calendarEvidence,

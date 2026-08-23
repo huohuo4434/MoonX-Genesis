@@ -10,6 +10,10 @@ import type {
   ConvictionForecastType,
   ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
+import {
+  TEACHER02_CRYPTO_DAILY_PATH_20260824,
+  TEACHER02_CRYPTO_SOURCE_20260821,
+} from "@/lib/data/teacher02-crypto-20260821";
 
 const PUBLISHED_AT = "2026-08-01T10:18:00+08:00";
 const SEPTEMBER_REVISION_AT = "2026-08-23T16:20:00+08:00";
@@ -232,6 +236,67 @@ export const BTC_PERIOD_FORECASTS_20260801: ConvictionPeriodForecast[] = [
     sourceType: "ICHING_RESEARCH",
     publishedAt: PUBLISHED_AT,
     lockedAt: PUBLISHED_AT,
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "BTC-W4-20260824-V3",
+    assetId: "bitcoin",
+    forecastType: "WEEK_4",
+    periodStart: "2026-08-24",
+    periodEnd: "2026-08-30",
+    direction: "探底回升",
+    upProbability: 39,
+    sidewaysProbability: 37,
+    downProbability: 24,
+    summary:
+      "最新完整老师周卦以水火既济为本卦、火水未济为互卦、水天需为变卦，明确给出先下探、再修复、周末蓄势回升的7×24路径。原BTC自起周卦财爻连续只作第二证据。",
+    expectedPath:
+      "8月24日至25日冲高受阻后下探并寻找低点 → 26日02:24 UTC后修复但不直线主升 → 27日至28日宽幅换手 → 29日至30日震荡回升。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["老师完整周卦先失后得", "周中修复", "周末水天需资金回补"],
+    risks: ["周初快速下探", "周中上下插针", "周末低流动性放大波动"],
+    consensusStars: 4,
+    consensusLabel: "老师周卦与原BTC周卦同属探底后修复，老师逐日路径优先",
+    methodViews: [
+      {
+        id: TEACHER02_CRYPTO_SOURCE_20260821.id,
+        label: "六爻市场老师·周卦30",
+        direction: "探底回升",
+        weight: 80,
+        summary: "24日至25日先下探，26日后修复，周末蓄势回升。",
+      },
+      {
+        id: "btc-liuyiao-w4-self",
+        label: "网站六爻复核",
+        direction: "探底回升",
+        weight: 20,
+        summary: "财未土动化财戌土，保留风险释放后修复的同向旁证。",
+      },
+    ],
+    keyDates: [
+      { date: "2026-08-25", type: "阶段低点", label: "周初低点与止跌回收候选", source: "LIUYAO", confidence: 78, note: "原文统一采用UTC。" },
+      { date: "2026-08-26", type: "转折", label: "02:24 UTC后进入修复段", source: "LIUYAO", confidence: 78, note: "修复不等于连续主升。" },
+      { date: "2026-08-27", type: "波动放大", label: "宽幅拉锯与上下插针", source: "LIUYAO", confidence: 72 },
+      { date: "2026-08-29", type: "转折", label: "06:00 UTC后进入水天需蓄势段", source: "LIUYAO", confidence: 72 },
+    ],
+    dailyPath: TEACHER02_CRYPTO_DAILY_PATH_20260824.map((day) => ({
+      ...day,
+      status: "预测" as const,
+      consensusStars: day.date === "2026-08-25" || day.date === "2026-08-26" ? 4 as const : 3 as const,
+    })),
+    ichingEvidence: {
+      primaryHexagram: TEACHER02_CRYPTO_SOURCE_20260821.primaryHexagram,
+      changingHexagram: TEACHER02_CRYPTO_SOURCE_20260821.changingHexagram,
+      notes:
+        "老师原图：本卦水火既济，互卦火水未济，变卦水天需；BTC与ETH共用周卦30运行轨迹。原BTC泽风大过→天风姤降为第二证据。",
+    },
+    version: 3,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: TEACHER02_CRYPTO_SOURCE_20260821.ingestedAt,
+    lockedAt: TEACHER02_CRYPTO_SOURCE_20260821.ingestedAt,
     validationStatus: "UNVERIFIED",
   },
   {
