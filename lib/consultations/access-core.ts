@@ -11,6 +11,6 @@ export function consultationDeviceAccess(input:{status:"LOGIN_REQUIRED"|"MEMBERS
 }
 export function consultationAdminActionAccess(input:{isAdmin:boolean;isPrimary:boolean},action:string){
   if(!input.isAdmin)return {ok:false as const,status:403,error:"FORBIDDEN"};
-  if(action==="APPROVE"&&!input.isPrimary)return {ok:false as const,status:403,error:"PRIMARY_REVIEWER_REQUIRED"};
+  if(["APPROVE","RESEND_EMAIL"].includes(action)&&!input.isPrimary)return {ok:false as const,status:403,error:"PRIMARY_REVIEWER_REQUIRED"};
   return {ok:true as const};
 }

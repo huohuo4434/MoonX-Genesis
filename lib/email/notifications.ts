@@ -3,6 +3,8 @@ import "server-only";
 import { Resend } from "resend";
 import { siteConfig } from "@/lib/site-config";
 
+export { chineseResendError } from "@/lib/email/error-messages";
+
 export type EmailNotificationStatus = "sent" | "email_failed" | "email_not_configured";
 
 function getResend(): Resend | null {
@@ -47,19 +49,6 @@ export async function sendRawEmail(input: { to: string; subject: string; text: s
     else break;
   }
   return { status: "email_failed", error: lastError };
-}
-
-export function chineseResendError(raw?: string): string {
-  if (!raw?.trim()) return "邮件发送失败：Resend 未返回具体原因";
-  const m = raw.toLowerCase();
-  if (m.includes("缺少 resend_api_key") || m.includes("邮件服务未配置：缺少")) return "邮件服务未配置：缺少 RESEND_API_KEY";
-  if (m.includes("invalid api key") || m.includes("unauthorized") || m.includes("401")) return `API密钥无效：${raw}`;
-  if (m.includes("not verified") || m.includes("domain is not verified") || m.includes("from address") || m.includes("validation_error") || (m.includes("from") && m.includes("domain"))) return `发件地址未验证：${raw}`;
-  if (m.includes("restricted") || m.includes("only send testing emails") || m.includes("own email")) return `收件人被拒绝（测试域名仅可发给账号邮箱）：${raw}`;
-  if (m.includes("bounce") || m.includes("blocked") || m.includes("recipient")) return `收件人被拒绝：${raw}`;
-  if (m.includes("rate") || m.includes("too many") || m.includes("429")) return `发送频率受限：${raw}`;
-  if (m.includes("quota") || m.includes("billing") || m.includes("payment")) return `账户额度或计费问题：${raw}`;
-  return `邮件发送失败：${raw.replace(/re_[A-Za-z0-9_]+/g, "re_***")}`;
 }
 
 export async function notifyAdminNewPayment(input: { email: string; planLabel: string; amount: number; network: string; txHash: string; submittedAt: string; paymentId: string; reviewUrl?: string }): Promise<EmailNotificationStatus> {

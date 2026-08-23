@@ -164,7 +164,7 @@ export function AdminConsultationQueue() {
     setContent(json.detail.latest?.content ?? "");
   }
 
-  async function action(name: "EDIT" | "NEEDS_INFO" | "REJECT" | "APPROVE") {
+  async function action(name: "EDIT" | "NEEDS_INFO" | "REJECT" | "APPROVE" | "RESEND_EMAIL") {
     if (!selected) return;
     const response = await fetch("/api/admin/consultations", {
       method: "POST",
@@ -184,6 +184,10 @@ export function AdminConsultationQueue() {
     }
     const nextMessage = name === "EDIT"
       ? "人工草稿已保存，可以继续修改或最终批准。"
+      : name === "RESEND_EMAIL" && json.emailStatus === "sent"
+        ? "解答邮件已重新发送，会员账户内的答案没有重复修改。"
+        : name === "RESEND_EMAIL"
+          ? `邮件仍未发送：${json.emailError ?? json.emailStatus ?? "未知错误"}。会员账户内的答案不受影响。`
       : name === "APPROVE" && json.emailStatus === "sent"
         ? "最终批准已完成，解答已发送至会员邮箱。"
         : name === "APPROVE" && json.emailStatus && json.emailStatus !== "not_requested"
@@ -198,6 +202,7 @@ export function AdminConsultationQueue() {
   const normalEditable = detailData?.request.status === "SUBMITTED" || detailData?.request.status === "HUMAN_REVIEW" || detailData?.request.status === "DRAFT_READY";
   const editable = recoverable || normalEditable;
   const approvable = detailData?.request.status === "HUMAN_REVIEW" || detailData?.request.status === "DRAFT_READY";
+  const resendable = detailData?.request.status === "APPROVED";
   const rejectable = normalEditable || detailData?.request.status === "NEEDS_INFO";
 
   return (
@@ -234,6 +239,7 @@ export function AdminConsultationQueue() {
               <Button disabled={!normalEditable} variant="outline" onClick={() => void action("NEEDS_INFO")}>要求补资料</Button>
               <Button disabled={!rejectable} variant="outline" onClick={() => void action("REJECT")}>拒绝并退回权益</Button>
               <Button disabled={!approvable} onClick={() => void action("APPROVE")}>易老师最终批准</Button>
+              <Button disabled={!resendable} variant="outline" onClick={() => void action("RESEND_EMAIL")}>重新发送解答邮件</Button>
             </div>
             {recoverable ? <Text variant="caption" color="secondary" className="mt-2 block">本申请之前自动处理失败；保存时会恢复原申请和原权益预留，不会重复扣除。</Text> : null}
             {!approvable ? <Text variant="caption" color="secondary" className="mt-2 block">先保存人工草稿，确认内容后再最终批准。</Text> : null}
