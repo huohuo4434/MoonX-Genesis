@@ -30,6 +30,7 @@ import { teacherResearch20260815 } from "@/lib/data/teacher-research-20260815";
 import { remainingCoreMarketLiuyao20260801Records } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
+import { teacher02Liuyao20260823Records } from "@/lib/data/teacher02-liuyao-20260823";
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { btcMarketBazi20260820Records } from "@/lib/data/btc-market-bazi-20260820";
 import { cycleResearchFcx20260822Records } from "@/lib/data/cycle-research-fcx-20260822";
@@ -1413,6 +1414,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...externalViewpoints20260801,
     ...externalViewpointsFollowup20260801,
     ...teacher02Liuyao20260802Records,
+    ...teacher02Liuyao20260823Records,
     ...coreMarketLiuyao20260801Records,
     ...usIndexLiuyao20260809Records,
     ...externalWolfUsIndices20260809,

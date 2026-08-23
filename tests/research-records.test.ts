@@ -14,7 +14,9 @@ describe("research records", () => {
     const sse = ids.filter((id) => id === "MX-SSE-2026-ANNUAL-LIUYAO-001");
     assert.equal(oil.length, 1);
     assert.equal(sse.length, 1);
-    assert.equal(ids.filter((id) => id.startsWith("T02-")).length, 5);
+    assert.equal(ids.filter((id) => id.startsWith("T02-")).length, 7);
+    assert.equal(ids.filter((id) => id.startsWith("T02-GOLD-20260824-0828")).length, 1);
+    assert.equal(ids.filter((id) => id.startsWith("T02-SILVER-20260824-0828")).length, 1);
   });
 
   it("marks long-horizon research as internal for public surfaces", async () => {

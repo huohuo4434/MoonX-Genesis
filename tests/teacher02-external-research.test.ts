@@ -26,7 +26,7 @@ describe("teacher02 external Liu-Yao source", () => {
     }
   });
 
-  it("keeps every asset profile at 100 percent and applies the requested gold overweight", () => {
+  it("keeps every asset profile at 100 percent and applies asset-specific teacher02 weights", () => {
     for (const profile of TEACHER_SOURCE_WEIGHT_PROFILES) {
       assert.equal(
         profile.teacher01WeightPct + profile.teacher02WeightPct + profile.moonxExtensionWeightPct,
@@ -35,8 +35,10 @@ describe("teacher02 external Liu-Yao source", () => {
     }
     const gold = TEACHER_SOURCE_WEIGHT_PROFILES.find((item) => item.assetId === "gold");
     const silver = TEACHER_SOURCE_WEIGHT_PROFILES.find((item) => item.assetId === "silver");
-    assert.equal(gold?.teacher02WeightPct, 35);
-    assert.equal(silver?.teacher02WeightPct, 30);
+    const eth = TEACHER_SOURCE_WEIGHT_PROFILES.find((item) => item.assetId === "ethereum");
+    assert.equal(gold?.teacher02WeightPct, 45);
+    assert.equal(silver?.teacher02WeightPct, 40);
+    assert.equal(eth?.teacher02WeightPct, 25);
   });
 
   it("uses locked weekly authority and defaults to observation when evidence conflicts", async () => {
@@ -92,9 +94,9 @@ describe("teacher02 external Liu-Yao source", () => {
   it("starts with pending samples and never fabricates a hit rate", async () => {
     const records = await listResearchRecords();
     const summary = summarizeTeacher02Verification(records);
-    assert.equal(summary.totalForwardSamples, 5);
+    assert.equal(summary.totalForwardSamples, 7);
     assert.equal(summary.completedSamples, 0);
-    assert.equal(summary.pendingSamples, 5);
+    assert.equal(summary.pendingSamples, 7);
     assert.equal(summary.directionHitRate, null);
   });
 });

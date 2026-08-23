@@ -15,10 +15,10 @@ export const EXTERNAL_SOURCE_POLICIES: ExternalSourcePolicy[] = [
     label: "辅助导师02六爻路径",
     category: "EXTERNAL_LIUYAO",
     baseWeight: 10,
-    maxWeight: 35,
+    maxWeight: 45,
     expiryDays: 9,
     automaticConsensus: false,
-    rule: "只在六爻模块内部按资产专项权重参与；不覆盖已锁定预测、不单独触发交易，累计至少10个正式样本后再动态调整。",
+    rule: "只在六爻模块内部按资产专项权重参与；黄金最高45%、白银最高40%、ETH最高25%。不覆盖已锁定版本、不单独触发交易，累计至少10个同市场同周期同环境正式样本后再动态调整。",
   },
   {
     id: "wave-analyst",
