@@ -6,6 +6,7 @@ import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
+import { getMemberCycleResearchOverlays } from "@/lib/research/cycle-research-member-overlay.server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -39,5 +40,6 @@ export default async function MonthlyPage() {
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
-  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberMonthlyPage /></Section></main>;
+  const cycleResearchOverlays = getMemberCycleResearchOverlays();
+  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberMonthlyPage cycleResearchOverlays={cycleResearchOverlays} /></Section></main>;
 }

@@ -34,6 +34,7 @@ import { teacher02Liuyao20260823Records } from "@/lib/data/teacher02-liuyao-2026
 import { btcLiuyao20260727Records } from "@/lib/data/btc-liuyao-20260727";
 import { btcMarketBazi20260820Records } from "@/lib/data/btc-market-bazi-20260820";
 import { cycleResearchFcx20260822Records } from "@/lib/data/cycle-research-fcx-20260822";
+import { cycleResearchBtcGold20260823Records } from "@/lib/data/cycle-research-btc-gold-20260823";
 import { researchPack20260823 } from "@/lib/data/research-pack-20260823";
 import { qimenRotationPostRecords20260823 } from "@/lib/data/qimen-rotation-post-20260823";
 import { externalIndicatorResearchRecords20260823 } from "@/lib/data/external-indicators-20260823";
@@ -1432,6 +1433,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...btcLiuyao20260727Records,
     ...btcMarketBazi20260820Records,
     ...cycleResearchFcx20260822Records,
+    ...cycleResearchBtcGold20260823Records,
     ...researchPack20260823,
     ...qimenRotationPostRecords20260823,
     ...externalIndicatorResearchRecords20260823,

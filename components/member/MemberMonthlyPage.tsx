@@ -6,6 +6,7 @@ import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummar
 import { listMonthlyMarketCycles, type MonthlyMarketCycle } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
+import type { MemberCycleResearchOverlay } from "@/lib/research/cycle-research-member-overlay.server";
 
 function bars(values: { up: number; flat: number; down: number }, en: boolean) {
   return [
@@ -15,7 +16,7 @@ function bars(values: { up: number; flat: number; down: number }, en: boolean) {
   ] as const;
 }
 
-export function MemberMonthlyPage() {
+export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearchOverlays?: MemberCycleResearchOverlay[] }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const cycles = listMonthlyMarketCycles();
@@ -57,6 +58,61 @@ export function MemberMonthlyPage() {
           {cycle.isUpcoming ? <span className="text-amber-200/80">{en ? "Forward research; subject to pre-period teacher updates" : "事前预测；开盘前若有更高优先级老师新卦可修订"}</span> : null}
         </div>
       </Card>
+      {cycleId === "2026-09" && cycleResearchOverlays.length ? (
+        <Card padding="lg" className="space-y-5 border-cyan-300/20 bg-cyan-300/[0.025]" data-cycle-research-overlay="btc-gold-20260823">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{en ? "External research · auxiliary only" : "外部研究 · 仅作辅助"}</Badge>
+              <Badge variant="outline">{en ? "No trading authority" : "不进入自动交易"}</Badge>
+            </div>
+            <Heading as="h2" size="h3" className="mt-3">{en ? "Latest Cycle Cross-Check · BTC / Gold" : "最新周期交叉验证｜比特币 / 黄金"}</Heading>
+            <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl leading-relaxed">
+              {en
+                ? "Anonymous cycle research is shown beside the official forecast. Alignment strengthens the research note only; disagreement stays visible and reduces execution confidence. It never overrides teacher Liuyao/Qimen evidence."
+                : "匿名周期研究与正式预测并列展示：同向只增加研究参考，分歧会明确保留并降低执行信心；它不能覆盖老师的六爻、奇门正式证据。"}
+            </Text>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {cycleResearchOverlays.map((overlay) => (
+              <div key={overlay.id} className="rounded-xl border border-white/10 bg-black/15 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <Text variant="body" weight="semibold" className="block">{en ? overlay.assetNameEn : overlay.assetNameZh} · {overlay.symbol}</Text>
+                    <Text variant="caption" color="tertiary" className="mt-1 block">{en ? overlay.sourceLabelEn : overlay.sourceLabelZh} · {overlay.sourcePublishedAt}</Text>
+                  </div>
+                  <Badge variant={overlay.relationship === "ALIGNED" ? "success" : "warning"}>{en ? overlay.relationshipEn : overlay.relationshipZh}</Badge>
+                </div>
+                <Text variant="body-sm" weight="semibold" className="mt-3 block">{en ? overlay.titleEn : overlay.titleZh}</Text>
+                <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{en ? overlay.summaryEn : overlay.summaryZh}</Text>
+                <div className="mt-4 overflow-x-auto rounded-lg border border-white/[0.08]">
+                  <table className="min-w-[620px] w-full border-collapse text-left text-xs">
+                    <thead className="bg-white/[0.04] text-white/55">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">{en ? "Window" : "时间窗口"}</th>
+                        <th className="px-3 py-2 font-medium">{en ? "Cycle event" : "周期事件"}</th>
+                        <th className="px-3 py-2 font-medium">{en ? "Explicit range" : "原文明示区间"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overlay.windows.map((window) => (
+                        <tr key={window.id} className="border-t border-white/[0.07] align-top">
+                          <td className="px-3 py-2 font-mono text-white/70">{window.start}{window.end && window.end !== window.start ? ` → ${window.end}` : ""}</td>
+                          <td className="px-3 py-2 text-cyan-100">{en ? window.labelEn : window.labelZh}</td>
+                          <td className="px-3 py-2 text-white/70">{en ? window.noteEn : window.noteZh}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="outline">{en ? "Dates / ranges explicit" : "日期与区间：原文明示"}</Badge>
+                  <Badge variant="warning">{en ? "Independent invalidation not stated" : "独立失效价：原文未给"}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
           <Card key={item.assetId} padding="lg" className="space-y-4">

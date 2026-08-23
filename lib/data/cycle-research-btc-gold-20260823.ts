@@ -1,0 +1,147 @@
+import { lt } from "@/lib/i18n/config";
+import type { ResearchRecord } from "@/types/research";
+
+/**
+ * Forward-locked, anonymized summaries of two paid cycle updates published on
+ * 2026-08-23. Source URLs are internal-only. These records are research aids:
+ * they never enter formal consensus and cannot trigger trading.
+ */
+export const cycleResearchBtcGold20260823Records: ResearchRecord[] = [
+  {
+    id: "CYCLE-RESEARCH-BTC-20260823",
+    publishedAt: "2026-08-23",
+    sourcePublishedAt: "2026-08-23",
+    sourcePublishedAtVerified: true,
+    ingestedAt: "2026-08-23T19:44:08+08:00",
+    forecastStart: "2026-08-24",
+    forecastEnd: "2026-10-31",
+    expiresAt: "2026-11-01T00:00:00+08:00",
+    accessLevel: "member",
+    excludeFromHomeViews: true,
+    excludeFromLongTermConsensus: true,
+    assetId: "bitcoin",
+    assetName: lt("比特币", "比特幣", "Bitcoin"),
+    symbol: "BTC",
+    market: "crypto",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    internalSourceRef: "https://agentmat.substack.com/p/8",
+    publicSourceLabel: lt("周期预测师", "週期預測師", "Cycle Forecaster"),
+    sourceProfileId: "cycle-forecaster",
+    direction: "neutral",
+    editorialConfidence: 50,
+    consensusEligible: false,
+    horizon: lt("2026年8月24日至10月末", "2026年8月24日至10月末", "Aug 24 to late October 2026"),
+    title: lt("BTC双高点与第四季度低点窗口", "BTC雙高點與第四季度低點窗口", "BTC Two-Peak and Q4-Low Windows"),
+    summary: lt(
+      "周期模型与MOOX九月先涨后跌、十月风险上升的大方向基本同向，并额外提出九月可能出现两次高点：9月9日至10日为第一高点，9月23日至24日为第二高点且可能略高。该补充不改变MOOX正式方向。原文明确给出时间与价格区间，但未给出可独立执行的失效价。",
+      "週期模型與MOOX九月先漲後跌、十月風險上升的大方向基本同向，並額外提出九月可能出現兩次高點：9月9日至10日為第一高點，9月23日至24日為第二高點且可能略高。該補充不改變MOOX正式方向。原文明確給出時間與價格區間，但未給出可獨立執行的失效價。",
+      "The cycle model broadly aligns with the MOOX September rally-then-fade path and rising October risk, while adding a possible two-peak September sequence: a first peak on Sep 9-10 and a potentially slightly higher second peak on Sep 23-24. This does not change the official MOOX direction. The source gives explicit time and price ranges but no standalone executable invalidation price."
+    ),
+    thesis: [
+      lt("8月24日至25日关注81,000至83,000美元上沿窗口。", "8月24日至25日關注81,000至83,000美元上沿窗口。", "Watch USD 81,000-83,000 as an upper window on Aug 24-25."),
+      lt("8月26日至28日关注73,500至76,000美元回撤低点窗口；8月31日关注81,500至83,500美元局部高点。", "8月26日至28日關注73,500至76,000美元回撤低點窗口；8月31日關注81,500至83,500美元局部高點。", "Watch USD 73,500-76,000 as a pullback-low window on Aug 26-28, followed by a local-high window around USD 81,500-83,500 on Aug 31."),
+      lt("9月9日至10日关注86,000至89,000美元第一高点，9月15日至16日关注75,000至79,000美元重要低点。", "9月9日至10日關注86,000至89,000美元第一高點，9月15日至16日關注75,000至79,000美元重要低點。", "Watch USD 86,000-89,000 as the first September peak on Sep 9-10 and USD 75,000-79,000 as an important low on Sep 15-16."),
+      lt("9月23日至24日关注87,000至91,000美元第二高点；9月25日至30日逐步转弱。", "9月23日至24日關注87,000至91,000美元第二高點；9月25日至30日逐步轉弱。", "Watch USD 87,000-91,000 as a second September peak on Sep 23-24, followed by gradual weakening from Sep 25-30."),
+      lt("10月弱势逐步加重，10月27日至30日关注65,000至71,000美元的第四季度重要低点与潜在反弹窗口。", "10月弱勢逐步加重，10月27日至30日關注65,000至71,000美元的第四季度重要低點與潛在反彈窗口。", "October weakness is expected to deepen, with USD 65,000-71,000 on Oct 27-30 identified as an important Q4 low and potential rebound window."),
+    ],
+    supports: [65000, 71000, 73500, 75000, 76000, 79000],
+    resistances: [81000, 83000, 83500, 86000, 89000, 91000],
+    invalidation: lt(
+      "原文只说明当动能或运行路径明显偏离时需要重新校准，没有给出独立失效价；不得补造，也不得据此自动下单。",
+      "原文只說明當動能或運行路徑明顯偏離時需要重新校準，沒有給出獨立失效價；不得補造，也不得據此自動下單。",
+      "The source only says the model should be recalibrated if momentum or path materially diverges; it provides no standalone invalidation price. None is inferred, and this record cannot drive automated orders."
+    ),
+    turningWindows: [
+      { id: "btc-upper-20260824", start: "2026-08-24", end: "2026-08-25", label: lt("8月上沿窗口", "8月上沿窗口", "August upper window"), note: lt("81,000至83,000美元（原文明确）", "81,000至83,000美元（原文明確）", "USD 81,000-83,000 (source explicit)") },
+      { id: "btc-low-20260826", start: "2026-08-26", end: "2026-08-28", label: lt("8月回撤低点", "8月回撤低點", "August pullback low"), note: lt("73,500至76,000美元（原文明确）", "73,500至76,000美元（原文明確）", "USD 73,500-76,000 (source explicit)") },
+      { id: "btc-local-high-20260831", date: "2026-08-31", label: lt("8月末局部高点", "8月末局部高點", "Late-August local high"), note: lt("81,500至83,500美元（原文明确）", "81,500至83,500美元（原文明確）", "USD 81,500-83,500 (source explicit)") },
+      { id: "btc-high-1-20260909", start: "2026-09-09", end: "2026-09-10", label: lt("九月第一高点", "九月第一高點", "First September peak"), note: lt("86,000至89,000美元（原文明确）", "86,000至89,000美元（原文明確）", "USD 86,000-89,000 (source explicit)") },
+      { id: "btc-low-20260915", start: "2026-09-15", end: "2026-09-16", label: lt("九月重要低点", "九月重要低點", "September major low"), note: lt("75,000至79,000美元（原文明确）", "75,000至79,000美元（原文明確）", "USD 75,000-79,000 (source explicit)") },
+      { id: "btc-high-2-20260923", start: "2026-09-23", end: "2026-09-24", label: lt("九月第二高点", "九月第二高點", "Second September peak"), note: lt("87,000至91,000美元，可能略高于第一高点（原文明确）", "87,000至91,000美元，可能略高於第一高點（原文明確）", "USD 87,000-91,000, potentially slightly above the first peak (source explicit)") },
+      { id: "btc-q4-low-20261027", start: "2026-10-27", end: "2026-10-30", label: lt("第四季度重要低点", "第四季度重要低點", "Important Q4 low"), note: lt("65,000至71,000美元（原文明确）", "65,000至71,000美元（原文明確）", "USD 65,000-71,000 (source explicit)") },
+    ],
+    expectedPath: [
+      { start: "2026-08-24", end: "2026-08-31", direction: lt("冲高—回撤—再反弹", "衝高—回撤—再反彈", "Peak, pullback, rebound"), title: lt("八月末三段路径", "八月末三段路徑", "Late-August three-stage path") },
+      { start: "2026-09-01", end: "2026-09-24", direction: lt("第一高点—低点—第二高点", "第一高點—低點—第二高點", "First peak, low, second peak"), title: lt("九月双高点路径", "九月雙高點路徑", "September two-peak path") },
+      { start: "2026-09-25", end: "2026-10-30", direction: lt("逐步转弱", "逐步轉弱", "Gradual weakening"), title: lt("九月末至十月风险段", "九月末至十月風險段", "Late-September to October risk phase") },
+    ],
+    risks: [
+      lt("这是匿名外部周期研究，只作辅助验证；不覆盖六爻与奇门的正式方向，不回写历史预测。", "這是匿名外部週期研究，只作輔助驗證；不覆蓋六爻與奇門的正式方向，不回寫歷史預測。", "This anonymous external cycle research is auxiliary only; it cannot override formal Liuyao/Qimen direction or rewrite history."),
+      lt("点位是模型情景，不是保证；该记录不得直接触发Bitget或任何自动交易。", "點位是模型情境，不是保證；該記錄不得直接觸發Bitget或任何自動交易。", "Levels are model scenarios, not guarantees. This record cannot directly trigger Bitget or any automated trade."),
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: ["bitcoin", "btc", "cycle", "public-analyst", "anonymous", "research-only", "no-auto-trade", "aligned-with-moox-september", "two-peak-september"],
+  },
+  {
+    id: "CYCLE-RESEARCH-GOLD-20260823",
+    publishedAt: "2026-08-23",
+    sourcePublishedAt: "2026-08-23",
+    sourcePublishedAtVerified: true,
+    ingestedAt: "2026-08-23T19:44:08+08:00",
+    forecastStart: "2026-08-24",
+    forecastEnd: "2026-11-05",
+    expiresAt: "2026-11-06T00:00:00+08:00",
+    accessLevel: "member",
+    excludeFromHomeViews: true,
+    excludeFromLongTermConsensus: true,
+    assetId: "gold",
+    assetName: lt("黄金", "黃金", "Gold"),
+    symbol: "GOLD",
+    market: "commodity",
+    framework: "cycle",
+    sourceType: "public-analyst",
+    internalSourceRef: "https://agentmat.substack.com/p/deb",
+    publicSourceLabel: lt("周期预测师", "週期預測師", "Cycle Forecaster"),
+    sourceProfileId: "cycle-forecaster",
+    direction: "neutral",
+    editorialConfidence: 50,
+    consensusEligible: false,
+    horizon: lt("2026年8月24日至11月初", "2026年8月24日至11月初", "Aug 24 to early November 2026"),
+    title: lt("黄金双高点与十月下旬风险窗口", "黃金雙高點與十月下旬風險窗口", "Gold Two-Peak and Late-October Risk Windows"),
+    summary: lt(
+      "周期模型提出8月底冲高、回撤、再反弹，九月形成双高点，十月逐级走弱并在月底寻找重要低点。8月底和九月的精确先后顺序与老师周卦/月卦并不完全一致，因此网站必须并列显示分歧，老师卦象仍拥有正式方向权；十月下旬风险则与MOOX风险层大体同向。原文明确给出时间与价格情景，但未给出独立失效价。",
+      "週期模型提出8月底衝高、回撤、再反彈，九月形成雙高點，十月逐級走弱並在月底尋找重要低點。8月底和九月的精確先後順序與老師週卦/月卦並不完全一致，因此網站必須並列顯示分歧，老師卦象仍擁有正式方向權；十月下旬風險則與MOOX風險層大體同向。原文明確給出時間與價格情境，但未給出獨立失效價。",
+      "The cycle model calls for a late-August peak, pullback and rebound, a September two-peak structure, and progressive October weakness into a major late-month low. Its precise late-August and September ordering does not fully match the teacher weekly/monthly readings, so the site must display the disagreement while teacher readings retain formal directional authority. Late-October risk broadly aligns with the MOOX risk layer. The source gives explicit time and price scenarios but no standalone invalidation price."
+    ),
+    thesis: [
+      lt("8月24日至25日关注4,690至4,760上沿，8月26日至27日关注4,480至4,550低点，8月28日至31日关注4,570至4,650反弹。", "8月24日至25日關注4,690至4,760上沿，8月26日至27日關注4,480至4,550低點，8月28日至31日關注4,570至4,650反彈。", "Watch 4,690-4,760 on Aug 24-25, 4,480-4,550 as a low on Aug 26-27, and a 4,570-4,650 rebound on Aug 28-31."),
+      lt("9月9日至10日关注4,780至4,880第一高点，9月15日至16日关注4,430至4,520低点，9月23日至24日关注4,700至4,820第二高点；模型认为第一高点可能略高。", "9月9日至10日關注4,780至4,880第一高點，9月15日至16日關注4,430至4,520低點，9月23日至24日關注4,700至4,820第二高點；模型認為第一高點可能略高。", "Watch 4,780-4,880 as the first peak on Sep 9-10, 4,430-4,520 as a low on Sep 15-16, and 4,700-4,820 as a second peak on Sep 23-24; the model sees the first peak as potentially slightly higher."),
+      lt("10月6日至8日关注4,580至4,680反弹；若反弹偏弱，是十月下行风险的第一道警报。", "10月6日至8日關注4,580至4,680反彈；若反彈偏弱，是十月下行風險的第一道警報。", "Watch a 4,580-4,680 rebound on Oct 6-8; a weak rebound is the first warning of escalating October downside risk."),
+      lt("10月14日至16日关注4,300至4,420，10月21日至23日关注4,150至4,280；若下跌加速或缺乏承接，更弱情景概率上升。", "10月14日至16日關注4,300至4,420，10月21日至23日關注4,150至4,280；若下跌加速或缺乏承接，更弱情境機率上升。", "Watch 4,300-4,420 on Oct 14-16 and 4,150-4,280 on Oct 21-23; accelerating declines or weak buying response raise the probability of more bearish scenarios."),
+      lt("10月27日至30日为主要低点窗口：基础情景3,950至4,120，偏空情景3,800至3,950，流动性尾部情景3,650至3,800；尾部情景不是基础判断。", "10月27日至30日為主要低點窗口：基礎情境3,950至4,120，偏空情境3,800至3,950，流動性尾部情境3,650至3,800；尾部情境不是基礎判斷。", "Oct 27-30 is the main low window: base case 3,950-4,120, bearish case 3,800-3,950, and liquidity-tail case 3,650-3,800. The tail case is not the base view."),
+    ],
+    supports: [3650, 3800, 3950, 4120, 4150, 4280, 4300, 4420, 4430, 4520],
+    resistances: [4580, 4680, 4690, 4760, 4780, 4820, 4880],
+    invalidation: lt(
+      "原文用10月反弹强弱、下跌是否加速和承接是否缺失来调整情景概率，没有给出独立失效价；不得补造，也不得据此自动下单。",
+      "原文用10月反彈強弱、下跌是否加速和承接是否缺失來調整情境機率，沒有給出獨立失效價；不得補造，也不得據此自動下單。",
+      "The source adjusts scenario probabilities using October rebound strength, downside acceleration and buying response, but gives no standalone invalidation price. None is inferred, and this record cannot drive automated orders."
+    ),
+    turningWindows: [
+      { id: "gold-upper-20260824", start: "2026-08-24", end: "2026-08-25", label: lt("8月上沿窗口", "8月上沿窗口", "August upper window"), note: lt("4,690至4,760（原文明确）", "4,690至4,760（原文明確）", "4,690-4,760 (source explicit)") },
+      { id: "gold-low-20260826", start: "2026-08-26", end: "2026-08-27", label: lt("8月回撤低点", "8月回撤低點", "August pullback low"), note: lt("4,480至4,550（原文明确）", "4,480至4,550（原文明確）", "4,480-4,550 (source explicit)") },
+      { id: "gold-rebound-20260828", start: "2026-08-28", end: "2026-08-31", label: lt("8月末反弹", "8月末反彈", "Late-August rebound"), note: lt("4,570至4,650（原文明确）", "4,570至4,650（原文明確）", "4,570-4,650 (source explicit)") },
+      { id: "gold-high-1-20260909", start: "2026-09-09", end: "2026-09-10", label: lt("九月第一高点", "九月第一高點", "First September peak"), note: lt("4,780至4,880（原文明确）", "4,780至4,880（原文明確）", "4,780-4,880 (source explicit)") },
+      { id: "gold-low-20260915", start: "2026-09-15", end: "2026-09-16", label: lt("九月低点", "九月低點", "September low"), note: lt("4,430至4,520（原文明确）", "4,430至4,520（原文明確）", "4,430-4,520 (source explicit)") },
+      { id: "gold-high-2-20260923", start: "2026-09-23", end: "2026-09-24", label: lt("九月第二高点", "九月第二高點", "Second September peak"), note: lt("4,700至4,820，第一高点可能略高（原文明确）", "4,700至4,820，第一高點可能略高（原文明確）", "4,700-4,820, with the first peak potentially slightly higher (source explicit)") },
+      { id: "gold-rebound-20261006", start: "2026-10-06", end: "2026-10-08", label: lt("十月反弹验证", "十月反彈驗證", "October rebound test"), note: lt("4,580至4,680；反弹偏弱为风险警报（原文明确）", "4,580至4,680；反彈偏弱為風險警報（原文明確）", "4,580-4,680; a weak rebound is a risk warning (source explicit)") },
+      { id: "gold-down-20261014", start: "2026-10-14", end: "2026-10-16", label: lt("十月下行验证一", "十月下行驗證一", "October downside test one"), note: lt("4,300至4,420（原文明确）", "4,300至4,420（原文明確）", "4,300-4,420 (source explicit)") },
+      { id: "gold-down-20261021", start: "2026-10-21", end: "2026-10-23", label: lt("十月下行验证二", "十月下行驗證二", "October downside test two"), note: lt("4,150至4,280（原文明确）", "4,150至4,280（原文明確）", "4,150-4,280 (source explicit)") },
+      { id: "gold-major-low-20261027", start: "2026-10-27", end: "2026-10-30", label: lt("十月重要低点", "十月重要低點", "Major October low"), note: lt("基础3,950至4,120；偏空3,800至3,950；尾部3,650至3,800（均为原文情景）", "基礎3,950至4,120；偏空3,800至3,950；尾部3,650至3,800（均為原文情境）", "Base 3,950-4,120; bearish 3,800-3,950; tail 3,650-3,800 (all source scenarios)") },
+    ],
+    expectedPath: [
+      { start: "2026-08-24", end: "2026-08-31", direction: lt("冲高—回撤—反弹", "衝高—回撤—反彈", "Peak, pullback, rebound"), title: lt("八月末路径", "八月末路徑", "Late-August path") },
+      { start: "2026-09-01", end: "2026-09-30", direction: lt("第一高点—低点—第二高点—转弱", "第一高點—低點—第二高點—轉弱", "First peak, low, second peak, weakening"), title: lt("九月双高点路径", "九月雙高點路徑", "September two-peak path") },
+      { start: "2026-10-01", end: "2026-10-30", direction: lt("反弹验证后逐级走弱", "反彈驗證後逐級走弱", "Progressive weakening after rebound test"), title: lt("十月风险路径", "十月風險路徑", "October risk path") },
+    ],
+    risks: [
+      lt("八月底及九月路径与老师卦象存在分歧，正式方向继续以老师周卦/月卦为准，分歧只降低执行信心。", "八月底及九月路徑與老師卦象存在分歧，正式方向繼續以老師週卦/月卦為準，分歧只降低執行信心。", "The late-August and September path diverges from teacher readings. Formal direction remains governed by teacher weekly/monthly readings; the disagreement only reduces execution confidence."),
+      lt("点位是模型情景，不是保证；该记录不得直接触发Bitget或任何自动交易。", "點位是模型情境，不是保證；該記錄不得直接觸發Bitget或任何自動交易。", "Levels are model scenarios, not guarantees. This record cannot directly trigger Bitget or any automated trade."),
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: ["gold", "cycle", "public-analyst", "anonymous", "research-only", "no-auto-trade", "divergent-from-teacher-short-path", "aligned-october-risk"],
+  },
+];
