@@ -125,22 +125,27 @@ function Stars({ value }: { value: number }) {
 
 function tradeCall(direction: string) {
   const label = convictionDirectionLabelZh(direction);
+  if (label === "先涨后跌" || label === "先跌后涨") {
+    return {
+      label: `↕ ${label}`,
+      note: label === "先涨后跌"
+        ? "完整路径是前段走强、后段转弱；不能把它缩写成整段只跌。"
+        : "完整路径是前段承压、后段转强；不能把它缩写成整段只涨。",
+      tone: "amber" as const,
+    };
+  }
   const primary = mooxPrimaryDirection(direction);
   if (primary === "BULLISH") {
     return {
       label: `↑ ${label}`,
-      note: label === "先跌后涨"
-        ? "完整路径是前段承压、后段转强；不能把它缩写成整段只涨。"
-        : "当前周期方向偏强，关注支撑、压力、确认与失效位。",
+      note: "当前周期方向偏强，关注支撑、压力、确认与失效位。",
       tone: "emerald" as const,
     };
   }
   if (primary === "BEARISH") {
     return {
       label: `↓ ${label}`,
-      note: label === "先涨后跌"
-        ? "完整路径是前段走强、后段转弱；不能把它缩写成整段只跌。"
-        : "当前周期方向偏弱，关注支撑、压力、确认与失效位。",
+      note: "当前周期方向偏弱，关注支撑、压力、确认与失效位。",
       tone: "rose" as const,
     };
   }

@@ -74,8 +74,8 @@ test("new records have valid editorial scenario weights and no private identity 
 
 test("member dossier preserves two-stage directions instead of collapsing them to a one-word call", () => {
   const source = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
-  assert.match(source, /label: `↑ \$\{label\}`/);
-  assert.match(source, /label: `↓ \$\{label\}`/);
+  assert.match(source, /label: `↕ \$\{label\}`/);
+  assert.match(source, /label === "先涨后跌" \|\| label === "先跌后涨"/);
   assert.match(source, /完整路径是前段走强、后段转弱/);
   assert.match(source, /convictionDirectionLabelZh\(item\.direction\)/);
   assert.doesNotMatch(source, /return \{ label: "↓ 看跌"/);
