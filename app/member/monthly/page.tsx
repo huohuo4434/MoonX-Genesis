@@ -30,11 +30,11 @@ export default async function MonthlyPage() {
     return <main><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Monthly outlook · Public preview" : "月度趋势 · 公开预览"}
       title={en ? "See the monthly structure before planning weekly execution" : "先看整月结构，再安排周内节奏"}
-      description={en ? "The monthly page separates medium-term direction from short-term entry timing by presenting probabilities, an expected path, timing windows and invalidation in one structure." : "月度页先用卦象给唯一方向，再展示月内路径和关键时间窗；技术分析只补充点位，不参与修改方向。"}
+      description={en ? "The monthly page shows Liuyao and Qimen as independent forecasts, raises confidence when they agree, and keeps both views visible with lower confidence when they diverge. Technical analysis only supplies structure and levels." : "月度页分别展示六爻与奇门的独立方向：同向提高信心，分歧时并列两种观点并降低信心；技术分析只补充结构与点位。"}
       solves={en ? ["Avoid treating one-day volatility as a monthly trend", "Identify rally-then-fade or dip-then-rebound structures early", "Separate monthly research from weekly and daily confirmation"] : ["避免把单日波动误当成整月趋势", "提前识别可能的先涨后跌、先跌后涨结构", "把月度判断与周度、日度确认分开"]}
       memberBenefits={en ? ["Complete monthly direction and scenario weights", "Expected path and timing windows", "Liu Yao, Qimen and technical-structure evidence", "Risk notes, confirmation and invalidation"] : ["核心市场完整月度方向与情景权重", "月内运行路径和关键时间窗", "六爻、奇门与技术结构依据", "风险提示与技术点位参考"]}
       exampleTitle={en ? "Gold · Monthly structure example" : "黄金 · 月度结构示例"}
-      exampleLines={en ? ["Scenario weights: bullish 42% / range-bound 33% / bearish 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Signal strength: medium", "Key levels appear only when verified technical data is available"] : ["情景权重：上涨 42% / 震荡 33% / 下跌 25%（不参与方向投票）", "运行路径：月初整理 → 月中反弹 → 月末观察节奏；正式方向仍以月卦为准", "信号强度：中", "关键价位：仅在取得真实技术数据后展示"]}
+      exampleLines={en ? ["Scenario weights: bullish 42% / range-bound 33% / bearish 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Method relation: Liuyao-Qimen resonance or visible divergence", "Key levels appear only when verified technical data is available"] : ["情景权重：上涨 42% / 震荡 33% / 下跌 25%（不参与方向投票）", "运行路径：月初整理 → 月中反弹 → 月末观察节奏", "方法关系：奇六共振，或分歧并列并降低信心", "关键价位：仅在取得真实技术数据后展示"]}
       nextPath={path}
     /></Section></main>;
   }
