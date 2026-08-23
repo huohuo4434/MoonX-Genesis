@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { listStaticFocusForecasts } from "../lib/data/conviction/focus-static-forecast-registry";
 import { buildFocusDetailedReport } from "../lib/data/conviction/focus-dossier-core";
@@ -69,4 +70,13 @@ test("new records have valid editorial scenario weights and no private identity 
     const text = JSON.stringify(forecast);
     assert.doesNotMatch(text, /C:\\\\Users|出生|生辰|姓名|吴昌烨|狼叔|金兔子/);
   }
+});
+
+test("member dossier preserves two-stage directions instead of collapsing them to a one-word call", () => {
+  const source = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
+  assert.match(source, /label: `↑ \$\{label\}`/);
+  assert.match(source, /label: `↓ \$\{label\}`/);
+  assert.match(source, /完整路径是前段走强、后段转弱/);
+  assert.match(source, /convictionDirectionLabelZh\(item\.direction\)/);
+  assert.doesNotMatch(source, /return \{ label: "↓ 看跌"/);
 });

@@ -12,7 +12,8 @@ import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
 import { dailyPathTemporalStatus, prioritizeDailyPath } from "@/lib/data/conviction/freshness";
 import { buildForecastModuleEvidence } from "@/lib/methodology/evidence";
-import { mooxDirectionLabelZh, mooxPrimaryDirection, mooxTechnicalReferenceZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { mooxPrimaryDirection, mooxTechnicalReferenceZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { normalizeOfficialDirection } from "@/lib/forecasts/formal-direction";
 import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
 import type { ConvictionDetailPayload, ConvictionPeriodSlot } from "@/lib/data/conviction/access";
@@ -42,6 +43,10 @@ function ProbRow({ p }: { p: { up: number; flat: number; down: number } }) {
   );
 }
 
+function convictionDirectionLabelZh(raw: string | null | undefined) {
+  return normalizeOfficialDirection(raw);
+}
+
 function DailyPanel({ title, forecast }: { title: string; forecast: MemberStockDailyMemberView }) {
   return (
     <Card padding="md" className="min-w-0 space-y-2 overflow-hidden border-white/[0.08] bg-[#0c0e12]">
@@ -51,10 +56,10 @@ function DailyPanel({ title, forecast }: { title: string; forecast: MemberStockD
       <Text variant="caption" className="block text-white/45">
         预测日期：{forecast.forecastDate}
       </Text>
-      <Badge variant="outline">{mooxDirectionLabelZh(forecast.direction)}</Badge>
+      <Badge variant="outline">{convictionDirectionLabelZh(forecast.direction)}</Badge>
       <ProbRow p={forecast.probabilities} />
       <Text variant="body-sm" className="block break-words font-semibold text-white/85">
-        方向：{mooxDirectionLabelZh(forecast.direction)}
+        方向：{convictionDirectionLabelZh(forecast.direction)}
       </Text>
       <Text variant="caption" className="block break-words text-white/55">
         运行说明：{forecast.headline}
@@ -90,10 +95,10 @@ function WeeklyPanel({ weekly }: { weekly: MemberStockWeeklyMemberView }) {
       <Text variant="body" weight="semibold" className="text-white">
         本周分析
       </Text>
-      <Badge variant="outline">{mooxDirectionLabelZh(weekly.overallDirection)}</Badge>
+      <Badge variant="outline">{convictionDirectionLabelZh(weekly.overallDirection)}</Badge>
       <ProbRow p={weekly.probabilities} />
       <Text variant="body-sm" className="block break-words font-semibold text-white/85">
-        方向：{mooxDirectionLabelZh(weekly.overallDirection)}
+        方向：{convictionDirectionLabelZh(weekly.overallDirection)}
       </Text>
       <Text variant="caption" className="block break-words text-white/55">
         运行说明：{weekly.headline}
@@ -119,14 +124,27 @@ function Stars({ value }: { value: number }) {
 }
 
 function tradeCall(direction: string) {
+  const label = convictionDirectionLabelZh(direction);
   const primary = mooxPrimaryDirection(direction);
   if (primary === "BULLISH") {
-    return { label: "↑ 看涨", note: "当前周期偏多，关注支撑、压力、确认与失效位。", tone: "emerald" as const };
+    return {
+      label: `↑ ${label}`,
+      note: label === "先跌后涨"
+        ? "完整路径是前段承压、后段转强；不能把它缩写成整段只涨。"
+        : "当前周期方向偏强，关注支撑、压力、确认与失效位。",
+      tone: "emerald" as const,
+    };
   }
   if (primary === "BEARISH") {
-    return { label: "↓ 看跌", note: "当前周期偏空，关注支撑、压力、确认与失效位。", tone: "rose" as const };
+    return {
+      label: `↓ ${label}`,
+      note: label === "先涨后跌"
+        ? "完整路径是前段走强、后段转弱；不能把它缩写成整段只跌。"
+        : "当前周期方向偏弱，关注支撑、压力、确认与失效位。",
+      tone: "rose" as const,
+    };
   }
-  return { label: "↔ 震荡 / 分歧", note: "当前周期分歧较大，重点观察区间、确认与失效位。", tone: "slate" as const };
+  return { label: `↔ ${label}`, note: "当前周期以震荡或分歧处理，重点观察区间、确认与失效位。", tone: "slate" as const };
 }
 
 function tradeToneClass(tone: "emerald" | "rose" | "amber" | "slate") {
@@ -162,7 +180,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
             <Text variant="body" weight="semibold" className="text-white">
               {slot.labelZh}分析
             </Text>
-            <Badge variant="outline">{mooxDirectionLabelZh(f.direction)}</Badge>
+            <Badge variant="outline">{convictionDirectionLabelZh(f.direction)}</Badge>
             <Badge variant="outline">风险 {f.riskLevel}</Badge>
             {current ? <Badge variant="outline">当前周期 · 自动定位 {asOfDate}</Badge> : null}{ended ? <Badge variant="outline">历史周期 · 已结束</Badge> : null}{upcoming ? <Badge variant="outline">即将开始</Badge> : null}
           </div>
@@ -190,7 +208,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
       })()}
 
       <section className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">为什么定为{mooxDirectionLabelZh(f.direction)}</p>
+        <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">为什么定为{convictionDirectionLabelZh(f.direction)}</p>
         <ProbRow
           p={{
             up: f.upProbability,
@@ -250,7 +268,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
               <article key={`${f.id}-${item.period}`} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-body-sm font-semibold text-white">{item.labelZh}</p>
-                  <Badge variant="outline">{mooxDirectionLabelZh(item.direction)}</Badge>
+                  <Badge variant="outline">{convictionDirectionLabelZh(item.direction)}</Badge>
                 </div>
                 <p className="mt-2 text-caption text-white/45">
                   {item.primaryHexagram}{item.changingHexagram ? ` → ${item.changingHexagram}` : ""}
@@ -307,7 +325,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
                     <span className={`rounded-full border px-2 py-0.5 text-caption ${statusClass}`}>{displayStatus}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{mooxDirectionLabelZh(day.direction)}</Badge>
+                    <Badge variant="outline">{convictionDirectionLabelZh(day.direction)}</Badge>
                     <Stars value={day.consensusStars} />
                   </div>
                   <p className="mt-2 text-caption leading-relaxed text-white/65">{cleanResearchText(day.summary)}</p>
@@ -470,7 +488,7 @@ function LongTermArchive({ periods }: { periods: ConvictionPeriodSlot[] }) {
             <div key={f.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-body-sm font-medium text-white/80">{slot.labelZh}</p>
-                <Badge variant="outline">{mooxDirectionLabelZh(f.direction)}</Badge>
+                <Badge variant="outline">{convictionDirectionLabelZh(f.direction)}</Badge>
               </div>
               <p className="mt-2 text-caption leading-relaxed text-white/55">{cleanResearchText(f.archiveSummary)}</p>
               <p className="mt-2 text-caption text-white/35">
