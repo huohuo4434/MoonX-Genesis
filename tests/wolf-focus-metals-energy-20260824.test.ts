@@ -103,4 +103,10 @@ describe("0824 specialist review and new metals/energy charts", () => {
     assert.match(rulebook, /wolf-candidate-date-boundary[\s\S]*候选[\s\S]*价格结构/);
     assert.match(rulebook, /wolf-review-correction-example[\s\S]*日期[\s\S]*方向[\s\S]*幅度/);
   });
+
+  it("does not promise Liu Yao and Qimen resonance when a same-period chart is missing", () => {
+    const detail = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
+    assert.doesNotMatch(detail, /六爻与奇门双观点/);
+    assert.match(detail, /没有对应排盘时不会补造/);
+  });
 });

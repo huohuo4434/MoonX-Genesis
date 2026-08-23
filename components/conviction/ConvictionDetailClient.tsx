@@ -729,7 +729,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
                 </Badge>
               </div>
               <p className="mt-3 max-w-3xl text-body-sm leading-7 text-white/55">
-                会员可查看完整方向、六爻与奇门双观点、关键日期、技术位和验证记录。
+                会员可查看完整方向、已有的六爻/奇门独立观点、关键日期、技术位和验证记录；没有对应排盘时不会补造。
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {payload.locks.map((lock, index) => (
@@ -741,7 +741,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
               </div>
               <div className="mt-4 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
                 <p className="text-body-sm font-medium text-white/80">会员打开后会直接看到什么？</p>
-                <p className="mt-2 text-caption leading-6 text-white/48">会员专题提供当前方向、逐日双观点、未来节奏、关键位和历史验证。</p>
+                <p className="mt-2 text-caption leading-6 text-white/48">会员专题提供当前方向、已有方法观点、未来节奏、关键位和历史验证。</p>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button asChild>
