@@ -25,29 +25,104 @@ function mooxSenderAddress_(value) {
   return bracketed && bracketed[1] ? bracketed[1] : normalized;
 }
 
+function mooxGmailApiJson_(path, query) {
+  const pairs = [];
+  Object.keys(query || {}).forEach(function(key) {
+    if (query[key] === null || typeof query[key] === "undefined") return;
+    pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(query[key])));
+  });
+  const url = "https://gmail.googleapis.com/gmail/v1/users/me/" + path + (pairs.length ? "?" + pairs.join("&") : "");
+  const response = UrlFetchApp.fetch(url, {
+    method: "get",
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true,
+  });
+  const status = response.getResponseCode();
+  if (status < 200 || status >= 300) throw new Error("Gmail read-only API failed with HTTP " + status);
+  return JSON.parse(response.getContentText() || "{}");
+}
+
+function mooxHeader_(payload, name) {
+  const expected = String(name || "").toLowerCase();
+  const headers = payload && Array.isArray(payload.headers) ? payload.headers : [];
+  const match = headers.find(function(header) {
+    return String(header && header.name || "").toLowerCase() === expected;
+  });
+  return match ? String(match.value || "") : "";
+}
+
+function mooxDecodeBodyData_(data) {
+  if (!data) return "";
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(String(data))).getDataAsString("UTF-8");
+}
+
+function mooxCollectBodies_(part, plain, html) {
+  if (!part) return;
+  const mimeType = String(part.mimeType || "").toLowerCase();
+  const decoded = mooxDecodeBodyData_(part.body && part.body.data);
+  if (mimeType === "text/plain" && decoded) plain.push(decoded);
+  if (mimeType === "text/html" && decoded) html.push(decoded);
+  (Array.isArray(part.parts) ? part.parts : []).forEach(function(child) {
+    mooxCollectBodies_(child, plain, html);
+  });
+}
+
+function mooxHtmlToText_(html) {
+  return String(html || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function mooxMessageText_(payload) {
+  const plain = [];
+  const html = [];
+  mooxCollectBodies_(payload, plain, html);
+  const text = plain.join("\n\n").trim() || mooxHtmlToText_(html.join("\n\n"));
+  return text.slice(0, 150000);
+}
+
 function mooxResearchMessages_() {
   const baseline = new Date(mooxRequiredProperty_("MOOX_SUBSTACK_BASELINE_ISO"));
   if (isNaN(baseline.getTime())) throw new Error("Invalid MOOX_SUBSTACK_BASELINE_ISO");
   const processed = new Set(mooxProcessedIds_());
-  const threads = GmailApp.search("from:agentmat@substack.com newer_than:30d", 0, 20);
+  const listed = mooxGmailApiJson_("messages", {
+    q: "from:agentmat@substack.com newer_than:30d",
+    maxResults: 20,
+  });
   const messages = [];
-  threads.forEach(function(thread) {
-    thread.getMessages().forEach(function(message) {
-      const sender = mooxSenderAddress_(message.getFrom());
-      const subject = String(message.getSubject() || "").trim();
-      if (sender !== MOOX_AGENTMAT_SENDER) return;
-      if (processed.has(message.getId())) return;
-      if (message.getDate().getTime() <= baseline.getTime()) return;
-      if (MOOX_IGNORED_SUBJECT.test(subject)) return;
-      messages.push({
-        messageId: message.getId(),
-        threadId: thread.getId(),
-        from: sender,
-        subject: subject,
-        date: message.getDate().toISOString(),
-        bodyText: String(message.getPlainBody() || "").slice(0, 150000),
-        sourceUrl: "https://agentmat.substack.com/",
-      });
+  (Array.isArray(listed.messages) ? listed.messages : []).forEach(function(reference) {
+    const messageId = String(reference && reference.id || "");
+    if (!messageId || processed.has(messageId)) return;
+    const message = mooxGmailApiJson_("messages/" + encodeURIComponent(messageId), { format: "full" });
+    const payload = message.payload || {};
+    const sender = mooxSenderAddress_(mooxHeader_(payload, "From"));
+    const subject = mooxHeader_(payload, "Subject").trim();
+    const receivedAt = new Date(Number(message.internalDate || 0));
+    const bodyText = mooxMessageText_(payload);
+    if (sender !== MOOX_AGENTMAT_SENDER) return;
+    if (!subject || !bodyText || isNaN(receivedAt.getTime())) return;
+    if (receivedAt.getTime() <= baseline.getTime()) return;
+    if (MOOX_IGNORED_SUBJECT.test(subject)) return;
+    messages.push({
+      messageId: messageId,
+      threadId: String(message.threadId || ""),
+      from: sender,
+      subject: subject,
+      date: receivedAt.toISOString(),
+      bodyText: bodyText,
+      sourceUrl: "https://agentmat.substack.com/",
     });
   });
   return messages.slice(0, 20);

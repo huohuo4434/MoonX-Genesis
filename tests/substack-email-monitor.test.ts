@@ -72,6 +72,7 @@ test("route and Apps Script keep separate secrets, exact filtering and retry-saf
   const route = read("app/api/internal/substack-intelligence/ingest/route.ts");
   const server = read("lib/research/substack-email-ingest.server.ts");
   const script = read("tools/substack-monitor/Code.gs");
+  const manifest = read("tools/substack-monitor/appsscript.json");
   const xSignals = read("lib/trading-signals/external-analyst-signals.ts");
   assert.match(route, /MOOX_SUBSTACK_INGEST_SECRET/);
   assert.doesNotMatch(route, /CRON_SECRET|MOOX_X_COLLECTOR_SECRET/);
@@ -84,6 +85,12 @@ test("route and Apps Script keep separate secrets, exact filtering and retry-saf
   assert.match(script, /processedMessageIds/);
   assert.match(script, /MOOX_MAX_REQUEST_BYTES = 1750000/);
   assert.match(script, /url !== MOOX_EXPECTED_INGEST_URL/);
+  assert.match(script, /gmail\.googleapis\.com\/gmail\/v1\/users\/me/);
+  assert.doesNotMatch(script, /GmailApp/);
+  assert.match(manifest, /"serviceId": "gmail"/);
+  assert.match(manifest, /"version": "v1"/);
+  assert.match(manifest, /https:\/\/www\.googleapis\.com\/auth\/gmail\.readonly/);
+  assert.doesNotMatch(manifest, /https:\/\/mail\.google\.com\//);
   assert.match(server, /ON CONFLICT \(source, post_id\) DO NOTHING/);
   assert.ok((xSignals.match(/source <> 'SUBSTACK_CYCLE'/g) ?? []).length >= 3);
   const combined = `${route}\n${server}\n${script}`;
