@@ -28,5 +28,7 @@ assert.match(verification, /inRange\(row\.date, range, generatedAtMs\)/);
 assert.doesNotMatch(verification, /new Intl\.DateTimeFormat/);
 assert.match(verification, /getUTCHours\(\)/);
 assert.doesNotMatch(verification, /localeCompare/);
+assert.match(verification, /useEffect\(\(\) => setInteractiveReady\(true\), \[\]\)/);
+assert.match(verification, /if \(!interactiveReady\)/);
 
 console.log("MOOX promotion readiness P0 static regression passed");

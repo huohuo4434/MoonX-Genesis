@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DailyAccuracyStats, DailyVerdict } from "@/types/daily-accuracy";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/public-history-filter";
 import type {
@@ -187,9 +187,11 @@ export function PublicVerificationCenter({
   generatedAt: string;
   en: boolean;
 }) {
+  const [interactiveReady, setInteractiveReady] = useState(false);
   const [range, setRange] = useState<RangeFilter>("90D");
   const [period, setPeriod] = useState<PeriodFilter>(DEFAULT_PUBLIC_VERIFICATION_PERIOD);
   const [asset, setAsset] = useState("ALL");
+  useEffect(() => setInteractiveReady(true), []);
   const generatedAtMs = useMemo(() => {
     const value = new Date(generatedAt).getTime();
     return Number.isFinite(value) ? value : 0;
@@ -304,6 +306,29 @@ export function PublicVerificationCenter({
     [en ? "Monthly pending" : "月度待验证", "1", en ? "Current monthly cycle" : "当前自然月周期"],
   ];
   const selectedUnverifiable = period === "DAILY" ? (dailyStats.unverifiableCount ?? 0) : period === "WEEKLY" ? weeklyStats.unverifiable : 0;
+
+  // The production server and visitors' browsers can have different ICU and
+  // collation implementations. Hydrate a small deterministic shell first,
+  // then enable the interactive archive after React owns the subtree.
+  if (!interactiveReady) {
+    return (
+      <div className="mx-auto w-full max-w-[1280px] px-1 sm:px-2">
+        <section className="overflow-hidden rounded-3xl border border-border/70 bg-card/60 p-6 sm:p-8">
+          <div className="mb-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">MOOX TRACK RECORD</div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{en ? "Public verification center" : "公开历史验证"}</h1>
+          <p className="mt-3 text-sm leading-6 text-foreground-secondary sm:text-base">
+            {en ? "Headline accuracy is based on locked weekly forecasts. Hits, partial hits and misses remain permanently visible." : "公开主准确率以发布时锁定的周预测为准；命中、部分命中和未命中全部永久保留。"}
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Verified weekly samples" : "已验证周样本"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{weeklyStats.sampleSize}</div></div>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Weekly weighted accuracy" : "周度加权命中率"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pct(weeklyStats.weightedAccuracyPct, en)}</div></div>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Pending verification" : "待验证记录"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pendingCount}</div></div>
+          </div>
+          <p className="mt-4 text-xs text-foreground-tertiary">{en ? "Loading interactive filters and the complete archive…" : "正在载入筛选器与完整验证档案…"}</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-1 sm:px-2">
