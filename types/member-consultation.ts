@@ -26,5 +26,5 @@ export type ConsultationPublicRequest = {
   finalAnswer: string | null; disclosure: string | null; quotaConsumed: boolean;
 };
 
-export const CONSULTATION_DISCLOSURE = "由MOOX研究系统辅助整理，并经易老师本人复核。";
+export const CONSULTATION_DISCLOSURE = "由易老师根据会员提交的问题与卦象人工解答并复核。";
 export const CONSULTATION_REVIEWER_DISPLAY_NAME = "易老师";

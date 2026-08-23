@@ -33,13 +33,20 @@ export function validateConsultationInput(value: unknown): { ok: true; input: Co
 const TRIGRAMS = ["坤", "震", "坎", "兑", "艮", "离", "巽", "乾"] as const;
 export function deriveLiuyaoStructure(input: LiuyaoInput) {
   const bits = input.linesBottomUp.map((n) => n === 7 || n === 9 ? 1 : 0);
+  const changedBits = input.linesBottomUp.map((n) => n === 6 || n === 7 ? 1 : 0);
   const lower = bits[0]! + bits[1]! * 2 + bits[2]! * 4;
   const upper = bits[3]! + bits[4]! * 2 + bits[5]! * 4;
+  const changedLower = changedBits[0]! + changedBits[1]! * 2 + changedBits[2]! * 4;
+  const changedUpper = changedBits[3]! + changedBits[4]! * 2 + changedBits[5]! * 4;
+  const movingLines = input.linesBottomUp.flatMap((n, index) => n === 6 || n === 9 ? [index + 1] : []);
   return {
     yinYangBottomUp: bits.map((n) => n ? "YANG" : "YIN"),
-    movingLines: input.linesBottomUp.flatMap((n, index) => n === 6 || n === 9 ? [index + 1] : []),
+    changedYinYangBottomUp: changedBits.map((n) => n ? "YANG" : "YIN"),
+    movingLines,
     lowerTrigram: TRIGRAMS[lower], upperTrigram: TRIGRAMS[upper],
     basicHexagram: `${TRIGRAMS[upper]}上${TRIGRAMS[lower]}下`,
+    changedLowerTrigram: TRIGRAMS[changedLower], changedUpperTrigram: TRIGRAMS[changedUpper],
+    changedHexagram: movingLines.length ? `${TRIGRAMS[changedUpper]}上${TRIGRAMS[changedLower]}下` : null,
     omitted: ["用神", "世应", "纳甲"] as const,
   };
 }

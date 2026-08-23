@@ -167,7 +167,7 @@ export function MemberConsultationClient() {
         <Badge variant="default">会员卜卦系统</Badge>
         <Heading as="h1" size="h2" className="mt-4">静心起卦，老师解答</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">一次只问一件事。六次投掷从初爻到上爻依次记录；钱币图案复杂的一面记为“背”，图案简单的一面记为“字”。</Text>
-        <Text variant="caption" color="tertiary" className="mt-3 block">月度会员每个会员月可提交1个问题；其他套餐按账户已发放权益显示。AI只辅助整理，最终答复由易老师本人复核。</Text>
+        <Text variant="caption" color="tertiary" className="mt-3 block">月度会员每个会员月可提交1个问题；其他套餐按账户已发放权益显示。会员提交问题和原始卦象后，由易老师人工解答。</Text>
       </header>
 
       <Card padding="md">

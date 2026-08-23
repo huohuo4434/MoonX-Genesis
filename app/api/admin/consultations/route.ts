@@ -10,13 +10,12 @@ export const dynamic="force-dynamic";
 export const revalidate=0;
 
 async function loadModules(){
-  const [access,ai,reviewer,store]=await Promise.all([
+  const [access,reviewer,store]=await Promise.all([
     import("@/lib/consultations/access-core"),
-    import("@/lib/consultations/ai-draft-service"),
     import("@/lib/consultations/reviewer-core"),
     import("@/lib/consultations/store"),
   ]);
-  return {...access,...ai,...reviewer,...store};
+  return {...access,...reviewer,...store};
 }
 
 async function loadForAdmin(){return authorizeThenLoad({authorize:requireAdmin,load:loadModules});}
@@ -41,25 +40,14 @@ export async function POST(request:NextRequest){
   if(!gate.ok)return NextResponse.json({ok:false,error:gate.error},{status:gate.status});
   if(!body.id||!body.action)return NextResponse.json({ok:false,error:"INVALID_BODY"},{status:400});
   try{
-    if(body.action==="GENERATE_DRAFT"){
-      const current=await m.getAdminConsultation(body.id);if(current.status!=="SUBMITTED")throw new Error("INVALID_STATE");
-      await m.setConsultationStatus(body.id,adminUser.id,["SUBMITTED"],"AI_DRAFTING");
-      try{
-        const draft=await m.generateConsultationAiDraft(await m.readPrivateInput(body.id,adminUser.id));
-        if(draft.outcome==="NEEDS_INFO"){await m.setConsultationStatus(body.id,adminUser.id,["AI_DRAFTING"],"NEEDS_INFO",draft.missing);return NextResponse.json({ok:true,status:"NEEDS_INFO"});}
-        await m.appendResponseVersion({requestId:body.id,authorKind:"AI_DRAFT",authorId:adminUser.id,content:draft.draft??""});
-        await m.setConsultationStatus(body.id,adminUser.id,["AI_DRAFTING"],"DRAFT_READY");
-        return NextResponse.json({ok:true,status:"DRAFT_READY"});
-      }catch(error){await m.releaseConsultation(body.id,adminUser.id,"SYSTEM_FAILED","AI_DRAFT_FAILED");throw error;}
-    }
     if(body.action==="EDIT"){
-      const current=await m.getAdminConsultation(body.id);if(!["DRAFT_READY","HUMAN_REVIEW"].includes(String(current.status)))throw new Error("INVALID_STATE");
+      const current=await m.getAdminConsultation(body.id);if(!["SUBMITTED","DRAFT_READY","HUMAN_REVIEW"].includes(String(current.status)))throw new Error("INVALID_STATE");
       if(typeof body.content!=="string"||body.content.trim().length<20)throw new Error("CONTENT_REQUIRED");
       const version=await m.appendResponseVersion({requestId:body.id,authorKind:"ADMIN_EDIT",authorId:adminUser.id,content:body.content.trim()});
-      await m.setConsultationStatus(body.id,adminUser.id,["DRAFT_READY","HUMAN_REVIEW"],"HUMAN_REVIEW");
+      await m.setConsultationStatus(body.id,adminUser.id,["SUBMITTED","DRAFT_READY","HUMAN_REVIEW"],"HUMAN_REVIEW");
       return NextResponse.json({ok:true,version:version.version});
     }
-    if(body.action==="NEEDS_INFO"){await m.setConsultationStatus(body.id,adminUser.id,["DRAFT_READY","HUMAN_REVIEW"],"NEEDS_INFO",body.missing??[]);return NextResponse.json({ok:true,status:"NEEDS_INFO",holdDays:7});}
+    if(body.action==="NEEDS_INFO"){await m.setConsultationStatus(body.id,adminUser.id,["SUBMITTED","DRAFT_READY","HUMAN_REVIEW"],"NEEDS_INFO",body.missing??[]);return NextResponse.json({ok:true,status:"NEEDS_INFO",holdDays:7});}
     if(body.action==="REJECT"){await m.releaseConsultation(body.id,adminUser.id,"REJECTED",body.reason??"ADMIN_REJECTED");return NextResponse.json({ok:true,status:"REJECTED"});}
     if(body.action==="APPROVE"){
       if(typeof body.content!=="string"||body.content.trim().length<20)throw new Error("CONTENT_REQUIRED");
