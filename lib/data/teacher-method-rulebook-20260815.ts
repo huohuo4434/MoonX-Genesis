@@ -2,13 +2,14 @@ import "server-only";
 import type { TeacherMethodRulebook } from "@/types/teacher-method-rulebook";
 
 const RULEBOOK: TeacherMethodRulebook = {
-  version: "2026-08-23.v2",
+  version: "2026-08-24.v3",
   executionAuthority: "RESEARCH_ONLY",
   tradingEligible: false,
   artifacts: [
     { id: "WOLF-R322-TXT", teacher: "狼叔六爻", relativePath: "03-六爻狼叔/狼叔六爻.txt", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
     { id: "WOLF-R322-DOCX", teacher: "狼叔六爻", relativePath: "03-六爻狼叔/Rev3.2.2_*.docx", sourcePublishedAt: null, transcriptionStatus: "DOCX_REFERENCE_ONLY" },
     { id: "WOLF-20260823-TXT", teacher: "狼叔六爻", relativePath: "03-六爻狼叔/0823/*.txt", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
+    { id: "WOLF-20260824-SNDK-TSLA", teacher: "狼叔六爻", relativePath: "03-六爻狼叔/0824/SNDK,Tesla申月走势 .txt + *.png", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
     { id: "GAOSHAN-TEXT-CORPUS", teacher: "高山说缠论", relativePath: "14-高山说缠论/*.txt", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
     { id: "QIMEN-20260817-TXT", teacher: "奇门遁甲老师", relativePath: "02_奇门遁甲老师/*2026年8月17日-8月22日*.txt", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
     { id: "NANA-20260813-TXT", teacher: "NANA说美股", relativePath: "16-NANA说美股/变盘前夜！NaNa说美股(2026.08.13).txt", sourcePublishedAt: null, transcriptionStatus: "TEXT_SOURCE" },
@@ -26,6 +27,9 @@ const RULEBOOK: TeacherMethodRulebook = {
     { id: "wolf-price-structure-before-clock", method: "WOLF_LIUYAO", status: "TEACHER_CONFIRMED_RULE", title: "价格结构优先于死等时间", summary: "复盘与执行依次核对急涨急跌、真实支撑压力和时间窗口；时间是第三项，不能脱离价格行为单独触发。", sourceArtifactId: "WOLF-20260823-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "wolf-direction-timing-split", method: "WOLF_LIUYAO", status: "CASE_DERIVED_RULE", title: "方向与时间分开评分", summary: "北美交易品种允许半日至一个交易日的转折时间容差，但容差只影响时间评分，不能把错误方向改成命中。", sourceArtifactId: "WOLF-20260823-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "wolf-forward-review-evolution", method: "WOLF_LIUYAO", status: "TEACHER_CONFIRMED_RULE", title: "复盘只升级未来版本", summary: "保留每次事前原稿，完成后分别复盘方向、时间与幅度；新认识只进入下一版规则，禁止覆盖失败或部分命中的历史记录。", sourceArtifactId: "WOLF-20260823-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "wolf-month-week-crosscheck", method: "WOLF_LIUYAO", status: "TEACHER_CONFIRMED_RULE", title: "月卦关键日期必须用周卦交叉", summary: "月卦和大周期负责阶段、主次爻接掌与候选转折，周卦负责对应周的涨跌方向；不能只凭月卦关键日期硬判高低，必须再与完整周卦和真实K线结构交叉。", sourceArtifactId: "WOLF-20260824-SNDK-TSLA", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "wolf-candidate-date-boundary", method: "WOLF_LIUYAO", status: "TEACHER_CONFIRMED_RULE", title: "高低点候选不是绝对日期", summary: "老师明确把实验中的高低点候选与主次爻、变卦接掌的绝对关键日期分开；候选可偏半日至一个交易日，必须由价格结构确认，不能包装成保证命中。", sourceArtifactId: "WOLF-20260824-SNDK-TSLA", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "wolf-review-correction-example", method: "WOLF_LIUYAO", status: "CASE_DERIVED_RULE", title: "方向错误不能用日期命中掩盖", summary: "闪迪复盘案例显示，月卦曾命中关键日期却把后续方向判反；验收必须把日期、方向、幅度分开，日期正确不能把方向错误记成完整命中。", sourceArtifactId: "WOLF-20260824-SNDK-TSLA", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "wolf-rev329h-boundary", method: "WOLF_LIUYAO", status: "MISSING_RULE", title: "Rev3.2.9-h完整公式未恢复", summary: "0823截图可确认老师工作模型已显示Rev3.2.9-h，但材料未给完整公式；只登记版本与可验证案例规则，不从结果倒推自动公式。", sourceArtifactId: "WOLF-20260823-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "gaoshan-structure-complete", method: "GAOSHAN_CHAN", status: "TEACHER_CONFIRMED_RULE", title: "先等结构完成", summary: "笔、线段和中枢需要完成与确认；未完成结构不能仅凭形似三笔认定转折。", sourceArtifactId: "GAOSHAN-TEXT-CORPUS", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "gaoshan-multi-timeframe", method: "GAOSHAN_CHAN", status: "TEACHER_CONFIRMED_RULE", title: "多周期对应", summary: "日线一笔、四小时段和三十分钟内部结构需要对应，不能混用不同级别的完成信号。", sourceArtifactId: "GAOSHAN-TEXT-CORPUS", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },

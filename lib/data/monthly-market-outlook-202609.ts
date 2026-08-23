@@ -1,5 +1,20 @@
 import type { MonthlyMarketOutlook } from "@/lib/data/monthly-market-outlook";
 
+/** Immutable V1 rows retained when a pre-period revision becomes active. */
+export const MONTHLY_MARKET_OUTLOOKS_202609_ARCHIVED_REVISIONS: MonthlyMarketOutlook[] = [
+  {
+    assetId: "wti-crude", assetName: "WTI原油", assetNameEn: "WTI Crude Oil", symbol: "WTI", venue: "NYMEX原油期货", venueEn: "NYMEX crude oil futures",
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
+    probabilities: { up: 45, flat: 35, down: 20 },
+    path: "妻财酉金临酉月并临应，世爻子孙辰土可生财，月内偏修复；兄弟午火发动化官鬼亥水，反弹伴随风险与高位分歧。",
+    pathEn: "Wealth You is on response and gains You-month strength while Child Chen can generate wealth, favoring repair. Moving Brother Wu into Ghost Hai keeps risk and high-level disagreement elevated.",
+    keyWindow: "九月偏修复，不能外推为长期趋势反转。", keyWindowEn: "September favors repair, not a confirmed long-term trend reversal.",
+    risk: "地缘与政策事件只调整风险和仓位，不反转月卦方向。", riskEn: "Geopolitical and policy events adjust risk and sizing, not the monthly direction.",
+    sourceNote: "WTI九月六爻。", sourceNoteEn: "WTI September Liu Yao.", sourceComplete: true,
+    version: 1,
+  },
+];
+
 /**
  * September member outlook. Directions remain owned by the corresponding
  * monthly/stage Liu-Yao records. The Aug 19 teacher SPX chart outranks the
@@ -64,17 +79,31 @@ export const MONTHLY_MARKET_OUTLOOKS_202609: MonthlyMarketOutlook[] = [
     pathEn: "Wealth Yin holds self but is restrained by Brother You in You month, creating early pressure. Child Hai can receive metal support and preserve a repair branch, so this is not a one-way collapse call.",
     keyWindow: "先压后修复；反弹是否转强必须等新周卦确认。", keyWindowEn: "Pressure first, then repair; a stronger reversal requires a new weekly chart.",
     risk: "长期看多黄金的外部宏观观点不覆盖九月月卦；长期与单月方向分开。", riskEn: "An outside long-term bullish gold view does not override the September monthly chart; long-term and one-month directions stay separate.",
-    sourceNote: "黄金九月六爻主导，狼叔专项周卦只负责对应周。", sourceNoteEn: "September gold Liu Yao owns the month; specialist weekly readings only govern their own week.", sourceComplete: true,
+    sourceNote: "黄金九月六爻主导，贵金属专项周卦只负责对应周。", sourceNoteEn: "September gold Liu Yao owns the month; specialist weekly readings only govern their own week.", sourceComplete: true,
+  },
+  {
+    assetId: "silver", assetName: "国际银价", assetNameEn: "Silver", symbol: "SILVER", venue: "COMEX白银期货", venueEn: "COMEX silver futures",
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
+    probabilities: { up: 34, flat: 33, down: 33 },
+    path: "8月31日至9月13日先有家人、大畜与泰转乾的上冲和高波动；9月14日至20日夬转未济是突破转分歧的交接；9月21日以后观转损、姤转蹇，重心转弱。整月按前强后弱处理。",
+    pathEn: "The Aug 31–Sep 13 charts support an initially constructive but volatile phase. Guai to Weiji marks the transition around Sep 14–20, followed by weaker Guan-to-Sun and Gou-to-Jian structures from Sep 21 onward. The month is therefore treated as stronger first and weaker later.",
+    keyWindow: "9月7日至20日观察冲高与转折，21日以后重点防回吐。", keyWindowEn: "Watch Sep 7–20 for an upside push and transition; giveback risk becomes primary after Sep 21.",
+    risk: "五张周卦只有六爻，没有同周期奇门；白银振幅大，双方法未共振前不提高信心。", riskEn: "The five weekly charts contain Liu Yao only and no same-period Qimen evidence. Silver volatility remains high, so confidence is not raised without cross-method resonance.",
+    sourceNote: "白银五段完整周卦按老师方法汇总；周卦负责各周，月度仅为路线汇总。", sourceNoteEn: "Five complete silver weekly charts interpreted under the teacher method; weekly charts own their respective weeks and the monthly row only summarizes the route.", sourceComplete: true,
+    version: 1,
   },
   {
     assetId: "wti-crude", assetName: "WTI原油", assetNameEn: "WTI Crude Oil", symbol: "WTI", venue: "NYMEX原油期货", venueEn: "NYMEX crude oil futures",
-    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
-    probabilities: { up: 45, flat: 35, down: 20 },
-    path: "妻财酉金临酉月并临应，世爻子孙辰土可生财，月内偏修复；兄弟午火发动化官鬼亥水，反弹伴随风险与高位分歧。",
-    pathEn: "Wealth You is on response and gains You-month strength while Child Chen can generate wealth, favoring repair. Moving Brother Wu into Ghost Hai keeps risk and high-level disagreement elevated.",
-    keyWindow: "九月偏修复，不能外推为长期趋势反转。", keyWindowEn: "September favors repair, not a confirmed long-term trend reversal.",
-    risk: "地缘与政策事件只调整风险和仓位，不反转月卦方向。", riskEn: "Geopolitical and policy events adjust risk and sizing, not the monthly direction.",
-    sourceNote: "WTI九月六爻。", sourceNoteEn: "WTI September Liu Yao.", sourceComplete: true,
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
+    probabilities: { up: 34, flat: 36, down: 30 },
+    path: "9月1日至6日先承压；9月7日至13日大壮转乾，允许强反弹后过热兑现；9月14日至20日蹇转渐出现缓慢修复；21日后坎六冲和中孚游魂使重心再度转弱或收敛。整月不是顺畅主升。",
+    pathEn: "Pressure is favored from Sep 1–6. Dazhuang to Qian allows a strong rebound and later overheating from Sep 7–13, followed by a slower Jian-to-Jian repair from Sep 14–20. Kan six-clash and Zhongfu wandering-soul structures then soften or compress the market after Sep 21. This is not a smooth monthly advance.",
+    keyWindow: "9月7日至13日为主要上冲与过热窗口；21日后重新提高回落风险。", keyWindowEn: "Sep 7–13 is the main upside/overheating window; downside risk rises again after Sep 21.",
+    risk: "酉月地雷复六合变山水蒙，世财发动后化官鬼；复只代表回返机会，化蒙与五段周卦共同否定单边上涨。", riskEn: "The You-month Fu six-harmony chart changes to Meng, with Wealth holding self transforming into Officer risk. Fu permits a return branch, but Meng and the five weekly charts reject a one-way advance.",
+    sourceNote: "WTI酉月完整月卦与五段完整周卦交叉；旧震荡上涨V1永久保留。", sourceNoteEn: "Complete WTI You-month and five weekly charts cross-checked; the prior range-up V1 remains archived.", sourceComplete: true,
+    version: 2,
+    revisedAt: "2026-08-24T12:35:00+08:00",
+    revisionReason: "目标月开始前收到新的酉月原卦及五张周卦，原V1来源与新原图不一致；按新版本修订并保留V1。",
   },
   {
     assetId: "shanghai-composite", assetName: "上证指数", assetNameEn: "Shanghai Composite", symbol: "SHCOMP", venue: "上海证券交易所", venueEn: "Shanghai Stock Exchange",

@@ -398,8 +398,123 @@ export const TSLA_LIUYAO_FORECASTS_20260816: ConvictionPeriodForecast[] = [
   }),
 ];
 
+function tslaPrevious(id: string): ConvictionPeriodForecast {
+  const record = TSLA_LIUYAO_FORECASTS_20260816.find((item) => item.id === id);
+  if (!record) throw new Error(`Missing locked TSLA forecast ${id}`);
+  return record;
+}
+
+const tslaWeek2V1 = tslaPrevious("TSLA-W2-20260824-V1");
+const tslaWeek3V1 = tslaPrevious("TSLA-W3-20260831-V1");
+
+/** Newer specialist monthly path; V1 rows remain immutable above. */
+export const TSLA_LIUYAO_REVISIONS_20260824: ConvictionPeriodForecast[] = [
+  {
+    ...tslaWeek2V1,
+    id: "TSLA-W2-20260824-V2",
+    direction: "先涨后跌",
+    upProbability: 34,
+    sidewaysProbability: 30,
+    downProbability: 36,
+    summary:
+      "最新专项月卦把8月25日上午列为主要高点候选，并把8月27日下午至9月1日列为连续承压段。由于老师专项来源优先于旧自算周卦，本周由原来的震荡上涨修订为先涨后跌；候选日期必须由真实价格结构确认。",
+    expectedPath:
+      "8月24日至25日先冲高并观察主要高点 → 26日高位换手 → 27日下午起逐步承压 → 28日延续回落；29日至30日美股休市，不制造日卦。",
+    catalysts: ["周初惯性冲高", "高点形成前的情绪集中"],
+    risks: ["8月25日主要高点候选", "27日下午后持续承压", "月卦候选需周卦和K线交叉"],
+    consensusStars: 3,
+    consensusLabel: "专项月卦与旧自算周卦发生分歧，老师来源优先，因此降置信并修订方向",
+    methodViews: [
+      {
+        id: "tsla-w2-specialist-monthly",
+        label: "专项月卦修正",
+        direction: "先涨后跌",
+        weight: 70,
+        summary: "周初先冲高，25日上午为主要高点候选，27日下午以后压力持续到9月初。",
+      },
+      {
+        id: "tsla-w2-original-weekly",
+        label: "原周卦对照",
+        direction: "震荡上涨",
+        weight: 30,
+        summary: "旧周卦财爻得令而偏多；与更新更晚的专项月卦冲突，保留为分歧票而不删除。",
+      },
+    ],
+    keyDates: [
+      { date: "2026-08-25", type: "阶段高点", label: "主要高点候选", source: "LIUYAO", confidence: 66, note: "原始来源为北美证券路径；允许半日至一个交易日误差，必须由K线确认。" },
+      { date: "2026-08-27", type: "下跌风险", label: "下午后连续承压观察", source: "LIUYAO", confidence: 68, note: "只锁定风险窗口，不生成固定卖出价格。" },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "艮为山（六冲）",
+      changingHexagram: "风山渐（归魂）",
+      notes: "0824专项月卦更新；第五爻动。月卦路径优先于旧自算周卦，但完整周卦仍负责后续验收。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-24",
+      label: "目标周事前修订",
+      summary: "收到更新更晚的专项月卦后，将本周从震荡上涨改为先涨后跌，并保留原V1作为分歧样本。",
+      originalLockedView: `${tslaWeek2V1.direction}｜${tslaWeek2V1.expectedPath}`,
+      timingTolerance: "高低点候选允许半日至一个交易日误差；方向单独验收。",
+    },
+    version: 2,
+    publishedAt: "2026-08-24T12:25:00+08:00",
+    lockedAt: "2026-08-24T12:25:00+08:00",
+  },
+  {
+    ...tslaWeek3V1,
+    id: "TSLA-W3-20260831-V2",
+    direction: "先跌后涨",
+    upProbability: 36,
+    sidewaysProbability: 34,
+    downProbability: 30,
+    summary:
+      "专项月卦把8月31日至9月1日列为前段寻底，把9月1日至3日列为修复；9月4日仍有冲高后再受压的尾部风险。周方向因此由旧版震荡下跌修订为先跌后涨，但不把三天修复扩大成新的长期主升。",
+    expectedPath:
+      "8月31日至9月1日先承压寻底 → 9月1日至3日反弹修复 → 9月4日允许冲高但防再次回落 → 9月5日至6日休市消化。",
+    catalysts: ["前段风险释放", "9月1日至3日修复窗口"],
+    risks: ["9月4日冲高回落", "归魂反复", "月卦高低点候选尚待周卦确认"],
+    consensusStars: 3,
+    consensusLabel: "专项月卦修正了旧周卦的整周偏弱结论，正式路径改为先跌后涨并保留周尾风险",
+    methodViews: [
+      {
+        id: "tsla-w3-specialist-monthly",
+        label: "专项月卦修正",
+        direction: "先跌后涨",
+        weight: 70,
+        summary: "8月31日至9月1日寻底，9月1日至3日修复，9月4日再防冲高受压。",
+      },
+      {
+        id: "tsla-w3-original-weekly",
+        label: "原周卦对照",
+        direction: "震荡下跌",
+        weight: 30,
+        summary: "旧周卦谦变蛊归魂指向回踩；保留其风险意义，但不再覆盖更新后的阶段顺序。",
+      },
+    ],
+    keyDates: [
+      { date: "2026-09-01", type: "阶段低点", label: "前段寻底与修复交接候选", source: "LIUYAO", confidence: 64, note: "候选时间必须与价格止跌结构同时出现。" },
+      { date: "2026-09-04", type: "转折", label: "修复后再度受压观察", source: "LIUYAO", confidence: 62, note: "若此前没有明显反弹，不机械套用回落。" },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "艮为山（六冲）",
+      changingHexagram: "风山渐（归魂）",
+      notes: "0824专项月卦后段路线；第五爻动。月度阶段与原周卦存在部分分歧，按来源优先级发布V2。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-24",
+      label: "目标周事前修订",
+      summary: "把旧版整周震荡下跌细化为前段寻底、周中修复、周尾再受压。",
+      originalLockedView: `${tslaWeek3V1.direction}｜${tslaWeek3V1.expectedPath}`,
+      timingTolerance: "高低点候选允许半日至一个交易日误差；方向单独验收。",
+    },
+    version: 2,
+    publishedAt: "2026-08-24T12:25:00+08:00",
+    lockedAt: "2026-08-24T12:25:00+08:00",
+  },
+];
+
 export function listTSLAPeriodForecasts20260816(): ConvictionPeriodForecast[] {
-  return TSLA_LIUYAO_FORECASTS_20260816;
+  return [...TSLA_LIUYAO_FORECASTS_20260816, ...TSLA_LIUYAO_REVISIONS_20260824];
 }
 
 export function tslaPeriodMeta20260816() {
@@ -407,7 +522,7 @@ export function tslaPeriodMeta20260816() {
     type,
     labelZh: tslaPeriodLabel20260816(type).zh,
     emptyZh: tslaPeriodLabel20260816(type).emptyZh,
-    hasResearch: TSLA_LIUYAO_FORECASTS_20260816.some(
+    hasResearch: listTSLAPeriodForecasts20260816().some(
       (item) => item.forecastType === type && item.status === "published",
     ),
   }));

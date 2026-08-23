@@ -23,6 +23,10 @@ export type MonthlyMarketOutlook = {
   sourceNote: string;
   sourceNoteEn: string;
   sourceComplete: boolean;
+  /** Additive publication metadata; older rows without it are implicitly V1. */
+  version?: number;
+  revisedAt?: string;
+  revisionReason?: string;
 };
 
 /** August 2026 member outlooks. Chinese and English copy share the same locked numbers and source version. */

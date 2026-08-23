@@ -27,6 +27,10 @@ import {
   WEEKLY_QIMEN_POST_REVISION_NOTE_20260824,
 } from "@/lib/data/published-weekly-qimen-post-20260823";
 import {
+  WEEKLY_METALS_ENERGY_20260824,
+  WEEKLY_METALS_ENERGY_SOURCE_NOTE_20260824,
+} from "@/lib/data/published-weekly-metals-energy-20260824";
+import {
   ARCHIVED_WEEKLY_ANALYSES_20260810_V4,
   PUBLISHED_WEEKLY_ANALYSES_20260810_V4,
   WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4,
@@ -55,6 +59,7 @@ const ALL_PUBLISHED: WeeklyAnalysisRecord[] = [
   ...WEEKLY_RESEARCH_REVISIONS_20260823,
   ...WEEKLY_CRYPTO_TEACHER_REVISIONS_20260823,
   ...WEEKLY_QIMEN_POST_REVISIONS_20260823,
+  ...WEEKLY_METALS_ENERGY_20260824,
 ];
 
 const ALL_RECORDS: WeeklyAnalysisRecord[] = [
@@ -68,6 +73,7 @@ const ALL_RECORDS: WeeklyAnalysisRecord[] = [
   ...WEEKLY_RESEARCH_REVISIONS_20260823,
   ...WEEKLY_CRYPTO_TEACHER_REVISIONS_20260823,
   ...WEEKLY_QIMEN_POST_REVISIONS_20260823,
+  ...WEEKLY_METALS_ENERGY_20260824,
 ];
 
 function addUtcDays(iso: string, days: number): string {
@@ -250,8 +256,12 @@ export function buildWeeklyPublicSummary(now = new Date()): WeeklyAnalysisPublic
         ? `已进入下周窗口，当前已发布 ${published.length} / ${WEEKLY_CORE_MARKETS.length} 个有依据的市场；其余不会把上周内容当作新预测发布。`
         : "已进入下周窗口，下周预测待发布；系统不会把上周内容当作新预测发布。"
       : "本周观点在周五结束后进入历史验证；周六自动切换下周窗口。",
-    researchBlendNoteZh: window.weekStart === "2026-08-24" ? WEEKLY_QIMEN_POST_REVISION_NOTE_20260824.zh : (window.weekStart === "2026-08-17" ? WEEKLY_RESEARCH_BLEND_NOTE_20260817.zh : (window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.zh : undefined)),
-    researchBlendNoteEn: window.weekStart === "2026-08-24" ? WEEKLY_QIMEN_POST_REVISION_NOTE_20260824.en : (window.weekStart === "2026-08-17" ? WEEKLY_RESEARCH_BLEND_NOTE_20260817.en : (window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.en : undefined)),
+    researchBlendNoteZh: window.weekStart >= "2026-08-31" && window.weekStart <= "2026-09-28"
+      ? WEEKLY_METALS_ENERGY_SOURCE_NOTE_20260824.zh
+      : (window.weekStart === "2026-08-24" ? WEEKLY_QIMEN_POST_REVISION_NOTE_20260824.zh : (window.weekStart === "2026-08-17" ? WEEKLY_RESEARCH_BLEND_NOTE_20260817.zh : (window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.zh : undefined))),
+    researchBlendNoteEn: window.weekStart >= "2026-08-31" && window.weekStart <= "2026-09-28"
+      ? WEEKLY_METALS_ENERGY_SOURCE_NOTE_20260824.en
+      : (window.weekStart === "2026-08-24" ? WEEKLY_QIMEN_POST_REVISION_NOTE_20260824.en : (window.weekStart === "2026-08-17" ? WEEKLY_RESEARCH_BLEND_NOTE_20260817.en : (window.weekStart === "2026-08-10" ? WEEKLY_RESEARCH_BLEND_NOTE_20260810_V4.en : undefined))),
     sourceVerificationNoteZh: window.weekStart === "2026-08-24" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260824.zh : (window.weekStart === "2026-08-17" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260817.zh : (window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V4.zh : undefined)),
     sourceVerificationNoteEn: window.weekStart === "2026-08-24" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260824.en : (window.weekStart === "2026-08-17" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260817.en : (window.weekStart === "2026-08-10" ? WEEKLY_SOURCE_VERIFICATION_NOTE_20260810_V4.en : undefined)),
   };

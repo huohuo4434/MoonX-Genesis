@@ -12,16 +12,18 @@ test("September monthly outlook is visible and preserves the source hierarchy", 
   assert.deepEqual(cycles.map((cycle) => cycle.id), ["2026-08", "2026-09"]);
   const september = cycles.find((cycle) => cycle.id === "2026-09");
   assert.ok(september);
-  assert.equal(september.items.length, 8);
+  assert.equal(september.items.length, 9);
   const btc = september.items.find((item) => item.assetId === "bitcoin");
   const spx = september.items.find((item) => item.assetId === "sp500");
   const ndx = september.items.find((item) => item.assetId === "nasdaq-100");
+  const silver = september.items.find((item) => item.assetId === "silver");
   assert.equal(btc?.direction, "先涨后跌");
   assert.match(btc?.path ?? "", /主要高点.*回吐/);
   assert.equal(spx?.direction, "震荡下跌");
   assert.ok((spx?.probabilities.down ?? 0) > (spx?.probabilities.up ?? 0));
   assert.equal(ndx?.direction, "震荡下跌");
   assert.ok((ndx?.probabilities.down ?? 0) > (spx?.probabilities.down ?? 0));
+  assert.equal(silver?.direction, "先涨后跌");
   for (const item of september.items) {
     assert.equal(item.probabilities.up + item.probabilities.flat + item.probabilities.down, 100, item.symbol);
     assert.equal(item.periodStart, "2026-09-01");

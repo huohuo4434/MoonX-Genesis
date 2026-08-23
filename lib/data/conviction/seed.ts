@@ -177,7 +177,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     rating: "A",
     tags: ["NAND", "SSD", "AI Storage", "Memory Cycle", "Semiconductor", "High Volatility"],
     summaryZh:
-      "闪迪是MOOX重点跟踪的存储产业标的之一。研究重点放在NAND与SSD景气、AI存储需求、行业供需和周期波动，不把单次反弹直接解释为长期主升。",
+      "闪迪是MOOX最高优先级的存储产业跟踪标的之一。2026年8月24日已按更新更晚的专项六爻月卦修订当前周与九月初路径；旧版判断继续保留用于复盘，不把当前反弹直接解释为长期主升。",
     summaryEn:
       "SanDisk is a core MOOX storage-cycle watch. Research focuses on NAND and SSD conditions, AI storage demand, industry supply-demand, and cycle volatility rather than treating one rebound as a permanent uptrend.",
     thesisZh: [
@@ -186,6 +186,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "行业供给纪律与价格变化是中期走势的重要变量。",
       "短期波动大，适合结合逐日窗口、周结构和长期周期一起判断。",
       "MOOX已建立逐日、月度、3个月、1年和5年多周期研究档案。",
+      "最新专项月卦把8月24日至9月初定义为第二轮上涨与冲顶阶段，9月3日至4日后转弱风险上升。",
       "多周期方向、阶段窗口与关键技术位仅在会员研究中展示。",
     ],
     thesisEn: [
@@ -230,7 +231,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     marketCap: null,
     marketCapCurrency: "USD",
     marketCapUpdatedAt: null,
-    researchUpdatedAt: "2026-08-08",
+    researchUpdatedAt: "2026-08-24",
     displayOrder: 3,
     isPublished: true,
     memberForecastStockId: null,
@@ -760,13 +761,13 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     nameZh: "特斯拉", nameEn: "Tesla", aliases: ["TSLA", "Tesla", "特斯拉"],
     symbol: "TSLA", exchange: "NASDAQ", network: null, contractAddress: null, contractPendingAdminConfirm: false,
     status: "published", riskLevel: "高", rating: "A", tags: ["EV", "AI", "Robotaxi", "Energy", "High Volatility", "六爻研究"],
-    summaryZh: "特斯拉多周期重点研究档案。MOOX已拆分8月17日至10月4日七个周段、到年底、2027年及未来三年，并保留万里老师外部六爻旁证。",
-    summaryEn: "Tesla multi-horizon research dossier covering seven weekly windows, year-end, 2027 and the three-year path, with external Liu Yao evidence retained for comparison.",
-    thesisZh: ["各周段分别记录六爻结论。", "8月底偏多、9月上旬仍有洗盘，9月中下旬至10月初是更强窗口。", "年底大周期为先涨后跌；2027偏多；未来三年震荡上行但包含大回撤。", "重点观察回踩、确认和风控位置。"],
+    summaryZh: "特斯拉多周期重点研究档案。8月24日至9月6日暂按更新更晚的专项六爻月卦跟踪：周初冲高后转弱、九月初先寻底再修复；后续周段保留原卦并等待同周期专项卦更新。",
+    summaryEn: "Tesla multi-horizon research dossier. The Aug 24–Sep 6 path follows the newer specialist monthly Liu Yao source: an early rally then pressure, followed by an early-September bottoming and repair sequence. Later windows retain their original records pending same-period specialist updates.",
+    thesisZh: ["各周段分别记录六爻结论，旧版与修订版同时保留。", "8月24日至25日先观察冲高，27日后承压；8月31日至9月1日寻底，9月1日至3日修复，9月4日再防回落。", "9月7日以后仍沿用原周卦，不把月卦有限窗口外推到更远周期。", "年底大周期为先涨后跌；2027偏多；未来三年震荡上行但包含大回撤。", "重点观察回踩、确认和风控位置。"],
     thesisEn: ["Each Liu Yao horizon is read independently.", "Late August is constructive, early September remains vulnerable, and late September into early October is the stronger window.", "The year-end path is up then down; 2027 is constructive; the three-year path remains higher but includes deep drawdowns.", "Technical levels are recorded as execution references."],
     catalystsZh: ["Robotaxi与AI叙事", "能源与储能", "产品与消息催化", "风险偏好", "估值重构"], catalystsEn: ["Robotaxi and AI", "Energy storage", "Product/news catalysts", "Risk appetite", "Valuation repricing"],
     risksZh: ["高波动", "年底回撤", "估值压力", "消息冲击", "2028独立周期风险"], risksEn: ["High volatility", "Year-end drawdown", "Valuation risk", "Headline shocks", "Independent 2028 cycle risk"],
-    marketCap: null, marketCapCurrency: "USD", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-16", displayOrder: 17, isPublished: true, memberForecastStockId: null,
+    marketCap: null, marketCapCurrency: "USD", marketCapUpdatedAt: null, researchUpdatedAt: "2026-08-24", displayOrder: 17, isPublished: true, memberForecastStockId: null,
   },
   {
     id: "lite", slug: "lite", assetType: "STOCK",

@@ -360,10 +360,165 @@ export const SANDISK_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
   },
 ];
 
+/**
+ * 2026-08-24 forward-only revision from the newer specialist monthly review.
+ *
+ * The earlier V1 rows remain above as immutable evidence.  The member access
+ * layer already selects the highest version for a forecast type, so publishing
+ * these rows changes only the future-facing view and never deletes the miss.
+ */
+export const SANDISK_PERIOD_REVISIONS_20260824: ConvictionPeriodForecast[] = [
+  {
+    id: "SNDK-W3-20260824-V2",
+    assetId: "sandisk",
+    forecastType: "WEEK_3",
+    periodStart: "2026-08-24",
+    periodEnd: "2026-08-31",
+    direction: "震荡上涨",
+    upProbability: 55,
+    sidewaysProbability: 28,
+    downProbability: 17,
+    summary:
+      "最新专项月卦复盘纠正了旧版把26日至27日过早判成回落的错误：月周期仍处第二轮反弹，24日至26日为重新聚集和加速，27日至31日进入冲顶区。这里采用老师更新后的月周融合结论，但因缺少同周期完整周卦，信心低于正式周卦。",
+    expectedPath:
+      "24日至25日重新聚集 → 26日加速 → 27日至28日进入高位区 → 29日至30日美股休市，只记录消息与情绪 → 31日延续高位推进并接近主高点窗口。该路径来自月卦明确分段，不冒充独立日卦。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["第二轮反弹窗口", "存储板块热度", "月卦更新后的上行阶段"],
+    risks: ["接近月度主高点区", "月卦尚待完整周卦交叉", "高位换手和快速回吐"],
+    consensusStars: 3,
+    consensusLabel: "专项月卦修正旧版周路径，但缺少同周期完整周卦，按中等信心发布",
+    methodViews: methods(
+      "震荡上涨",
+      "老师复盘确认大周期没有转势，当前仍是第二轮反弹；24日至26日聚集加速，27日以后逐步进入高位区。",
+      "上行后接近转折",
+      "艮为山六冲化风山渐归魂的更新路线是先完成第二峰，再在九月初第五爻末端转弱；本周尚未走到主要下跌段。"
+    ),
+    keyDates: [
+      { date: "2026-08-26", type: "突破确认", label: "第二轮反弹加速观察", source: "LIUYAO", confidence: 68, note: "月卦分段候选，需由真实K线确认。" },
+      { date: "2026-08-31", type: "阶段高点", label: "进入主高点候选窗口", source: "LIUYAO", confidence: 62, note: "高低点候选仍属实验观察，允许半日至一个交易日误差。" },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "艮为山（六冲）",
+      changingHexagram: "风山渐（归魂）",
+      notes: "0824专项复盘更新：第五爻动；月卦负责第二峰与九月初转弱的阶段窗口，周方向仍需周卦和K线交叉。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-24",
+      label: "事前路径修订",
+      summary: "目标周尚未结束前收到更新更晚的专项月卦复盘，纠正旧版26日至27日过早转跌的判断。",
+      originalLockedView: "V1：24日至25日冲高，26日至27日转折回撤，28日至31日修复。",
+      timingTolerance: "高低点候选允许半日至一个交易日误差；方向错误不能用时间容差改成命中。",
+    },
+    version: 2,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-24T12:20:00+08:00",
+    lockedAt: "2026-08-24T12:20:00+08:00",
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "SNDK-W4-20260901-V1",
+    assetId: "sandisk",
+    forecastType: "WEEK_4",
+    periodStart: "2026-09-01",
+    periodEnd: "2026-09-06",
+    direction: "先涨后跌",
+    upProbability: 31,
+    sidewaysProbability: 29,
+    downProbability: 40,
+    summary:
+      "专项月卦把9月1日至2日列为冲顶与高位分歧阶段，把9月3日至4日列为第五爻末端转弱和回落兑现阶段。周初仍可惯性向上，但本周核心不是追涨，而是确认第二峰是否完成。",
+    expectedPath:
+      "9月1日惯性冲顶 → 9月2日高位分歧 → 9月3日至4日由强转弱并释放回撤 → 9月5日至6日美股休市，等待下周价格结构确认。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["第二峰惯性", "存储周期关注度"],
+    risks: ["第五爻末端转弱", "归魂反复", "冲顶后的快速回撤"],
+    consensusStars: 3,
+    consensusLabel: "月卦给出明确先强后弱路线，完整周卦仍待补充",
+    methodViews: methods(
+      "先涨后跌",
+      "前段承接8月底第二轮上涨，后段进入高位换手；不把周初惯性外推为第三轮翻倍行情。",
+      "双峰完成后转弱",
+      "更新路线把9月1日至2日放在第二峰顶部，把9月3日至4日放在末端转弱和回撤兑现。"
+    ),
+    keyDates: [
+      { date: "2026-09-02", type: "阶段高点", label: "第二峰高位分歧候选", source: "LIUYAO", confidence: 66, note: "候选窗口需K线确认，不是固定卖价。" },
+      { date: "2026-09-04", type: "下跌风险", label: "第五爻末端转弱观察", source: "LIUYAO", confidence: 70, note: "若此前没有明显冲高，不能机械套用回落幅度。" },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "艮为山（六冲）",
+      changingHexagram: "风山渐（归魂）",
+      notes: "0824专项月卦后段：第二峰完成后，第五爻末端在九月初由强转弱。无独立周卦，因此降低信心。",
+    },
+    version: 1,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-24T12:20:00+08:00",
+    lockedAt: "2026-08-24T12:20:00+08:00",
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "SNDK-M1-20260807-V2",
+    assetId: "sandisk",
+    forecastType: "MONTH_1",
+    periodStart: "2026-08-07",
+    periodEnd: "2026-09-06",
+    direction: "震荡上涨",
+    upProbability: 51,
+    sidewaysProbability: 29,
+    downProbability: 20,
+    summary:
+      "申月更新版改为双峰上涨、末端转跌：第一轮主升已在8月10日至14日完成，第二轮主升落在8月24日至9月初；这仍被定义为大周期中的反弹阶段，不等于长期趋势已经反转。",
+    expectedPath:
+      "8月7日至14日第一轮主升 → 8月17日至21日高位换手 → 8月24日至9月2日第二轮上涨并冲顶 → 9月3日至4日末端转弱 → 9月5日至6日休市消化。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["两轮反弹结构", "存储行业关注度", "月内资金再聚集"],
+    risks: ["第二峰后的兑现", "六冲高波动", "反弹不等于长期反转"],
+    consensusStars: 3,
+    consensusLabel: "专项月卦修订后支持双峰上涨，后段必须等待周卦和K线验收",
+    methodViews: methods(
+      "震荡上涨",
+      "月周期大方向未转，当前是反弹；两轮上涨完成后仍可能冲高，但不支持继续按倍增行情外推。",
+      "双峰后转弱",
+      "艮六冲到渐归魂先形成两次推进，最终在第五爻末端进入分歧与回落。"
+    ),
+    keyDates: [
+      { date: "2026-08-27", type: "突破确认", label: "第二轮主升进入高位区", source: "LIUYAO", confidence: 66 },
+      { date: "2026-09-02", type: "阶段高点", label: "申月第二峰候选", source: "LIUYAO", confidence: 66 },
+      { date: "2026-09-04", type: "下跌风险", label: "申月末端转弱观察", source: "LIUYAO", confidence: 70 },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "艮为山（六冲）",
+      changingHexagram: "风山渐（归魂）",
+      notes: "0824专项复盘更新；第五爻动。月卦只定申月阶段与候选转折，不能替代每周完整周卦。",
+    },
+    rollingUpdate: {
+      asOf: "2026-08-24",
+      label: "老师复盘后的月卦升级",
+      summary: "保留V1错误路线并发布V2；纠正旧版把第二轮上涨过早判成8月26日至27日回落。",
+      originalLockedView: "V1：24日至25日第三轮冲高，26日至27日明显回撤，28日至31日止跌整理。",
+      timingTolerance: "日期候选必须与周卦和K线交叉，不按日期机械交易。",
+    },
+    version: 2,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-24T12:20:00+08:00",
+    lockedAt: "2026-08-24T12:20:00+08:00",
+    validationStatus: "UNVERIFIED",
+  },
+];
+
 export const SANDISK_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
   "WEEK_3",
+  "WEEK_4",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",
@@ -374,6 +529,7 @@ export const SANDISK_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
   "WEEK_3",
+  "WEEK_4",
   "MONTH_1",
 ];
 
@@ -383,14 +539,16 @@ export const SANDISK_PERIOD_LABELS: Partial<
   WEEK: { zh: "8月7—16日逐日", en: "Aug 7–16 daily", emptyZh: "该阶段逐日分析尚未发布" },
   WEEK_2: { zh: "8月17—23日逐日", en: "Aug 17–23 daily", emptyZh: "该阶段逐日分析尚未发布" },
   WEEK_3: { zh: "8月24—31日逐日", en: "Aug 24–31 daily", emptyZh: "该阶段逐日分析尚未发布" },
-  MONTH_1: { zh: "8月整体", en: "August", emptyZh: "8月整体分析尚未发布" },
+  WEEK_4: { zh: "9月1—6日", en: "Sep 1–6", emptyZh: "该阶段分析尚未发布" },
+  MONTH_1: { zh: "8月7日—9月6日申月", en: "Shen month", emptyZh: "申月整体分析尚未发布" },
   MONTH_3: { zh: "3个月", en: "3M", emptyZh: "3个月分析尚未发布" },
   YEAR_1: { zh: "1年", en: "1Y", emptyZh: "1年分析尚未发布" },
   YEAR_5: { zh: "5年", en: "5Y", emptyZh: "5年分析尚未发布" },
 };
 
 export function listSandiskPeriodForecasts(): ConvictionPeriodForecast[] {
-  return SANDISK_PERIOD_FORECASTS.filter((item) => item.status === "published");
+  return [...SANDISK_PERIOD_FORECASTS, ...SANDISK_PERIOD_REVISIONS_20260824]
+    .filter((item) => item.status === "published");
 }
 
 export function sandiskPeriodMeta() {
