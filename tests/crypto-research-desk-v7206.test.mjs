@@ -6,12 +6,13 @@ import path from "node:path";
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-test("homepage verification ranks across nine markets instead of BTC/ETH recency only", () => {
+test("homepage verification shows the latest completed date across all core markets", () => {
   const src = read("components/home/HomeLandingBoard.tsx");
-  assert.match(src, /近30天加权命中/);
-  assert.match(src, /rankScore/);
+  assert.match(src, /上一交易日验证/);
+  assert.match(src, /const targetDate/);
+  assert.match(src, /HIT", "FULL_HIT", "PARTIAL_HIT/);
   assert.match(src, /CORE_MARKETS\.some/);
-  assert.match(src, /selected\.some\(\(current\) => canonicalSymbol\(current\.item\.symbol\)/);
+  assert.match(src, /seen\.has\(symbol\)/);
 });
 
 test("technical levels use Chan/multi-source fallback before declaring data unavailable", () => {
@@ -66,8 +67,11 @@ test("AI member desk enhancement uses a route overlay and does not require overw
   assert.match(onboarding, /长线.*1—3个月/s);
   assert.match(onboarding, /超长线.*约1年/s);
   assert.match(layout, /MOOX_V72063_AI_ROUTE_OVERLAY/);
+  assert.match(layout, /getMemberDevicePageAccess/);
+  assert.match(layout, /gate\.status !== "ALLOWED"/);
   assert.match(layout, /AdminPublicTradingPerformance/);
-  assert.match(layout, /MOOX会员只读监控-一键部署\.zip/);
+  assert.match(layout, /href="\/api\/v1\/member\/trading\/artifacts\/windows"/);
+  assert.match(layout, /下载会员接入包/);
   assert.doesNotMatch(layout, /placeBitget|MarketOrder|AUTO_ORDER|Paper入场/);
   assert.match(perf, /getBitgetDemoClosedPositions\(100\)/);
   assert.match(perf, /recentNetProfitUsdt/);

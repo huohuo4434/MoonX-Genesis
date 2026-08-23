@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { getAccessUser, type AccessUserSnapshot } from "@/lib/auth/get-access-user";
 import {
@@ -27,7 +28,7 @@ function degradedAllowedDecision(label: string): DeviceAccessDecision {
   };
 }
 
-export async function getMemberDevicePageAccess(input?: {
+async function evaluateMemberDevicePageAccess(input?: {
   forceAcquire?: boolean;
 }): Promise<MemberDevicePageAccess> {
   const access = await getAccessUser();
@@ -89,4 +90,16 @@ export async function getMemberDevicePageAccess(input?: {
       device: degradedAllowedDecision("设备守卫临时降级"),
     };
   }
+}
+
+// Layouts and pages can render in the same RSC request. The device evaluator
+// updates leases and security events, so every normal request must share this
+// single request-scoped result instead of evaluating twice.
+const getCachedMemberDevicePageAccess = cache(() => evaluateMemberDevicePageAccess());
+
+export function getMemberDevicePageAccess(input?: {
+  forceAcquire?: boolean;
+}): Promise<MemberDevicePageAccess> {
+  if (input?.forceAcquire) return evaluateMemberDevicePageAccess(input);
+  return getCachedMemberDevicePageAccess();
 }

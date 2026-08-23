@@ -116,6 +116,19 @@ describe("paid-member device policy", () => {
 });
 
 describe("conversion and privacy regression checks", () => {
+  test("member page access is request-memoized while force acquire stays uncached", () => {
+    const guard = source("lib/auth/member-device-guard.ts");
+    const layout = source("app/member/ai-trading/layout.tsx");
+    const page = source("app/member/ai-trading/page.tsx");
+    assert.match(guard, /import \{ cache \} from "react"/);
+    assert.match(guard, /const getCachedMemberDevicePageAccess = cache\(\(\) => evaluateMemberDevicePageAccess\(\)\)/);
+    assert.match(guard, /if \(input\?\.forceAcquire\) return evaluateMemberDevicePageAccess\(input\)/);
+    assert.match(guard, /return getCachedMemberDevicePageAccess\(\)/);
+    assert.match(layout, /getMemberDevicePageAccess\(\)/);
+    assert.match(page, /getMemberDevicePageAccess\(\)/);
+    assert.doesNotMatch(`${layout}\n${page}`, /cache\(/);
+  });
+
   test("public support copy does not expose internal deployment instructions", () => {
     const publicCopy = [
       source("app/support/page.tsx"),

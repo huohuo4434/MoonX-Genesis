@@ -2,12 +2,16 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AdminPublicTradingPerformance } from "@/components/member/AdminPublicTradingPerformance";
+import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getAdminTradingPerformanceSnapshot } from "@/lib/trading-signals/admin-public-performance";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AiTradingResearchLayout({ children }: { children: ReactNode }) {
+  const gate = await getMemberDevicePageAccess();
+  if (gate.status !== "ALLOWED") return <>{children}</>;
+
   const snapshot = await getAdminTradingPerformanceSnapshot().catch(() => ({
     available: false,
     environmentLabel: "管理员账户",
