@@ -235,7 +235,7 @@ function overallDirection(entries: MemberAssetOpinionEntry[]): MemberAssetOpinio
   return "NEUTRAL";
 }
 
-function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
+export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
   const allowed = new Set(X_SOURCE_REGISTRY.map((row) => row.handle.toLowerCase()));
   type ResearcherBucket = {
     family: string;
@@ -369,6 +369,24 @@ function buildAssetGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
   });
 }
 
+async function queryMemberOpinionRows(): Promise<StoredPostRow[]> {
+  if (!prisma || !(await ensureExternalAnalystTables())) return [];
+  const rows = await prisma.$queryRawUnsafe<StoredPostRow[]>(`
+    SELECT username, posted_at, text, parsed
+    FROM trade_external_analyst_posts
+    WHERE posted_at >= NOW() - INTERVAL '10 days'
+    ORDER BY posted_at DESC
+    LIMIT 5000
+  `);
+  const allowedHandles = new Set(X_SOURCE_REGISTRY.map((row) => row.handle.toLowerCase()));
+  return rows.filter((row) => allowedHandles.has(String(row.username ?? "").replace(/^@/, "").trim().toLowerCase()));
+}
+
+/** Lightweight asset groups for dated forecast advisories; no collector-health query. */
+export async function getMemberAssetOpinionGroups(): Promise<MemberAssetOpinionGroup[]> {
+  return buildMemberAssetOpinionGroups(await queryMemberOpinionRows());
+}
+
 function emptyHealth(registryCount: number): MemberMultiViewCollectionHealth {
   const serverMode = process.env.X_BEARER_TOKEN?.trim()
     ? "X_API" as const
@@ -407,13 +425,7 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
   }
 
   const [rows, states, xSnapshot] = await Promise.all([
-    prisma.$queryRawUnsafe<StoredPostRow[]>(`
-      SELECT username, posted_at, text, parsed
-      FROM trade_external_analyst_posts
-      WHERE posted_at >= NOW() - INTERVAL '10 days'
-      ORDER BY posted_at DESC
-      LIMIT 5000
-    `),
+    queryMemberOpinionRows(),
     prisma.$queryRawUnsafe<StateRow[]>(`
       SELECT state_key, payload, updated_at
       FROM trade_external_analyst_state
@@ -422,8 +434,7 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
     getXIntelligenceSnapshot({ force: true, now }).catch(() => null),
   ]);
 
-  const allowedHandles = new Set(X_SOURCE_REGISTRY.map((row) => row.handle.toLowerCase()));
-  const registryRows = rows.filter((row) => allowedHandles.has(String(row.username ?? "").replace(/^@/, "").trim().toLowerCase()));
+  const registryRows = rows;
   const cutoff24h = now.getTime() - 24 * 60 * 60 * 1000;
   const cutoff7d = now.getTime() - 7 * 24 * 60 * 60 * 1000;
   const activeRows24h = registryRows.filter((row) => Date.parse(String(row.posted_at)) >= cutoff24h);
@@ -475,6 +486,6 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
       localCollectorMessage: localCollector?.message ?? "未读取到本地采集器状态。",
       effectiveSource,
     },
-    assets: buildAssetGroups(registryRows),
+    assets: buildMemberAssetOpinionGroups(registryRows),
   };
 }

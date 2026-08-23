@@ -2,7 +2,8 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
-import { X_SOURCE_REGISTRY, xSourceFamilyForHandle } from "@/lib/trading-signals/x-source-registry.server";
+import { X_SOURCE_REGISTRY, xSourceFamilyForHandle, xSourceRegistryEntryForHandle } from "@/lib/trading-signals/x-source-registry.server";
+import { resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
 import type { ExternalAnalystParsedPost } from "@/types/external-analyst";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 
@@ -264,7 +265,7 @@ export type ApprovedXForecastOverlay = {
   displayAllowedCount: number;
 };
 
-export async function getApprovedXForecastOverlay(marketCode: string, now = new Date()): Promise<ApprovedXForecastOverlay | null> {
+export async function getApprovedXForecastOverlay(marketCode: string, now: Date, forecastDate: string): Promise<ApprovedXForecastOverlay | null> {
   const symbol = MARKET_TO_MATRIX[marketCode.toUpperCase()] ?? marketCode.toUpperCase();
   const db = prisma;
   if (!db || !(await ensureXOpinionApprovalTable())) return null;
@@ -294,6 +295,14 @@ export async function getApprovedXForecastOverlay(marketCode: string, now = new 
   for (const row of rows) {
     const parsed = parseJson<ExternalAnalystParsedPost | null>(row.parsed, null);
     if (!parsed) continue;
+    const horizon = parsed.horizon === "INTRADAY" ? "SHORT" : parsed.horizon === "SWING" ? "MEDIUM" : "LONG";
+    const targetDates = resolveMultiViewTargetDates({
+      postedAt: parsed.postedAt || iso(row.posted_at),
+      horizon,
+      timeWindows: parsed.timeWindows,
+      summary: parsed.summary || parsed.text,
+    });
+    if (!targetDates.includes(forecastDate)) continue;
     const weight = Math.max(1, Math.min(10, Number(row.weight_pct) || 5));
     const confidenceFactor = Math.max(0.35, Math.min(1, (parsed.confidence || 50) / 100));
     const sign = parsed.direction === "LONG" ? 1 : parsed.direction === "SHORT" ? -1 : 0;
@@ -301,9 +310,10 @@ export async function getApprovedXForecastOverlay(marketCode: string, now = new 
     weightSum += weight;
     if (row.display_allowed) {
       displayAllowedCount += 1;
-      if (displaySummaries.length < 3) displaySummaries.push(`@${row.username}：${brief(parsed)}`);
+      const alias = xSourceRegistryEntryForHandle(row.username)?.memberAlias ?? "匿名分析师";
+      if (displaySummaries.length < 3) displaySummaries.push(`${alias}：${brief(parsed)}`);
     }
-    if (summaries.length < 4) summaries.push(`@${row.username}：${brief(parsed)}`);
+    if (summaries.length < 4) summaries.push(`${xSourceRegistryEntryForHandle(row.username)?.memberAlias ?? "匿名分析师"}：${brief(parsed)}`);
     levels.push(...parsed.supportLevels, ...parsed.resistanceLevels, ...parsed.targetLevels, ...parsed.invalidationLevels);
     timeWindows.push(...parsed.timeWindows);
   }

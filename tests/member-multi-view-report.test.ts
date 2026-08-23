@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { buildMultiViewResearcherAlias, filterMultiViewSourceAssets, multiViewVerifiedResearchWeight, redactMultiViewSourceHandles, summarizeMultiViewConsensus } from "../lib/research/member-multi-view-core";
+import { buildMultiViewResearcherAlias, filterMultiViewSourceAssets, multiViewVerifiedResearchWeight, redactMultiViewSourceHandles, resolveMultiViewTargetDates, summarizeMultiViewConsensus } from "../lib/research/member-multi-view-core";
 
 const root=path.resolve(import.meta.dirname,"..");
 const read=(file:string)=>fs.readFileSync(path.join(root,file),"utf8");
@@ -30,6 +30,15 @@ test("member report contains the large asset table and 15-minute health surface"
   assert.match(server,/WHERE posted_at >= NOW\(\) - INTERVAL '10 days'/);
 });
 
+test("asset-date resolver is exact and never fabricates a medium-horizon day",()=>{
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"MEDIUM",timeWindows:[],summary:"九月整体偏弱"}),[]);
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"SHORT",timeWindows:[],summary:"今日BTC谨慎"}),["2026-08-23"]);
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"MEDIUM",timeWindows:["8月24日至8月26日"],summary:""}),["2026-08-24","2026-08-25","2026-08-26"]);
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"MEDIUM",timeWindows:["2026-08-24至2026-08-26"],summary:""}),["2026-08-24","2026-08-25","2026-08-26"]);
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"MEDIUM",timeWindows:["8月30"],summary:""}),["2026-08-30"]);
+  assert.deepEqual(resolveMultiViewTargetDates({postedAt:"2026-08-23T04:00:00Z",horizon:"SHORT",timeWindows:["下周三"],summary:""}),["2026-08-26"]);
+});
+
 test("external analyst weight stays zero until enough verified samples",()=>{
   assert.equal(multiViewVerifiedResearchWeight({sampleCount:9,weightedHitRatePct:100}),0);
   assert.equal(multiViewVerifiedResearchWeight({sampleCount:10,weightedHitRatePct:59.9}),0);
@@ -38,14 +47,15 @@ test("external analyst weight stays zero until enough verified samples",()=>{
   assert.equal(multiViewVerifiedResearchWeight({sampleCount:30,weightedHitRatePct:70}),3);
 });
 
-test("priority analysts are ranked, anonymized by specialty and compared with MOOX",()=>{
+test("priority analysts stay anonymized inside the asset-date matrix",()=>{
   const page=read("app/member/alpha-feed/page.tsx");
   const registry=read("lib/trading-signals/x-source-registry.server.ts");
   const config=JSON.parse(read("tools/x-collector/default-config.json")) as {accounts:string[]};
   const productionAccounts=read("tools/x-collector/production-accounts.txt").trim().split(/\r?\n/);
-  for(const token of ["重点分析师｜一眼对照表","与MOOX同向","与MOOX相反","未完成验证前权重 0%"]){
+  for(const token of ["资产 × 日期｜一眼看多空","看涨观点","看跌观点","与MOOX关系","同向","相反","少于10个有效验证样本仍为0%权重"]){
     assert.ok(page.includes(token),token);
   }
+  assert.doesNotMatch(page,/重点分析师｜一眼对照表/);
   for(const token of ["江恩跨市场分析师","低风险策略分析师","奇门周期分析师","建模趋势分析师","宏观趋势分析师","周期轮动分析师","短线交易分析师","前沿资产分析师","山寨动量分析师"]){
     assert.ok(registry.includes(token),token);
   }

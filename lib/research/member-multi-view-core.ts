@@ -240,7 +240,7 @@ export function classifyMultiViewTheory(rawText: string): TheoryReading[] {
     return { theory: rule.theory, score, explanation: rule.explanation, explicitHits };
   })
     .filter((item) => item.score > 0 && (!specificSchools.has(item.theory) || item.explicitHits > 0 || item.score >= 2))
-    .map(({ explicitHits: _explicitHits, ...item }) => item satisfies TheoryReading)
+    .map((item) => ({ theory: item.theory, score: item.score, explanation: item.explanation }) satisfies TheoryReading)
     .sort((a, b) => b.score - a.score || a.theory.localeCompare(b.theory, "zh-CN"));
 
   if (scored.length === 0) {
@@ -484,6 +484,10 @@ export function extractMultiViewTimeWindows(rawText: string): string[] {
     /20\d{2}[年\/.\-]\d{1,2}(?:[月\/.\-]\d{1,2}(?:日|号)?)?\s*(?:至|到|[-~—])\s*20?\d{0,2}[年\/.\-]?\d{1,2}[月\/.\-]\d{1,2}(?:日|号)?/g,
     /\d{1,2}月\d{1,2}(?:日|号)?\s*(?:至|到|[-~—])\s*(?:\d{1,2}月)?\d{1,2}(?:日|号)?/g,
     /\d{1,2}[\/.\-]\d{1,2}\s*(?:至|到|[-~—])\s*\d{1,2}[\/.\-]\d{1,2}/g,
+    /20\d{2}[年\/.\-]\d{1,2}[月\/.\-]\d{1,2}(?:日|号)?/g,
+    /\d{1,2}月\d{1,2}(?:日|号)/g,
+    /\d{1,2}[\/.\-]\d{1,2}(?![\d\/.\-])/g,
+    /(?:今天|今日|明天|明日|后天|下周[一二三四五六日天])/g,
     /(?:本周|下周|未来\s*\d{1,2}\s*(?:天|周|个月)|未来一周|未来两周|本月|下月|月底|月初|年底前|年内|中期选举前)/g,
     /(?:8|9|10|11|12)月(?:上旬|中旬|下旬|底|初)?/g,
   ];
@@ -494,6 +498,115 @@ export function extractMultiViewTimeWindows(rawText: string): string[] {
     }
   }
   return [...values].slice(0, 6);
+}
+
+function beijingDateKey(value: string): string | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((item) => item.type === "year")?.value;
+  const month = parts.find((item) => item.type === "month")?.value;
+  const day = parts.find((item) => item.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+function addDateDays(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T12:00:00+08:00`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return beijingDateKey(date.toISOString()) ?? dateKey;
+}
+
+function dateKeyFromMonthDay(month: number, day: number, postedDate: string): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const postedYear = Number(postedDate.slice(0, 4));
+  const candidate = `${postedYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const parsed = new Date(`${candidate}T12:00:00+08:00`);
+  if (Number.isNaN(parsed.getTime()) || beijingDateKey(parsed.toISOString()) !== candidate) return null;
+  const distanceDays = (parsed.getTime() - new Date(`${postedDate}T12:00:00+08:00`).getTime()) / 86_400_000;
+  if (distanceDays < -180) return `${postedYear + 1}-${candidate.slice(5)}`;
+  return candidate;
+}
+
+function addExpandedRange(target: Set<string>, start: string | null, end: string | null): void {
+  if (!start || !end) return;
+  const startAt = new Date(`${start}T12:00:00+08:00`).getTime();
+  const endAt = new Date(`${end}T12:00:00+08:00`).getTime();
+  if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt < startAt) return;
+  const days = Math.round((endAt - startAt) / 86_400_000);
+  if (days > 31) return;
+  for (let offset = 0; offset <= days; offset += 1) target.add(addDateDays(start, offset));
+}
+
+/**
+ * Resolve an opinion to exact Beijing calendar dates. Medium/long views without
+ * an explicit day stay undated; short views may use the posting day. This keeps
+ * broad cycle opinions out of a fabricated daily comparison.
+ */
+export function resolveMultiViewTargetDates(input: {
+  postedAt: string;
+  horizon: MultiViewHorizon;
+  timeWindows?: readonly string[];
+  summary?: string;
+}): string[] {
+  const postedDate = beijingDateKey(input.postedAt);
+  if (!postedDate) return [];
+  const text = [...(input.timeWindows ?? []), input.summary ?? ""].join(" ");
+  const values = new Set<string>();
+
+  for (const match of text.matchAll(/(20\d{2})[年\/.\-](\d{1,2})[月\/.\-](\d{1,2})(?:日|号)?\s*(?:至|到|[-~—])\s*(20\d{2})[年\/.\-](\d{1,2})[月\/.\-](\d{1,2})(?:日|号)?/g)) {
+    addExpandedRange(
+      values,
+      `${match[1]}-${String(Number(match[2])).padStart(2, "0")}-${String(Number(match[3])).padStart(2, "0")}`,
+      `${match[4]}-${String(Number(match[5])).padStart(2, "0")}-${String(Number(match[6])).padStart(2, "0")}`,
+    );
+  }
+  for (const match of text.matchAll(/(20\d{2})[年\/.\-](\d{1,2})[月\/.\-](\d{1,2})(?:日|号)?/g)) {
+    const key = `${match[1]}-${String(Number(match[2])).padStart(2, "0")}-${String(Number(match[3])).padStart(2, "0")}`;
+    const parsed = new Date(`${key}T12:00:00+08:00`);
+    if (!Number.isNaN(parsed.getTime()) && beijingDateKey(parsed.toISOString()) === key) values.add(key);
+  }
+
+  for (const match of text.matchAll(/(\d{1,2})月(\d{1,2})(?:日|号)?\s*(?:至|到|[-~—])\s*(?:(\d{1,2})月)?(\d{1,2})(?:日|号)?/g)) {
+    const startMonth = Number(match[1]);
+    addExpandedRange(
+      values,
+      dateKeyFromMonthDay(startMonth, Number(match[2]), postedDate),
+      dateKeyFromMonthDay(Number(match[3] ?? startMonth), Number(match[4]), postedDate),
+    );
+  }
+  for (const match of text.matchAll(/(\d{1,2})[\/.\-](\d{1,2})\s*(?:至|到|[-~—])\s*(\d{1,2})[\/.\-](\d{1,2})/g)) {
+    addExpandedRange(
+      values,
+      dateKeyFromMonthDay(Number(match[1]), Number(match[2]), postedDate),
+      dateKeyFromMonthDay(Number(match[3]), Number(match[4]), postedDate),
+    );
+  }
+  for (const match of text.matchAll(/(\d{1,2})月(\d{1,2})(?:日|号)?/g)) {
+    const key = dateKeyFromMonthDay(Number(match[1]), Number(match[2]), postedDate);
+    if (key) values.add(key);
+  }
+  for (const match of text.matchAll(/(?<!\d)(\d{1,2})[\/.\-](\d{1,2})(?![\d\/.\-])/g)) {
+    const key = dateKeyFromMonthDay(Number(match[1]), Number(match[2]), postedDate);
+    if (key) values.add(key);
+  }
+
+  if (/(?:今天|今日)/.test(text)) values.add(postedDate);
+  if (/(?:明天|明日)/.test(text)) values.add(addDateDays(postedDate, 1));
+  if (/后天/.test(text)) values.add(addDateDays(postedDate, 2));
+  const weekdayMap: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 7, 天: 7 };
+  for (const match of text.matchAll(/下周([一二三四五六日天])/g)) {
+    const posted = new Date(`${postedDate}T12:00:00+08:00`);
+    const currentDay = posted.getUTCDay() || 7;
+    values.add(addDateDays(postedDate, 7 - currentDay + (weekdayMap[match[1] ?? ""] ?? 1)));
+  }
+
+  if (!values.size && input.horizon === "SHORT") values.add(postedDate);
+  return [...values].sort();
 }
 
 export function extractMultiViewCashtags(rawText: string): string[] {

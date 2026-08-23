@@ -153,6 +153,17 @@ async function applyQimenToAccessRows(rows: DailyForecast[]): Promise<DailyForec
   }
 }
 
+async function applyExternalAdvisoriesToAccessRows(rows: DailyForecast[]): Promise<DailyForecast[]> {
+  if (!rows.length) return rows;
+  try {
+    const { applyExternalViewAdvisories } = await import("@/lib/forecasts/external-view-advisory.server");
+    return await applyExternalViewAdvisories(rows);
+  } catch (error) {
+    console.warn("[prediction-access] dated external advisory skipped", error);
+    return rows;
+  }
+}
+
 export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]> {
   const today = getBeijingTodayKey(now);
   const { getStoreForecastsForToday } = await import("@/lib/data/store-to-ui-forecasts");
@@ -198,7 +209,8 @@ export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]>
   const rows = mergeCanonicalForecastCandidates(candidates)
     .filter((forecast) => forecast.forecastForDate === today)
     .map((forecast) => applyTodayFacingCopy(sanitizeForecastForClient(forecast), now));
-  return sortByDailyAssetOrder(await applyQimenToAccessRows(rows));
+  const qimenRows = await applyQimenToAccessRows(rows);
+  return sortByDailyAssetOrder(await applyExternalAdvisoriesToAccessRows(qimenRows));
 }
 
 /** Next formal batch after Beijing today — used by member + public teaser metadata. */
@@ -288,7 +300,8 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     return isHumanPublishedForecast(forecast) && forecast.forecastForDate === expectedDate;
   });
   const sanitizedRows = rows.map(sanitizeForecastForClient);
-  return sortByDailyAssetOrder(await applyQimenToAccessRows(sanitizedRows));
+  const qimenRows = await applyQimenToAccessRows(sanitizedRows);
+  return sortByDailyAssetOrder(await applyExternalAdvisoriesToAccessRows(qimenRows));
 }
 
 export type TodayPublicTeaser = {

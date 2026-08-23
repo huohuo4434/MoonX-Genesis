@@ -505,7 +505,7 @@ export async function runDailyForecastPipeline(input?: {
           liuyaoDirection: record.direction,
           previousQimenEvidence: latest?.qimenEvidence ?? null,
         }); // MOOX_QIMEN_FIRST_DAILY_LIUYAO_V72080
-        const approvedXOverlay = await getApprovedXForecastOverlay(market, now).catch(() => null);
+        const approvedXOverlay = await getApprovedXForecastOverlay(market, now, record.forecastDate).catch(() => null);
         record = applyApprovedXOverlayToGeneratedDaily(record, approvedXOverlay); // MOOX_X_APPROVED_V72051_POST_QIMEN
         // Every core market, including ETH, must receive its own current technical levels.
         // Primary source uses the canonical market symbol; a closed-bar snapshot provides

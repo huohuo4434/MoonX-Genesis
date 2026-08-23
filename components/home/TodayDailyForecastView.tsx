@@ -243,6 +243,7 @@ export function TodayDailyForecastView({
                   down: 0,
                 };
                 const showFull = detailLevel === "full";
+                const externalWarnings = (f.risks ?? []).filter((item) => item.startsWith("外部交叉提醒（"));
                 const normalizedPath = en ? safeEnglishList(normalizeDailyPath(f.expectedPath)) : normalizeDailyPath(f.expectedPath);
                 const pathBias = en
                   ? safeEnglish(f.pathBias || normalizedPath.join(" → "), "Expected path is awaiting technical confirmation.")
@@ -288,6 +289,12 @@ export function TodayDailyForecastView({
                     <p className="break-words text-caption text-foreground-secondary">
                       {en ? "Research note: " : "研究说明："}{en ? safeEnglish(f.headline ?? f.summary) : normalizeDailyLanguage(f.headline ?? f.summary)}
                     </p>
+                    {externalWarnings.length ? (
+                      <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.055] p-3 text-caption leading-6 text-amber-100/90">
+                        <p className="font-semibold text-amber-100">{en ? "External cross-check" : "外部交叉提醒"}</p>
+                        {externalWarnings.map((warning) => <p key={warning} className="mt-1">{en ? safeEnglish(warning, "An external technical, news, or analyst view differs from or confirms the MOOX call. Treat it as a caution only.") : warning.replace(/^外部交叉提醒（[^）]+）：/, "")}</p>)}
+                      </div>
+                    ) : null}
                     {showFull ? (
                       <>
                         <button
