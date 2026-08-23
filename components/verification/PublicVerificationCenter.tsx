@@ -101,25 +101,23 @@ function shortDate(date: string): string {
   return m && d ? `${Number(m)}/${Number(d)}` : date;
 }
 
-function formatTimestamp(value: string | null, en: boolean): string {
+function formatTimestamp(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(en ? "en-US" : "zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+  // Keep SSR (Vercel/Linux) and browser hydration byte-for-byte identical.
+  // ICU may render midnight as either 00:xx or 24:xx even with hour12=false.
+  const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const two = (part: number) => String(part).padStart(2, "0");
+  const stamp = `${two(beijing.getUTCMonth() + 1)}/${two(beijing.getUTCDate())} ${two(beijing.getUTCHours())}:${two(beijing.getUTCMinutes())}`;
+  return stamp;
 }
 
 function MiniTrend({ rows, en }: { rows: UnifiedRow[]; en: boolean }) {
   const points = useMemo(() => {
     const countable = [...rows]
       .filter((row) => scoreOf(row.result) != null)
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     let total = 0;
     let weighted = 0;
     return countable.map((row) => {
@@ -238,13 +236,13 @@ export function PublicVerificationCenter({
         dataSource: null,
       };
     });
-    return [...daily, ...weekly].sort((a, b) => b.date.localeCompare(a.date));
+    return [...daily, ...weekly].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }, [dailyItems, weeklyItems, en]);
 
   const assetOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const row of allRows) map.set(row.symbol, assetLabel(row.symbol, row.assetName, en));
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], en ? "en" : "zh-CN"));
+    return [...map.entries()].sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
   }, [allRows, en]);
 
   const filteredRows = useMemo(
@@ -385,12 +383,12 @@ export function PublicVerificationCenter({
 
       <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="mb-4"><h2 className="text-xl font-semibold text-foreground">{period === "DAILY" ? (en ? "Recent daily verification" : "最近日验证") : period === "WEEKLY" ? (en ? "Weekly verification archive" : "周验证档案") : (en ? "Monthly verification archive" : "月验证档案")}</h2><p className="mt-1 text-sm text-foreground-tertiary">{period === "DAILY" ? (en ? "The compact view shows the 12 most recent daily records by date, regardless of outcome. The complete archive remains in CSV and JSON." : "紧凑视图按日期展示最近 12 条，不按命中结果挑选；完整日度档案仍可通过 CSV / JSON 下载。") : period === "WEEKLY" ? (en ? "All weekly results remain visible with their locked forecast and realized evidence." : "周验证正常展示全部结果，可展开查看锁定预测与实际证据。") : (en ? "Monthly records are published only after a complete calendar month can be verified. Current-month outlooks are not presented as finished results." : "月度验证样本将在完整月份结束、取得真实行情后发布；当月预测不会冒充已验证成绩。")}</p></div>
-        {detailSelection.visible.length ? <div className="space-y-2">{detailSelection.visible.map((row) => <details key={row.id} className="group rounded-xl border border-border/60 bg-background/20 open:border-primary/25 open:bg-background/40"><summary className="grid cursor-pointer list-none grid-cols-[78px_1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[90px_90px_1fr_1fr_110px_90px]"><span className="text-xs tabular-nums text-foreground-tertiary">{row.date}</span><span className="hidden text-xs font-semibold text-foreground-secondary sm:block">{row.period === "DAILY" ? (en ? "Daily" : "日度") : row.period === "WEEKLY" ? (en ? "Weekly" : "周度") : (en ? "Monthly" : "月度")}</span><span className="truncate text-sm font-semibold text-foreground">{assetLabel(row.symbol, row.assetName, en)} <span className="text-xs font-normal text-foreground-tertiary">{row.symbol}</span></span><span className="hidden truncate text-sm text-foreground-secondary sm:block">{humanizeVerificationText(row.predicted, en)} → {humanizeVerificationText(row.actual, en)}</span><span className={`justify-self-end rounded-full border px-2.5 py-1 text-[11px] font-semibold ${resultClass(row.result)}`}>{resultText(row.result, en)}</span><span className="hidden justify-self-end text-xs font-semibold tabular-nums text-foreground sm:block">{row.score == null ? "—" : `${Math.round(row.score * 100)}%`}</span></summary><div className="border-t border-border/50 px-4 py-4 text-sm"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked forecast" : "锁定预测"}</div><div className="mt-1 text-foreground">{humanizeVerificationText(row.predicted, en)}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Realized" : "实际走势"}</div><div className="mt-1 text-foreground">{humanizeVerificationText(row.actual, en)}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Version" : "版本"}</div><div className="mt-1 text-foreground">{row.version}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Verified at" : "验证时间"}</div><div className="mt-1 text-foreground">{formatTimestamp(row.verifiedAt, en)}</div></div></div>{row.supportLevels?.length || row.resistanceLevels?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked supports" : "发布时锁定支撑"}</div><div className="mt-1 text-foreground-secondary">{row.supportLevels?.join(" · ") || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Locked resistance" : "发布时锁定压力"}</div><div className="mt-1 text-foreground-secondary">{row.resistanceLevels?.join(" · ") || "—"}</div></div></div> : null}{row.confirmation || row.invalidation ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Confirmation" : "确认条件"}</div><div className="mt-1 text-foreground-secondary">{row.confirmation || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Invalidation" : "失效条件"}</div><div className="mt-1 text-foreground-secondary">{row.invalidation || "—"}</div></div></div> : null}<div className="mt-4 rounded-lg bg-muted/20 p-3 text-xs leading-5 text-foreground-secondary">{humanizeVerificationText(row.detail, en) || (en ? "No additional explanation saved." : "本条暂无更多验证说明。")}{row.dataSource ? <span className="mt-1 block text-foreground-tertiary">{en ? "Data source" : "行情来源"}: {row.dataSource}</span> : null}</div></div></details>)}</div> : <div className="rounded-xl border border-dashed border-border/70 py-14 text-center"><div className="text-base font-semibold text-foreground">{period === "MONTHLY" ? (en ? "No completed monthly sample yet" : "月度完整样本尚未结束") : (en ? "Verified samples are building" : "首批真实样本正在积累")}</div><div className="mt-2 text-sm text-foreground-tertiary">{period === "MONTHLY" ? (en ? "The first monthly result will appear only after the locked month closes and market evidence is available." : "首条月验证只会在锁定月份结束并取得完整行情证据后出现。") : (en ? "Locked forecasts remain public while the verifier waits for each observation window to finish." : "已锁定预测会继续公开展示；观察窗口结束后由服务器自动验证。")}</div></div>}
+        {detailSelection.visible.length ? <div className="space-y-2">{detailSelection.visible.map((row) => <details key={row.id} className="group rounded-xl border border-border/60 bg-background/20 open:border-primary/25 open:bg-background/40"><summary className="grid cursor-pointer list-none grid-cols-[78px_1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[90px_90px_1fr_1fr_110px_90px]"><span className="text-xs tabular-nums text-foreground-tertiary">{row.date}</span><span className="hidden text-xs font-semibold text-foreground-secondary sm:block">{row.period === "DAILY" ? (en ? "Daily" : "日度") : row.period === "WEEKLY" ? (en ? "Weekly" : "周度") : (en ? "Monthly" : "月度")}</span><span className="truncate text-sm font-semibold text-foreground">{assetLabel(row.symbol, row.assetName, en)} <span className="text-xs font-normal text-foreground-tertiary">{row.symbol}</span></span><span className="hidden truncate text-sm text-foreground-secondary sm:block">{humanizeVerificationText(row.predicted, en)} → {humanizeVerificationText(row.actual, en)}</span><span className={`justify-self-end rounded-full border px-2.5 py-1 text-[11px] font-semibold ${resultClass(row.result)}`}>{resultText(row.result, en)}</span><span className="hidden justify-self-end text-xs font-semibold tabular-nums text-foreground sm:block">{row.score == null ? "—" : `${Math.round(row.score * 100)}%`}</span></summary><div className="border-t border-border/50 px-4 py-4 text-sm"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked forecast" : "锁定预测"}</div><div className="mt-1 text-foreground">{humanizeVerificationText(row.predicted, en)}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Realized" : "实际走势"}</div><div className="mt-1 text-foreground">{humanizeVerificationText(row.actual, en)}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Version" : "版本"}</div><div className="mt-1 text-foreground">{row.version}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Verified at" : "验证时间"}</div><div className="mt-1 text-foreground">{formatTimestamp(row.verifiedAt)}</div></div></div>{row.supportLevels?.length || row.resistanceLevels?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Locked supports" : "发布时锁定支撑"}</div><div className="mt-1 text-foreground-secondary">{row.supportLevels?.join(" · ") || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Locked resistance" : "发布时锁定压力"}</div><div className="mt-1 text-foreground-secondary">{row.resistanceLevels?.join(" · ") || "—"}</div></div></div> : null}{row.confirmation || row.invalidation ? <div className="mt-4 grid gap-3 sm:grid-cols-2"><div><div className="text-xs text-foreground-tertiary">{en ? "Confirmation" : "确认条件"}</div><div className="mt-1 text-foreground-secondary">{row.confirmation || "—"}</div></div><div><div className="text-xs text-foreground-tertiary">{en ? "Invalidation" : "失效条件"}</div><div className="mt-1 text-foreground-secondary">{row.invalidation || "—"}</div></div></div> : null}<div className="mt-4 rounded-lg bg-muted/20 p-3 text-xs leading-5 text-foreground-secondary">{humanizeVerificationText(row.detail, en) || (en ? "No additional explanation saved." : "本条暂无更多验证说明。")}{row.dataSource ? <span className="mt-1 block text-foreground-tertiary">{en ? "Data source" : "行情来源"}: {row.dataSource}</span> : null}</div></div></details>)}</div> : <div className="rounded-xl border border-dashed border-border/70 py-14 text-center"><div className="text-base font-semibold text-foreground">{period === "MONTHLY" ? (en ? "No completed monthly sample yet" : "月度完整样本尚未结束") : (en ? "Verified samples are building" : "首批真实样本正在积累")}</div><div className="mt-2 text-sm text-foreground-tertiary">{period === "MONTHLY" ? (en ? "The first monthly result will appear only after the locked month closes and market evidence is available." : "首条月验证只会在锁定月份结束并取得完整行情证据后出现。") : (en ? "Locked forecasts remain public while the verifier waits for each observation window to finish." : "已锁定预测会继续公开展示；观察窗口结束后由服务器自动验证。")}</div></div>}
         {period === "DAILY" && detailSelection.archivedCount > 0 ? <div className="mt-4 rounded-lg border border-border/60 bg-muted/10 px-4 py-3 text-xs leading-5 text-foreground-tertiary">{en ? `${detailSelection.archivedCount} older daily records remain in the complete public export. This compact view is selected only by recency, never by hit or miss.` : `另有 ${detailSelection.archivedCount} 条较早日验证保留在完整公开下载中。紧凑展示只按时间，不按命中或未命中筛选。`}</div> : null}
       </section>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-foreground-tertiary">
-        <span>{en ? "Public snapshot" : "公开快照"}: {formatTimestamp(generatedAt, en)} · {en ? "Beijing time" : "北京时间"}</span>
+        <span>{en ? "Public snapshot" : "公开快照"}: {formatTimestamp(generatedAt)} · {en ? "Beijing time" : "北京时间"}</span>
         <span>{en ? "Daily verification retries automatically; stale data failures become transparently unverifiable instead of remaining pending forever." : "日度验证会自动重试；连续数据失败的旧记录会透明转为“不可验证”，不会无限期卡在“待处理”。"}</span>
       </div>
     </div>

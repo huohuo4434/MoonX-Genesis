@@ -25,5 +25,8 @@ assert.match(daily, /within\(buildMemberDailyTechnicalViews\(allRows\), \{\}, 1_
 const verification = read("components/verification/PublicVerificationCenter.tsx");
 assert.doesNotMatch(verification, /Date\.now\(\) - days/);
 assert.match(verification, /inRange\(row\.date, range, generatedAtMs\)/);
+assert.doesNotMatch(verification, /new Intl\.DateTimeFormat/);
+assert.match(verification, /getUTCHours\(\)/);
+assert.doesNotMatch(verification, /localeCompare/);
 
 console.log("MOOX promotion readiness P0 static regression passed");
