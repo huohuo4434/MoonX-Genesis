@@ -13,7 +13,7 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
   const authorityLabel = nextReady
     ? "WEEK · 下一期"
     : dossier.dailyAuthority
-      ? `${dossier.dailyAuthority.forecastType} · V${dossier.dailyAuthority.version}`
+      ? dossier.dailyAuthority.forecastType
       : "待更新";
   const sourcePeriod = !nextReady && dossier.dailyAuthority
     ? { start: dossier.dailyAuthority.sourcePeriodStart, end: dossier.dailyAuthority.sourcePeriodEnd }
@@ -36,7 +36,7 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
           <p className="text-caption text-white/40">{derivedWindowDiffers ? "来源周期" : "周期"}</p>
           <p className="mt-1 text-body-sm text-white/75">{sourcePeriod ? `${sourcePeriod.start} 至 ${sourcePeriod.end}` : primaryStart && primaryEnd ? `${primaryStart} 至 ${primaryEnd}` : "—"}</p>
           {derivedWindowDiffers ? <p className="mt-1 text-[11px] text-cyan-100/55">当前派生窗口：{primaryStart} 至 {primaryEnd}</p> : null}
-          <p className="mt-1 text-[11px] text-white/35">{derivedWindowDiffers ? `周期卦派生 · 不是日卦 · V${dossier.dailyAuthority?.version}` : authorityLabel}</p>
+          <p className="mt-1 text-[11px] text-white/35">{derivedWindowDiffers ? "周期卦派生 · 不是日卦" : authorityLabel}</p>
         </Card>
         <FocusIntradayTechnicalCards
           assetId={dossier.assetId}
@@ -68,7 +68,7 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
             ) : null}
             {dossier.backgroundHorizons.map((item) => (
               <div key={`${item.forecastType}-${item.periodStart}-${item.version}`} className="rounded-lg border border-white/[0.06] p-3">
-                <p className="text-white/70">{item.forecastType} · {item.periodStart} 至 {item.periodEnd} · V{item.version}</p>
+                <p className="text-white/70">{item.forecastType} · {item.periodStart} 至 {item.periodEnd}</p>
                 <p className="mt-1">{item.conclusion}</p>
               </div>
             ))}
@@ -83,7 +83,7 @@ export function FocusDossierPanel({ dossier: rawDossier }: { dossier: FocusDossi
           <ul className="mt-3 space-y-2 text-caption text-white/55">
             {dossier.dailyAuditRows.map((row) => (
               <li key={`${row.forecastDate}-${row.version}-${row.publishedAt ?? "unpublished"}`} className="rounded-lg border border-white/[0.06] p-3">
-                <p className="text-white/75">{row.forecastDate} · V{row.version} · {row.direction} · {row.validationStatus ?? "待验证"}</p>
+                <p className="text-white/75">{row.forecastDate} · {row.direction} · {row.validationStatus ?? "待验证"}</p>
                 <p className="mt-1">{row.path}</p>
                 {row.revisionReason ? <p className="mt-1 text-cyan-100/50">更新：{row.revisionReason}</p> : null}
               </li>

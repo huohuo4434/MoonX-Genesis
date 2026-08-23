@@ -1,4 +1,5 @@
 import { SILVER_AUGUST_MONTHLY_OUTLOOK } from "@/lib/data/silver-research-20260802";
+import { MONTHLY_MARKET_OUTLOOKS_202609 } from "@/lib/data/monthly-market-outlook-202609";
 import type { FormalDirection } from "@/lib/forecasts/formal-direction";
 
 export type MonthlyMarketOutlook = {
@@ -104,4 +105,23 @@ export const MONTHLY_MARKET_OUTLOOKS_202608: MonthlyMarketOutlook[] = [
 
 export function listCurrentMonthlyMarketOutlooks(): MonthlyMarketOutlook[] {
   return MONTHLY_MARKET_OUTLOOKS_202608;
+}
+
+export type MonthlyMarketCycle = {
+  id: "2026-08" | "2026-09";
+  labelZh: string;
+  labelEn: string;
+  items: MonthlyMarketOutlook[];
+  isUpcoming: boolean;
+};
+
+export function listMonthlyMarketCycles(): MonthlyMarketCycle[] {
+  return [
+    { id: "2026-08", labelZh: "2026年8月", labelEn: "August 2026", items: MONTHLY_MARKET_OUTLOOKS_202608, isUpcoming: false },
+    { id: "2026-09", labelZh: "2026年9月", labelEn: "September 2026", items: MONTHLY_MARKET_OUTLOOKS_202609, isUpcoming: true },
+  ];
+}
+
+export function listMonthlyMarketOutlooks(periodId: MonthlyMarketCycle["id"]): MonthlyMarketOutlook[] {
+  return listMonthlyMarketCycles().find((cycle) => cycle.id === periodId)?.items ?? [];
 }

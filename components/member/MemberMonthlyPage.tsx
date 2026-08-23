@@ -1,8 +1,9 @@
 "use client";
 
-import { Badge, Card, Heading, Text } from "@/components/ui";
+import { useState } from "react";
+import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
-import { listCurrentMonthlyMarketOutlooks } from "@/lib/data/monthly-market-outlook";
+import { listMonthlyMarketCycles, type MonthlyMarketCycle } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 
@@ -17,7 +18,11 @@ function bars(values: { up: number; flat: number; down: number }, en: boolean) {
 export function MemberMonthlyPage() {
   const { locale } = useLocale();
   const en = locale === "en";
-  const items = listCurrentMonthlyMarketOutlooks();
+  const cycles = listMonthlyMarketCycles();
+  const [cycleId, setCycleId] = useState<MonthlyMarketCycle["id"]>("2026-09");
+  const cycle = cycles.find((item) => item.id === cycleId) ?? cycles[0]!;
+  const items = cycle.items;
+  const completeCount = items.filter((item) => item.sourceComplete).length;
   return (
     <div className="space-y-7">
       <div>
@@ -29,11 +34,27 @@ export function MemberMonthlyPage() {
             : "先看月度主方向，再看月内路径、关键周与失效条件。"}
         </Text>
       </div>
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label={en ? "Monthly forecast cycle" : "月度预测周期"}>
+        {cycles.map((item) => (
+          <Button
+            key={item.id}
+            type="button"
+            size="sm"
+            variant={item.id === cycle.id ? "primary" : "outline"}
+            role="tab"
+            aria-selected={item.id === cycle.id}
+            onClick={() => setCycleId(item.id)}
+          >
+            {en ? item.labelEn : item.labelZh}{item.isUpcoming ? (en ? " · Focus" : " · 重点") : ""}
+          </Button>
+        ))}
+      </div>
       <Card padding="md" className="border-primary/20 bg-primary/[0.025]">
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <span>{en ? "Current cycle: August 2026" : "当前周期：2026年8月"}</span>
-          <span>{en ? `Complete coverage: ${items.length} assets` : `完整覆盖：${items.length}项`}</span>
-          <span>{en ? `Data coverage: ${items.length}/${items.length}` : `数据覆盖：${items.length}/${items.length}`}</span>
+          <span>{en ? `Selected cycle: ${cycle.labelEn}` : `所选周期：${cycle.labelZh}`}</span>
+          <span>{en ? `Published: ${items.length} assets` : `已发布：${items.length}项`}</span>
+          <span>{en ? `Standalone monthly evidence: ${completeCount}/${items.length}` : `独立月度证据：${completeCount}/${items.length}`}</span>
+          {cycle.isUpcoming ? <span className="text-amber-200/80">{en ? "Forward research; subject to pre-period teacher updates" : "事前预测；开盘前若有更高优先级老师新卦可修订"}</span> : null}
         </div>
       </Card>
       <div className="grid gap-4 xl:grid-cols-2">

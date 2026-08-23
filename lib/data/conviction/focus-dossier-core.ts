@@ -127,7 +127,15 @@ function latest<T extends ConvictionPeriodForecast>(forecasts: readonly T[]): T 
 }
 
 function backgroundHorizons(forecasts: readonly ConvictionPeriodForecast[], nowMs: number, asOfDate: string): FocusBackgroundHorizon[] {
-  return forecasts.filter((forecast) => !forecast.forecastType.startsWith("WEEK") && isFormal(forecast, nowMs))
+  const latestByPeriod = new Map<string, ConvictionPeriodForecast>();
+  for (const forecast of forecasts.filter((item) => !item.forecastType.startsWith("WEEK") && isFormal(item, nowMs))) {
+    const key = `${forecast.forecastType}:${forecast.periodStart}:${forecast.periodEnd}`;
+    const current = latestByPeriod.get(key);
+    if (!current || forecast.version > current.version || (forecast.version === current.version && forecast.publishedAt > current.publishedAt)) {
+      latestByPeriod.set(key, forecast);
+    }
+  }
+  return [...latestByPeriod.values()]
     .sort((left, right) => left.periodStart.localeCompare(right.periodStart) || left.forecastType.localeCompare(right.forecastType) || right.version - left.version)
     .map((forecast) => {
       const sourceDays = new Map((forecast.dailyPath ?? []).map((day) => [day.date, day]));

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/data/conviction/asteroid-forecasts";
 
 const PUBLISHED_AT = "2026-08-01T10:18:00+08:00";
+const SEPTEMBER_REVISION_AT = "2026-08-23T16:20:00+08:00";
 
 export const BTC_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
@@ -333,6 +334,65 @@ export const BTC_PERIOD_FORECASTS_20260801: ConvictionPeriodForecast[] = [
     sourceType: "ICHING_RESEARCH",
     publishedAt: PUBLISHED_AT,
     lockedAt: PUBLISHED_AT,
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "BTC-M3-20260823-V3",
+    assetId: "bitcoin",
+    forecastType: "MONTH_3",
+    periodStart: "2026-08-01",
+    periodEnd: "2026-10-31",
+    direction: "震荡",
+    upProbability: 42,
+    sidewaysProbability: 30,
+    downProbability: 28,
+    summary:
+      "老师年度卦与8月19日半月卦均把九月放在下半年主要高点/转折验证区；8月23日MOOX专问九月高点得山雷颐游魂、二四上爻动化雷泽归妹归魂，只作第二优先级同向验证。中期方向不改为九月整月单边上涨，而是前中段冲击高位、形成高点后转入分化回吐，十月再等新月卦确认修复。",
+    archiveSummary:
+      "三个月修订：9月前中段冲击下半年主要高点/转折区，随后高位分化回吐；旧版永久保留。",
+    expectedPath:
+      "8月底延续修复 → 9月前中段冲击下半年主要高点/转折区 → 9月中后段高波动分化与回吐 → 10月修复分支等待新月卦确认。",
+    supportLevels: [],
+    resistanceLevels: [],
+    riskLevel: "高",
+    catalysts: ["老师年度九月高点窗口", "老师半月卦延续上冲", "MOOX专问卦同向验证"],
+    risks: ["归妹归魂后的回归与回吐", "三动爻导致复杂路径", "高点窗口不能推导精确日期或价格"],
+    consensusStars: 4,
+    consensusLabel: "老师年度与半月卦同向，MOOX专问卦提供第二优先级验证；共振提高月份窗口信心，不改变短线风控。",
+    methodViews: [
+      {
+        id: "btc-teacher-annual-halfmonth-sep",
+        label: "六爻·老师年度/半月",
+        direction: "先涨后跌",
+        weight: 75,
+        summary: "九月进入下半年主要高点或重要转折验证区，前段仍允许延续上冲。",
+      },
+      {
+        id: "btc-moox-sep-high-20260823",
+        label: "六爻·MOOX九月专问",
+        direction: "先涨后跌",
+        weight: 20,
+        summary: "颐游魂三动化归妹归魂，支持推进至高位后秩序转弱与回归。",
+      },
+      {
+        id: "btc-structure-confirmation-m3",
+        label: "技术确认",
+        direction: "震荡",
+        weight: 5,
+        summary: "技术只确认高点形成、失效和风险，不产生六爻方向。",
+      },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "山雷颐（游魂）",
+      changingHexagram: "雷泽归妹（归魂）",
+      notes:
+        "8月23日专问卦二、四、上爻发动，妻财戌土持世且起卦日旬空。老师年度卦仍为第一权重；本卦只确认九月高点/转折窗口，不生成具体日点位。",
+    },
+    version: 3,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: SEPTEMBER_REVISION_AT,
+    lockedAt: SEPTEMBER_REVISION_AT,
     validationStatus: "UNVERIFIED",
   },
   {
