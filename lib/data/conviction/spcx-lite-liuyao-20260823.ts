@@ -306,7 +306,7 @@ export const SPCX_LITE_LIUYAO_REVISIONS_20260823: ConvictionPeriodForecast[] = [
   publish({
     id: "LITE-OCT-20260823-V2",
     assetId: "lite",
-    forecastType: "MONTH_1",
+    forecastType: "MONTH_3",
     periodStart: "2026-10-01",
     periodEnd: "2026-10-31",
     direction: "先涨后跌",

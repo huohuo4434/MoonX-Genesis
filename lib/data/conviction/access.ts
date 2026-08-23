@@ -238,7 +238,7 @@ type StaticPeriodAssetId = StaticFocusAssetId;
 
 
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
-const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "YEAR_1"];
+const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1"];
 const SPCX_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_5"];
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
@@ -316,7 +316,8 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
       WEEK_3: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
       WEEK_4: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
       MONTH_1: { zh: "酉月 9/7–10/7", en: "You month · Sep 7–Oct 7", emptyZh: "酉月研究尚未发布" },
-      YEAR_1: { zh: "2027", en: "2027", emptyZh: "2027研究尚未发布" },
+      MONTH_3: { zh: "10月", en: "October", emptyZh: "10月研究尚未发布" },
+      YEAR_1: { zh: "2027年", en: "2027", emptyZh: "2027年研究尚未发布" },
     };
     if (liteLabels[type]) return liteLabels[type]!;
   }

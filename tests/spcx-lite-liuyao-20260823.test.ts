@@ -45,7 +45,15 @@ test("LITE keeps the long-term comparison while publishing short-term divergence
   assert.equal(pullback?.direction, "震荡下跌");
   assert.match(pullback?.consensusLabel ?? "", /暂时相反/);
   assert.equal(october?.direction, "先涨后跌");
+  assert.equal(october?.forecastType, "MONTH_3", "October needs its own member tab instead of colliding with the You-month record");
   assert.match(october?.consensusLabel ?? "", /中途回撤而非长期反转/);
+});
+
+test("LITE member period navigation exposes October and labels 2027 unambiguously", () => {
+  const source = readFileSync("lib/data/conviction/access.ts", "utf8");
+  assert.match(source, /LITE_REVISED_PERIOD_ORDER[^\n]+"MONTH_1", "MONTH_3", "YEAR_1"/);
+  assert.match(source, /MONTH_3: \{ zh: "10月"/);
+  assert.match(source, /YEAR_1: \{ zh: "2027年"/);
 });
 
 test("LITE 2027 remains a low-consensus new sample without fabricated teacher or Qimen evidence", () => {
