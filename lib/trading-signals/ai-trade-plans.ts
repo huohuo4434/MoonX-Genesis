@@ -1071,6 +1071,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
     version: Number(row.version),
     status: row.status,
     forecastVersion: row.forecast_version,
+    forecastHorizon: row.forecast_horizon,
     forecastPublishedAt: iso(row.forecast_published_at),
     forecastLockedAt: iso(row.forecast_locked_at),
     clientOid: row.client_oid,

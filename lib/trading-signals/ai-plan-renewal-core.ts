@@ -33,6 +33,7 @@ export type ForecastBoundStoredPlan = {
   version: number;
   status: ForecastBoundPlanStatus;
   forecastVersion: string | null;
+  forecastHorizon?: LockedForecastBinding["horizon"] | null;
   forecastPublishedAt: string | null;
   forecastLockedAt: string | null;
   clientOid: string | null;
@@ -166,6 +167,17 @@ function canSupersedeWithoutTouchingExecution(plan: ForecastBoundStoredPlan): bo
   return !orderAlreadyBound(plan) && ["PUBLISHED", "WATCHING", "ARMED", "EXECUTION_ERROR"].includes(plan.status);
 }
 
+function isSafeIntradayAuthorityUpgrade(input: {
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  latest: ForecastBoundStoredPlan;
+  incoming: LockedForecastBinding;
+}): boolean {
+  return input.strategyType === "INTRADAY" &&
+    input.latest.forecastHorizon === "DAY" &&
+    input.incoming.horizon === "WEEK" &&
+    canSupersedeWithoutTouchingExecution(input.latest);
+}
+
 export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStoredPlan>(input: {
   binding: LockedForecastBinding | null;
   now: Date;
@@ -242,7 +254,12 @@ export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStor
     const incomingPublishedAt = timestamp(binding.publishedAt);
     const latestChronology = latestLockedAt ?? latestPublishedAt;
     const incomingChronology = incomingLockedAt ?? incomingPublishedAt;
-    if (latestChronology != null && incomingChronology != null && incomingChronology < latestChronology) {
+    const authorityUpgrade = isSafeIntradayAuthorityUpgrade({
+      strategyType: input.strategyType,
+      latest,
+      incoming: binding,
+    });
+    if (latestChronology != null && incomingChronology != null && incomingChronology < latestChronology && !authorityUpgrade) {
       return {
         plan: latest,
         action: "FAIL_CLOSED",

@@ -63,6 +63,7 @@ function repository(seed: MemoryPlan[] = []) {
           version: input.version,
           status: input.readiness === "TRIGGERABLE" ? "ARMED" : "WATCHING",
           forecastVersion: input.binding.forecastVersion,
+          forecastHorizon: input.binding.horizon,
           forecastPublishedAt: input.binding.publishedAt,
           forecastLockedAt: input.binding.lockedAt,
           clientOid: null,
@@ -77,6 +78,7 @@ function repository(seed: MemoryPlan[] = []) {
       },
       refresh: async (input: { plan: MemoryPlan; binding: LockedForecastBinding; readiness: ForecastPlanReadiness }) => {
         input.plan.binding = input.binding;
+        input.plan.forecastHorizon = input.binding.horizon;
         input.plan.forecastPublishedAt = input.binding.publishedAt;
         input.plan.forecastLockedAt = input.binding.lockedAt;
         input.plan.readiness = input.readiness;
@@ -350,6 +352,81 @@ test("intraday and swing bind weekly direction authority while position binds mo
   assert.equal(forecastHorizonForStrategy("INTRADAY"), "WEEK");
   assert.equal(forecastHorizonForStrategy("SWING"), "WEEK");
   assert.equal(forecastHorizonForStrategy("POSITION"), "MONTH");
+});
+
+test("unbound intraday DAY plan can migrate to older-published WEEK authority without weakening rollback protection", async () => {
+  const legacyDaily: MemoryPlan = {
+    id: "legacy-intraday-day",
+    planGroupId: "forecast:INTRADAY:BTCUSDT:DAY",
+    version: 3,
+    status: "WATCHING",
+    forecastVersion: "btc-day-newer-time",
+    forecastHorizon: "DAY",
+    forecastPublishedAt: "2026-08-09T03:00:00.000Z",
+    forecastLockedAt: "2026-08-09T03:01:00.000Z",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    binding: binding("btc-day-newer-time", {
+      horizon: "DAY",
+      publishedAt: "2026-08-09T03:00:00.000Z",
+      lockedAt: "2026-08-09T03:01:00.000Z",
+    }),
+    readiness: "WAITING",
+  };
+  const repo = repository([legacyDaily]);
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("btc-week-authority", {
+      horizon: "WEEK",
+      publishedAt: "2026-08-09T01:00:00.000Z",
+      lockedAt: "2026-08-09T01:01:00.000Z",
+    }),
+    now: active,
+    triggerable: false,
+    strategyType: "INTRADAY",
+    symbol: "BTCUSDT",
+    repository: repo.api,
+  });
+
+  assert.equal(result.action, "CREATED");
+  assert.equal(result.plan?.forecastHorizon, "WEEK");
+  assert.equal(result.plan?.version, 4);
+  assert.equal(result.plan?.planGroupId, legacyDaily.planGroupId);
+  assert.equal(legacyDaily.status, "SUPERSEDED");
+});
+
+test("intraday DAY to WEEK migration cannot replace an order-bound plan", async () => {
+  const orderedDaily: MemoryPlan = {
+    id: "ordered-intraday-day",
+    planGroupId: "forecast:INTRADAY:BTCUSDT:DAY",
+    version: 3,
+    status: "OPEN",
+    forecastVersion: "btc-day-order-bound",
+    forecastHorizon: "DAY",
+    forecastPublishedAt: "2026-08-09T03:00:00.000Z",
+    forecastLockedAt: "2026-08-09T03:01:00.000Z",
+    clientOid: "existing-client",
+    bitgetOrderId: "existing-order",
+    submittedAt: "2026-08-09T03:02:00.000Z",
+    firstFillAt: "2026-08-09T03:03:00.000Z",
+    binding: binding("btc-day-order-bound", { horizon: "DAY" }),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([orderedDaily]);
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("btc-week-authority", { horizon: "WEEK" }),
+    now: active,
+    triggerable: true,
+    strategyType: "INTRADAY",
+    symbol: "BTCUSDT",
+    repository: repo.api,
+  });
+
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "STALE_FORECAST_VERSION");
+  assert.equal(repo.plans.length, 1);
+  assert.equal(orderedDaily.status, "OPEN");
 });
 
 test("new plan group identity is isolated by strategy and symbol for all three horizons", () => {
