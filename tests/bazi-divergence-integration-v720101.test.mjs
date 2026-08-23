@@ -6,13 +6,17 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const read = (p) => readFileSync(resolve(root, p), "utf8");
 
-test("intraday live engine wires asset-Bazi only as confirmed small countertrend probe", () => {
+test("intraday live engine records asset-Bazi conflict but never reverses the official side", () => {
   const source = read("lib/trading-signals/three-horizon-strategy.ts");
+  const authority = read("lib/trading-signals/intraday-direction-authority-core.ts");
   assert.match(source, /getMarketBaziRegimePrior/);
-  assert.match(source, /BAZI_REGIME_COUNTERTREND_PROBE/);
+  assert.match(authority, /AUXILIARY_DIRECTION_CONFLICT/);
+  assert.match(source, /applyAuxiliaryDirectionConflictGuard\(baseResult, baziCountertrend\)/);
+  assert.doesNotMatch(source, /BAZI_REGIME_COUNTERTREND_PROBE/);
   assert.match(source, /h4Signal\.direction === marketBaziRegime\.direction/);
   assert.match(source, /m30Signal\.direction === marketBaziRegime\.direction/);
-  assert.match(source, /正式奇门方向不因此改写/);
+  assert.match(authority, /辅助先验只能降级或阻止入场，不能反向覆盖正式方向/);
+  assert.match(authority, /ready: false[\s\S]*executionTier: "OBSERVE"[\s\S]*riskScale: 0/);
 });
 
 test("BTC ETH forecast disagreement reduces risk but is not a trade veto", () => {

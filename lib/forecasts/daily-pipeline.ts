@@ -26,7 +26,7 @@ import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
 import { findTeacherPriorityLiuyaoSource } from "@/lib/data/teacher-priority-liuyao-20260821";
 import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
 import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
-import { applyApprovedXOverlayToGeneratedDaily, getApprovedXForecastOverlay } from "@/lib/trading-signals/x-opinion-matrix"; // MOOX_X_APPROVED_V72051
+import { applyApprovedXOverlayToGeneratedDaily } from "@/lib/trading-signals/x-opinion-overlay-core";
 
 export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
@@ -510,6 +510,7 @@ export async function runDailyForecastPipeline(input?: {
           liuyaoDirection: record.direction,
           previousQimenEvidence: latest?.qimenEvidence ?? null,
         }); // MOOX_WEEKLY_LIUYAO_AUTHORITY_QIMEN_PARALLEL_V720130
+        const { getApprovedXForecastOverlay } = await import("@/lib/trading-signals/x-opinion-matrix");
         const approvedXOverlay = await getApprovedXForecastOverlay(market, now, record.forecastDate).catch(() => null);
         record = applyApprovedXOverlayToGeneratedDaily(record, approvedXOverlay); // MOOX_X_APPROVED_V72051_POST_QIMEN
         // Every core market, including ETH, must receive its own current technical levels.

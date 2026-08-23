@@ -58,6 +58,7 @@ export const TOMORROW_WAVE_ALLOWED_SYMBOLS = new Set([
   "BTC",
   "BTCUSDT",
   "GOLD",
+  "GLD",
   "GC=F",
   "XAUUSD",
   "WTI",

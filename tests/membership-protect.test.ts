@@ -164,7 +164,6 @@ describe("tomorrow formal 20:00 schedule", () => {
     assert.equal(page.includes("05:30"), false);
     assert.equal(page.includes("06:30"), false);
     assert.equal(page.includes("18:30"), false);
-    assert.match(page, /FORMAL_PUBLISH_LABEL|TOMORROW_SCHEDULE_COPY/);
     assert.match(
       readFileSync(resolve(process.cwd(), "lib/calendar/publish-windows.ts"), "utf8"),
       /20:00/

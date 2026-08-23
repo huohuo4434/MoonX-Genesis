@@ -28,6 +28,11 @@ import {
   type NewExposureAction,
 } from "@/lib/trading-signals/weekly-long-entry-timing-core";
 import { resolveFormalExternalOverlayDirection } from "@/lib/trading-signals/external-analyst-aggregation-core";
+import {
+  applyAuxiliaryDirectionConflictGuard,
+  isActivityPromotionEligible,
+  resolveIntradayExecutionDirection,
+} from "@/lib/trading-signals/intraday-direction-authority-core";
 import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
 import { protectExecutionLifecycleStatus } from "@/lib/trading-signals/decision-status-transition-core";
 import { prisma } from "@/lib/prisma";
@@ -808,10 +813,7 @@ function evaluateIntraday(
     Math.abs(h4Signal.score) >= 12 &&
     Math.abs(m30Signal.score) >= 12
   );
-  const strongCountertrend = focusCountertrend || baziCountertrend;
-  const baziCountertrendConfluence = baziCountertrend && marketBaziRegime
-    ? Math.round(clamp((marketBaziRegime.confidence + Math.abs(h4Signal.score) + Math.abs(m30Signal.score)) / 3, 0, 85))
-    : 0;
+  const strongCountertrend = focusCountertrend;
   const activeDirection = resolveActiveDirection({
     primary: h4Signal,
     secondary: m30Signal,
@@ -829,11 +831,11 @@ function evaluateIntraday(
     focusDirection: focusMainDirection,
   });
   const mooxDirection = officialDirection.direction;
-  const direction = focusCountertrend
-    ? focusTacticalDirection
-    : baziCountertrend && marketBaziRegime
-      ? marketBaziRegime.direction
-      : mooxDirection;
+  const direction = resolveIntradayExecutionDirection({
+    officialDirection: mooxDirection,
+    focusCountertrend,
+    focusTacticalDirection,
+  });
 
   const latest30 = last(m30);
   const previous30 = m30[m30.length - 2];
@@ -851,13 +853,7 @@ function evaluateIntraday(
         label: `周内反向段已预先标记，4H/30m同向共振${executionFocus.countertrendConfluence}%；仅允许小风险探路仓`,
         compatible: true,
       }
-    : baziCountertrend && marketBaziRegime
-      ? {
-          score: baziCountertrendConfluence,
-          label: `资产八字月度先验与正式方向冲突，但4H/30m已同向确认；仅允许${Math.round(marketBaziRegime.countertrendRiskScale * 100)}%风险探路仓`,
-          compatible: true,
-        }
-      : forecastCompatibility(direction, plan, profile.strategyType);
+    : forecastCompatibility(direction, plan, profile.strategyType);
 
   const chan30Aligned = direction === "LONG"
     ? chan30.buyPoint !== "NONE" || chan30.strokes.at(-1)?.direction === "UP"
@@ -969,13 +965,12 @@ function evaluateIntraday(
   ];
   const strength = focusCountertrend && executionFocus
     ? executionFocus.countertrendConfluence * directionValue(direction)
-    : baziCountertrend && marketBaziRegime
-      ? Math.max(45, baziCountertrendConfluence) * directionValue(direction)
-      : officialDirection.strength;
-  const result = finalizeEvaluation(profile, direction, conditions, forecast.score, m30, atr30, plan, livePrice, {
+    : officialDirection.strength;
+  const baseResult = finalizeEvaluation(profile, direction, conditions, forecast.score, m30, atr30, plan, livePrice, {
     directionStrength: strength,
-    prior: strongCountertrend ? null : prior,
+    prior: focusCountertrend ? null : prior,
   });
+  const result = applyAuxiliaryDirectionConflictGuard(baseResult, baziCountertrend);
   const withChan = {
     ...result,
     raw: {
@@ -1000,13 +995,9 @@ function evaluateIntraday(
     },
   };
   if (!strongCountertrend) return withChan;
-  const countertrendSource = focusCountertrend ? "WEEKLY_TACTICAL" : "MARKET_BAZI_REGIME";
-  const countertrendRiskScale = focusCountertrend && executionFocus
-    ? executionFocus.countertrendRiskScale
-    : marketBaziRegime?.countertrendRiskScale ?? 0.3;
-  const countertrendConfluence = focusCountertrend && executionFocus
-    ? executionFocus.countertrendConfluence
-    : baziCountertrendConfluence;
+  const countertrendSource = "WEEKLY_TACTICAL";
+  const countertrendRiskScale = executionFocus?.countertrendRiskScale ?? PROBE_RISK_SCALE;
+  const countertrendConfluence = executionFocus?.countertrendConfluence ?? 0;
   if (!withChan.ready) return {
     ...withChan,
     raw: {
@@ -1024,10 +1015,8 @@ function evaluateIntraday(
     ...withChan,
     executionTier: "PROBE",
     riskScale: Math.min(withChan.riskScale || PROBE_RISK_SCALE, countertrendRiskScale),
-    rejectionCode: focusCountertrend ? "FOCUS_COUNTERTREND_PROBE" : "BAZI_REGIME_COUNTERTREND_PROBE",
-    rejectionReason: focusCountertrend
-      ? `周内反向段与4H/30m形成强共振，只执行小仓探路；风险缩放至${Math.round(countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`
-      : `资产八字月度先验与正式方向冲突，但4H/30m及5m执行条件形成反向共振；只执行小仓探路，风险缩放至${Math.round(countertrendRiskScale * 100)}%。正式奇门方向不因此改写。`,
+    rejectionCode: "FOCUS_COUNTERTREND_PROBE",
+    rejectionReason: `周内反向段与4H/30m形成强共振，只执行小仓探路；风险缩放至${Math.round(countertrendRiskScale * 100)}%，主趋势条件出现后立即停止反向。`,
     raw: {
       ...withChan.raw,
       countertrendSource,
@@ -4084,6 +4073,7 @@ export async function runThreeHorizonStrategyEngine(
     );
     const candidates = decisions
       .filter((decision) =>
+        isActivityPromotionEligible(decision) &&
         decision.strategyType === "INTRADAY" &&
         decision.mode === "LIVE" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
@@ -4095,8 +4085,7 @@ export async function runThreeHorizonStrategyEngine(
         decisionRewardRisk(decision) >= 1.05 &&
         !reservedSymbols.has(decision.symbol) &&
         !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
-        !protections.some((row) => row.symbol === decision.symbol) &&
-        !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"].includes(decision.rejectionCode)
+        !protections.some((row) => row.symbol === decision.symbol)
       )
       .sort((a, b) => dailyMinimumCandidateScore(b, now) - dailyMinimumCandidateScore(a, now));
 
@@ -4225,6 +4214,7 @@ export async function runThreeHorizonStrategyEngine(
     );
     const candidates = decisions
       .filter((decision) =>
+        isActivityPromotionEligible(decision) &&
         decision.strategyType === "INTRADAY" &&
         decision.mode === "DEMO" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
@@ -4236,8 +4226,7 @@ export async function runThreeHorizonStrategyEngine(
         decisionRewardRisk(decision) >= 1.05 &&
         !reservedSymbols.has(decision.symbol) &&
         !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
-        !protections.some((row) => row.symbol === decision.symbol) &&
-        !["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"].includes(decision.rejectionCode)
+        !protections.some((row) => row.symbol === decision.symbol)
       )
       .sort((a, b) => dailyMinimumCandidateScore(b, now) - dailyMinimumCandidateScore(a, now));
 

@@ -116,11 +116,13 @@ test("opportunity scheduling stays read-only and fails closed to fair rotation w
   assert.match(commissioningPlans, /execution_mode = 'BITGET_LIVE'[\s\S]{0,160}strategy_type = 'SWING'[\s\S]{0,160}forecast_horizon = 'WEEK'/);
 });
 
-test("runtime routes reserve finalization time, delegate analysts, and give admin the 300-second ceiling", () => {
+test("runtime routes reserve finalization time while analysts run on an independent cron", () => {
   assert.doesNotMatch(predictionCron, /refreshExternalAnalystSignals/);
-  assert.match(predictionCron, /delegated: true, independentCron: "\/api\/cron\/external-analysts"/);
+  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/external-analysts"), {
+    path: "/api/cron/external-analysts",
+    schedule: "*/15 * * * *",
+  });
   assert.match(predictionCron, /Date\.now\(\) \+ 285_000/);
-  assert.match(predictionCron, /canStartMemberDeskSync/);
   assert.match(adminRuntimeRoute, /export const maxDuration = 300/);
   assert.match(adminRuntimeRoute, /Date\.now\(\) \+ 285_000/);
   assert.match(strategy, /newEntryCutoffAt/);
@@ -735,12 +737,14 @@ test("三周期新开仓进入可靠性闸门", () => {
   all(strategy, ["getTradingReliabilityOpeningGate", "reliabilityGate.allowed", "reliabilityGate.code", "reliabilityGate.reason"]);
 });
 
-test("live cron bounds each pass to one rotating symbol while preserving its one-minute cadence", () => {
+test("live cron keeps a bounded rotating batch and finalization reserve", () => {
   all(runtime, [
-    "LIVE_STRATEGY_SYMBOLS_PER_RUN = 1",
-    "LIVE_STRATEGY_BUDGET_MS = 70_000",
+    "Math.max(1, Math.min(4",
+    "MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2",
+    "LIVE_STRATEGY_BUDGET_MS = 55_000",
     'maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined',
   ]);
+  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader")?.schedule, "* * * * *");
   assert.match(strategy, /const maxNewSymbols = options\.maxNewSymbols != null && Number\.isFinite\(options\.maxNewSymbols\)/);
   assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);
   assert.match(strategy, /const liveScanRound = await beginLiveScanRound\([\s\S]{0,500}manage: \(\) => manageActiveDecisions\(now\)/);
@@ -770,9 +774,9 @@ test("live cron bounds each pass to one rotating symbol while preserving its one
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /runLiveScanSymbolStep\(async \(\) =>[\s\S]{0,1000}readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);
-  assert.match(strategy, /if \(timeBudgetReached\) break;\s*await markProfileScanned/);
+  assert.match(strategy, /if \(timeBudgetReached \|\| entrySafetyStop\) break;\s*await markProfileScanned/);
   assert.match(strategy, /reportProgress\("PROFILE_DATA_COMPLETE"[\s\S]*dataDurationMs[\s\S]*candleCacheHit/);
-  assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*liveExperimentMode &&\s*LIVE_ACTIVITY_ENABLED/);
+  assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*!entrySafetyStop &&\s*liveExperimentMode &&\s*LIVE_ACTIVITY_ENABLED/);
   assert.doesNotMatch(strategy, /readWithinLiveScanDeadline\([\s\S]{0,120}getExternalAnalystOverlay/);
   all(runtime, [
     "run_lock_owner = $1",

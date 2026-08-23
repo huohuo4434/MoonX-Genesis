@@ -44,6 +44,6 @@ test("social card image route and admin page exist", () => {
     )
   );
   assert.ok(
-    readFileSync(resolve(process.cwd(), "app/admin/social/page.tsx"), "utf8").includes("Social Content")
+    readFileSync(resolve(process.cwd(), "app/admin/social/page.tsx"), "utf8").includes("社交内容")
   );
 });

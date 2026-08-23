@@ -5,6 +5,7 @@ import { Badge, Card, Heading, Text } from "@/components/ui";
 import { AiTradeIntentBoard } from "@/components/trading/AiTradeIntentBoard";
 import { aiTradingAssetName } from "@/lib/trading-signals/ai-trading-focus";
 import { assetDisplaySymbol } from "@/lib/presentation/asset-catalog";
+import { formatBeijingDeskTime } from "@/lib/presentation/member-desk-time-core";
 import { memberDeskRefreshPresentation, startMemberDeskPolling } from "@/lib/member-ai-desk-polling-core";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import type { AiTradingDeskPosition, AiTradingDeskSnapshot, AiTradingDeskTrade } from "@/types/ai-trading-desk";
@@ -17,20 +18,6 @@ function number(value: number | null | undefined, digits = 2): string {
 function signed(value: number | null | undefined, suffix = ""): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${value > 0 ? "+" : ""}${number(value, 2)}${suffix}`;
-}
-
-function time(value: string | null, en: boolean): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(en ? "en-GB" : "zh-CN", {
-    timeZone: "Asia/Shanghai",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
 }
 
 async function readSnapshot(signal?: AbortSignal): Promise<AiTradingDeskSnapshot> {
@@ -122,12 +109,12 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="flex flex-wrap gap-x-5 gap-y-1">
             <span>{en ? "Display layer" : "展示层"}：MEMBER_FEED</span>
             <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
-            <span>{en ? "Snapshot" : "快照时间"}：{time(snapshot.lastSyncedAt ?? snapshot.generatedAt, en)}</span>
+            <span>{en ? "Snapshot (Beijing)" : "快照时间（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt ?? snapshot.generatedAt)}</span>
             <span>{en ? "Initial equity" : "初始资金"}：{number(snapshot.experiment.initialEquityUsdt)} USDT</span>
             <span>{en ? "Quote age" : "行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">
-            <span>{en ? "Latest market" : "最新行情"}：{time(snapshot.latestQuoteAt, en)}</span>
+            <span>{en ? "Latest market" : "最新行情"}：{formatBeijingDeskTime(snapshot.latestQuoteAt)}</span>
             <span className={refreshPresentation.stale ? "text-red-300" : ""}>
               {en ? "Server" : "服务器"}：{refreshPresentation.serverLabel
                 ? refreshPresentation.serverLabel
@@ -182,7 +169,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
             <table className="min-w-[650px] w-full text-left text-sm">
               <thead className="border-b border-white/[0.08] text-white/45"><tr><th className="px-3 py-3">{en ? "Time" : "时间"}</th><th className="px-3 py-3">{en ? "Asset" : "品种"}</th><th className="px-3 py-3">{en ? "Side" : "方向"}</th><th className="px-3 py-3">{en ? "Result" : "结果"}</th></tr></thead>
-              <tbody>{snapshot.recentTrades.map((trade: AiTradingDeskTrade) => <tr key={trade.id} className="border-b border-white/[0.05] last:border-0"><td className="px-3 py-3 text-white/55">{time(trade.closedAt, en)}</td><td className="px-3 py-3">{aiTradingAssetName(trade.symbol, en)}</td><td className="px-3 py-3">{trade.direction === "LONG" ? (en ? "Long" : "多") : (en ? "Short" : "空")}</td><td className={`px-3 py-3 ${(trade.netProfitUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(trade.netProfitUsdt, " U")}</td></tr>)}</tbody>
+              <tbody>{snapshot.recentTrades.map((trade: AiTradingDeskTrade) => <tr key={trade.id} className="border-b border-white/[0.05] last:border-0"><td className="px-3 py-3 text-white/55">{formatBeijingDeskTime(trade.closedAt)}</td><td className="px-3 py-3">{aiTradingAssetName(trade.symbol, en)}</td><td className="px-3 py-3">{trade.direction === "LONG" ? (en ? "Long" : "多") : (en ? "Short" : "空")}</td><td className={`px-3 py-3 ${(trade.netProfitUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(trade.netProfitUsdt, " U")}</td></tr>)}</tbody>
             </table>
           </div>
         </div>
@@ -192,7 +179,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         <summary className="cursor-pointer font-medium text-white/75">{en ? "System & risk details" : "系统与风控详情"}</summary>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-sm text-white/60">
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Market" : "行情"}：{snapshot.quoteReady ? (en ? "ready" : "正常") : (en ? "delayed" : "延迟")}</div>
-          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Heartbeat" : "心跳"}：{time(snapshot.runtime.lastHeartbeatAt, en)}</div>
+          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Heartbeat" : "心跳"}：{formatBeijingDeskTime(snapshot.runtime.lastHeartbeatAt)}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Execution" : "执行"}：{snapshot.executionAllowed ? (en ? "allowed" : "已授权") : (en ? "blocked" : "未授权")}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Universe" : "候选池"}：{en ? "dynamic Top 10 from allow-list" : "允许池动态Top10"}</div>
         </div>

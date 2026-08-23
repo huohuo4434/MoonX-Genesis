@@ -8,10 +8,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 describe("methodology public surface", () => {
-  test("top nav prioritizes daily forecasts and keeps methodology in footer", () => {
+  test("top nav prioritizes the current decision path and keeps methodology out of the primary row", () => {
     const keys = PUBLIC_PRIMARY_NAV.map((n) => n.key);
-    assert.equal(keys[0], "nav.dailyForecasts");
-    assert.ok(keys.includes("nav.research"));
+    assert.equal(keys[0], "nav.todayView");
+    assert.ok(keys.includes("nav.weeklyAnalysis"));
+    assert.ok(keys.includes("nav.aiTradingDesk"));
     assert.equal(NAV_ROUTES.methodology, "/methodology");
     assert.equal(PUBLIC_PRIMARY_NAV.some((item) => item.key === "nav.methodology"), false);
   });
@@ -84,7 +85,7 @@ describe("methodology public surface", () => {
   test("weight labels use priority language", () => {
     for (const m of DEFAULT_METHODOLOGY_MODULES.filter((x) => x.enabled && x.publicDisplay)) {
       assert.ok(m.weightRangeZh.length > 0);
-      assert.ok(/核心|高|中高|辅助/.test(m.weightRangeZh));
+      assert.ok(/核心|高|中高|辅助|点位工具|中长期旁证/.test(m.weightRangeZh));
     }
   });
 

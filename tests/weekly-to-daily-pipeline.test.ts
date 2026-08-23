@@ -244,7 +244,7 @@ describe("access + empty + methodology + asteroid + referral", () => {
     assert.equal(TOMORROW_SCHEDULE_COPY.waitingBody.includes("不会使用波浪"), false);
   });
 
-  test("29-31) methodology page is visual with four cores + flow", () => {
+  test("29-31) methodology page is visual with four roles + governed outputs", () => {
     const src = readFileSync(
       resolve("components/methodology/MethodologyPageClient.tsx"),
       "utf8"
@@ -253,8 +253,8 @@ describe("access + empty + methodology + asteroid + referral", () => {
     assert.match(src, /奇门遁甲/);
     assert.match(src, /技术分析/);
     assert.match(src, /消息面/);
-    assert.match(src, /周卦与六爻/);
-    assert.match(src, /FLOW_ZH/);
+    assert.match(src, /OUTPUTS_ZH/);
+    assert.match(src, /不单独要求日卦/);
   });
 
   test("32-34) Asteroid contract + 2618万美元", () => {

@@ -25,6 +25,7 @@ import {
 } from "@/lib/data/conviction/freshness";
 import type { AiTradingDeskSnapshot } from "@/types/ai-trading-desk";
 import type { DailyForecast } from "@/types/daily-forecast";
+import { formatBeijingDeskTime } from "@/lib/presentation/member-desk-time-core";
 
 function forecast(overrides: Partial<DailyForecast> = {}): DailyForecast {
   return {
@@ -207,6 +208,7 @@ test("hydration-sensitive client copy uses stable server dates and Beijing timez
   const conviction = fs.readFileSync(path.join(root, "components/conviction/ConvictionDetailClient.tsx"), "utf8");
   const desk = fs.readFileSync(path.join(root, "components/member/AiTradingDeskClient.tsx"), "utf8");
   assert.equal(conviction.includes("new Date().toISOString().slice(0, 10)"), false);
-  assert.match(desk, /getUTCFullYear/);
+  assert.match(desk, /formatBeijingDeskTime/);
   assert.match(desk, /北京时间/);
+  assert.equal(formatBeijingDeskTime("2026-08-23T16:07:00.000Z"), "08/24 00:07");
 });

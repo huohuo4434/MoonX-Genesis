@@ -5,7 +5,7 @@ import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-anal
 import { X_SOURCE_REGISTRY, xSourceFamilyForHandle, xSourceRegistryEntryForHandle } from "@/lib/trading-signals/x-source-registry.server";
 import { resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
 import type { ExternalAnalystParsedPost } from "@/types/external-analyst";
-import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
+import type { ApprovedXForecastOverlay } from "@/lib/trading-signals/x-opinion-overlay-core";
 
 import type { XOpinionApproval, XOpinionApprovalStatus, XOpinionAsset, XOpinionCell, XOpinionDirection, XOpinionMatrix } from "@/types/x-opinion-matrix";
 
@@ -252,19 +252,6 @@ const MARKET_TO_MATRIX: Record<string, string> = {
   SOL: "SOL", HYPE: "HYPE",
 };
 
-export type ApprovedXForecastOverlay = {
-  symbol: string;
-  direction: XOpinionDirection;
-  approvedCount: number;
-  totalWeightPct: number;
-  probabilityShiftPct: number;
-  summaries: string[];
-  displaySummaries: string[];
-  levels: number[];
-  timeWindows: string[];
-  displayAllowedCount: number;
-};
-
 export async function getApprovedXForecastOverlay(marketCode: string, now: Date, forecastDate: string): Promise<ApprovedXForecastOverlay | null> {
   const symbol = MARKET_TO_MATRIX[marketCode.toUpperCase()] ?? marketCode.toUpperCase();
   const db = prisma;
@@ -331,39 +318,5 @@ export async function getApprovedXForecastOverlay(marketCode: string, now: Date,
     levels: [...new Set(levels.filter(Number.isFinite))].sort((a, b) => a - b).slice(0, 8),
     timeWindows: [...new Set(timeWindows)].slice(0, 6),
     displayAllowedCount,
-  };
-}
-
-function normalizeProbabilities(up: number, flat: number, down: number) {
-  const a = Math.max(5, up);
-  const b = Math.max(5, flat);
-  const c = Math.max(5, down);
-  const total = a + b + c;
-  const nUp = Math.round(a / total * 100);
-  const nFlat = Math.round(b / total * 100);
-  return { up: nUp, flat: nFlat, down: 100 - nUp - nFlat };
-}
-
-export function applyApprovedXOverlayToGeneratedDaily(
-  record: GeneratedDailyForecastRecord,
-  overlay: ApprovedXForecastOverlay | null,
-): GeneratedDailyForecastRecord {
-  if (!overlay || overlay.approvedCount <= 0) return record;
-  const shift = overlay.probabilityShiftPct;
-  const probs = normalizeProbabilities(
-    record.upProbability + shift,
-    record.sidewaysProbability,
-    record.downProbability - shift,
-  );
-  const directionLabel = overlay.direction === "LONG" ? "偏多" : overlay.direction === "SHORT" ? "偏空" : "中性";
-  const evidence = `管理员批准X观点：${overlay.approvedCount}条，合并方向${directionLabel}，情景权重修订${shift >= 0 ? "+" : ""}${shift}个百分点；只调整概率与风险，不覆盖奇门正式方向。`;
-  const displayEvidence = overlay.displaySummaries.length ? `批准展示的外部观点：${overlay.displaySummaries.join("；")}` : "";
-  return {
-    ...record,
-    upProbability: probs.up,
-    sidewaysProbability: probs.flat,
-    downProbability: probs.down,
-    newsEvidence: [record.newsEvidence, evidence, displayEvidence].filter(Boolean).join("；"),
-    revisionReason: [record.revisionReason, evidence].filter(Boolean).join("；"),
   };
 }

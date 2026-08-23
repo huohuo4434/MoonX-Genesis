@@ -135,11 +135,14 @@ describe("conversion and privacy regression checks", () => {
 
   test("login persistence uses server-issued HttpOnly cookies rather than access tokens in localStorage", () => {
     const route = source("app/api/auth/login/route.ts");
-    const navbar = source("components/layout/NavbarShell.tsx");
+    const navbar = source("components/layout/NavbarSession.tsx");
+    const sessionLite = source("lib/client/session-lite.ts");
     assert.match(route, /httpOnly:\s*true/);
     assert.match(route, /sameSite:\s*"lax"/);
     assert.doesNotMatch(route, /localStorage|access_token|refresh_token/);
-    assert.match(navbar, /getAccessUser\(\)/);
+    assert.match(navbar, /loadSessionLite/);
+    assert.match(sessionLite, /credentials:\s*"include"/);
+    assert.doesNotMatch(sessionLite, /access_token|refresh_token/i);
   });
 
   test("new untrusted devices require account-password confirmation", () => {
@@ -172,7 +175,7 @@ describe("conversion and privacy regression checks", () => {
   });
 
   test("missing levels show an honest pending state", () => {
-    assert.match(source("components/forecasts/PriceLevelsBlock.tsx"), /关键价位待技术确认/);
+    assert.match(source("components/forecasts/PriceLevelsBlock.tsx"), /技术点位待补充/);
   });
 
   test("monthly and trading features render public previews before paid access", () => {

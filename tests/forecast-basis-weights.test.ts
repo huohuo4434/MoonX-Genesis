@@ -17,10 +17,12 @@ test("wave proximity steps 5 → 8 → 12 → 15 → 20", () => {
   assert.equal(waveBasisPercentFromProximity(0.4), 20);
 });
 
-test("default basis wave starts at 5 and sums to 100", () => {
+test("current six-layer basis sums to 100 and keeps Liuyao/Qimen roles separate", () => {
   const w = buildForecastBasisWeights(5);
-  assert.equal(w.wave, DEFAULT_BASIS_WEIGHTS.wave);
-  assert.equal(w.ai + w.liuyao + w.technical + w.wave + w.macro, 100);
+  assert.deepEqual(w, DEFAULT_BASIS_WEIGHTS);
+  assert.equal(w.technical + w.liuyao + w.cycle + w.qimen + w.macro + w.bazi, 100);
+  assert.equal(w.liuyao, 30);
+  assert.equal(w.qimen, 10);
 });
 
 test("SK Hynix / SanDisk symbols are not wave-linked on tomorrow page", () => {

@@ -31,4 +31,9 @@ assert.doesNotMatch(verification, /localeCompare/);
 assert.match(verification, /useEffect\(\(\) => setInteractiveReady\(true\), \[\]\)/);
 assert.match(verification, /if \(!interactiveReady\)/);
 
+const verificationPage = read("app/verification/page.tsx");
+assert.match(verificationPage, /<Suspense fallback=\{<VerificationDashboardFallback en=\{en\} \/>\}>/);
+assert.match(verificationPage, /<Suspense fallback=\{<PipelineFallback \/>\}>/);
+assert.ok(verificationPage.indexOf("getCachedPublicVerificationSnapshot()") < verificationPage.indexOf("getVerificationPipelineStatus()"));
+
 console.log("MOOX promotion readiness P0 static regression passed");

@@ -8,6 +8,11 @@ import {
   evaluateNewExposureSafety,
   evaluateWeeklyLongEntryTiming,
 } from "../lib/trading-signals/weekly-long-entry-timing-core";
+import {
+  applyAuxiliaryDirectionConflictGuard,
+  isActivityPromotionEligible,
+  resolveIntradayExecutionDirection,
+} from "../lib/trading-signals/intraday-direction-authority-core";
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
@@ -70,7 +75,7 @@ test("live plan maintenance reports bounded phase timings without changing seria
 
 test("three independent strategy profiles use different horizons and holding periods", () => {
   const source = engine();
-  assert.match(source, /INTRADAY:[\s\S]*environmentTimeframe: "1H"[\s\S]*directionTimeframe: "15m"[\s\S]*entryTimeframe: "5m"/);
+  assert.match(source, /INTRADAY:[\s\S]*environmentTimeframe: "4H"[\s\S]*directionTimeframe: "30m"[\s\S]*entryTimeframe: "5m"/);
   assert.match(source, /SWING:[\s\S]*environmentTimeframe: "1D\/1W"[\s\S]*directionTimeframe: "4H"[\s\S]*entryTimeframe: "1H"/);
   assert.match(source, /POSITION:[\s\S]*environmentTimeframe: "1M\/1W"[\s\S]*directionTimeframe: "1D"[\s\S]*entryTimeframe: "4H"/);
   assert.match(source, /maxHoldingMinutes: 8 \* 60/);
@@ -120,11 +125,83 @@ test("weekly forecast owns direction while technical structure only controls ent
   assert.match(source, /rejectionCode = "ENTRY_STRUCTURE_INVALID"/);
   assert.match(source, /仅取消本次入场并等待新位置，不自动反手/);
   assert.doesNotMatch(source, /strategyType === "INTRADAY"\) return plan\.dailyDirection/);
-  assert.match(source, /const strongCountertrend = Boolean\([\s\S]{0,120}forecastDirection\(plan\) === "NEUTRAL" &&/);
+  assert.match(source, /const focusCountertrend = Boolean\([\s\S]{0,180}forecastDirection\(plan\) === "NEUTRAL" &&/);
+  assert.match(source, /const strongCountertrend = focusCountertrend/);
+  assert.doesNotMatch(source, /strongCountertrend\s*=\s*focusCountertrend\s*\|\|\s*baziCountertrend/);
+  assert.match(source, /applyAuxiliaryDirectionConflictGuard\(baseResult, baziCountertrend\)/);
   assert.match(autoTrader, /resolveWeeklyAuthoritySetup/);
   assert.doesNotMatch(autoTrader, /if \(!weekly \|\| !daily\)/);
   assert.doesNotMatch(autoTrader, /daily\.confidence < settings\.minForecastConfidence/);
   assert.equal(/supportsLong|supportsShort/.test(autoTrader), false);
+});
+
+test("auxiliary Bazi and technical conflict cannot reverse an official side", () => {
+  assert.equal(resolveIntradayExecutionDirection({
+    officialDirection: "LONG",
+    focusCountertrend: false,
+    focusTacticalDirection: "SHORT",
+  }), "LONG");
+  assert.equal(resolveIntradayExecutionDirection({
+    officialDirection: "SHORT",
+    focusCountertrend: false,
+    focusTacticalDirection: "LONG",
+  }), "SHORT");
+  assert.equal(resolveIntradayExecutionDirection({
+    officialDirection: "NEUTRAL",
+    focusCountertrend: true,
+    focusTacticalDirection: "SHORT",
+  }), "SHORT");
+  const guarded = applyAuxiliaryDirectionConflictGuard({
+    direction: "LONG" as const,
+    ready: true,
+    executionTier: "FULL" as const,
+    riskScale: 1,
+    rejectionCode: "",
+    rejectionReason: "ready",
+    raw: {
+      executionTier: "FULL",
+      riskScale: 1,
+    },
+  }, true);
+  assert.deepEqual(guarded, {
+    direction: "LONG",
+    ready: false,
+    executionTier: "OBSERVE",
+    riskScale: 0,
+    rejectionCode: "AUXILIARY_DIRECTION_CONFLICT",
+    rejectionReason: "资产八字与正式方向冲突；辅助先验只能降级或阻止入场，不能反向覆盖正式方向。",
+    raw: {
+      executionTier: "OBSERVE",
+      riskScale: 0,
+      auxiliaryDirectionConflict: true,
+    },
+  });
+});
+
+test("daily activity targets promote only an observing low-confidence candidate", () => {
+  assert.equal(isActivityPromotionEligible({ status: "OBSERVING", rejectionCode: "CONFIDENCE_LOW" }), true);
+  for (const rejectionCode of [
+    "AUXILIARY_DIRECTION_CONFLICT",
+    "DIRECTION_EVIDENCE_LOW",
+    "ENTRY_STRUCTURE_INVALID",
+    "RISK_FILTER",
+    "RISK_PLAN_INVALID",
+    "TIMING_RISK",
+    "RECONCILIATION_REQUIRED",
+    "MARKET_SESSION_CLOSED",
+  ]) {
+    assert.equal(
+      isActivityPromotionEligible({ status: "OBSERVING", rejectionCode }),
+      false,
+      rejectionCode,
+    );
+  }
+  assert.equal(isActivityPromotionEligible({ status: "BLOCKED", rejectionCode: "CONFIDENCE_LOW" }), false);
+  assert.equal(isActivityPromotionEligible({ status: "READY", rejectionCode: "CONFIDENCE_LOW" }), false);
+
+  const source = engine();
+  assert.equal(source.match(/isActivityPromotionEligible\(decision\) &&/g)?.length, 2);
+  assert.doesNotMatch(source, /\["MARKET_ERROR", "ORDER_ERROR", "RISK_LIMIT", "PROTECTION_MISSING", "GLOBAL_DAILY_TRADE_CAP"\]\.includes\(decision\.rejectionCode\)/);
 });
 
 test("Bitget orders use idempotent clientOid and exchange-side preset protection", () => {
@@ -158,7 +235,7 @@ test("long horizon is aggregated from closed daily candles and current endpoint 
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /completedAggregateCandles\(d1, weekKey, now\)/);
   assert.match(source, /completedAggregateCandles\(d1, monthKey, now\)/);
-  assert.match(source, /interval === "1D" \? 400 : 120/);
+  assert.match(source, /interval === "1D" \? 400 : interval === "5m" \? 180 : 120/);
   assert.match(client, /Math\.min\(1000/);
 });
 
@@ -257,11 +334,11 @@ test("database migration is additive and seeds only shadow profiles", () => {
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM/i);
 });
 
-test("v6.4.1 live active execution keeps one small activation target without removing hard caps", () => {
+test("live active execution is fail-closed by default without removing hard caps", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /MOOX_TRADING_CONTROL_MODE/);
-  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);
+  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4/);
   assert.match(source, /MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
   assert.match(source, /environment\.liveMaxTradesPerDay/);

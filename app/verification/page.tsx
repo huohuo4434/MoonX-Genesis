@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Section } from "@/components/ui";
 import { VerificationMethodDisclosure } from "@/components/verification/VerificationMethodDisclosure";
@@ -23,32 +24,63 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function VerificationDashboardFallback({ en }: { en: boolean }) {
+  return (
+    <div className="mx-auto w-full max-w-[1280px] px-1 sm:px-2" aria-busy="true">
+      <section className="rounded-3xl border border-border/70 bg-card/60 p-6 sm:p-8">
+        <div className="mb-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">MOOX TRACK RECORD</div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{en ? "Public verification center" : "公开历史验证"}</h1>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((index) => <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/35" />)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PipelineFallback() {
+  return <div className="mx-auto mt-8 h-40 w-full max-w-[1280px] animate-pulse rounded-2xl border border-border/70 bg-card/40" aria-busy="true" />;
+}
+
+async function VerificationDashboard({ en }: { en: boolean }) {
+  const { daily, weekly, pending, generatedAt } = await getCachedPublicVerificationSnapshot();
+  return (
+    <>
+      <PublicVerificationCenter
+        dailyItems={daily.items}
+        dailyStats={daily.stats}
+        weeklyItems={weekly.items}
+        weeklyStats={weekly.stats}
+        pendingCount={pending.length}
+        generatedAt={generatedAt}
+        en={en}
+      />
+
+      <div className="mx-auto mt-8 w-full max-w-[1280px]">
+        <PendingVerificationSummary items={pending} en={en} />
+      </div>
+    </>
+  );
+}
+
+async function PipelineSection({ en }: { en: boolean }) {
+  const pipelineStatus = await getVerificationPipelineStatus();
+  return <VerificationPipelineStatus status={pipelineStatus} en={en} />;
+}
+
 export default async function VerificationPage() {
-  const [{ daily, weekly, pending, generatedAt }, pipelineStatus, locale] = await Promise.all([
-    getCachedPublicVerificationSnapshot(),
-    getVerificationPipelineStatus(),
-    getRequestLocale(),
-  ]);
-  const en = locale === "en";
+  const en = (await getRequestLocale()) === "en";
 
   return (
     <main>
       <Section spacing="lg">
-        <PublicVerificationCenter
-          dailyItems={daily.items}
-          dailyStats={daily.stats}
-          weeklyItems={weekly.items}
-          weeklyStats={weekly.stats}
-          pendingCount={pending.length}
-          generatedAt={generatedAt}
-          en={en}
-        />
+        <Suspense fallback={<VerificationDashboardFallback en={en} />}>
+          <VerificationDashboard en={en} />
+        </Suspense>
 
-        <VerificationPipelineStatus status={pipelineStatus} en={en} />
-
-        <div className="mx-auto mt-8 w-full max-w-[1280px]">
-          <PendingVerificationSummary items={pending} en={en} />
-        </div>
+        <Suspense fallback={<PipelineFallback />}>
+          <PipelineSection en={en} />
+        </Suspense>
 
         <div className="mx-auto mt-8 w-full max-w-[1280px]">
           <details className="rounded-2xl border border-border/70 bg-card/60 p-5 open:bg-card/80">

@@ -158,7 +158,7 @@ export function AnalystHorizonDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-100">外部分析师分周期视图</h1>
-          <p className="mt-1 text-sm text-zinc-400">Stone等分析师按短线 / 中期 / 长期拆分；当前仓位与候选标的单独观察，不覆盖奇门正式方向。</p>
+          <p className="mt-1 text-sm text-zinc-400">Stone等分析师按短线 / 中期 / 长期拆分；当前仓位与候选标的单独观察，不覆盖MOOX正式方向。</p>
         </div>
         <input
           className="min-w-56 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
