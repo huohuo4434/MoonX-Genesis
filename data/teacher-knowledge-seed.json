@@ -3807,8 +3807,8 @@
       "rawTranscript": "",
       "cleanedTranscript": "",
       "summary": "奇门决定方向，六爻只确认或提示风险，技术分析只给执行位。",
-      "adminNotes": "",
-      "status": "APPROVED",
+      "adminNotes": "2026-08-23规则已修订：本条仅保留为历史方法记录；当前规则见moox_qimen_v7201_lesson_resonance。",
+      "status": "ARCHIVED",
       "version": 0,
       "createdBy": "2026-08-18T00:00:00.000Z",
       "createdAt": "2026-08-18T00:00:00.000Z",
@@ -3878,7 +3878,7 @@
     {
       "id": "moox_qimen_v7201_lesson_resonance",
       "lessonCode": "moox_qimen_v7201_lesson_resonance",
-      "title": "日分析共振：奇门主判，六爻辅助",
+      "title": "日度观点：六爻与奇门分别独立预测",
       "teacherName": "",
       "courseSeries": "",
       "lessonNumber": "",
@@ -3888,21 +3888,21 @@
       "assets": [],
       "timeframes": [],
       "tags": [
-        "奇门优先",
-        "六爻辅助",
+        "老师原卦优先",
+        "周卦派生",
         "共振",
         "信心星级"
       ],
       "rawTranscript": "",
       "cleanedTranscript": "",
-      "summary": "奇门先定日方向，六爻只做辅助印证；同向共振加星，相左则保留奇门并降级。",
+      "summary": "老师原卦优先，用户卦按老师方法复核居次；六爻从周卦或阶段卦形成日度观点，奇门单独排盘并给出独立方向。同向提高信心，相左并列展示，不互相覆盖。",
       "adminNotes": "",
       "status": "APPROVED",
       "version": 0,
       "createdBy": "2026-08-18T00:00:00.000Z",
       "createdAt": "2026-08-18T00:00:00.000Z",
       "updatedAt": "2026-08-18T00:00:00.000Z",
-      "content": "正式日分析顺序：奇门遁甲第一主判 → 六爻辅助印证/风险提示 → 技术结构给支撑压力与执行位。奇门与六爻同向记为共振，信心星级上调；相左则标记奇六分歧，以奇门为纲并主动降低置信度。技术分析不得反向覆盖玄学方向。",
+      "content": "正式日度观点顺序：老师原卦 → 用户卦按老师金融六爻法复核 → 从当前周卦/阶段卦按周内路径、目标日干支和市场日历拆分出六爻方向 → 奇门单独排盘并给出独立方向与时间窗口 → 技术结构给支撑压力与执行位。不存在每天重新起的日卦。奇门与六爻同向记为共振并提高信心；相左时把两种观点并列展示并降低信心，不让任何一方静默覆盖另一方。锁定记录不可事后改写。",
       "source": "User-confirmed MOOX daily methodology 2026-08-18"
     },
     {
@@ -5265,7 +5265,7 @@
     {
       "id": "moox_qimen_v7200_rule_priority",
       "ruleCode": "MR-QM-0001",
-      "title": "Qimen-first daily direction",
+      "title": "Parallel Liuyao and Qimen daily forecasts",
       "category": "DAILY_PUBLIC_MARKET",
       "conditions": [],
       "analysisSteps": [],
@@ -5274,25 +5274,25 @@
       "applicableAssets": [],
       "applicableTimeframes": [],
       "keywords": [
-        "奇门优先",
-        "六爻辅助"
+        "六爻奇门并列",
+        "共振分歧"
       ],
       "priority": 0,
       "confidence": "moox_qimen_v7200_rule_priority",
       "sourceLessonId": "moox_qimen_v7200_rule_priority",
       "sourceQuote": "User-confirmed MOOX rule 2026-08-18",
-      "sourceTextStart": "冲突时保留奇门方向并降低置信度，公开展示冲突。",
-      "sourceTextEnd": "冲突时保留奇门方向并降低置信度，公开展示冲突。",
+      "sourceTextStart": "六爻与奇门分别独立预测；同向提高信心，分歧时并列展示并降低信心。",
+      "sourceTextEnd": "缺失任一方法的同周期证据时不得补造共振。",
       "status": "APPROVED",
       "createdAt": "2026-08-18T00:00:00.000Z",
-      "updatedAt": "2026-08-18T00:00:00.000Z",
+      "updatedAt": "2026-08-23T18:55:00.000Z",
       "code": "MR-QM-0001",
-      "content": "冲突时保留奇门方向并降低置信度，公开展示冲突。",
-      "rule": "次日日分析由奇门先定方向；六爻不能反向覆盖；技术条件不能改方向。",
-      "source": "User-confirmed MOOX rule 2026-08-18",
+      "content": "六爻与奇门分别独立预测；同向提高信心，分歧时保留两种观点并降低信心。老师原卦优先于用户卦；没有日卦时从当前周卦或阶段卦拆分，不补造日卦。",
+      "rule": "六爻与奇门是两条并列预测线；缺任一方法证据时不补造共振；技术条件只负责结构、点位和风险。",
+      "source": "User-confirmed MOOX rule revised 2026-08-23",
       "tags": [
-        "奇门优先",
-        "六爻辅助"
+        "六爻奇门并列",
+        "共振分歧"
       ],
       "scope": "DAILY_PUBLIC_MARKET"
     },

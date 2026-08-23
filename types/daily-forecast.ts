@@ -119,13 +119,17 @@ export interface DailyForecast {
 
   /** Full auditable Qimen evidence persisted/overlaid by the daily research layer. */
   qimenEvidence?: string; // MOOX_QIMEN_DAILY_RESONANCE_V7201_TYPES
-  /** Locked weekly Liuyao evidence used only as auxiliary confirmation/risk. */
+  /** Official daily view derived from the active teacher-first weekly/stage Liuyao record. */
   liuyaoEvidence?: string;
   /** Short traditional-divination research phrase for compact UI display. */
   qimenMysticNote?: string;
-  /** 奇六共振 / 奇六分歧·奇门为纲 / 奇门主判. */
+  /** 奇六共振·信心提高 / 奇六分歧·两种观点并列 / 奇门独立验算. */
   qimenAgreementLabel?: string;
+  qimenParallelDirection?: "UP" | "DOWN" | "SIDEWAYS" | string;
+  liuyaoOfficialDirection?: string | null;
+  /** @deprecated Compatibility only. Qimen is not the authority for official direction. */
   qimenPrimaryDirection?: "UP" | "DOWN" | "SIDEWAYS" | string;
+  /** @deprecated Compatibility only. Liuyao is the official weekly/stage authority. */
   liuyaoAuxiliaryDirection?: string | null;
   directionConflict?: boolean;
   methodPriority?: string;

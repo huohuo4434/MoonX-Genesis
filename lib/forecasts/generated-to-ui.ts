@@ -19,7 +19,7 @@ export function generatedDailyToUi(
   const formal = r.direction;
   const qimenSummary = r.qimenEvidence
     ? r.qimenEvidence.split("；").slice(0, 3).join("；")
-    : null; // MOOX_QIMEN_FIRST_V72005_UI
+    : null; // MOOX_QIMEN_PARALLEL_V720130_UI
   const consensus = consensusStarsFromInputs({
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
     frameworkCount: [r.liuyaoEvidence, r.qimenEvidence, r.calendarEvidence, r.newsEvidence].filter(Boolean).length || 1,
@@ -59,7 +59,7 @@ export function generatedDailyToUi(
     consensusModuleCount: consensus.activeModules,
     consensusNote: consensus.note,
     headline: `${meta.assetName}${formal}`,
-    summary: [qimenSummary, normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, r.revisionReason].filter(Boolean).join("。"),
+    summary: [normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, qimenSummary, r.revisionReason].filter(Boolean).join("。"),
     expectedPath: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
     pathBias: normalizeDailyLanguage(r.expectedPath),
     intradayRhythm: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],

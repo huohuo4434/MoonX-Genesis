@@ -16,7 +16,7 @@ const policy = fs.readFileSync(policyPath, "utf8");
 const registry = JSON.parse(fs.readFileSync(registryPath, "utf8"));
 const ui = fs.readFileSync(uiPath, "utf8");
 
-const marker = "MOOX_QIMEN_FIRST_V72005_PRE_TECH";
+const marker = "MOOX_WEEKLY_LIUYAO_AUTHORITY_QIMEN_PARALLEL_V720130";
 const markerAt = daily.indexOf(marker);
 const technicalAt = daily.indexOf("buildTechnicalLevelsWithRetry", markerAt);
 const persistAt = daily.indexOf("persistDailyRevision", markerAt);
@@ -28,13 +28,13 @@ const checks = [
   [technicalAt > markerAt, "Qimen runs before technical level construction"],
   [persistAt > markerAt, "Qimen runs before DB persistence"],
   [!daily.includes("return applyQimenFirstDailyPolicy(report)"), "no legacy final-report wrapper"],
-  [ui.includes("MOOX_QIMEN_FIRST_V72005_UI"), "daily UI Qimen summary marker"],
-  [ui.includes("[qimenSummary, normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence"), "Qimen basis appears before Liuyao in UI summary"],
-  [policy.includes("QIMEN_PRIMARY_LIUYAO_AUX_TECH_EXEC_V1"), "policy hierarchy"],
+  [ui.includes("MOOX_QIMEN_PARALLEL_V720130_UI"), "daily UI parallel Qimen marker"],
+  [ui.includes("[normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, qimenSummary"), "Liuyao-derived path appears before parallel Qimen in UI summary"],
+  [policy.includes("LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE_V6"), "policy hierarchy"],
   [policy.includes("personalBaziVote: \"DISABLED_FOR_PUBLIC_MARKET_DIRECTION\""), "Bazi isolation"],
-  [policy.includes("canOverrideQimen: false"), "Liuyao cannot override"],
+  [policy.includes("canBeOverriddenByQimen: false"), "Qimen cannot override Liuyao authority"],
   [policy.includes("LEVELS_ENTRY_INVALIDATION_ONLY_NO_DIRECTION_VOTE"), "technical boundary"],
-  [policy.includes("PERSISTED_CAST_OR_DETERMINISTIC_RESEARCH_WINDOW_NO_RECAST_ON_RETRY"), "stable cast policy"],
+  [policy.includes("ONE_DAILY_MASTER_CHART_PERSISTED_OR_DETERMINISTIC_RESEARCH_WINDOW"), "stable cast policy"],
   [policy.includes("qimenEvidence = renderQimenEvidence"), "persisted Qimen evidence"],
   [policy.includes('const keys = ["marketCode"'), "GeneratedDaily marketCode detection"],
   [policy.includes("MOOX可复现实现"), "chart implementation label"],
@@ -51,4 +51,4 @@ const forbidden = [
 for (const token of forbidden) {
   if (policy.includes(token)) throw new Error(`Forbidden execution primitive: ${token}`);
 }
-console.log("QIMEN FIRST V7.20.0.5 STATIC REGRESSION PASSED");
+console.log("LIUYAO QIMEN PARALLEL FORECAST STATIC REGRESSION PASSED");

@@ -23,6 +23,7 @@ import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guid
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
+import { findTeacherPriorityLiuyaoSource } from "@/lib/data/teacher-priority-liuyao-20260821";
 import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
 import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
 import { applyApprovedXOverlayToGeneratedDaily, getApprovedXForecastOverlay } from "@/lib/trading-signals/x-opinion-matrix"; // MOOX_X_APPROVED_V72051
@@ -125,7 +126,7 @@ function btcResearchAsWeeklySource(
       primaryHexagram: auxiliary.primaryHexagram,
       changedHexagram: auxiliary.changingHexagram,
       movingLines: [],
-      specialPatterns: ["LIUYAO_AUX_WEEKLY_QIMEN_PRIMARY"],
+      specialPatterns: ["USER_LIUYAO_TEACHER_METHOD_WEEKLY_AUTHORITY"],
       weeklyDirection: auxiliary.direction,
       weeklyPath: auxiliary.expectedPath,
       interpretation: auxiliary.teacherMethodSummary,
@@ -233,8 +234,11 @@ async function resolveWeekly(
 ): Promise<WeeklyForecastSourceRecord | null> {
   const { getWeeklySourceForMarketDate } = await import("@/lib/weekly-source/store");
   const normalized = marketCode.toUpperCase();
-  // BTC/ETH use the current locked research files first. This avoids stale database
-  // rows and keeps the auto trader aligned with the user's latest weekly hexagrams.
+  // Source authority is explicit: teacher original first; user weekly/stage
+  // hexagrams interpreted with the teacher method second.
+  const teacher = findTeacherPriorityLiuyaoSource(normalized, forecastDate);
+  if (teacher) return teacher;
+  // BTC/ETH then use the current locked user research files.
   if (normalized === "BTC") {
     const btc = btcResearchAsWeeklySource(forecastDate);
     if (btc) return btc;
@@ -498,13 +502,14 @@ export async function runDailyForecastPipeline(input?: {
           snapshot: snapshot ?? emptySnapshot(),
           previousVersionId: latest?.id ?? null,
         });
-        // The daily Liuyao view is the weekly-source decomposition for this target day
+        // This is a daily VIEW derived from the weekly/stage source; it is not a
+        // newly cast daily hexagram. Qimen remains a parallel timing/risk check.
         // (including moving-line/Ganzhi timing and any allowed future rhythm revision).
         // Qimen must compare against that DAILY Liuyao view, not the coarse weekly label.
         record = applyQimenFirstToGeneratedDaily(record, {
           liuyaoDirection: record.direction,
           previousQimenEvidence: latest?.qimenEvidence ?? null,
-        }); // MOOX_QIMEN_FIRST_DAILY_LIUYAO_V72080
+        }); // MOOX_WEEKLY_LIUYAO_AUTHORITY_QIMEN_PARALLEL_V720130
         const approvedXOverlay = await getApprovedXForecastOverlay(market, now, record.forecastDate).catch(() => null);
         record = applyApprovedXOverlayToGeneratedDaily(record, approvedXOverlay); // MOOX_X_APPROVED_V72051_POST_QIMEN
         // Every core market, including ETH, must receive its own current technical levels.
@@ -639,6 +644,7 @@ export function generateCoreMarketFromWeeklyPure(
 ): GeneratedDailyForecastRecord | null {
   const market = marketCode.toUpperCase();
   const weekly =
+    findTeacherPriorityLiuyaoSource(market, forecastDate) ??
     (market === "BTC" ? btcResearchAsWeeklySource(forecastDate) : null) ??
     (market === "ETH" ? ethResearchAsWeeklySource(forecastDate) : null) ??
     findCanonicalWeeklySource(market, forecastDate) ??

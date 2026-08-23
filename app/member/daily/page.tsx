@@ -38,6 +38,12 @@ function qimenAgreementLabel(forecast: DailyForecast): string | undefined {
   return (forecast as DailyForecast & { qimenAgreementLabel?: string }).qimenAgreementLabel;
 }
 
+function qimenDirectionLabel(forecast: DailyForecast): string {
+  const evidence = forecast.qimenEvidence ?? "";
+  const match = evidence.match(/(?:奇门独立观点|奇门主判)=([^；]+)/u);
+  return match?.[1]?.trim() || "待验算";
+}
+
 function tone(direction: string): string {
   if (/上涨|回升/.test(direction)) return "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-100";
   if (/下跌|回落/.test(direction)) return "border-rose-400/25 bg-rose-400/[0.07] text-rose-100";
@@ -69,9 +75,9 @@ function ForecastTable({
       </div>
       {rows.length ? (
         <div className="overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2">
-          <table className="min-w-[900px] w-full border-separate border-spacing-y-2 text-left">
+          <table className="min-w-[1120px] w-full border-separate border-spacing-y-2 text-left">
             <thead className="text-caption text-foreground-tertiary">
-              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">方向</th><th className="px-3 py-2">10月风险</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
+              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">周卦/阶段卦派生</th><th className="px-3 py-2">奇门独立验算</th><th className="px-3 py-2">两法关系</th><th className="px-3 py-2">10月风险</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
             </thead>
             <tbody>
               {rows.map((forecast) => {
@@ -81,7 +87,9 @@ function ForecastTable({
                 return (
                   <tr key={forecast.id} className="bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
                     <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
-                    <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span>{qimenAgreementLabel(forecast) ? <div className="mt-1 text-caption text-foreground-tertiary">{qimenAgreementLabel(forecast)}</div> : null}</td>
+                    <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span><div className="mt-1 text-[11px] text-foreground-tertiary">网站正式观点；不是另起日卦</div></td>
+                    <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(qimenDirectionLabel(forecast))}`}>{qimenDirectionLabel(forecast)}</span></td>
+                    <td className="px-3 py-3 text-body-sm text-foreground-secondary">{qimenAgreementLabel(forecast) || "等待双法核对"}</td>
                     <td className="max-w-[170px] px-3 py-3"><div className="text-body-sm font-semibold text-amber-100">{octoberRisk.stateLabelZh}</div><div className="mt-1 text-caption text-foreground-tertiary">{octoberRisk.sensitivityLabelZh}</div></td>
                     <td className="max-w-[330px] px-3 py-3 text-body-sm text-foreground-secondary">{buildDailyResearchReason(forecast)}</td>
                     <td className="px-3 py-3 text-body-sm font-medium">{technical.support}</td>
@@ -144,11 +152,16 @@ export default async function MemberDailyPage() {
                 </div>
                 <Badge variant="outline">{octoberFlashCrashRisk.windowLabelZh}</Badge>
               </div>
-              <Text variant="caption" color="tertiary" className="mt-2 block">该风险先验只影响仓位、杠杆与追涨纪律，不反向修改奇门锁定的日度方向；9大市场仍按各自结构独立判断。</Text>
+              <Text variant="caption" color="tertiary" className="mt-2 block">该风险先验只影响仓位、杠杆与追涨纪律，不反向修改由当前周卦/阶段卦派生并锁定的网站正式方向；9大市场仍按各自结构独立判断。</Text>
             </Card>
 
             <ForecastTable title="今日市场" forecasts={todayRows} technicalViews={technicalViews} riskAsOf={now} />
             <ForecastTable title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} riskAsOf={now} />
+
+            <Card padding="md" className="border border-violet-300/15 bg-violet-300/[0.035]">
+              <Text variant="body-sm" weight="semibold">日度观点来源说明</Text>
+              <Text variant="caption" color="secondary" className="mt-2 block">网站不要求、也不会伪造独立日卦。老师原卦优先；没有老师细分时，使用按老师方法复核的用户周卦/阶段卦，再结合周内路径、目标日干支和市场日历拆分成日度观点。六爻与奇门分别独立预测：同向提高信心，分歧时两种观点原样列出并降低信心。</Text>
+            </Card>
 
             <div className="flex flex-wrap gap-3">
               <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">查看周走势预测</Link>

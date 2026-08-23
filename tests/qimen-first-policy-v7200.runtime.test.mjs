@@ -9,7 +9,9 @@ const root = process.cwd();
 const require = createRequire(path.join(root, "package.json"));
 const ts = require("typescript");
 const policyPath = path.join(root, "lib", "forecasts", "qimen-first-policy.ts");
-const source = fs.readFileSync(policyPath, "utf8");
+const source = fs.readFileSync(policyPath, "utf8")
+  .replace('import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regime";', 'const getDailyMarketBaziRegime = () => null;')
+  .replace('import { getWuWeeklyCalibration, getWuWeeklyEventWindow } from "../data/qimen-wu-weekly-20260824";', 'const getWuWeeklyCalibration = () => null; const getWuWeeklyEventWindow = () => null;');
 const transpiled = ts.transpileModule(source, {
   compilerOptions: {
     target: ts.ScriptTarget.ES2020,
@@ -41,6 +43,10 @@ function sampleRecord(input = {}) {
     confirmationLevel: "114000",
     invalidationLevel: "110000",
     riskLevel: "中高",
+    confidence: input.confidence ?? 60,
+    consensusStars: 3,
+    consensusScore: 60,
+    consensusLabel: "待核",
     catalysts: [],
     risks: ["高波动风险"],
     liuyaoEvidence: "本周主方向上涨",
@@ -61,15 +67,34 @@ function sampleRecord(input = {}) {
   };
 }
 
-test("GeneratedDailyForecast receives persisted Qimen evidence and formal direction", () => {
+test("GeneratedDailyForecast preserves Liuyao direction and persists parallel Qimen evidence", () => {
   const sourceRecord = sampleRecord();
   const result = qimen.applyQimenFirstToGeneratedDaily(sourceRecord, { liuyaoDirection: "上涨" });
-  assert.ok(["上涨", "下跌", "震荡"].includes(result.direction));
-  assert.ok(result.qimenEvidence?.includes("奇门主判="));
+  assert.equal(result.direction, sourceRecord.direction);
+  assert.deepEqual(
+    [result.upProbability, result.sidewaysProbability, result.downProbability],
+    [sourceRecord.upProbability, sourceRecord.sidewaysProbability, sourceRecord.downProbability],
+  );
+  assert.ok(result.qimenEvidence?.includes("奇门独立观点="));
   assert.ok(result.qimenEvidence?.includes("九宫="));
   assert.ok(result.qimenEvidence?.includes("起局="));
   assert.deepEqual(result.supportLevels, sourceRecord.supportLevels);
   assert.deepEqual(result.resistanceLevels, sourceRecord.resistanceLevels);
+});
+
+test("Qimen and Liuyao remain separate while their relationship adjusts confidence", () => {
+  const sourceRecord = sampleRecord({ direction: "上涨" });
+  const first = qimen.applyQimenFirstToGeneratedDaily(sourceRecord, { liuyaoDirection: "上涨" });
+  const qimenDirection = first.qimenParallelDirection;
+  const divergentLiuyao = qimenDirection === "UP" ? "下跌" : "上涨";
+  const divergentRecord = sampleRecord({ direction: divergentLiuyao, confidence: 60 });
+  const divergent = qimen.applyQimenFirstToGeneratedDaily(divergentRecord, { liuyaoDirection: divergentLiuyao });
+  assert.equal(divergent.direction, divergentRecord.direction);
+  assert.equal(divergent.confidence, 51);
+  assert.equal(divergent.consensusStars, 2);
+  assert.equal(divergent.directionConflict, true);
+  assert.match(divergent.consensusLabel, /分歧.*信心降低/);
+  assert.match(divergent.methodPriority, /LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE/);
 });
 
 test("same market/date does not recast when generatedAt changes", () => {

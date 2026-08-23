@@ -5,8 +5,10 @@
  * 妻财 first -> 子孙 source -> 兄弟/官鬼/父母 -> 世应 -> target-period month strength,
  * void/tomb/clash/combine -> moving transformations. Hexagram names are context only.
  *
- * Boundary: these records are LIUYAO_AUX_ONLY / PHASE_CONTEXT_ONLY. They do NOT
- * replace Qimen as MOOX's formal daily direction owner and are not live-order triggers.
+ * Authority boundary: teacher-origin readings rank first. These user-cast records,
+ * interpreted with the teacher method, rank second and may own the official period
+ * direction only when no overlapping teacher source is available. Daily views are
+ * derived from the period; Qimen is a parallel timing/risk check and never overrides.
  */
 
 export type LockedAuxiliaryLiuyaoWeek = {
@@ -24,7 +26,7 @@ export type LockedAuxiliaryLiuyaoWeek = {
   targetMonthEvidence: string;
   riskNote: string;
   lockedAt: string;
-  executionRole: "LIUYAO_AUX_ONLY";
+  executionRole: "USER_LIUYAO_TEACHER_METHOD_SECONDARY_AUTHORITY";
 };
 
 export const BTC_AUXILIARY_WEEKLY_LIUYAO_20260820: LockedAuxiliaryLiuyaoWeek[] = [
@@ -43,9 +45,9 @@ export const BTC_AUXILIARY_WEEKLY_LIUYAO_20260820: LockedAuxiliaryLiuyaoWeek[] =
     structureEvidence: "妻财午火伏于兄弟亥水世下；兄弟亥水动化官鬼辰土；日空戌亥。",
     targetMonthEvidence:
       "8/31-9/6主体仍在申月。申金对午火财不利，同时压制子孙卯木的生财后劲，因此弱势关系更容易兑现。",
-    riskNote: "世爻亥水旬空，压力可能阶段性虚化，急跌后不追空；六爻只辅助风险与路径，不覆盖当日奇门方向。",
+    riskNote: "世爻亥水旬空，压力可能阶段性虚化，急跌后不追空；本期与老师申月原卦重叠时，以老师原卦为正式方向，此卦保留作对照复盘。",
     lockedAt: "2026-08-20T06:20:00+08:00",
-    executionRole: "LIUYAO_AUX_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_SECONDARY_AUTHORITY",
   },
   {
     id: "BTC-LY-AUX-20260907-0914-V1",
@@ -62,9 +64,9 @@ export const BTC_AUXILIARY_WEEKLY_LIUYAO_20260820: LockedAuxiliaryLiuyaoWeek[] =
     structureEvidence: "妻财戌土持世；另见妻财辰土；兄弟寅木动化妻财辰土；父母子水动化兄弟寅木。",
     targetMonthEvidence:
       "该周主体进入酉月。酉金克兄弟寅木，夺财压力减轻；但土财在金旺月有泄，且戌财起卦旬空，因此只定弱修复。",
-    riskNote: "这是偏多修复而非强主升；若当日奇门转空，六爻不得反向覆盖，只降低空头置信度并提示反抽风险。",
+    riskNote: "这是偏多修复而非强主升；奇门若与本周期派生观点分歧，网站并列展示，奇门不得覆盖正式方向。",
     lockedAt: "2026-08-20T06:22:00+08:00",
-    executionRole: "LIUYAO_AUX_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_SECONDARY_AUTHORITY",
   },
   {
     id: "BTC-LY-AUX-20260915-0921-V1",
@@ -82,7 +84,7 @@ export const BTC_AUXILIARY_WEEKLY_LIUYAO_20260820: LockedAuxiliaryLiuyaoWeek[] =
     targetMonthEvidence: "酉月兄弟酉金得令，财卯木月破，兄克财关系最强。",
     riskNote: "六冲只负责放大波动，不能单独作为看跌理由；急跌后不追空，等4H/30m/5m执行结构。",
     lockedAt: "2026-08-20T06:27:00+08:00",
-    executionRole: "LIUYAO_AUX_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_SECONDARY_AUTHORITY",
   },
   {
     id: "BTC-LY-AUX-20260922-0929-V1",
@@ -100,7 +102,7 @@ export const BTC_AUXILIARY_WEEKLY_LIUYAO_20260820: LockedAuxiliaryLiuyaoWeek[] =
     targetMonthEvidence: "仍处酉月，官鬼酉金得月令使前段风险更易兑现；后段动变中的财重新出现，形成修复条件。",
     riskNote: "路径是先压后修复，不能压成一个单向LONG/SHORT信号；因此本周不生成六爻单边实盘先验。",
     lockedAt: "2026-08-20T06:28:00+08:00",
-    executionRole: "LIUYAO_AUX_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_SECONDARY_AUTHORITY",
   },
 ];
 
@@ -117,7 +119,7 @@ export type CryptoPhaseLiuyaoRecord = {
   monthCadence: string;
   riskNote: string;
   lockedAt: string;
-  executionRole: "PHASE_CONTEXT_ONLY";
+  executionRole: "USER_LIUYAO_TEACHER_METHOD_STAGE_CONTEXT";
 };
 
 export const ETH_PHASE_LIUYAO_20260820: CryptoPhaseLiuyaoRecord[] = [
@@ -136,7 +138,7 @@ export const ETH_PHASE_LIUYAO_20260820: CryptoPhaseLiuyaoRecord[] = [
       "申、酉金旺能生财水，并压制官鬼卯木，因此8月底至9月相对有利；进入戌月后土旺，兄弟土得势并克财水，10月风险显著抬升。",
     riskNote: "阶段卦只提供中周期背景，不决定5分钟或单日方向；10月重点防快速回撤，不机械整月做空。",
     lockedAt: "2026-08-20T06:36:00+08:00",
-    executionRole: "PHASE_CONTEXT_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_STAGE_CONTEXT",
   },
   {
     id: "ETH-PHASE-20260820-1231-V1",
@@ -151,9 +153,9 @@ export const ETH_PHASE_LIUYAO_20260820: CryptoPhaseLiuyaoRecord[] = [
       "妻财亥水临应发动化子孙酉金，子孙金可回头生财；兄弟丑土发动化妻财亥水，夺财力量转财。财的动变链条总体偏正面，但变卦六冲提示路径不平滑。",
     monthCadence:
       "申酉金月生财水，8月底至9月更有利；戌月土旺克财，10月形成明显回撤窗口；亥、子水月财重新得令，11至12月具备修复条件。",
-    riskNote: "六冲只表示高波动与快速反转，不等于长期看空；阶段背景不能覆盖奇门正式日方向。",
+    riskNote: "六冲只表示高波动与快速反转，不等于长期看空；奇门只作并列验算，不能覆盖阶段卦派生的正式方向。",
     lockedAt: "2026-08-20T06:37:00+08:00",
-    executionRole: "PHASE_CONTEXT_ONLY",
+    executionRole: "USER_LIUYAO_TEACHER_METHOD_STAGE_CONTEXT",
   },
 ];
 

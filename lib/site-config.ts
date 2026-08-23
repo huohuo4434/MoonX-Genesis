@@ -20,7 +20,7 @@ function resolveSiteUrl(): string {
 export const siteConfig = {
   name: "MOOX Intelligence",
   shortName: "MOOX",
-  description: "先判方向，再等确认。MOOX结合六爻方向研究、奇门择时、技术结构与公开验证，提供可追溯的市场情景判断。",
+  description: "先判方向，再等确认。MOOX并列研究六爻与奇门方向，以共振或分歧校准信心，再结合技术结构与公开验证提供可追溯的市场情景判断。",
   url: resolveSiteUrl(),
   supportEmail: process.env.MOOX_SUPPORT_EMAIL?.trim() || "jackzwin999@gmail.com",
   billingEmail: process.env.MOOX_BILLING_EMAIL?.trim() || "jackzwin999@gmail.com",

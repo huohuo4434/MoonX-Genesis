@@ -15,7 +15,7 @@ function field(text: string | undefined, key: string): string {
 
 function firstCompleteClauses(text: string, max = 2): string {
   const cleaned = text
-    .replace(/【奇门主判】[^\n。；]*(?:[。；]|$)/g, "")
+    .replace(/【(?:奇门主判|双法并列)】[^\n。；]*(?:[。；]|$)/g, "")
     .replace(/技术分析只负责[^。；]*(?:[。；]|$)/g, "")
     .replace(/不编造具体变盘日[^。；]*(?:[。；]|$)/g, "")
     .replace(/若8月中旬已经明显上涨[。；]?/g, "")
@@ -29,7 +29,7 @@ function firstCompleteClauses(text: string, max = 2): string {
 
 function qimenPalaceLine(evidence: string | undefined): string {
   if (!evidence) return "";
-  const direction = field(evidence, "奇门主判");
+  const direction = field(evidence, "奇门独立观点") || field(evidence, "奇门主判");
   const yongshen = field(evidence, "金融用神");
   const palaceBlob = field(evidence, "九宫");
   const primaryStem = yongshen.match(/^([甲乙丙丁戊己庚辛壬癸])/u)?.[1] ?? "";
@@ -51,7 +51,7 @@ function qimenPalaceLine(evidence: string | undefined): string {
     const chiefDoor = field(evidence, "值使");
     palaceText = [chiefStar ? `值符${chiefStar}` : "", chiefDoor ? `值使${chiefDoor}` : ""].filter(Boolean).join("，");
   }
-  return [palaceText, direction ? `综合判${direction}` : ""].filter(Boolean).join("，");
+  return [palaceText, direction ? `独立验算${direction}` : ""].filter(Boolean).join("，");
 }
 
 export function cleanDailyLevel(value: string | undefined): string {
@@ -88,9 +88,9 @@ export function buildDailyResearchReason(forecast: DailyForecast): string {
       ? "两法分歧"
       : "";
   const parts = [
-    liuyao ? `六爻：${liuyao}` : "",
-    qimen ? `奇门：${qimen}` : "",
-    `结论：${direction}${relation ? `，${relation}` : ""}`,
+    liuyao ? `周卦/阶段卦派生：${liuyao}` : "",
+    qimen ? `奇门独立验算：${qimen}` : "",
+    `网站正式观点：${direction}${relation ? `，${relation}` : ""}`,
   ].filter(Boolean);
   return parts.join("；");
 }
@@ -99,5 +99,5 @@ export function buildHomeResearchReason(forecast: DailyForecast): string {
   const row = forecast as ExtendedDaily;
   const qimen = qimenPalaceLine(row.qimenEvidence) || firstCompleteClauses(row.qimenMysticNote ?? "", 1);
   const liuyao = firstCompleteClauses(row.liuyaoEvidence ?? "", 1).replace(/^本周主卦—[。；]?/u, "").trim();
-  return [qimen ? `奇门：${qimen}` : "", liuyao ? `六爻：${liuyao}` : ""].filter(Boolean).join("；");
+  return [liuyao ? `周卦/阶段卦派生：${liuyao}` : "", qimen ? `奇门独立验算：${qimen}` : ""].filter(Boolean).join("；");
 }

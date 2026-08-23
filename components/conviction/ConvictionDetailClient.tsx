@@ -409,7 +409,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
       {directionViews.length ? (
         <section className="space-y-2">
           <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">玄学方向票</p>
-          <p className="text-caption text-white/40">这里只展示参与方向判断的玄学证据；技术分析不进入方向投票。</p>
+          <p className="text-caption text-white/40">六爻与奇门分别独立判断；同向提高方法共识，分歧时两种观点并列并降低共识。技术分析不进入玄学方向票。</p>
           <div className="grid gap-2 md:grid-cols-2">
             {directionViews.map((view) => (
               <div key={view.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-3">

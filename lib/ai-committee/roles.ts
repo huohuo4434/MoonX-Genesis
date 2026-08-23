@@ -27,7 +27,7 @@ export const COMMITTEE_ROLE_DEFINITIONS: CommitteeRoleDefinition[] = [
     requiredChecks: [
       "保留老师原始强度词和时间窗口",
       "明确关键日允许前后一个交易日误差",
-      "区分六爻方向与奇门择时",
+      "分别给出六爻与奇门方向，并标注同向共振或分歧",
     ],
     forbiddenBehaviors: ["不得自创卦象或用神", "不得把事后走势改写成事前结论"],
   },

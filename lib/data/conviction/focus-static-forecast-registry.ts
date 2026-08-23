@@ -17,6 +17,7 @@ import { listLITEPeriodForecasts20260816 } from "@/lib/data/conviction/lite-liuy
 import { listSpcxPeriodForecasts } from "@/lib/data/conviction/spcx-forecasts";
 import { listIntelPeriodForecasts } from "@/lib/data/conviction/intel-liuyao-20260822";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
+import { listCryptoSeptemberForecastRevisions20260823 } from "@/lib/data/conviction/crypto-september-revisions-20260823";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
@@ -25,10 +26,10 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "asteroid": return listAsteroidPeriodForecasts();
     case "sandisk": return listSandiskPeriodForecasts();
     case "nbis": return listNbisPeriodForecasts();
-    case "hype": return listHypePeriodForecasts20260809();
+    case "hype": return [...listHypePeriodForecasts20260809(), ...listCryptoSeptemberForecastRevisions20260823("hype")];
     case "sol": return listSolPeriodForecasts20260809();
-    case "eth": return listEthPeriodForecasts();
-    case "btc": return listBtcPeriodForecasts20260801();
+    case "eth": return [...listEthPeriodForecasts(), ...listCryptoSeptemberForecastRevisions20260823("eth")];
+    case "btc": return [...listBtcPeriodForecasts20260801(), ...listCryptoSeptemberForecastRevisions20260823("btc")];
     case "googl": return listGooglePeriodForecasts();
     case "msft": return listMsftPeriodForecasts();
     case "tencent": return listTencentPeriodForecasts();
@@ -41,4 +42,3 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     default: return [];
   }
 }
-

@@ -2,7 +2,7 @@ import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regi
 
 // MOOX_V7206_ALTCOIN_QIMEN_EXPERIMENT
 /*
- * MOOX V7.20.1 — Qimen-first daily resonance research policy
+ * MOOX V7.20.14 — parallel Liuyao and Qimen forecasts with visible consensus
  *
  * Source boundaries:
  * 1) Standard chart layer: time Qimen, split-supplement, rotating plate.
@@ -12,8 +12,12 @@ import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regi
  *    not represented as the teacher's undisclosed manual palace-selection rule.
  *
  * Safety:
- * - Qimen decides the daily direction first.
- * - Liuyao is auxiliary confirmation/risk evidence.
+ * - Liuyao and Qimen produce independent, separately traceable forecasts.
+ * - Agreement raises consensus confidence; disagreement is shown and lowers it.
+ * - Neither method silently overwrites the other. The active weekly/stage record
+ *   remains the immutable publication base so a daily recalculation cannot rewrite history.
+ * - There is no fabricated daily hexagram: the Liuyao day view is derived from the
+ *   active weekly/stage record, its dated path and the market calendar.
  * - Technical analysis may supply levels only and cannot reverse direction.
  * - Personal Bazi never votes on public market direction.
  * - Asset/market Bazi may act as a capped monthly regime prior: it adjusts conviction/risk but cannot flip Qimen alone.
@@ -23,7 +27,7 @@ import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regi
 import { getWuWeeklyCalibration, getWuWeeklyEventWindow } from "../data/qimen-wu-weekly-20260824";
 
 export const MOOX_QIMEN_ENGINE_VERSION = "MOOX_QIMEN_TIME_ROTATING_V3_20260818";
-export const MOOX_QIMEN_POLICY_VERSION = "QIMEN_PRIMARY_WU_SEMANTIC_LIUYAO_AUX_MARKET_BAZI_REGIME_V4";
+export const MOOX_QIMEN_POLICY_VERSION = "LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE_V6";
 // Keep the deterministic cast seed stable across interpretation upgrades so an
 // already-scheduled market date does not silently receive a different master chart.
 const MOOX_QIMEN_CAST_SEED_VERSION = "QIMEN_PRIMARY_TEACHER_YONGSHEN_LIUYAO_AUX_V2";
@@ -1046,10 +1050,12 @@ function palaceStatusText(palace: PalaceState): string {
   return states.length ? states.join("+") : "平";
 }
 
-function agreementLabel(agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS"): string {
+type MethodAgreement = "NO_LIUYAO_SIGNAL" | "RESONANCE" | "DIVERGENCE";
+
+function agreementLabel(agreement: MethodAgreement): string {
   if (agreement === "RESONANCE") return "共振";
-  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "分歧";
-  return "六爻日判未生成";
+  if (agreement === "DIVERGENCE") return "分歧并列";
+  return "周卦派生观点未生成";
 }
 
 function renderQimenEvidence(input: {
@@ -1059,7 +1065,7 @@ function renderQimenEvidence(input: {
   score: number;
   category: keyof typeof FINANCIAL_YONGSHEN.categories;
   assetAnchor: TeacherAssetAnchor | null;
-  agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS";
+  agreement: MethodAgreement;
   rawScore?: number;
   semantic?: TeacherSemanticCalibration;
 }): string {
@@ -1074,7 +1080,7 @@ function renderQimenEvidence(input: {
   const mode = chart.yinYang === "YANG" ? "阳遁" : "阴遁";
   const directionText = renderFormalDirection(direction);
   return [
-    `奇门主判=${directionText}`,
+    `奇门独立观点=${directionText}`,
     `置信度=${confidence}%`,
     `评分=${score}`,
     `数字原始评分=${rawScore ?? score}`,
@@ -1092,9 +1098,9 @@ function renderQimenEvidence(input: {
     `对象类别=${category}`,
     `金融用神=${assetAnchor ? `${assetAnchor.primary.join("/")}${assetAnchor.secondary?.length ? `+${assetAnchor.secondary.join("/")}` : ""}|${assetAnchor.basis}` : "通用时干/日干协议|GENERIC_FALLBACK"}`,
     `用神依据=${assetAnchor?.note ?? "现有老师资料未明确该产品专属奇门用神，不擅自补写"}`,
-    `六爻辅助=${agreementLabel(agreement)}`,
+    `与周卦派生观点关系=${agreementLabel(agreement)}`,
     `九宫=${palaceText}`,
-    "规则边界=奇门定日方向-六爻辅助确认-技术只定点位",
+    "规则边界=老师原卦优先-用户卦按老师法复核居次-六爻与奇门独立预测-同向提高信心-分歧并列并降低信心-技术只定点位",
     "来源边界=标准盘与老师明确象意分层-MOOX数字评分不冒充老师未公开取宫法",
   ].join("；");
 }
@@ -1103,8 +1109,8 @@ function appendMethodSummary(record: JsonRecord, text: string): void {
   const keys = ["summary", "analysis", "reasoning", "logic", "conclusion"];
   for (const key of keys) {
     const current = safeString(record[key]);
-    if (!current || current.includes("【奇门主判】")) continue;
-    record[key] = `【奇门主判】${text}\n${current}`;
+    if (!current || current.includes("【双法并列】")) continue;
+    record[key] = `【双法并列】${text}\n${current.replace(/【奇门主判】[^\n]*\n?/gu, "")}`;
     return;
   }
 }
@@ -1116,36 +1122,12 @@ function looksLikeDailyForecast(record: JsonRecord): boolean {
   return hasDirection && hasAsset && hasResearch;
 }
 
-function directionalProbabilities(
-  direction: QimenDirection,
-  confidence: number,
-  score: number,
-): { up: number; flat: number; down: number } {
-  const lead = clamp(Math.round(confidence), 45, 92);
-  const remainder = 100 - lead;
-  if (direction === "UP") {
-    const down = Math.round(remainder * 0.34);
-    return { up: lead, flat: remainder - down, down };
-  }
-  if (direction === "DOWN") {
-    const up = Math.round(remainder * 0.34);
-    return { up, flat: remainder - up, down: lead };
-  }
-  const tilt = clamp(score / 2.5, -0.28, 0.28);
-  const up = Math.round(remainder * (0.5 + tilt));
-  return { up, flat: lead, down: remainder - up };
-}
-
-function resonanceStars(confidence: number, agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS"): 1 | 2 | 3 | 4 | 5 {
+function resonanceStars(confidence: number, agreement: MethodAgreement): 1 | 2 | 3 | 4 | 5 {
   const base = Math.max(1, Math.min(5, Math.round(confidence / 20)));
-  const adjusted = agreement === "RESONANCE" ? base + 1 : agreement === "CONFLICT_QIMEN_PREVAILS" ? base - 1 : base;
+  const adjusted = agreement === "RESONANCE" ? base + 1 : agreement === "DIVERGENCE" ? base - 1 : base;
   return Math.max(1, Math.min(5, adjusted)) as 1 | 2 | 3 | 4 | 5;
 }
 
-
-function isUiDailyForecastRecord(record: JsonRecord): boolean {
-  return "forecastForDate" in record && "symbol" in record && ("assetId" in record || "accessLevel" in record);
-}
 
 function qimenMysticLine(
   chart: QimenChart,
@@ -1182,12 +1164,10 @@ function qimenMysticLine(
   return `${position}${omens.length ? `，${omens.slice(0, 3).join("、")}` : ""}；${tail}。`;
 }
 
-function agreementDisplayLabel(
-  agreement: "NO_LIUYAO_SIGNAL" | "RESONANCE" | "CONFLICT_QIMEN_PREVAILS",
-): string {
+function agreementDisplayLabel(agreement: MethodAgreement): string {
   if (agreement === "RESONANCE") return "奇六共振";
-  if (agreement === "CONFLICT_QIMEN_PREVAILS") return "奇六分歧";
-  return "奇门单读";
+  if (agreement === "DIVERGENCE") return "奇六分歧·两种观点并列";
+  return "奇门独立验算";
 }
 
 function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {}): JsonRecord {
@@ -1206,7 +1186,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
     ? "NO_LIUYAO_SIGNAL" as const
     : liuyaoDirection === signal.direction
       ? "RESONANCE" as const
-      : "CONFLICT_QIMEN_PREVAILS" as const;
+      : "DIVERGENCE" as const;
   const targetDate = determineTargetDate(record);
   const marketBaziRegime = getDailyMarketBaziRegime(asset, targetDate);
   const marketBaziRelation = !marketBaziRegime
@@ -1237,38 +1217,26 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   } else if (weeklyTeacherEvent?.kind === "RESCUE_SUPPORT") {
     weeklyTeacherAdjustment += signal.direction === "UP" ? 2 : signal.direction === "DOWN" ? -3 : 0;
   }
-  const confidence = clamp(
+  const qimenConfidence = clamp(
     signal.confidence
-      + (agreement === "RESONANCE" ? 5 : agreement === "CONFLICT_QIMEN_PREVAILS" ? -9 : 0)
       + marketBaziAdjustment
       + weeklyTeacherAdjustment,
     42,
     92,
   );
 
-  // Fail closed: only replace the formal direction when the chart invariants pass.
+  // A valid Qimen chart adds a coequal, independent forecast. The stored weekly
+  // direction is preserved for version immutability; relationship fields expose
+  // resonance or divergence without letting either method erase the other.
   if (chart.invariants.valid) {
-    const formalDirection = renderFormalDirection(signal.direction);
-    if (isUiDailyForecastRecord(record)) {
-      // UI DailyForecast.direction has a separate enum. Keep that contract intact
-      // and place the formal Qimen direction in directionLabel.
-      next.direction = signal.direction === "UP" ? "看涨" : signal.direction === "DOWN" ? "看跌" : "中性";
-      next.directionLabel = formalDirection;
-    } else {
-      next[directionKey] = formalDirection;
-    }
-    const probs = directionalProbabilities(signal.direction, confidence, signal.score);
-    if ("upProbability" in record || "sidewaysProbability" in record || "downProbability" in record) {
-      next.upProbability = probs.up;
-      next.sidewaysProbability = probs.flat;
-      next.downProbability = probs.down;
-    }
-    if ("probabilities" in record) next.probabilities = probs;
-    if ("confidence" in record) next.confidence = confidence;
-    if ("consensusStars" in record) next.consensusStars = resonanceStars(confidence, agreement);
-    if ("consensusScore" in record) next.consensusScore = confidence;
+    const baseConfidence = typeof record.confidence === "number" ? record.confidence : 60;
+    const relationshipAdjustment = agreement === "RESONANCE" ? 5 : agreement === "DIVERGENCE" ? -9 : 0;
+    const consensusConfidence = clamp(baseConfidence + relationshipAdjustment, 0, 100);
+    if ("confidence" in record && agreement !== "NO_LIUYAO_SIGNAL") next.confidence = consensusConfidence;
+    if ("consensusStars" in record) next.consensusStars = resonanceStars(baseConfidence, agreement);
+    if ("consensusScore" in record) next.consensusScore = consensusConfidence;
     if ("consensusLabel" in record) {
-      next.consensusLabel = agreement === "RESONANCE" ? "奇门六爻共振" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "奇门主判·六爻分歧" : "奇门主判";
+      next.consensusLabel = agreement === "RESONANCE" ? "奇门六爻共振·信心提高" : agreement === "DIVERGENCE" ? "奇门六爻分歧·观点并列·信心降低" : "单方法观点·等待另一方法";
     }
     // GeneratedDailyForecastRecord persists this TEXT column, so the full audit
     // evidence survives DB writes without a schema migration.
@@ -1276,7 +1244,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       const qimenEvidence = renderQimenEvidence({
         chart,
         direction: signal.direction,
-        confidence,
+        confidence: qimenConfidence,
         score: signal.score,
         category,
         assetAnchor: signal.anchor,
@@ -1301,11 +1269,11 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   next.qimen = {
     policyVersion: MOOX_QIMEN_POLICY_VERSION,
     engineVersion: chart.engineVersion,
-    role: "PRIMARY_DIRECTION",
+    role: "PARALLEL_INDEPENDENT_FORECAST",
     available: chart.invariants.valid,
     direction: signal.direction,
     formalDirection: renderFormalDirection(signal.direction),
-    confidence,
+    confidence: qimenConfidence,
     score: signal.score,
     rawDigitalScore: signal.rawScore,
     rawDigitalDirection: signal.rawDirection,
@@ -1322,11 +1290,11 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       personalBaziVote: "DISABLED_FOR_PUBLIC_MARKET_DIRECTION",
       assetBaziRegimeVote: "CAPPED_REGIME_PRIOR_NO_SOLO_QIMEN_OVERRIDE",
     },
-    liuyaoAuxiliary: {
+    liuyaoAuthority: {
       direction: liuyaoDirection,
-      role: "SECONDARY_CONFIRMATION_AND_RISK",
+      role: "PARALLEL_INDEPENDENT_FORECAST_FROM_ACTIVE_WEEKLY_OR_STAGE_RECORD",
       agreement,
-      canOverrideQimen: false,
+      canBeOverriddenByQimen: false,
     },
     marketBaziRegime: marketBaziRegime
       ? {
@@ -1346,10 +1314,13 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       mooxDigitalProtocol: "数字评分仅作可复现底层；遇老师已明确示范的同结构时先走语义校准，仍不冒充老师未公开的人工取宫法",
     },
   };
-  next.methodPriority = "QIMEN_PRIMARY_LIUYAO_AUXILIARY_TECHNICAL_EXECUTION";
+  next.methodPriority = "TEACHER_SOURCE_FIRST_LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE";
+  next.qimenParallelDirection = signal.direction;
+  next.liuyaoOfficialDirection = liuyaoDirection;
+  // Deprecated aliases remain for legacy readers; they no longer describe authority.
   next.qimenPrimaryDirection = signal.direction;
   next.liuyaoAuxiliaryDirection = liuyaoDirection;
-  next.directionConflict = agreement === "CONFLICT_QIMEN_PREVAILS" || marketBaziRelation === "CONFLICT";
+  next.directionConflict = agreement === "DIVERGENCE" || marketBaziRelation === "CONFLICT";
   next.marketBaziRegime = marketBaziRegime
     ? { ...marketBaziRegime, relationToQimen: marketBaziRelation, canOverrideQimen: false }
     : null;
@@ -1360,9 +1331,9 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
   next.qimenAgreementLabel = `${agreementDisplayLabel(agreement)}${baziLabel}`;
 
   const liuyaoText = liuyaoDirection ? renderFormalDirection(liuyaoDirection) : "未生成";
-  const relationText = agreement === "RESONANCE" ? "同向" : agreement === "CONFLICT_QIMEN_PREVAILS" ? "分歧" : "待核";
+  const relationText = agreement === "RESONANCE" ? "同向，信心提高" : agreement === "DIVERGENCE" ? "分歧，两种观点并列" : "待核";
   const baziText = marketBaziRegime ? `；资产八字月度先验：${marketBaziRegime.direction === "UP" ? "上涨" : "下跌"}（${marketBaziRegime.weightPct}%）` : "";
-  const summary = `奇门：${renderFormalDirection(signal.direction)}（${confidence}%）；六爻：${liuyaoText}；关系：${relationText}${baziText}`;
+  const summary = `六爻独立预测：${liuyaoText}；奇门独立预测：${renderFormalDirection(signal.direction)}（${qimenConfidence}%）；关系：${relationText}${baziText}`;
   appendMethodSummary(next, summary);
   return next;
 }
