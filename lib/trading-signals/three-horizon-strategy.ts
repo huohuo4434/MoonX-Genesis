@@ -63,6 +63,7 @@ import {
 import { prioritizeAllowedCommissioningSymbols } from "@/lib/trading-signals/ai-plan-renewal-core";
 import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-preflight-core";
 import { LiveTradeExecutionError } from "@/lib/bitget/live-execution-core";
+import { evaluateMarketSessionExposureSafety } from "@/lib/trading-signals/market-session-exposure-core";
 import {
   getLiveScanOpportunityHints,
   prepareAiTradePlanBeforeExecution,
@@ -2786,85 +2787,97 @@ async function manageActiveDecisions(now: Date): Promise<{
       const cryptoRoom = !crypto || projectedCryptoRiskPct + remainingRiskPct <= CRYPTO_GROUP_RISK_LIMIT_PCT + 1e-9;
       if (profile && remainingRiskPct >= 0.04 && riskRoom && cryptoRoom) {
         try {
-          const forecastPlan = await readScopedForecastPlanForScaleIn(current.symbol, now);
-          const scaleInGate = evaluateNewExposureSafety({
+          const marketSessionGate = evaluateMarketSessionExposureSafety({
+            symbol: current.symbol,
             action: "SCALE_IN",
-            direction: current.direction,
-            authorityReadsOk: true,
-            ledgerConsistent: managementLedgerConsistent,
-            timing: weeklyTimingForNewExposure({ direction: current.direction, plan: forecastPlan, now }),
+            nowMs: now.getTime(),
           });
-          if (!scaleInGate.allowed) {
+          if (!marketSessionGate.allowed) {
             current = await updateDecision(current.id, {
-              rejectionCode: scaleInGate.rejectionCode ?? "RECONCILIATION_REQUIRED",
-              rejectionReason: scaleInGate.reason,
+              rejectionCode: marketSessionGate.rejectionCode ?? "MARKET_SESSION_CLOSED",
+              rejectionReason: marketSessionGate.reason,
             });
           } else {
-          const candles = await loadCandleSet(current.symbol as BitgetSupportedSymbol);
-          const confirmation = evaluate(
-            profile,
-            current.symbol as BitgetSupportedSymbol,
-            candles,
-            undefined,
-            now,
-            position.markPrice
-          );
-          const entryConfirmed = confirmation.conditions.find((row) => row.key === "entry")?.met === true;
-          const directionStillValid = confirmation.direction === current.direction;
-          const entry = current.entryPrice ?? position.avgPrice;
-          const stop = current.stopLoss ?? entry;
-          const oneR = Math.abs(entry - stop);
-          const adverseMove = current.direction === "LONG"
-            ? entry - position.markPrice
-            : position.markPrice - entry;
-          const notDeeplyAdverse = oneR <= 0 || adverseMove <= oneR * 0.35;
-          if (
-            directionStillValid &&
-            entryConfirmed &&
-            confirmation.confidence >= profile.minConfidence &&
-            confirmation.executionTier === "FULL" &&
-            notDeeplyAdverse
-          ) {
-            const equity = currentRiskPct > 0 && current.riskAmountUsdt
-              ? Number(current.riskAmountUsdt) / (currentRiskPct / 100)
-              : 0;
-            if (equity > 0) {
-              const sizing = await calculatePositionSize({
-                profile,
-                evaluation: {
-                  ...confirmation,
-                  entryPrice: position.markPrice,
-                  currentPrice: position.markPrice,
-                  stopLoss: current.stopLoss,
-                  target1: current.target1,
-                  target2: current.target2,
-                  riskScale: 1,
-                },
-                equityUsdt: equity,
-                symbol: current.symbol as BitgetSupportedSymbol,
-                riskPctOverride: remainingRiskPct,
-              });
-              orderAttempts += 1;
-              const addOrder = await placeBitgetDemoMarketOrder({
-                paperOrderId: `${current.id}:scale-in-2`,
-                symbol: current.symbol as BitgetSupportedSymbol,
-                quantity: sizing.quantity,
-                side: orderSide(current.direction),
-                reduceOnly: false,
-              });
+            const forecastPlan = await readScopedForecastPlanForScaleIn(current.symbol, now);
+            const scaleInGate = evaluateNewExposureSafety({
+              action: "SCALE_IN",
+              direction: current.direction,
+              authorityReadsOk: true,
+              ledgerConsistent: managementLedgerConsistent,
+              timing: weeklyTimingForNewExposure({ direction: current.direction, plan: forecastPlan, now }),
+            });
+            if (!scaleInGate.allowed) {
               current = await updateDecision(current.id, {
-                entryStage: 2,
-                scaleInOrderId: addOrder.orderId,
-                riskAmountUsdt: round(Number(current.riskAmountUsdt ?? 0) + sizing.riskAmountUsdt, 4),
-                riskPct: round(currentRiskPct + sizing.riskPct, 4),
-                rejectionCode: "",
-                rejectionReason: `第二批确认仓已提交，orderId=${addOrder.orderId}；总风险约${round(currentRiskPct + sizing.riskPct, 3)}%，原交易所侧宽止损保护保持有效。`,
+                rejectionCode: scaleInGate.rejectionCode ?? "RECONCILIATION_REQUIRED",
+                rejectionReason: scaleInGate.reason,
               });
-              projectedOpenRiskPct += sizing.riskPct;
-              if (crypto) projectedCryptoRiskPct += sizing.riskPct;
-              orderSuccess += 1;
+            } else {
+              const candles = await loadCandleSet(current.symbol as BitgetSupportedSymbol);
+              const confirmation = evaluate(
+                profile,
+                current.symbol as BitgetSupportedSymbol,
+                candles,
+                undefined,
+                now,
+                position.markPrice
+              );
+              const entryConfirmed = confirmation.conditions.find((row) => row.key === "entry")?.met === true;
+              const directionStillValid = confirmation.direction === current.direction;
+              const entry = current.entryPrice ?? position.avgPrice;
+              const stop = current.stopLoss ?? entry;
+              const oneR = Math.abs(entry - stop);
+              const adverseMove = current.direction === "LONG"
+                ? entry - position.markPrice
+                : position.markPrice - entry;
+              const notDeeplyAdverse = oneR <= 0 || adverseMove <= oneR * 0.35;
+              if (
+                directionStillValid &&
+                entryConfirmed &&
+                confirmation.confidence >= profile.minConfidence &&
+                confirmation.executionTier === "FULL" &&
+                notDeeplyAdverse
+              ) {
+                const equity = currentRiskPct > 0 && current.riskAmountUsdt
+                  ? Number(current.riskAmountUsdt) / (currentRiskPct / 100)
+                  : 0;
+                if (equity > 0) {
+                  const sizing = await calculatePositionSize({
+                    profile,
+                    evaluation: {
+                      ...confirmation,
+                      entryPrice: position.markPrice,
+                      currentPrice: position.markPrice,
+                      stopLoss: current.stopLoss,
+                      target1: current.target1,
+                      target2: current.target2,
+                      riskScale: 1,
+                    },
+                    equityUsdt: equity,
+                    symbol: current.symbol as BitgetSupportedSymbol,
+                    riskPctOverride: remainingRiskPct,
+                  });
+                  orderAttempts += 1;
+                  const addOrder = await placeBitgetDemoMarketOrder({
+                    paperOrderId: `${current.id}:scale-in-2`,
+                    symbol: current.symbol as BitgetSupportedSymbol,
+                    quantity: sizing.quantity,
+                    side: orderSide(current.direction),
+                    reduceOnly: false,
+                  });
+                  current = await updateDecision(current.id, {
+                    entryStage: 2,
+                    scaleInOrderId: addOrder.orderId,
+                    riskAmountUsdt: round(Number(current.riskAmountUsdt ?? 0) + sizing.riskAmountUsdt, 4),
+                    riskPct: round(currentRiskPct + sizing.riskPct, 4),
+                    rejectionCode: "",
+                    rejectionReason: `第二批确认仓已提交，orderId=${addOrder.orderId}；总风险约${round(currentRiskPct + sizing.riskPct, 3)}%，原交易所侧宽止损保护保持有效。`,
+                  });
+                  projectedOpenRiskPct += sizing.riskPct;
+                  if (crypto) projectedCryptoRiskPct += sizing.riskPct;
+                  orderSuccess += 1;
+                }
+              }
             }
-          }
           }
         } catch (error) {
           // The first batch already has exchange-side protection. A failed add-on check is
@@ -3101,6 +3114,24 @@ async function executeReadyDecision(input: {
         status: "SHADOW_READY",
         rejectionCode: "",
         rejectionReason: "影子模式已记录本来会提交的订单，但没有向Bitget发送。",
+      }),
+      attempted: false,
+      success: false,
+      error: false,
+      riskReservedPct: 0,
+    };
+  }
+  const marketSessionGate = evaluateMarketSessionExposureSafety({
+    symbol: input.decision.symbol,
+    action: input.exposureAction,
+    nowMs: input.now.getTime(),
+  });
+  if (!marketSessionGate.allowed) {
+    return {
+      decision: await updateDecision(input.decision.id, {
+        status: "BLOCKED",
+        rejectionCode: marketSessionGate.rejectionCode ?? "MARKET_SESSION_CLOSED",
+        rejectionReason: marketSessionGate.reason,
       }),
       attempted: false,
       success: false,
