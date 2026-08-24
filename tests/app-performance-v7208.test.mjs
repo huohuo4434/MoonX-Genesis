@@ -33,8 +33,11 @@ const liveRoute = read("app/api/public/live-trading/route.ts");
 assert.match(liveRoute, /s-maxage=15, stale-while-revalidate=45/);
 
 const access = read("lib/prediction-access-server.ts");
-assert.match(access, /const \[\{ access \}, rows\] = await Promise\.all\(\[/);
-assert.match(access, /resolveTodayPredictionAccess\(now\)[\s\S]*loadTodayForecastRows\(now\)/);
+assert.match(access, /Resolve visibility before any database, external-view or technical work/);
+assert.match(access, /if \(!access\.allowed\)/);
+assert.match(access, /const rows = await loadTodayForecastRowsWithDeadline\(now\)/);
+assert.ok(access.indexOf("if (!access.allowed)") < access.indexOf("loadTodayForecastRowsWithDeadline(now)"));
+assert.doesNotMatch(access, /const \[\{ access \}, rows\] = await Promise\.all\(\[/);
 
 const layout = read("app/layout.tsx");
 assert.match(layout, /DeferredLegacyCompatibility/);

@@ -59,7 +59,7 @@ test("core nine daily Liuyao includes target-day Ganzhi and is compared to Qimen
   const access = read("lib/prediction-access-server.ts");
   assert.match(weekly, /`日判\$\{normalizeFormalDirection\(direction\)\}`/);
   assert.match(weekly, /地支\$\{day\.branchElement\}/);
-  assert.match(pipeline, /MOOX_QIMEN_FIRST_DAILY_LIUYAO_V72080/);
+  assert.match(pipeline, /applyQimenFirstToGeneratedDaily/);
   assert.match(pipeline, /liuyaoDirection: record\.direction/);
   assert.match(access, /pure\?\.liuyaoEvidence/);
   assert.match(access, /pure\?\.direction/);
