@@ -17,6 +17,8 @@ assert.match(daily, /今日预测尚未发布/);
 assert.match(daily, /下一交易日观点尚未发布/);
 assert.match(daily, /同向 · 信心增强/);
 assert.match(daily, /分歧 · 谨慎/);
+assert.match(daily, /directionFamily\(displayDirection\(forecast\)\)/, "missing-field relation must derive only from existing official direction");
+assert.match(daily, /directionFamily\(qimenDirectionLabel\(forecast\)\)/, "missing-field relation must derive only from existing Qimen direction");
 assert.match(daily, /支撑 \/ 压力/);
 assert.match(daily, /查看研判依据/);
 assert.doesNotMatch(daily, /网站正式观点；不是另起日卦/);

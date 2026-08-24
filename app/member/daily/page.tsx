@@ -56,12 +56,33 @@ function qimenDirectionLabel(forecast: DailyForecast): string {
   return match?.[1]?.trim() || "待核对";
 }
 
+function directionFamily(direction: string): "UP" | "DOWN" | "FLAT" | "PATH_UP" | "PATH_DOWN" | "UNKNOWN" {
+  if (/先跌后涨|探底回升/u.test(direction)) return "PATH_UP";
+  if (/先涨后跌|冲高回落/u.test(direction)) return "PATH_DOWN";
+  if (/上涨|回升/u.test(direction)) return "UP";
+  if (/下跌|回落/u.test(direction)) return "DOWN";
+  if (/震荡/u.test(direction)) return "FLAT";
+  return "UNKNOWN";
+}
+
 function relationLabel(forecast: DailyForecast): { label: string; className: string } {
   const relation = forecast.qimenAgreementLabel ?? "";
   if (/共振|同向/u.test(relation)) {
     return { label: "同向 · 信心增强", className: "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-100" };
   }
   if (/分歧|反向/u.test(relation)) {
+    return { label: "分歧 · 谨慎", className: "border-amber-400/25 bg-amber-400/[0.08] text-amber-100" };
+  }
+  const officialFamily = directionFamily(displayDirection(forecast));
+  const qimenFamily = directionFamily(qimenDirectionLabel(forecast));
+  const comparable = officialFamily !== "UNKNOWN" && qimenFamily !== "UNKNOWN";
+  const sameFamily = officialFamily === qimenFamily
+    || (officialFamily === "UP" && qimenFamily === "UP")
+    || (officialFamily === "DOWN" && qimenFamily === "DOWN");
+  if (comparable && sameFamily) {
+    return { label: "同向 · 信心增强", className: "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-100" };
+  }
+  if (comparable) {
     return { label: "分歧 · 谨慎", className: "border-amber-400/25 bg-amber-400/[0.08] text-amber-100" };
   }
   return { label: "暂无共振结论", className: "border-slate-400/20 bg-slate-400/[0.06] text-slate-200" };
