@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildMemberStockPickResearchRows } from "../lib/data/conviction/stock-picks-dashboard-core";
 import { CONVICTION_ASSET_SEED } from "../lib/data/conviction/seed";
+import { buildMemberStockForecastProjection, memberStockAtr } from "../lib/research/member-stock-forecast-candles";
 import type { ConvictionPublicCard } from "../types/conviction-asset";
+import type { MemberStockPathSnapshot } from "../types/member-stock-picks-dashboard";
 
 function cards(): ConvictionPublicCard[] {
   return CONVICTION_ASSET_SEED.map((asset) => ({
@@ -65,9 +67,68 @@ test("member stock path API is fail-closed and cannot alter trading", async () =
 
 test("member page labels simulated path as non-price research", async () => {
   const source = await import("node:fs/promises").then((fs) => fs.readFile("components/conviction/MemberStockResearchDashboard.tsx", "utf8"));
-  assert.match(source, /形态指数，不是价格目标/);
+  assert.match(source, /真实日K × 月周卦模拟K线/);
+  assert.match(source, /纵轴为价格，横轴为日期/);
+  assert.match(source, /模拟K线不是报价或目标价/);
+  assert.match(source, /月周卦关键窗/);
   assert.match(source, /没有独立日卦时，只能从已锁定周卦拆分，不补造日卦/);
   assert.match(source, /4H缠论技术面/);
   assert.match(source, /grid min-w-0 gap-3/);
   assert.match(source, /break-all text-sm/);
+});
+
+test("forecast projection emits deterministic OHLC candles on trading dates with price scale", () => {
+  const sandisk = rows.find((row) => row.slug === "sandisk");
+  assert.ok(sandisk);
+  const dailyCandles = Array.from({ length: 22 }, (_, index) => ({
+    timestamp: Date.parse("2026-07-20T00:00:00Z") + index * 86_400_000,
+    open: 150 + index,
+    high: 154 + index,
+    low: 147 + index,
+    close: 152 + index,
+    volume: 1_000,
+  }));
+  const snapshot: MemberStockPathSnapshot = {
+    key: "FOCUS:SANDISK",
+    symbol: "SNDK",
+    capturedAt: "2026-08-24T08:00:00Z",
+    dailyCandles,
+    chan4h: { labelZh: "等待三买回踩确认", direction: "BULL", confirmation: 180, invalidation: 145, waitingFor: "等待向上确认笔" },
+    error: null,
+  };
+  const first = buildMemberStockForecastProjection({ row: sandisk, snapshot });
+  const second = buildMemberStockForecastProjection({ row: sandisk, snapshot });
+  assert.deepEqual(first, second);
+  assert.ok(first.candles.length >= 5);
+  assert.ok(first.atr14 > 0);
+  assert.ok(first.candles.every((candle) => candle.high >= Math.max(candle.open, candle.close) && candle.low <= Math.min(candle.open, candle.close)));
+  assert.ok(first.candles.every((candle) => ![0, 6].includes(new Date(`${candle.date}T00:00:00Z`).getUTCDay())));
+  assert.ok(first.candles.some((candle) => candle.keyDay));
+  const septemberSecond = first.candles.find((candle) => candle.date === "2026-09-02");
+  const septemberFourth = first.candles.find((candle) => candle.date === "2026-09-04");
+  assert.ok(septemberSecond && septemberFourth);
+  assert.ok(septemberFourth.close < septemberSecond.close, "explicit monthly '末端转弱' segment must bend the simulated candles down");
+  assert.match(first.basisLabel, /月卦|周卦/);
+  assert.ok(memberStockAtr(dailyCandles) > 0);
+});
+
+test("forecast projection fails closed when both month and week evidence are missing", () => {
+  const row = structuredClone(rows[0]!);
+  row.monthly.direction = null;
+  row.weekly.direction = null;
+  row.forecastPath = [];
+  const snapshot: MemberStockPathSnapshot = {
+    key: row.technicalKey,
+    symbol: row.symbol,
+    capturedAt: "2026-08-24T08:00:00Z",
+    dailyCandles: [
+      { timestamp: Date.parse("2026-08-20T00:00:00Z"), open: 100, high: 104, low: 98, close: 102, volume: 1 },
+      { timestamp: Date.parse("2026-08-21T00:00:00Z"), open: 102, high: 105, low: 100, close: 103, volume: 1 },
+    ],
+    chan4h: null,
+    error: null,
+  };
+  const projection = buildMemberStockForecastProjection({ row, snapshot });
+  assert.deepEqual(projection.candles, []);
+  assert.match(projection.basisLabel, /未生成/);
 });

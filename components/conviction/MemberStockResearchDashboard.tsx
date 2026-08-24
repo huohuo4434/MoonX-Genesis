@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import { buildMemberStockForecastProjection } from "@/lib/research/member-stock-forecast-candles";
 import type { MemberStockPathSnapshot, MemberStockPickResearchRow } from "@/types/member-stock-picks-dashboard";
 
 type SnapshotState =
@@ -28,50 +29,35 @@ function price(value: number | null): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: value < 20 ? 3 : 2 });
 }
 
-function directionDelta(direction: string, index: number, total: number): number {
-  const phase = total <= 1 ? 1 : index / (total - 1);
-  if (/先跌后涨/u.test(direction)) return phase < 0.45 ? -0.75 : 1.25;
-  if (/先涨后跌/u.test(direction)) return phase < 0.45 ? 0.75 : -1.25;
-  if (/震荡上涨/u.test(direction)) return index % 2 === 0 ? -0.25 : 0.8;
-  if (/震荡下跌/u.test(direction)) return index % 2 === 0 ? 0.25 : -0.8;
-  if (/上涨|回升|修复|反弹/u.test(direction)) return 0.9;
-  if (/下跌|回落|转弱|探底/u.test(direction)) return -0.9;
-  return index % 2 === 0 ? 0.25 : -0.25;
+function signedPct(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function PathOverlayChart({ row, snapshot }: { row: MemberStockPickResearchRow; snapshot: MemberStockPathSnapshot | null }) {
   const candles = snapshot?.dailyCandles ?? [];
   if (!candles.length) return <div className="flex h-[300px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/20 px-6 text-center text-sm leading-6 text-white/45">真实日K暂不可用；页面不会用假历史K线补齐。</div>;
-  const recent = candles.slice(-28);
-  const anchor = recent.at(-1)!.close;
-  const actual = recent.map((candle) => ({
-    open: candle.open / anchor * 100,
-    high: candle.high / anchor * 100,
-    low: candle.low / anchor * 100,
-    close: candle.close / anchor * 100,
-  }));
-  const forecastSource = row.forecastPath.length ? row.forecastPath : [{ date: "", direction: row.weekly.direction ?? row.monthly.direction ?? "震荡", summary: "" }];
-  const forecast: Array<{ value: number; direction: string }> = [{ value: 100, direction: "起点" }];
-  for (let index = 0; index < forecastSource.length; index += 1) {
-    const source = forecastSource[index]!;
-    forecast.push({ value: forecast.at(-1)!.value + directionDelta(source.direction, index, forecastSource.length), direction: source.direction });
-  }
-  const lows = actual.map((item) => item.low).concat(forecast.map((item) => item.value));
-  const highs = actual.map((item) => item.high).concat(forecast.map((item) => item.value));
-  const min = Math.min(...lows) - 0.8;
-  const max = Math.max(...highs) + 0.8;
-  const width = 760;
-  const height = 280;
-  const pad = { left: 46, right: 22, top: 24, bottom: 34 };
+  const recent = candles.slice(-22);
+  const projection = buildMemberStockForecastProjection({ row, snapshot: snapshot! });
+  const actual = recent.map((candle) => ({ ...candle, date: new Date(candle.timestamp).toISOString().slice(0, 10), forecast: false, keyDay: false, keyLabel: null as string | null }));
+  const forecast = projection.candles.map((candle) => ({ ...candle, volume: null, forecast: true }));
+  const combined = [...actual, ...forecast];
+  const rawMin = Math.min(...combined.map((item) => item.low));
+  const rawMax = Math.max(...combined.map((item) => item.high));
+  const margin = Math.max((rawMax - rawMin) * 0.08, recent.at(-1)!.close * 0.005);
+  const min = rawMin - margin;
+  const max = rawMax + margin;
+  const width = 920;
+  const height = 390;
+  const pad = { left: 16, right: 78, top: 46, bottom: 52 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
-  const actualW = plotW * 0.7;
-  const forecastW = plotW - actualW;
   const y = (value: number) => pad.top + (max - value) / Math.max(max - min, 0.001) * plotH;
-  const actualX = (index: number) => pad.left + index / Math.max(actual.length - 1, 1) * actualW;
-  const forecastX = (index: number) => pad.left + actualW + index / Math.max(forecast.length - 1, 1) * forecastW;
-  const candleWidth = Math.max(3, Math.min(9, actualW / Math.max(actual.length, 1) * 0.55));
-  const path = forecast.map((point, index) => `${index ? "L" : "M"}${forecastX(index).toFixed(1)},${y(point.value).toFixed(1)}`).join(" ");
+  const x = (index: number) => pad.left + (index + 0.5) / Math.max(combined.length, 1) * plotW;
+  const candleWidth = Math.max(4, Math.min(11, plotW / Math.max(combined.length, 1) * 0.58));
+  const dividerX = actual.length ? pad.left + actual.length / Math.max(combined.length, 1) * plotW : pad.left;
+  const yTicks = Array.from({ length: 6 }, (_, index) => max - index / 5 * (max - min));
+  const xStride = Math.max(1, Math.ceil(combined.length / 8));
   const firstClose = recent.at(-6)?.close ?? recent[0]!.close;
   const movePct = (recent.at(-1)!.close / firstClose - 1) * 100;
   const observed = movePct > 1 ? "偏强" : movePct < -1 ? "偏弱" : "震荡";
@@ -81,25 +67,30 @@ function PathOverlayChart({ row, snapshot }: { row: MemberStockPickResearchRow; 
   const observedBull = observed === "偏强";
   const observedBear = observed === "偏弱";
   const relation = official && ((officialBull && observedBull) || (officialBear && observedBear)) ? "同向" : official && ((officialBull && observedBear) || (officialBear && observedBull)) ? "相反，需谨慎" : "等待确认";
+  const keyForecasts = forecast.filter((candle) => candle.keyDay).slice(0, 8);
+  const latestClose = recent.at(-1)!.close;
+  const projectedLowPct = projection.projectedLow == null ? null : (projection.projectedLow / latestClose - 1) * 100;
+  const projectedHighPct = projection.projectedHigh == null ? null : (projection.projectedHigh / latestClose - 1) * 100;
 
   return <div className="rounded-2xl border border-white/[0.08] bg-black/25 p-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h3 className="text-base font-semibold text-white">真实日K × 预测路线</h3><p className="mt-1 text-xs text-white/40">历史为真实已闭合日K；未来是以100为起点的形态指数，不是价格目标。</p></div>
-      <div className="text-right text-xs"><p className="text-white/65">近5日K线 {observed} · 与正式方向 {relation}</p><p className="mt-1 text-white/35">最新真实收盘 {price(recent.at(-1)!.close)}</p></div>
+      <div className="min-w-0"><h3 className="text-base font-semibold text-white">真实日K × 月周卦模拟K线</h3><p className="mt-1 max-w-2xl text-xs leading-5 text-white/45">{projection.basisLabel}</p></div>
+      <div className="text-right text-xs"><p className="text-white/65">近5日K线 {observed} · 与正式方向 {relation}</p><p className="mt-1 text-white/35">最新收盘 {price(recent.at(-1)!.close)} · ATR14 {price(projection.atr14)}</p></div>
     </div>
-    <div className="mt-3 overflow-x-auto"><svg viewBox={`0 0 ${width} ${height}`} className="min-w-[700px] w-full" role="img" aria-label={`${row.symbol}真实日K与归一化预测路线叠加图`}>
-      <rect x={pad.left + actualW} y={pad.top} width={forecastW} height={plotH} fill="rgba(139,92,246,.06)" />
-      {[0, .25, .5, .75, 1].map((fraction) => <line key={fraction} x1={pad.left} x2={width-pad.right} y1={pad.top+plotH*fraction} y2={pad.top+plotH*fraction} stroke="rgba(255,255,255,.07)" />)}
-      {actual.map((candle, index) => {
-        const x = actualX(index); const up = candle.close >= candle.open; const color = up ? "#fb7185" : "#34d399"; const top = y(Math.max(candle.open, candle.close)); const bottom = y(Math.min(candle.open, candle.close));
-        return <g key={index}><line x1={x} x2={x} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth="1.2"/><rect x={x-candleWidth/2} y={top} width={candleWidth} height={Math.max(bottom-top,1.5)} fill={up ? color : "transparent"} stroke={color}/></g>;
+    <div className="mt-3 overflow-x-auto"><svg viewBox={`0 0 ${width} ${height}`} className="min-w-[820px] w-full" role="img" aria-label={`${row.symbol}真实日K与未来模拟K线叠加图，纵轴为价格，横轴为日期`}>
+      <rect x={dividerX} y={pad.top} width={Math.max(0, width-pad.right-dividerX)} height={plotH} fill="rgba(139,92,246,.07)" />
+      {yTicks.map((tick) => <g key={tick}><line x1={pad.left} x2={width-pad.right} y1={y(tick)} y2={y(tick)} stroke="rgba(255,255,255,.07)"/><text x={width-pad.right+8} y={y(tick)+4} fill="rgba(255,255,255,.52)" fontSize="11">{price(tick)}</text></g>)}
+      {combined.map((candle, index) => {
+        const cx = x(index); const up = candle.close >= candle.open; const color = candle.forecast ? up ? "#fb923c" : "#22d3ee" : up ? "#fb7185" : "#34d399"; const top = y(Math.max(candle.open, candle.close)); const bottom = y(Math.min(candle.open, candle.close));
+        return <g key={`${candle.date}-${index}`}><line x1={cx} x2={cx} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1.2"} strokeDasharray={candle.forecast ? "3 2" : undefined}/><rect x={cx-candleWidth/2} y={top} width={candleWidth} height={Math.max(bottom-top,1.5)} fill={up ? color : "transparent"} fillOpacity={candle.forecast ? ".72" : "1"} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1"}/>{candle.forecast && candle.keyDay ? <g><circle cx={cx} cy={Math.max(16,y(candle.high)-12)} r="4" fill="#fde68a"/><text x={cx} y={Math.max(12,y(candle.high)-20)} textAnchor="middle" fill="#fde68a" fontSize="10">关键日</text></g> : null}</g>;
       })}
-      <line x1={pad.left+actualW} x2={pad.left+actualW} y1={pad.top} y2={pad.top+plotH} stroke="rgba(196,181,253,.65)" strokeDasharray="5 5"/>
-      <path d={path} fill="none" stroke="#c4b5fd" strokeWidth="2.5" strokeDasharray="7 5"/>
-      {forecast.map((point,index)=><circle key={index} cx={forecastX(index)} cy={y(point.value)} r="3" fill="#c4b5fd"/>)}
-      <text x={pad.left} y={height-10} fill="rgba(255,255,255,.42)" fontSize="11">真实日K</text><text x={pad.left+actualW+10} y={height-10} fill="rgba(196,181,253,.8)" fontSize="11">预测形态 · 非目标价</text>
-      <text x="6" y={y(100)+4} fill="rgba(255,255,255,.38)" fontSize="10">100</text>
+      <line x1={dividerX} x2={dividerX} y1={pad.top} y2={pad.top+plotH} stroke="rgba(196,181,253,.8)" strokeDasharray="5 5"/>
+      <text x={Math.max(pad.left,dividerX-54)} y={pad.top-15} fill="rgba(255,255,255,.48)" fontSize="11">真实已闭合</text><text x={dividerX+10} y={pad.top-15} fill="rgba(196,181,253,.9)" fontSize="11">未来模拟</text>
+      {combined.map((candle,index) => index % xStride === 0 || index === combined.length-1 ? <text key={`date-${candle.date}-${index}`} x={x(index)} y={height-20} textAnchor="middle" fill="rgba(255,255,255,.48)" fontSize="10">{candle.date.slice(5).replace("-","/")}</text> : null)}
     </svg></div>
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/45"><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-rose-400"/>真实上涨</span><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-400"/>真实下跌</span><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-orange-400"/>模拟上涨</span><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-cyan-400"/>模拟下跌</span><span className="text-violet-200/65">可信度 {projection.evidenceLevel === "HIGH" ? "高" : projection.evidenceLevel === "MEDIUM" ? "中" : "低"}</span>{projection.projectedLow != null && projection.projectedHigh != null ? <span>模拟区间 {price(projection.projectedLow)}–{price(projection.projectedHigh)}（{signedPct(projectedLowPct)} / {signedPct(projectedHighPct)}）</span> : null}</div>
+    {keyForecasts.length ? <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs"><span className="text-amber-100/55">月周卦关键窗</span>{keyForecasts.map((candle) => <span key={candle.date} className="max-w-full break-words rounded-full border border-amber-200/15 bg-amber-200/[.04] px-2.5 py-1 text-amber-100/75">{candle.date.slice(5).replace("-", "/")} · {candle.keyLabel}</span>)}</div> : <p className="mt-3 text-xs text-white/35">当前资料没有可追溯的结构化关键日，因此不额外制造转折日期。</p>}
+    <p className="mt-3 text-xs leading-5 text-amber-100/55">模拟K线不是报价或目标价：方向与关键窗来自已发布月卦/周卦，幅度由真实ATR和4H缠论结构约束；非交易日不画假K，缺少同周期周卦时可信度自动降低。</p>
   </div>;
 }
 
