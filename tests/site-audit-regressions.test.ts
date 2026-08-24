@@ -29,13 +29,16 @@ test("public health endpoint does not expose admin details to anonymous callers"
 
 test("SEO and pricing copy no longer contain known regressions", () => {
   assert.doesNotMatch(read("app/layout.tsx"), /canonical:\s*siteConfig\.url/);
+  const i18n = read("lib/i18n/server.ts");
+  assert.match(i18n, /Remove legacy trailing brand fragments/);
+  assert.match(i18n, /MOOX\(\?:\\s\+Intelligence\|会员\|\\s\+Members\)/);
   const pricing = read("app/pricing/page.tsx");
   assert.match(pricing, /MOOX会员方案/);
   assert.doesNotMatch(pricing, /Unlock MOOX Intelligence|不降价。/);
 
   const client = read("components/payments/PricingPlansClient.tsx");
-  assert.equal((client.match(/4\. 等待人工审核开通/g) ?? []).length, 1);
-  assert.doesNotMatch(client, /4\. 管理员审核后开通/);
+  assert.equal((client.match(/4\. 链上确认后自动开通会员/g) ?? []).length, 1);
+  assert.doesNotMatch(client, /等待人工审核开通|管理员审核后开通/);
   assert.match(client, /@jackuwin/);
 });
 

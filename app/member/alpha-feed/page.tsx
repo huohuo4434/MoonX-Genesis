@@ -450,7 +450,7 @@ export default async function AlphaFeedPage() {
       solves={en ? ["Asset × date heatmap", "Anonymous researchers", "MOOX same/opposite alerts"] : ["资产×日期方向热力图", "研究者匿名", "自动标注与MOOX同向或相反"]}
       memberBenefits={en ? ["10-day signal history", "Bull/bear balance", "15-minute collector"] : ["滚动10天方向轨迹", "多空人数与分歧", "15分钟采集链"]}
       exampleTitle={en ? "Example" : "示例"}
-      exampleLines={en ? ["Aug 30 · BTC · Cycle Analyst bearish", "MOOX bearish: aligned; Gann Analyst opposite"] : ["8月30日 · BTC · 周期分析师看跌", "MOOX看跌：同向；江恩分析师相反"]}
+      exampleLines={en ? ["One date · BTC · viewpoints classified", "MOOX aligned/opposite relationship stays member-only"] : ["某日 · BTC · 多空观点已归类", "与MOOX同向或相反的关系仅会员可见"]}
       nextPath={en ? `/en${path}` : path}
     /></Section></main>;
   }

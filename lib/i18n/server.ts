@@ -49,7 +49,12 @@ export function buildLocalizedPageMetadata(input: {
 }): Metadata {
   const { locale, basePath, titleZh, titleEn, descriptionZh, descriptionEn } = input;
   const english = locale === "en";
-  const title = english ? titleEn : titleZh;
+  // Root layout already appends the site name through its title template.
+  // Remove legacy trailing brand fragments so browser titles never become
+  // "... | MOOX Intelligence · MOOX Intelligence".
+  const title = (english ? titleEn : titleZh)
+    .replace(/\s*[|·]\s*MOOX(?:\s+Intelligence|会员|\s+Members)?\s*$/iu, "")
+    .trim();
   const description = english ? descriptionEn : descriptionZh;
   const canonicalPath = english ? englishPath(basePath) : basePath;
   return {

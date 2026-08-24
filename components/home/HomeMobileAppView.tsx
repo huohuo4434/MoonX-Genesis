@@ -29,6 +29,47 @@ export function HomeMobileAppView({
   divergenceCount: number;
   publishedCount: number;
 }) {
+  if (!canViewDaily) {
+    return (
+      <div className="md:hidden">
+        <section className="px-4 pt-5">
+          <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,.24),transparent_36%),linear-gradient(160deg,#15132a_0%,#090a10_66%)] p-5 shadow-[0_24px_70px_rgba(0,0,0,.35)]">
+            <p className="text-[11px] font-medium tracking-[0.22em] text-violet-300">MOOX INTELLIGENCE</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">九大市场每日方向研究</h1>
+            <p className="mt-3 text-sm leading-6 text-white/65">看方向，等确认，守失效。预测先锁定，结果再公开验证。</p>
+            <p className="mt-2 text-xs leading-5 text-white/42">{accessMessage}</p>
+            <div className="mt-5 grid gap-2">
+              <Link href="/register?next=/" className="flex min-h-11 items-center justify-center rounded-full bg-violet-500 px-5 py-2.5 text-sm font-medium text-white">免费注册看今日</Link>
+              <Link href="/verification" className="flex min-h-11 items-center justify-center rounded-full border border-cyan-400/25 bg-cyan-500/[0.08] px-5 py-2.5 text-sm font-medium text-cyan-100">查看公开验证</Link>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <RadarStat label="核心市场" value="9" tone="text-white" />
+              <RadarStat label="日／周／月" value="3层" tone="text-violet-200" />
+              <RadarStat label="失败也保留" value="公开" tone="text-emerald-200" />
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 pt-5">
+          <p className="text-[11px] tracking-[0.18em] text-white/35">HOW TO READ</p>
+          <h2 className="mt-1 text-lg font-semibold">研究不是一句涨或跌</h2>
+          <div className="mt-3 grid gap-3">
+            {[
+              ["01", "先看方向", "明确当前阶段最主要的行情判断。"],
+              ["02", "再等确认", "支撑、压力与市场结构决定是否执行。"],
+              ["03", "最后守失效", "条件不再成立时停止执行或降低风险。"],
+            ].map(([step, title, body]) => <div key={step} className="flex gap-3 rounded-3xl border border-white/8 bg-white/[0.025] p-4"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-500/12 text-xs font-semibold text-violet-200">{step}</span><div><h3 className="font-semibold">{title}</h3><p className="mt-1 text-xs leading-5 text-white/45">{body}</p></div></div>)}
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-3 px-4 pb-2 pt-5">
+          <Link href="/guide" className="rounded-3xl border border-white/8 bg-white/[0.025] p-4"><p className="text-[11px] tracking-[0.16em] text-cyan-300/65">60秒了解</p><h3 className="mt-1 font-semibold">新手指南</h3><p className="mt-2 text-xs leading-5 text-white/38">看懂方向、信心、位置与失效。</p></Link>
+          <Link href="/pricing" className="rounded-3xl border border-violet-400/12 bg-violet-500/[0.055] p-4"><p className="text-[11px] tracking-[0.16em] text-violet-300/70">会员权益</p><h3 className="mt-1 font-semibold">查看方案</h3><p className="mt-2 text-xs leading-5 text-white/38">比较免费用户与会员能看到的内容。</p></Link>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="md:hidden">
       <section className="px-4 pt-5">
@@ -41,19 +82,11 @@ export function HomeMobileAppView({
             <Link href="/member/daily" className="rounded-full border border-violet-400/20 bg-violet-500/12 px-3 py-1.5 text-xs text-violet-100">日报 →</Link>
           </div>
 
-          {canViewDaily ? (
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              <RadarStat label="奇六共振" value={resonanceCount} tone="text-emerald-200" />
-              <RadarStat label="存在分歧" value={divergenceCount} tone="text-amber-100" />
-              <RadarStat label="已发布" value={`${publishedCount}/9`} tone="text-white" />
-            </div>
-          ) : (
-            <div className="mt-5 rounded-2xl border border-violet-400/15 bg-violet-500/[0.07] p-4">
-              <p className="text-sm font-medium">登录后查看今日完整研究</p>
-              <p className="mt-1 text-xs leading-5 text-white/45">{accessMessage}</p>
-              <Link href="/login?next=/" className="mt-3 inline-flex rounded-full bg-violet-500 px-4 py-2 text-xs font-medium">登录查看</Link>
-            </div>
-          )}
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <RadarStat label="奇六共振" value={resonanceCount} tone="text-emerald-200" />
+            <RadarStat label="存在分歧" value={divergenceCount} tone="text-amber-100" />
+            <RadarStat label="已发布" value={`${publishedCount}/9`} tone="text-white" />
+          </div>
         </div>
       </section>
 

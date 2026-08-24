@@ -89,14 +89,41 @@ test("4H structural levels are primary and transient failures are not cached as 
   assert.match(s, /source: "UNAVAILABLE"/);
 });
 
-test("homepage uses streamed 4H-first levels and previous completed verification date only", () => {
+test("homepage uses streamed 4H-first levels and preserves every previous completed verdict", () => {
   const s = read("components/home/HomeLandingBoard.tsx");
   assert.match(s, /HomeIntradayLevelPair/);
   assert.match(s, /item\.forecastDate < todayKey/);
   assert.match(s, /FULL_HIT/);
   assert.match(s, /PARTIAL_HIT/);
-  assert.match(s, /上一交易日验证 · 只展示命中与部分命中/);
+  assert.match(s, /"MISS"/);
+  assert.match(s, /上一交易日验证 · 命中、部分命中与未命中都保留/);
+  assert.doesNotMatch(s, /只展示命中与部分命中/);
   assert.doesNotMatch(s, /近期表现较稳的3个市场/);
+});
+
+test("beginner guide follows source-locked Liu Yao and Qimen governance", () => {
+  const s = read("app/guide/page.tsx");
+  assert.match(s, /有效的周／阶段六爻锁定短中期方向/);
+  assert.match(s, /两者一致时提高信心/);
+  assert.match(s, /不一致时并列展示并降低信心/);
+  assert.match(s, /奇门不覆盖已经锁定的六爻方向/);
+  assert.doesNotMatch(s, /奇门先判方向、六爻辅助/);
+});
+
+test("anonymous mobile homepage explains the product before member-only tools", () => {
+  const home = read("components/home/HomeLandingBoard.tsx");
+  const mobile = read("components/home/HomeMobileAppView.tsx");
+  assert.match(home, /<main id="moonx-view"/);
+  assert.doesNotMatch(home, /id="daily-board"/);
+  assert.match(mobile, /if \(!canViewDaily\)/);
+  assert.match(mobile, /九大市场每日方向研究/);
+  assert.match(mobile, /预测先锁定，结果再公开验证/);
+  assert.match(mobile, /免费注册看今日/);
+  assert.match(mobile, /查看公开验证/);
+  assert.match(mobile, /研究不是一句涨或跌/);
+  assert.match(mobile, /先看方向/);
+  assert.match(mobile, /再等确认/);
+  assert.match(mobile, /最后守失效/);
 });
 
 test("focus detail uses client-safe 4H-first cards and never imports server-only loader into the client graph", () => {

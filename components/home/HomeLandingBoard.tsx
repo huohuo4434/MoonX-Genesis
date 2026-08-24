@@ -98,7 +98,7 @@ function selectVerification(items: PublicAccuracyHistoryItem[], now = new Date()
   const targetDate = core.map((item) => item.forecastDate).sort().at(-1);
   if (!targetDate) return [];
 
-  const accepted = new Set(["HIT", "FULL_HIT", "PARTIAL_HIT"]);
+  const accepted = new Set(["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS"]);
   const seen = new Set<string>();
   const selected: VerificationSelection[] = [];
   for (const item of core
@@ -124,7 +124,7 @@ const MEMBER_ENTRIES = [
 
 export function HomeLandingBoard() {
   return (
-    <main className="min-h-screen bg-[#06070b] text-white">
+    <main id="moonx-view" className="min-h-screen bg-[#06070b] text-white">
       <Suspense fallback={<HomeLandingFallback />}>
         <HomeLandingData />
       </Suspense>
@@ -177,18 +177,18 @@ async function HomeLandingData() {
         <HomeMobileVerificationData nowIso={now.toISOString()} />
       </Suspense>
       <div className="hidden md:block">
-      <section id="daily-board" className="border-b border-white/5 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.20),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,190,210,0.13),transparent_28%),linear-gradient(180deg,#0d1020_0%,#06070b_100%)]">
+      <section className="border-b border-white/5 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.20),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,190,210,0.13),transparent_28%),linear-gradient(180deg,#0d1020_0%,#06070b_100%)]">
         <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8">
           <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.38)] sm:p-7">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
                 <p className="text-sm font-medium tracking-[0.2em] text-violet-300">MOOX DAILY BOARD</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">九大市场今日预测</h1>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">看清方向，等待位置，严格执行。</p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">九大市场每日方向研究</h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">看方向，等确认，守失效。预测先锁定；命中、部分命中与未命中全部进入公开验证。</p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Link href="/member" className="rounded-full border border-violet-400/35 bg-violet-500/18 px-5 py-2.5 text-sm font-medium text-violet-100 transition hover:bg-violet-500/28">进入会员频道</Link>
-                <Link href="/verification" className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20">历史验证</Link>
+                <Link href={todayPayload?.allowed ? "/member/daily" : "/register?next=/"} className="rounded-full border border-violet-400/35 bg-violet-500/18 px-5 py-2.5 text-sm font-medium text-violet-100 transition hover:bg-violet-500/28">{todayPayload?.allowed ? "查看今日研究" : "免费注册看今日"}</Link>
+                <Link href="/verification" className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20">公开验证</Link>
               </div>
             </div>
 
@@ -216,7 +216,7 @@ async function HomeLandingData() {
               <div className="mt-7 rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-5">
                 <div className="text-lg font-medium">登录后查看九大市场完整日度表</div>
                 <p className="mt-2 text-sm leading-6 text-white/58">{todayAccessMessage}</p>
-                <div className="mt-4 flex flex-wrap gap-3"><Link href="/login?next=/" className="rounded-full bg-violet-500 px-5 py-2 text-sm font-medium text-white">登录查看</Link><Link href="/pricing" className="rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-white/80">会员价格</Link></div>
+                <div className="mt-4 flex flex-wrap items-center gap-4"><Link href="/login?next=/" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">已有账户？登录查看</Link><Link href="/pricing" className="text-sm text-white/55 underline decoration-white/20 underline-offset-4">了解会员权益</Link></div>
               </div>
             )}
           </div>
@@ -258,9 +258,9 @@ async function HomeMobileVerificationData({ nowIso }: { nowIso: string }) {
   const verification = await loadHomeVerification(nowIso);
   return (
     <section className="px-4 pb-24 pt-5 md:hidden">
-      <div className="flex items-center justify-between"><div><p className="text-[11px] tracking-[0.18em] text-white/35">VERIFICATION</p><h2 className="mt-1 text-lg font-semibold">昨日命中</h2></div><Link href="/verification" className="text-xs text-emerald-200">历史 →</Link></div>
+      <div className="flex items-center justify-between"><div><p className="text-[11px] tracking-[0.18em] text-white/35">VERIFICATION</p><h2 className="mt-1 text-lg font-semibold">上一交易日验证</h2></div><Link href="/verification" className="text-xs text-emerald-200">历史 →</Link></div>
       <div className="mt-3 overflow-hidden rounded-3xl border border-white/8 bg-white/[0.025]">
-        {verification.length ? verification.map(({ item }) => <div key={item.forecastId} className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-xs text-white/38">{zhDate(item.forecastDate)} · 预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className="shrink-0 rounded-full border border-emerald-400/18 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">{item.verdictLabel}</span></div>) : <div className="p-5 text-sm text-white/40">暂无可展示的已验证记录。</div>}
+        {verification.length ? verification.map(({ item }) => <div key={item.forecastId} className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-xs text-white/38">{zhDate(item.forecastDate)} · 预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${item.verdict === "MISS" ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : item.verdict === "PARTIAL_HIT" ? "border-amber-400/25 bg-amber-500/10 text-amber-100" : "border-emerald-400/18 bg-emerald-500/10 text-emerald-200"}`}>{item.verdictLabel}</span></div>) : <div className="p-5 text-sm text-white/40">暂无上一交易日的已验证记录。</div>}
       </div>
     </section>
   );
@@ -271,9 +271,9 @@ async function HomeDesktopVerificationData({ nowIso }: { nowIso: string }) {
   return (
     <section className="mx-auto max-w-[1280px] px-4 py-4 sm:px-6 lg:px-8">
       <div className="rounded-3xl border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,25,26,.98),rgba(8,9,14,.98))] p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">日验证</p><h2 className="mt-2 text-2xl font-semibold">上一交易日验证 · 只展示命中与部分命中</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm tracking-[0.18em] text-emerald-300/85">日验证</p><h2 className="mt-2 text-2xl font-semibold">上一交易日验证 · 命中、部分命中与未命中都保留</h2></div><Link href="/verification" className="text-sm text-emerald-200">查看全部历史验证 →</Link></div>
         <div className="mt-5 grid gap-3">
-          {verificationItems.length ? verificationItems.map(({ item }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">验证日期 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdictLabel === "完全命中" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" : "border-amber-400/30 bg-amber-500/15 text-amber-100"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无可展示的已验证记录。</div>}
+          {verificationItems.length ? verificationItems.map(({ item }) => <div key={item.forecastId} className="rounded-2xl border border-white/8 bg-white/[0.04] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium">{item.assetName}</div><div className="mt-1 text-sm text-white/48">验证日期 {zhDate(item.forecastDate)}</div><div className="mt-1 text-sm text-white/65">预测 {item.predictedDirection} · 实际 {item.actualDirection}</div></div><span className={`rounded-full border px-3 py-1 text-sm ${item.verdict === "MISS" ? "border-rose-400/30 bg-rose-500/15 text-rose-200" : item.verdict === "PARTIAL_HIT" ? "border-amber-400/30 bg-amber-500/15 text-amber-100" : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"}`}>{item.verdictLabel}</span></div></div>) : <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-sm text-white/55">暂无上一交易日的已验证记录。</div>}
         </div>
       </div>
     </section>

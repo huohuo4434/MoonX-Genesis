@@ -10,7 +10,7 @@ test("homepage verification shows the latest completed date across all core mark
   const src = read("components/home/HomeLandingBoard.tsx");
   assert.match(src, /上一交易日验证/);
   assert.match(src, /const targetDate/);
-  assert.match(src, /HIT", "FULL_HIT", "PARTIAL_HIT/);
+  assert.match(src, /HIT", "FULL_HIT", "PARTIAL_HIT", "MISS/);
   assert.match(src, /CORE_MARKETS\.some/);
   assert.match(src, /seen\.has\(symbol\)/);
 });

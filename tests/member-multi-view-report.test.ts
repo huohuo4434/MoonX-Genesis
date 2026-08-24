@@ -31,6 +31,8 @@ test("member report contains the ten-day direction heatmap and compact 15-minute
   assert.match(page,/展开核心资产共识排行/);
   assert.match(page,/默认全部收起/);
   assert.doesNotMatch(page,/open=\{index < 2\}/);
+  assert.doesNotMatch(page,/8月30日 · BTC · 周期分析师看跌/);
+  assert.match(page,/与MOOX同向或相反的关系仅会员可见/);
   assert.match(page,/扫描\/汇总 每15分钟/);
   assert.match(server,/reportCronSchedule: "\*\/15 \* \* \* \*"/);
   assert.match(server,/WHERE posted_at >= NOW\(\) - INTERVAL '10 days'/);

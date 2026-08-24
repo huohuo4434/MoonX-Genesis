@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const QUESTIONS_ZH = [
-  { title: "MOOX先判断什么？", body: "核心市场日分析由奇门先判方向、六爻辅助；重点关注标的把六爻与奇门并列展示。周、月等大周期决定环境。" },
+  { title: "MOOX先判断什么？", body: "有效的周／阶段六爻锁定短中期方向；奇门独立判断方向与时间窗口。两者一致时提高信心，不一致时并列展示并降低信心。奇门不覆盖已经锁定的六爻方向。" },
   { title: "缠论和技术做什么？", body: "只寻找支撑、压力、入场确认、加减仓和失效位置，不反向修改已经锁定的正式方向。" },
   { title: "星级代表什么？", body: "表示方法之间的一致程度，不代表上涨幅度。五星可以看涨，也可以看跌。" },
   { title: "什么时候执行？", body: "方向提前锁定，价格和结构达到确认条件后才执行；没有合适位置就等待。" },
@@ -26,7 +26,7 @@ const QUESTIONS_ZH = [
 ] as const;
 
 const QUESTIONS_EN = [
-  { title: "What does MOOX decide first?", body: "For core-market daily research, Qimen sets the primary direction and Liu Yao provides confirmation. Focus assets show both systems side by side." },
+  { title: "What does MOOX decide first?", body: "The active weekly or stage Liu Yao record locks the short- and medium-horizon direction; Qimen independently assesses direction and timing. Agreement raises confidence, while disagreement is shown and lowers confidence. Qimen never overwrites a locked Liu Yao direction." },
   { title: "What do Chan and technical data do?", body: "They locate support, resistance, confirmation, scaling and invalidation. They do not reverse a locked formal direction." },
   { title: "What do stars mean?", body: "Stars show agreement across methods, not upside magnitude. Five stars can be bullish or bearish." },
   { title: "When is execution allowed?", body: "Direction is researched first; execution waits for price and structure confirmation. No suitable location means no trade." },
