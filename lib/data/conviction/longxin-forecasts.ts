@@ -10,11 +10,16 @@ import type {
 
 const PUBLISHED_AT = "2026-07-31T21:20:00+08:00";
 
-export const LONGXIN_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "MONTH_1"];
+export const LONGXIN_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "MONTH_1", "MONTH_3"];
 export const LONGXIN_FULL_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
   "WEEK_3",
+  "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",

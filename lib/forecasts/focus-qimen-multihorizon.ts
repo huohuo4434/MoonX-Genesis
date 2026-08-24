@@ -202,12 +202,17 @@ const PERIOD_ORDER: Readonly<Record<ConvictionForecastType, number>> = Object.fr
   WEEK_2: 3,
   WEEK_3: 4,
   WEEK_4: 5,
-  MONTH_1: 6,
-  MONTH_3: 7,
-  YEAR_1: 8,
-  YEAR_3: 9,
-  YEAR_5: 10,
-  YEAR_10: 11,
+  WEEK_5: 6,
+  WEEK_6: 7,
+  WEEK_7: 8,
+  WEEK_8: 9,
+  WEEK_9: 10,
+  MONTH_1: 11,
+  MONTH_3: 12,
+  YEAR_1: 13,
+  YEAR_3: 14,
+  YEAR_5: 15,
+  YEAR_10: 16,
 });
 
 export function focusQimenUseGodBasisLabel(basis: FocusQimenUseGodBasis): string {

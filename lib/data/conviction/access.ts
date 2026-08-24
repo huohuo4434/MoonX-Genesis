@@ -297,7 +297,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "lite") return LITE_REVISED_PERIOD_ORDER;
   if (isAShareResearchAssetId(assetId)) return A_SHARE_VISIBLE_PERIOD_ORDER;
   if (assetId === "cxmt") return LONGXIN_VISIBLE_PERIOD_ORDER;
-  if (assetId === "asteroid") return ["WEEK", "WEEK_2", "MONTH_1"] as ConvictionForecastType[];
+  if (assetId === "asteroid") return ["WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "WEEK_9", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "nbis") return NBIS_VISIBLE_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_VISIBLE_PERIOD_ORDER;
@@ -340,6 +340,26 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
     };
     if (spcxLabels[type]) return spcxLabels[type]!;
   }
+  if (assetId === "cxmt") {
+    const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK_4: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6研究尚未发布" },
+      WEEK_5: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_6: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_7: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_8: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+    };
+    if (labels[type]) return labels[type]!;
+  }
+  if (assetId === "googl") {
+    const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK_4: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6研究尚未发布" },
+      WEEK_5: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_6: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_7: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_8: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+    };
+    if (labels[type]) return labels[type]!;
+  }
   if (isAShareResearchAssetId(assetId)) return aSharePeriodLabel20260810(type);
   if (assetId === "hype") return periodLabelForHype20260809(type);
   if (assetId === "sol") return periodLabelForSol20260809(type);
@@ -368,11 +388,16 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
   if (assetId === "intel") {
     return INTEL_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
   }
-  if (assetId === "asteroid" && type === "WEEK") {
-    return { ...ASTEROID_PERIOD_LABELS[type], zh: "本周逐日" };
-  }
-  if (assetId === "asteroid" && type === "WEEK_2") {
-    return { ...ASTEROID_PERIOD_LABELS[type], zh: "下周逐日" };
+  if (assetId === "asteroid") {
+    const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK_4: { zh: "8/24–30", en: "Aug 24–30", emptyZh: "8/24–30研究尚未发布" },
+      WEEK_5: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6研究尚未发布" },
+      WEEK_6: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_7: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_8: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_9: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+    };
+    if (labels[type]) return labels[type]!;
   }
   return ASTEROID_PERIOD_LABELS[type];
 }

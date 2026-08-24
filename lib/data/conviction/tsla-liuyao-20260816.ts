@@ -1,4 +1,5 @@
 import {
+  ASTEROID_PERIOD_LABELS,
   type ConvictionForecastType,
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
@@ -35,6 +36,7 @@ export const TSLA_PERIOD_ORDER: ConvictionForecastType[] = [
 export const TSLA_VISIBLE_PERIOD_ORDER = TSLA_PERIOD_ORDER;
 
 const LABELS: Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }> = {
+  ...ASTEROID_PERIOD_LABELS,
   TODAY: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
   TOMORROW: { zh: "备用周期", en: "Reserved", emptyZh: "该周期研究尚未发布" },
   WEEK: { zh: "8/17–23", en: "Aug 17–23", emptyZh: "8/17–23研究尚未发布" },

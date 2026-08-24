@@ -6,8 +6,8 @@ import {
 
 const PUBLISHED_AT = "2026-08-08T08:50:00+08:00";
 
-export const GOOGLE_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1"];
-export const GOOGLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3"];
+export const GOOGLE_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "MONTH_1", "MONTH_3"];
+export const GOOGLE_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "MONTH_1", "MONTH_3"];
 
 export const GOOGLE_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
   {

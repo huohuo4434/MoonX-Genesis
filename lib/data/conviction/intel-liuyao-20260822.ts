@@ -98,11 +98,16 @@ export const INTEL_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
   }),
 ];
 
-export const INTEL_PERIOD_ORDER: ConvictionForecastType[] = ["MONTH_1", "MONTH_3", "YEAR_1"];
+export const INTEL_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "WEEK_5", "MONTH_1", "MONTH_3", "YEAR_1"];
 export const INTEL_VISIBLE_PERIOD_ORDER = INTEL_PERIOD_ORDER;
 
 export const INTEL_PERIOD_LABELS: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
-  MONTH_1: { zh: "8月22—31日", en: "Aug 22–31", emptyZh: "该周期研究尚未发布" },
+  WEEK: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6研究尚未发布" },
+  WEEK_2: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+  WEEK_3: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+  WEEK_4: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+  WEEK_5: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+  MONTH_1: { zh: "9月整月（最新）", en: "September · latest", emptyZh: "该周期研究尚未发布" },
   MONTH_3: { zh: "8月22日—9月30日", en: "Aug 22–Sep 30", emptyZh: "该周期研究尚未发布" },
   YEAR_1: { zh: "8月22日—年底", en: "Aug 22–Year End", emptyZh: "该周期研究尚未发布" },
 };

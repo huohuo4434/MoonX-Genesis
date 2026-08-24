@@ -4,6 +4,7 @@ import {
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
+import { listSeptemberWeeklyRevisions20260824 } from "@/lib/data/conviction/september-weekly-revisions-20260824";
 
 const PUBLISHED_AT = "2026-08-09T17:05:00+08:00";
 
@@ -48,6 +49,11 @@ export const SOL_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
   "WEEK_3",
+  "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",
@@ -59,6 +65,11 @@ export const SOL_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
   "WEEK_3",
+  "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",
@@ -72,6 +83,11 @@ export const SOL_PERIOD_LABELS: Partial<
   WEEK: { zh: "8/9–16", en: "Aug 9–16", emptyZh: "8/9–16周卦尚未发布" },
   WEEK_2: { zh: "8/17–23", en: "Aug 17–23", emptyZh: "8/17–23周卦尚未发布" },
   WEEK_3: { zh: "8/24–30", en: "Aug 24–30", emptyZh: "8/24–30周卦尚未发布" },
+  WEEK_4: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6周卦尚未发布" },
+  WEEK_5: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13周卦尚未发布" },
+  WEEK_6: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20周卦尚未发布" },
+  WEEK_7: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27周卦尚未发布" },
+  WEEK_8: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4周卦尚未发布" },
   MONTH_1: { zh: "8月", en: "August", emptyZh: "8月研究尚未发布" },
   MONTH_3: { zh: "9–12月", en: "Sep–Dec", emptyZh: "9–12月路线尚未发布" },
   YEAR_1: { zh: "2027年", en: "2027", emptyZh: "2027年度研究尚未发布" },
@@ -1225,7 +1241,12 @@ export function listHypePeriodForecasts20260809() {
 }
 
 export function listSolPeriodForecasts20260809() {
-  return [...SOL_PERIOD_FORECASTS_20260809, ...SOL_TEACHER_REVIEW_FORECASTS_20260809, ...SOL_DUAL_TEACHER_FINAL_20260810].filter((item) => item.status === "published");
+  return [
+    ...SOL_PERIOD_FORECASTS_20260809,
+    ...SOL_TEACHER_REVIEW_FORECASTS_20260809,
+    ...SOL_DUAL_TEACHER_FINAL_20260810,
+    ...listSeptemberWeeklyRevisions20260824("sol"),
+  ].filter((item) => item.status === "published");
 }
 
 export function periodLabelForHype20260809(type: ConvictionForecastType) {

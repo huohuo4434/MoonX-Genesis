@@ -12,6 +12,11 @@ export type ConvictionForecastType =
   | "WEEK_2"
   | "WEEK_3"
   | "WEEK_4"
+  | "WEEK_5"
+  | "WEEK_6"
+  | "WEEK_7"
+  | "WEEK_8"
+  | "WEEK_9"
   | "MONTH_1"
   | "MONTH_3"
   | "YEAR_1"
@@ -624,6 +629,11 @@ export const ASTEROID_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK_2",
   "WEEK_3",
   "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
+  "WEEK_9",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",
@@ -640,6 +650,11 @@ export const ASTEROID_PERIOD_LABELS: Record<
   WEEK_2: { zh: "第2阶段", en: "Stage 2", emptyZh: "该周期预测尚未发布" },
   WEEK_3: { zh: "第3阶段", en: "Stage 3", emptyZh: "该周期预测尚未发布" },
   WEEK_4: { zh: "第4阶段", en: "Stage 4", emptyZh: "该周期预测尚未发布" },
+  WEEK_5: { zh: "第5阶段", en: "Stage 5", emptyZh: "该周期预测尚未发布" },
+  WEEK_6: { zh: "第6阶段", en: "Stage 6", emptyZh: "该周期预测尚未发布" },
+  WEEK_7: { zh: "第7阶段", en: "Stage 7", emptyZh: "该周期预测尚未发布" },
+  WEEK_8: { zh: "第8阶段", en: "Stage 8", emptyZh: "该周期预测尚未发布" },
+  WEEK_9: { zh: "第9阶段", en: "Stage 9", emptyZh: "该周期预测尚未发布" },
   MONTH_1: { zh: "1个月", en: "1M", emptyZh: "该周期预测尚未发布" },
   MONTH_3: { zh: "3个月", en: "3M", emptyZh: "该周期预测尚未发布" },
   YEAR_1: { zh: "1年", en: "1Y", emptyZh: "该周期预测尚未发布" },

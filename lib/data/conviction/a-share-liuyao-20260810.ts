@@ -1,4 +1,5 @@
 import {
+  ASTEROID_PERIOD_LABELS,
   type ConvictionForecastType,
   type ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
@@ -21,6 +22,7 @@ export const A_SHARE_PERIOD_ORDER: ConvictionForecastType[] = ["MONTH_1", "MONTH
 export const A_SHARE_VISIBLE_PERIOD_ORDER = A_SHARE_PERIOD_ORDER;
 
 const LABELS: Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }> = {
+  ...ASTEROID_PERIOD_LABELS,
   TODAY: { zh: "今日", en: "Today", emptyZh: "该周期预测尚未发布" },
   TOMORROW: { zh: "明日", en: "Tomorrow", emptyZh: "该周期预测尚未发布" },
   WEEK: { zh: "本周", en: "Week", emptyZh: "该周期预测尚未发布" },
