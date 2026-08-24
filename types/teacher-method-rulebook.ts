@@ -26,7 +26,7 @@ export type TeacherMethodArtifact = {
 };
 
 export type TeacherMethodRulebook = {
-  version: "2026-08-15.v1" | "2026-08-23.v2" | "2026-08-24.v3";
+  version: "2026-08-15.v1" | "2026-08-23.v2" | "2026-08-24.v3" | "2026-08-25.v4";
   executionAuthority: "RESEARCH_ONLY";
   tradingEligible: false;
   artifacts: TeacherMethodArtifact[];

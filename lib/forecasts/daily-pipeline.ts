@@ -234,8 +234,9 @@ async function resolveWeekly(
 ): Promise<WeeklyForecastSourceRecord | null> {
   const { getWeeklySourceForMarketDate } = await import("@/lib/weekly-source/store");
   const normalized = marketCode.toUpperCase();
-  // Source authority is explicit: teacher original first; user weekly/stage
-  // hexagrams interpreted with the teacher method second.
+  // Default source authority is a soft teacher priority. A user weekly/stage
+  // Liuyao may replace it only through the separately audited pre-publication
+  // arbiter (same scope + Qimen + approved analyst majority + complete Chan).
   const teacher = findTeacherPriorityLiuyaoSource(normalized, forecastDate);
   if (teacher) return teacher;
   // BTC/ETH then use the current locked user research files.

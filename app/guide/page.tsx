@@ -18,16 +18,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const QUESTIONS_ZH = [
-  { title: "MOOX先判断什么？", body: "有效的周／阶段六爻锁定短中期方向；奇门独立判断方向与时间窗口。两者一致时提高信心，不一致时并列展示并降低信心。奇门不覆盖已经锁定的六爻方向。" },
-  { title: "缠论和技术做什么？", body: "只寻找支撑、压力、入场确认、加减仓和失效位置，不反向修改已经锁定的正式方向。" },
+  { title: "MOOX先判断什么？", body: "有效的周／阶段六爻负责短中期方向。两份同周期六爻冲突时，默认来源略优先；若发布前奇门、多方观点严格多数和完整缠论全部支持另一份六爻，则采用交叉验证更充分的六爻，并保留分歧。锁定后不事后改写。" },
+  { title: "缠论和技术做什么？", body: "主要寻找支撑、压力、入场确认、加减仓和失效位置；不能单独翻转方向，但可在发布前参与两份冲突六爻的交叉验证。" },
   { title: "星级代表什么？", body: "表示方法之间的一致程度，不代表上涨幅度。五星可以看涨，也可以看跌。" },
   { title: "什么时候执行？", body: "方向提前锁定，价格和结构达到确认条件后才执行；没有合适位置就等待。" },
   { title: "怎么判断是否可靠？", body: "到历史验证查看连续样本。六爻、奇门、共振样本和量化交易结果分别留档，不只展示正确案例。" },
 ] as const;
 
 const QUESTIONS_EN = [
-  { title: "What does MOOX decide first?", body: "The active weekly or stage Liu Yao record locks the short- and medium-horizon direction; Qimen independently assesses direction and timing. Agreement raises confidence, while disagreement is shown and lowers confidence. Qimen never overwrites a locked Liu Yao direction." },
-  { title: "What do Chan and technical data do?", body: "They locate support, resistance, confirmation, scaling and invalidation. They do not reverse a locked formal direction." },
+  { title: "What does MOOX decide first?", body: "The active weekly or stage Liu Yao record owns direction. When two same-window readings conflict, the default source has a soft priority; before publication only, unanimous Qimen, an independent-analyst majority and complete Chan structure may select the better-confirmed Liu Yao candidate while preserving the disagreement. Locked history is never rewritten." },
+  { title: "What do Chan and technical data do?", body: "They mainly locate support, resistance, confirmation, scaling and invalidation. They cannot flip direction alone, but may help arbitrate two conflicting Liu Yao candidates before publication." },
   { title: "What do stars mean?", body: "Stars show agreement across methods, not upside magnitude. Five stars can be bullish or bearish." },
   { title: "When is execution allowed?", body: "Direction is researched first; execution waits for price and structure confirmation. No suitable location means no trade." },
   { title: "How is reliability judged?", body: "Use Verification to review continuous samples. Liu Yao, Qimen, resonance and quant-trading outcomes are kept separately." },

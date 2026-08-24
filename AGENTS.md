@@ -47,6 +47,8 @@ For live trading changes:
 - Keep direction, probability, consensus stars, risk level and execution status as separate fields.
 - Top-5 selection requires direction, valid technical location, acceptable risk/reward and a current-week window. Bearish A-share calls are risk notes, not actionable Top-5 entries.
 - Locked publications are immutable. Any change requires a new version, revision reason and preserved history.
+- Liuyao source priority is conditional before publication: complete same-window Bingwu/Wolf teacher readings have a soft 55:45 priority over a complete user-cast reading interpreted with the teacher method. If and only if a valid same-window Qimen reading, a strict majority of at least three independent approved analysts, and a complete Chan structure all align with the user Liuyao path, the user Liuyao becomes the official pre-publication direction while the teacher disagreement remains visible.
+- Qimen, analysts and Chan never set the official direction directly. They only arbitrate between two complete conflicting Liuyao candidates before lock. Missing, stale, retrospective, duplicated or cross-horizon evidence cannot satisfy the exception.
 
 ## 5. Verification gates
 

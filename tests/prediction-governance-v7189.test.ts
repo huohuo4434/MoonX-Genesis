@@ -8,6 +8,7 @@ import {
   MOOX_AI_FORBIDDEN_PERMISSION,
   MOOX_DAILY_ANALYSIS_POLICY,
   MOOX_LOCK_POLICY,
+  MOOX_LIUYAO_SOURCE_ARBITRATION,
   MOOX_PREDICTION_LAYERS,
   MOOX_TOP5_POLICY,
   evaluateExecutionGate,
@@ -30,6 +31,9 @@ test("only the weekly Liu Yao layer owns official direction authority", () => {
   assert.deepEqual(MOOX_PREDICTION_LAYERS.filter((layer) => layer.maySetOfficialDirection).map((layer) => layer.id), ["WEEKLY_LIUYAO"]);
   assert.ok(MOOX_PREDICTION_LAYERS.every((layer) => layer.mayChangeLockedDirection === false));
   assert.equal(MOOX_AI_FORBIDDEN_PERMISSION, "CHANGE_LOCKED_DIRECTION");
+  assert.equal(MOOX_LIUYAO_SOURCE_ARBITRATION.externalLayersChooseBetweenLiuyaoCandidatesOnly, true);
+  assert.equal(MOOX_LIUYAO_SOURCE_ARBITRATION.externalLayersMaySetDirectionDirectly, false);
+  assert.equal(MOOX_LIUYAO_SOURCE_ARBITRATION.lockedForecastsRemainImmutable, true);
 });
 
 test("daily analysis is weekly/stage derived and never requires a daily hexagram", () => {
@@ -80,11 +84,17 @@ test("teacher evaluation keeps formal direction when Chan or fundamentals disagr
 
 test("rulebook, public page and agent rules contain the source-locked doctrine", () => {
   const rulebook = readFileSync(resolve(process.cwd(), "lib/data/teacher-method-rulebook-20260815.ts"), "utf8");
-  for (const id of ["moox-weekly-direction-lock", "moox-no-daily-hexagram", "moox-technical-no-vote", "moox-ai-risk-authority", "moox-lock-version-history", "moox-top5-actionable"]) assert.match(rulebook, new RegExp(id));
+  for (const id of ["moox-weekly-direction-lock", "moox-no-daily-hexagram", "moox-conditional-liuyao-authority", "moox-technical-no-vote", "moox-ai-risk-authority", "moox-lock-version-history", "moox-top5-actionable"]) assert.match(rulebook, new RegExp(id));
+  assert.match(rulebook, /至少3名独立已批准博主/);
   const page = readFileSync(resolve(process.cwd(), "components/methodology/MethodologyPageClient.tsx"), "utf8");
   assert.match(page, /玄学定方向，缠论等位置，AI守纪律/);
   assert.match(page, /不单独要求日卦/);
+  const guide = readFileSync(resolve(process.cwd(), "app/guide/page.tsx"), "utf8");
+  assert.match(guide, /两份同周期六爻冲突/);
+  assert.match(guide, /锁定后不事后改写/);
   const agents = readFileSync(resolve(process.cwd(), "AGENTS.md"), "utf8");
   assert.match(agents, /weekly\/stage Liuyao record owns the official/);
   assert.match(agents, /Locked publications are immutable/);
+  assert.match(agents, /soft 55:45 priority/);
+  assert.match(agents, /strict majority of at least three independent approved analysts/);
 });

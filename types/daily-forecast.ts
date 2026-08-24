@@ -119,7 +119,7 @@ export interface DailyForecast {
 
   /** Full auditable Qimen evidence persisted/overlaid by the daily research layer. */
   qimenEvidence?: string; // MOOX_QIMEN_DAILY_RESONANCE_V7201_TYPES
-  /** Official daily view derived from the active teacher-first weekly/stage Liuyao record. */
+  /** Official daily view derived from the active, source-arbitrated weekly/stage Liuyao record. */
   liuyaoEvidence?: string;
   /** Short traditional-divination research phrase for compact UI display. */
   qimenMysticNote?: string;

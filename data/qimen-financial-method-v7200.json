@@ -1,6 +1,6 @@
 {
   "version": "7.20.14.0",
-  "policy": "TEACHER_SOURCE_FIRST_LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE",
+  "policy": "CONDITIONAL_LIUYAO_SOURCE_AUTHORITY_QIMEN_PARALLEL_FORECAST_RESONANCE",
   "publicMarketBaziVote": false,
   "castTime": {
     "fixed20Bjt": false,

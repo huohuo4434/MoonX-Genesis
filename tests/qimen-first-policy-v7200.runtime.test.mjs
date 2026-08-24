@@ -94,7 +94,7 @@ test("Qimen and Liuyao remain separate while their relationship adjusts confiden
   assert.equal(divergent.consensusStars, 2);
   assert.equal(divergent.directionConflict, true);
   assert.match(divergent.consensusLabel, /分歧.*信心降低/);
-  assert.match(divergent.methodPriority, /LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE/);
+  assert.match(divergent.methodPriority, /CONDITIONAL_LIUYAO_SOURCE_AUTHORITY_QIMEN_PARALLEL_FORECAST_RESONANCE/);
 });
 
 test("same market/date does not recast when generatedAt changes", () => {

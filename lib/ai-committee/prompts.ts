@@ -36,7 +36,7 @@ export function buildBuilderPrompts(input: CommitteeInput): {
 1. 只能使用用户提供的证据块，不得联网，不得编造实时价格、新闻、卦象或合作来源。
 2. 每条结论必须在 evidenceRefs 中引用至少一个合法证据标签。
 3. 必须区分反弹、反转、趋势延续和震荡；必须给出失效条件。
-4. 六爻与奇门只能使用已提供笔记，并分别独立给出方向。两者同向时提高信心，分歧时并列保留并降低信心；关键日默认允许前后一个交易日误差。
+4. 六爻与奇门只能使用已提供笔记，并分别独立给出方向。丙午老师、狼叔完整同周期六爻默认略优先于用户自起六爻；只有在发布前，奇门、至少3名独立已批准博主的严格多数、完整缠论结构全部与用户六爻同向时，才建议改选用户六爻为正式方向。外部三层不得自己定方向，老师分歧必须保留；关键日默认允许前后一个交易日误差。
 5. 反方角色必须真正提出可验证反证，风险角色不得发出实盘订单。
 6. 所有内容仅供内部研究，executionPolicy 永远是 RESEARCH_ONLY。
 7. 只返回严格JSON对象，不要Markdown，不要额外说明。
@@ -71,7 +71,8 @@ export function buildReviewerPrompts(
 4. 资料不足或存在未支持论断时，publishDecision 只能是 NEEDS_REVIEW 或 REJECTED。
 5. 只要任一角色存在 dataGaps，最终 confidence 原则上不得高于85。
 6. 这份结果只供内部研究，绝不能直接触发实盘交易。
-7. 只返回严格JSON对象，不要Markdown，不要额外说明。
+7. 若两份同周期六爻冲突，必须检查是否满足“奇门＋独立博主严格多数＋完整缠论”三项全部同向；缺一项都保留老师软优先并降低信心。
+8. 只返回严格JSON对象，不要Markdown，不要额外说明。
 
 返回格式：
 {"review":{"roleId":"REVIEWER","verdict":"BULLISH|BEARISH|NEUTRAL|MIXED","confidence":0,"consensus":"","disagreements":[""],"finalView":"","timeWindow":"","invalidation":"","riskPlan":"","publishDecision":"APPROVED|NEEDS_REVIEW|REJECTED","publishReason":"","unsupportedClaims":[],"nextChecks":[""]}}`;

@@ -5,7 +5,15 @@ import {
 } from "./formal-direction";
 
 export type GovernanceMarket = "crypto" | "us" | "cn" | "hk" | "commodity";
-export const MOOX_PREDICTION_GOVERNANCE_VERSION = "2026-08-17.v1" as const;
+export const MOOX_PREDICTION_GOVERNANCE_VERSION = "2026-08-25.v2" as const;
+
+export const MOOX_LIUYAO_SOURCE_ARBITRATION = {
+  defaultAuthority: "TEACHER_SOFT_PRIORITY_55_TO_45",
+  prePublicationException: "USER_LIUYAO_WHEN_QIMEN_ANALYST_MAJORITY_AND_CHAN_ALL_ALIGN",
+  externalLayersChooseBetweenLiuyaoCandidatesOnly: true,
+  externalLayersMaySetDirectionDirectly: false,
+  lockedForecastsRemainImmutable: true,
+} as const;
 
 export type GovernanceLayerId =
   | "HORIZON_CONTEXT"
@@ -42,8 +50,8 @@ export const MOOX_PREDICTION_LAYERS: readonly GovernanceLayer[] = [
     order: 2,
     nameZh: "周卦锁定方向",
     nameEn: "Weekly Liu Yao direction lock",
-    authorityZh: "当前有效周卦或阶段卦拥有短中期正式方向权；一经发布锁定，只能通过新版本修订。",
-    authorityEn: "The active weekly or stage Liu Yao record owns the official short-to-medium-horizon direction. A locked publication can only be revised with a new version.",
+    authorityZh: "当前有效周卦或阶段卦拥有短中期正式方向权。老师卦默认略优先；若发布前奇门、独立博主严格多数与缠论全部支持同周期用户卦，则改由用户六爻定方向并保留老师分歧。一经发布锁定，只能通过新版本修订。",
+    authorityEn: "The active weekly or stage Liu Yao record owns direction. Teacher charts have a soft default priority; before publication only, unanimous Qimen, independent-analyst majority and Chan support may select the same-window user Liu Yao candidate while preserving the teacher disagreement. Locked publications require a new version.",
     maySetOfficialDirection: true,
     mayChangeLockedDirection: false,
   },
@@ -52,8 +60,8 @@ export const MOOX_PREDICTION_LAYERS: readonly GovernanceLayer[] = [
     order: 3,
     nameZh: "奇门拆时间窗口",
     nameEn: "Qimen timing windows",
-    authorityZh: "奇门、万年历与干支窗口只拆节奏和关键时间，不独立翻转周卦方向。",
-    authorityEn: "Qimen, calendar and sexagenary windows refine timing and rhythm; they never flip the weekly direction by themselves.",
+    authorityZh: "奇门、万年历与干支窗口拆节奏和关键时间；奇门不能单独翻转方向，但可在发布前参与两份冲突六爻的来源裁决。",
+    authorityEn: "Qimen, calendar and sexagenary windows refine timing and rhythm. Qimen cannot flip direction alone, but may join pre-publication arbitration between conflicting Liu Yao candidates.",
     maySetOfficialDirection: false,
     mayChangeLockedDirection: false,
   },
@@ -62,8 +70,8 @@ export const MOOX_PREDICTION_LAYERS: readonly GovernanceLayer[] = [
     order: 4,
     nameZh: "缠论与技术找位置",
     nameEn: "Chan and technical execution",
-    authorityZh: "只判断结构是否完成、支撑压力、入场、止损与盈亏比；可以要求等待，但不能把看涨改成看跌或反之。",
-    authorityEn: "Determines structure completion, levels, entries, stops and risk/reward. It may require waiting, but cannot reverse the official call.",
+    authorityZh: "判断结构是否完成、支撑压力、入场、止损与盈亏比；不能独立改方向，但可在发布前作为两份冲突六爻的第三方结构验证。",
+    authorityEn: "Determines structure completion, levels, entries, stops and risk/reward. It cannot change direction alone, but may serve as pre-publication structure evidence between conflicting Liu Yao candidates.",
     maySetOfficialDirection: false,
     mayChangeLockedDirection: false,
   },

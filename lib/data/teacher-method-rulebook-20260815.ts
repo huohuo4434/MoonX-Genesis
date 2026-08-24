@@ -2,7 +2,7 @@ import "server-only";
 import type { TeacherMethodRulebook } from "@/types/teacher-method-rulebook";
 
 const RULEBOOK: TeacherMethodRulebook = {
-  version: "2026-08-24.v3",
+  version: "2026-08-25.v4",
   executionAuthority: "RESEARCH_ONLY",
   tradingEligible: false,
   artifacts: [
@@ -38,12 +38,13 @@ const RULEBOOK: TeacherMethodRulebook = {
     { id: "qimen-explicit-window", method: "QIMEN_TIMING", status: "TEACHER_CONFIRMED_RULE", title: "应验窗口不得偷换", summary: "一到三周风险窗口不等同于下一周；必须保留老师明确说明的时间跨度。", sourceArtifactId: "QIMEN-20260817-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "qimen-parallel-forecast", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "奇门与六爻并列预测", summary: "六爻与奇门分别保留独立方向；同向提高信心，分歧时并列展示并降低信心。缺盘、缺用神时不推导不存在的信息。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "nana-fundamental-horizon", method: "NANA_FUNDAMENTALS", status: "TEACHER_CONFIRMED_RULE", title: "基本面决定中长线背景", summary: "基本面用于中长线方向与估值背景，不等同于短线入场时机。", sourceArtifactId: "NANA-20260813-TXT", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
-    { id: "moox-formal-authority", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "正式周/月方向为权威", summary: "老师、X和技术结构用于验证、点位和反例；不能单独覆盖正式锁定方向。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "moox-formal-authority", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "正式周/月方向为权威", summary: "老师六爻默认略优先于用户六爻；发布锁定前允许严格跨方法证据在两份完整同周期六爻之间裁决，任何外部层都不能自己生成正式方向。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-conflict-wait", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "分歧大时观望", summary: "关键证据缺失或结构与正式方向冲突时输出WAIT，不为营销强选多空。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-horizon-context", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "大周期只定环境", summary: "年、季、月和阶段卦定义市场环境与顺逆关系，不替代当前有效周卦的正式方向。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-weekly-direction-lock", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "周卦锁定短中期方向", summary: "当前有效周卦或阶段卦拥有短中期正式方向权；发布后只允许新版本修订。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-no-daily-hexagram", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "不单独要求日卦", summary: "日分析由周卦或阶段卦拆解，再用缠论、K线与真实技术价位验证；没有日卦不属于资料缺失。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
-    { id: "moox-technical-no-vote", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "缠论和技术无方向投票权", summary: "技术只负责结构完成、支撑压力、入场、止损和盈亏比；可以要求等待，不能反向修改正式方向。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "moox-conditional-liuyao-authority", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "老师六爻为软优先，严格共识可改选用户六爻", summary: "丙午老师、狼叔完整同周期六爻默认55%，用户按老师法解读的同周期六爻默认45%。只有在发布前，奇门、至少3名独立已批准博主的严格多数、完整缠论结构全部与用户六爻同向时，才由用户六爻拥有正式方向；老师结论继续作为分歧展示。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
+    { id: "moox-technical-no-vote", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "缠论和技术无独立方向投票权", summary: "技术负责结构完成、支撑压力、入场、止损和盈亏比；不能独立翻转方向，只能在发布前作为两份冲突六爻之间的第三方验证。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-ai-risk-authority", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "AI只管理信息与风险", summary: "AI可以提醒、降仓、延迟或否决本次交易，但无权修改已锁定方向。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-execution-three-gates", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "方向、位置、风险三门齐过才执行", summary: "预测存在不等于必须交易；只有方向明确、位置合适、风险可控同时成立才进入量化执行。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },
     { id: "moox-lock-version-history", method: "MOOX_POLICY", status: "MOOX_INTERPRETATION", title: "锁定记录不可覆盖", summary: "修订必须产生新版本并保留原因；当前只展示最新有效版本，旧版本、失败和部分命中样本永久保留。", sourceArtifactId: "MOOX-POLICY", sourcePublishedAt: null, executionAuthority: "RESEARCH_ONLY" },

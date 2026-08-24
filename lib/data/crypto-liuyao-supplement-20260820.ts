@@ -5,7 +5,7 @@
  * 妻财 first -> 子孙 source -> 兄弟/官鬼/父母 -> 世应 -> target-period month strength,
  * void/tomb/clash/combine -> moving transformations. Hexagram names are context only.
  *
- * Authority boundary: teacher-origin readings rank first. These user-cast records,
+ * Authority boundary: teacher-origin readings have soft default priority. These user-cast records,
  * interpreted with the teacher method, rank second and may own the official period
  * direction only when no overlapping teacher source is available. Daily views are
  * derived from the period; Qimen is a parallel timing/risk check and never overrides.

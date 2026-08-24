@@ -1100,7 +1100,7 @@ function renderQimenEvidence(input: {
     `用神依据=${assetAnchor?.note ?? "现有老师资料未明确该产品专属奇门用神，不擅自补写"}`,
     `与周卦派生观点关系=${agreementLabel(agreement)}`,
     `九宫=${palaceText}`,
-    "规则边界=老师原卦优先-用户卦按老师法复核居次-六爻与奇门独立预测-同向提高信心-分歧并列并降低信心-技术只定点位",
+    "规则边界=老师六爻软优先-发布前严格三层共识可改选用户六爻-六爻与奇门独立预测-同向提高信心-分歧并列并降低信心-外部层不单独定方向",
     "来源边界=标准盘与老师明确象意分层-MOOX数字评分不冒充老师未公开取宫法",
   ].join("；");
 }
@@ -1295,6 +1295,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       role: "PARALLEL_INDEPENDENT_FORECAST_FROM_ACTIVE_WEEKLY_OR_STAGE_RECORD",
       agreement,
       canBeOverriddenByQimen: false,
+      prePublicationSourceArbitration: "TEACHER_SOFT_PRIORITY_USER_ONLY_IF_QIMEN_ANALYST_MAJORITY_CHAN_ALL_ALIGN",
     },
     marketBaziRegime: marketBaziRegime
       ? {
@@ -1304,7 +1305,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
           canOverrideQimen: false,
         }
       : null,
-    technicalBoundary: "LEVELS_ENTRY_INVALIDATION_ONLY_NO_DIRECTION_VOTE",
+    technicalBoundary: "NO_SOLO_DIRECTION_VOTE_PREPUBLICATION_LIUYAO_ARBITRATION_ONLY",
     marketBaziBoundary: "ASSET_BAZI_ADJUSTS_REGIME_CONVICTION_AND_TACTICAL_RISK_NOT_OFFICIAL_QIMEN_DIRECTION",
     castTimePolicy: "ONE_DAILY_MASTER_CHART_PERSISTED_OR_DETERMINISTIC_RESEARCH_WINDOW",
     evidence: signal.evidence,
@@ -1314,7 +1315,7 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
       mooxDigitalProtocol: "数字评分仅作可复现底层；遇老师已明确示范的同结构时先走语义校准，仍不冒充老师未公开的人工取宫法",
     },
   };
-  next.methodPriority = "TEACHER_SOURCE_FIRST_LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE";
+  next.methodPriority = "CONDITIONAL_LIUYAO_SOURCE_AUTHORITY_QIMEN_PARALLEL_FORECAST_RESONANCE";
   next.qimenParallelDirection = signal.direction;
   next.liuyaoOfficialDirection = liuyaoDirection;
   // Deprecated aliases remain for legacy readers; they no longer describe authority.

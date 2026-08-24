@@ -18,6 +18,8 @@ export const LIUYAO_QIMEN_PARALLEL_POLICY = Object.freeze({
   missingEvidence: "DO_NOT_FABRICATE",
 });
 
+export { CONDITIONAL_LIUYAO_AUTHORITY_POLICY } from "@/lib/forecasts/conditional-liuyao-authority";
+
 export const TEACHER_COURSE_COVERAGE_20260821 = Object.freeze([
   { code: "BINGWU-BTC-SHEN-2026", asset: "BTC", horizon: "2026-08-07/2026-09-06", siteUse: "OFFICIAL_STAGE_DIRECTION" },
   { code: "BINGWU-MULTI-HALF-MONTH-20260819", asset: "BTC/GLD/NDX/WTI", horizon: "2026-08-19/2026-09-02", siteUse: "ASSET_SPECIFIC_ONLY_WHEN_DIRECTION_WAS_EXPLICIT" },

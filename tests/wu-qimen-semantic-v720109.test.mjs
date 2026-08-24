@@ -32,7 +32,7 @@ assert(weekly.includes("黄金下周偏回调"), "Gold Qimen/Liuyao resonance ro
 assert(weekly.includes("本期吴老师没有单列ETH") || weekly.includes("吴老师本期没有单列ETH"), "ETH source boundary missing");
 
 assert(registry.version === "7.20.14.0", "Financial Qimen method registry version mismatch");
-assert(registry.policy === "TEACHER_SOURCE_FIRST_LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE", "Financial Qimen policy registry mismatch");
+assert(registry.policy === "CONDITIONAL_LIUYAO_SOURCE_AUTHORITY_QIMEN_PARALLEL_FORECAST_RESONANCE", "Financial Qimen policy registry mismatch");
 assert(registry.interpretationVersion === "WU_SEMANTIC_V1_20260820", "Wu semantic interpretation registry missing");
 assert(registry.teacherAlignment?.eventWindows?.calendarRule?.includes("目标交易日"), "Target-day branch rule missing");
 
