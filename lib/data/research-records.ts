@@ -38,6 +38,7 @@ import { cycleResearchBtcGold20260823Records } from "@/lib/data/cycle-research-b
 import { researchPack20260823 } from "@/lib/data/research-pack-20260823";
 import { qimenRotationPostRecords20260823 } from "@/lib/data/qimen-rotation-post-20260823";
 import { externalIndicatorResearchRecords20260823 } from "@/lib/data/external-indicators-20260823";
+import { cycleResearchUsIndices20260824Records } from "@/lib/data/cycle-research-us-indices-20260824";
 import { oilSseLiuyao2026Records } from "@/lib/data/oil-sse-liuyao-2026";
 import { wtiPathExt20260807Records } from "@/lib/data/wti-path-ext-20260807";
 import {
@@ -1437,6 +1438,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...researchPack20260823,
     ...qimenRotationPostRecords20260823,
     ...externalIndicatorResearchRecords20260823,
+    ...cycleResearchUsIndices20260824Records,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
