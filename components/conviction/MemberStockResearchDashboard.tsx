@@ -67,7 +67,12 @@ function PathOverlayChart({ row, snapshot }: { row: MemberStockPickResearchRow; 
   const observedBull = observed === "偏强";
   const observedBear = observed === "偏弱";
   const relation = official && ((officialBull && observedBull) || (officialBear && observedBear)) ? "同向" : official && ((officialBull && observedBear) || (officialBear && observedBull)) ? "相反，需谨慎" : "等待确认";
-  const keyForecasts = forecast.filter((candle) => candle.keyDay).slice(0, 8);
+  const seenKeyLabels = new Set<string>();
+  const keyForecasts = forecast.filter((candle) => {
+    if (!candle.keyDay || !candle.keyLabel || seenKeyLabels.has(candle.keyLabel)) return false;
+    seenKeyLabels.add(candle.keyLabel);
+    return true;
+  }).slice(0, 8);
   const latestClose = recent.at(-1)!.close;
   const projectedLowPct = projection.projectedLow == null ? null : (projection.projectedLow / latestClose - 1) * 100;
   const projectedHighPct = projection.projectedHigh == null ? null : (projection.projectedHigh / latestClose - 1) * 100;
@@ -82,7 +87,7 @@ function PathOverlayChart({ row, snapshot }: { row: MemberStockPickResearchRow; 
       {yTicks.map((tick) => <g key={tick}><line x1={pad.left} x2={width-pad.right} y1={y(tick)} y2={y(tick)} stroke="rgba(255,255,255,.07)"/><text x={width-pad.right+8} y={y(tick)+4} fill="rgba(255,255,255,.52)" fontSize="11">{price(tick)}</text></g>)}
       {combined.map((candle, index) => {
         const cx = x(index); const up = candle.close >= candle.open; const color = candle.forecast ? up ? "#fb923c" : "#22d3ee" : up ? "#fb7185" : "#34d399"; const top = y(Math.max(candle.open, candle.close)); const bottom = y(Math.min(candle.open, candle.close));
-        return <g key={`${candle.date}-${index}`}><line x1={cx} x2={cx} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1.2"} strokeDasharray={candle.forecast ? "3 2" : undefined}/><rect x={cx-candleWidth/2} y={top} width={candleWidth} height={Math.max(bottom-top,1.5)} fill={up ? color : "transparent"} fillOpacity={candle.forecast ? ".72" : "1"} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1"}/>{candle.forecast && candle.keyDay ? <g><circle cx={cx} cy={Math.max(16,y(candle.high)-12)} r="4" fill="#fde68a"/><text x={cx} y={Math.max(12,y(candle.high)-20)} textAnchor="middle" fill="#fde68a" fontSize="10">关键日</text></g> : null}</g>;
+        return <g key={`${candle.date}-${index}`}><line x1={cx} x2={cx} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1.2"} strokeDasharray={candle.forecast ? "3 2" : undefined}/><rect x={cx-candleWidth/2} y={top} width={candleWidth} height={Math.max(bottom-top,1.5)} fill={up ? color : "transparent"} fillOpacity={candle.forecast ? ".72" : "1"} stroke={color} strokeWidth={candle.forecast ? "1.5" : "1"}/>{candle.forecast && candle.keyDay ? <g><title>{`${candle.date} · ${candle.keyLabel}`}</title><circle cx={cx} cy={Math.max(16,y(candle.high)-10)} r="4" fill="#fde68a" stroke="#92400e" strokeWidth="1"/></g> : null}</g>;
       })}
       <line x1={dividerX} x2={dividerX} y1={pad.top} y2={pad.top+plotH} stroke="rgba(196,181,253,.8)" strokeDasharray="5 5"/>
       <text x={Math.max(pad.left,dividerX-54)} y={pad.top-15} fill="rgba(255,255,255,.48)" fontSize="11">真实已闭合</text><text x={dividerX+10} y={pad.top-15} fill="rgba(196,181,253,.9)" fontSize="11">未来模拟</text>
