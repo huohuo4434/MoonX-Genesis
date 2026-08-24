@@ -68,4 +68,6 @@ test("member page labels simulated path as non-price research", async () => {
   assert.match(source, /形态指数，不是价格目标/);
   assert.match(source, /没有独立日卦时，只能从已锁定周卦拆分，不补造日卦/);
   assert.match(source, /4H缠论技术面/);
+  assert.match(source, /grid min-w-0 gap-3/);
+  assert.match(source, /break-all text-sm/);
 });
