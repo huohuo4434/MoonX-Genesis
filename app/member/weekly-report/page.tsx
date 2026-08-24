@@ -86,7 +86,7 @@ export default async function MemberWeeklyReportPage() {
               <Card padding="lg"><Heading as="h2" size="h3">主要风险</Heading><div className="mt-4 space-y-3">{risks.length ? risks.map((item, index) => <p key={`${item.asset}-${index}`} className="text-body-sm text-foreground-secondary"><span className="font-semibold text-foreground">{item.asset}：</span>{item.risk}</p>) : <Text variant="body-sm" color="secondary">当前周报未形成可公开的统一风险条目，请以各标的失效条件为准。</Text>}</div></Card>
             </section>
 
-            <div className="flex flex-wrap gap-3"><Link href="/member/stock-picks" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">股票推荐</Link><Link href="/member/crypto-picks" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">加密推荐</Link><Link href="/verification" className="rounded-full border border-border/20 px-4 py-2 text-body-sm text-foreground-secondary">上周验证</Link></div>
+            <div className="flex flex-wrap gap-3"><Link href="/member/sector-resonance" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">板块共振</Link><Link href="/member/stock-picks" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">股票研究</Link><Link href="/member/crypto-picks" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">加密研究</Link><Link href="/verification" className="rounded-full border border-border/20 px-4 py-2 text-body-sm text-foreground-secondary">上周验证</Link></div>
           </div>
         </Section>
       </main>

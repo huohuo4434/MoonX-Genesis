@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/member",
     titleZh: "会员频道 | MOOX Intelligence",
     titleEn: "Member Channel | MOOX Intelligence",
-    descriptionZh: "会员日报、周月走势、股票与加密推荐、缠论数据、量化交易、会员卜卦和实验功能的统一入口。",
+    descriptionZh: "会员日报、周月走势、股票与加密研究、缠论数据、量化交易、会员卜卦和实验功能的统一入口。",
     descriptionEn: "One clean entrance for daily and weekly research, stock and crypto picks, Chan data, quant trading, member divination and experimental tools.",
   });
 }
@@ -32,11 +32,12 @@ const FORECASTS: ChannelCard[] = [
   { href: "/member/daily", title: "会员日报", eyebrow: "今天先看", description: "九大市场当日与下一交易日结论、关键位和失效条件。" },
   { href: "/member/weekly", title: "会员周走势预测", eyebrow: "逐个市场", description: "本周方向、周内路径、关键日期与支撑压力。" },
   { href: "/member/monthly", title: "会员月走势预测", eyebrow: "中期结构", description: "月度主方向、关键周与月内高低窗口。" },
+  { href: "/member/sector-resonance", title: "板块共振分析", eyebrow: "一眼看同向", description: "把全部重点资产按板块和自然周对齐，直接看共振与分化。" },
   { href: "/member/weekly-report", title: "会员周报", eyebrow: "本周重点", description: "把本周最值得关注的机会、风险和行动清单集中到一页。" },
 ];
 
 const PICKS: ChannelCard[] = [
-  { href: "/member/stock-picks", title: "会员专享股票推荐", eyebrow: "股票精选", description: "多周期方向、人物周期、关键位置和历史验证。" },
+  { href: "/member/stock-picks", title: "会员股票研究", eyebrow: "个股研究", description: "多周期方向、当前阶段、模拟K线、关键位置和历史验证。" },
   { href: "/member/crypto-picks", title: "会员专享加密货币推荐", eyebrow: "加密精选", description: "主流币与重点山寨币的多周期研究和执行位置。" },
 ];
 
@@ -89,7 +90,7 @@ export default async function MemberChannelPage() {
               <Badge variant={active ? "success" : "outline"}>{active ? "会员频道已解锁" : "会员频道"}</Badge>
               <Heading as="h1" size="h2" className="mt-4">今天先看最重要的内容</Heading>
               <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">
-                日报看今天，周报抓重点，股票与加密推荐看具体机会；深度依据进入标的详情后再展开。
+                日报看今天，周报抓重点，股票与加密研究看具体机会；深度依据进入标的详情后再展开。
               </Text>
               {!active ? (
                 <div className="mt-5 flex flex-wrap gap-3">

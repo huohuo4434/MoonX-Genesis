@@ -26,6 +26,7 @@ export const NAV_ROUTES = {
   memberChannel: "/member",
   memberDaily: "/member/daily",
   memberWeeklyReport: "/member/weekly-report",
+  memberSectorResonance: "/member/sector-resonance",
   memberStockPicks: "/member/stock-picks",
   memberCryptoPicks: "/member/crypto-picks",
   tomorrowForecast: "/member/tomorrow",
@@ -94,6 +95,15 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
     groupEn: "Forecasts",
   },
   {
+    key: "memberNav.sectorResonance",
+    href: NAV_ROUTES.memberSectorResonance,
+    labelZh: "板块共振分析",
+    labelEn: "Sector Resonance",
+    groupKey: "forecast",
+    groupZh: "市场预测",
+    groupEn: "Forecasts",
+  },
+  {
     key: "memberNav.weeklyReport",
     href: NAV_ROUTES.memberWeeklyReport,
     labelZh: "会员周报",
@@ -105,8 +115,8 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
   {
     key: "memberNav.stockPicks",
     href: NAV_ROUTES.memberStockPicks,
-    labelZh: "会员专享股票推荐",
-    labelEn: "Member Stock Picks",
+    labelZh: "会员股票研究",
+    labelEn: "Member Stock Research",
     groupKey: "recommendation",
     groupZh: "专享推荐",
     groupEn: "Recommendations",
@@ -218,7 +228,8 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.memberWeekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周走势预测", labelEn: "Weekly Outlook" },
     { key: "footer.memberStrategy", href: NAV_ROUTES.strategyCenter, labelZh: "策略中心", labelEn: "Strategy Center" },
     { key: "footer.memberMonthly", href: NAV_ROUTES.monthlyAnalysis, labelZh: "月走势预测", labelEn: "Monthly Outlook" },
-    { key: "footer.memberPicks", href: NAV_ROUTES.memberStockPicks, labelZh: "股票推荐", labelEn: "Stock Picks" },
+    { key: "footer.memberSectorResonance", href: NAV_ROUTES.memberSectorResonance, labelZh: "板块共振", labelEn: "Sector Resonance" },
+    { key: "footer.memberPicks", href: NAV_ROUTES.memberStockPicks, labelZh: "股票研究", labelEn: "Stock Research" },
     { key: "footer.memberConsult", href: NAV_ROUTES.consultations, labelZh: "会员卜卦", labelEn: "Divination" },
   ];
   const accountLegal: NavItem[] = [

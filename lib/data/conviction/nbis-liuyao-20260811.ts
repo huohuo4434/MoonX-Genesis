@@ -6,6 +6,7 @@ import type {
   ConvictionForecastType,
   ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
+import { NBIS_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
 
 const PUBLISHED_AT = "2026-08-11T21:00:00+08:00";
 const FULL_SUPPORT = ["205", "200", "174", "165"];
@@ -158,7 +159,7 @@ export const NBIS_PERIOD_FORECASTS: ConvictionPeriodForecast[] = [
 ];
 
 export const NBIS_PERIOD_ORDER: ConvictionForecastType[] = [
-  "WEEK", "WEEK_2", "WEEK_3", "MONTH_1", "MONTH_3", "YEAR_1",
+  "WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "MONTH_1", "MONTH_3", "YEAR_1",
 ];
 
 export const NBIS_VISIBLE_PERIOD_ORDER = NBIS_PERIOD_ORDER;
@@ -167,13 +168,19 @@ export const NBIS_PERIOD_LABELS: Partial<Record<ConvictionForecastType, { zh: st
   WEEK: { zh: "8月11—16日", en: "Aug 11–16", emptyZh: "该周期研究尚未发布" },
   WEEK_2: { zh: "8月17—23日", en: "Aug 17–23", emptyZh: "该周期研究尚未发布" },
   WEEK_3: { zh: "8月24—30日", en: "Aug 24–30", emptyZh: "该周期研究尚未发布" },
+  WEEK_4: { zh: "8月31日—9月6日", en: "Aug 31–Sep 6", emptyZh: "该周期研究尚未发布" },
+  WEEK_5: { zh: "9月7—13日", en: "Sep 7–13", emptyZh: "该周期研究尚未发布" },
+  WEEK_6: { zh: "9月14—20日", en: "Sep 14–20", emptyZh: "该周期研究尚未发布" },
+  WEEK_7: { zh: "9月21—27日", en: "Sep 21–27", emptyZh: "该周期研究尚未发布" },
+  WEEK_8: { zh: "9月28日—10月4日", en: "Sep 28–Oct 4", emptyZh: "该周期研究尚未发布" },
   MONTH_1: { zh: "8月11—31日", en: "Aug 11–31", emptyZh: "该周期研究尚未发布" },
   MONTH_3: { zh: "2026年9月", en: "September 2026", emptyZh: "该周期研究尚未发布" },
   YEAR_1: { zh: "8月11日—10月31日", en: "Aug 11–Oct 31", emptyZh: "该周期研究尚未发布" },
 };
 
 export function listNbisPeriodForecasts(): ConvictionPeriodForecast[] {
-  return NBIS_PERIOD_FORECASTS.filter((item) => item.status === "published");
+  return [...NBIS_PERIOD_FORECASTS, ...NBIS_WEEKLY_REVISIONS_20260825]
+    .filter((item) => item.status === "published");
 }
 
 export function nbisPeriodMeta() {

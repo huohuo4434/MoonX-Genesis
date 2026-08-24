@@ -7,6 +7,7 @@ import type {
   ConvictionForecastType,
   ConvictionPeriodForecast,
 } from "@/lib/data/conviction/asteroid-forecasts";
+import { SANDISK_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
 
 const PUBLISHED_AT = "2026-08-07T06:12:00+08:00";
 
@@ -519,6 +520,11 @@ export const SANDISK_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK_2",
   "WEEK_3",
   "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
+  "WEEK_9",
   "MONTH_1",
   "MONTH_3",
   "YEAR_1",
@@ -530,6 +536,11 @@ export const SANDISK_VISIBLE_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK_2",
   "WEEK_3",
   "WEEK_4",
+  "WEEK_5",
+  "WEEK_6",
+  "WEEK_7",
+  "WEEK_8",
+  "WEEK_9",
   "MONTH_1",
 ];
 
@@ -540,6 +551,11 @@ export const SANDISK_PERIOD_LABELS: Partial<
   WEEK_2: { zh: "8月17—23日逐日", en: "Aug 17–23 daily", emptyZh: "该阶段逐日分析尚未发布" },
   WEEK_3: { zh: "8月24—31日逐日", en: "Aug 24–31 daily", emptyZh: "该阶段逐日分析尚未发布" },
   WEEK_4: { zh: "9月1—6日", en: "Sep 1–6", emptyZh: "该阶段分析尚未发布" },
+  WEEK_5: { zh: "8月31日—9月6日", en: "Aug 31–Sep 6", emptyZh: "该阶段分析尚未发布" },
+  WEEK_6: { zh: "9月7—13日", en: "Sep 7–13", emptyZh: "该阶段分析尚未发布" },
+  WEEK_7: { zh: "9月14—20日", en: "Sep 14–20", emptyZh: "该阶段分析尚未发布" },
+  WEEK_8: { zh: "9月21—27日", en: "Sep 21–27", emptyZh: "该阶段分析尚未发布" },
+  WEEK_9: { zh: "9月28日—10月4日", en: "Sep 28–Oct 4", emptyZh: "该阶段分析尚未发布" },
   MONTH_1: { zh: "8月7日—9月6日申月", en: "Shen month", emptyZh: "申月整体分析尚未发布" },
   MONTH_3: { zh: "3个月", en: "3M", emptyZh: "3个月分析尚未发布" },
   YEAR_1: { zh: "1年", en: "1Y", emptyZh: "1年分析尚未发布" },
@@ -547,7 +563,7 @@ export const SANDISK_PERIOD_LABELS: Partial<
 };
 
 export function listSandiskPeriodForecasts(): ConvictionPeriodForecast[] {
-  return [...SANDISK_PERIOD_FORECASTS, ...SANDISK_PERIOD_REVISIONS_20260824]
+  return [...SANDISK_PERIOD_FORECASTS, ...SANDISK_PERIOD_REVISIONS_20260824, ...SANDISK_WEEKLY_REVISIONS_20260825]
     .filter((item) => item.status === "published");
 }
 
