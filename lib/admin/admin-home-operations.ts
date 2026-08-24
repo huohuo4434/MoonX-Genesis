@@ -1,4 +1,8 @@
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
+import {
+  hasVerifiedMonthlyCycleEvidence,
+  hasVerifiedWeeklyCycleEvidence,
+} from "@/lib/data/cycle-evidence-coverage";
 import { listMonthlyMarketCycles } from "@/lib/data/monthly-market-outlook";
 import {
   listAllPublishedWeeklyAnalyses,
@@ -87,14 +91,22 @@ export function buildAdminCycleGapSummary(now = new Date()): AdminCycleGapSummar
   const monthlyByAsset = new Map((monthlyCycle?.items ?? []).map((item) => [item.assetId, item]));
 
   const items = WEEKLY_CORE_MARKETS.map((market): AdminCycleGapItem => {
-    const weeklyMissing = !publishedWeekly.some(
+    const hasPublishedWeekly = publishedWeekly.some(
       (record) =>
         record.assetId === market.assetId &&
         record.weekStart === weeklyStart &&
         record.weekEnd === weeklyEnd
     );
+    const weeklyMissing = !hasPublishedWeekly && !hasVerifiedWeeklyCycleEvidence(
+      market.assetId,
+      weeklyStart,
+      weeklyEnd,
+    );
     const monthly = monthlyByAsset.get(market.assetId);
-    const monthlyState = monthly == null ? "MISSING" : monthly.sourceComplete ? null : "INCOMPLETE";
+    const hasMonthlyEvidence = hasVerifiedMonthlyCycleEvidence(market.assetId, monthlyId);
+    const monthlyState = monthly == null
+      ? (hasMonthlyEvidence ? null : "MISSING")
+      : (monthly.sourceComplete || hasMonthlyEvidence ? null : "INCOMPLETE");
 
     return {
       assetId: market.assetId,

@@ -15,17 +15,26 @@ describe("admin home operations", () => {
     assert.equal(summary.monthlyLabel, "2026年9月");
   });
 
-  test("does not falsely mark a complete HSTECH month as missing", () => {
+  test("does not report verified source charts as missing", () => {
     const summary = buildAdminCycleGapSummary(new Date("2026-08-23T09:00:00+08:00"));
     const hstech = summary.items.find((item) => item.assetId === "hang-seng");
     const eth = summary.items.find((item) => item.assetId === "eth");
+    const bitcoin = summary.items.find((item) => item.assetId === "bitcoin");
+    const ndx = summary.items.find((item) => item.assetId === "nasdaq-100");
     const silver = summary.items.find((item) => item.assetId === "silver");
 
     assert.ok(hstech);
     assert.equal(hstech.weeklyMissing, true);
     assert.equal(hstech.monthlyState, null);
-    assert.equal(eth?.monthlyState, "INCOMPLETE");
-    assert.equal(silver?.monthlyState, "MISSING");
+    assert.equal(eth, undefined);
+    assert.equal(bitcoin, undefined);
+    assert.equal(ndx, undefined);
+    assert.equal(silver, undefined);
+    assert.equal(summary.taskCount, 3);
+    assert.deepEqual(
+      summary.items.map((item) => item.assetId),
+      ["sp500", "shanghai-composite", "hang-seng"],
+    );
   });
 
   test("counts only consultation requests that still need action", () => {
