@@ -36,6 +36,20 @@ test("stock dashboard follows month-week-day chain and keeps missing weekly evid
   assert.match(intel.currentStage.note, /周卦与真实K线确认|震荡/);
 });
 
+test("an independent same-period chart outranks a teacher monthly decomposition", () => {
+  const refreshed = buildMemberStockPickResearchRows({
+    cards: cards(),
+    asOfDate: "2026-08-24",
+    nowMs: Date.parse("2026-08-24T13:00:00Z"),
+  });
+  const intel = refreshed.find((row) => row.slug === "intel");
+  assert.ok(intel);
+  assert.equal(intel.weekly.authority, "INDEPENDENT_PERIOD");
+  assert.equal(intel.weekly.sourcePriority, "USER_INTERPRETED");
+  assert.match(intel.weekly.sourceLabel, /自起卦/);
+  assert.equal(intel.weekly.periodStart, "2026-08-31");
+});
+
 test("teacher same-period evidence is marked as highest priority", () => {
   const tesla = rows.find((row) => row.slug === "tsla");
   assert.ok(tesla);
@@ -43,7 +57,7 @@ test("teacher same-period evidence is marked as highest priority", () => {
   assert.match(tesla.weekly.sourceLabel, /最高优先级/);
 });
 
-test("daily views keep derived Liuyao and Qimen separate", () => {
+test("daily views keep independent Liuyao and Qimen separate", () => {
   const sandisk = rows.find((row) => row.slug === "sandisk");
   assert.ok(sandisk?.dailyMethods.length);
   const daily = sandisk.dailyMethods[0]!;
@@ -51,9 +65,9 @@ test("daily views keep derived Liuyao and Qimen separate", () => {
   assert.ok(daily.qimenSummary);
   assert.ok(["RESONANCE", "DIVERGENCE", "LIUYAO_MISSING", "NOT_COMPARABLE"].includes(daily.relation));
   assert.notEqual(sandisk.forecastShapeBasis, "MISSING");
-  assert.equal(sandisk.weekly.authority, "HIGHER_HORIZON_DERIVED");
-  assert.match(sandisk.weekly.sourceLabel, /非独立周卦/);
-  assert.equal(sandisk.dataCompleteness, "PARTIAL");
+  assert.equal(sandisk.weekly.authority, "INDEPENDENT_PERIOD");
+  assert.doesNotMatch(sandisk.weekly.sourceLabel, /非独立周卦/);
+  assert.equal(sandisk.dataCompleteness, "READY");
 });
 
 test("member stock path API is fail-closed and cannot alter trading", async () => {

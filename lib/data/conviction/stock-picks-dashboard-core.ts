@@ -34,8 +34,9 @@ function sourceLabel(priority: StockPickSourcePriority): string {
 
 function latestByAuthority(rows: ConvictionPeriodForecast[]): ConvictionPeriodForecast | null {
   return rows.slice().sort((left, right) => {
+    const periodEvidence = Number(isHigherHorizonDerived(left)) - Number(isHigherHorizonDerived(right));
     const authority = Number(sourcePriority(right) === "TEACHER") - Number(sourcePriority(left) === "TEACHER");
-    return authority || right.version - left.version || right.publishedAt.localeCompare(left.publishedAt);
+    return periodEvidence || authority || right.version - left.version || right.publishedAt.localeCompare(left.publishedAt);
   })[0] ?? null;
 }
 
@@ -48,7 +49,7 @@ function currentOrNext(rows: ConvictionPeriodForecast[], asOfDate: string): Conv
 
 function isHigherHorizonDerived(row: ConvictionPeriodForecast | null): boolean {
   if (!row) return false;
-  return /缺少同周期完整周卦|缺少同周期.*周卦|来自月卦明确分段|月卦分段候选|不冒充独立日卦|月周融合/u.test([
+  return /缺少同周期完整周卦|缺少同周期周卦|来自月卦明确分段|月卦分段候选|不冒充独立日卦|月周融合/u.test([
     row.summary,
     row.expectedPath,
     row.ichingEvidence.notes,
