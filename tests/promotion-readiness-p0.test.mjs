@@ -19,7 +19,10 @@ assert.match(strategy, /Promise\.race/);
 assert.match(strategy, /\[strategy-center\] read degraded/);
 
 const daily = read("app/member/daily/page.tsx");
-assert.match(daily, /within\(getTomorrowSectionPayload\(now\), null, 2_600\)/);
+assert.match(daily, /getMemberDevicePageAccess\(\)/);
+assert.match(daily, /Promise\.allSettled\(\[\s*loadTodayForecastRows\(now\),\s*loadTomorrowForecastRows\(now\)/);
+assert.doesNotMatch(daily, /within\(getTodayForecastAccessPayload/);
+assert.doesNotMatch(daily, /getTomorrowSectionPayload/);
 assert.match(daily, /within\(buildMemberDailyTechnicalViews\(allRows\), \{\}, 1_200\)/);
 
 const verification = read("components/verification/PublicVerificationCenter.tsx");

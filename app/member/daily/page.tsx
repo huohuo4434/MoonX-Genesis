@@ -1,4 +1,4 @@
-// MOOX_V72065_MEMBER_DAILY_LIVE_LEVELS
+// MOOX_MEMBER_DAILY_TERMINAL_V720114
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -7,8 +7,7 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
-import { getTodayForecastAccessPayload } from "@/lib/prediction-access-server";
-import { getTomorrowSectionPayload } from "@/lib/data/tomorrow-forecast-access";
+import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import { dailyAssetOrderIndex } from "@/lib/data/daily-asset-order";
 import { formatDateChina, formatDateTimeChina } from "@/lib/utils/datetime";
@@ -16,7 +15,7 @@ import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server"
 import type { DailyForecast } from "@/types/daily-forecast";
 import { buildDailyResearchReason } from "@/lib/forecasts/daily-display-reason";
 import { buildMemberDailyTechnicalViews, type MemberDailyTechnicalView } from "@/lib/forecasts/member-daily-live-levels";
-import { getOctober2026AssetRisk, getOctober2026FlashCrashRisk } from "@/lib/research/october-2026-flash-crash-risk";
+import { getOctober2026FlashCrashRisk } from "@/lib/research/october-2026-flash-crash-risk";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,7 +31,7 @@ async function within<T>(promise: Promise<T>, fallback: T, timeoutMs: number): P
       }),
     ]);
   } catch (error) {
-    console.warn("[member-daily] dependency degraded", error);
+    console.warn("[member-daily] optional dependency degraded", error);
     return fallback;
   } finally {
     if (timer) clearTimeout(timer);
@@ -51,14 +50,21 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-function qimenAgreementLabel(forecast: DailyForecast): string | undefined {
-  return (forecast as DailyForecast & { qimenAgreementLabel?: string }).qimenAgreementLabel;
-}
-
 function qimenDirectionLabel(forecast: DailyForecast): string {
   const evidence = forecast.qimenEvidence ?? "";
   const match = evidence.match(/(?:奇门独立观点|奇门主判)=([^；]+)/u);
-  return match?.[1]?.trim() || "待验算";
+  return match?.[1]?.trim() || "待核对";
+}
+
+function relationLabel(forecast: DailyForecast): { label: string; className: string } {
+  const relation = forecast.qimenAgreementLabel ?? "";
+  if (/共振|同向/u.test(relation)) {
+    return { label: "同向 · 信心增强", className: "border-emerald-400/25 bg-emerald-400/[0.08] text-emerald-100" };
+  }
+  if (/分歧|反向/u.test(relation)) {
+    return { label: "分歧 · 谨慎", className: "border-amber-400/25 bg-amber-400/[0.08] text-amber-100" };
+  }
+  return { label: "暂无共振结论", className: "border-slate-400/20 bg-slate-400/[0.06] text-slate-200" };
 }
 
 function tone(direction: string): string {
@@ -67,60 +73,136 @@ function tone(direction: string): string {
   return "border-sky-400/20 bg-sky-400/[0.05] text-sky-100";
 }
 
-function ForecastTable({
+function stars(forecast: DailyForecast): string {
+  const value = Math.max(1, Math.min(5, forecast.consensusStars ?? Math.round((forecast.consensusScore ?? forecast.confidence ?? 0) / 20)));
+  return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
+}
+
+function conciseEvidence(forecast: DailyForecast): string {
+  return buildDailyResearchReason(forecast)
+    .replaceAll("周卦/阶段卦派生：", "六爻：")
+    .replaceAll("奇门独立验算：", "奇门：")
+    .replace(/；网站正式观点：[^；]+$/u, "")
+    .trim();
+}
+
+function ForecastBoard({
   title,
   forecasts,
   technicalViews,
-  riskAsOf,
+  loadFailed,
+  emptyMessage,
 }: {
   title: string;
   forecasts: DailyForecast[];
   technicalViews: Record<string, MemberDailyTechnicalView>;
-  riskAsOf: Date;
+  loadFailed: boolean;
+  emptyMessage: string;
 }) {
   const rows = forecasts
     .filter(isHumanPublishedForecast)
     .sort((left, right) => dailyAssetOrderIndex(left.assetId) - dailyAssetOrderIndex(right.assetId));
+
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <Heading as="h2" size="h3">{title}</Heading>
-          
+          <Text variant="caption" color="tertiary" className="mt-1 block">先看方向与双法关系，再看关键位和失效条件。</Text>
         </div>
         {rows[0]?.forecastForDate ? <Badge variant="outline">{formatDateChina(rows[0].forecastForDate)}</Badge> : null}
       </div>
+
       {rows.length ? (
-        <div className="overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2">
-          <table className="min-w-[1120px] w-full border-separate border-spacing-y-2 text-left">
-            <thead className="text-caption text-foreground-tertiary">
-              <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">周卦/阶段卦派生</th><th className="px-3 py-2">奇门独立验算</th><th className="px-3 py-2">两法关系</th><th className="px-3 py-2">10月风险</th><th className="px-3 py-2">研判依据</th><th className="px-3 py-2">支撑</th><th className="px-3 py-2">压力</th><th className="px-3 py-2">失效位</th><th className="px-3 py-2">更新</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((forecast) => {
-                const direction = displayDirection(forecast);
-                const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
-                const octoberRisk = getOctober2026AssetRisk(forecast.symbol, riskAsOf);
-                return (
-                  <tr key={forecast.id} className="bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
-                    <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
-                    <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span><div className="mt-1 text-[11px] text-foreground-tertiary">网站正式观点；不是另起日卦</div></td>
-                    <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(qimenDirectionLabel(forecast))}`}>{qimenDirectionLabel(forecast)}</span></td>
-                    <td className="px-3 py-3 text-body-sm text-foreground-secondary">{qimenAgreementLabel(forecast) || "等待双法核对"}</td>
-                    <td className="max-w-[170px] px-3 py-3"><div className="text-body-sm font-semibold text-amber-100">{octoberRisk.stateLabelZh}</div><div className="mt-1 text-caption text-foreground-tertiary">{octoberRisk.sensitivityLabelZh}</div></td>
-                    <td className="max-w-[330px] px-3 py-3 text-body-sm text-foreground-secondary">{buildDailyResearchReason(forecast)}</td>
-                    <td className="px-3 py-3 text-body-sm font-medium">{technical.support}</td>
-                    <td className="px-3 py-3 text-body-sm font-medium">{technical.resistance}</td>
-                    <td className="px-3 py-3 text-body-sm text-foreground-secondary">{technical.invalidation}</td>
-                    <td className="rounded-r-xl px-3 py-3 text-caption text-foreground-tertiary">{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : <Card padding="lg"><Text variant="body-sm" color="secondary">本时段尚无已发布预测。</Text></Card>}
+        <>
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            {rows.map((forecast) => {
+              const direction = displayDirection(forecast);
+              return (
+                <a key={forecast.id} href={`#daily-${forecast.id}`} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${tone(direction)}`}>
+                  {forecast.symbol} · {direction}
+                </a>
+              );
+            })}
+          </div>
+
+          <div className="grid gap-3 md:hidden">
+            {rows.map((forecast) => {
+              const direction = displayDirection(forecast);
+              const relation = relationLabel(forecast);
+              const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
+              return (
+                <article id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 rounded-2xl border border-border/[0.1] bg-card/55 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-xs text-foreground-tertiary">{forecast.symbol}</div></div>
+                    <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${tone(direction)}`}>{direction}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs ${relation.className}`}>{relation.label}</span>
+                    <span className="font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</span>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>奇门 {qimenDirectionLabel(forecast)}</span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">支撑</dt><dd className="mt-1 font-medium">{technical.support}</dd></div>
+                    <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">压力</dt><dd className="mt-1 font-medium">{technical.resistance}</dd></div>
+                    <div className="col-span-2 rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">失效条件</dt><dd className="mt-1 text-foreground-secondary">{technical.invalidation}</dd></div>
+                  </dl>
+                  <details className="mt-3 rounded-xl border border-border/[0.08] px-3 py-2 text-sm text-foreground-secondary">
+                    <summary className="cursor-pointer text-foreground">查看研判依据</summary>
+                    <p className="mt-2 leading-6">{conciseEvidence(forecast) || "详细依据整理中。"}</p>
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2 md:block">
+            <table className="min-w-[980px] w-full border-separate border-spacing-y-2 text-left">
+              <thead className="text-caption text-foreground-tertiary">
+                <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">正式方向</th><th className="px-3 py-2">双法关系</th><th className="px-3 py-2">奇门时机</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">支撑 / 压力</th><th className="px-3 py-2">失效条件</th><th className="px-3 py-2">更新</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((forecast) => {
+                  const direction = displayDirection(forecast);
+                  const relation = relationLabel(forecast);
+                  const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
+                  return (
+                    <tr id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
+                      <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span></td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${relation.className}`}>{relation.label}</span></td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>{qimenDirectionLabel(forecast)}</span></td>
+                      <td className="px-3 py-3 font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</td>
+                      <td className="px-3 py-3 text-body-sm"><div className="text-emerald-100">支 {technical.support}</div><div className="mt-1 text-rose-100">压 {technical.resistance}</div></td>
+                      <td className="max-w-[230px] px-3 py-3 text-body-sm text-foreground-secondary">{technical.invalidation}</td>
+                      <td className="rounded-r-xl px-3 py-3 text-caption text-foreground-tertiary">
+                        <div>{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</div>
+                        <details className="mt-2 max-w-[300px]"><summary className="cursor-pointer text-primary">查看依据</summary><p className="mt-2 leading-5 text-foreground-secondary">{conciseEvidence(forecast) || "详细依据整理中。"}</p></details>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <Card padding="lg" className={loadFailed ? "border border-rose-400/20 bg-rose-400/[0.04]" : "border border-border/[0.08]"}>
+          <Text variant="body-sm" weight="semibold">{loadFailed ? "数据读取暂时异常" : emptyMessage}</Text>
+          <Text variant="caption" color="tertiary" className="mt-2 block">{loadFailed ? "系统没有把读取异常当成零条预测，请稍后刷新；已锁定历史内容不会被改写。" : "该状态不影响已经发布的其他周期内容。"}</Text>
+        </Card>
+      )}
     </section>
+  );
+}
+
+function StatusCard({ label, value, note, toneClass }: { label: string; value: string; note: string; toneClass: string }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <div className="text-xs text-foreground-tertiary">{label}</div>
+      <div className="mt-1 text-lg font-semibold">{value}</div>
+      <div className="mt-1 text-xs text-foreground-tertiary">{note}</div>
+    </div>
   );
 }
 
@@ -132,12 +214,20 @@ export default async function MemberDailyPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const now = new Date();
-  const [today, tomorrow] = await Promise.all([
-    within(getTodayForecastAccessPayload(now), null, 2_600),
-    within(getTomorrowSectionPayload(now), null, 2_600),
+  // The member gate above already proves authorization. Load the two source-locked
+  // batches once, in parallel, without repeating authentication or turning a slow
+  // critical read into a false "0 published" result.
+  const [todayResult, tomorrowResult] = await Promise.allSettled([
+    loadTodayForecastRows(now),
+    loadTomorrowForecastRows(now),
   ]);
-  const todayRows = today?.allowed ? today.forecasts : [];
-  const tomorrowRows = tomorrow?.mode === "member" ? tomorrow.forecasts : [];
+  const todayLoadFailed = todayResult.status === "rejected";
+  const tomorrowLoadFailed = tomorrowResult.status === "rejected";
+  if (todayLoadFailed) console.error("[member-daily] today batch failed", todayResult.reason);
+  if (tomorrowLoadFailed) console.error("[member-daily] tomorrow batch failed", tomorrowResult.reason);
+
+  const todayRows = todayResult.status === "fulfilled" ? todayResult.value : [];
+  const tomorrowRows = tomorrowResult.status === "fulfilled" ? tomorrowResult.value : [];
   const allRows = [...todayRows, ...tomorrowRows];
   const technicalViews = await within(buildMemberDailyTechnicalViews(allRows), {}, 1_200);
   const octoberFlashCrashRisk = getOctober2026FlashCrashRisk(now);
@@ -150,39 +240,40 @@ export default async function MemberDailyPage() {
   return (
     <>
       <MemberDeviceHeartbeat />
-      <main>
+      <main className="min-h-screen bg-[#07080b]">
         <Section spacing="lg">
-          <div className="mx-auto w-full max-w-[1240px] space-y-9">
-            <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_90%_0%,rgba(124,92,255,.16),transparent_32%),linear-gradient(145deg,#0f1220,#090a0e)] p-6 sm:p-8">
-              <Badge variant="default">会员日报</Badge>
-              <Heading as="h1" size="h2" className="mt-4">今日与下一交易日</Heading>
-              <div className="mt-4 flex flex-wrap gap-4 text-caption text-foreground-tertiary">
-                <span>今日已发布：{todayRows.length}</span><span>下一交易日已发布：{tomorrowRows.length}</span><span>最近更新：{latest ? formatDateTimeChina(latest) : "—"}</span>
+          <div className="mx-auto w-full max-w-[1240px] space-y-8">
+            <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_90%_0%,rgba(124,92,255,.16),transparent_32%),linear-gradient(145deg,#0f1220,#090a0e)] p-5 sm:p-7">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <Badge variant="default">MOOX DAILY TERMINAL</Badge>
+                  <Heading as="h1" size="h2" className="mt-4">每日市场终端</Heading>
+                  <Text variant="body-sm" color="secondary" className="mt-2 block">方向、双法关系、关键位和失效条件集中在一屏。</Text>
+                </div>
+                <div className="text-right text-xs text-foreground-tertiary">北京时间<br />{formatDateTimeChina(now.toISOString())}</div>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />
+                <StatusCard label="下一交易日" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows[0]?.forecastForDate ? formatDateChina(tomorrowRows[0].forecastForDate) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />
+                <StatusCard label="最近更新" value={latest ? formatDateTimeChina(latest) : "暂无时间"} note="每条预测保留独立版本" toneClass="border-violet-400/20 bg-violet-400/[0.05]" />
               </div>
             </header>
 
             <Card padding="md" className="border border-amber-300/20 bg-amber-300/[0.04]">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <Text variant="body-sm" weight="semibold" className="text-amber-100">10月闪崩风险先验 · {octoberFlashCrashRisk.stateLabelZh}</Text>
-                  <Text variant="caption" color="secondary" className="mt-1 block">{octoberFlashCrashRisk.summaryZh}</Text>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Text variant="body-sm" weight="semibold" className="text-amber-100">中期风险提醒 · {octoberFlashCrashRisk.stateLabelZh}</Text>
                 <Badge variant="outline">{octoberFlashCrashRisk.windowLabelZh}</Badge>
               </div>
-              <Text variant="caption" color="tertiary" className="mt-2 block">该风险先验只影响仓位、杠杆与追涨纪律，不反向修改由当前周卦/阶段卦派生并锁定的网站正式方向；9大市场仍按各自结构独立判断。</Text>
+              <Text variant="caption" color="secondary" className="mt-2 block">{octoberFlashCrashRisk.summaryZh} 该提醒只影响仓位与追涨纪律，不改变已锁定方向。</Text>
             </Card>
 
-            <ForecastTable title="今日市场" forecasts={todayRows} technicalViews={technicalViews} riskAsOf={now} />
-            <ForecastTable title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} riskAsOf={now} />
-
-            <Card padding="md" className="border border-violet-300/15 bg-violet-300/[0.035]">
-              <Text variant="body-sm" weight="semibold">日度观点来源说明</Text>
-              <Text variant="caption" color="secondary" className="mt-2 block">网站不要求、也不会伪造独立日卦。老师原卦优先；没有老师细分时，使用按老师方法复核的用户周卦/阶段卦，再结合周内路径、目标日干支和市场日历拆分成日度观点。六爻与奇门分别独立预测：同向提高信心，分歧时两种观点原样列出并降低信心。</Text>
-            </Card>
+            <ForecastBoard title="今日市场" forecasts={todayRows} technicalViews={technicalViews} loadFailed={todayLoadFailed} emptyMessage="今日预测尚未发布" />
+            <ForecastBoard title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} loadFailed={tomorrowLoadFailed} emptyMessage="下一交易日观点尚未发布" />
 
             <div className="flex flex-wrap gap-3">
-              <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">查看周走势预测</Link>
-              <Link href="/verification" className="rounded-full border border-border/20 px-4 py-2 text-body-sm text-foreground-secondary">查看历史验证</Link>
+              <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">周走势</Link>
+              <Link href="/member/monthly" className="rounded-full border border-border/20 px-4 py-2 text-body-sm text-foreground-secondary">月走势</Link>
+              <Link href="/verification" className="rounded-full border border-border/20 px-4 py-2 text-body-sm text-foreground-secondary">历史验证</Link>
             </div>
           </div>
         </Section>

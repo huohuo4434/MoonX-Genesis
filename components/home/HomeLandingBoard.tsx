@@ -9,7 +9,7 @@ import { displayMarketCode, normalizeFormalDirection } from "@/lib/forecasts/for
 import { isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
 import type { DailyForecast } from "@/types/daily-forecast";
 import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-history";
-import { buildHomeResearchReason, cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
+import { cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
 import { HomeMobileAppView } from "@/components/home/HomeMobileAppView";
 import { HomeIntradayLevelPair } from "@/components/home/HomeIntradayLevelPair";
 // V7.20.7 compatibility note: getPublicUnifiedLiveSnapshot moved off the homepage critical render path in V7.20.8.
@@ -154,15 +154,29 @@ async function HomeLandingData() {
         resonance: relation,
         support: cleanDailyLevel(forecast.supportLevels?.[0]),
         resistance: cleanDailyLevel(forecast.resistanceLevels?.[0]),
-        reason: buildHomeResearchReason(forecast),
+        reason: "",
         resonanceRank,
       };
     })
     .sort((a, b) => b.resonanceRank - a.resonanceRank || b.confidenceStars - a.confidenceStars || a.symbol.localeCompare(b.symbol))
     .slice(0, 3)
-    .map(({ resonanceRank: _resonanceRank, ...row }) => row);
+    .map((row) => ({
+      symbol: row.symbol,
+      name: row.name,
+      direction: row.direction,
+      confidenceStars: row.confidenceStars,
+      resonance: row.resonance,
+      support: row.support,
+      resistance: row.resistance,
+      reason: row.reason,
+    }));
   const resonanceCount = publishedRows.filter((row) => /共振/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
   const divergenceCount = publishedRows.filter((row) => /分歧/u.test(row.forecast?.qimenAgreementLabel ?? "")).length;
+  const latestTodayUpdate = publishedRows
+    .map((row) => row.forecast?.updatedAt || row.forecast?.publishedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
   return (
     <>
       <HomeMobileAppView
@@ -192,7 +206,13 @@ async function HomeLandingData() {
               </div>
             </div>
 
-            {todayPayload?.allowed ? (
+            <div className="mt-5 flex flex-wrap gap-2 text-xs text-white/58">
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-3 py-1.5">今日已发布 {publishedRows.length} 条</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">目标日期 {publishedRows[0]?.forecast?.forecastForDate ? zhDate(publishedRows[0].forecast.forecastForDate) : "待发布"}</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">最近更新 {zhDateTime(latestTodayUpdate)}</span>
+            </div>
+
+            {todayPayload?.allowed && publishedRows.length > 0 ? (
               <div className="mt-7 overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-3">
                 <table className="min-w-full border-separate border-spacing-y-2 text-left">
                   <thead><tr className="text-xs tracking-[0.16em] text-white/42"><th className="px-3 py-2">市场</th><th className="px-3 py-2">今日预测</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">关键支撑</th><th className="px-3 py-2">关键压力</th><th className="px-3 py-2">更新</th></tr></thead>
@@ -200,10 +220,9 @@ async function HomeLandingData() {
                     {marketRows.map(({ symbol, name, forecast }) => {
                       const direction = forecast ? homeDirection(forecast) : null;
                       const confidence = forecast ? confidenceStars(forecast) : null;
-                      const researchReason = forecast ? buildHomeResearchReason(forecast) : "";
                       return <tr key={symbol} className="bg-white/[0.045] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
                         <td className="rounded-l-2xl px-3 py-3"><div className="font-medium">{name}</div><div className="mt-1 text-xs text-white/42">{symbol}</div></td>
-                        <td className="px-3 py-3">{direction ? <><span className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}>{direction}</span>{researchReason ? <p className="mt-2 max-w-[360px] text-xs leading-5 text-white/58">{researchReason}</p> : null}</> : <span className="text-sm text-white/45">待发布</span>}</td>
+                        <td className="px-3 py-3">{direction ? <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${directionClass(direction)}`}>{direction}</span> : <span className="text-sm text-white/45">待发布</span>}</td>
                         <td className="px-3 py-3">{confidence ? <><span className="font-mono text-base tracking-[0.16em] text-amber-200">{starsText(confidence)}</span>{forecast?.qimenAgreementLabel ? <div className="mt-1 text-[11px] text-white/42">{forecast.qimenAgreementLabel}</div> : null}</> : <span className="text-white/35">—</span>}</td>
                         {forecast ? <Suspense fallback={<><td className="px-3 py-3 text-sm text-white/40">计算中…</td><td className="px-3 py-3 text-sm text-white/40">计算中…</td></>}><HomeIntradayLevelPair symbol={symbol} direction={direction} fallbackSupport={forecast.supportLevels?.[0]} fallbackResistance={forecast.resistanceLevels?.[0]} /></Suspense> : <><td className="px-3 py-3 text-sm text-white/35">—</td><td className="px-3 py-3 text-sm text-white/35">—</td></>}
                         <td className="rounded-r-2xl px-3 py-3 text-xs text-white/42">{forecast ? zhDateTime(forecast.updatedAt || forecast.publishedAt) : "—"}</td>
@@ -214,9 +233,9 @@ async function HomeLandingData() {
               </div>
             ) : (
               <div className="mt-7 rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-5">
-                <div className="text-lg font-medium">登录后查看九大市场完整日度表</div>
-                <p className="mt-2 text-sm leading-6 text-white/58">{todayAccessMessage}</p>
-                <div className="mt-4 flex flex-wrap items-center gap-4"><Link href="/login?next=/" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">已有账户？登录查看</Link><Link href="/pricing" className="text-sm text-white/55 underline decoration-white/20 underline-offset-4">了解会员权益</Link></div>
+                <div className="text-lg font-medium">{todayPayload?.allowed ? "今日预测暂未读到" : "登录后查看九大市场完整日度表"}</div>
+                <p className="mt-2 text-sm leading-6 text-white/58">{todayPayload?.allowed ? "系统会继续自动重试；读取异常不会显示成已经发布的零条预测，也不会改写历史版本。" : todayAccessMessage}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-4">{todayPayload?.allowed ? <Link href="/member/daily" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">打开会员日报重试</Link> : <Link href="/login?next=/" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">已有账户？登录查看</Link>}<Link href="/verification" className="text-sm text-white/55 underline decoration-white/20 underline-offset-4">查看历史验证</Link></div>
               </div>
             )}
           </div>
