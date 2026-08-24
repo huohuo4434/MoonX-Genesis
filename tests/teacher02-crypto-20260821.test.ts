@@ -47,11 +47,16 @@ test("member weekly view uses the new version without exposing internal provenan
   assert.equal(eth?.overallDirection, "探底回升");
   assert.match(btc?.weeklyPath ?? "", /24日至25日先下探.*26日02:24 UTC后修复/);
   assert.match(eth?.weeklyPath ?? "", /30日06:00 UTC后.*山地剥/);
+  assert.equal(btc?.version, 6);
+  assert.match(btc?.memberRevisionNotice?.previousSummaryZh ?? "", /24日前后.*短期高点/);
+  assert.match(btc?.memberRevisionNotice?.currentSummaryZh ?? "", /24日至25日.*下探.*26日后修复/);
+  assert.match(btc?.memberRevisionNotice?.reasonZh ?? "", /目标周开始前.*旧观点保留/);
 
   const fullBtc = listAllPublishedWeeklyAnalyses().find((item) => item.id === "WEEKLY-BTC-20260824-V6");
   assert.ok(fullBtc);
   const memberJson = JSON.stringify(toWeeklyMemberView(fullBtc));
   assert.doesNotMatch(memberJson, /网站相关|六爻狼叔|T02-CRYPTO/);
+  assert.doesNotMatch(memberJson, /sourceIds|revisions/);
 });
 
 test("automatic daily generation honors explicit teacher day path instead of fabricating a daily hexagram", () => {

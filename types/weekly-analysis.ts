@@ -37,6 +37,23 @@ export type WeeklyAnalysisRevision = {
   reason: string;
 };
 
+/**
+ * Curated, member-safe explanation for a material pre-window revision.
+ * This is intentionally separate from the full internal revision trail so
+ * source ids, working notes and raw research never reach member clients.
+ */
+export type WeeklyMemberRevisionNotice = {
+  changedAt: string;
+  previousLabelZh: string;
+  previousLabelEn: string;
+  previousSummaryZh: string;
+  previousSummaryEn: string;
+  currentSummaryZh: string;
+  currentSummaryEn: string;
+  reasonZh: string;
+  reasonEn: string;
+};
+
 export type WeeklyKeyDate = {
   /** Gregorian date in YYYY-MM-DD. Never expose only a stem/branch label. */
   date: string;
@@ -86,6 +103,8 @@ export type WeeklyAnalysisRecord = {
   version: number;
   originalLocked?: boolean;
   revisions?: WeeklyAnalysisRevision[];
+  /** Explicitly curated version change that members may see. */
+  memberRevisionNotice?: WeeklyMemberRevisionNotice;
 };
 
 /** Public-safe teaser — no direction / path / levels. */

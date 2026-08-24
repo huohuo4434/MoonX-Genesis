@@ -54,6 +54,17 @@ export const WEEKLY_QIMEN_POST_REVISIONS_20260823: WeeklyAnalysisRecord[] = [
     ],
     version: 6,
     originalLocked: true,
+    memberRevisionNotice: {
+      changedAt: UPDATED_AT,
+      previousLabelZh: "8月21日公开初步判断",
+      previousLabelEn: "Public preliminary view on Aug 21",
+      previousSummaryZh: "24日前后观察短期高点。",
+      previousSummaryEn: "Watch for a short-term high around Aug 24.",
+      currentSummaryZh: "8月24日至25日先下探寻找低点，26日后修复；27日至28日宽幅换手，29日至30日偏震荡回升。",
+      currentSummaryEn: "Seek a low on Aug 24-25, repair after Aug 26, churn on Aug 27-28, then favor a choppy recovery on Aug 29-30.",
+      reasonZh: "目标周开始前补入高优先级完整周度记录，按既定来源顺序发布新版本；旧观点保留，不删除、不回写。",
+      reasonEn: "A higher-priority complete weekly record arrived before the target week. A new version was published under the existing source hierarchy; the earlier view remains preserved.",
+    },
     revisions: [
       ...(previousBtc.revisions ?? []),
       {

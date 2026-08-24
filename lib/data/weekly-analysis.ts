@@ -166,6 +166,7 @@ export function toWeeklyMemberView(r: WeeklyAnalysisRecord): WeeklyAnalysisMembe
     visibility: r.visibility,
     version: r.version,
     originalLocked: r.originalLocked,
+    memberRevisionNotice: r.memberRevisionNotice,
   };
 }
 
