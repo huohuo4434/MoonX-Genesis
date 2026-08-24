@@ -88,6 +88,12 @@ function canonicalKey(input: string): string {
   return key;
 }
 
+/** Read-only chart resolver shared by authenticated member research surfaces. */
+export function resolveIntradayTechnicalTarget(keyInput: string): ChanInstrument | null {
+  const key = keyInput.startsWith("FOCUS:") ? keyInput.toUpperCase() : canonicalKey(keyInput);
+  return TARGETS[key] ?? null;
+}
+
 export function intradayFocusKey(assetId: string): string {
   return `FOCUS:${assetId.trim().toUpperCase()}`;
 }

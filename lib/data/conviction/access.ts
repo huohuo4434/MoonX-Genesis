@@ -127,6 +127,8 @@ import type {
 import { STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { INTEL_PERIOD_LABELS, INTEL_PERIOD_ORDER, INTEL_VISIBLE_PERIOD_ORDER, intelPeriodMeta } from "@/lib/data/conviction/intel-liuyao-20260822";
+import { buildMemberStockPickResearchRows } from "@/lib/data/conviction/stock-picks-dashboard-core";
+import type { MemberStockPickResearchRow } from "@/types/member-stock-picks-dashboard";
 
 export type ConvictionListPagePayload = {
   mode: "publicOnly" | "fullAccess";
@@ -146,6 +148,8 @@ export type ConvictionListPagePayload = {
   resonanceWindow: { start: string; end: string; labelZh: string };
   /** Daily recomputation date for member recommendation list surfaces. */
   asOfDate: string;
+  /** Member/admin only: source-prioritized month/week/day research chain for stock picks. */
+  stockResearchRows: MemberStockPickResearchRow[] | null;
 };
 
 export async function getConvictionListPagePayload(): Promise<ConvictionListPagePayload> {
@@ -164,6 +168,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
   const asOfDate = getChinaDateKey(new Date());
   const resonanceSignals = buildWatchlistResonanceRanking(asOfDate);
   const resonanceWindow = targetWeekWindow(asOfDate);
+  const stockResearchRows = fullAccess ? buildMemberStockPickResearchRows({ cards, asOfDate, nowMs: Date.now() }) : null;
   return {
     mode: fullAccess ? "fullAccess" : "publicOnly",
     isAdmin: access.isAdmin,
@@ -178,6 +183,7 @@ export async function getConvictionListPagePayload(): Promise<ConvictionListPage
     resonanceSignals: fullAccess ? resonanceSignals : null,
     resonanceWindow,
     asOfDate,
+    stockResearchRows,
   };
 }
 
