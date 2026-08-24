@@ -49,6 +49,9 @@ test("daily views keep derived Liuyao and Qimen separate", () => {
   assert.ok(daily.qimenSummary);
   assert.ok(["RESONANCE", "DIVERGENCE", "LIUYAO_MISSING", "NOT_COMPARABLE"].includes(daily.relation));
   assert.notEqual(sandisk.forecastShapeBasis, "MISSING");
+  assert.equal(sandisk.weekly.authority, "HIGHER_HORIZON_DERIVED");
+  assert.match(sandisk.weekly.sourceLabel, /非独立周卦/);
+  assert.equal(sandisk.dataCompleteness, "PARTIAL");
 });
 
 test("member stock path API is fail-closed and cannot alter trading", async () => {

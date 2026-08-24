@@ -11,6 +11,7 @@ export type StockPickPeriodView = {
   sourcePriority: StockPickSourcePriority;
   sourceLabel: string;
   version: number | null;
+  authority: "INDEPENDENT_PERIOD" | "HIGHER_HORIZON_DERIVED" | "MISSING";
 };
 
 export type StockPickDailyMethodRow = {

@@ -160,7 +160,7 @@ export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickRe
       <PathOverlayChart row={selected} snapshot={snapshot}/>
     )}
 
-    <PeriodCard title="本周六爻主走势" view={selected.weekly}/>
+    <PeriodCard title="本周路线 · 独立周卦优先" view={selected.weekly}/>
 
     <section className="rounded-2xl border border-white/[0.08] bg-[#0c0e12] p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-white/40">DAILY CROSS-CHECK</p><h2 className="mt-2 text-xl font-semibold">日分析 · 三方并列</h2></div>{day ? <span className={`rounded-full border px-3 py-1 text-xs ${relationTone(day.relation)}`}>{day.relationLabel}</span> : null}</div>
       <div className="mt-4 grid gap-3 lg:grid-cols-3">

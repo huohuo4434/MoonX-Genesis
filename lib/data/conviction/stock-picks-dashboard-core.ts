@@ -46,8 +46,20 @@ function currentOrNext(rows: ConvictionPeriodForecast[], asOfDate: string): Conv
   return nextStart ? latestByAuthority(rows.filter((row) => row.periodStart === nextStart)) : null;
 }
 
-function periodView(row: ConvictionPeriodForecast | null, missingSummary: string): StockPickPeriodView {
+function isHigherHorizonDerived(row: ConvictionPeriodForecast | null): boolean {
+  if (!row) return false;
+  return /缺少同周期完整周卦|缺少同周期.*周卦|来自月卦明确分段|月卦分段候选|不冒充独立日卦|月周融合/u.test([
+    row.summary,
+    row.expectedPath,
+    row.ichingEvidence.notes,
+    row.consensusLabel ?? "",
+    ...(row.risks ?? []),
+  ].join(" "));
+}
+
+function periodView(row: ConvictionPeriodForecast | null, missingSummary: string, horizon: "MONTH" | "WEEK"): StockPickPeriodView {
   const priority = sourcePriority(row);
+  const derived = horizon === "WEEK" && isHigherHorizonDerived(row);
   return {
     direction: row ? normalizeOfficialDirection(row.direction) : null,
     periodStart: row?.periodStart ?? null,
@@ -55,8 +67,9 @@ function periodView(row: ConvictionPeriodForecast | null, missingSummary: string
     summary: row?.summary ?? missingSummary,
     expectedPath: row?.expectedPath ?? null,
     sourcePriority: priority,
-    sourceLabel: sourceLabel(priority),
+    sourceLabel: derived ? "老师月卦周拆分 · 非独立周卦" : sourceLabel(priority),
     version: row?.version ?? null,
+    authority: row ? derived ? "HIGHER_HORIZON_DERIVED" : "INDEPENDENT_PERIOD" : "MISSING",
   };
 }
 
@@ -136,13 +149,13 @@ export function buildMemberStockPickResearchRows(input: {
         detailHref: card.detailHref,
         rating: card.rating,
         riskLevel: card.riskLevel,
-        monthly: periodView(monthlyForecast, "整月卦尚未发布；不使用周卦反推月方向。"),
-        weekly: periodView(weeklyForecast, "本周同周期六爻尚未发布；只能显示月度背景，不能冒充周判断。"),
+        monthly: periodView(monthlyForecast, "整月卦尚未发布；不使用周卦反推月方向。", "MONTH"),
+        weekly: periodView(weeklyForecast, "本周同周期六爻尚未发布；只能显示月度背景，不能冒充周判断。", "WEEK"),
         currentStage: stageView(monthlyForecast, input.asOfDate),
         dailyMethods,
         technicalKey: `FOCUS:${card.slug.toUpperCase()}`,
         ...shape,
-        dataCompleteness: monthlyForecast && weeklyForecast ? "READY" : monthlyForecast || weeklyForecast ? "PARTIAL" : "MISSING",
+        dataCompleteness: monthlyForecast && weeklyForecast && !isHigherHorizonDerived(weeklyForecast) ? "READY" : monthlyForecast || weeklyForecast ? "PARTIAL" : "MISSING",
       };
     });
 }
