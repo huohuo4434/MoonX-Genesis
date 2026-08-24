@@ -77,6 +77,9 @@ const TARGETS: Readonly<Record<string, ChanInstrument | null>> = Object.freeze({
   "FOCUS:LITE": YAHOO("LITE"),
   "FOCUS:SPCX": YAHOO("SPCX"),
   "FOCUS:INTEL": YAHOO("INTC"),
+  "FOCUS:GOLD": YAHOO("GOLD", "GC=F", "INDEX_COMMODITY"),
+  "FOCUS:SILVER": YAHOO("SILVER", "SI=F", "INDEX_COMMODITY"),
+  "FOCUS:WTI-CRUDE": YAHOO("WTI", "CL=F", "INDEX_COMMODITY"),
 });
 
 function canonicalKey(input: string): string {

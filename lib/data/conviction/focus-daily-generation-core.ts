@@ -45,6 +45,7 @@ const CHAN_FOCUS_INSTRUMENTS: Readonly<Record<string, string>> = Object.freeze({
   BTC: "BTCUSDT", ETH: "ETHUSDT", SOL: "SOLUSDT", HYPE: "HYPEUSDT", ASTEROID: "ASTEROID-DEX",
   SNDK: "SNDK", MU: "MU", NBIS: "NBIS", GOOGL: "GOOGL", GOOG: "GOOGL", MSFT: "MSFT",
   TSLA: "TSLA", LITE: "LITE", SPCX: "SPCX", INTC: "INTC",
+  GOLD: "GOLD", SILVER: "SILVER", WTI: "WTI",
   "002460": "002460.SZ", "300784": "300784.SZ", "300562": "300562.SZ", "688825": "688825.SS",
   "00700": "0700.HK", "0700": "0700.HK", "688111": "688111.SS",
 });
@@ -59,6 +60,13 @@ export function focusDailyQuoteCapability(input: { symbol: string; assetType?: s
   const symbol = input.symbol.trim().toUpperCase();
   if (!symbol || symbol === "ASTEROID") return { available: false, market: null, quoteSymbol: null, reason: "QUOTE_MAPPING_UNAVAILABLE" };
   if (input.assetType === "CRYPTO") return { available: true, market: "CRYPTO", quoteSymbol: `${symbol}-USD`, reason: null };
+  if (input.assetType === "COMMODITY") {
+    const commoditySymbols: Readonly<Record<string, string>> = Object.freeze({ GOLD: "GC=F", SILVER: "SI=F", WTI: "CL=F" });
+    const quoteSymbol = commoditySymbols[symbol] ?? null;
+    return quoteSymbol
+      ? { available: true, market: "US", quoteSymbol, reason: null }
+      : { available: false, market: null, quoteSymbol: null, reason: "QUOTE_MAPPING_UNAVAILABLE" };
+  }
   if (/香港/.test(input.exchange ?? "")) return { available: true, market: "HK", quoteSymbol: `${symbol.padStart(4, "0")}.HK`, reason: null };
   if (/上海/.test(input.exchange ?? "")) return { available: true, market: "CN", quoteSymbol: `${symbol}.SS`, reason: null };
   if (/深圳/.test(input.exchange ?? "")) return { available: true, market: "CN", quoteSymbol: `${symbol}.SZ`, reason: null };

@@ -20,6 +20,7 @@ import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-co
 import { listCryptoSeptemberForecastRevisions20260823 } from "@/lib/data/conviction/crypto-september-revisions-20260823";
 import { listSpcxLiteLiuyaoRevisions20260823 } from "@/lib/data/conviction/spcx-lite-liuyao-20260823";
 import { listSeptemberWeeklyRevisions20260824 } from "@/lib/data/conviction/september-weekly-revisions-20260824";
+import { listMetalsEnergyFocusForecasts } from "@/lib/data/conviction/metals-energy-focus-forecasts";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
@@ -41,6 +42,9 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "lite": return [...listLITEPeriodForecasts20260816(), ...listSpcxLiteLiuyaoRevisions20260823("lite")];
     case "spcx": return [...listSpcxPeriodForecasts(), ...listSpcxLiteLiuyaoRevisions20260823("spcx")];
     case "intel": return [...listIntelPeriodForecasts(), ...listSeptemberWeeklyRevisions20260824("intel")];
+    case "gold": return listMetalsEnergyFocusForecasts("gold");
+    case "silver": return listMetalsEnergyFocusForecasts("silver");
+    case "wti-crude": return listMetalsEnergyFocusForecasts("wti-crude");
     default: return [];
   }
 }

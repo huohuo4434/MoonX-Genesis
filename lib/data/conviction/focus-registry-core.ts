@@ -19,6 +19,9 @@ export const STATIC_FOCUS_ASSET_IDS = Object.freeze([
   "lite",
   "spcx",
   "intel",
+  "gold",
+  "silver",
+  "wti-crude",
 ] as const);
 
 export type StaticFocusAssetId = (typeof STATIC_FOCUS_ASSET_IDS)[number];
@@ -72,6 +75,9 @@ export const STATIC_MEMBER_AUTOMATION_FOCUS: Readonly<Record<StaticFocusAssetId,
   lite: { assetId: "lite", canonicalSymbol: null, displayName: "Lumentum", assetClass: "EQUITY" },
   spcx: { assetId: "spcx", canonicalSymbol: null, displayName: "SpaceX / SPCX", assetClass: "EQUITY" },
   intel: { assetId: "intel", canonicalSymbol: null, displayName: "英特尔", assetClass: "EQUITY" },
+  gold: { assetId: "gold", canonicalSymbol: "XAUTUSDT", displayName: "黄金", assetClass: "COMMODITY" },
+  silver: { assetId: "silver", canonicalSymbol: "XAGUSDT", displayName: "白银", assetClass: "COMMODITY" },
+  "wti-crude": { assetId: "wti-crude", canonicalSymbol: "CLUSDT", displayName: "WTI原油", assetClass: "COMMODITY" },
 });
 
 export function listStaticMemberAutomationFocus(): MemberAutomationFocusDefinition[] {

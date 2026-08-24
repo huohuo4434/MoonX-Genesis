@@ -12,6 +12,7 @@ import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from 
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { listNbisPeriodForecasts } from "@/lib/data/conviction/nbis-liuyao-20260811";
 import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
+import { listMetalsEnergyFocusForecasts } from "@/lib/data/conviction/metals-energy-focus-forecasts";
 import { SPCX_MEMBER_RESEARCH } from "@/lib/data/spcx-member-20260808";
 import { mooxDirectionAtDate, mooxPrimaryDirection, type MooxPrimaryDirection } from "@/lib/forecasts/moox-direction-doctrine";
 import { evaluateResonanceVotes, targetWeekMidpoint, targetWeekWindow, type ResonanceVote } from "@/lib/data/conviction/resonance-core";
@@ -140,6 +141,9 @@ export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistReson
     regularSignal("eth", listEthPeriodForecasts(), asOfDate),
     regularSignal("btc", listBtcPeriodForecasts20260801(), asOfDate),
     regularSignal("tencent", listTencentPeriodForecasts(), asOfDate),
+    regularSignal("gold", listMetalsEnergyFocusForecasts("gold"), asOfDate),
+    regularSignal("silver", listMetalsEnergyFocusForecasts("silver"), asOfDate),
+    regularSignal("wti-crude", listMetalsEnergyFocusForecasts("wti-crude"), asOfDate),
   ];
   return signals.sort((a, b) => b.score - a.score || b.sameDirectionPeriods - a.sameDirectionPeriods || Number(b.hasWeeklyVote) - Number(a.hasWeeklyVote) || a.slug.localeCompare(b.slug));
 }

@@ -25,7 +25,7 @@ function formatDate(value: string, en: boolean): string {
 export function ConvictionListClient({ payload, riskAsOf }: { payload: ConvictionListPagePayload; riskAsOf: string }) {
   const { locale, href } = useLocale();
   const en = locale === "en";
-  const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "STOCK" | "CRYPTO" | "COMMODITY">("ALL");
   const cardBySlug = useMemo(() => new Map(payload.cards.map((card) => [card.slug, card])), [payload.cards]);
   const teaserBySlug = useMemo(() => new Map(WATCHLIST_TEASERS.map((teaser) => [teaser.slug, teaser])), []);
   const rankIndex = useMemo(() => new Map(payload.rankOrder.map((slug, index) => [slug, index])), [payload.rankOrder]);
@@ -46,8 +46,8 @@ export function ConvictionListClient({ payload, riskAsOf }: { payload: Convictio
     return teaser && (filter === "ALL" || teaser.assetType === filter);
   }), [filter, payload.rankOrder, teaserBySlug]);
   const filters = en
-    ? ([['ALL', 'All'], ['STOCK', 'Stocks'], ['CRYPTO', 'Crypto']] as const)
-    : ([['ALL', '全部'], ['STOCK', '股票'], ['CRYPTO', '加密资产']] as const);
+    ? ([['ALL', 'All'], ['STOCK', 'Stocks'], ['CRYPTO', 'Crypto'], ['COMMODITY', 'Commodities']] as const)
+    : ([['ALL', '全部'], ['STOCK', '股票'], ['CRYPTO', '加密资产'], ['COMMODITY', '大宗商品']] as const);
   const trackedCount = payload.trackedCount;
   const weekLabel = payload.resonanceWindow.labelZh;
   const octoberFlashCrashRisk = getOctober2026FlashCrashRisk(new Date(riskAsOf));

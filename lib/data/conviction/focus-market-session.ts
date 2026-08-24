@@ -23,6 +23,9 @@ const FOCUS_SESSION_MARKET: Readonly<Record<StaticFocusAssetId, DailyForecastMar
   lite: "us",
   spcx: "us",
   intel: "us",
+  gold: "commodity",
+  silver: "commodity",
+  "wti-crude": "commodity",
 });
 
 /**

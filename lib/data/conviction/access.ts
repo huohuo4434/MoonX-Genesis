@@ -97,6 +97,11 @@ import {
 import {
   BTC_PERIOD_ORDER,
 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import {
+  METALS_ENERGY_PERIOD_ORDER,
+  METALS_ENERGY_VISIBLE_PERIOD_ORDER,
+  metalsEnergyPeriodLabel,
+} from "@/lib/data/conviction/metals-energy-focus-forecasts";
 import { getVibeEvidence, getVibeEvidenceMap, toVibePublicView } from "@/lib/data/vibe/store";
 import type { VibeEvidencePublicView } from "@/types/vibe-evidence";
 import {
@@ -289,6 +294,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "kingsoft-office") return VIBE_FOCUS_PERIOD_ORDER;
   if (assetId === "spcx") return SPCX_REVISED_PERIOD_ORDER;
   if (assetId === "intel") return INTEL_PERIOD_ORDER;
+  if (assetId === "gold" || assetId === "silver" || assetId === "wti-crude") return METALS_ENERGY_PERIOD_ORDER;
   return PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -310,6 +316,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "kingsoft-office") return VIBE_FOCUS_VISIBLE_PERIOD_ORDER;
   if (assetId === "spcx") return SPCX_REVISED_PERIOD_ORDER;
   if (assetId === "intel") return INTEL_VISIBLE_PERIOD_ORDER;
+  if (assetId === "gold" || assetId === "silver" || assetId === "wti-crude") return METALS_ENERGY_VISIBLE_PERIOD_ORDER;
   return VISIBLE_PERIOD_ORDER_BY_ASSET[assetId];
 }
 
@@ -387,6 +394,9 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
   }
   if (assetId === "intel") {
     return INTEL_PERIOD_LABELS[type] ?? ASTEROID_PERIOD_LABELS[type];
+  }
+  if (assetId === "gold" || assetId === "silver" || assetId === "wti-crude") {
+    return metalsEnergyPeriodLabel(type);
   }
   if (assetId === "asteroid") {
     const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
@@ -794,6 +804,9 @@ const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
   "kingsoft-office": "金山办公",
   spcx: "SPCX",
   intel: "英特尔",
+  gold: "黄金",
+  silver: "白银",
+  "wti-crude": "WTI原油",
 };
 
 /** Admin freshness guard: a finished weekly study cannot remain silently current. */
