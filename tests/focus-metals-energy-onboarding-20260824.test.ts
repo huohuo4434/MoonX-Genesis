@@ -33,6 +33,9 @@ test("gold, silver and WTI expose locked current, forward and monthly research",
     assert.equal(forecasts.every((row) => row.status === "published" && row.sourceType === "ICHING_RESEARCH"), true);
     assert.equal(forecasts.every((row) => row.supportLevels.length === 0 && row.resistanceLevels.length === 0), true, "must not invent price levels");
   }
+  const goldCurrent = listMetalsEnergyFocusForecasts("gold")[0];
+  assert.equal(goldCurrent.consensusStars, null, "timing-only Qimen must not become a full-week consensus score");
+  assert.match(goldCurrent.consensusLabel ?? "", /只确认前段时机/);
 });
 
 test("commodity quote, Chan and exact automation mappings are available", () => {

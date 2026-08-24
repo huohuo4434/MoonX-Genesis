@@ -87,7 +87,7 @@ function weeklyToForecast(record: WeeklyAnalysisRecord): ConvictionPeriodForecas
     methodViews.push({
       id: "QIMEN",
       label: "奇门",
-      direction: normalizeOfficialDirection(record.overallDirection),
+      direction: "前段回调时机辅助",
       weight: record.basisWeights?.qimen ?? 0,
       summary: note,
     });
@@ -122,8 +122,10 @@ function weeklyToForecast(record: WeeklyAnalysisRecord): ConvictionPeriodForecas
     publishedAt: record.publishedAt,
     lockedAt: record.publishedAt,
     validationStatus: "UNVERIFIED",
-    consensusStars: methodViews.length >= 2 ? 4 : null,
-    consensusLabel: methodViews.length >= 2 ? "六爻与奇门同向" : "单一方法，未提高信心",
+    consensusStars: null,
+    consensusLabel: methodViews.some((item) => item.id === "QIMEN")
+      ? "奇门只确认前段时机，不计整周同向票"
+      : "单一方法，未提高信心",
     methodViews,
     keyDates: record.keyDates?.map((item) => ({
       date: item.date,
