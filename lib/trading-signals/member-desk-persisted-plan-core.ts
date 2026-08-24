@@ -41,10 +41,13 @@ export function buildMemberDeskPlansFromPersistedAudit(input: {
     left.id.localeCompare(right.id);
   for (const plan of input.plans.filter((row) => row.executionMode === input.executionMode)) {
     const symbol = plan.symbol.toUpperCase();
-    const current = latest.get(symbol);
-    if (!current || compare(plan, current) > 0) latest.set(symbol, plan);
+    const strategyType = plan.strategyType ?? (plan.forecastHorizon === "MONTH" ? "POSITION" : "INTRADAY");
+    const key = `${strategyType}:${symbol}`;
+    const current = latest.get(key);
+    if (!current || compare(plan, current) > 0) latest.set(key, plan);
   }
   return Array.from(latest.values()).map((plan) => {
+    const strategyType = plan.strategyType ?? (plan.forecastHorizon === "MONTH" ? "POSITION" : "INTRADAY");
     const planSide = plan.direction === "LONG" ? "long" : plan.direction === "SHORT" ? "short" : null;
     const hasPosition = input.openPositions.some((position) =>
       position.symbol.toUpperCase() === plan.symbol.toUpperCase() &&
@@ -57,6 +60,10 @@ export function buildMemberDeskPlansFromPersistedAudit(input: {
     return {
       symbol: plan.symbol,
       assetName: plan.symbol.replace(/USDT$/i, ""),
+      strategyType,
+      strategyLabel: plan.strategyLabel || (strategyType === "INTRADAY" ? "短线" : strategyType === "SWING" ? "中线" : "长线"),
+      forecastHorizon: plan.forecastHorizon,
+      holdingWindow: strategyType === "INTRADAY" ? "30分钟—8小时" : strategyType === "SWING" ? "1—7天" : "1—4周",
       status: planStatus.value,
       statusLabel: planStatus.label,
       direction: plan.direction,

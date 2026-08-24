@@ -1,5 +1,5 @@
 import type { BitgetRuntimeDecisionStats } from "@/types/bitget-demo-runtime";
-import type { ThreeHorizonPublicStrategy } from "@/types/three-horizon-strategy";
+import type { ThreeHorizonPublicStrategy, ThreeHorizonStrategyType } from "@/types/three-horizon-strategy";
 import type { AiTradeIntentDecision, AiTradeMarketQuote, AiTradePlan, AiTradePlanSummary } from "@/types/ai-trade-plan";
 
 export type AiTradingDeskPlanStatus =
@@ -36,6 +36,10 @@ export interface AiTradingDeskSettings {
 export interface AiTradingDeskPlan {
   symbol: string;
   assetName: string;
+  strategyType: ThreeHorizonStrategyType;
+  strategyLabel: string;
+  forecastHorizon: "DAY" | "WEEK" | "MONTH" | null;
+  holdingWindow: string;
   status: AiTradingDeskPlanStatus;
   statusLabel: string;
   direction: "LONG" | "SHORT" | "NEUTRAL";

@@ -68,7 +68,18 @@ function statusVariant(status: string) {
   return "outline" as const;
 }
 
-function latestPlanBySymbol(plans: AiTradePlan[]): Map<string, AiTradePlan> {
+function horizonKey(strategyType: string, symbol: string): string {
+  return `${strategyType}:${symbol.toUpperCase()}`;
+}
+
+function horizonLabel(strategyType: string, en: boolean): string {
+  if (strategyType === "INTRADAY") return en ? "Intraday" : "短线";
+  if (strategyType === "SWING") return en ? "Swing" : "中线";
+  if (strategyType === "POSITION") return en ? "Position" : "长线";
+  return strategyType;
+}
+
+function latestPlanByHorizon(plans: AiTradePlan[]): Map<string, AiTradePlan> {
   const map = new Map<string, AiTradePlan>();
   // Terminal plans are audit history, not current execution intent. Never let an old EXPIRED
   // plan mask a newer live decision in the Top 10 board.
@@ -78,17 +89,17 @@ function latestPlanBySymbol(plans: AiTradePlan[]): Map<string, AiTradePlan> {
       if (a.version !== b.version) return b.version - a.version;
       return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
     })) {
-    const symbol = plan.symbol.toUpperCase();
-    if (!map.has(symbol)) map.set(symbol, plan);
+    const key = horizonKey(plan.strategyType, plan.symbol);
+    if (!map.has(key)) map.set(key, plan);
   }
   return map;
 }
 
-function latestDecisionBySymbol(decisions: AiTradeIntentDecision[]): Map<string, AiTradeIntentDecision> {
+function latestDecisionByHorizon(decisions: AiTradeIntentDecision[]): Map<string, AiTradeIntentDecision> {
   const map = new Map<string, AiTradeIntentDecision>();
   for (const decision of [...decisions].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))) {
-    const symbol = decision.symbol.toUpperCase();
-    if (!map.has(symbol)) map.set(symbol, decision);
+    const key = horizonKey(decision.strategyType ?? "INTRADAY", decision.symbol);
+    if (!map.has(key)) map.set(key, decision);
   }
   return map;
 }
@@ -145,23 +156,30 @@ export function AiTradeIntentBoard({
   const en = locale === "en";
   const now = referenceDate(dashboard.generatedAt);
   const focusPlaybooks = listAiTradingDisplayFocus(now);
-  const plansBySymbol = latestPlanBySymbol(dashboard.plans);
-  const decisionsBySymbol = latestDecisionBySymbol(dashboard.decisions ?? []);
+  const plansByHorizon = latestPlanByHorizon(dashboard.plans);
+  const decisionsByHorizon = latestDecisionByHorizon(dashboard.decisions ?? []);
   const hero = focusPlaybooks[0] ?? null;
   const heroIsUpcoming = Boolean(hero && hero.periodStart > beijingDateKey(now));
-  const heroPlan = hero ? plansBySymbol.get(hero.symbol) : undefined;
-  const heroDecision = hero ? decisionsBySymbol.get(hero.symbol) : undefined;
-  const symbolSet = new Set<string>();
-  for (const row of focusPlaybooks) symbolSet.add(row.symbol);
-  for (const row of dashboard.plans) if (!TERMINAL.has(row.status)) symbolSet.add(row.symbol.toUpperCase());
-  for (const row of dashboard.decisions ?? []) symbolSet.add(row.symbol.toUpperCase());
-  const candidates = Array.from(symbolSet)
-    .map((symbol) => ({
-      symbol,
-      plan: plansBySymbol.get(symbol),
-      decision: decisionsBySymbol.get(symbol),
-      score: candidateScore(symbol, now, plansBySymbol.get(symbol), decisionsBySymbol.get(symbol)),
-    }))
+  const heroPlan = hero ? plansByHorizon.get(horizonKey("INTRADAY", hero.symbol)) ?? Array.from(plansByHorizon.values()).find((row) => row.symbol === hero.symbol) : undefined;
+  const heroDecision = hero ? decisionsByHorizon.get(horizonKey("INTRADAY", hero.symbol)) ?? Array.from(decisionsByHorizon.values()).find((row) => row.symbol === hero.symbol) : undefined;
+  const horizonSet = new Set<string>();
+  for (const row of focusPlaybooks) horizonSet.add(horizonKey("INTRADAY", row.symbol));
+  for (const row of dashboard.plans) if (!TERMINAL.has(row.status)) horizonSet.add(horizonKey(row.strategyType, row.symbol));
+  for (const row of dashboard.decisions ?? []) horizonSet.add(horizonKey(row.strategyType ?? "INTRADAY", row.symbol));
+  const candidates = Array.from(horizonSet)
+    .map((key) => {
+      const plan = plansByHorizon.get(key);
+      const decision = decisionsByHorizon.get(key);
+      const [strategyType, symbol] = key.split(":") as [string, string];
+      return {
+        key,
+        symbol,
+        strategyType,
+        plan,
+        decision,
+        score: candidateScore(symbol, now, plan, decision),
+      };
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
@@ -250,6 +268,7 @@ export function AiTradeIntentBoard({
               <tr>
                 <th className="px-3 py-3">#</th>
                 <th className="px-3 py-3">{en ? "Asset" : "品种"}</th>
+                <th className="px-3 py-3">{en ? "Horizon" : "周期"}</th>
                 <th className="px-3 py-3">{en ? "Bias" : "方向"}</th>
                 <th className="px-3 py-3">{en ? "State" : "状态"}</th>
                 <th className="px-3 py-3">{en ? "Confidence" : "置信度"}</th>
@@ -262,9 +281,10 @@ export function AiTradeIntentBoard({
                 const direction = row.plan?.direction ?? row.decision?.direction ?? "NEUTRAL";
                 const status = row.plan?.status ?? row.decision?.status ?? "OBSERVING";
                 return (
-                  <tr key={row.symbol} className="border-b border-white/[0.055] last:border-0">
+                  <tr key={row.key} className="border-b border-white/[0.055] last:border-0">
                     <td className="px-3 py-3 text-white/35">{index + 1}</td>
                     <td className="px-3 py-3"><span className="font-medium text-white/90">{aiTradingAssetName(row.symbol, en)}</span><span className="ml-2 text-xs text-white/35">{row.symbol}</span></td>
+                    <td className="px-3 py-3"><Badge variant="outline">{horizonLabel(row.strategyType, en)}</Badge></td>
                     <td className="px-3 py-3"><Badge variant={directionVariant(direction)}>{directionLabel(direction, en)}</Badge></td>
                     <td className="px-3 py-3"><Badge variant={statusVariant(status)}>{statusLabel(status, en)}</Badge></td>
                     <td className="px-3 py-3">{row.plan?.planningConfidence ?? row.decision?.confidence ?? "—"}{row.plan || row.decision ? "%" : ""}</td>
@@ -273,7 +293,7 @@ export function AiTradeIntentBoard({
                   </tr>
                 );
               })}
-              {!candidates.length ? <tr><td colSpan={7} className="px-4 py-7 text-center text-white/45">{en ? "Waiting for the first scan." : "等待第一轮动态扫描。"}</td></tr> : null}
+              {!candidates.length ? <tr><td colSpan={8} className="px-4 py-7 text-center text-white/45">{en ? "Waiting for the first scan." : "等待第一轮动态扫描。"}</td></tr> : null}
             </tbody>
           </table>
         </div>

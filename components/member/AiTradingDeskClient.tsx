@@ -94,7 +94,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <Badge variant={statusVariant(snapshot, refreshPresentation.stale)}>
               {refreshPresentation.statusLabel ?? snapshot.operationalStateLabel}
             </Badge>
-            <Badge variant="outline">{en ? "Daily target: ≥1 qualified activation" : "每日目标：≥1个合格激活机会"}</Badge>
+            <Badge variant="outline">{en ? "Cadence caps: 5/day · 5/week · 5/month" : "节奏上限：短5/日 · 中5/周 · 长5/月"}</Badge>
           </div>
         </div>
 
@@ -185,8 +185,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
         <Text variant="caption" color="secondary" className="mt-3 block leading-5">
           {en
-            ? "The activity target searches for at least one qualified activation each day. It never bypasses account permission, position conflicts, loss limits, protection orders, stale data or exchange errors."
-            : "系统每天主动寻找至少1个合格激活机会；但账户权限、已有仓位、亏损上限、保护单、数据新鲜度和交易所错误仍是硬闸门，不能为了凑单绕过。"}
+            ? "The engine scans intraday setups every minute. One-minute candles refine execution only; formal direction, closed 5-minute structure, plan locking and all hard risk gates still decide whether an order is allowed. Zero qualified trades is valid."
+            : "短线每分钟扫描；1分钟K线只微调成交时机，不能代替正式方向和5分钟收盘结构。计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门；没有合格机会时允许0单，绝不为凑数强开。"}
         </Text>
       </details>
 

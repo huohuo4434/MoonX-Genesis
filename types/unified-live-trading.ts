@@ -69,7 +69,7 @@ export interface UnifiedLiveMethodDecision {
   resonance: UnifiedLiveResonance;
   riskMultiplier: number;
   reasons: string[];
-  formalDirectionSource: "QIMEN" | "QIMEN_LIUYAO_RESONANCE" | "NONE";
+  formalDirectionSource: "LIUYAO" | "LIUYAO_QIMEN_RESONANCE" | "NONE";
   technicalCanOverrideDirection: false;
 }
 

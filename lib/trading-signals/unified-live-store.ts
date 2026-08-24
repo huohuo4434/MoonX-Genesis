@@ -232,6 +232,9 @@ export async function registerUnifiedLiveStrategySlice(input: {
   maxHoldMinutes?: number;
   sourceKind?: string;
   technicalEntry?: string | null;
+  qimenDirection?: string | null;
+  liuyaoDirection?: string | null;
+  resonance?: "RESONANT" | "DIVERGENT" | "UNKNOWN" | null;
 }) {
   const database = requireUnifiedLiveDatabase();
   const account = await database.mooxUnifiedLiveAccount.findUniqueOrThrow({
@@ -267,6 +270,9 @@ export async function registerUnifiedLiveStrategySlice(input: {
       lastManagedAt: new Date(),
       nextCheckAt: new Date(Date.now() + 60_000),
       technicalEntry: input.technicalEntry ?? null,
+      qimenDirection: input.qimenDirection ?? null,
+      liuyaoDirection: input.liuyaoDirection ?? null,
+      resonance: input.resonance ?? null,
       publicVisible: account.accountScope === "OFFICIAL",
     },
   });

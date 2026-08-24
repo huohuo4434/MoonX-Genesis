@@ -7,7 +7,6 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import {
-  getMemberMultiViewSnapshot,
   type MemberAssetOpinionDirection,
   type MemberAssetOpinionEntry,
   type MemberAssetOpinionGroup,
@@ -18,7 +17,7 @@ import { projectPublicAttribution, PUBLIC_ATTRIBUTION_DISCLOSURE_EN, PUBLIC_ATTR
 import { buildMultiViewResearcherAlias, summarizeMultiViewConsensus } from "@/lib/research/member-multi-view-core";
 import { resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
 import { DATED_EXTERNAL_INDICATORS_20260823 } from "@/lib/data/external-indicators-20260823";
-import { loadTodayForecastRows } from "@/lib/prediction-access-server";
+import { getCachedMemberAlphaFeed } from "@/lib/trading-signals/member-alpha-feed-cache";
 import { displayMarketCode, normalizeOfficialDirection, type OfficialDirection } from "@/lib/forecasts/formal-direction";
 
 export const dynamic = "force-dynamic";
@@ -456,11 +455,7 @@ export default async function AlphaFeedPage() {
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
-  const now = new Date();
-  const [snapshot, todayForecasts] = await Promise.all([
-    getMemberMultiViewSnapshot(now).catch(() => null),
-    loadTodayForecastRows(now).catch(() => []),
-  ]);
+  const { snapshot, todayForecasts } = await getCachedMemberAlphaFeed();
   const report = projectPublicAttribution(snapshot, { locale: en ? "en" : "zh" });
   const groups = report?.assets ?? [];
   const officialByAsset = new Map<string, OfficialDirection>();

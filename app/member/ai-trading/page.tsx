@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Section } from "@/components/ui";
 import { MemberTradingOnboarding } from "@/components/member/MemberTradingOnboarding";
+import { MemberAiTradingDashboardLazy } from "@/components/member/MemberAiTradingDashboardLazy";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -29,5 +30,5 @@ export default async function MemberAiTradingPage() {
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
-  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberTradingOnboarding /></Section></main>;
+  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberAiTradingDashboardLazy /><MemberTradingOnboarding /></Section></main>;
 }

@@ -23,7 +23,8 @@ assert.match(types, /FIXED_MARGIN.*EQUITY_PERCENT.*FIXED_NOTIONAL.*RISK_PERCENT/
 assert.match(sizing, /Math\.min\(10, Math\.max\(1/);
 assert.match(sizing, /projectedLoss/);
 assert.match(doctrine, /technicalCanOverrideDirection:\s*false/);
-assert.match(doctrine, /FOCUS_ASSET_REQUIRES_QIMEN_LIUYAO_RESONANCE/);
+assert.match(doctrine, /LIUYAO_FORMAL_DIRECTION_MISSING/);
+assert.match(doctrine, /QIMEN_TIMING_DIVERGENCE_REDUCES_RISK/);
 assert.match(custody, /ORPHAN_EXCHANGE_POSITION/);
 assert.match(custody, /PROTECTION_MISSING/);
 assert.match(custody, /TIME_EXIT_DUE/);
@@ -47,7 +48,8 @@ assert.doesNotMatch(strategiesRoute, /legacyUnifiedSourceGET\(request\)/);
 assert.doesNotMatch(adminClient, /\bany\b/);
 assert.doesNotMatch(adminClient, /_props/);
 assert.doesNotMatch(memberClient, /_props/);
-assert.match(exchangeAdapter, /const snapshotModule =/);
+assert.match(exchangeAdapter, /getBitgetDemoCurrentPositions/);
+assert.match(exchangeAdapter, /getBitgetDemoPendingStrategyOrders/);
 assert.doesNotMatch(exchangeAdapter, /\b(?:const|let|var)\s+module\b/);
 
 const lintSourcePaths = [

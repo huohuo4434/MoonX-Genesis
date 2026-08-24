@@ -8,10 +8,13 @@ const read = (file: string) => readFileSync(resolve(root, file), "utf8");
 
 test("会员AI交易台先开页面再异步读取快照", () => {
   const page = read("app/member/ai-trading/page.tsx");
+  const lazy = read("components/member/MemberAiTradingDashboardLazy.tsx");
   const client = read("components/member/AiTradingDeskClient.tsx");
   const api = read("app/api/member/ai-trading-desk/route.ts");
-  assert.match(page, /createMemberAiTradingDeskPlaceholder/);
+  assert.match(page, /MemberAiTradingDashboardLazy/);
   assert.doesNotMatch(page, /await getMemberAiTradingDeskSnapshot/);
+  assert.match(lazy, /fetch\("\/api\/member\/ai-trading-desk"/);
+  assert.match(lazy, /AiTradingDeskClient initial=\{snapshot\}/);
   assert.match(client, /startMemberDeskPolling/);
   assert.match(client, /30_000/);
   const polling = read("lib/member-ai-desk-polling-core.ts");

@@ -40,8 +40,8 @@ const aiTradingPage = read("app/member/ai-trading/page.tsx");
 const aiTradingLayout = read("app/member/ai-trading/layout.tsx");
 assert.match(aiTradingPage, /PublicFeaturePreview/);
 assert.match(aiTradingPage, /六套试运行方法/);
-assert.match(aiTradingLayout, /getMemberDevicePageAccess/);
-assert.match(aiTradingLayout, /if \(gate\.status !== "ALLOWED"\) return <>{children}<\/>;/);
-assert.ok(aiTradingLayout.indexOf("gate.status !== \"ALLOWED\"") < aiTradingLayout.indexOf("getAdminTradingPerformanceSnapshot().catch"));
+assert.match(aiTradingPage, /getMemberDevicePageAccess/);
+assert.match(aiTradingPage, /MemberAiTradingDashboardLazy/);
+assert.doesNotMatch(aiTradingLayout, /getAdminTradingPerformanceSnapshot|AdminPublicTradingPerformance/);
 
 console.log("MOOX promotion readiness P0 static regression passed");

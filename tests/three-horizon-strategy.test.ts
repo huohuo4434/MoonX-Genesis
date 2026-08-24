@@ -75,7 +75,7 @@ test("live plan maintenance reports bounded phase timings without changing seria
 
 test("three independent strategy profiles use different horizons and holding periods", () => {
   const source = engine();
-  assert.match(source, /INTRADAY:[\s\S]*environmentTimeframe: "4H"[\s\S]*directionTimeframe: "30m"[\s\S]*entryTimeframe: "5m"/);
+  assert.match(source, /INTRADAY:[\s\S]*environmentTimeframe: "4H"[\s\S]*directionTimeframe: "30m"[\s\S]*entryTimeframe: "5m\/1m"/);
   assert.match(source, /SWING:[\s\S]*environmentTimeframe: "1D\/1W"[\s\S]*directionTimeframe: "4H"[\s\S]*entryTimeframe: "1H"/);
   assert.match(source, /POSITION:[\s\S]*environmentTimeframe: "1M\/1W"[\s\S]*directionTimeframe: "1D"[\s\S]*entryTimeframe: "4H"/);
   assert.match(source, /maxHoldingMinutes: 8 \* 60/);
@@ -235,7 +235,7 @@ test("long horizon is aggregated from closed daily candles and current endpoint 
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /completedAggregateCandles\(d1, weekKey, now\)/);
   assert.match(source, /completedAggregateCandles\(d1, monthKey, now\)/);
-  assert.match(source, /interval === "1D" \? 400 : interval === "5m" \? 180 : 120/);
+  assert.match(source, /interval === "1D" \? 400 : interval === "1m" \? 240 : interval === "5m" \? 180 : 120/);
   assert.match(client, /Math\.min\(1000/);
 });
 
@@ -265,11 +265,12 @@ test("admin and member desks expose the three strategy profiles and rejection re
 });
 
 
-test("active execution supports a smaller probe before exact entry confirmation while keeping risk mandatory", () => {
+test("active execution requires an exact entry trigger even for a smaller probe", () => {
   const source = engine();
   assert.match(source, /executionTier: "FULL" \| "PROBE" \| "OBSERVE"/);
   assert.match(source, /const fullReady = Boolean\([\s\S]*entryMet/);
   assert.match(source, /const probeReady = Boolean\([\s\S]*profile\.strategyType !== "POSITION"/);
+  assert.match(source, /const probeReady = Boolean\([\s\S]*!fullReady &&[\s\S]*entryMet/);
   assert.match(source, /otherwiseEligible: Boolean\(direction !== "NEUTRAL" && currentPrice && prices && riskMet && !context\.currentEntryInvalidated\)/);
   assert.match(source, /const baseValid = entryEligibility\.eligible/);
   assert.match(source, /PROBE_RISK_SCALE/);
@@ -295,9 +296,9 @@ test("runtime pause still manages existing positions without scanning new entrie
 
 
 
-test("v6.4 active Demo uses a two-trade activity target, hard caps and staged entries", () => {
+test("Demo keeps hard caps and staged entries without quantity-driven promotion", () => {
   const source = engine();
-  assert.match(source, /MOOX_DEMO_ACTIVITY_TARGET_V64/);
+  assert.match(source, /const DEMO_ACTIVITY_TARGET = 0/);
   assert.match(source, /MOOX_DEMO_GLOBAL_TRADE_CAP_V64/);
   assert.match(source, /MOOX_DEMO_SYMBOL_TRADE_CAP_V64/);
   assert.match(source, /DAILY_ACTIVITY_PROBE/);
@@ -334,15 +335,14 @@ test("database migration is additive and seeds only shadow profiles", () => {
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM/i);
 });
 
-test("live active execution is fail-closed by default without removing hard caps", () => {
+test("live active execution is fail-closed and quantity promotion is permanently disabled", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /MOOX_TRADING_CONTROL_MODE/);
-  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4/);
-  assert.match(source, /MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641/);
+  assert.match(source, /const LIVE_ACTIVITY_ENABLED = false/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
   assert.match(source, /environment\.liveMaxTradesPerDay/);
-  assert.match(source, /DAILY_MINIMUM_EXECUTION/);
+  assert.match(source, /HORIZON_PERIOD_TRADE_CAP/);
   assert.match(client, /BITGET_LIVE_MAX_TRADES_PER_DAY/);
   assert.match(client, /BITGET_LIVE_DAILY_LOSS_USDT/);
   assert.match(client, /BITGET_LIVE_MAX_DRAWDOWN_USDT/);

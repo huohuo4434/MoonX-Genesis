@@ -130,7 +130,9 @@ const LIVE_COMMISSIONING_ENABLED =
   process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
   isUnifiedLiveActiveExecutionEnabled();
-const LIVE_ACTIVITY_ENABLED = LIVE_ACTIVE_EXECUTION_ENABLED;
+// Legacy quantity-driven promotion is permanently disabled. A desired cadence
+// is a monitoring/capacity objective, never a reason to make a real order READY.
+const LIVE_ACTIVITY_ENABLED = false;
 const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
 ));
@@ -160,9 +162,7 @@ const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
 // Demo execution remains separately controllable and cannot affect live credentials.
 const DEMO_ACTIVE_EXECUTION_ENABLED =
   process.env.MOOX_DEMO_ACTIVE_EXECUTION_V64?.toLowerCase() !== "false";
-const DEMO_ACTIVITY_TARGET = Math.floor(envNumber(
-  "MOOX_DEMO_ACTIVITY_TARGET_V64", 2, 0, 4
-));
+const DEMO_ACTIVITY_TARGET = 0;
 const DEMO_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
   "MOOX_DEMO_ACTIVITY_START_HOUR_BJ_V64", 10, 0, 23
 ));
@@ -179,9 +179,8 @@ const PROBE_RISK_SCALE = envNumber("MOOX_PROBE_RISK_SCALE_V64", 0.45, 0.25, 0.6)
 const SCALE_IN_MIN_AGE_MINUTES = Math.floor(envNumber(
   "MOOX_SCALE_IN_MIN_AGE_MINUTES_V64", 5, 3, 30
 ));
-// V7.7: MOOX owns the directional thesis; the market confirms the actual turn.
-// LIVE also keeps one small-risk daily activation target so a valid directional system cannot remain permanently idle.
-// These thresholds only govern timing confirmation inside the forecast window.
+// MOOX owns the directional thesis; the market confirms the actual turn.
+// These thresholds govern timing confirmation only and never create an order to hit a quantity target.
 const INTRADAY_PATH_MIN_MOVE_PCT = envNumber(
   "MOOX_INTRADAY_PATH_MIN_MOVE_PCT", 0.35, 0.1, 2
 );
@@ -196,17 +195,17 @@ const PROFILE_DEFINITIONS: Record<
   INTRADAY: {
     strategyType: "INTRADAY",
     label: "短线",
-    description: "30分钟至8小时，4小时看大结构、30分钟定主线段、5分钟抓二/三买卖与右侧确认，原则上当日结束。",
+    description: "30分钟至8小时，4小时看环境、30分钟定主线段、5分钟确认结构、1分钟只微调成交时机，原则上当日结束。",
     symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
     environmentTimeframe: "4H",
     directionTimeframe: "30m",
-    entryTimeframe: "5m",
-    scanIntervalMinutes: 5,
+    entryTimeframe: "5m/1m",
+    scanIntervalMinutes: 1,
     riskPerTradePct: 0.2,
     maxHoldingMinutes: 8 * 60,
     planningMinConfidence: 42,
     minConfidence: 52,
-    maxTradesPerDay: 4,
+    maxTradesPerDay: 5,
   },
   SWING: {
     strategyType: "SWING",
@@ -221,7 +220,7 @@ const PROFILE_DEFINITIONS: Record<
     maxHoldingMinutes: 7 * 24 * 60,
     planningMinConfidence: 44,
     minConfidence: 54,
-    maxTradesPerDay: 3,
+    maxTradesPerDay: 5,
   },
   POSITION: {
     strategyType: "POSITION",
@@ -236,7 +235,7 @@ const PROFILE_DEFINITIONS: Record<
     maxHoldingMinutes: 28 * 24 * 60,
     planningMinConfidence: 46,
     minConfidence: 56,
-    maxTradesPerDay: 2,
+    maxTradesPerDay: 5,
   },
 };
 
@@ -324,6 +323,7 @@ interface EvaluationResult {
 }
 
 interface CandleSet {
+  "1m": BitgetDemoCandle[];
   "5m": BitgetDemoCandle[];
   "15m": BitgetDemoCandle[];
   "30m": BitgetDemoCandle[];
@@ -684,6 +684,19 @@ function forecastDirectionForStrategy(
   });
 }
 
+function lockedLiuyaoDirection(
+  plan: PredictionStrategyPlan | null | undefined,
+  strategyType: ThreeHorizonStrategyType,
+): "LONG" | "SHORT" | null {
+  if (!plan) return null;
+  const useMonthly = strategyType === "POSITION" && Boolean(plan.monthlyForecast);
+  const leg = useMonthly ? plan.monthlyForecast : plan.weeklyForecast;
+  const direction = useMonthly ? plan.monthlyDirection : plan.weeklyDirection;
+  const traceableLiuyao = /六爻|liu[\s_-]*yao|six[\s_-]*yao/i.test(leg?.sourceLabel ?? "");
+  if (!leg?.publishedAt || !leg.lockedAt || !traceableLiuyao || !["LONG", "SHORT"].includes(direction)) return null;
+  return direction as "LONG" | "SHORT";
+}
+
 function formalForecastDirectionForExternalOverlay(
   plan: PredictionStrategyPlan | undefined,
   strategyType: ThreeHorizonStrategyType,
@@ -780,12 +793,14 @@ function evaluateIntraday(
   const h4 = closedCandles(candles["4H"], "4H", now);
   const m30 = closedCandles(candles["30m"], "30m", now);
   const m5 = closedCandles(candles["5m"], "5m", now);
+  const m1 = closedCandles(candles["1m"], "1m", now);
   const prior = getHexagramDirectionPrior(symbol, profile.strategyType, now);
   const marketBaziRegime = getMarketBaziRegimePrior(symbol, profile.strategyType, now);
   const h4Signal = technicalDirectionSignal(h4, 8, 20, 5);
   const m30Signal = technicalDirectionSignal(m30, 8, 21, 6);
   const chan30 = analyzeChanStructure(m30);
   const chan5 = analyzeChanStructure(m5);
+  const chan1 = analyzeChanStructure(m1);
   const executionFocus = getAiTradingExecutionFocus(symbol, now);
   const focusMainDirection = executionFocus?.day?.mainDirection ?? executionFocus?.weeklyDirection ?? "NEUTRAL";
   const focusTacticalDirection = executionFocus?.day?.tacticalDirection ?? "NEUTRAL";
@@ -845,6 +860,11 @@ function evaluateIntraday(
   const ema5Series = ema(m5.map((row) => row.close), 9);
   const ema5 = last(ema5Series) ?? 0;
   const previousEma5 = ema5Series[Math.max(0, ema5Series.length - 2)] ?? ema5;
+  const latest1 = last(m1);
+  const previous1 = m1[m1.length - 2];
+  const ema1Series = ema(m1.map((row) => row.close), 9);
+  const ema1 = last(ema1Series) ?? 0;
+  const previousEma1 = ema1Series[Math.max(0, ema1Series.length - 2)] ?? ema1;
   const rsi30 = rsi(m30);
   const atr30 = atr(m30);
   const forecast = focusCountertrend && executionFocus
@@ -885,6 +905,11 @@ function evaluateIntraday(
     ? Boolean(latest5 && previous5 && latest5.close > ema5 && latest5.close >= latest5.open && latest5.close >= previous5.close && m30Signal.score >= 4)
     : direction === "SHORT"
       ? Boolean(latest5 && previous5 && latest5.close < ema5 && latest5.close <= latest5.open && latest5.close <= previous5.close && m30Signal.score <= -4)
+      : false;
+  const microTrigger = direction === "LONG"
+    ? Boolean(latest1 && previous1 && latest1.close > ema1 && (previous1.close <= previousEma1 || chan1.buyPoint !== "NONE"))
+    : direction === "SHORT"
+      ? Boolean(latest1 && previous1 && latest1.close < ema1 && (previous1.close >= previousEma1 || chan1.sellPoint !== "NONE"))
       : false;
 
   const pathRows = m30.slice(-12);
@@ -959,6 +984,13 @@ function evaluateIntraday(
       value: `${entryTriggerLabel}；二/三买=${chan5.buyPoint}，二/三卖=${chan5.sellPoint}`,
       weight: 25,
     },
+    {
+      key: "micro",
+      label: "1分钟成交微调",
+      met: microTrigger,
+      value: m1.length ? `${microTrigger ? "微周期同向" : "微周期等待"}；EMA9 ${round(ema1, 4)}；1m买点=${chan1.buyPoint}，卖点=${chan1.sellPoint}` : "1分钟数据暂不可用；不替代5分钟确认，也不改变正式方向",
+      weight: 0,
+    },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；技术结构不能自行决定多空", weight: 10 },
     { key: "risk", label: "波动与成交过滤", met: volatility.met && volumeMet, value: `${volatility.value}；成交量${volumeMet ? "可执行" : "过弱"}`, weight: 10 },
@@ -979,6 +1011,7 @@ function evaluateIntraday(
         environment: "4H",
         operation: "30m",
         entry: "5m",
+        microTiming: "1m",
         thirtyMinuteTrendState: chan30.trendState,
         thirtyMinuteBuyPoint: chan30.buyPoint,
         thirtyMinuteSellPoint: chan30.sellPoint,
@@ -986,6 +1019,10 @@ function evaluateIntraday(
         fiveMinuteBuyPoint: chan5.buyPoint,
         fiveMinuteSellPoint: chan5.sellPoint,
         fiveMinuteDivergence: chan5.divergence,
+        oneMinuteAvailable: m1.length > 0,
+        oneMinuteTrigger: microTrigger,
+        oneMinuteBuyPoint: chan1.buyPoint,
+        oneMinuteSellPoint: chan1.sellPoint,
         trigger: entryTriggerLabel,
       },
       marketBaziRegime,
@@ -1270,6 +1307,7 @@ function finalizeEvaluation(
     profile.strategyType !== "POSITION" &&
     baseValid &&
     !fullReady &&
+    entryMet &&
     directionEvidenceMet >= minimumEvidence &&
     technicalScore >= probeTechnicalFloor &&
     confidence >= probeThreshold &&
@@ -1307,7 +1345,7 @@ function finalizeEvaluation(
   } else if (directionEvidenceMet < minimumEvidence) {
     rejectionCode = "DIRECTION_EVIDENCE_LOW";
     rejectionReason = `执行结构证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;
-  } else if (confidence < probeThreshold || technicalScore < 38) {
+  } else if (confidence < probeThreshold || technicalScore < probeTechnicalFloor) {
     rejectionCode = "CONFIDENCE_LOW";
     rejectionReason = `综合置信度${confidence}%或技术分${technicalScore}%低于探路仓门槛。`;
   } else if (probeReady) {
@@ -1484,7 +1522,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
           mode = 'LIVE',
           symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT"]'::jsonb,
           scan_interval_minutes = CASE
-            WHEN strategy_type='INTRADAY' THEN 5
+            WHEN strategy_type='INTRADAY' THEN 1
             WHEN strategy_type='SWING' THEN 15
             ELSE 60 END,
           risk_per_trade_pct = CASE
@@ -1503,7 +1541,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
             WHEN strategy_type='INTRADAY' THEN 48
             WHEN strategy_type='SWING' THEN 50
             ELSE 52 END,
-          max_trades_per_day = 10,
+          max_trades_per_day = 5,
           updated_at = NOW()
       `);
     }
@@ -1627,7 +1665,7 @@ export async function getThreeHorizonProfiles(): Promise<ThreeHorizonStrategyPro
     // Always expose the complete ten-market universe in live mode, even when an old
     // warm server instance still has legacy BTC/ETH profile rows cached.
     const liveThresholds = mapped.strategyType === "INTRADAY"
-      ? { scanIntervalMinutes: 5, riskPerTradePct: 0.18, planningMinConfidence: 40, minConfidence: 48 }
+      ? { scanIntervalMinutes: 1, riskPerTradePct: 0.18, planningMinConfidence: 40, minConfidence: 48 }
       : mapped.strategyType === "SWING"
         ? { scanIntervalMinutes: 15, riskPerTradePct: 0.25, planningMinConfidence: 42, minConfidence: 50 }
         : { scanIntervalMinutes: 60, riskPerTradePct: 0.20, planningMinConfidence: 44, minConfidence: 52 };
@@ -1637,7 +1675,7 @@ export async function getThreeHorizonProfiles(): Promise<ThreeHorizonStrategyPro
       enabled: true,
       mode: "LIVE" as const,
       symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
-      maxTradesPerDay: environment.liveMaxTradesPerDay,
+      maxTradesPerDay: Math.min(5, environment.liveMaxTradesPerDay),
     };
   });
 }
@@ -1762,30 +1800,32 @@ function beijingHour(now: Date): number {
   return new Date(now.getTime() + 8 * 60 * 60_000).getUTCHours();
 }
 
-async function executedOrderCountToday(now: Date): Promise<number> {
+async function executedOrderCountToday(now: Date, mode: "LIVE" | "DEMO"): Promise<number> {
   if (!prisma) return 0;
   const start = beijingStartOfDay(now);
   const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
     `SELECT COUNT(*)::bigint AS count
      FROM trade_three_horizon_decisions
-     WHERE created_at >= $1
-       AND (bitget_order_id IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
-    start
+     WHERE created_at >= $1 AND mode = $2
+       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
+    start,
+    mode,
   );
   const value = Number(rows[0]?.count ?? 0);
   return Number.isFinite(value) ? value : 0;
 }
 
-async function symbolExecutedOrderCountToday(symbol: string, now: Date): Promise<number> {
+async function symbolExecutedOrderCountToday(symbol: string, now: Date, mode: "LIVE" | "DEMO"): Promise<number> {
   if (!prisma) return 0;
   const start = beijingStartOfDay(now);
   const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
     `SELECT COUNT(*)::bigint AS count
      FROM trade_three_horizon_decisions
-     WHERE created_at >= $1 AND symbol = $2
-       AND (bitget_order_id IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
+     WHERE created_at >= $1 AND symbol = $2 AND mode = $3
+       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
     start,
-    symbol
+    symbol,
+    mode,
   );
   const value = Number(rows[0]?.count ?? 0);
   return Number.isFinite(value) ? value : 0;
@@ -2150,34 +2190,72 @@ async function todayTradeCount(profile: ThreeHorizonStrategyProfile, now: Date):
   const rows = await prisma.$queryRawUnsafe<Array<{ count: number | string | bigint }>>(
     `SELECT COUNT(*) AS count
      FROM trade_three_horizon_decisions
-     WHERE strategy_type = $1
-       AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED')
-       AND created_at >= $2::timestamptz`,
+     WHERE strategy_type = $1 AND mode = $2
+       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+       AND created_at >= $3::timestamptz`,
     profile.strategyType,
+    profile.mode,
     start.toISOString()
   );
   return Number(rows[0]?.count ?? 0);
 }
 
 async function loadCandleSet(symbol: BitgetSupportedSymbol): Promise<CandleSet> {
-  const intervals: BitgetCandleInterval[] = ["5m", "15m", "30m", "1H", "4H", "1D"];
-  const rows = await Promise.all(
+  const intervals: BitgetCandleInterval[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"];
+  const rows = await Promise.allSettled(
     intervals.map((interval) =>
       getBitgetDemoCandles({
         symbol,
         interval,
-        limit: interval === "1D" ? 400 : interval === "5m" ? 180 : 120,
+        limit: interval === "1D" ? 400 : interval === "1m" ? 240 : interval === "5m" ? 180 : 120,
       })
     )
   );
-  return {
-    "5m": rows[0] ?? [],
-    "15m": rows[1] ?? [],
-    "30m": rows[2] ?? [],
-    "1H": rows[3] ?? [],
-    "4H": rows[4] ?? [],
-    "1D": rows[5] ?? [],
+  const value = (index: number): BitgetDemoCandle[] => {
+    const row = rows[index];
+    return row?.status === "fulfilled" ? row.value : [];
   };
+  return {
+    "1m": value(0),
+    "5m": value(1),
+    "15m": value(2),
+    "30m": value(3),
+    "1H": value(4),
+    "4H": value(5),
+    "1D": value(6),
+  };
+}
+
+function beijingStartOfMonth(now: Date): Date {
+  const shifted = new Date(now.getTime() + 8 * 60 * 60_000);
+  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1) - 8 * 60 * 60_000);
+}
+
+function cadenceStart(strategyType: ThreeHorizonStrategyType, now: Date): Date {
+  if (strategyType === "SWING") return beijingStartOfWeek(now);
+  if (strategyType === "POSITION") return beijingStartOfMonth(now);
+  return beijingStartOfDay(now);
+}
+
+function cadenceLabel(strategyType: ThreeHorizonStrategyType): string {
+  if (strategyType === "SWING") return "本周";
+  if (strategyType === "POSITION") return "本月";
+  return "今日";
+}
+
+async function cadenceTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
+  if (!prisma) return 0;
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: number | string | bigint }>>(
+    `SELECT COUNT(*) AS count
+     FROM trade_three_horizon_decisions
+     WHERE strategy_type = $1 AND mode = $2
+       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+       AND created_at >= $3::timestamptz`,
+    profile.strategyType,
+    profile.mode,
+    cadenceStart(profile.strategyType, now).toISOString(),
+  );
+  return Number(rows[0]?.count ?? 0);
 }
 
 function evaluate(
@@ -2188,6 +2266,33 @@ function evaluate(
   now: Date,
   livePrice?: number
 ): EvaluationResult {
+  const required = profile.strategyType === "INTRADAY"
+    ? (["5m", "30m", "4H"] as const)
+    : profile.strategyType === "SWING"
+      ? (["1H", "4H", "1D"] as const)
+      : (["4H", "1D"] as const);
+  const missing = required.filter((interval) => candles[interval].length === 0);
+  if (missing.length) {
+    return {
+      direction: "NEUTRAL",
+      confidence: 0,
+      technicalScore: 0,
+      forecastScore: 0,
+      conditions: [{ key: "market-data", label: "必需行情周期", met: false, value: `缺少${missing.join("、")}已收盘K线`, weight: 100 }],
+      currentPrice: null,
+      entryPrice: null,
+      stopLoss: null,
+      target1: null,
+      target2: null,
+      ready: false,
+      rejectionCode: "REQUIRED_TIMEFRAME_UNAVAILABLE",
+      rejectionReason: `${profile.label}缺少必需行情周期${missing.join("、")}；只阻断本周期，不用无关周期失败拖住其他策略。`,
+      executionTier: "OBSERVE",
+      riskScale: 0,
+      directionStrength: 0,
+      raw: { missingRequiredTimeframes: missing },
+    };
+  }
   if (profile.strategyType === "INTRADAY") return evaluateIntraday(profile, symbol, candles, plan, now, livePrice);
   if (profile.strategyType === "SWING") return evaluateSwing(profile, symbol, candles, plan, now, livePrice);
   return evaluatePosition(profile, symbol, candles, plan, now, livePrice);
@@ -2253,7 +2358,7 @@ async function loadCommissioningCandleSet(symbol: BitgetSupportedSymbol): Promis
     getBitgetDemoCandles({ symbol, interval: "15m", limit: 80 }),
     getBitgetDemoCandles({ symbol, interval: "1H", limit: 80 }),
   ]);
-  return { "5m": m5, "15m": m15, "30m": [], "1H": h1, "4H": [], "1D": [] };
+  return { "1m": [], "5m": m5, "15m": m15, "30m": [], "1H": h1, "4H": [], "1D": [] };
 }
 
 function candleMomentumScore(candles: CandleSet, livePrice: number, now: Date): number {
@@ -3153,6 +3258,45 @@ async function executeReadyDecision(input: {
     };
   }
   const environment = getBitgetDemoEnvironment();
+  let authoritativeDailyCount = 0;
+  let authoritativeCadenceCount = 0;
+  try {
+    [authoritativeDailyCount, authoritativeCadenceCount] = await Promise.all([
+      executedOrderCountToday(input.now, environment.mode === "LIVE_EXPERIMENT" ? "LIVE" : "DEMO"),
+      cadenceTradeCount(input.profile, input.now),
+    ]);
+  } catch (error) {
+    return {
+      decision: await updateDecision(input.decision.id, {
+        status: "BLOCKED",
+        rejectionCode: "TRADE_CADENCE_READ_FAILED",
+        rejectionReason: `无法确认当日与${cadenceLabel(input.profile.strategyType)}成交数量，按安全原则禁止新开仓：${error instanceof Error ? error.message : "未知错误"}`,
+      }),
+      attempted: false,
+      success: false,
+      error: false,
+      riskReservedPct: 0,
+    };
+  }
+  const globalDailyCap = environment.mode === "LIVE_EXPERIMENT"
+    ? environment.liveMaxTradesPerDay
+    : DEMO_GLOBAL_TRADE_CAP;
+  if (authoritativeDailyCount >= globalDailyCap || authoritativeCadenceCount >= input.profile.maxTradesPerDay) {
+    const globalCapReached = authoritativeDailyCount >= globalDailyCap;
+    return {
+      decision: await updateDecision(input.decision.id, {
+        status: "BLOCKED",
+        rejectionCode: globalCapReached ? "GLOBAL_DAILY_TRADE_CAP" : "HORIZON_PERIOD_TRADE_CAP",
+        rejectionReason: globalCapReached
+          ? `今日已记录${authoritativeDailyCount}笔订单，达到全局${globalDailyCap}笔硬上限；所有新开仓入口（含首笔闭环验收）均已关闭。`
+          : `${input.profile.label}${cadenceLabel(input.profile.strategyType)}已记录${authoritativeCadenceCount}笔订单，达到${input.profile.maxTradesPerDay}笔周期硬上限。`,
+      }),
+      attempted: false,
+      success: false,
+      error: false,
+      riskReservedPct: 0,
+    };
+  }
   const unifiedHorizon = unifiedHorizonForStrategy(input.profile.strategyType);
   const unifiedSetting = environment.mode === "LIVE_EXPERIMENT"
     ? await getUnifiedLiveSetting("official", unifiedHorizon)
@@ -3395,6 +3539,7 @@ async function executeReadyDecision(input: {
           maxHoldMinutes: input.profile.maxHoldingMinutes,
           sourceKind: `THREE_HORIZON_${input.profile.strategyType}`,
           technicalEntry: input.evaluation.conditions.find((condition) => condition.key === "entry")?.value ?? null,
+          liuyaoDirection: lockedLiuyaoDirection(input.forecastPlan, input.profile.strategyType),
         });
       } catch (registryError) {
         custodyRegistrationFailed = true;
@@ -3765,7 +3910,7 @@ export async function runThreeHorizonStrategyEngine(
   let orderAttempts = management.orderAttempts + (commissioningAttempted ? 1 : 0);
   let orderSuccess = management.orderSuccess + (commissioningSuccess ? 1 : 0);
   let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
-  let executedToday = await executedOrderCountToday(now);
+  let executedToday = await executedOrderCountToday(now, liveExperimentMode ? "LIVE" : "DEMO");
   let scanErrors = 0;
   let directionalDecisions = 0;
   let entryTriggers = 0;
@@ -3797,6 +3942,7 @@ export async function runThreeHorizonStrategyEngine(
     if (timeBudgetReached || entrySafetyStop) break;
     const profileStartedAt = Date.now();
     let tradesToday = await todayTradeCount(profile, now);
+    let tradesInCadence = await cadenceTradeCount(profile, now);
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
@@ -3895,6 +4041,11 @@ export async function runThreeHorizonStrategyEngine(
           rejectionCode = "DAILY_TRADE_LIMIT";
           rejectionReason = `${profile.label}今日已达到${profile.maxTradesPerDay}笔开仓上限。`;
         }
+        if (evaluation.ready && profile.mode !== "SHADOW" && tradesInCadence >= 5) {
+          status = "BLOCKED";
+          rejectionCode = "HORIZON_PERIOD_TRADE_CAP";
+          rejectionReason = `${profile.label}${cadenceLabel(profile.strategyType)}已达到5笔合格开仓硬上限；继续监控，但不为凑数量重复下单。`;
+        }
         const globalTradeCap = environment.mode === "LIVE_EXPERIMENT"
           ? environment.liveMaxTradesPerDay
           : DEMO_GLOBAL_TRADE_CAP;
@@ -3907,7 +4058,7 @@ export async function runThreeHorizonStrategyEngine(
           rejectionReason = `${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}今日已达到${globalTradeCap}笔全局硬上限；活动目标不是无限交易。`;
         }
         if (evaluation.ready && status === "READY") {
-          const symbolTradesToday = await symbolExecutedOrderCountToday(symbol, now);
+          const symbolTradesToday = await symbolExecutedOrderCountToday(symbol, now, profile.mode === "LIVE" ? "LIVE" : "DEMO");
           if (symbolTradesToday >= symbolTradeCap) {
             status = "BLOCKED";
             rejectionCode = "SYMBOL_DAILY_TRADE_CAP";
@@ -3977,6 +4128,7 @@ export async function runThreeHorizonStrategyEngine(
               orderSuccess += 1;
               executedToday += 1;
               tradesToday += 1;
+              tradesInCadence += 1;
               reservedSymbols.add(symbol);
               reservedRiskPct += executed.riskReservedPct;
             }
@@ -4097,7 +4249,7 @@ export async function runThreeHorizonStrategyEngine(
         promotedCount >= needed ||
         executedToday >= environment.liveMaxTradesPerDay
       ) break;
-      if (await symbolExecutedOrderCountToday(candidate.symbol, now) >= LIVE_SYMBOL_TRADE_CAP) continue;
+      if (await symbolExecutedOrderCountToday(candidate.symbol, now, "LIVE") >= LIVE_SYMBOL_TRADE_CAP) continue;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
       if (!baseProfile) continue;
       const activityProfile: ThreeHorizonStrategyProfile = {
@@ -4235,7 +4387,7 @@ export async function runThreeHorizonStrategyEngine(
     for (const candidate of candidates) {
       if (Date.now() >= newEntryCutoffMs) break;
       if (promotedCount >= needed || executedToday >= DEMO_GLOBAL_TRADE_CAP) break;
-      if (await symbolExecutedOrderCountToday(candidate.symbol, now) >= DEMO_SYMBOL_TRADE_CAP) continue;
+      if (await symbolExecutedOrderCountToday(candidate.symbol, now, "DEMO") >= DEMO_SYMBOL_TRADE_CAP) continue;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
       if (!baseProfile) continue;
       const activityProfile: ThreeHorizonStrategyProfile = {
@@ -4380,12 +4532,10 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? (LIVE_ACTIVITY_TARGET > 0
-            ? `实盘主动执行已开启：允许池动态Top10三周期扫描、每日${LIVE_ACTIVITY_TARGET}笔合格激活目标、分批探路仓、最高2倍逐仓及现有实盘风控上限生效。`
-            : "实盘主动执行已开启：允许池动态Top10三周期扫描、MOOX方向+市场节点触发、分批探路仓、最高2倍逐仓及现有实盘风控上限生效；不为凑单强制交易。")
+        ? "实盘主动执行已开启：短线每分钟扫描，短线每日/中线每周/长线每月各最多5笔；只有正式方向、真实收盘触发、计划锁和硬风控全部通过才下单，不为凑数交易。"
         : "实盘主动执行未获授权：请检查MOOX_TRADING_CONTROL_MODE与BITGET_LIVE_CONFIRMATION。"
       : executionEnvironmentAllowed
-        ? `主动Demo执行已开启：全动态Top10品种扫描、每日${DEMO_ACTIVITY_TARGET}笔活动目标、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效。风险、持仓冲突、保护单和数据新鲜度闸门仍不可绕过。`
+        ? `主动Demo执行已开启：动态候选扫描、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效；不再按成交数量晋级候选。`
         : "主动Demo执行当前关闭。请确认BITGET_DEMO_EXECUTION_ALLOWED=true；MOOX_DEMO_ACTIVE_EXECUTION_V64或旧兼容开关若显式设为false，也会立即停止新开仓。",
     profiles,
     risk,

@@ -58,21 +58,18 @@ test("crypto picks show daily research date, clear rating names and requested ri
   assert.match(list, /今日分析/);
 });
 
-test("AI member desk enhancement uses a route overlay and does not require overwriting the current page shell", () => {
+test("AI member desk renders the live desk after first paint without blocking on Bitget", () => {
   const onboarding = read("components/member/MemberTradingOnboarding.tsx");
   const layout = read("app/member/ai-trading/layout.tsx");
-  const perf = read("lib/trading-signals/admin-public-performance.ts");
+  const page = read("app/member/ai-trading/page.tsx");
+  const lazy = read("components/member/MemberAiTradingDashboardLazy.tsx");
   assert.match(onboarding, /短线.*1—3天/s);
   assert.match(onboarding, /中线.*1—15天/s);
   assert.match(onboarding, /长线.*1—3个月/s);
   assert.match(onboarding, /超长线.*约1年/s);
-  assert.match(layout, /MOOX_V72063_AI_ROUTE_OVERLAY/);
-  assert.match(layout, /getMemberDevicePageAccess/);
-  assert.match(layout, /gate\.status !== "ALLOWED"/);
-  assert.match(layout, /AdminPublicTradingPerformance/);
-  assert.match(layout, /href="\/api\/v1\/member\/trading\/artifacts\/windows"/);
-  assert.match(layout, /下载会员接入包/);
+  assert.doesNotMatch(layout, /getAdminTradingPerformanceSnapshot|AdminPublicTradingPerformance/);
+  assert.match(page, /getMemberDevicePageAccess/);
+  assert.match(page, /MemberAiTradingDashboardLazy/);
+  assert.match(lazy, /api\/member\/ai-trading-desk/);
   assert.doesNotMatch(layout, /placeBitget|MarketOrder|AUTO_ORDER|Paper入场/);
-  assert.match(perf, /getBitgetDemoClosedPositions\(100\)/);
-  assert.match(perf, /recentNetProfitUsdt/);
 });

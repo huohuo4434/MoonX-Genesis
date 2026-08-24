@@ -22,15 +22,13 @@ test("existing Vercel live variables are honored", () => {
   assert.match(client, /\["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"\]/);
 });
 
-test("live execution keeps one activation target with small risk and hard caps", () => {
+test("live execution uses cadence caps but never promotes an order to hit a quantity target", () => {
   for (const token of [
     "MOOX_TRADING_CONTROL_MODE",
-    'MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4',
-    "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
     "MOOX_LIVE_SYMBOL_TRADE_CAP_V641",
-    "DAILY_MINIMUM_EXECUTION",
+    "const LIVE_ACTIVITY_ENABLED = false",
+    "HORIZON_PERIOD_TRADE_CAP",
     "environment.liveMaxTradesPerDay",
-    "decisionRewardRisk(decision) >= 1.05",
   ]) assert.ok(engine.includes(token), `missing ${token}`);
 });
 
