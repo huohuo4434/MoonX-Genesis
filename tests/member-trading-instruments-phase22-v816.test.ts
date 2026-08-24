@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { intersectFocusWithBitget } from "../lib/trading-signals/member-instrument-registry";
-import { STATIC_FOCUS_ASSET_IDS, listStaticMemberAutomationFocus } from "../lib/data/conviction/focus-registry-core";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS, RETIRED_STATIC_FOCUS_ASSET_IDS, listStaticMemberAutomationFocus } from "../lib/data/conviction/focus-registry-core";
 import { listAiTradingFocusRegistry } from "../lib/trading-signals/ai-trading-focus";
 
 test("focus registry uses exact online Bitget intersection without similar substitution", () => {
@@ -25,12 +25,16 @@ test("focus registry uses exact online Bitget intersection without similar subst
   assert.equal(rows[1].bitgetSymbol, null);
 });
 
-test("member automation union covers every static focus asset and exact official online contracts", () => {
+test("member automation union covers every active focus asset and exact official online contracts", () => {
   const staticFocus = listStaticMemberAutomationFocus();
-  assert.deepEqual(staticFocus.map((row) => row.assetId), [...STATIC_FOCUS_ASSET_IDS]);
+  assert.deepEqual(staticFocus.map((row) => row.assetId), [...ACTIVE_STATIC_FOCUS_ASSET_IDS]);
   assert.ok(staticFocus.length >= 16, "focus registry may grow but must not silently shrink");
   const union = listAiTradingFocusRegistry();
-  for (const assetId of STATIC_FOCUS_ASSET_IDS) assert.equal(union.filter((row) => row.assetId === assetId).length, 1, assetId);
+  for (const assetId of ACTIVE_STATIC_FOCUS_ASSET_IDS) assert.equal(union.filter((row) => row.assetId === assetId).length, 1, assetId);
+  for (const assetId of RETIRED_STATIC_FOCUS_ASSET_IDS) {
+    assert.equal(staticFocus.some((row) => row.assetId === assetId), false, assetId);
+    assert.equal(union.some((row) => row.assetId === assetId), false, assetId);
+  }
   const mappedSymbols = union.map((row) => row.canonicalSymbol).filter((value): value is string => value != null);
   assert.equal(new Set(mappedSymbols).size, mappedSymbols.length, "canonical symbols must be unique");
   for (const symbol of ["XAUTUSDT", "XAGUSDT", "QQQUSDT", "SPYUSDT", "CLUSDT"]) {
@@ -49,7 +53,7 @@ test("member automation union covers every static focus asset and exact official
   assert.equal(rows.length, staticFocus.length);
   const available = rows.filter((row) => row.availability === "AVAILABLE").map((row) => row.bitgetSymbol).sort();
   assert.deepEqual(available, [...onlineSymbols].sort());
-  for (const assetId of ["ganfeng-lithium", "lian-tech", "lexin-medical", "cxmt", "asteroid", "kingsoft-office"]) {
+  for (const assetId of ["cxmt", "asteroid"]) {
     const row = rows.find((value) => value.assetId === assetId)!;
     assert.equal(row.canonicalSymbol, null, assetId);
     assert.equal(row.availability, "UNAVAILABLE", assetId);

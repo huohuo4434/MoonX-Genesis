@@ -281,22 +281,6 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     priority: 10,
   },
   {
-    slug: "kingsoft-office",
-    assetType: "STOCK",
-    eyebrowZh: "国产软件估值观察",
-    eyebrowEn: "Domestic-software valuation watch",
-    headlineZh: "金山办公：估值和题材都很热，真正值得看的是下一段资金会怎么选",
-    headlineEn: "Kingsoft Office: the theme and valuation are both hot; the next question is how capital chooses the next phase",
-    hookZh: "高估值阶段最容易被故事带着走。当前研究更关注接下来哪一段最容易出现明显分化，以及市场会不会在一个关键窗口重新定价。",
-    hookEn: "At elevated valuations, the story can easily dominate the tape. The full dossier focuses on where the next meaningful split may appear and when repricing could begin.",
-    coverageZh: "月度 / 估值 / 资金 / 六爻",
-    coverageEn: "Monthly / valuation / positioning / Liu Yao",
-    lockedPreviewZh: ["月度真正答案", "关键时间窗", "阶段变化", "执行位置"],
-    lockedPreviewEn: ["Monthly answer", "Key timing window", "Phase change", "Execution levels"],
-    accent: "rose",
-    priority: 11,
-  },
-  {
     slug: "tsla", assetType: "STOCK", nameZh: "特斯拉", nameEn: "Tesla", symbol: "TSLA", detailHref: "/featured-stocks/tsla", rating: "A", riskZh: "高",
     eyebrowZh: "特斯拉多周期专题 · 周段到三年", eyebrowEn: "Tesla multi-horizon dossier · weeks through three years",
     headlineZh: "特斯拉：短期、年底与2027并不是同一个方向", headlineEn: "Tesla: the near-term, year-end and 2027 paths are not the same trade",
@@ -315,30 +299,6 @@ export const WATCHLIST_TEASERS: WatchlistTeaser[] = [
     lockedPreviewZh: ["周段方向", "长短周期分歧", "2027新样本", "结构失效与目标"], lockedPreviewEn: ["Weekly calls", "Horizon divergences", "2027 sample", "Invalidation and targets"], accent: "cyan", priority: 9.0,
   },
 
-  {
-    slug: "ganfeng-lithium", assetType: "STOCK", nameZh: "赣锋锂业", nameEn: "Ganfeng Lithium", symbol: "002460", detailHref: "/featured-stocks/ganfeng-lithium", rating: "A", riskZh: "高",
-    eyebrowZh: "锂资源专题 · 8—10月", eyebrowEn: "Lithium dossier · Aug–Oct",
-    headlineZh: "赣锋锂业：8—10月节奏已经拆开", headlineEn: "Ganfeng Lithium: the Aug–Oct path is mapped by stage",
-    hookZh: "8月、9月和10月分别研究，会员档案同步展示六爻、奇门、逐日节奏与关键位。", hookEn: "August, September and October are tracked separately with dual-method views, daily rhythm and key levels.",
-    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
-    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "emerald", priority: 18,
-  },
-  {
-    slug: "lian-tech", assetType: "STOCK", nameZh: "利安科技", nameEn: "Lian Technology", symbol: "300784", detailHref: "/featured-stocks/lian-tech", rating: "A-", riskZh: "高",
-    eyebrowZh: "精密制造专题 · 8—10月", eyebrowEn: "Precision manufacturing · Aug–Oct",
-    headlineZh: "利安科技：当前阶段与后续窗口分开看", headlineEn: "Lian Technology: current action and later windows are separated",
-    hookZh: "已有月度六爻资料会自动拆成未来日分析，并同步生成奇门观点和滚动节奏。", hookEn: "Existing monthly evidence now feeds forward daily research with Qimen and rolling rhythm updates.",
-    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
-    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "slate", priority: 19,
-  },
-  {
-    slug: "lexin-medical", assetType: "STOCK", nameZh: "乐心医疗", nameEn: "Lexin Medical", symbol: "300562", detailHref: "/featured-stocks/lexin-medical", rating: "A-", riskZh: "高",
-    eyebrowZh: "医疗科技专题 · 8—10月", eyebrowEn: "Health-tech dossier · Aug–Oct",
-    headlineZh: "乐心医疗：月度证据已经接入逐日研究", headlineEn: "Lexin Medical: monthly evidence now feeds the daily research layer",
-    hookZh: "现有六爻资料不会再停在月度卡片，会员档案会连续生成未来日分析、奇门观点与关键位。", hookEn: "Existing Liu Yao research now continues into forward daily analysis, Qimen views and key levels.",
-    coverageZh: "月度 / 逐日 / 六爻 / 奇门 / 技术位", coverageEn: "Monthly / daily / Liu Yao / Qimen / levels",
-    lockedPreviewZh: ["当前方向", "六爻与奇门", "未来日节奏", "关键位"], lockedPreviewEn: ["Current view", "Liu Yao + Qimen", "Forward rhythm", "Key levels"], accent: "violet", priority: 20,
-  },
 ];
 
 export const WATCHLIST_TEASER_BY_SLUG = Object.fromEntries(

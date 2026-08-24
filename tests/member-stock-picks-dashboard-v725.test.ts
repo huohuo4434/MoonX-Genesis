@@ -46,15 +46,15 @@ test("an independent same-period chart outranks a teacher monthly decomposition"
   assert.ok(intel);
   assert.equal(intel.weekly.authority, "INDEPENDENT_PERIOD");
   assert.equal(intel.weekly.sourcePriority, "USER_INTERPRETED");
-  assert.match(intel.weekly.sourceLabel, /自起卦/);
+  assert.equal(intel.weekly.sourceLabel, "周期研究");
   assert.equal(intel.weekly.periodStart, "2026-08-31");
 });
 
-test("teacher same-period evidence is marked as highest priority", () => {
+test("teacher same-period evidence keeps internal priority without member-facing provenance", () => {
   const tesla = rows.find((row) => row.slug === "tsla");
   assert.ok(tesla);
   assert.equal(tesla.weekly.sourcePriority, "TEACHER");
-  assert.match(tesla.weekly.sourceLabel, /最高优先级/);
+  assert.equal(tesla.weekly.sourceLabel, "周期研究");
 });
 
 test("daily views keep independent Liuyao and Qimen separate", () => {
@@ -66,8 +66,14 @@ test("daily views keep independent Liuyao and Qimen separate", () => {
   assert.ok(["RESONANCE", "DIVERGENCE", "LIUYAO_MISSING", "NOT_COMPARABLE"].includes(daily.relation));
   assert.notEqual(sandisk.forecastShapeBasis, "MISSING");
   assert.equal(sandisk.weekly.authority, "INDEPENDENT_PERIOD");
-  assert.doesNotMatch(sandisk.weekly.sourceLabel, /非独立周卦/);
+  assert.equal(sandisk.weekly.sourceLabel, "周期研究");
   assert.equal(sandisk.dataCompleteness, "READY");
+});
+
+test("retired assets are absent from the active member stock dashboard", () => {
+  for (const slug of ["ganfeng-lithium", "lian-tech", "lexin-medical", "kingsoft-office"]) {
+    assert.equal(rows.some((row) => row.slug === slug), false, slug);
+  }
 });
 
 test("member stock path API is fail-closed and cannot alter trading", async () => {
@@ -89,6 +95,8 @@ test("member page labels simulated path as non-price research", async () => {
   assert.match(source, /4H缠论技术面/);
   assert.match(source, /grid min-w-0 gap-3/);
   assert.match(source, /break-all text-sm/);
+  assert.doesNotMatch(source, /自起卦|按老师方法解读|最高优先级|非独立周卦|老师同周期原卦/);
+  assert.doesNotMatch(source, /view\.sourceLabel|view\.version/);
 });
 
 test("forecast projection emits deterministic OHLC candles on trading dates with price scale", () => {

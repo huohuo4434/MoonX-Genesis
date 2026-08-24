@@ -31,6 +31,7 @@ function cleanResearchText(value: string | null | undefined): string {
     .replace(/技术分析只(?:负责|寻找)[^。；]*(?:。|；)?/g, "")
     .replace(/技术只(?:负责|决定)[^。；]*(?:。|；)?/g, "")
     .replace(/[^。；]*(?:不推翻|不覆盖|不反向修改|不改变)[^。；]*(?:。|；)?/g, "")
+    .replace(/[^。；]*(?:自起卦|旧自算|用户本人排盘|用户原卦|不是老师原卦|按老师方法解读|老师同周期原卦|老师来源优先)[^。；]*(?:。|；|$)/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -170,6 +171,8 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
     );
   }
   const f = slot.forecast;
+  const catalysts = f.catalysts.map(cleanResearchText).filter(Boolean);
+  const risks = f.risks.map(cleanResearchText).filter(Boolean);
   const directionViews = (f.methodViews ?? []).filter((view) => !/技术|价格|支撑|压力|technical|price|support|resistance/i.test(`${view.label} ${view.id}`));
   const directionEvidence = f.ichingEvidence
     ? `${f.ichingEvidence.primaryHexagram}${f.ichingEvidence.changingHexagram ? ` → ${f.ichingEvidence.changingHexagram}` : ""}。${f.consensusLabel || f.ichingEvidence.notes || "本周期六爻结论。"}`
@@ -222,14 +225,14 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
           }}
         />
         <Text variant="body-sm" className="block break-words leading-relaxed text-white/80">
-          {directionEvidence}
+          {cleanResearchText(directionEvidence) || "卦象主线与当前周期结构指向该方向。"}
         </Text>
         <Text variant="caption" className="block text-cyan-100/60">
           当前结论与关键依据如下。
         </Text>
         {f.summary ? (
           <details className="rounded-lg border border-white/[0.06] bg-black/10 px-3 py-2">
-            <summary className="cursor-pointer text-caption text-white/40">查看原始版本研究摘要</summary>
+            <summary className="cursor-pointer text-caption text-white/40">查看详细研究摘要</summary>
             <p className="mt-2 text-caption leading-relaxed text-white/50">{cleanResearchText(f.summary)}</p>
           </details>
         ) : null}
@@ -295,7 +298,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
           </div>
           <p className="text-body-sm leading-relaxed text-white/75">{cleanResearchText(f.rollingUpdate.summary)}</p>
           {f.rollingUpdate.originalLockedView ? (
-            <p className="text-caption leading-relaxed text-white/45">原始版本：{cleanResearchText(f.rollingUpdate.originalLockedView)}</p>
+            <p className="text-caption leading-relaxed text-white/45">前序判断：{cleanResearchText(f.rollingUpdate.originalLockedView)}</p>
           ) : null}
           {f.rollingUpdate.timingTolerance ? (
             <p className="text-caption text-fuchsia-100/65">时间规则：{f.rollingUpdate.timingTolerance}</p>
@@ -408,7 +411,7 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
         <section className="space-y-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.03] p-4">
           <div>
             <p className="font-mono text-caption uppercase tracking-[0.14em] text-amber-200/70">关键日期</p>
-            <p className="mt-1 text-caption text-white/40">仅展示有老师原始规则或正式卦象依据的日期。</p>
+            <p className="mt-1 text-caption text-white/40">仅展示有明确日期依据的观察窗口。</p>
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             {f.keyDates.map((item, index) => (
@@ -463,13 +466,13 @@ function PeriodPanel({ slot, asOfDate }: { slot: ConvictionPeriodSlot; asOfDate:
         <section className="space-y-2 rounded-lg border border-white/[0.06] p-3">
           <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">催化因素</p>
           <ul className="space-y-1 text-caption text-white/60">
-            {f.catalysts.length ? f.catalysts.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立催化信号</li>}
+            {catalysts.length ? catalysts.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立催化信号</li>}
           </ul>
         </section>
         <section className="space-y-2 rounded-lg border border-white/[0.06] p-3">
           <p className="font-mono text-caption uppercase tracking-[0.14em] text-white/40">主要风险</p>
           <ul className="space-y-1 text-caption text-white/60">
-            {f.risks.length ? f.risks.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立风险信号</li>}
+            {risks.length ? risks.map((item) => <li key={item}>· {item}</li>) : <li>· 暂无独立风险信号</li>}
           </ul>
         </section>
       </div>
@@ -672,7 +675,7 @@ export function ConvictionDetailClient({ payload }: { payload: ConvictionDetailP
           </Card>
         ) : null}
 
-        <UnifiedDossierDisclosure enabled={hasUnifiedDossier} title="完整研究依据与历史版本">
+        <UnifiedDossierDisclosure enabled={hasUnifiedDossier} title="完整研究依据与历史记录">
         {payload.mode === "fullAccess" && payload.vibeEvidence ? (
           <VibeEvidencePanel evidence={payload.vibeEvidence} />
         ) : null}

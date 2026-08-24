@@ -1,4 +1,4 @@
-import { STATIC_FOCUS_ASSET_IDS, STATIC_MEMBER_AUTOMATION_FOCUS } from "@/lib/data/conviction/focus-registry-core";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS, STATIC_MEMBER_AUTOMATION_FOCUS } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { focusAuthorityDerivedStep, selectFocusCurrentAuthority } from "@/lib/data/conviction/focus-daily-policy-core";
 import { buildFocusQimenParallelReading } from "@/lib/forecasts/focus-qimen-parallel";
@@ -135,7 +135,7 @@ export function buildResearchIntegrityAudit(input: { asOfDate: string; nowMs: nu
     };
   });
 
-  const focus = STATIC_FOCUS_ASSET_IDS.map((assetId): FocusResearchIntegrityRow => {
+  const focus = ACTIVE_STATIC_FOCUS_ASSET_IDS.map((assetId): FocusResearchIntegrityRow => {
     const forecasts = listStaticFocusForecasts(assetId);
     const authority = selectFocusCurrentAuthority({ forecasts, asOfDate: input.asOfDate, nowMs: input.nowMs });
     const nextAuthority = selectFocusCurrentAuthority({ forecasts, asOfDate: nextDate, nowMs: input.nowMs });

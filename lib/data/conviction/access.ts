@@ -124,7 +124,7 @@ import type {
   MemberStockVerificationResult,
   MemberStockWeeklyMemberView,
 } from "@/types/member-stock";
-import { STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { INTEL_PERIOD_LABELS, INTEL_PERIOD_ORDER, INTEL_VISIBLE_PERIOD_ORDER, intelPeriodMeta } from "@/lib/data/conviction/intel-liuyao-20260822";
 import { buildMemberStockPickResearchRows } from "@/lib/data/conviction/stock-picks-dashboard-core";
@@ -243,7 +243,7 @@ type StaticPeriodAssetId = StaticFocusAssetId;
 // V7.17.3 A-share static dossiers
 
 
-const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(STATIC_FOCUS_ASSET_IDS);
+const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(ACTIVE_STATIC_FOCUS_ASSET_IDS);
 const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1"];
 const SPCX_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_5"];
 

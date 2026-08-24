@@ -23,6 +23,26 @@ export const STATIC_FOCUS_ASSET_IDS = Object.freeze([
 
 export type StaticFocusAssetId = (typeof STATIC_FOCUS_ASSET_IDS)[number];
 
+export const RETIRED_STATIC_FOCUS_ASSET_IDS = Object.freeze([
+  "ganfeng-lithium",
+  "lian-tech",
+  "lexin-medical",
+  "kingsoft-office",
+] as const satisfies readonly StaticFocusAssetId[]);
+
+export type ActiveStaticFocusAssetId = Exclude<
+  StaticFocusAssetId,
+  (typeof RETIRED_STATIC_FOCUS_ASSET_IDS)[number]
+>;
+
+const RETIRED_STATIC_FOCUS_SET = new Set<StaticFocusAssetId>(RETIRED_STATIC_FOCUS_ASSET_IDS);
+
+export const ACTIVE_STATIC_FOCUS_ASSET_IDS: readonly ActiveStaticFocusAssetId[] = Object.freeze(
+  STATIC_FOCUS_ASSET_IDS.filter(
+    (assetId): assetId is ActiveStaticFocusAssetId => !RETIRED_STATIC_FOCUS_SET.has(assetId)
+  )
+);
+
 export type MemberAutomationFocusDefinition = {
   assetId: string;
   canonicalSymbol: string | null;
@@ -55,5 +75,5 @@ export const STATIC_MEMBER_AUTOMATION_FOCUS: Readonly<Record<StaticFocusAssetId,
 });
 
 export function listStaticMemberAutomationFocus(): MemberAutomationFocusDefinition[] {
-  return STATIC_FOCUS_ASSET_IDS.map((assetId) => STATIC_MEMBER_AUTOMATION_FOCUS[assetId]);
+  return ACTIVE_STATIC_FOCUS_ASSET_IDS.map((assetId) => STATIC_MEMBER_AUTOMATION_FOCUS[assetId]);
 }

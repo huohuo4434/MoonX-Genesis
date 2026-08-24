@@ -1,8 +1,6 @@
 import "server-only";
 import { listTSLAPeriodForecasts20260816 } from "@/lib/data/conviction/tsla-liuyao-20260816";
 import { listLITEPeriodForecasts20260816 } from "@/lib/data/conviction/lite-liuyao-20260816";
-import { listASharePeriodForecasts20260810 } from "@/lib/data/conviction/a-share-liuyao-20260810";
-
 import { listAsteroidPeriodForecasts, type ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
 import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
@@ -14,7 +12,6 @@ import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from 
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
 import { listNbisPeriodForecasts } from "@/lib/data/conviction/nbis-liuyao-20260811";
 import { listTencentPeriodForecasts } from "@/lib/data/conviction/tencent-forecasts";
-import { listVibeFocusPeriodForecasts } from "@/lib/data/conviction/vibe-focus-forecasts";
 import { SPCX_MEMBER_RESEARCH } from "@/lib/data/spcx-member-20260808";
 import { mooxDirectionAtDate, mooxPrimaryDirection, type MooxPrimaryDirection } from "@/lib/forecasts/moox-direction-doctrine";
 import { evaluateResonanceVotes, targetWeekMidpoint, targetWeekWindow, type ResonanceVote } from "@/lib/data/conviction/resonance-core";
@@ -130,9 +127,6 @@ export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistReson
   const signals = [
     regularSignal("tsla", listTSLAPeriodForecasts20260816(), asOfDate),
     regularSignal("lite", listLITEPeriodForecasts20260816(), asOfDate),
-    regularSignal("lexin-medical", listASharePeriodForecasts20260810("lexin-medical"), asOfDate),
-    regularSignal("lian-tech", listASharePeriodForecasts20260810("lian-tech"), asOfDate),
-    regularSignal("ganfeng-lithium", listASharePeriodForecasts20260810("ganfeng-lithium"), asOfDate),
     spcxSignal(asOfDate),
     regularSignal("asteroid", listAsteroidPeriodForecasts(), asOfDate),
     regularSignal("googl", listGooglePeriodForecasts(), asOfDate),
@@ -146,7 +140,6 @@ export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistReson
     regularSignal("eth", listEthPeriodForecasts(), asOfDate),
     regularSignal("btc", listBtcPeriodForecasts20260801(), asOfDate),
     regularSignal("tencent", listTencentPeriodForecasts(), asOfDate),
-    regularSignal("kingsoft-office", listVibeFocusPeriodForecasts("kingsoft-office"), asOfDate),
   ];
   return signals.sort((a, b) => b.score - a.score || b.sameDirectionPeriods - a.sameDirectionPeriods || Number(b.hasWeeklyVote) - Number(a.hasWeeklyVote) || a.slug.localeCompare(b.slug));
 }

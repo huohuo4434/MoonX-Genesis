@@ -10,7 +10,7 @@ import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route-handler";
 import { buildResearchIntegrityAudit } from "@/lib/research-integrity/audit";
-import { STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
 import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
 
 import type { ContentFreshnessItem, ContentFreshnessPolicy, ContentFreshnessReport } from "@/types/content-freshness";
@@ -56,7 +56,7 @@ async function readFocusRuntimeDailyCoverage(asOfDate: string): Promise<{ ready:
   const db = prisma;
   if (!db) return null;
   const dates = [asOfDate, addUtcDays(asOfDate, 1)];
-  const codes = STATIC_FOCUS_ASSET_IDS.map(focusDailyMarketCode);
+  const codes = ACTIVE_STATIC_FOCUS_ASSET_IDS.map(focusDailyMarketCode);
   try {
     const rows = await db.generatedDailyForecast.findMany({
       where: {

@@ -22,7 +22,7 @@ export function SeptemberSectorComparison() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-cyan-100/55">SEPTEMBER · SECTOR MAP</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">9月板块共振 / 分化</h2>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-white/50">先按产品和周期对齐，再比较方向。独立周卦与月度路线拆分分开标注；相同颜色不代表同一天见顶或同样涨跌幅。</p>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-white/50">同类资产按相同日期对齐后比较方向；相同颜色不代表同一天见顶或同样涨跌幅。</p>
         </div>
         <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/45">截至 2026-08-24</span>
       </div>
@@ -38,13 +38,12 @@ export function SeptemberSectorComparison() {
               <div className="overflow-x-auto">
                 <table className="min-w-[940px] w-full text-left text-xs">
                   <thead className="bg-white/[.025] text-white/35">
-                    <tr><th className="px-3 py-2.5">标的</th><th className="px-3 py-2.5">证据</th>{PERIODS.map((period) => <th key={period} className="px-3 py-2.5">{period}</th>)}<th className="px-3 py-2.5">长周期关系</th></tr>
+                    <tr><th className="px-3 py-2.5">标的</th>{PERIODS.map((period) => <th key={period} className="px-3 py-2.5">{period}</th>)}<th className="px-3 py-2.5">长周期关系</th></tr>
                   </thead>
                   <tbody className="divide-y divide-white/[.05]">
                     {rows.map((row) => (
                       <tr key={`${group}-${row.asset}`}>
                         <td className="px-3 py-3 text-sm font-semibold text-white">{row.asset}</td>
-                        <td className="px-3 py-3 text-white/45">{row.basis}</td>
                         {row.periods.map((value, index) => <td key={`${row.asset}-${PERIODS[index]}`} className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 ${tone(value)}`}>{value}</span></td>)}
                         <td className="px-3 py-3"><p className="text-white/65">{row.relation}</p><p className="mt-1 max-w-36 leading-5 text-white/35">{row.longCycle}</p></td>
                       </tr>

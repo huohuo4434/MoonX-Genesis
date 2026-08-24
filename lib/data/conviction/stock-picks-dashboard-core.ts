@@ -27,9 +27,8 @@ function sourcePriority(row: ConvictionPeriodForecast | null): StockPickSourcePr
 }
 
 function sourceLabel(priority: StockPickSourcePriority): string {
-  if (priority === "TEACHER") return "老师同周期原卦 · 最高优先级";
-  if (priority === "USER_INTERPRETED") return "自起卦 · 按老师方法解读";
-  return "该周期卦象待补";
+  if (priority === "MISSING") return "资料待补";
+  return "周期研究";
 }
 
 function latestByAuthority(rows: ConvictionPeriodForecast[]): ConvictionPeriodForecast | null {
@@ -68,7 +67,7 @@ function periodView(row: ConvictionPeriodForecast | null, missingSummary: string
     summary: row?.summary ?? missingSummary,
     expectedPath: row?.expectedPath ?? null,
     sourcePriority: priority,
-    sourceLabel: derived ? "老师月卦周拆分 · 非独立周卦" : sourceLabel(priority),
+    sourceLabel: derived ? "阶段路线" : sourceLabel(priority),
     version: row?.version ?? null,
     authority: row ? derived ? "HIGHER_HORIZON_DERIVED" : "INDEPENDENT_PERIOD" : "MISSING",
   };

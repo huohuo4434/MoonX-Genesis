@@ -11,13 +11,6 @@ type SnapshotState =
   | { status: "ready"; snapshot: MemberStockPathSnapshot }
   | { status: "error"; snapshot: null };
 
-function directionTone(value: string | null): string {
-  if (!value) return "border-white/10 bg-white/[0.03] text-white/45";
-  if (/先跌后涨|上涨|震荡上涨|回升|修复/u.test(value)) return "border-emerald-300/25 bg-emerald-300/[0.06] text-emerald-100";
-  if (/先涨后跌|下跌|震荡下跌|回落|转弱/u.test(value)) return "border-rose-300/25 bg-rose-300/[0.06] text-rose-100";
-  return "border-amber-300/25 bg-amber-300/[0.06] text-amber-100";
-}
-
 function relationTone(value: MemberStockPickResearchRow["dailyMethods"][number]["relation"]): string {
   if (value === "RESONANCE") return "border-emerald-300/25 bg-emerald-300/[0.06] text-emerald-100";
   if (value === "DIVERGENCE") return "border-rose-300/25 bg-rose-300/[0.06] text-rose-100";
@@ -101,10 +94,10 @@ function PathOverlayChart({ row, snapshot }: { row: MemberStockPickResearchRow; 
 
 function PeriodCard({ title, view }: { title: string; view: MemberStockPickResearchRow["monthly"] }) {
   return <section className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-white/40">{title}</p><h2 className="mt-2 text-2xl font-semibold text-white">{view.direction ?? "待补"}</h2></div><span className={`rounded-full border px-3 py-1 text-xs ${directionTone(view.direction)}`}>{view.sourceLabel}</span></div>
+    <div><p className="text-xs font-semibold uppercase tracking-[.16em] text-white/40">{title}</p><h2 className="mt-2 text-2xl font-semibold text-white">{view.direction ?? "待补"}</h2></div>
     <p className="mt-3 text-sm leading-7 text-white/70">{view.summary}</p>
     {view.expectedPath ? <p className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 p-3 text-sm leading-6 text-cyan-100/65"><b className="text-cyan-100">路线：</b>{view.expectedPath}</p> : null}
-    <p className="mt-3 text-xs text-white/35">{view.periodStart && view.periodEnd ? `${view.periodStart} 至 ${view.periodEnd}` : "周期资料待补"}{view.version ? ` · V${view.version}` : ""}</p>
+    <p className="mt-3 text-xs text-white/35">{view.periodStart && view.periodEnd ? `${view.periodStart} 至 ${view.periodEnd}` : "周期资料待补"}</p>
   </section>;
 }
 
@@ -141,7 +134,7 @@ export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickRe
 
   return <div className="space-y-6">
     <section className="rounded-[24px] border border-violet-300/15 bg-[radial-gradient(circle_at_85%_0%,rgba(139,92,246,.14),transparent_36%),#0b0d12] p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.2em] text-violet-200/65">MONTH → WEEK → DAY</p><h2 className="mt-2 text-2xl font-semibold">先定整月，再找当前阶段</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-white/55">老师同周期原卦优先；没有老师卦才采用自起卦并按老师方法解读。日内三种观点并列，不拿奇门或技术面改写六爻周方向。</p></div><p className="text-xs text-white/40">完整 {coverage.ready} · 待补周期 {coverage.partial}</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.2em] text-violet-200/65">MONTH → WEEK → DAY</p><h2 className="mt-2 text-2xl font-semibold">先定整月，再找当前阶段</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-white/55">按整月、当前阶段、本周和日内依次查看；六爻定方向，奇门看时机，4H缠论看结构和价格位置。</p></div><p className="text-xs text-white/40">完整 {coverage.ready} · 待补周期 {coverage.partial}</p></div>
       <div className="mt-5 flex gap-2 overflow-x-auto pb-2">{rows.map((row) => <button key={row.slug} type="button" onClick={() => setSelectedSlug(row.slug)} className={`shrink-0 rounded-xl border px-4 py-3 text-left transition ${row.slug === selected.slug ? "border-violet-300/45 bg-violet-300/[.1] text-white" : "border-white/10 bg-black/20 text-white/55 hover:border-white/20"}`}><span className="block text-sm font-semibold">{en ? row.nameEn : row.nameZh}</span><span className="mt-1 block font-mono text-[11px] opacity-55">{row.symbol} · {row.dataCompleteness === "READY" ? "月周齐" : row.dataCompleteness === "PARTIAL" ? "待补一层" : "资料待补"}</span></button>)}</div>
     </section>
 
@@ -156,7 +149,7 @@ export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickRe
       <PathOverlayChart row={selected} snapshot={snapshot}/>
     )}
 
-    <PeriodCard title="本周路线 · 独立周卦优先" view={selected.weekly}/>
+    <PeriodCard title="本周走势" view={selected.weekly}/>
 
     <section className="rounded-2xl border border-white/[0.08] bg-[#0c0e12] p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-white/40">DAILY CROSS-CHECK</p><h2 className="mt-2 text-xl font-semibold">日分析 · 三方并列</h2></div>{day ? <span className={`rounded-full border px-3 py-1 text-xs ${relationTone(day.relation)}`}>{day.relationLabel}</span> : null}</div>
       <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-3">

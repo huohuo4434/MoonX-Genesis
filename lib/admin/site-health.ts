@@ -7,6 +7,7 @@ import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/predictio
 import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { isTradingDay } from "@/lib/calendar/next-trading-day";
 import { CONVICTION_ASSET_SEED } from "@/lib/data/conviction/seed";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
 import { listPublicConvictionCards } from "@/lib/data/conviction/store";
 import { VIBE_EVIDENCE_ASSETS } from "@/lib/data/vibe/assets";
 import { getVibeConnectionConfig } from "@/lib/data/vibe/client";
@@ -74,8 +75,9 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
   const vibeIds = new Set(
     vibeRows.filter((item) => item.completeness > 0).map((item) => item.assetId)
   );
+  const activeFocusIds = new Set<string>(ACTIVE_STATIC_FOCUS_ASSET_IDS);
   const expectedFocus = CONVICTION_ASSET_SEED.filter(
-    (item) => item.isPublished && item.status === "published"
+    (item) => activeFocusIds.has(item.id) && item.isPublished && item.status === "published"
   );
   const vibeConnection = getVibeConnectionConfig();
 

@@ -5,6 +5,7 @@ import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import { CONVICTION_ASSET_SEED, CONVICTION_ASSETS_MAX } from "@/lib/data/conviction/seed";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
 import type { ConvictionAsset, ConvictionPublicCard } from "@/types/conviction-asset";
 
 const BUCKET = "moonx-data";
@@ -116,7 +117,8 @@ export function toPublicCard(asset: ConvictionAsset): ConvictionPublicCard {
 
 export async function listPublicConvictionCards(): Promise<ConvictionPublicCard[]> {
   const assets = await listConvictionAssets();
-  return assets.map(toPublicCard);
+  const activeIds = new Set<string>(ACTIVE_STATIC_FOCUS_ASSET_IDS);
+  return assets.filter((asset) => activeIds.has(asset.slug)).map(toPublicCard);
 }
 
 export { formatMarketCapDisplay } from "@/lib/data/conviction/format-market-cap";
