@@ -21,10 +21,16 @@ test("consensus separates direction strength and sample size",()=>{
   assert.deepEqual(summarizeMultiViewConsensus({bullish:0,bearish:0,mixed:0,neutral:0}),{direction:"NEUTRAL",percent:0,sampleSize:0});
 });
 
-test("member report contains the large asset table and 15-minute health surface",()=>{
+test("member report contains the ten-day direction heatmap and compact 15-minute health surface",()=>{
   const page=read("app/member/alpha-feed/page.tsx");
   const server=read("lib/trading-signals/member-multi-view.server.ts");
-  for(const token of ["核心资产共识总表","当前占优","共识强度","观点分布","主要方法","观点变化"])assert.ok(page.includes(token),token);
+  for(const token of ["资产 × 日期｜观点涨跌热力图","看涨占优","看跌占优","多空打平","10日合计","格内数字=看多票数/看跌票数","观点信号图，不是假装成真实价格K线"])assert.ok(page.includes(token),token);
+  assert.match(page,/dates\.map\(\(date/);
+  assert.match(page,/\.sort\(\)\.slice\(-10\)/);
+  assert.match(page,/查看采集明细/);
+  assert.match(page,/展开核心资产共识排行/);
+  assert.match(page,/默认全部收起/);
+  assert.doesNotMatch(page,/open=\{index < 2\}/);
   assert.match(page,/扫描\/汇总 每15分钟/);
   assert.match(server,/reportCronSchedule: "\*\/15 \* \* \* \*"/);
   assert.match(server,/WHERE posted_at >= NOW\(\) - INTERVAL '10 days'/);
@@ -52,7 +58,7 @@ test("priority analysts stay anonymized inside the asset-date matrix",()=>{
   const registry=read("lib/trading-signals/x-source-registry.server.ts");
   const config=JSON.parse(read("tools/x-collector/default-config.json")) as {accounts:string[]};
   const productionAccounts=read("tools/x-collector/production-accounts.txt").trim().split(/\r?\n/);
-  for(const token of ["资产 × 日期｜一眼看多空","看涨观点","看跌观点","与MOOX关系","同向","相反","少于10个有效验证样本仍为0%权重"]){
+  for(const token of ["资产 × 日期｜观点涨跌热力图","看涨占优","看跌占优","同向","相反","少于10个有效验证样本仍为0%权重"]){
     assert.ok(page.includes(token),token);
   }
   assert.doesNotMatch(page,/重点分析师｜一眼对照表/);

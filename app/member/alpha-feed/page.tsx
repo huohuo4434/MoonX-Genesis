@@ -31,10 +31,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildLocalizedPageMetadata({
     locale,
     basePath: path,
-    titleZh: "多方观点 · 近10天资产观点矩阵",
-    titleEn: "Multi-View · 10-Day Asset Opinion Matrix",
-    descriptionZh: "会员专享：按BTC、ETH、股票和其他资产聚合近10天匿名X研究者观点，显示日期、方向、周期、目标位和方法。",
-    descriptionEn: "Member-only 10-day anonymous X opinion matrix grouped by asset, with dates, direction, horizon, targets and methods.",
+    titleZh: "多方观点 · 近10天涨跌热力图",
+    titleEn: "Multi-View · 10-Day Opinion Heatmap",
+    descriptionZh: "会员专享：用资产×日期热力图聚合近10天匿名研究观点，一眼查看方向、多空票数以及与MOOX同向或相反。",
+    descriptionEn: "Member-only 10-day opinion heatmap by asset and date, with direction, vote balance and MOOX alignment.",
   });
 }
 
@@ -257,7 +257,33 @@ function opinionNames(opinions: DatedOpinion[], direction: DatedOpinion["directi
   return [...new Set(opinions.filter((item) => item.direction === direction).map((item) => `${item.alias}（${item.method}）`))].slice(0, 5).join("、");
 }
 
-function AssetDateOpinionTable({
+function heatDirection(opinions: DatedOpinion[]): MemberAssetOpinionDirection {
+  const bullish = new Set(opinions.filter((item) => item.direction === "BULLISH").map((item) => item.alias)).size;
+  const bearish = new Set(opinions.filter((item) => item.direction === "BEARISH").map((item) => item.alias)).size;
+  if (bullish > bearish) return "BULLISH";
+  if (bearish > bullish) return "BEARISH";
+  if (bullish || bearish) return "MIXED";
+  return "NEUTRAL";
+}
+
+function heatCellClass(direction: MemberAssetOpinionDirection): string {
+  if (direction === "BULLISH") return "border-emerald-300/30 bg-emerald-400/[0.14] text-emerald-100";
+  if (direction === "BEARISH") return "border-rose-300/30 bg-rose-400/[0.14] text-rose-100";
+  if (direction === "MIXED") return "border-amber-300/30 bg-amber-300/[0.12] text-amber-100";
+  return "border-white/[0.08] bg-white/[0.025] text-white/45";
+}
+
+function HeatSignal({ direction }: { direction: MemberAssetOpinionDirection }) {
+  const arrow = direction === "BULLISH" ? "↑" : direction === "BEARISH" ? "↓" : direction === "MIXED" ? "↕" : "—";
+  return (
+    <span className="relative flex h-9 w-6 shrink-0 items-center justify-center" aria-hidden="true">
+      {direction !== "NEUTRAL" ? <span className="absolute h-9 w-px bg-current opacity-45" /> : null}
+      <span className={`relative z-10 flex h-6 w-5 items-center justify-center rounded-sm border border-current/50 text-sm font-black ${direction === "NEUTRAL" ? "bg-transparent" : "bg-current/15"}`}>{arrow}</span>
+    </span>
+  );
+}
+
+function AssetDateOpinionHeatmap({
   groups,
   officialByAsset,
   en,
@@ -268,52 +294,73 @@ function AssetDateOpinionTable({
 }) {
   const rows = datedAssetRows(groups);
   if (!rows.length) return null;
+  const dates = [...new Set(rows.map((row) => row.date))].sort().slice(-10);
+  const assetRows = new Map<string, { asset: string; displayAsset: string; cells: Map<string, DatedAssetRow> }>();
+  for (const row of rows) {
+    if (!dates.includes(row.date)) continue;
+    const assetRow = assetRows.get(row.asset) ?? { asset: row.asset, displayAsset: row.displayAsset, cells: new Map<string, DatedAssetRow>() };
+    assetRow.cells.set(row.date, row);
+    assetRows.set(row.asset, assetRow);
+  }
   return (
-    <Card padding="none" className="overflow-hidden border border-cyan-300/15">
-      <div className="border-b border-white/[0.08] px-5 py-4">
-        <Heading as="h2" size="h3">{en ? "Asset × Date Opinion Matrix" : "资产 × 日期｜一眼看多空"}</Heading>
-        <Text variant="body-sm" color="secondary" className="mt-1 block">{en ? "One row per asset and effective date. Undated medium/long views stay in the cycle section and are never forced into a daily call." : "每个资产、每个生效日期只占一行：直接看谁看涨、谁看跌、当天MOOX怎么判断。没有明确日期的中长线观点只留在周期区，不硬塞进某一天。"}</Text>
+    <Card padding="none" className="overflow-hidden border border-cyan-300/20 bg-[radial-gradient(circle_at_12%_0%,rgba(34,211,238,.08),transparent_34%),rgba(8,11,16,.96)]">
+      <div className="border-b border-white/[0.08] px-5 py-4 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Text variant="caption" className="font-mono uppercase tracking-[0.16em] text-cyan-200/60">OPINION HEATMAP</Text>
+            <Heading as="h2" size="h3" className="mt-1">{en ? "10-Day Opinion Heatmap" : "资产 × 日期｜观点涨跌热力图"}</Heading>
+            <Text variant="body-sm" color="secondary" className="mt-1 block">{en ? "Read it like a market board: direction first, people and reasons on demand. This is an opinion signal map, not a price candlestick chart." : "像看行情板一样先看颜色和箭头；研究者与理由放到下方按需展开。这是观点信号图，不是假装成真实价格K线。"}</Text>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-emerald-300/25 bg-emerald-400/[0.10] px-3 py-1.5 text-emerald-100">↑ {en ? "Bullish lead" : "看涨占优"}</span>
+            <span className="rounded-full border border-rose-300/25 bg-rose-400/[0.10] px-3 py-1.5 text-rose-100">↓ {en ? "Bearish lead" : "看跌占优"}</span>
+            <span className="rounded-full border border-amber-300/25 bg-amber-300/[0.09] px-3 py-1.5 text-amber-100">↕ {en ? "Split" : "多空打平"}</span>
+            <span className="rounded-full border border-white/10 px-3 py-1.5 text-white/50">— {en ? "Wait" : "中性/无观点"}</span>
+          </div>
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-[1240px] w-full border-collapse text-left">
-          <thead className="bg-white/[0.04] text-xs text-white/55">
+      <div className="overflow-x-auto pb-1">
+        <table className="min-w-[1040px] w-full border-separate border-spacing-0 text-left">
+          <thead className="bg-black/20 text-xs text-white/50">
             <tr>
-              <th className="px-4 py-3 font-medium">{en ? "Effective date" : "生效日期"}</th>
-              <th className="px-4 py-3 font-medium">{en ? "Asset" : "产品"}</th>
-              <th className="px-4 py-3 font-medium">{en ? "MOOX official" : "MOOX正式方向"}</th>
-              <th className="px-4 py-3 font-medium text-emerald-200">{en ? "Bullish" : "看涨观点"}</th>
-              <th className="px-4 py-3 font-medium text-rose-200">{en ? "Bearish" : "看跌观点"}</th>
-              <th className="px-4 py-3 font-medium">{en ? "Neutral / event" : "中性／事件风险"}</th>
-              <th className="px-4 py-3 font-medium">{en ? "Same / opposite alert" : "与MOOX关系"}</th>
+              <th className="sticky left-0 z-20 min-w-[132px] border-b border-r border-white/[0.08] bg-[#0b0e13] px-4 py-3 font-medium">{en ? "Asset" : "资产"}</th>
+              {dates.map((date, index) => <th key={date} className="min-w-[86px] border-b border-white/[0.08] px-2 py-3 text-center font-mono font-medium"><span className="block">{date.slice(5)}</span>{index === dates.length - 1 ? <span className="mt-0.5 block text-[10px] text-cyan-200/60">{en ? "LATEST" : "最新"}</span> : null}</th>)}
+              <th className="min-w-[128px] border-b border-l border-white/[0.08] px-3 py-3 text-center font-medium">{en ? "10-day balance" : "10日合计"}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
-              const official = officialByAsset.get(`${row.asset}:${row.date}`) ?? null;
-              const mooxSide = officialDirectionSide(official);
-              const aligned = mooxSide === "NEUTRAL" ? [] : row.opinions.filter((item) => item.direction === mooxSide);
-              const opposite = mooxSide === "NEUTRAL" ? [] : row.opinions.filter((item) => item.direction !== "NEUTRAL" && item.direction !== mooxSide);
-              const bull = opinionNames(row.opinions, "BULLISH");
-              const bear = opinionNames(row.opinions, "BEARISH");
-              const neutral = opinionNames(row.opinions, "NEUTRAL");
+            {[...assetRows.values()].map((assetRow) => {
+              const allOpinions = [...assetRow.cells.values()].flatMap((row) => row.opinions);
+              const totalBull = new Set(allOpinions.filter((item) => item.direction === "BULLISH").map((item) => item.alias)).size;
+              const totalBear = new Set(allOpinions.filter((item) => item.direction === "BEARISH").map((item) => item.alias)).size;
+              const overall = heatDirection(allOpinions);
               return (
-                <tr key={`dated:${row.asset}:${row.date}`} className="border-t border-white/[0.07] align-top text-sm">
-                  <td className="px-4 py-3 font-mono text-white/70">{row.date}</td>
-                  <td className="px-4 py-3 font-semibold text-cyan-100">{row.displayAsset}</td>
-                  <td className="px-4 py-3"><Text variant="body-sm" weight="semibold" className="text-cyan-100">{official ?? (en ? "Waiting for that date" : "等待当日预测")}</Text></td>
-                  <td className="px-4 py-3 text-emerald-100">{bull || "—"}</td>
-                  <td className="px-4 py-3 text-rose-100">{bear || "—"}</td>
-                  <td className="px-4 py-3 text-amber-100/80">{neutral || "—"}</td>
-                  <td className="px-4 py-3">
-                    {!official ? <span className="text-white/45">{en ? "Compare when MOOX publishes" : "到当天发布后自动比较"}</span> : mooxSide === "NEUTRAL" ? <span className="text-amber-100">{en ? "Path view; no forced comparison" : "路径型方向，暂不硬比较"}</span> : <div className="space-y-1"><p className="text-emerald-200">{en ? "Aligned" : "同向"}：{aligned.length ? [...new Set(aligned.map((item) => item.alias))].join("、") : "—"}</p><p className={opposite.length ? "text-rose-200" : "text-white/45"}>{en ? "Opposite" : "相反"}：{opposite.length ? [...new Set(opposite.map((item) => item.alias))].join("、") : "—"}</p></div>}
-                  </td>
+                <tr key={`heat:${assetRow.asset}`} className="group/row">
+                  <td className="sticky left-0 z-10 border-b border-r border-white/[0.07] bg-[#0b0e13] px-4 py-3"><a className="font-semibold text-cyan-100 hover:text-cyan-50" href={`#asset-${assetRow.asset.toLowerCase()}`}>{assetRow.displayAsset}</a><span className="mt-0.5 block font-mono text-[10px] text-white/35">{assetRow.asset}</span></td>
+                  {dates.map((date) => {
+                    const row = assetRow.cells.get(date);
+                    if (!row) return <td key={date} className="border-b border-white/[0.06] p-1.5"><div className="flex h-[68px] items-center justify-center rounded-lg border border-white/[0.05] bg-white/[0.012] text-white/18">—</div></td>;
+                    const direction = heatDirection(row.opinions);
+                    const bullish = new Set(row.opinions.filter((item) => item.direction === "BULLISH").map((item) => item.alias));
+                    const bearish = new Set(row.opinions.filter((item) => item.direction === "BEARISH").map((item) => item.alias));
+                    const official = officialByAsset.get(`${row.asset}:${row.date}`) ?? null;
+                    const mooxSide = officialDirectionSide(official);
+                    const aligned = mooxSide === "NEUTRAL" ? [] : row.opinions.filter((item) => item.direction === mooxSide);
+                    const opposite = mooxSide === "NEUTRAL" ? [] : row.opinions.filter((item) => item.direction !== "NEUTRAL" && item.direction !== mooxSide);
+                    const alignedCount = new Set(aligned.map((item) => item.alias)).size;
+                    const oppositeCount = new Set(opposite.map((item) => item.alias)).size;
+                    const relation = !official ? (en ? "MOOX —" : "待MOOX") : mooxSide === "NEUTRAL" ? (en ? "PATH" : "路径") : `${en ? "A" : "同"}${alignedCount} ${en ? "O" : "反"}${oppositeCount}`;
+                    const title = `${row.displayAsset} ${row.date}\n${en ? "Bullish" : "看涨"}：${opinionNames(row.opinions, "BULLISH") || "—"}\n${en ? "Bearish" : "看跌"}：${opinionNames(row.opinions, "BEARISH") || "—"}\n${en ? "Neutral" : "中性"}：${opinionNames(row.opinions, "NEUTRAL") || "—"}\nMOOX：${official ?? "—"}`;
+                    return <td key={date} className="border-b border-white/[0.06] p-1.5"><a href={`#asset-${assetRow.asset.toLowerCase()}`} title={title} aria-label={`${row.displayAsset} ${row.date} ${directionLabel(direction, en)}`} className={`flex h-[68px] flex-col items-center justify-center rounded-lg border transition hover:-translate-y-0.5 hover:brightness-125 ${heatCellClass(direction)}`}><div className="flex items-center gap-1"><HeatSignal direction={direction} /><span className="text-[11px] font-semibold">{bullish.size}{en ? "B" : "多"}/{bearish.size}{en ? "S" : "空"}</span></div><span className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[9px] ${oppositeCount ? "bg-rose-300/15 text-rose-100" : "bg-black/20 text-current opacity-75"}`}>{relation}</span></a></td>;
+                  })}
+                  <td className="border-b border-l border-white/[0.07] px-3 py-2 text-center"><Badge variant={directionVariant(overall)}>{directionLabel(overall, en)}</Badge><span className="mt-1 block text-[10px] text-white/40">{totalBull}{en ? " bull" : "多"} / {totalBear}{en ? " bear" : "空"}</span></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-      <div className="border-t border-white/[0.08] px-5 py-3 text-xs leading-5 text-white/45">{en ? "Only exact-date or short-horizon posts enter this table. External accuracy needs at least 10 verified samples before any 1%-3% research weight; it never gains directional authority." : "只有明确日期或明确短线生效日的观点进入本表。少于10个有效验证样本仍为0%权重；以后即使命中率达标，研究辅助权重最高3%，永远不取得正式方向权。"}</div>
+      <div className="border-t border-white/[0.08] px-5 py-3 text-xs leading-5 text-white/45">{en ? "Cell format: bullish votes / bearish votes; A/O means aligned/opposite to MOOX. Hover or tap an asset to read the anonymous evidence. Only exact-date views enter the heatmap." : "格内数字=看多票数/看跌票数；“同/反”表示与MOOX正式方向的关系。悬停看名单，点击资产进入匿名观点详情。只有明确生效日期的观点进入热力图；少于10个有效验证样本仍为0%权重。"}</div>
     </Card>
   );
 }
@@ -363,12 +410,12 @@ function ConsensusTable({ groups, en }: { groups: MemberAssetOpinionGroup[]; en:
   );
 }
 
-function AssetSection({ group, index, en }: { group: MemberAssetOpinionGroup; index: number; en: boolean }) {
+function AssetSection({ group, en }: { group: MemberAssetOpinionGroup; en: boolean }) {
   const summary = en
     ? `${group.totalResearchers} researchers · ${group.totalPosts} posts · ${group.bullishResearchers} bullish · ${group.bearishResearchers} bearish`
     : `${group.totalResearchers}位研究者 · ${group.totalPosts}帖 · 看多${group.bullishResearchers} · 看跌${group.bearishResearchers} · 变化/混合${group.mixedResearchers}`;
   return (
-    <details id={`asset-${group.asset.toLowerCase()}`} open={index < 2} className="group rounded-2xl border border-white/[0.09] bg-white/[0.02] p-5">
+    <details id={`asset-${group.asset.toLowerCase()}`} className="group rounded-2xl border border-white/[0.09] bg-white/[0.02] p-5">
       <summary className="cursor-pointer list-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -398,10 +445,10 @@ export default async function AlphaFeedPage() {
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
     return <main data-moox-alpha-feed-native="1"><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Member multi-view · Public preview" : "会员多方观点 · 公开预览"}
-      title={en ? "See every dated view by asset" : "按产品和日期一眼看懂多空分歧"}
+      title={en ? "Read ten days of opinions like a market heatmap" : "像看行情一样，一眼看懂十天多空"}
       description={en ? PUBLIC_ATTRIBUTION_DISCLOSURE_EN : PUBLIC_ATTRIBUTION_DISCLOSURE_ZH}
-      solves={en ? ["Asset × date matrix", "Anonymous researchers", "MOOX same/opposite alerts"] : ["产品×日期多空表", "研究者匿名", "自动标注与MOOX同向或相反"]}
-      memberBenefits={en ? ["10-day rolling history", "Bull/bear tables", "15-minute collector"] : ["滚动10天历史", "看多/看跌分表", "15分钟采集链"]}
+      solves={en ? ["Asset × date heatmap", "Anonymous researchers", "MOOX same/opposite alerts"] : ["资产×日期方向热力图", "研究者匿名", "自动标注与MOOX同向或相反"]}
+      memberBenefits={en ? ["10-day signal history", "Bull/bear balance", "15-minute collector"] : ["滚动10天方向轨迹", "多空人数与分歧", "15分钟采集链"]}
       exampleTitle={en ? "Example" : "示例"}
       exampleLines={en ? ["Aug 30 · BTC · Cycle Analyst bearish", "MOOX bearish: aligned; Gann Analyst opposite"] : ["8月30日 · BTC · 周期分析师看跌", "MOOX看跌：同向；江恩分析师相反"]}
       nextPath={en ? `/en${path}` : path}
@@ -425,26 +472,25 @@ export default async function AlphaFeedPage() {
   const bearishAssets = groups.filter((group) => group.bearishResearchers > group.bullishResearchers).map((group) => group.displayAsset);
 
   return (
-    <main data-moox-alpha-feed-native="1" data-moox-server-multi-view="1" data-moox-asset-opinion-matrix="v720108">
+    <main data-moox-alpha-feed-native="1" data-moox-server-multi-view="1" data-moox-asset-opinion-matrix="v720109">
       <Section spacing="lg">
         <MemberDeviceHeartbeat />
         <div className="max-w-6xl">
           <Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MEMBER MULTI-VIEW · 10-DAY ASSET MATRIX</Text>
-          <Heading as="h1" size="h2" className="mt-2">{en ? "Multi-View · 10-Day Asset Matrix" : "多方观点｜近10天资产观点矩阵"}</Heading>
+          <Heading as="h1" size="h2" className="mt-2">{en ? "Multi-View · 10-Day Opinion Heatmap" : "多方观点｜近10天涨跌热力图"}</Heading>
           <Text variant="body" color="secondary" className="mt-3 leading-relaxed">{en
-            ? "Grouped by coin or stock first. Each row is one anonymous researcher, with dated posts, direction, method, explicit time windows and targets."
-            : "先按产品和观点生效日期归类：一行就是某个产品在某一天的多空分布，并直接标注与MOOX同向或相反。没有明确日期的观点只保留在下方周期详情。"}</Text>
+            ? "One asset per row and one date per column. Read direction, disagreement and MOOX alignment first; open the asset only when you need the underlying views."
+            : "一行一个资产，一列一个日期。先看涨跌颜色、多空人数和与MOOX同反；需要理由时再展开资产详情。"}</Text>
           <Text variant="body-sm" color="tertiary" className="mt-2 block">{en
             ? "Names, usernames and source links never reach the member page. External views remain supplementary intelligence."
             : "博主名称、用户名和原帖链接继续全部隐藏。外部观点只做辅助情报，不覆盖MOOX正式方向，也不单独触发实盘。"}</Text>
         </div>
 
-        <Card padding="lg" className="border border-cyan-300/15 bg-cyan-300/[0.035]">
+        <Card padding="md" className="border border-cyan-300/15 bg-cyan-300/[0.03]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <Text variant="caption" color="tertiary" className="block">{en ? "Collection status" : "X采集状态"}</Text>
-              <Heading as="h2" size="h3" className="mt-1">{sourceLabel(health?.effectiveSource ?? "NO_ACTIVE_SOURCE", en)}</Heading>
-              <Text variant="body-sm" color="secondary" className="mt-2 block">{en ? "Rolling window: last 10 days" : "展示范围：滚动最近10天"}</Text>
+              <Text variant="caption" color="tertiary" className="block">{en ? "Data freshness" : "数据状态"}</Text>
+              <Text variant="body" weight="semibold" className="mt-1 block">{sourceLabel(health?.effectiveSource ?? "NO_ACTIVE_SOURCE", en)}</Text>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{en ? `Watch ${health?.registryCount ?? 0}` : `观察账号 ${health?.registryCount ?? 0}`}</Badge>
@@ -453,19 +499,14 @@ export default async function AlphaFeedPage() {
               <Badge variant="outline">{en ? "Scan */15 min" : "扫描/汇总 每15分钟"}</Badge>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4">
-              <Text variant="body-sm" weight="semibold" className="block">{en ? "Server collector" : "服务器采集"}</Text>
-              <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{health?.serverCollectorConfigured ? `${health.serverCollectorMode} · ${health.serverRefreshMessage ?? (en ? "configured" : "已配置")}` : (en ? "Server X API / JSON feed not configured." : "服务器未配置X API / JSON Feed；此时依赖本地采集器。")}</Text>
-              {health?.serverRefreshAt ? <Text variant="caption" color="tertiary" className="mt-2 block">{en ? "Last refresh" : "最近刷新"}：{formatDateTimeChina(health.serverRefreshAt)}</Text> : null}
+          <details className="mt-3 border-t border-white/[0.08] pt-3">
+            <summary className="cursor-pointer text-xs text-white/45">{en ? "Collector details" : "查看采集明细"}</summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><Text variant="body-sm" weight="semibold" className="block">{en ? "Server collector" : "服务器采集"}</Text><Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{health?.serverCollectorConfigured ? `${health.serverCollectorMode} · ${health.serverRefreshMessage ?? (en ? "configured" : "已配置")}` : (en ? "Server X API / JSON feed not configured." : "服务器未配置X API / JSON Feed；此时依赖本地采集器。")}</Text>{health?.serverRefreshAt ? <Text variant="caption" color="tertiary" className="mt-2 block">{en ? "Last refresh" : "最近刷新"}：{formatDateTimeChina(health.serverRefreshAt)}</Text> : null}</div>
+              <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><Text variant="body-sm" weight="semibold" className="block">{en ? "Local collector" : "本地采集器"}</Text><Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{health?.localCollectorMessage ?? (en ? "No collector heartbeat." : "暂无本地采集器心跳。")}</Text><Text variant="caption" color="tertiary" className="mt-2 block">{en ? "Accounts" : "账号成功"}：{health?.localCollectorAccountsSucceeded ?? 0}/{health?.localCollectorAccountsAttempted ?? 0}</Text></div>
             </div>
-            <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4">
-              <Text variant="body-sm" weight="semibold" className="block">{en ? "Local collector" : "本地采集器"}</Text>
-              <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{health?.localCollectorMessage ?? (en ? "No collector heartbeat." : "暂无本地采集器心跳。")}</Text>
-              <Text variant="caption" color="tertiary" className="mt-2 block">{en ? "Accounts" : "账号成功"}：{health?.localCollectorAccountsSucceeded ?? 0}/{health?.localCollectorAccountsAttempted ?? 0}</Text>
-            </div>
-          </div>
-          {health?.lastPostAt ? <Text variant="caption" color="tertiary" className="mt-3 block">{en ? "Newest stored post" : "数据库最新帖子"}：{formatDateTimeChina(health.lastPostAt)}</Text> : null}
+            {health?.lastPostAt ? <Text variant="caption" color="tertiary" className="mt-3 block">{en ? "Newest stored post" : "数据库最新帖子"}：{formatDateTimeChina(health.lastPostAt)}</Text> : null}
+          </details>
         </Card>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -473,15 +514,9 @@ export default async function AlphaFeedPage() {
           <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bearish-leading assets" : "当前看跌占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
         </div>
 
-        <AssetDateOpinionTable groups={groups} officialByAsset={officialByAsset} en={en} />
+        <AssetDateOpinionHeatmap groups={groups} officialByAsset={officialByAsset} en={en} />
 
-        <ConsensusTable groups={groups} en={en} />
-
-        {groups.length ? (
-          <div className="flex flex-wrap gap-2">
-            {groups.map((group) => <a key={group.asset} href={`#asset-${group.asset.toLowerCase()}`}><Badge variant="outline">{group.displayAsset} · {group.totalResearchers}/{group.totalPosts}</Badge></a>)}
-          </div>
-        ) : null}
+        {groups.length ? <details className="rounded-2xl border border-white/[0.08] bg-white/[0.015] p-4"><summary className="cursor-pointer text-sm font-medium text-white/65">{en ? "View overall consensus ranking" : "展开核心资产共识排行"}</summary><div className="mt-4"><ConsensusTable groups={groups} en={en} /></div></details> : null}
 
         {!groups.length ? (
           <Card padding="lg" className="border border-dashed border-white/15">
@@ -492,7 +527,8 @@ export default async function AlphaFeedPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {groups.map((group, index) => <AssetSection key={group.asset} group={group} index={index} en={en} />)}
+            <div><Heading as="h2" size="h3">{en ? "Asset evidence" : "各资产观点详情"}</Heading><Text variant="body-sm" color="tertiary" className="mt-1 block">{en ? "Collapsed by default. Open only the asset you need." : "默认全部收起，只展开你要看的资产。"}</Text></div>
+            {groups.map((group) => <AssetSection key={group.asset} group={group} en={en} />)}
           </div>
         )}
       </Section>
