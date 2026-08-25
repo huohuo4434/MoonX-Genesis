@@ -17,6 +17,21 @@ const DeferredTomorrowFallback = lazy(() =>
 const DeferredWatchlistFallback = lazy(() =>
   import("@/components/watchlist/WatchlistDailyDomFallback").then((mod) => ({ default: mod.WatchlistDailyDomFallback })),
 );
+const DeferredSiteClarityGuards = lazy(() => import("@/components/system/SiteClarityGuards"));
+
+function needsSiteClarityGuards(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return [
+    "/",
+    "/en",
+    "/member/daily",
+    "/en/member/daily",
+    "/member/weekly",
+    "/en/member/weekly",
+    "/member/alpha-feed",
+    "/en/member/alpha-feed",
+  ].includes(path);
+}
 
 export function DeferredLegacyCompatibility() {
   const pathname = usePathname() ?? "/";
@@ -39,6 +54,7 @@ export function DeferredLegacyCompatibility() {
   if (!ready) return null;
   const home = pathname === "/";
   const watchlist = /\/featured-stocks\//.test(pathname);
+  const clarity = needsSiteClarityGuards(pathname);
 
   return (
     <Suspense fallback={null}>
@@ -46,6 +62,7 @@ export function DeferredLegacyCompatibility() {
       {!watchlist ? <DeferredDirectionGuard key={`direction-${pathname}`} /> : null}
       {home ? <DeferredTomorrowFallback /> : null}
       {watchlist ? <DeferredWatchlistFallback key={`watchlist-${pathname}`} /> : null}
+      {clarity ? <DeferredSiteClarityGuards key={`clarity-${pathname}`} /> : null}
     </Suspense>
   );
 }

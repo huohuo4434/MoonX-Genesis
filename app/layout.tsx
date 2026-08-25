@@ -3,6 +3,7 @@ import { FooterShell, NavbarShell } from "@/components/layout";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { englishPath } from "@/lib/i18n/config";
+import { getLocaleMessages } from "@/lib/i18n/messages-server";
 import {
   ENGLISH_SITE_DESCRIPTION,
   getOriginalPathname,
@@ -14,7 +15,6 @@ import { runResearchDataValidation } from "@/lib/research/run-validation";
 import { DeferredLegacyCompatibility } from "@/components/system/DeferredLegacyCompatibility";
 import "@/styles/globals.css";
 
-import SiteClarityGuards from "@/components/system/SiteClarityGuards"; // MOOX_CLARITY_LIVE_LEVELS_V72093
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const originalPath = await getOriginalPathname("/");
@@ -56,6 +56,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   if (process.env.NODE_ENV !== "production") await runResearchDataValidation();
   const locale = await getRequestLocale();
+  const messages = getLocaleMessages(locale);
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -66,7 +67,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale}>
       <body className="font-sans antialiased">
-        <LocaleProvider initialLocale={locale}>
+        <LocaleProvider initialLocale={locale} messages={messages}>
           <NavbarShell />
           <div className="pb-20 md:pb-0">{children}</div>
           <FooterShell />
@@ -74,7 +75,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <DeferredLegacyCompatibility />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-              <SiteClarityGuards /> {/* MOOX_CLARITY_LIVE_LEVELS_V72093 */}
 </body>
     </html>
   );

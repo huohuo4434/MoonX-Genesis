@@ -1,9 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import zhCN from "@/messages/zh-CN.json";
-import zhTW from "@/messages/zh-TW.json";
-import en from "@/messages/en.json";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE_KEY,
@@ -12,14 +9,7 @@ import {
   localizeHref,
   type Locale,
 } from "./config";
-
-type Dictionary = typeof zhCN;
-
-const DICTIONARIES: Record<Locale, Dictionary> = {
-  "zh-CN": zhCN,
-  "zh-TW": zhTW as unknown as Dictionary,
-  en: en as unknown as Dictionary,
-};
+import type { LocaleMessages } from "./messages-server";
 
 type TranslateVars = Record<string, string | number>;
 
@@ -44,9 +34,11 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
 export function LocaleProvider({
   children,
   initialLocale = DEFAULT_LOCALE,
+  messages,
 }: {
   children: React.ReactNode;
   initialLocale?: Locale;
+  messages: LocaleMessages;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
@@ -76,14 +68,11 @@ export function LocaleProvider({
 
   const t = useCallback(
     (key: string, vars?: TranslateVars) => {
-      const raw = getByPath(DICTIONARIES[locale], key);
-      const englishFallback = getByPath(DICTIONARIES.en, key);
+      const raw = getByPath(messages, key);
       let str =
         typeof raw === "string"
           ? raw
-          : typeof englishFallback === "string"
-            ? englishFallback
-            : locale === "zh-CN"
+          : locale === "zh-CN"
               ? "内容暂不可用"
               : locale === "zh-TW"
                 ? "內容暫不可用"
@@ -95,7 +84,7 @@ export function LocaleProvider({
       }
       return str;
     },
-    [locale]
+    [locale, messages]
   );
 
   const value = useMemo<LocaleContextValue>(() => ({ locale, setLocale, href, t }), [locale, setLocale, href, t]);

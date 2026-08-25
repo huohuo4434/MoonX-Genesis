@@ -6,6 +6,7 @@ const root = process.cwd();
 const read = (path) => readFileSync(join(root, path), "utf8");
 
 const layout = read("app/layout.tsx");
+const deferredCompatibility = read("components/system/DeferredLegacyCompatibility.tsx");
 const guard = read("components/system/SiteClarityGuards.tsx");
 const multiViewCore = read("lib/research/member-multi-view-core.ts");
 const alphaFeed = read("app/member/alpha-feed/page.tsx");
@@ -17,12 +18,17 @@ const analystPage = read("app/admin/external-analyst-horizons/page.tsx");
 const protocolPage = read("app/admin/research-protocol/page.tsx");
 const matrixLayout = read("app/admin/x-opinion-matrix/layout.tsx");
 
-assert.match(layout, /MOOX_CLARITY_LIVE_LEVELS_V72093/);
-assert.match(layout, /<SiteClarityGuards\s*\/>/);
+assert.doesNotMatch(layout, /import SiteClarityGuards/);
+assert.doesNotMatch(layout, /<SiteClarityGuards\s*\/>/);
+assert.match(deferredCompatibility, /DeferredSiteClarityGuards/);
+assert.match(deferredCompatibility, /lazy\(\(\) => import\("@\/components\/system\/SiteClarityGuards"\)\)/);
+for (const route of ["/member/daily", "/member/weekly", "/member/alpha-feed"]) {
+  assert.match(deferredCompatibility, new RegExp(route.replaceAll("/", "\\/")));
+}
 assert.match(guard, /MOOX_SITE_CLARITY_V72093/);
 assert.match(guard, /多方观点｜今日/);
 assert.match(guard, /博主名称、用户名和原帖链接全部隐藏/);
-assert.match(guard, /不能覆盖 MOOX 奇门正式方向/);
+assert.match(guard, /不能覆盖 MOOX 正式方向/);
 assert.match(guard, /\/member\/alpha-feed/);
 assert.match(guard, /guessMultiViewIdentitySeed/);
 assert.match(guard, /stripMultiViewIdentity/);
@@ -34,7 +40,7 @@ assert.match(guard, /全部方法/);
 assert.match(guard, /data-moox-multi-view-original/);
 assert.doesNotMatch(guard, /href\s*=\s*["']https?:\/\/(?:x\.com|twitter\.com)/i);
 
-assert.match(multiViewCore, /MOOX_MEMBER_MULTI_VIEW_CORE_V72093/);
+assert.match(multiViewCore, /MOOX_MEMBER_MULTI_VIEW_CORE_V720107_ASSET_MATRIX/);
 for (const theory of ["缠论", "江恩", "艾略特波浪", "周期", "宏观", "基本面\/财报", "量价", "价格行为", "六爻", "奇门", "八字\/命理"]) {
   assert.match(multiViewCore, new RegExp(theory.replace("/", "\\/")));
 }

@@ -47,6 +47,8 @@ const deferred = read("components/system/DeferredLegacyCompatibility.tsx");
 assert.match(deferred, /requestIdleCallback/);
 assert.match(deferred, /lazy\(\(\) =>/);
 assert.match(deferred, /DeferredMemberWelcomeGuide/);
+assert.match(deferred, /DeferredSiteClarityGuards/);
+assert.match(deferred, /needsSiteClarityGuards/);
 assert.match(deferred, /watchlist = \/\\\/featured-stocks\\\//);
 assert.match(deferred, /!watchlist \? <DeferredDirectionGuard/);
 
