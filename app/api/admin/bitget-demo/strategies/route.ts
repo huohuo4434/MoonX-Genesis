@@ -5,8 +5,11 @@ import {
   getThreeHorizonStrategyDashboard,
   updateThreeHorizonProfile,
 } from "@/lib/trading-signals/three-horizon-strategy";
-import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
-import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
+import { inspectUnifiedLiveCustody, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import {
+  evaluateUnifiedLiveNewEntryGate,
+  evaluateUnifiedLiveNewEntryGateReadOnly,
+} from "@/lib/trading-signals/unified-live-entry-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -56,11 +59,11 @@ async function legacyUnifiedSourcePOST(request: NextRequest) {
 
 // MOOX_UNIFIED_LIVE_WRAPPER_V72031:app_api_admin_bitget-demo_strategies_route.ts:GET
 export async function GET() {
-  const custody = await runUnifiedLiveCustodyCycle({
-    trigger: "app_api_admin_bitget-demo_strategies_route.ts:GET",
-    ownerKey: "official",
-  });
-  const gate = await evaluateUnifiedLiveNewEntryGate("official");
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: "无权限" }, { status: 403 });
+  }
+  const custody = await inspectUnifiedLiveCustody("official");
+  const gate = await evaluateUnifiedLiveNewEntryGateReadOnly("official", custody);
   if (!gate.allowed) {
     return Response.json({
       ok: true,
@@ -77,6 +80,9 @@ export async function GET() {
 
 // MOOX_UNIFIED_LIVE_WRAPPER_V72031:app_api_admin_bitget-demo_strategies_route.ts:POST
 export async function POST(request: NextRequest) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: "无权限" }, { status: 403 });
+  }
   const custody = await runUnifiedLiveCustodyCycle({
     trigger: "app_api_admin_bitget-demo_strategies_route.ts:POST",
     ownerKey: "official",

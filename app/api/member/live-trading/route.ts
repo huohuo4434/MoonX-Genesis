@@ -23,6 +23,7 @@ import { getChinaDateKey } from "@/lib/date/china-date";
 import { aiTradingFocusPriority } from "@/lib/trading-signals/ai-trading-focus";
 import { rankDailyChampionBoard } from "@/lib/trading-signals/daily-champion-core";
 import { evaluateMarketSessionExposureSafety } from "@/lib/trading-signals/market-session-exposure-core";
+import { conservativeNetRewardRisk } from "@/lib/trading-signals/ultra-short-execution-core";
 
 // MOOX_V720105_LIVE_VISIBILITY: authoritative positions + plans + no-order diagnosis for the member live page.
 export const dynamic = "force-dynamic";
@@ -122,10 +123,11 @@ function mapExecution(row: ReadOnlyLiveDecision) {
 }
 
 function decisionRewardRisk(row: ReadOnlyLiveDecision): number {
-  if (row.entryPrice == null || row.stopLoss == null || row.target2 == null) return 0;
-  const risk = Math.abs(row.entryPrice - row.stopLoss);
-  if (!Number.isFinite(risk) || risk <= 0) return 0;
-  return Math.abs(row.target2 - row.entryPrice) / risk;
+  return conservativeNetRewardRisk({
+    entryPrice: row.entryPrice,
+    stopLoss: row.stopLoss,
+    target: row.target2,
+  });
 }
 
 function scanFreshness(lastScanAt: string | null, now = Date.now()) {

@@ -17,7 +17,7 @@ async function readJson<T>(response: Response): Promise<T> {
 function price(value: number | null | undefined): string { return value == null || !Number.isFinite(value) ? "—" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 6 }); }
 
 const HORIZONS = [
-  { title: "短线", period: "1—3天", note: "日盘与短周期结构，重点看确认位和快速失效。" },
+  { title: "超短线", period: "30—90分钟", note: "30分钟方向背景、5分钟结构、1分钟收盘触发，60分钟无推进退出。" },
   { title: "中线", period: "1—15天", note: "周度方向与日内节奏结合，等待4H/1H结构确认。" },
   { title: "长线", period: "1—3个月", note: "月度/季度背景为主，日线与4H只找分批位置。" },
   { title: "超长线", period: "约1年", note: "年度/长期研究做背景，阶段观点变化时重新评估。" },

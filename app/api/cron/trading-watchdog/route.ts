@@ -27,12 +27,11 @@ async function legacyTradingWatchdogGET(request: NextRequest) {
   }
 }
 
-async function legacyTradingWatchdogPOST(request: NextRequest) {
-  return GET(request);
-}
-
 // MOOX_UNIFIED_LIVE_CUSTODY_WATCHDOG_V72031:GET
 export async function GET(request: NextRequest) {
+  if (!authorizeCron(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   await runUnifiedLiveCustodyCycle({
     trigger: "TRADING_WATCHDOG:GET",
     ownerKey: "official",
@@ -42,9 +41,5 @@ export async function GET(request: NextRequest) {
 
 // MOOX_UNIFIED_LIVE_CUSTODY_WATCHDOG_V72031:POST
 export async function POST(request: NextRequest) {
-  await runUnifiedLiveCustodyCycle({
-    trigger: "TRADING_WATCHDOG:POST",
-    ownerKey: "official",
-  });
-  return legacyTradingWatchdogPOST(request);
+  return GET(request);
 }

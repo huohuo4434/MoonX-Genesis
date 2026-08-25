@@ -2,6 +2,7 @@ import "server-only";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
 import { resolveAllowedSymbolUniverse } from "@/lib/bitget/live-symbol-universe-core";
+import { parseBitgetPositionSide, requireBitgetPositionSide } from "@/lib/bitget/bitget-side-parser-core";
 
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
 import {
@@ -2285,7 +2286,7 @@ export async function cancelBitgetDemoStrategyOrder(input: {
   orderId?: string;
   clientOid?: string;
   symbol?: string;
-}): Promise<void> {
+}): Promise<{ status: "CONFIRMED" | "ACKNOWLEDGED"; outboxId: string }> {
   if (!input.orderId && !input.clientOid) throw new Error("取消策略订单必须提供orderId或clientOid");
   const ref = input.orderId ?? input.clientOid ?? "unknown";
   const payload: CancelProtectionPayload = {
@@ -2303,6 +2304,10 @@ export async function cancelBitgetDemoStrategyOrder(input: {
   });
   const result = await processSingleOutboxTask(task.id);
   if (result.status === "FAILED") throw new Error(result.last_error || "取消保护单失败");
+  return {
+    status: ["CONFIRMED", "RECONCILED"].includes(result.status) ? "CONFIRMED" : "ACKNOWLEDGED",
+    outboxId: result.id,
+  };
 }
 
 export type BitgetDemoPosition = {
@@ -2340,7 +2345,7 @@ export type BitgetDemoStrategyOrder = {
   orderId: string;
   clientOid: string;
   symbol: string;
-  posSide: "long" | "short";
+  posSide: "long" | "short" | null;
   takeProfit: number | null;
   stopLoss: number | null;
   createdAt: string | null;
@@ -2476,10 +2481,6 @@ function timestampIso(value: unknown): string | null {
   return new Date(numeric).toISOString();
 }
 
-function sideValue(value: unknown): "long" | "short" {
-  return String(value).toLowerCase() === "short" ? "short" : "long";
-}
-
 export async function getBitgetDemoCurrentPositions(): Promise<BitgetDemoPosition[]> {
   const payload = await signedRequest<BitgetPositionEnvelope>({
     method: "GET",
@@ -2489,7 +2490,7 @@ export async function getBitgetDemoCurrentPositions(): Promise<BitgetDemoPositio
   return (payload?.list ?? [])
     .map((row) => ({
       symbol: String(row.symbol ?? "").toUpperCase(),
-      posSide: sideValue(row.posSide),
+      posSide: requireBitgetPositionSide(row.posSide),
       marginMode: String(row.marginMode ?? "unknown"),
       total: finiteNumber(row.total),
       leverage: finiteNumber(row.leverage),
@@ -2517,7 +2518,9 @@ export async function getBitgetDemoClosedPositions(
     .map((row) => ({
       positionId: String(row.positionId ?? ""),
       symbol: String(row.symbol ?? "").toUpperCase(),
-      posSide: sideValue(row.posSide),
+      // Risk accounting is strict: silently dropping an unknown-side loss
+      // would understate daily/weekly loss and could incorrectly allow entries.
+      posSide: requireBitgetPositionSide(row.posSide),
       openPriceAvg: finiteNumber(row.openPriceAvg),
       closePriceAvg: finiteNumber(row.closePriceAvg),
       openTotalPos: finiteNumber(row.openTotalPos),
@@ -2547,7 +2550,7 @@ export async function getBitgetDemoPendingStrategyOrders(): Promise<
       orderId: String(row.orderId ?? ""),
       clientOid: String(row.clientOid ?? ""),
       symbol: String(row.symbol ?? "").toUpperCase(),
-      posSide: sideValue(row.posSide),
+      posSide: parseBitgetPositionSide(row.posSide),
       takeProfit: row.takeProfit ? finiteNumber(row.takeProfit) : null,
       stopLoss: row.stopLoss ? finiteNumber(row.stopLoss) : null,
       createdAt: timestampIso(row.createdTime),

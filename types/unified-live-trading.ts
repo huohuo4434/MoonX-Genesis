@@ -87,6 +87,8 @@ export interface UnifiedLiveExchangePosition {
 
 export interface UnifiedLiveExchangeOrder {
   orderKey: string;
+  orderId?: string | null;
+  clientOid?: string | null;
   symbol: string;
   side?: string | null;
   reduceOnly?: boolean;
@@ -112,6 +114,8 @@ export interface UnifiedLiveCustodyIssue {
     | "ORPHAN_EXCHANGE_POSITION"
     | "SITE_ONLY_POSITION"
     | "PROTECTION_MISSING"
+    | "ORPHAN_EXCHANGE_PROTECTION"
+    | "UNKNOWN_EXCHANGE_PROTECTION_SIDE"
     | "TIME_EXIT_DUE"
     | "DUPLICATE_SLICE"
     | "SNAPSHOT_UNAVAILABLE";
@@ -127,6 +131,8 @@ export interface UnifiedLiveCustodyAudit {
   snapshotAvailable: boolean;
   issues: UnifiedLiveCustodyIssue[];
   orphanPositions: UnifiedLiveExchangePosition[];
+  orphanOrders: UnifiedLiveExchangeOrder[];
+  unknownSideOrders: UnifiedLiveExchangeOrder[];
   siteOnlySlices: UnifiedLiveCustodySliceLike[];
   protectionMissing: string[];
   timeExitDue: string[];

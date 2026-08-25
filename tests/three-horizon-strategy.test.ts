@@ -80,7 +80,7 @@ test("three independent strategy profiles use different horizons and holding per
   assert.match(source, /INTRADAY:[\s\S]*environmentTimeframe: "4H"[\s\S]*directionTimeframe: "30m"[\s\S]*entryTimeframe: "5m\/1m"/);
   assert.match(source, /SWING:[\s\S]*environmentTimeframe: "1D\/1W"[\s\S]*directionTimeframe: "4H"[\s\S]*entryTimeframe: "1H"/);
   assert.match(source, /POSITION:[\s\S]*environmentTimeframe: "1M\/1W"[\s\S]*directionTimeframe: "1D"[\s\S]*entryTimeframe: "4H"/);
-  assert.match(source, /maxHoldingMinutes: 8 \* 60/);
+  assert.match(source, /maxHoldingMinutes: ULTRA_SHORT_MAX_HOLDING_MINUTES/);
   assert.match(source, /maxHoldingMinutes: 7 \* 24 \* 60/);
   assert.match(source, /maxHoldingMinutes: 28 \* 24 \* 60/);
 });
@@ -99,7 +99,8 @@ test("position sizing is derived from stop distance and capped risk rather than 
   const source = engine();
   assert.match(source, /stopDistance = Math\.abs\(input\.evaluation\.entryPrice - input\.evaluation\.stopLoss\)/);
   assert.match(source, /riskAmount = input\.equityUsdt \* requestedRiskPct \/ 100/);
-  assert.match(source, /riskQuantity = riskAmount \/ stopDistance/);
+  assert.match(source, /riskPerUnit = costAdjustedRiskPerUnit/);
+  assert.match(source, /riskQuantity = riskAmount \/ riskPerUnit/);
   assert.match(source, /MAX_POSITION_NOTIONAL_PCT/);
 });
 
@@ -122,6 +123,22 @@ test("risk engine enforces daily weekly open and correlated crypto limits", () =
   assert.doesNotMatch(source, /liveActivityProbe:[\s\S]{0,400}riskScale: 1/);
   assert.match(source, /PROJECTED_OPEN_RISK_LIMIT/);
   assert.match(source, /PROJECTED_CRYPTO_GROUP_LIMIT/);
+});
+
+test("ultra short execution uses 5m ATR and resets the hold deadline after order submission", () => {
+  const source = engine();
+  assert.match(source, /finalizeEvaluation\(profile, direction, conditions, forecast\.score, m5, atr5/);
+  assert.match(source, /buildUltraShortPriceGeometry/);
+  assert.match(source, /const submittedAt = new Date\(\)/);
+  assert.match(source, /openedAt: submittedAt[\s\S]*maxHoldingUntil: new Date\(submittedAt\.getTime\(\) \+ input\.profile\.maxHoldingMinutes \* 60_000\)/);
+  assert.match(source, /normalizeExecutionPriceGeometry/);
+  assert.match(source, /conservativeNetRewardRisk/);
+  assert.match(source, /TRADING_ROUND_TRIP_COST_PCT/);
+  assert.match(source, /evaluateUltraShortTimedExit/);
+  assert.match(source, /microTrigger && \(strictChanTrigger \|\| rightSideTrigger\)/);
+  const normalizedWrite = source.indexOf("entryPrice: executionEvaluation.entryPrice");
+  const orderSubmission = source.indexOf("const order = await placeBitgetDemoMarketOrder", normalizedWrite);
+  assert.ok(normalizedWrite >= 0 && orderSubmission > normalizedWrite, "归一化价格必须先持久化，再提交订单");
 });
 
 test("weekly forecast owns direction while technical structure only controls entry state", () => {
@@ -355,7 +372,7 @@ test("live daily activity remains fail-closed and can only promote qualified low
   assert.match(source, /isActivityPromotionEligible\(decision\)/);
   assert.match(source, /decision\.technicalScore >= 34/);
   assert.match(source, /condition\.key === "entry" && condition\.met/);
-  assert.match(source, /decisionRewardRisk\(decision\) >= 1\.05/);
+  assert.match(source, /decisionRewardRisk\(decision\) >= MIN_NET_REWARD_RISK/);
   assert.match(source, /maxLossPercent: liveRiskBudgetPct/);
   assert.match(source, /riskPct > liveRiskBudgetPct/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);

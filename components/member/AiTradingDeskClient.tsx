@@ -185,8 +185,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
         <Text variant="caption" color="secondary" className="mt-3 block leading-5">
           {en
-            ? "Intraday setups are scanned every minute, targeting 1–5 qualified orders a day. One-minute candles refine timing only. A small probe may be selected only when formal direction, complete levels and risk/reward agree; plan locks, position conflicts, loss caps, exchange protection and data freshness remain hard gates. If no order is allowed, the desk shows the blocker."
-            : "短线每分钟扫描，日目标1—5笔；1分钟K线只微调成交时机，不能代替正式方向和5分钟收盘结构。若常规入场没有触发，系统只会从正式方向一致、点位完整、风险收益合格的候选中选择小风险探路仓；计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门。今日未开仓时，页面应显示具体阻断原因。"}
+            ? "Ultra-short setups are scanned every minute, targeting 1–5 qualified orders a day. The 30-minute structure supplies context, the five-minute chart identifies the setup, and a closed one-minute candle can trigger execution without creating or reversing the formal direction. Stale trades exit after 60 minutes and every ultra-short trade has a 90-minute hard time limit."
+            : "超短线每分钟扫描，日目标1—5笔；30分钟提供方向背景，5分钟识别结构，1分钟收盘负责最终触发，但不能创造或反转正式方向。持仓60分钟仍未推进0.25R就退出，90分钟无条件时间退出；计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门。"}
         </Text>
       </details>
 

@@ -18,7 +18,7 @@ type PublicPosition = {
   closeReason?: string | null;
 };
 
-const horizonLabel: Record<string, string> = { SHORT: "短线", MEDIUM: "中线", LONG: "长线" };
+const horizonLabel: Record<string, string> = { SHORT: "超短线", MEDIUM: "中线", LONG: "长线" };
 const statusLabel: Record<string, string> = {
   OPEN: "交易所持仓已确认",
   PARTIALLY_CLOSED: "已部分止盈",

@@ -9,6 +9,8 @@ import {
   setUnifiedLiveMode,
 } from "@/lib/trading-signals/unified-live-store";
 import type { UnifiedLiveCustodyAudit } from "@/types/unified-live-trading";
+import { cancelBitgetDemoStrategyOrder } from "@/lib/bitget/demo-client";
+import { runOrphanProtectionCleanup } from "@/lib/trading-signals/orphan-protection-cleanup-core";
 
 type StoredUnifiedLiveSlice = {
   id: string;
@@ -63,6 +65,16 @@ export async function runUnifiedLiveCustodyCycle(input: {
   if (audit.snapshotAvailable && audit.siteOnlySlices.length) {
     await markUnifiedLiveManualClosures(ownerKey, audit.siteOnlySlices.map((slice) => slice.id));
   }
+  const orphanOrderCleanup = audit.snapshotAvailable
+    ? await runOrphanProtectionCleanup({
+        orders: audit.orphanOrders,
+        cancel: (order) => cancelBitgetDemoStrategyOrder({
+          orderId: order.orderId ?? undefined,
+          clientOid: order.clientOid ?? undefined,
+          symbol: order.symbol,
+        }),
+      })
+    : [];
   await recordUnifiedLiveEvents(ownerKey, audit.issues);
 
   const config = readUnifiedLiveRuntimeConfig();
@@ -82,6 +94,7 @@ export async function runUnifiedLiveCustodyCycle(input: {
     newOrdersPlaced: 0,
     positionManagementContinues: config.positionManagementEnabled,
     exchangePositions: exchange.positions,
+    orphanOrderCleanup,
     audit,
   };
 }

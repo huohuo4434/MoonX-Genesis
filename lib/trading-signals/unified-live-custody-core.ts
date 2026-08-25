@@ -22,9 +22,18 @@ function positionMatchesSlice(position: UnifiedLiveExchangePosition, slice: Unif
   return true;
 }
 
-function protectionForSymbol(orders: UnifiedLiveExchangeOrder[], symbol: string) {
-  const normalized = normalizeSymbol(symbol);
-  const matching = orders.filter((order) => normalizeSymbol(order.symbol) === normalized);
+function normalizeSide(value: string | null | undefined): "LONG" | "SHORT" | null {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "LONG" || normalized === "BUY") return "LONG";
+  if (normalized === "SHORT" || normalized === "SELL") return "SHORT";
+  return null;
+}
+
+function protectionForPosition(orders: UnifiedLiveExchangeOrder[], position: UnifiedLiveExchangePosition) {
+  const normalized = normalizeSymbol(position.symbol);
+  const matching = orders.filter((order) =>
+    normalizeSymbol(order.symbol) === normalized && normalizeSide(order.side) === position.side
+  );
   return {
     stopLoss: matching.some((order) => order.stopLoss || /STOP.?LOSS|SL/i.test(String(order.status ?? ""))),
     takeProfit: matching.some((order) => order.takeProfit || /TAKE.?PROFIT|TP/i.test(String(order.status ?? ""))),
@@ -80,9 +89,41 @@ export function auditUnifiedLiveCustody(input: {
     });
   }
 
+  const unknownSideOrders = input.orders.filter((order) => !normalizeSide(order.side));
+  for (const order of unknownSideOrders) {
+    issues.push({
+      code: "UNKNOWN_EXCHANGE_PROTECTION_SIDE",
+      severity: "BLOCKER",
+      symbol: order.symbol,
+      detail: `Exchange protection ${order.orderKey} has an unknown side; it cannot protect a position or be auto-cancelled.`,
+    });
+  }
+
+  const orphanOrders = input.orders.filter((order) => {
+    const symbol = normalizeSymbol(order.symbol);
+    const side = normalizeSide(order.side);
+    // An unknown side is unsafe to auto-cancel. It remains outside the proven
+    // protection match and therefore makes the real position fail closed.
+    if (!side) return false;
+    if (input.positions.some((position) => normalizeSymbol(position.symbol) === symbol && position.side === side)) return false;
+    return !active.some((slice) => {
+      if (normalizeSymbol(slice.symbol) !== symbol || slice.side !== side || String(slice.status) !== "PENDING") return false;
+      const openedAt = new Date(slice.openedAt).getTime();
+      return Number.isFinite(openedAt) && now.getTime() - openedAt < settlementGraceMs;
+    });
+  });
+  for (const order of orphanOrders) {
+    issues.push({
+      code: "ORPHAN_EXCHANGE_PROTECTION",
+      severity: "BLOCKER",
+      symbol: order.symbol,
+      detail: `Exchange protection ${order.orderKey} exists without a matching position; custody must cancel it idempotently before new exposure.`,
+    });
+  }
+
   const protectionMissing: string[] = [];
   for (const position of input.positions) {
-    const protection = protectionForSymbol(input.orders, position.symbol);
+    const protection = protectionForPosition(input.orders, position);
     if (!protection.stopLoss || !protection.takeProfit) {
       protectionMissing.push(position.positionKey);
       issues.push({
@@ -131,6 +172,8 @@ export function auditUnifiedLiveCustody(input: {
     snapshotAvailable: input.snapshotAvailable,
     issues,
     orphanPositions,
+    orphanOrders,
+    unknownSideOrders,
     siteOnlySlices,
     protectionMissing,
     timeExitDue,

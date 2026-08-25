@@ -1,9 +1,11 @@
 import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
-import { getUnifiedLiveRuntimeStatus } from "@/lib/trading-signals/unified-live-runtime";
+import { getUnifiedLiveRuntimeStatus, inspectUnifiedLiveCustody } from "@/lib/trading-signals/unified-live-runtime";
 
-export async function evaluateUnifiedLiveNewEntryGate(ownerKey = "official") {
-  const runtime = readUnifiedLiveRuntimeConfig();
-  const status = await getUnifiedLiveRuntimeStatus(ownerKey);
+function summarizeUnifiedLiveNewEntryGate(input: {
+  runtime: ReturnType<typeof readUnifiedLiveRuntimeConfig>;
+  status: Awaited<ReturnType<typeof getUnifiedLiveRuntimeStatus>>;
+}) {
+  const { runtime, status } = input;
   const reasons: string[] = [];
   if (status.migrationRequired) reasons.push("UNIFIED_LIVE_MIGRATION_REQUIRED");
   if (!status.account) reasons.push("UNIFIED_LIVE_ACCOUNT_UNAVAILABLE");
@@ -18,4 +20,19 @@ export async function evaluateUnifiedLiveNewEntryGate(ownerKey = "official") {
     mode: status.account?.mode ?? runtime.mode,
     positionManagementContinues: runtime.positionManagementEnabled,
   };
+}
+
+export async function evaluateUnifiedLiveNewEntryGate(ownerKey = "official") {
+  const runtime = readUnifiedLiveRuntimeConfig();
+  const status = await getUnifiedLiveRuntimeStatus(ownerKey);
+  return summarizeUnifiedLiveNewEntryGate({ runtime, status });
+}
+
+export async function evaluateUnifiedLiveNewEntryGateReadOnly(
+  ownerKey = "official",
+  inspectedStatus?: Awaited<ReturnType<typeof inspectUnifiedLiveCustody>>
+) {
+  const runtime = readUnifiedLiveRuntimeConfig();
+  const status = inspectedStatus ?? await inspectUnifiedLiveCustody(ownerKey);
+  return summarizeUnifiedLiveNewEntryGate({ runtime, status });
 }

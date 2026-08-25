@@ -53,6 +53,7 @@ import {
   placeBitgetDemoProtectionOrder,
   testBitgetDemoConnection,
   type BitgetCandleInterval,
+  type BitgetContractConfig,
   type BitgetDemoCandle,
   type BitgetDemoClosedPosition,
   type BitgetDemoMarketQuote,
@@ -115,6 +116,16 @@ import {
   resolveAuthoritativeForecastDirection,
 } from "@/lib/trading-signals/authoritative-market-structure-core";
 import { dailyChampionRiskScale, dailyChampionScore } from "@/lib/trading-signals/daily-champion-core";
+import {
+  buildUltraShortPriceGeometry,
+  conservativeNetRewardRisk,
+  costAdjustedRiskPerUnit,
+  evaluateUltraShortTimedExit,
+  MIN_NET_REWARD_RISK,
+  normalizeExecutionPriceGeometry,
+  TRADING_ROUND_TRIP_COST_PCT,
+  ULTRA_SHORT_MAX_HOLDING_MINUTES,
+} from "@/lib/trading-signals/ultra-short-execution-core";
 
 // MOOX_V720101_BAZI_DIVERGENCE_GUARD: asset-Bazi regime prior + BTC/ETH independent execution guard.
 // MOOX_V72010_1000U_LIVE_EXECUTION: formal direction + three-horizon execution with hard live risk caps.
@@ -204,15 +215,15 @@ const PROFILE_DEFINITIONS: Record<
 > = {
   INTRADAY: {
     strategyType: "INTRADAY",
-    label: "短线",
-    description: "30分钟至8小时，4小时看环境、30分钟定主线段、5分钟确认结构、1分钟只微调成交时机，原则上当日结束。",
+    label: "超短线",
+    description: "约30至90分钟，4小时只看风险环境、30分钟锁定正式方向背景、5分钟识别结构、1分钟收盘负责最终触发；60分钟无推进退出，90分钟绝对退出。",
     symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
     environmentTimeframe: "4H",
     directionTimeframe: "30m",
     entryTimeframe: "5m/1m",
     scanIntervalMinutes: 1,
     riskPerTradePct: 0.2,
-    maxHoldingMinutes: 8 * 60,
+    maxHoldingMinutes: ULTRA_SHORT_MAX_HOLDING_MINUTES,
     planningMinConfidence: 42,
     minConfidence: 52,
     maxTradesPerDay: 5,
@@ -761,9 +772,16 @@ function pricePlan(input: {
   swingHigh: number;
 }): { stopLoss: number; target1: number; target2: number } | null {
   if (input.direction === "NEUTRAL" || input.entry <= 0 || input.atrValue <= 0) return null;
-  const config = input.strategyType === "INTRADAY"
-    ? { atrMultiple: 1.8, minPct: 0.9, maxPct: 4.5, target1R: 1, target2R: 2 }
-    : input.strategyType === "SWING"
+  if (input.strategyType === "INTRADAY") {
+    return buildUltraShortPriceGeometry({
+      direction: input.direction,
+      entry: input.entry,
+      atr5m: input.atrValue,
+      swingLow5m: input.swingLow,
+      swingHigh5m: input.swingHigh,
+    });
+  }
+  const config = input.strategyType === "SWING"
       ? { atrMultiple: 2.1, minPct: 1.5, maxPct: 7, target1R: 1.1, target2R: 2.4 }
       : { atrMultiple: 2.5, minPct: 2.5, maxPct: 12, target1R: 1.5, target2R: 3 };
   let distance = input.atrValue * config.atrMultiple;
@@ -877,6 +895,7 @@ function evaluateIntraday(
   const previousEma1 = ema1Series[Math.max(0, ema1Series.length - 2)] ?? ema1;
   const rsi30 = rsi(m30);
   const atr30 = atr(m30);
+  const atr5 = atr(m5);
   const forecast = focusCountertrend && executionFocus
     ? {
         score: executionFocus.countertrendConfluence,
@@ -951,20 +970,22 @@ function evaluateIntraday(
   // aligned, so the system does not stay permanently idle waiting for a rare
   // textbook pattern.
   const rightSideTrigger = structureMet && (exactCross || reclaimTrigger || continuationTrigger || pathTurnTrigger);
-  const entryMet = strictChanTrigger || rightSideTrigger;
-  const entryTriggerLabel = strictChanTrigger
-    ? direction === "LONG"
-      ? `5分钟${chan5.buyPoint === "SECOND" ? "二买" : "三买"}确认`
-      : `5分钟${chan5.sellPoint === "SECOND" ? "二卖" : "三卖"}确认`
-    : pathTurnTrigger
-      ? plan?.setup === "BUY_DIP" ? "30分钟下探后5分钟右侧收回" : "30分钟冲高后5分钟右侧转弱"
-      : reclaimTrigger
-        ? "5分钟回踩/反抽后重新收回执行均线"
-        : exactCross
-          ? "5分钟收盘穿越执行均线"
-          : continuationTrigger
-            ? "5分钟顺势延续确认"
-            : "等待5分钟二/三买卖或右侧确认";
+  const entryMet = microTrigger && (strictChanTrigger || rightSideTrigger);
+  const entryTriggerLabel = !microTrigger
+    ? "5分钟结构已观察，等待1分钟收盘同向触发"
+    : strictChanTrigger
+      ? direction === "LONG"
+        ? `5分钟${chan5.buyPoint === "SECOND" ? "二买" : "三买"} + 1分钟收盘确认`
+        : `5分钟${chan5.sellPoint === "SECOND" ? "二卖" : "三卖"} + 1分钟收盘确认`
+      : pathTurnTrigger
+        ? plan?.setup === "BUY_DIP" ? "30分钟下探、5分钟收回、1分钟转强" : "30分钟冲高、5分钟转弱、1分钟转空"
+        : reclaimTrigger
+          ? "5分钟重新收回执行均线 + 1分钟同向"
+          : exactCross
+            ? "5分钟收盘穿越执行均线 + 1分钟同向"
+            : continuationTrigger
+              ? "5分钟顺势延续 + 1分钟同向"
+              : "等待5分钟结构与1分钟收盘共振";
 
   const volumeAverage = average(m5.slice(-20).map((row) => row.volume));
   const volumeMet = Boolean(latest5 && (volumeAverage <= 0 || latest5.volume >= volumeAverage * 0.55));
@@ -989,17 +1010,17 @@ function evaluateIntraday(
     },
     {
       key: "entry",
-      label: "5分钟精确买卖点",
+      label: "5分钟结构 + 1分钟收盘触发",
       met: entryMet,
       value: `${entryTriggerLabel}；二/三买=${chan5.buyPoint}，二/三卖=${chan5.sellPoint}`,
       weight: 25,
     },
     {
       key: "micro",
-      label: "1分钟成交微调",
+      label: "1分钟超短线触发",
       met: microTrigger,
       value: m1.length ? `${microTrigger ? "微周期同向" : "微周期等待"}；EMA9 ${round(ema1, 4)}；1m买点=${chan1.buyPoint}，卖点=${chan1.sellPoint}` : "1分钟数据暂不可用；不替代5分钟确认，也不改变正式方向",
-      weight: 0,
+      weight: 10,
     },
     { key: "forecast", label: "站内预测方向", met: forecast.compatible, value: forecast.label, weight: 10 },
     { key: "hexagram", label: "六爻时序先验", met: priorCompatible, value: prior ? `${prior.sourceSummary}；${prior.riskNote}` : "当前没有锁定六爻时序；技术结构不能自行决定多空", weight: 10 },
@@ -1008,7 +1029,7 @@ function evaluateIntraday(
   const strength = focusCountertrend && executionFocus
     ? executionFocus.countertrendConfluence * directionValue(direction)
     : officialDirection.strength;
-  const baseResult = finalizeEvaluation(profile, direction, conditions, forecast.score, m30, atr30, plan, livePrice, {
+  const baseResult = finalizeEvaluation(profile, direction, conditions, forecast.score, m5, atr5, plan, livePrice, {
     directionStrength: strength,
     prior: focusCountertrend ? null : prior,
   });
@@ -1345,7 +1366,7 @@ function finalizeEvaluation(
     rejectionReason = "行情数据、波动或成交过滤未通过。";
   } else if (!prices) {
     rejectionCode = "RISK_PLAN_INVALID";
-    rejectionReason = "无法根据结构和ATR生成有效宽止损。";
+    rejectionReason = "无法根据对应周期结构和ATR生成有效保护价。";
   } else if (context.currentEntryInvalidated) {
     rejectionCode = "ENTRY_STRUCTURE_INVALID";
     rejectionReason = "价格已连续有效越过当前入场边沿；仅取消本次入场并等待新位置，不自动反手。";
@@ -1543,7 +1564,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
             WHEN strategy_type='SWING' THEN 0.25
             ELSE 0.20 END,
           max_holding_minutes = CASE
-            WHEN strategy_type='INTRADAY' THEN 480
+            WHEN strategy_type='INTRADAY' THEN 90
             WHEN strategy_type='SWING' THEN 10080
             ELSE 40320 END,
           planning_min_confidence = CASE
@@ -1845,10 +1866,11 @@ async function symbolExecutedOrderCountToday(symbol: string, now: Date, mode: "L
 }
 
 function decisionRewardRisk(decision: ThreeHorizonStrategyDecision): number {
-  if (!decision.entryPrice || !decision.stopLoss || !decision.target2) return 0;
-  const riskDistance = Math.abs(decision.entryPrice - decision.stopLoss);
-  if (!Number.isFinite(riskDistance) || riskDistance <= 0) return 0;
-  return Math.abs(decision.target2 - decision.entryPrice) / riskDistance;
+  return conservativeNetRewardRisk({
+    entryPrice: decision.entryPrice,
+    stopLoss: decision.stopLoss,
+    target: decision.target2,
+  });
 }
 
 function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision, now = new Date()): number {
@@ -2140,6 +2162,9 @@ async function updateDecision(
     rejectionReason?: string;
     currentPrice?: number | null;
     entryPrice?: number | null;
+    stopLoss?: number | null;
+    target1?: number | null;
+    target2?: number | null;
     quantity?: number | null;
     riskAmountUsdt?: number | null;
     riskPct?: number | null;
@@ -2153,6 +2178,7 @@ async function updateDecision(
     openedAt?: Date | null;
     closedAt?: Date | null;
     realizedPnlUsdt?: number | null;
+    maxHoldingUntil?: Date | null;
   }
 ): Promise<ThreeHorizonStrategyDecision> {
   if (!prisma) throw new Error("三周期策略数据库未连接");
@@ -2175,6 +2201,9 @@ async function updateDecision(
       rejection_reason = ${transition.preserveExecutionMetadata ? current.rejection_reason : fields.rejectionReason ?? current.rejection_reason},
       current_price = ${fields.currentPrice === undefined ? current.current_price : fields.currentPrice},
       entry_price = ${fields.entryPrice === undefined ? current.entry_price : fields.entryPrice},
+      stop_loss = ${fields.stopLoss === undefined ? current.stop_loss : fields.stopLoss},
+      target_1 = ${fields.target1 === undefined ? current.target_1 : fields.target1},
+      target_2 = ${fields.target2 === undefined ? current.target_2 : fields.target2},
       quantity = ${fields.quantity === undefined ? current.quantity : fields.quantity},
       risk_amount_usdt = ${fields.riskAmountUsdt === undefined ? current.risk_amount_usdt : fields.riskAmountUsdt},
       risk_pct = ${fields.riskPct === undefined ? current.risk_pct : fields.riskPct},
@@ -2188,6 +2217,7 @@ async function updateDecision(
       opened_at = ${fields.openedAt === undefined ? current.opened_at : fields.openedAt},
       closed_at = ${fields.closedAt === undefined ? current.closed_at : fields.closedAt},
       realized_pnl_usdt = ${fields.realizedPnlUsdt === undefined ? current.realized_pnl_usdt : fields.realizedPnlUsdt},
+      max_holding_until = ${fields.maxHoldingUntil === undefined ? current.max_holding_until : fields.maxHoldingUntil},
       updated_at = NOW()
     WHERE id = ${id}
   `;
@@ -2753,8 +2783,14 @@ async function closePosition(
   reason: string,
   protection?: BitgetDemoStrategyOrder
 ): Promise<ThreeHorizonStrategyDecision> {
+  let protectionCancellationUncertain = false;
   if (protection?.orderId) {
-    await cancelBitgetDemoStrategyOrder({ orderId: protection.orderId }).catch(() => undefined);
+    const cancellation = await cancelBitgetDemoStrategyOrder({
+      orderId: protection.orderId,
+      clientOid: protection.clientOid,
+      symbol: protection.symbol,
+    }).catch(() => null);
+    protectionCancellationUncertain = cancellation?.status !== "CONFIRMED";
   }
   const result = await placeBitgetDemoMarketOrder({
     paperOrderId: `${decision.id}:time-close`,
@@ -2766,7 +2802,7 @@ async function closePosition(
   return updateDecision(decision.id, {
     status: "CLOSING",
     rejectionCode: "TIME_EXIT",
-    rejectionReason: `${reason}；平仓订单${result.orderId}已提交。`,
+    rejectionReason: `${reason}；平仓订单${result.orderId}已提交。${protectionCancellationUncertain ? `；保护单${protection?.orderId ?? ""}取消状态不确定，已记录并交由后续托管对账清理。` : ""}`,
     currentPrice: position.markPrice,
   });
 }
@@ -2785,15 +2821,21 @@ async function manageActiveDecisions(now: Date): Promise<{
     symbol: decision.symbol,
     side: decision.direction === "SHORT" ? "short" as const : "long" as const,
   }));
+  // Closed history is auxiliary confirmation only. Current positions and
+  // protections remain authoritative, so a history outage must never suppress
+  // 60/90-minute exits, TP1 handling or protection repair.
+  const closedHistory = getBitgetDemoClosedPositions(100).catch(() => []);
   const [positions, protections, closed, profiles] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoPendingStrategyOrders(),
-    getBitgetDemoClosedPositions(100),
+    closedHistory,
     getThreeHorizonProfiles(),
   ]);
   const managementLedgerConsistent = isExposureLedgerConsistent({
     positions: positions.filter((row) => row.total > 0).map((row) => ({ symbol: row.symbol, side: row.posSide })),
-    protections: protections.map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    protections: protections.flatMap((row) => row.posSide
+      ? [{ symbol: row.symbol, side: row.posSide }]
+      : []),
     activeDecisions: decisions.map((decision) => ({
       symbol: decision.symbol,
       side: decision.direction === "SHORT" ? "short" as const : "long" as const,
@@ -2999,16 +3041,30 @@ async function manageActiveDecisions(now: Date): Promise<{
       }
     }
 
-    const maxHoldingReached = current.maxHoldingUntil
+    const ultraShortTimeExit = current.strategyType === "INTRADAY"
+      ? evaluateUltraShortTimedExit({
+          openedAt: current.openedAt,
+          now,
+          maxHoldingUntil: current.maxHoldingUntil,
+          direction: current.direction === "SHORT" ? "SHORT" : "LONG",
+          entryPrice: current.entryPrice,
+          markPrice: position.markPrice,
+          stopLoss: current.stopLoss,
+          tp1Done: current.tp1Done,
+        })
+      : null;
+    const maxHoldingReached = current.strategyType !== "INTRADAY" && current.maxHoldingUntil
       ? now.getTime() >= Date.parse(current.maxHoldingUntil)
       : false;
-    if (maxHoldingReached || hardIntradayExit(current, now)) {
+    if (ultraShortTimeExit?.shouldExit || maxHoldingReached || hardIntradayExit(current, now)) {
       orderAttempts += 1;
       try {
         await closePosition(
           current,
           position,
-          hardIntradayExit(current, now) ? "短线策略到达北京时间日终" : "达到最大持仓时间",
+          hardIntradayExit(current, now)
+            ? "超短线策略到达北京时间日终"
+            : ultraShortTimeExit?.reason || "达到最大持仓时间",
           protection
         );
         orderSuccess += 1;
@@ -3147,6 +3203,7 @@ async function calculatePositionSize(input: {
   symbol: BitgetSupportedSymbol;
   riskScale?: number;
   riskPctOverride?: number;
+  contract?: BitgetContractConfig;
 }): Promise<{ quantity: number; riskAmountUsdt: number; riskPct: number }> {
   if (!input.evaluation.entryPrice || !input.evaluation.stopLoss) {
     throw new Error("缺少入场价或止损价");
@@ -3155,13 +3212,17 @@ async function calculatePositionSize(input: {
   if (stopDistance <= 0) throw new Error("止损距离无效");
   const requestedRiskPct = input.riskPctOverride ?? input.profile.riskPerTradePct * clamp(input.riskScale ?? 1, 0.1, 1);
   const riskAmount = input.equityUsdt * requestedRiskPct / 100;
-  const riskQuantity = riskAmount / stopDistance;
+  const riskPerUnit = costAdjustedRiskPerUnit({
+    entryPrice: input.evaluation.entryPrice,
+    stopLoss: input.evaluation.stopLoss,
+  });
+  const riskQuantity = riskAmount / riskPerUnit;
   const environment = getBitgetDemoEnvironment();
   const maxNotional = environment.mode === "LIVE_EXPERIMENT"
     ? Math.min(input.equityUsdt * 0.3, environment.liveMaxPositionNotionalUsdt)
     : input.equityUsdt * MAX_POSITION_NOTIONAL_PCT / 100;
   const cappedQuantity = Math.min(riskQuantity, maxNotional / input.evaluation.entryPrice);
-  const contract = await getContractConfig(input.symbol);
+  const contract = input.contract ?? await getContractConfig(input.symbol);
   const minNotionalQuantity = contract.minOrderAmount > 0
     ? contract.minOrderAmount / input.evaluation.entryPrice
     : 0;
@@ -3177,7 +3238,7 @@ async function calculatePositionSize(input: {
   if (contract.minOrderAmount > 0 && normalized * input.evaluation.entryPrice + 1e-9 < contract.minOrderAmount) {
     throw new Error(`${input.symbol}最小订单金额要求${contract.minOrderAmount} USDT，当前风险预算不足以形成合规订单`);
   }
-  const actualRisk = normalized * stopDistance;
+  const actualRisk = normalized * riskPerUnit;
   const actualRiskPct = actualRisk / input.equityUsdt * 100;
   if (actualRiskPct > requestedRiskPct * 1.05) {
     throw new Error(`最小下单量会使实际风险${round(actualRiskPct, 3)}%超过预算${round(requestedRiskPct, 3)}%`);
@@ -3186,6 +3247,36 @@ async function calculatePositionSize(input: {
     quantity: normalized,
     riskAmountUsdt: round(actualRisk, 4),
     riskPct: round(actualRiskPct, 4),
+  };
+}
+
+async function normalizeExecutionEvaluation(input: {
+  symbol: BitgetSupportedSymbol;
+  direction: ThreeHorizonDirection;
+  strategyType: ThreeHorizonStrategyType;
+  evaluation: EvaluationResult;
+}): Promise<{ evaluation: EvaluationResult; contract: BitgetContractConfig; netRewardRisk: number }> {
+  const contract = await getContractConfig(input.symbol);
+  if (!contract.available) throw new Error(`${input.symbol}当前不是可交易合约`);
+  if (input.direction !== "LONG" && input.direction !== "SHORT") {
+    throw new Error("中性方向不得进入交易所价格归一化与下单流程");
+  }
+  const normalized = normalizeExecutionPriceGeometry({
+    direction: input.direction,
+    entryPrice: input.evaluation.entryPrice,
+    stopLoss: input.evaluation.stopLoss,
+    target1: input.evaluation.target1,
+    target2: input.evaluation.target2,
+    contract,
+    maxStopDistancePct: input.strategyType === "INTRADAY" ? 1.5 : undefined,
+    minNetRewardRisk: MIN_NET_REWARD_RISK,
+  });
+  if (!normalized.ok) throw new Error(normalized.reason);
+  const { entryPrice, stopLoss, target1, target2, netRewardRisk } = normalized.value;
+  return {
+    contract,
+    netRewardRisk,
+    evaluation: { ...input.evaluation, entryPrice, stopLoss, target1, target2 },
   };
 }
 
@@ -3424,11 +3515,19 @@ async function executeReadyDecision(input: {
     marginAmount: number;
     notionalAmount: number;
   };
+  let executionEvaluation = input.evaluation;
   try {
     const equityUsdt = input.risk.equityUsdt;
     if (equityUsdt == null || equityUsdt <= 0) {
       throw new Error(environment.mode === "LIVE_EXPERIMENT" ? "未检测到实盘实验资金" : "未检测到可用模拟资金");
     }
+    const normalized = await normalizeExecutionEvaluation({
+      symbol: input.decision.symbol as BitgetSupportedSymbol,
+      direction: input.decision.direction,
+      strategyType: input.profile.strategyType,
+      evaluation: input.evaluation,
+    });
+    executionEvaluation = normalized.evaluation;
     if (environment.mode === "LIVE_EXPERIMENT") {
       if (!unifiedSetting) throw new Error(`${unifiedHorizon}实盘周期设置不可用`);
       const availableMargin = Math.min(input.risk.availableUsdt ?? equityUsdt, equityUsdt);
@@ -3439,8 +3538,8 @@ async function executeReadyDecision(input: {
       const calculated = calculateUnifiedLivePositionSize({
         equity: equityUsdt,
         availableMargin,
-        entryPrice: input.evaluation.entryPrice ?? 0,
-        stopPrice: input.evaluation.stopLoss ?? 0,
+        entryPrice: executionEvaluation.entryPrice ?? 0,
+        stopPrice: executionEvaluation.stopLoss ?? 0,
         sizingMode: unifiedSetting.sizingMode,
         sizingValue: unifiedSetting.sizingValue,
         leverage: Math.min(unifiedSetting.leverage, environment.leverage),
@@ -3448,9 +3547,9 @@ async function executeReadyDecision(input: {
         maxLossPercent: liveRiskBudgetPct,
       });
       if (!calculated.accepted) throw new Error(`Unified Live仓位计算拒绝：${calculated.reason ?? "UNKNOWN"}`);
-      const entryPrice = input.evaluation.entryPrice ?? 0;
-      const stopPrice = input.evaluation.stopLoss ?? 0;
-      const contract = await getContractConfig(input.decision.symbol as BitgetSupportedSymbol);
+      const entryPrice = executionEvaluation.entryPrice ?? 0;
+      const stopPrice = executionEvaluation.stopLoss ?? 0;
+      const contract = normalized.contract;
       if (!(entryPrice > 0) || !(stopPrice > 0)) throw new Error("Unified Live入场价或止损价无效");
       // V7.20.10.2: LIVE must honor the same bounded riskScale used by Bazi,
       // BTC/ETH divergence and the October flash-crash risk prior. Earlier LIVE sizing
@@ -3462,7 +3561,7 @@ async function executeReadyDecision(input: {
       const notionalAmount = normalizedQuantity * entryPrice;
       const marginAmount = notionalAmount / calculated.leverage;
       const stopDistancePercent = Math.abs(entryPrice - stopPrice) / entryPrice * 100;
-      const projectedLoss = notionalAmount * ((stopDistancePercent + 0.16) / 100);
+      const projectedLoss = notionalAmount * ((stopDistancePercent + TRADING_ROUND_TRIP_COST_PCT) / 100);
       const riskPct = projectedLoss / equityUsdt * 100;
       if (riskPct > liveRiskBudgetPct + 1e-9) {
         throw new Error(`归一化后风险${round(riskPct, 4)}%超过本单已预留${round(liveRiskBudgetPct, 4)}%预算`);
@@ -3478,16 +3577,17 @@ async function executeReadyDecision(input: {
     } else {
       const calculated = await calculatePositionSize({
         profile: input.profile,
-        evaluation: input.evaluation,
+        evaluation: executionEvaluation,
         equityUsdt,
         symbol: input.decision.symbol as BitgetSupportedSymbol,
-        riskScale: input.evaluation.riskScale,
+        riskScale: executionEvaluation.riskScale,
+        contract: normalized.contract,
       });
       sizing = {
         ...calculated,
         leverage: environment.leverage,
-        marginAmount: round(calculated.quantity * (input.evaluation.entryPrice ?? 0) / environment.leverage, 4),
-        notionalAmount: round(calculated.quantity * (input.evaluation.entryPrice ?? 0), 4),
+        marginAmount: round(calculated.quantity * (executionEvaluation.entryPrice ?? 0) / environment.leverage, 4),
+        notionalAmount: round(calculated.quantity * (executionEvaluation.entryPrice ?? 0), 4),
       };
     }
   } catch (error) {
@@ -3511,6 +3611,10 @@ async function executeReadyDecision(input: {
     quantity: sizing.quantity,
     riskAmountUsdt: sizing.riskAmountUsdt,
     riskPct: sizing.riskPct,
+    entryPrice: executionEvaluation.entryPrice,
+    stopLoss: executionEvaluation.stopLoss,
+    target1: executionEvaluation.target1,
+    target2: executionEvaluation.target2,
     rejectionCode: input.evaluation.executionTier === "PROBE" ? "PROBE_ENTRY" : "",
     rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "完整确认仓"}通过组合风控与交易所规格预检，准备提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单。`,
     entryStage: 0,
@@ -3528,6 +3632,7 @@ async function executeReadyDecision(input: {
       stopLoss: current.stopLoss ?? undefined,
       takeProfit: current.target2 ?? undefined,
     });
+    const submittedAt = new Date();
     current = await updateDecision(current.id, {
       status: "ORDER_SUBMITTED",
       clientOid: order.clientOid,
@@ -3536,6 +3641,8 @@ async function executeReadyDecision(input: {
       riskAmountUsdt: sizing.riskAmountUsdt,
       riskPct: sizing.riskPct,
       entryStage: 1,
+      openedAt: submittedAt,
+      maxHoldingUntil: new Date(submittedAt.getTime() + input.profile.maxHoldingMinutes * 60_000),
       rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "确认仓"}已提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}，风险${round(sizing.riskPct, 3)}%，使用逐仓${sizing.leverage}倍并预设第二目标。${order.warnings.join("；")}`,
     });
     let custodyRegistrationFailed = false;
@@ -3551,13 +3658,13 @@ async function executeReadyDecision(input: {
           notionalAmount: sizing.notionalAmount,
           quantity: Number(order.size),
           leverage: sizing.leverage,
-          entryPrice: current.entryPrice ?? input.evaluation.entryPrice ?? 0,
+          entryPrice: current.entryPrice ?? executionEvaluation.entryPrice ?? 0,
           stopPrice: current.stopLoss,
           target1: current.target1,
           target2: current.target2,
           maxHoldMinutes: input.profile.maxHoldingMinutes,
           sourceKind: `THREE_HORIZON_${input.profile.strategyType}`,
-          technicalEntry: input.evaluation.conditions.find((condition) => condition.key === "entry")?.value ?? null,
+          technicalEntry: executionEvaluation.conditions.find((condition) => condition.key === "entry")?.value ?? null,
           liuyaoDirection: lockedLiuyaoDirection(input.forecastPlan, input.profile.strategyType),
         });
       } catch (registryError) {
@@ -3865,7 +3972,9 @@ export async function runThreeHorizonStrategyEngine(
     positions: positions
       .filter((row) => row.total > 0)
       .map((row) => ({ symbol: row.symbol, side: row.posSide })),
-    protections: protections.map((row) => ({ symbol: row.symbol, side: row.posSide })),
+    protections: protections.flatMap((row) => row.posSide
+      ? [{ symbol: row.symbol, side: row.posSide }]
+      : []),
     activeDecisions: management.activeLedger,
   });
   const candleCache = new Map<string, CandleSet>();
@@ -4261,7 +4370,7 @@ export async function runThreeHorizonStrategyEngine(
         decision.conditionsTotal > 0 &&
         decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.25)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
-        decisionRewardRisk(decision) >= 1.05 &&
+        decisionRewardRisk(decision) >= MIN_NET_REWARD_RISK &&
         !reservedSymbols.has(decision.symbol) &&
         !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
         !protections.some((row) => row.symbol === decision.symbol)
@@ -4287,7 +4396,7 @@ export async function runThreeHorizonStrategyEngine(
         riskPerTradePct: Math.min(baseProfile.riskPerTradePct, LIVE_ACTIVITY_PROBE_RISK_PCT),
         planningMinConfidence: 38,
         minConfidence: Math.max(38, Math.min(candidate.confidence, 44)),
-        maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 180),
+        maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, ULTRA_SHORT_MAX_HOLDING_MINUTES),
         maxTradesPerDay: environment.liveMaxTradesPerDay,
       };
       const entryConfirmed = candidate.conditions.some((condition) => condition.key === "entry" && condition.met);
@@ -4440,7 +4549,7 @@ export async function runThreeHorizonStrategyEngine(
         decision.conditionsTotal > 0 &&
         decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.35)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
-        decisionRewardRisk(decision) >= 1.05 &&
+        decisionRewardRisk(decision) >= MIN_NET_REWARD_RISK &&
         !reservedSymbols.has(decision.symbol) &&
         !positions.some((row) => row.symbol === decision.symbol && row.total > 0) &&
         !protections.some((row) => row.symbol === decision.symbol)
@@ -4463,7 +4572,7 @@ export async function runThreeHorizonStrategyEngine(
         riskPerTradePct: Math.min(baseProfile.riskPerTradePct, DEMO_ACTIVITY_PROBE_RISK_PCT),
         planningMinConfidence: 40,
         minConfidence: Math.max(40, Math.min(candidate.confidence, 46)),
-        maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 180),
+        maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, ULTRA_SHORT_MAX_HOLDING_MINUTES),
         maxTradesPerDay: DEMO_GLOBAL_TRADE_CAP,
       };
       const evaluation: EvaluationResult = {
@@ -4597,7 +4706,7 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? "实盘主动执行已开启：短线每分钟扫描，短线每日/中线每周/长线每月各最多5笔；只有正式方向、真实收盘触发、计划锁和硬风控全部通过才下单，不为凑数交易。"
+        ? "实盘主动执行已开启：超短线每分钟扫描，超短线每日/中线每周/长线每月各最多5笔；只有正式方向、1分钟真实收盘触发、计划锁和硬风控全部通过才下单，不为凑数交易。"
         : "实盘主动执行未获授权：请检查MOOX_TRADING_CONTROL_MODE与BITGET_LIVE_CONFIRMATION。"
       : executionEnvironmentAllowed
         ? `主动Demo执行已开启：动态候选扫描、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效；不再按成交数量晋级候选。`
@@ -4640,7 +4749,7 @@ export async function getThreeHorizonPublicStrategies(
       enabled: profile.enabled,
       mode: profile.mode,
       modeLabel: profile.mode === "LIVE" ? "Bitget实盘实验" : profile.mode === "DEMO" ? "Bitget Demo模拟执行" : "影子观察",
-      holdingLabel: profile.strategyType === "INTRADAY" ? "30分钟～8小时" : profile.strategyType === "SWING" ? "1～7天" : "1～4周",
+      holdingLabel: profile.strategyType === "INTRADAY" ? "30～90分钟" : profile.strategyType === "SWING" ? "1～7天" : "1～4周",
       timeframeLabel: `${profile.environmentTimeframe}环境 / ${profile.directionTimeframe}方向 / ${profile.entryTimeframe}入场`,
       riskPerTradePct: profile.riskPerTradePct,
       lastScanAt: profile.lastScanAt,

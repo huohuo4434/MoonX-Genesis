@@ -14,7 +14,7 @@ export type ReliabilityDecisionIdentity = {
 
 export type ReliabilityProtectionIdentity = {
   symbol: string;
-  posSide: "long" | "short";
+  posSide: "long" | "short" | null;
 };
 
 export type ReliabilityPositionClassification<TDecision extends ReliabilityDecisionIdentity> =

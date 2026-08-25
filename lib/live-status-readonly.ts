@@ -98,7 +98,7 @@ export type ReadOnlyLiveDecision = {
 };
 
 const profileMeta = {
-  INTRADAY: { label: "短线", environmentTimeframe: "4H", directionTimeframe: "30m", entryTimeframe: "5m/1m" },
+  INTRADAY: { label: "超短线", environmentTimeframe: "4H", directionTimeframe: "30m", entryTimeframe: "5m结构/1m触发" },
   SWING: { label: "中线", environmentTimeframe: "1D/1W", directionTimeframe: "4H", entryTimeframe: "1H" },
   POSITION: { label: "长线", environmentTimeframe: "1M/1W", directionTimeframe: "1D", entryTimeframe: "4H" },
 } as const;

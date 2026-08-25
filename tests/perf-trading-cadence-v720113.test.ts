@@ -87,12 +87,13 @@ test("页面首屏不再同步等待交易所，多方观点使用共享短缓�
   assert.match(alphaCache, /revalidate: 60/);
 });
 
-test("短线每分钟扫描但1分钟不能替代5分钟入场，三周期有独立数量上限", () => {
+test("超短线每分钟扫描并由1分钟收盘触发，三周期有独立数量上限", () => {
   const engine = read("lib/trading-signals/three-horizon-strategy.ts");
   assert.match(engine, /entryTimeframe: "5m\/1m"/);
   assert.match(engine, /scanIntervalMinutes: 1/);
-  assert.match(engine, /const entryMet = strictChanTrigger \|\| rightSideTrigger/);
-  assert.match(engine, /label: "1分钟成交微调"[\s\S]*weight: 0/);
+  assert.match(engine, /microTrigger && \(strictChanTrigger \|\| rightSideTrigger\)/);
+  assert.match(engine, /label: "1分钟超短线触发"[\s\S]*weight: 10/);
+  assert.match(engine, /ULTRA_SHORT_MAX_HOLDING_MINUTES/);
   assert.match(engine, /strategyType === "SWING"[\s\S]*beijingStartOfWeek/);
   assert.match(engine, /strategyType === "POSITION"[\s\S]*beijingStartOfMonth/);
   assert.match(engine, /HORIZON_PERIOD_TRADE_CAP/);
@@ -112,7 +113,7 @@ test("Unified Live只记录可追溯六爻来源，综合正式预测不冒充�
   assert.match(store, /liuyaoDirection: input\.liuyaoDirection \?\? null/);
 });
 
-test("必需周期按策略隔离失败，可选1分钟失败不会拖死短线", () => {
+test("必需周期按策略隔离失败，1分钟缺失只让超短线继续等待而不影响其他周期", () => {
   const engine = read("lib/trading-signals/three-horizon-strategy.ts");
   assert.match(engine, /Promise\.allSettled/);
   assert.match(engine, /\["5m", "30m", "4H"\]/);

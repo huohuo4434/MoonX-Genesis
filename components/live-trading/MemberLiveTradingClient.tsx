@@ -246,8 +246,8 @@ type LiveStatusPayload = {
   } | null;
 };
 
-const labels = { SHORT: "短线 2—6小时", MEDIUM: "中线 1—7天", LONG: "长线 1—4周" } as const;
-const horizonName: Record<string, string> = { INTRADAY: "短线", SWING: "中线", POSITION: "长线", SHORT: "短线", MEDIUM: "中线", LONG: "长线" };
+const labels = { SHORT: "超短线 30—90分钟", MEDIUM: "中线 1—7天", LONG: "长线 1—4周" } as const;
+const horizonName: Record<string, string> = { INTRADAY: "超短线", SWING: "中线", POSITION: "长线", SHORT: "超短线", MEDIUM: "中线", LONG: "长线" };
 const defaultSettings: Setting[] = [
   { horizon: "SHORT", enabled: true, sizingMode: "FIXED_MARGIN", sizingValue: 200, leverage: 2, maxOpenPositions: 2, maxLossPercent: 0.35, dailyLossPercent: 1, weeklyLossPercent: 2.5, maxMarginUsePercent: 20, target1ReducePercent: 30, isolatedMargin: true },
   { horizon: "MEDIUM", enabled: true, sizingMode: "EQUITY_PERCENT", sizingValue: 8, leverage: 2, maxOpenPositions: 2, maxLossPercent: 0.5, dailyLossPercent: 1, weeklyLossPercent: 2.5, maxMarginUsePercent: 25, target1ReducePercent: 35, isolatedMargin: true },
@@ -689,7 +689,7 @@ export default function MemberLiveTradingClient() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">三周期自动扫描诊断</h2>
-              <p className="mt-1 text-sm text-slate-400">短线为4H环境 → 30分钟主线段 → 5分钟执行；这里直接告诉你今天扫描了多少、为什么没下单。</p>
+              <p className="mt-1 text-sm text-slate-400">超短线为4H风险环境 → 30分钟方向背景 → 5分钟结构 → 1分钟收盘触发；60分钟无推进退出，90分钟绝对退出。</p>
             </div>
             <p className="text-xs text-slate-500">诊断更新时间：{fmtTime(diagnostics?.generatedAt)}</p>
           </div>

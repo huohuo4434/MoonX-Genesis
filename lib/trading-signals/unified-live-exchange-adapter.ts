@@ -6,6 +6,7 @@ import type {
   UnifiedLiveExchangeOrder,
   UnifiedLiveExchangePosition,
 } from "@/types/unified-live-trading";
+import { mapUnifiedLiveProtectionOrder } from "@/lib/trading-signals/unified-live-exchange-mapping-core";
 
 /**
  * MOOX V7.20.10.0
@@ -38,15 +39,7 @@ export async function readUnifiedLiveExchangeSnapshot(): Promise<{
         marginMode: position.marginMode,
         updatedAt: position.createdAt,
       })),
-      orders: protections.map((order) => ({
-        orderKey: order.orderId || order.clientOid,
-        symbol: order.symbol,
-        side: order.posSide,
-        reduceOnly: true,
-        stopLoss: order.stopLoss != null && order.stopLoss > 0,
-        takeProfit: order.takeProfit != null && order.takeProfit > 0,
-        status: "TPSL_PENDING",
-      })),
+      orders: protections.map(mapUnifiedLiveProtectionOrder),
     };
   } catch {
     // Fail closed.  The custody layer converts snapshot unavailability into a
