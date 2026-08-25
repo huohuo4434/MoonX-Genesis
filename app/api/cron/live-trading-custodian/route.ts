@@ -5,6 +5,10 @@ import { persistStrategyEnsembleSnapshot } from "@/lib/trading-signals/strategy-
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// Custody runs first. The research-only ensemble may still perform up to nine
+// sequential 15-second market reads, so retain the same 300-second budget as
+// the primary trading runner instead of allowing Vercel to cut off the response.
+export const maxDuration = 300;
 
 function authorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;

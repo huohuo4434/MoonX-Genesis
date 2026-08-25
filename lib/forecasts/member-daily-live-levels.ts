@@ -9,6 +9,10 @@ import {
   getIntradayTechnicalLevelMap,
   type IntradayTechnicalLevels,
 } from "@/lib/market-data/intraday-chan-levels";
+import {
+  isPlausibleMemberTechnicalScale,
+  numericLevelValues,
+} from "@/lib/forecasts/member-daily-level-sanity-core";
 
 export type MemberDailyTechnicalView = {
   support: string;
@@ -150,7 +154,11 @@ export function deriveMemberDailyTechnicalViewFromBars(
   barsInput: Ohlc[]
 ): MemberDailyTechnicalView | null {
   const bars = barsInput
-    .filter((bar) => [bar.open, bar.high, bar.low, bar.close].every((value) => Number.isFinite(value) && value > 0))
+    .filter((bar) => {
+      const values = [bar.open, bar.high, bar.low, bar.close];
+      return values.every((value) => Number.isFinite(value) && value > 0)
+        && isPlausibleMemberTechnicalScale(forecast.symbol, values);
+    })
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-12);
   const last = bars.at(-1);
@@ -196,7 +204,8 @@ function snapshotView(forecast: DailyForecast): MemberDailyTechnicalView | null 
     !Number.isFinite(supportValue) ||
     !Number.isFinite(resistanceValue) ||
     supportValue <= 0 ||
-    resistanceValue <= 0
+    resistanceValue <= 0 ||
+    !isPlausibleMemberTechnicalScale(forecast.symbol, [supportValue, resistanceValue])
   ) return null;
   const asset = assetKeyFromSymbol(levelSymbol(forecast.symbol));
   const support = formatAssetPrice(supportValue, asset).display;
@@ -214,6 +223,12 @@ function lockedView(forecast: DailyForecast): MemberDailyTechnicalView | null {
   const supportRaw = forecast.supportLevels?.[0];
   const resistanceRaw = forecast.resistanceLevels?.[0];
   if (!containsPrice(supportRaw) || !containsPrice(resistanceRaw)) return null;
+  if (
+    !isPlausibleMemberTechnicalScale(
+      forecast.symbol,
+      [...numericLevelValues(supportRaw!), ...numericLevelValues(resistanceRaw!)],
+    )
+  ) return null;
   const support = stripLevel(supportRaw!);
   const resistance = stripLevel(resistanceRaw!);
   const direction = forecast.directionLabel || forecast.direction;
@@ -240,7 +255,16 @@ export async function buildMemberDailyTechnicalViews(
 
   for (const forecast of forecasts) {
     const live = intraday[normalizeSymbol(forecast.symbol)];
-    if (live && live.source !== "UNAVAILABLE") {
+    if (
+      live &&
+      live.source !== "UNAVAILABLE" &&
+      isPlausibleMemberTechnicalScale(
+        forecast.symbol,
+        [live.currentPrice, live.supportValue, live.resistanceValue].filter(
+          (value): value is number => typeof value === "number",
+        ),
+      )
+    ) {
       const direction = forecast.directionLabel || forecast.direction;
       output[forecast.id] = {
         support: live.support,

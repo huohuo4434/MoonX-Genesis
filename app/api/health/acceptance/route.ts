@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { acceptanceReportFreshness } from "@/lib/health/acceptance-freshness-core";
 
 /** Public read of latest smoke acceptance summary (no secrets). */
 export async function GET() {
@@ -13,7 +14,13 @@ export async function GET() {
   }
   try {
     const json = JSON.parse(await data.text()) as Record<string, unknown>;
-    return NextResponse.json(json);
+    const servedAt = new Date();
+    const freshness = acceptanceReportFreshness({ reportAt: json.at, servedAt });
+    return NextResponse.json({
+      ...json,
+      servedAt: servedAt.toISOString(),
+      ...freshness,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ ok: false, error: "invalid report" }, { status: 500 });
   }

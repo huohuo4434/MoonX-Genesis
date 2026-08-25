@@ -13,6 +13,8 @@ const store = read("lib/trading-signals/unified-live-store.ts");
 const adapter = read("lib/trading-signals/unified-live-exchange-adapter.ts");
 const custody = read("lib/trading-signals/unified-live-custody-core.ts");
 const adminLive = read("app/api/admin/live-trading/route.ts");
+const unifiedRuntime = read("lib/trading-signals/unified-live-runtime.ts");
+const custodianCron = read("app/api/cron/live-trading-custodian/route.ts");
 const memberLive = read("app/api/member/live-trading/route.ts");
 const memberSettings = read("app/api/member/live-trading/settings/route.ts");
 const memberClient = read("components/live-trading/MemberLiveTradingClient.tsx");
@@ -79,6 +81,22 @@ test("unified custody reads authoritative UTA positions and protection orders an
   assert.match(adapter, /getBitgetDemoPendingStrategyOrders/);
   assert.match(adapter, /available: false, positions: \[\], orders: \[\]/);
   assert.doesNotMatch(adapter, /live-admin-snapshot/);
+});
+
+test("custody status GET is read-only and the explicit cron retains enough time to reconcile", () => {
+  const getBody = adminLive.slice(
+    adminLive.indexOf("export async function GET"),
+    adminLive.indexOf("export async function POST"),
+  );
+  assert.match(getBody, /inspectUnifiedLiveCustody/);
+  assert.doesNotMatch(getBody, /runUnifiedLiveCustodyCycle|getUnifiedLiveRuntimeStatus|setUnifiedLiveMode/);
+  const inspection = unifiedRuntime.slice(
+    unifiedRuntime.indexOf("export async function inspectUnifiedLiveCustody"),
+    unifiedRuntime.indexOf("export async function getUnifiedLiveRuntimeStatus"),
+  );
+  assert.doesNotMatch(inspection, /ensureUnifiedLiveAccount|markUnifiedLiveManualClosures|recordUnifiedLiveEvents|setUnifiedLiveMode/);
+  assert.match(custodianCron, /export const maxDuration = 300/);
+  assert.match(custodianCron, /runUnifiedLiveCustodyCycle/);
 });
 
 test("admin member page controls official 1000U settings, ordinary members remain local-agent scoped", () => {

@@ -86,6 +86,47 @@ export async function runUnifiedLiveCustodyCycle(input: {
   };
 }
 
+/**
+ * Read-only custody inspection for GET/status surfaces. It performs exchange
+ * GETs and the pure audit only; it never creates accounts, closes slices,
+ * records events, or changes the account mode.
+ */
+export async function inspectUnifiedLiveCustody(ownerKey = "official") {
+  const stored = await getUnifiedLiveAccount(ownerKey);
+  if (stored.migrationRequired || !stored.account) {
+    return {
+      migrationRequired: stored.migrationRequired,
+      account: stored.account,
+      audit: null as UnifiedLiveCustodyAudit | null,
+      exchangePositions: [],
+    };
+  }
+  const exchange = await readUnifiedLiveExchangeSnapshot();
+  const slices = stored.account.slices.map((slice: StoredUnifiedLiveSlice) => ({
+    id: slice.id,
+    symbol: slice.symbol,
+    horizon: slice.horizon as "SHORT" | "MEDIUM" | "LONG",
+    side: slice.side as "LONG" | "SHORT",
+    status: slice.status,
+    quantity: slice.quantity,
+    openedAt: slice.openedAt,
+    maxHoldMinutes: slice.maxHoldMinutes,
+    exchangePositionKey: slice.exchangePositionKey,
+  }));
+  const audit = auditUnifiedLiveCustody({
+    snapshotAvailable: exchange.available,
+    positions: exchange.positions,
+    orders: exchange.orders,
+    slices,
+  });
+  return {
+    migrationRequired: false,
+    account: stored.account,
+    audit,
+    exchangePositions: exchange.positions,
+  };
+}
+
 export async function getUnifiedLiveRuntimeStatus(ownerKey = "official") {
   const ensured = await ensureUnifiedLiveAccount({ ownerKey, accountScope: ownerKey === "official" ? "OFFICIAL" : "MEMBER" });
   if (!ensured.ok) return { migrationRequired: true, account: null, audit: null as UnifiedLiveCustodyAudit | null };

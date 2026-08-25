@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
 import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
-import { getUnifiedLiveRuntimeStatus, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import { getUnifiedLiveRuntimeStatus, inspectUnifiedLiveCustody, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { claimUnifiedLivePosition, setUnifiedLiveMode } from "@/lib/trading-signals/unified-live-store";
 import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
 
@@ -16,7 +16,9 @@ async function requireAdmin(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  return NextResponse.json(await getUnifiedLiveRuntimeStatus("official"));
+  return NextResponse.json(await inspectUnifiedLiveCustody("official"), {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 export async function POST(request: NextRequest) {

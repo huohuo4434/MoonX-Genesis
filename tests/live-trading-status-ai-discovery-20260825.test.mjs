@@ -30,8 +30,10 @@ test("member live status is bounded and never reports unknown state as clear", (
   assert.match(route, /liveConfigured/);
   assert.match(client, /disabled=\{busy \|\| !activation\?\.eligibleForServerPreflight\}/);
   assert.match(client, /提交完整审计并启用1000U实盘/);
-  assert.match(page, /getAccessUser/);
-  assert.match(page, /!access\.isActiveMember/);
+  assert.match(page, /getMemberDevicePageAccess/);
+  assert.match(page, /MEMBERSHIP_REQUIRED/);
+  assert.match(page, /DEVICE_REQUIRED/);
+  assert.match(page, /MemberDeviceHeartbeat/);
   assert.doesNotMatch(readOnly, /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i);
 });
 

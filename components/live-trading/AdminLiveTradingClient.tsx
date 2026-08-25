@@ -114,7 +114,7 @@ export default function AdminLiveTradingClient() {
             className="rounded-xl border border-white/15 px-4 py-2"
             onClick={() => action({ action: "RUN_AUDIT" })}
           >
-            立即只读审计
+            立即执行托管对账
           </button>
           <button
             className="rounded-xl bg-amber-500/20 px-4 py-2 text-amber-200"

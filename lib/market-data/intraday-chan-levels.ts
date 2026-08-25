@@ -10,6 +10,10 @@ import {
   formatStructuralPrice,
   type ChanLevelSource,
 } from "@/lib/market-data/chan-structural-levels-core";
+import {
+  HSTECH_MIN_INDEX_LEVEL,
+  HSTECH_YAHOO_SYMBOL,
+} from "@/lib/market-data/quote-symbols";
 
 export const MOOX_INTRADAY_LEVEL_VERSION = "GAOSHAN_CHAN_4H_PRIMARY_V2_20260823";
 
@@ -55,7 +59,9 @@ const TARGETS: Readonly<Record<string, ChanInstrument | null>> = Object.freeze({
   GOLD: YAHOO("GOLD", "GC=F", "INDEX_COMMODITY"),
   SILVER: YAHOO("SILVER", "SI=F", "INDEX_COMMODITY"),
   SHCOMP: YAHOO("SHCOMP", "000001.SS", "INDEX_COMMODITY"),
-  HSTECH: YAHOO("HSTECH", "^HSTECH", "INDEX_COMMODITY"),
+  // Yahoo's ^HSTECH endpoint currently returns 404 while HSTECH.HK is the
+  // canonical index feed. Never fall back to 3033.HK (an ETF priced in units).
+  HSTECH: YAHOO("HSTECH", HSTECH_YAHOO_SYMBOL, "INDEX_COMMODITY"),
 
   "FOCUS:GANFENG-LITHIUM": YAHOO("002460.SZ", "002460.SZ"),
   "FOCUS:LIAN-TECH": YAHOO("300784.SZ", "300784.SZ"),
@@ -122,6 +128,14 @@ export function deriveIntradayTechnicalLevels(
 ): IntradayTechnicalLevels | null {
   const derived = deriveChanStructuralLevels({ candles: candlesInput, timeframe });
   if (!derived) return null;
+  if (
+    canonicalKey(key) === "HSTECH" &&
+    [derived.currentPrice, derived.supportValue, derived.resistanceValue].some(
+      (value) => !Number.isFinite(value) || value < HSTECH_MIN_INDEX_LEVEL,
+    )
+  ) {
+    return null;
+  }
   return {
     key,
     support: derived.support,

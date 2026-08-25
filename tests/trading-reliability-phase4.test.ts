@@ -908,3 +908,22 @@ test("live new-exposure safety blocks late-week longs and reconciliation gaps wi
     action: "RISK_REDUCTION", direction: "LONG", authorityReadsOk: false, ledgerConsistent: false, timing,
   }).allowed, true);
 });
+
+test("unified custody inspection is read-only and reconciliation remains an explicit scheduled action", () => {
+  const adminRoute = read("app/api/admin/live-trading/route.ts");
+  const unifiedRuntime = read("lib/trading-signals/unified-live-runtime.ts");
+  const custodianCron = read("app/api/cron/live-trading-custodian/route.ts");
+  const getBody = adminRoute.slice(
+    adminRoute.indexOf("export async function GET"),
+    adminRoute.indexOf("export async function POST"),
+  );
+  assert.match(getBody, /inspectUnifiedLiveCustody/);
+  assert.doesNotMatch(getBody, /runUnifiedLiveCustodyCycle|getUnifiedLiveRuntimeStatus|setUnifiedLiveMode/);
+  const inspection = unifiedRuntime.slice(
+    unifiedRuntime.indexOf("export async function inspectUnifiedLiveCustody"),
+    unifiedRuntime.indexOf("export async function getUnifiedLiveRuntimeStatus"),
+  );
+  assert.doesNotMatch(inspection, /ensureUnifiedLiveAccount|markUnifiedLiveManualClosures|recordUnifiedLiveEvents|setUnifiedLiveMode/);
+  assert.match(custodianCron, /export const maxDuration = 300/);
+  assert.match(custodianCron, /runUnifiedLiveCustodyCycle/);
+});
