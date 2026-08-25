@@ -1,6 +1,6 @@
 import { listAnnualForecastRoadmaps2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
-export const LIUYAO_ANNUAL_COVERAGE_VERSION = "2026-08-25.v2" as const;
+export const LIUYAO_ANNUAL_COVERAGE_VERSION = "2026-08-25.v3" as const;
 
 export type AnnualCoverageRecord = {
   assetId: string;
@@ -70,6 +70,7 @@ const USER_ANNUAL_SOURCE_FILES: Readonly<Record<string, string>> = {
   hstech: "恒生科技/2026.jpg", intel: "intel/重新起卦2026年走势.jpg", mu: "MU/2026.jpg", sandisk: "sandisk闪迪/2026.jpg",
   lite: "LITE/2026.jpg", nbis: "NBIS/2026.jpg", googl: "谷歌/2026.jpg", spcx: "SPCX/2026.jpg",
   asteroid: "太空狗/2026.jpg", tencent: "腾讯/2026.jpg", tsla: "特斯拉/2026.jpg", msft: "微软/2026.jpg",
+  cxmt: "长鑫/2026年.jpg",
 };
 
 export const USER_2026_CONFIRMED_ANNUAL_READINGS: readonly AnnualCoverageRecord[] = listAnnualForecastRoadmaps2026()
@@ -84,9 +85,7 @@ export const USER_2026_CONFIRMED_ANNUAL_READINGS: readonly AnnualCoverageRecord[
 
 export const LIUYAO_2026_CORE_ANNUAL_GAPS: readonly AnnualCoverageRecord[] = [] as const;
 
-export const LIUYAO_2026_LATER_ANNUAL_GAPS: readonly AnnualCoverageRecord[] = [
-  { assetId: "cxmt", assetName: "长鑫科技 / CXMT", roleZh: "A股年卦只能做背景，不能替代公司年卦。" },
-] as const;
+export const LIUYAO_2026_LATER_ANNUAL_GAPS: readonly AnnualCoverageRecord[] = [] as const;
 
 export const LIUYAO_2026_TONIGHT_PRIORITY = LIUYAO_2026_LATER_ANNUAL_GAPS;
 

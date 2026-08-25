@@ -5,9 +5,9 @@ import { getAnnualForecastRoadmap2026, listAnnualForecastRoadmaps2026 } from "..
 import { annualTrendWindowRange, buildAnnualTrendWindows } from "../lib/research/annual-key-months";
 import { MEMBER_RESEARCH_NAV } from "../config/member-channel-navigation";
 
-test("年度正式层覆盖21个资产且8月25日前不参与历史统计", () => {
+test("年度正式层覆盖22个资产且8月25日前不参与历史统计", () => {
   const rows = listAnnualForecastRoadmaps2026();
-  assert.equal(rows.length, 21);
+  assert.equal(rows.length, 22);
   assert.ok(rows.every((item) => item.locked));
   assert.ok(rows.filter((item) => item.assetId !== "intel").every((item) => item.version === 1));
   assert.ok(rows.every((item) => item.historicalScoringEligible === false));
@@ -17,7 +17,8 @@ test("年度正式层覆盖21个资产且8月25日前不参与历史统计", () 
   assert.equal(getAnnualForecastRoadmap2026("INTC")?.version, 2);
   assert.match(getAnnualForecastRoadmap2026("INTC")?.sourceHexagram ?? "", /归妹.*兑为泽/u);
   assert.equal(getAnnualForecastRoadmap2026("INTC")?.revisionHistory?.[0]?.version, 1);
-  assert.equal(getAnnualForecastRoadmap2026("CXMT"), null);
+  assert.equal(getAnnualForecastRoadmap2026("CXMT")?.assetId, "cxmt");
+  assert.match(getAnnualForecastRoadmap2026("CXMT")?.sourceHexagram ?? "", /明夷.*震为雷/u);
   assert.ok(MEMBER_RESEARCH_NAV.some((item) => item.href === "/member/annual-outlook" && item.groupKey === "forecast"));
 });
 

@@ -1,6 +1,6 @@
 import type { OfficialDirection } from "@/lib/forecasts/formal-direction";
 
-export const ANNUAL_FORECAST_ROADMAP_VERSION = "2026-08-25.v1" as const;
+export const ANNUAL_FORECAST_ROADMAP_VERSION = "2026-08-25.v2" as const;
 export const ANNUAL_FORECAST_FORWARD_FROM = "2026-08-25" as const;
 
 export type AnnualForecastMonth = {
@@ -165,6 +165,14 @@ export const ANNUAL_FORECAST_ROADMAPS_2026: readonly AnnualForecastRoadmap[] = [
     remainingYearPath: "9月偏弱，10月横向消化，11月先弱后修复，12月维持修复候选。",
     highMonthCandidates: ["2026-12"], lowMonthCandidates: ["2026-09", "2026-10"],
     months: [month("2026-09", "震荡下跌", "否象阻力仍在。", "MEDIUM"), month("2026-10", "震荡", "六合黏着，等待突破。"), month("2026-11", "先跌后涨", "解除阻滞候选。"), month("2026-12", "震荡上涨", "修复候选，仍需周卦确认。")],
+  }),
+  record({
+    assetId: "cxmt", name: "长鑫科技", symbol: "CXMT", sourceAuthority: "USER_ANNUAL", sourceCastDate: "2026-08-25",
+    sourceHexagram: "地火明夷（游魂）→震为雷（六冲），三、四爻动", sourceDigest: "7F74D7A20DFB9B2EEDCC1059320C22EECAA2715AEF490545DF211E8DCD62E155",
+    annualDirection: "先跌后涨", annualSummary: "妻财午火发动化官鬼辰土，说明价格推进后容易转成压力；官鬼丑土持世发动化妻财午火，又保留压力释放后资金重新接掌的路径。明夷游魂转震卦六冲，年度环境以先压、剧烈换手和后续修复为主，不按平稳直线上涨处理。",
+    remainingYearPath: "9月前中段修复、月底防兑现；10月继续消化估值压力；11月先弱后观察修复；12月保留震荡回升候选。",
+    highMonthCandidates: ["2026-09", "2026-12"], lowMonthCandidates: ["2026-10", "2026-11"],
+    months: [month("2026-09", "先涨后跌", "月卦与五张周卦把路径细化为前中段修复、月底转弱。", "MEDIUM"), month("2026-10", "震荡下跌", "财化鬼后的估值与风险消化候选。"), month("2026-11", "先跌后涨", "世鬼化财对应压力释放后的修复观察。"), month("2026-12", "震荡上涨", "震卦高波动中的条件式回升，不视为稳定主升。")],
   }),
   revisedRecord({
     assetId: "intel", aliases: ["intc"], name: "英特尔", symbol: "INTC", sourceAuthority: "USER_ANNUAL", sourceCastDate: "2026-08-25",

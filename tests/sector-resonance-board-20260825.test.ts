@@ -20,8 +20,7 @@ test("板块共振独立模块覆盖全部21个重点品种和本周至10月初�
   assert.ok(board.rows.every((row) => Array.isArray(row.monthKeyWeeks)));
   assert.ok(board.rows.every((row) => "annualLiuyaoDetail" in row && "monthlyLiuyaoDetail" in row));
   assert.ok(board.rows.every((row) => row.cells.every((cell) => "liuyaoDetail" in cell)));
-  assert.equal(board.rows.find((row) => row.symbol === "CXMT")?.annualDirection, null);
-  assert.ok(board.rows.filter((row) => row.symbol !== "CXMT").every((row) => row.annualDirection));
+  assert.ok(board.rows.every((row) => row.annualDirection));
 });
 
 test("板块页可展开年、月、周卦，并且不把系统发布时间冒充起卦时间", () => {
@@ -36,6 +35,20 @@ test("板块页可展开年、月、周卦，并且不把系统发布时间冒�
   assert.equal("lockedAt" in intel.annualLiuyaoDetail, false);
   const memberCopy = JSON.stringify({ annual: intel.annualLiuyaoDetail, monthly: intel.monthlyLiuyaoDetail, weekly: intel.cells.map((cell) => cell.liuyaoDetail) });
   assert.doesNotMatch(memberCopy, /老师|用户|AI/iu);
+});
+
+test("标普与纳指9月月卦、长鑫新年卦和9月月卦均进入板块详情", () => {
+  const board = buildSectorResonanceBoard();
+  const spx = board.rows.find((row) => row.symbol === "SPX");
+  const ndx = board.rows.find((row) => row.symbol === "NDX");
+  const cxmt = board.rows.find((row) => row.symbol === "CXMT");
+  assert.match(spx?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /风泽中孚/u);
+  assert.match(spx?.monthlyLiuyaoDetail?.changingHexagram ?? "", /山雷颐/u);
+  assert.match(ndx?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /兑为泽/u);
+  assert.match(cxmt?.annualLiuyaoDetail?.primaryHexagram ?? "", /地火明夷/u);
+  assert.match(cxmt?.annualLiuyaoDetail?.changingHexagram ?? "", /震为雷/u);
+  assert.match(cxmt?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /山雷颐/u);
+  assert.equal(cxmt?.monthlyLiuyaoDetail?.periodLabel, "2026-09-01—2026-09-30月卦");
 });
 
 test("六亲和生克标签只从已录入原盘证据抽取", () => {

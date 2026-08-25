@@ -3,6 +3,7 @@ import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-co
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { US_INDEX_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
 import { WEEKLY_RESEARCH_REVISIONS_20260823 } from "@/lib/data/published-weekly-research-20260823";
+import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
 import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
 import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
@@ -305,6 +306,41 @@ function monthlyContextCell(forecasts: ConvictionPeriodForecast[], week: SectorR
 }
 
 function indexForecasts(assetId: "sp500" | "nasdaq-100"): ConvictionPeriodForecast[] {
+  const monthly = CORE_MARKET_CYCLE_ADMIN_ROWS_20260801
+    .filter((item) => item.assetId === assetId && item.horizon === "MONTH")
+    .map((item) => {
+      const probabilities = item.probabilityLabel.match(/涨(\d+)%\s*\/\s*震(\d+)%\s*\/\s*跌(\d+)%/u);
+      const [primaryHexagram, changingHexagram] = item.sourceLabel.replace(/^六爻：/u, "").split("→");
+      return {
+        id: item.id,
+        assetId,
+        forecastType: "MONTH_1",
+        periodStart: item.periodStart,
+        periodEnd: item.periodEnd,
+        direction: normalizeDirection(item.direction) as ConvictionPeriodForecast["direction"],
+        upProbability: Number(probabilities?.[1] ?? 0),
+        sidewaysProbability: Number(probabilities?.[2] ?? 0),
+        downProbability: Number(probabilities?.[3] ?? 0),
+        summary: item.path,
+        expectedPath: item.path,
+        supportLevels: [],
+        resistanceLevels: [],
+        riskLevel: "高",
+        catalysts: ["完整月卦"],
+        risks: ["月卦只负责整月背景，逐周方向仍由对应周卦决定。"],
+        ichingEvidence: {
+          primaryHexagram: primaryHexagram || item.sourceLabel,
+          changingHexagram: changingHexagram || null,
+          notes: item.path,
+        },
+        version: item.version,
+        status: "published",
+        sourceType: "ICHING_RESEARCH",
+        publishedAt: "2026-08-01T11:58:00+08:00",
+        lockedAt: "2026-08-01T11:58:00+08:00",
+        validationStatus: "UNVERIFIED",
+      } satisfies ConvictionPeriodForecast;
+    });
   const current = WEEKLY_RESEARCH_REVISIONS_20260823
     .filter((item) => item.assetId === assetId && item.weekStart === "2026-08-24" && item.weekEnd === "2026-08-30")
     .sort((a, b) => b.version - a.version)[0];
@@ -334,6 +370,7 @@ function indexForecasts(assetId: "sp500" | "nasdaq-100"): ConvictionPeriodForeca
     validationStatus: "UNVERIFIED",
   }] : [];
   return [
+    ...monthly,
     ...adapted,
     ...US_INDEX_WEEKLY_REVISIONS_20260825.filter((item) => item.assetId === assetId),
   ];

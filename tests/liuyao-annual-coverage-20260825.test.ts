@@ -36,12 +36,10 @@ test("broad market annuals remain distinct after exact asset annuals are supplie
   assert.ok(USER_2026_CONFIRMED_ANNUAL_READINGS.some((item) => item.assetId === "hstech"));
 });
 
-test("all 19 new annual charts are traced and only CXMT remains missing", () => {
-  assert.equal(USER_2026_CONFIRMED_ANNUAL_READINGS.length, 19);
+test("all 20 new annual charts are traced and no focus annual remains missing", () => {
+  assert.equal(USER_2026_CONFIRMED_ANNUAL_READINGS.length, 20);
   assert.ok(USER_2026_CONFIRMED_ANNUAL_READINGS.every((item) => /^[A-F0-9]{64}$/.test(item.sourceDigest ?? "")));
-  assert.deepEqual(LIUYAO_2026_LATER_ANNUAL_GAPS.map((item) => item.assetId), ["cxmt"]);
-  assert.deepEqual(
-    LIUYAO_2026_TONIGHT_PRIORITY.map((item) => item.assetId),
-    ["cxmt"],
-  );
+  assert.ok(USER_2026_CONFIRMED_ANNUAL_READINGS.some((item) => item.assetId === "cxmt" && item.sourceFile === "长鑫/2026年.jpg"));
+  assert.deepEqual(LIUYAO_2026_LATER_ANNUAL_GAPS, []);
+  assert.deepEqual(LIUYAO_2026_TONIGHT_PRIORITY, []);
 });
