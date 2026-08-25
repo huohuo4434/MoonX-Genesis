@@ -42,6 +42,7 @@ export default async function MemberSignalsPage() {
         exampleTitle={en ? "Nasdaq monitoring example" : "纳斯达克观察信号示例"}
         exampleLines={en ? ["Direction: Bullish bias, not confirmed", "Trigger: Break resistance and hold the retest", "Invalidation: Lose structural support", "Current action: Await confirmation"] : ["MOOX方向：看涨（由玄学确定）", "技术执行：等待更合适的入场位置", "风控参考：结构支撑", "当前动作：方向不变，暂缓执行"]}
         nextPath={en ? `/en${path}` : path}
+        locale={en ? "en" : "zh"}
       /></Section></main>
     );
   }

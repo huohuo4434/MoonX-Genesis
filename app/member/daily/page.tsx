@@ -241,6 +241,7 @@ export default async function MemberDailyPage() {
       exampleTitle={en ? "BTC · Daily row example" : "BTC · 日报行示例"}
       exampleLines={en ? ["Official direction: rally then fade", "Methods: diverging · use caution", "4H support / resistance", "Invalidation: shown explicitly"] : ["正式方向：先涨后跌", "双法关系：分歧，降低信心", "4H支撑 / 压力", "失效条件：单独列明"]}
       nextPath={path}
+      locale={en ? "en" : "zh"}
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;

@@ -27,6 +27,7 @@ export default async function MemberAiTradingPage() {
       exampleTitle={en ? "Trial methodology examples" : "六套试运行方法"}
       exampleLines={en ? ["Liu Yao", "Qimen", "Liu Yao + Qimen resonance", "Liu Yao + Chan", "Qimen + Chan", "Liu Yao + Qimen + Chan resonance"] : ["六爻", "奇门", "六爻＋奇门共振", "六爻＋缠论", "奇门＋缠论", "六爻＋奇门＋缠论共振"]}
       nextPath={path}
+      locale={en ? "en" : "zh"}
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;

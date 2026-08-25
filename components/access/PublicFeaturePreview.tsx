@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "next/link";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
-import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 export function PublicFeaturePreview({
   eyebrow,
@@ -13,6 +10,7 @@ export function PublicFeaturePreview({
   exampleTitle,
   exampleLines,
   nextPath,
+  locale,
 }: {
   eyebrow: string;
   title: string;
@@ -22,8 +20,8 @@ export function PublicFeaturePreview({
   exampleTitle: string;
   exampleLines: string[];
   nextPath: string;
+  locale: "zh" | "en";
 }) {
-  const { locale } = useLocale();
   const en = locale === "en";
   return (
     <div className="mx-auto max-w-5xl space-y-6">

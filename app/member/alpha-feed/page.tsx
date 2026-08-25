@@ -451,6 +451,7 @@ export default async function AlphaFeedPage() {
       exampleTitle={en ? "Example" : "示例"}
       exampleLines={en ? ["One date · BTC · viewpoints classified", "MOOX aligned/opposite relationship stays member-only"] : ["某日 · BTC · 多空观点已归类", "与MOOX同向或相反的关系仅会员可见"]}
       nextPath={en ? `/en${path}` : path}
+      locale={en ? "en" : "zh"}
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;

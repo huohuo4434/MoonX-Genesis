@@ -30,6 +30,7 @@ export default async function MemberBtcEthCyclePage() {
           exampleTitle="周期交叉示例"
           exampleLines={["年度：方向偏弱，等待结构修复", "月度：反弹窗口存在，但信号强度中等", "周度：正式方向先由卦象确定；技术只寻找执行位置", "相对强弱：只在真实数据支持时给出"]}
           nextPath={path}
+          locale="zh"
         />
       </main>
     );

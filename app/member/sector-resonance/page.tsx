@@ -39,6 +39,7 @@ export default async function MemberSectorResonancePage() {
       exampleTitle={en ? "Semiconductor group" : "半导体板块示例"}
       exampleLines={en ? ["Intel ↑", "Micron ↑", "Sandisk ↕", "Result: aligned with one divergence"] : ["英特尔 ↑", "美光 ↑", "闪迪 ↕", "结论：总体同向，存在一项分化"]}
       nextPath={path}
+      locale={en ? "en" : "zh"}
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") {

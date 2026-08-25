@@ -37,6 +37,7 @@ export default async function MonthlyPage() {
       exampleTitle={en ? "Gold · Monthly structure example" : "黄金 · 月度结构示例"}
       exampleLines={en ? ["Scenario weights: bullish 42% / range-bound 33% / bearish 25%", "Expected path: early consolidation → mid-month rebound → confirmation near month-end", "Method relation: Liuyao-Qimen resonance or visible divergence", "Key levels appear only when verified technical data is available"] : ["情景权重：上涨 42% / 震荡 33% / 下跌 25%（不参与方向投票）", "运行路径：月初整理 → 月中反弹 → 月末观察节奏", "方法关系：奇六共振，或分歧并列并降低信心", "关键价位：仅在取得真实技术数据后展示"]}
       nextPath={path}
+      locale={en ? "en" : "zh"}
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
