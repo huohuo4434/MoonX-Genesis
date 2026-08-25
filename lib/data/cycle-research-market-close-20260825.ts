@@ -2,9 +2,9 @@ import { lt } from "@/lib/i18n/config";
 import type { ResearchRecord } from "@/types/research";
 
 /**
- * Forward-locked, anonymized closing-stage observation captured by the
- * scheduled Substack monitor on 2026-08-25. The source is retained internally;
- * member-facing wording is a concise paraphrase. This record is auxiliary,
+ * Forward-locked, anonymized U.S.-market observations captured by the
+ * scheduled Substack monitor on 2026-08-25. Sources are retained internally;
+ * member-facing wording is a concise paraphrase. These records are auxiliary,
  * consensus-ineligible and execution-ineligible.
  */
 export const cycleResearchMarketClose20260825Records: ResearchRecord[] = [
@@ -94,6 +94,113 @@ export const cycleResearchMarketClose20260825Records: ResearchRecord[] = [
       "risk-posture",
       "no-explicit-levels",
       "no-explicit-end-date",
+      "no-auto-trade",
+      "forward-locked",
+    ],
+  },
+  {
+    id: "CYCLE-RESEARCH-SPY-DOWNSIDE-20260825",
+    publishedAt: "2026-08-25",
+    sourcePublishedAt: "2026-08-25T13:57:00+08:00",
+    sourcePublishedAtVerified: true,
+    ingestedAt: "2026-08-25T09:23:28.399Z",
+    forecastStart: "2026-08-26",
+    forecastEnd: "2026-08-27",
+    expiresAt: "2026-08-28T00:00:00-04:00",
+    accessLevel: "member",
+    excludeFromHomeViews: true,
+    excludeFromLongTermConsensus: true,
+    assetId: "sp500",
+    assetName: lt("标普500", "標普500", "S&P 500"),
+    symbol: "SPX",
+    sourceSymbol: "SPY",
+    market: "index",
+    framework: "market-flow",
+    sourceType: "public-analyst",
+    internalSourceRef: "https://agentmat.substack.com/p/spx-forecast-after-aug-24-close",
+    publicSourceLabel: lt("周期预测师", "週期預測師", "Cycle Forecaster"),
+    sourceProfileId: "cycle-forecaster",
+    direction: "bearish",
+    editorialConfidence: 60,
+    consensusEligible: false,
+    horizon: lt(
+      "2026年8月26日至27日（美股交易日）",
+      "2026年8月26日至27日（美股交易日）",
+      "August 26-27, 2026 (U.S. trading dates)"
+    ),
+    title: lt(
+      "标普ETF下方Gamma目标区观察",
+      "標普ETF下方Gamma目標區觀察",
+      "S&P ETF Downside Gamma-Level Watch"
+    ),
+    summary: lt(
+      "周期预测师在8月24日收盘后的更新中指出，SPY下方仓位主要集中在760、755和750，并判断8月26日至27日至少可能触及其中两个位置。这里记录的是SPY ETF点位，不是SPX指数点位；该外部市场结构观点与MOOX已锁定的标普冲高回落风险提醒同向，只提高短期防守提醒，不修改正式周度方向。",
+      "週期預測師在8月24日收盤後的更新中指出，SPY下方倉位主要集中在760、755和750，並判斷8月26日至27日至少可能觸及其中兩個位置。這裡記錄的是SPY ETF點位，不是SPX指數點位；該外部市場結構觀點與MOOX已鎖定的標普沖高回落風險提醒同向，只提高短期防守提醒，不修改正式週度方向。",
+      "In an update after the Aug 24 close, the Cycle Forecaster identifies SPY downside positioning near 760, 755 and 750 and expects at least two of those levels may be reached on Aug 26-27. These are SPY ETF levels, not SPX index levels. The external market-structure view aligns with MOOX's locked rise-then-fade risk warning, increasing short-term caution without changing the formal weekly direction."
+    ),
+    thesis: [
+      lt(
+        "原文明确列出SPY下方仓位集中在760、755和750。",
+        "原文明確列出SPY下方倉位集中在760、755和750。",
+        "The source explicitly lists SPY downside positioning at 760, 755 and 750."
+      ),
+      lt(
+        "原文判断三个位置中至少两个可能到达，并把时间集中在8月26日至27日。",
+        "原文判斷三個位置中至少兩個可能到達，並把時間集中在8月26日至27日。",
+        "The source expects at least two of the three levels may be reached on Aug 26-27."
+      ),
+      lt(
+        "来源把这些位置归因于SPY的Gamma与仓位结构；网站不得把它们标成SPX指数目标。",
+        "來源把這些位置歸因於SPY的Gamma與倉位結構；網站不得把它們標成SPX指數目標。",
+        "The source attributes the levels to SPY gamma and positioning structure; the site must not label them as SPX index targets."
+      ),
+      lt(
+        "原文没有给出独立失效条件，也没有把该观点授权为自动交易信号。",
+        "原文沒有給出獨立失效條件，也沒有把該觀點授權為自動交易訊號。",
+        "The source gives no standalone invalidation condition and does not authorize this view as an automated-trading signal."
+      ),
+    ],
+    invalidation: lt(
+      "原文未明确失效条件；不得补造。若截至8月27日美股收盘仍未触及上述三个SPY位置中的至少两个，应在复盘中把该外部路径降级，而不是回写本条记录。",
+      "原文未明確失效條件；不得補造。若截至8月27日美股收盤仍未觸及上述三個SPY位置中的至少兩個，應在復盤中把該外部路徑降級，而不是回寫本條記錄。",
+      "The source states no invalidation condition; none is invented. If fewer than two of the three SPY levels have been reached by the Aug 27 U.S. close, this auxiliary path should be downgraded in review rather than rewriting this record."
+    ),
+    turningWindows: [
+      {
+        id: "spy-downside-window-20260826-27",
+        start: "2026-08-26",
+        end: "2026-08-27",
+        label: lt("下方Gamma位置触达窗口", "下方Gamma位置觸達窗口", "Downside gamma-level window"),
+        note: lt(
+          "按美股交易日展示；原文未明确时区。760、755、750均为SPY ETF位置。",
+          "按美股交易日展示；原文未明確時區。760、755、750均為SPY ETF位置。",
+          "Shown by U.S. trading date; the source states no timezone. The 760, 755 and 750 levels all refer to the SPY ETF."
+        ),
+      },
+    ],
+    risks: [
+      lt(
+        "该观点是市场结构辅助，只提高标普短期冲高回落风险提醒；不能覆盖或反转MOOX已锁定正式方向。",
+        "該觀點是市場結構輔助，只提高標普短期沖高回落風險提醒；不能覆蓋或反轉MOOX已鎖定正式方向。",
+        "This is an auxiliary market-structure view that only strengthens the short-term S&P fade-risk warning; it cannot override or reverse MOOX's locked direction."
+      ),
+      lt(
+        "该记录不进入正式共识计票，也不得直接触发Bitget或任何自动交易。",
+        "該記錄不進入正式共識計票，也不得直接觸發Bitget或任何自動交易。",
+        "This record is excluded from formal consensus voting and cannot directly trigger Bitget or any automated trade."
+      ),
+    ],
+    status: "active",
+    visibility: "internal",
+    tags: [
+      "sp500",
+      "spy",
+      "gex",
+      "market-flow",
+      "public-analyst",
+      "anonymous",
+      "research-only",
+      "levels-are-spy-not-spx",
       "no-auto-trade",
       "forward-locked",
     ],
