@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildSectorResonanceBoard, buildSectorTimingMarkers, SECTOR_RESONANCE_GROUP_ORDER } from "../lib/data/conviction/sector-resonance-board";
 import { listNbisPeriodForecasts } from "../lib/data/conviction/nbis-liuyao-20260811";
 import { listSandiskPeriodForecasts } from "../lib/data/conviction/sandisk-forecasts";
+import { extractMemberLiuyaoRelations } from "../lib/research/member-liuyao-detail";
 
 test("板块共振独立模块覆盖全部21个重点品种和本周至10月初六周", () => {
   const board = buildSectorResonanceBoard();
@@ -17,8 +18,37 @@ test("板块共振独立模块覆盖全部21个重点品种和本周至10月初�
   for (const symbol of required) assert.ok(board.rows.some((row) => row.symbol === symbol), `missing ${symbol}`);
   assert.ok(board.rows.every((row) => row.cells.length === board.weeks.length));
   assert.ok(board.rows.every((row) => Array.isArray(row.monthKeyWeeks)));
+  assert.ok(board.rows.every((row) => "annualLiuyaoDetail" in row && "monthlyLiuyaoDetail" in row));
+  assert.ok(board.rows.every((row) => row.cells.every((cell) => "liuyaoDetail" in cell)));
   assert.equal(board.rows.find((row) => row.symbol === "CXMT")?.annualDirection, null);
   assert.ok(board.rows.filter((row) => row.symbol !== "CXMT").every((row) => row.annualDirection));
+});
+
+test("板块页可展开年、月、周卦，并且不把系统发布时间冒充起卦时间", () => {
+  const board = buildSectorResonanceBoard();
+  const intel = board.rows.find((row) => row.symbol === "INTC");
+  assert.ok(intel?.annualLiuyaoDetail);
+  assert.match(intel.annualLiuyaoDetail.primaryHexagram, /归妹/u);
+  assert.ok(intel.annualLiuyaoDetail.keyMoments.some((item) => /9月/u.test(item.label)));
+  assert.ok(intel.monthlyLiuyaoDetail);
+  assert.ok(intel.cells.filter((cell) => cell.sourceKind === "WEEKLY").every((cell) => cell.liuyaoDetail?.horizon === "WEEK"));
+  assert.equal("publishedAt" in intel.annualLiuyaoDetail, false);
+  assert.equal("lockedAt" in intel.annualLiuyaoDetail, false);
+  const memberCopy = JSON.stringify({ annual: intel.annualLiuyaoDetail, monthly: intel.monthlyLiuyaoDetail, weekly: intel.cells.map((cell) => cell.liuyaoDetail) });
+  assert.doesNotMatch(memberCopy, /老师|用户|AI/iu);
+});
+
+test("六亲和生克标签只从已录入原盘证据抽取", () => {
+  const relations = extractMemberLiuyaoRelations([
+    "妻财申金临应，子孙辰土持世，兄弟午火发动化官鬼酉金；酉月妻财得令。",
+  ]);
+  assert.ok(relations.some((item) => item.label.startsWith("财爻")));
+  assert.ok(relations.some((item) => item.label.startsWith("子孙")));
+  assert.ok(relations.some((item) => item.label.startsWith("兄弟")));
+  assert.ok(relations.some((item) => item.label.startsWith("官鬼")));
+  assert.ok(relations.some((item) => item.label.startsWith("动变")));
+  assert.ok(relations.some((item) => item.label.startsWith("旺衰")));
+  assert.deepEqual(extractMemberLiuyaoRelations(["只有卦名，没有六亲原盘。"]), []);
 });
 
 test("周格优先显示明确关键日，没有明确日时只生成有来源标识的观察窗", () => {

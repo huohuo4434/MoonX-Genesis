@@ -6,6 +6,12 @@ import { WEEKLY_RESEARCH_REVISIONS_20260823 } from "@/lib/data/published-weekly-
 import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
 import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
+import {
+  buildAnnualLiuyaoDetail,
+  buildForecastLiuyaoDetail,
+  selectCurrentMonthlyForecast,
+  type MemberLiuyaoDetail,
+} from "@/lib/research/member-liuyao-detail";
 
 export type SectorResonanceGroup =
   | "半导体 / AI基础设施"
@@ -22,6 +28,7 @@ export type SectorResonanceCell = {
   summary: string;
   forecastId: string | null;
   timingMarkers: SectorTimingMarker[];
+  liuyaoDetail: MemberLiuyaoDetail | null;
 };
 
 export type SectorTimingMarker = {
@@ -47,6 +54,8 @@ export type SectorResonanceRow = {
   annualHighMonths: string[];
   annualLowMonths: string[];
   monthKeyWeeks: SectorMonthKeyWeek[];
+  annualLiuyaoDetail: MemberLiuyaoDetail | null;
+  monthlyLiuyaoDetail: MemberLiuyaoDetail | null;
   longCycle: string;
   cells: SectorResonanceCell[];
 };
@@ -236,6 +245,7 @@ function weeklyCell(assetId: string, forecasts: ConvictionPeriodForecast[], week
     summary: selected.expectedPath || selected.summary,
     forecastId: selected.id,
     timingMarkers: buildSectorTimingMarkers({ assetId, direction: normalizeDirection(selected.direction), periodStart: week.start, periodEnd: week.end, keyDates: selected.keyDates }),
+    liuyaoDetail: buildForecastLiuyaoDetail(selected, { horizon: "WEEK", periodLabel: `${week.label}周卦` }),
   };
 }
 
@@ -254,6 +264,16 @@ function calendarPathCell(assetId: string, forecasts: ConvictionPeriodForecast[]
       summary: path.summary,
       forecastId: forecast.id,
       timingMarkers: buildSectorTimingMarkers({ assetId, direction: normalizeDirection(path.direction), periodStart: week.start, periodEnd: week.end, keyDates: forecast.keyDates }),
+      liuyaoDetail: buildForecastLiuyaoDetail(forecast, {
+        horizon: "WEEK",
+        periodLabel: `${week.label}月卦拆分周路径`,
+        direction: normalizeDirection(path.direction),
+        primaryHexagram: path.primaryHexagram,
+        changingHexagram: path.changingHexagram,
+        interpretation: path.summary,
+        path: path.summary,
+        structureNote: path.sourceNote ?? forecast.ichingEvidence.notes,
+      }),
     };
   }
   return null;
@@ -276,6 +296,11 @@ function monthlyContextCell(forecasts: ConvictionPeriodForecast[], week: SectorR
     summary: `缺少该周完整周卦；这里只显示上级周期背景，不把它冒充周方向：${selected.summary}`,
     forecastId: selected.id,
     timingMarkers: [],
+    liuyaoDetail: buildForecastLiuyaoDetail(selected, {
+      horizon: "MONTH",
+      periodLabel: `${week.label}上级周期背景`,
+      interpretation: `该周缺少完整周卦；${selected.summary}`,
+    }),
   };
 }
 
@@ -324,7 +349,7 @@ function cellFor(assetId: string, forecasts: ConvictionPeriodForecast[], week: S
   return weeklyCell(assetId, forecasts, week)
     ?? calendarPathCell(assetId, forecasts, week)
     ?? monthlyContextCell(forecasts, week)
-    ?? { direction: "待补", sourceKind: "MISSING", sourceLabel: "待补完整周卦", summary: "该周尚无可追溯完整周卦，不从长周期硬拆方向。", forecastId: null, timingMarkers: [] };
+    ?? { direction: "待补", sourceKind: "MISSING", sourceLabel: "待补完整周卦", summary: "该周尚无可追溯完整周卦，不从长周期硬拆方向。", forecastId: null, timingMarkers: [], liuyaoDetail: null };
 }
 
 function directionSide(direction: string): "BULL" | "NEUTRAL" | "BEAR" {
@@ -361,6 +386,7 @@ export function buildSectorResonanceBoard(): {
   const rows = SECTOR_RESONANCE_ASSETS_20260825.map((definition) => {
     const forecasts = forecastsFor(definition);
     const annual = getAnnualForecastRoadmap2026(definition.assetId);
+    const monthly = selectCurrentMonthlyForecast(forecasts);
     return {
       assetId: definition.assetId,
       name: definition.name,
@@ -371,6 +397,10 @@ export function buildSectorResonanceBoard(): {
       annualHighMonths: annual?.highMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
       annualLowMonths: annual?.lowMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
       monthKeyWeeks: [],
+      annualLiuyaoDetail: annual ? buildAnnualLiuyaoDetail(annual) : null,
+      monthlyLiuyaoDetail: monthly
+        ? buildForecastLiuyaoDetail(monthly, { horizon: "MONTH", periodLabel: `${monthly.periodStart}—${monthly.periodEnd}月卦` })
+        : null,
       longCycle: annual?.remainingYearPath ?? definition.longCycle,
       cells: SECTOR_RESONANCE_WEEKS_20260825.map((week) => cellFor(definition.assetId, forecasts, week)),
     } satisfies SectorResonanceRow;

@@ -6,6 +6,7 @@ import {
   type SectorResonanceWeek,
   type SectorWeekSummary,
 } from "@/lib/data/conviction/sector-resonance-board";
+import type { MemberLiuyaoDetail } from "@/lib/research/member-liuyao-detail";
 
 function directionTone(value: string): string {
   if (/上涨|先跌后涨/u.test(value)) return "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-100";
@@ -52,6 +53,84 @@ function keyWeekTone(tone: "BULL" | "BEAR" | "TURN" | "NEUTRAL"): string {
   if (tone === "BEAR") return "border-rose-300/20 bg-rose-300/[.06] text-rose-100/75";
   if (tone === "TURN") return "border-violet-300/20 bg-violet-300/[.07] text-violet-100/80";
   return "border-amber-300/20 bg-amber-300/[.055] text-amber-100/70";
+}
+
+function relationTone(kind: MemberLiuyaoDetail["relations"][number]["kind"]): string {
+  if (kind === "FORTUNE") return "border-emerald-300/20 bg-emerald-300/[.055] text-emerald-100/80";
+  if (kind === "SOURCE") return "border-cyan-300/20 bg-cyan-300/[.055] text-cyan-100/80";
+  if (kind === "PRESSURE") return "border-rose-300/20 bg-rose-300/[.055] text-rose-100/78";
+  if (kind === "INFORMATION") return "border-amber-300/20 bg-amber-300/[.055] text-amber-100/75";
+  if (kind === "CALENDAR") return "border-violet-300/20 bg-violet-300/[.06] text-violet-100/78";
+  return "border-white/10 bg-white/[.035] text-white/58";
+}
+
+function momentTone(tone: MemberLiuyaoDetail["keyMoments"][number]["tone"]): string {
+  if (tone === "HIGH") return "border-rose-300/25 bg-rose-300/[.075] text-rose-100";
+  if (tone === "LOW") return "border-cyan-300/25 bg-cyan-300/[.075] text-cyan-100";
+  if (tone === "TURN") return "border-violet-300/25 bg-violet-300/[.075] text-violet-100";
+  if (tone === "CONFIRM") return "border-emerald-300/25 bg-emerald-300/[.075] text-emerald-100";
+  return "border-amber-300/25 bg-amber-300/[.07] text-amber-100";
+}
+
+function HexagramDetailCard({ title, detail }: { title: string; detail: MemberLiuyaoDetail | null }) {
+  if (!detail) {
+    return <article className="rounded-2xl border border-dashed border-white/10 bg-white/[.015] p-4">
+      <h4 className="text-sm font-semibold text-white/55">{title}</h4>
+      <p className="mt-3 text-xs leading-6 text-white/32">该周期卦象尚未完整录入，不用其他周期结论代替。</p>
+    </article>;
+  }
+  return <article className="rounded-2xl border border-white/[.08] bg-black/25 p-4 sm:p-5">
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-violet-100/50">{title}</p>
+        <h4 className="mt-1.5 text-base font-semibold text-white">{detail.primaryHexagram}{detail.changingHexagram ? ` → ${detail.changingHexagram}` : /静卦/u.test(detail.primaryHexagram) ? "" : " · 静卦"}</h4>
+      </div>
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        <span className={`rounded-full border px-2 py-1 ${directionTone(detail.direction)}`}>{detail.direction}</span>
+        <span className="rounded-full border border-white/10 px-2 py-1 text-white/38">V{detail.version}</span>
+        <span className={`rounded-full border px-2 py-1 ${detail.evidenceLevel === "STRUCTURED" ? "border-emerald-300/20 text-emerald-100/65" : "border-amber-300/20 text-amber-100/55"}`}>{detail.evidenceLevel === "STRUCTURED" ? "六亲结构已录入" : "摘要记录"}</span>
+      </div>
+    </div>
+    <p className="mt-2 text-[11px] text-white/35">适用周期：{detail.periodLabel}</p>
+    <div className="mt-4 grid gap-3 text-xs leading-6 sm:grid-cols-2">
+      <div className="rounded-xl border border-white/[.06] bg-white/[.02] p-3"><b className="text-white/65">结构判断</b><p className="mt-1 text-white/45">{detail.interpretation}</p></div>
+      <div className="rounded-xl border border-white/[.06] bg-white/[.02] p-3"><b className="text-white/65">周期路径</b><p className="mt-1 text-white/45">{detail.path}</p></div>
+    </div>
+    <div className="mt-3 rounded-xl border border-white/[.055] bg-black/20 p-3 text-xs leading-6 text-white/42">
+      <b className="text-white/62">原盘结构说明</b><p className="mt-1">{detail.structureNote}</p>
+    </div>
+    {detail.relations.length ? <div className="mt-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-white/35">六亲旺衰与相生相克</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {detail.relations.map((item) => <div key={`${item.label}-${item.evidence}`} className={`rounded-xl border p-3 text-[11px] leading-5 ${relationTone(item.kind)}`}><b className="block">{item.label}</b><span className="mt-1 block opacity-65">{item.evidence}</span></div>)}
+      </div>
+    </div> : <p className="mt-4 rounded-xl border border-dashed border-amber-300/15 px-3 py-2 text-[11px] leading-5 text-amber-100/45">当前原始记录没有足够的六亲旺衰细节，暂不补造生克关系。</p>}
+    {detail.keyMoments.length ? <div className="mt-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-white/35">关键时间</p>
+      <div className="flex flex-wrap gap-2">{detail.keyMoments.map((item) => <div key={`${item.label}-${item.sourceLabel}`} className={`rounded-xl border px-3 py-2 text-[11px] ${momentTone(item.tone)}`}><b>{item.label}</b><span className="ml-2 opacity-55">{item.sourceLabel}</span>{item.note ? <p className="mt-1 max-w-xl leading-5 opacity-65">{item.note}</p> : null}</div>)}</div>
+    </div> : null}
+  </article>;
+}
+
+function AssetLiuyaoDossier({ row, weeks }: { row: SectorResonanceRow; weeks: SectorResonanceWeek[] }) {
+  return <details className="group rounded-2xl border border-violet-300/10 bg-violet-300/[.025]">
+    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-white/72 marker:hidden">
+      <span>{row.name} · 年卦 / 月卦 / 周卦完整解读</span>
+      <span className="rounded-full border border-violet-300/20 px-2.5 py-1 text-[10px] text-violet-100/55 group-open:bg-violet-300/[.08]"><span className="group-open:hidden">展开详情</span><span className="hidden group-open:inline">收起详情</span></span>
+    </summary>
+    <div className="space-y-4 border-t border-white/[.055] p-4 sm:p-5">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <HexagramDetailCard title="年卦 · 年度环境与关键月" detail={row.annualLiuyaoDetail} />
+        <HexagramDetailCard title="月卦 · 月内路径与关键周" detail={row.monthlyLiuyaoDetail} />
+      </div>
+      <div>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h4 className="text-sm font-semibold text-white">逐周卦象</h4><p className="mt-1 text-[11px] text-white/35">完整周卦直接展示；月卦拆分路径会明确标注，不冒充独立周卦。</p></div></div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {row.cells.map((cell, index) => <HexagramDetailCard key={`${row.assetId}-${weeks[index]!.start}-detail`} title={`${weeks[index]!.label} · ${cell.sourceLabel}`} detail={cell.sourceKind === "MISSING" ? null : cell.liuyaoDetail} />)}
+        </div>
+      </div>
+    </div>
+  </details>;
 }
 
 function GroupTable({
@@ -121,6 +200,10 @@ function GroupTable({
           </tbody>
         </table>
       </div>
+      <div className="space-y-2 border-t border-white/[.055] bg-black/15 p-3 sm:p-4">
+        <div className="mb-3 px-1"><h3 className="text-sm font-semibold text-white">卦象完整解读</h3><p className="mt-1 text-[11px] leading-5 text-white/35">按标的展开查看年卦、月卦、逐周卦象、六亲旺衰、生克关系和关键时间。</p></div>
+        {rows.map((row) => <AssetLiuyaoDossier key={`${row.assetId}-dossier`} row={row} weeks={weeks} />)}
+      </div>
       <footer className="grid gap-2 border-t border-white/[.05] bg-white/[.015] px-4 py-3 text-[10px] text-white/35 sm:grid-cols-3">
         {weeks.map((week, index) => {
           const summary = summaries.find((item) => item.weekStart === week.start)!;
@@ -178,6 +261,9 @@ export function SectorResonanceBoard({
           <span><i className="mr-1.5 inline-block h-2 w-2 rounded-full bg-violet-300" />已录入明确关键日</span>
           <span><i className="mr-1.5 inline-block h-2 w-2 rounded-full bg-cyan-300" />周内路径转折窗</span>
           <span className="text-amber-100/40">“月度 / 上级周期背景”不计入共振强度</span>
+        </div>
+        <div className="mt-4 rounded-2xl border border-violet-300/12 bg-violet-300/[.035] px-4 py-3 text-[11px] leading-5 text-violet-100/52">
+          六爻详解顺序：先看财爻旺衰，再看子孙能否生财、兄弟是否克财、官鬼与父母形成的风险或消息作用，最后结合世应、动变、伏神、空破墓绝及目标月令／日辰判断兑现时间；不凭卦名直接判涨跌。
         </div>
       </section>
 
