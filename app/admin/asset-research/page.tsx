@@ -1,5 +1,6 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AssetResearchUploadClient } from "@/components/admin/AssetResearchUploadClient";
+import { LiuyaoAnnualCoverage2026 } from "@/components/admin/LiuyaoAnnualCoverage2026";
 import { LiuyaoCadenceGuide } from "@/components/admin/LiuyaoCadenceGuide";
 import { Heading, Section, Text } from "@/components/ui";
 
@@ -18,6 +19,9 @@ export default function AdminAssetResearchPage() {
         </Text>
         <div className="mb-6">
           <LiuyaoCadenceGuide />
+        </div>
+        <div className="mb-6">
+          <LiuyaoAnnualCoverage2026 />
         </div>
         <AssetResearchUploadClient />
       </Section>

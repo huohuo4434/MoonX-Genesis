@@ -13,6 +13,7 @@ import { VIBE_EVIDENCE_ASSETS } from "@/lib/data/vibe/assets";
 import { getVibeConnectionConfig } from "@/lib/data/vibe/client";
 import { listVibeEvidence } from "@/lib/data/vibe/store";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY } from "@/lib/research/liuyao-annual-coverage-2026";
 import { listSocialCardsForDate } from "@/lib/social-cards/store";
 
 export type SiteHealthSection = {
@@ -195,6 +196,7 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
       note: "诊断只显示是否配置和覆盖数量，不返回密钥、余额、订单号或用户资料。",
     },
     notes: [
+      `2026年卦盘点：老师年度基准${LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedTeacherAnnuals}张、年度专题${LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.supplementalTopics}张、核心独立缺口${LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.coreGaps}张；大盘背景不能替代指数或个股年卦。`,
       "六爻覆盖采用年卦、月卦、周卦主干；季卦只在重大切换或跨层级冲突时按需补充，不作为固定缺项。",
       "周末今日页只要求展示仍在交易的市场；休市市场应转至下一交易日观点，不算缺失。",
       "正式日度生成已统一使用九个核心市场流水线，不再按旧的亚洲、美股、原油批次分开生成。",

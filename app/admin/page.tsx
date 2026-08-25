@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { LiuyaoAnnualCoverage2026 } from "@/components/admin/LiuyaoAnnualCoverage2026";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
 import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
@@ -130,6 +131,8 @@ export default async function AdminHomePage() {
             <Link href="/admin/payments">处理付款</Link>
           </Button>
         </Card>
+
+        <LiuyaoAnnualCoverage2026 compact />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((t) => (
