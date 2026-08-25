@@ -61,7 +61,7 @@ export function PromotionReadinessPanel({ summary }: { summary: PromotionReadine
         </div>
       ) : (
         <Text variant="body-sm" className="mt-4 block text-emerald-100">
-          核心内容、会员服务、付款与通知链路均未发现待处理项。
+          核心内容与会员站内服务均未发现待处理项。
         </Text>
       )}
     </Card>

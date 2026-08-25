@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
 type AdminLink = {
   href: string;
   label: string;
-  badgeKey?: "payments";
 };
 
 const primaryLinks: AdminLink[] = [
@@ -58,7 +57,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
     links: [
       { href: "/admin/security", label: "会员设备安全" },
       { href: "/admin/membership-events", label: "会员流水" },
-      { href: "/admin/payments", label: "付款审核", badgeKey: "payments" },
+      { href: "/admin/payments", label: "支付记录" },
       { href: "/admin/referrals", label: "邀请管理" },
       { href: "/admin/consultations", label: "会员咨询复核" },
       { href: "/admin/social", label: "Social Content" },
@@ -66,51 +65,12 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
   },
 ];
 
-function usePendingCount(initialCount: number) {
-  const [count, setCount] = useState(initialCount);
-  useEffect(() => {
-    let cancelled = false;
-    async function refresh() {
-      try {
-        const res = await fetch("/api/admin/payments/pending-count", { cache: "no-store" });
-        if (!res.ok) return;
-        const json = (await res.json()) as { count?: number };
-        if (!cancelled && typeof json.count === "number") setCount(json.count);
-      } catch {
-        /* ignore */
-      }
-    }
-    refresh();
-    const id = window.setInterval(refresh, 10000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-  return count;
-}
-
-export function AdminPendingBanner({ initialCount = 0 }: { initialCount?: number }) {
-  const count = usePendingCount(initialCount);
-  if (count <= 0) return null;
-  return (
-    <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-body-sm text-red-600 dark:text-red-400">
-      有 {count} 笔会员付款等待审核{" "}
-      <Link href="/admin/payments" className="underline underline-offset-2">
-        前往审核
-      </Link>
-    </div>
-  );
-}
-
 function AdminLinkItem({
   link,
   current,
-  count,
 }: {
   link: AdminLink;
   current?: string;
-  count: number;
 }) {
   const active =
     current === link.href ||
@@ -124,30 +84,17 @@ function AdminLinkItem({
           : "text-foreground-secondary hover:bg-muted hover:text-foreground"
       }`}
     >
-      {link.badgeKey === "payments" ? (
-        <>
-          {link.label} {count > 0 ? <span className="text-red-500">🔴 {count}</span> : null}
-        </>
-      ) : (
-        link.label
-      )}
-      {link.badgeKey === "payments" && count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
-          {count > 99 ? "99+" : count}
-        </span>
-      ) : null}
+      {link.label}
     </Link>
   );
 }
 
 export function AdminNav({
   current,
-  pendingCount = 0,
 }: {
   current?: string;
   pendingCount?: number;
 }) {
-  const count = usePendingCount(pendingCount);
   const [open, setOpen] = useState(false);
   const moreActive = moreGroups.some((group) =>
     group.links.some(
@@ -159,7 +106,6 @@ export function AdminNav({
 
   return (
     <>
-      <AdminPendingBanner initialCount={count} />
       <div className="mb-6 border-b border-border/[0.08] pb-4">
         <button
           type="button"
@@ -187,7 +133,6 @@ export function AdminNav({
                 key={link.href}
                 link={link}
                 current={current}
-                count={count}
               />
             ))}
           </div>
@@ -214,7 +159,6 @@ export function AdminNav({
                         key={link.href}
                         link={link}
                         current={current}
-                        count={count}
                       />
                     ))}
                   </div>

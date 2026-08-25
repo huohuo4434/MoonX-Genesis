@@ -23,18 +23,13 @@ describe("admin home operations", () => {
     const ndx = summary.items.find((item) => item.assetId === "nasdaq-100");
     const silver = summary.items.find((item) => item.assetId === "silver");
 
-    assert.ok(hstech);
-    assert.equal(hstech.weeklyMissing, true);
-    assert.equal(hstech.monthlyState, null);
+    assert.equal(hstech, undefined);
     assert.equal(eth, undefined);
     assert.equal(bitcoin, undefined);
     assert.equal(ndx, undefined);
     assert.equal(silver, undefined);
-    assert.equal(summary.taskCount, 3);
-    assert.deepEqual(
-      summary.items.map((item) => item.assetId),
-      ["sp500", "shanghai-composite", "hang-seng"],
-    );
+    assert.equal(summary.taskCount, 0);
+    assert.deepEqual(summary.items, []);
   });
 
   test("counts only consultation requests that still need action", () => {

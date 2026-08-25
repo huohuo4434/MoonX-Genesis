@@ -25,11 +25,9 @@ export type PromotionReadinessInput = {
   focusTotal: number;
   focusAffectedAssets: string[];
   cycleGapCount: number;
-  pendingPayments: number;
   consultationAvailable: boolean;
   pendingConsultations: number;
   failedConsultations: number;
-  emailProductionReady: boolean;
 };
 
 function affectedAssetDetail(input: PromotionReadinessInput): string {
@@ -86,15 +84,6 @@ export function buildPromotionReadinessSummary(
       severity: "ACTION",
     });
   }
-  if (!input.emailProductionReady) {
-    actions.push({
-      key: "email",
-      label: "正式邮件尚未打通",
-      detail: "会员站内仍可收件，但付款与问卦结果不能稳定发送到其他邮箱。",
-      href: "/admin/site-health",
-      severity: "BLOCKER",
-    });
-  }
   if (!input.consultationAvailable) {
     actions.push({
       key: "consultation-service",
@@ -123,16 +112,6 @@ export function buildPromotionReadinessSummary(
       });
     }
   }
-  if (input.pendingPayments > 0) {
-    actions.push({
-      key: "payments",
-      label: `付款待审核${input.pendingPayments}笔`,
-      detail: "先确认是真实待处理订单还是历史测试记录。",
-      href: "/admin/payments",
-      severity: "ACTION",
-    });
-  }
-
   const blockerCount = actions.filter((item) => item.severity === "BLOCKER").length;
   const actionCount = actions.filter((item) => item.severity === "ACTION").length;
   if (blockerCount > 0) {
@@ -158,7 +137,7 @@ export function buildPromotionReadinessSummary(
   return {
     status: "READY",
     label: "具备全面推广条件",
-    note: "当前未发现核心交付阻断；推广后仍需持续监控内容与服务队列。",
+    note: "当前内容与会员站内交付未发现核心阻断；推广后仍需持续监控内容与服务队列。",
     blockerCount,
     actionCount,
     actions,

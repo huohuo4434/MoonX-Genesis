@@ -11,23 +11,19 @@ const healthy = {
   focusTotal: 19,
   focusAffectedAssets: [],
   cycleGapCount: 0,
-  pendingPayments: 0,
   consultationAvailable: true,
   pendingConsultations: 0,
   failedConsultations: 0,
-  emailProductionReady: true,
 } as const;
 
 test("promotion readiness never calls a blocked site ready", () => {
   const summary = buildPromotionReadinessSummary({
     ...healthy,
     cycleGapCount: 3,
-    emailProductionReady: false,
   });
   assert.equal(summary.status, "HOLD");
-  assert.equal(summary.blockerCount, 2);
+  assert.equal(summary.blockerCount, 1);
   assert.ok(summary.actions.some((item) => item.key === "cycle"));
-  assert.ok(summary.actions.some((item) => item.key === "email"));
 });
 
 test("operational backlog remains pilot-only instead of a false blocker", () => {
@@ -35,11 +31,10 @@ test("operational backlog remains pilot-only instead of a false blocker", () => 
     ...healthy,
     focusCurrent: 4,
     focusAffectedAssets: ["BTC", "ETH", "闪迪"],
-    pendingPayments: 8,
   });
   assert.equal(summary.status, "PILOT");
   assert.equal(summary.blockerCount, 0);
-  assert.equal(summary.actionCount, 2);
+  assert.equal(summary.actionCount, 1);
   assert.match(summary.actions.find((item) => item.key === "focus")?.detail ?? "", /BTC/);
 });
 

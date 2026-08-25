@@ -774,70 +774,7 @@ export async function getConvictionDetailPayload(
   };
 }
 
-export type ConvictionWeeklyFreshnessOverview = {
-  asOfDate: string;
-  total: number;
-  current: number;
-  expired: number;
-  missing: number;
-  affectedAssets: string[];
-};
-
-const STATIC_ASSET_LABELS: Record<StaticPeriodAssetId, string> = {
-  tsla: "TSLA",
-  lite: "LITE",
-  "ganfeng-lithium": "赣锋锂业",
-  "lian-tech": "利安科技",
-  "lexin-medical": "乐心医疗",
-  cxmt: "长鑫科技",
-  asteroid: "太空狗",
-  sandisk: "闪迪",
-  nbis: "Nebius",
-  mu: "美光",
-  hype: "HYPE",
-  sol: "SOL",
-  eth: "ETH",
-  btc: "BTC",
-  googl: "Alphabet",
-  msft: "微软",
-  tencent: "腾讯",
-  "kingsoft-office": "金山办公",
-  spcx: "SPCX",
-  intel: "英特尔",
-  gold: "黄金",
-  silver: "白银",
-  "wti-crude": "WTI原油",
-};
-
-/** Admin freshness guard: a finished weekly study cannot remain silently current. */
-export function getConvictionWeeklyFreshnessOverview(
-  now = new Date()
-): ConvictionWeeklyFreshnessOverview {
-  const asOfDate = getChinaDateKey(now);
-  let current = 0;
-  let expired = 0;
-  let missing = 0;
-  const affectedAssets: string[] = [];
-  for (const assetId of STATIC_PERIOD_ASSET_IDS) {
-    const weekly = staticPublished(assetId).find((item) => item.forecastType === "WEEK");
-    const status = weekly
-      ? forecastFreshnessStatus(weekly.periodStart, weekly.periodEnd, asOfDate)
-      : "MISSING";
-    if (status === "CURRENT" || status === "UPCOMING") current += 1;
-    else if (status === "EXPIRED") {
-      expired += 1;
-      affectedAssets.push(STATIC_ASSET_LABELS[assetId]);
-    } else {
-      missing += 1;
-      affectedAssets.push(STATIC_ASSET_LABELS[assetId]);
-    }
-  }
-  return {
-    asOfDate,
-    total: STATIC_PERIOD_ASSET_IDS.size,
-    current,
-    expired,
-    missing,
-    affectedAssets,
-  };
-}
+export {
+  getConvictionWeeklyFreshnessOverview,
+  type ConvictionWeeklyFreshnessOverview,
+} from "@/lib/data/conviction/admin-weekly-freshness";

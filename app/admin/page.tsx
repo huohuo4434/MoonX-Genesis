@@ -4,15 +4,13 @@ import { LiuyaoAnnualCoverage2026 } from "@/components/admin/LiuyaoAnnualCoverag
 import { PromotionReadinessPanel } from "@/components/admin/PromotionReadinessPanel";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { isActiveMember, isAdmin, listAllAuthUsers, requireAdminOrRedirect } from "@/lib/auth/permissions";
-import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
 import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 import { isSandboxUser } from "@/lib/admin/sandbox-data";
 import { buildAdminCycleGapSummary, summarizeConsultationQueue } from "@/lib/admin/admin-home-operations";
 import { listAdminConsultations } from "@/lib/consultations/store";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
-import { getConvictionWeeklyFreshnessOverview } from "@/lib/data/conviction/access";
-import { isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { getConvictionWeeklyFreshnessOverview } from "@/lib/data/conviction/admin-weekly-freshness";
 import { buildPromotionReadinessSummary } from "@/lib/admin/promotion-readiness";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +19,9 @@ export const revalidate = 0;
 export default async function AdminHomePage() {
   await requireAdminOrRedirect("/admin");
   const now = new Date();
-  const [users, verificationSnapshot, paymentQueue, tlcStats, todayRows, tomorrowRows, consultationQueue] = await Promise.all([
+  const [users, verificationSnapshot, tlcStats, todayRows, tomorrowRows, consultationQueue] = await Promise.all([
     listAllAuthUsers(),
     getPublicVerificationSnapshot(),
-    getAdminPaymentQueueSummary(200),
     getKnowledgeGrowthStats(),
     loadTodayForecastRows(now),
     loadTomorrowForecastRows(now),
@@ -34,7 +31,6 @@ export default async function AdminHomePage() {
   ]);
   const dailyStats = verificationSnapshot.daily.stats;
   const weeklyStats = verificationSnapshot.weekly.stats;
-  const pending = paymentQueue.pendingCount;
   const convictionFreshness = getConvictionWeeklyFreshnessOverview(now);
   const cycleGaps = buildAdminCycleGapSummary(now);
   const productionUsers = users.filter((u) => !isSandboxUser(u));
@@ -46,16 +42,13 @@ export default async function AdminHomePage() {
     focusTotal: convictionFreshness.total,
     focusAffectedAssets: convictionFreshness.affectedAssets,
     cycleGapCount: cycleGaps.taskCount,
-    pendingPayments: pending,
     consultationAvailable: consultationQueue.available,
     pendingConsultations: consultationQueue.available ? consultationQueue.summary.total : 0,
     failedConsultations: consultationQueue.available ? consultationQueue.summary.failed : 0,
-    emailProductionReady: isPaymentEmailProductionReady(),
   });
 
   const tiles = [
     { label: "有效会员", value: String(memberCount) },
-    { label: "待审核付款", value: String(pending) },
     { label: "今日观点数", value: String(todayRows.length) },
     { label: "下一交易日观点数", value: String(tomorrowRows.length) },
     { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
@@ -70,7 +63,7 @@ export default async function AdminHomePage() {
   return (
     <main>
       <Section spacing="lg">
-        <AdminNav current="/admin" pendingCount={pending} />
+        <AdminNav current="/admin" />
         <Heading as="h1" size="h2">
           管理后台
         </Heading>
@@ -107,9 +100,18 @@ export default async function AdminHomePage() {
           </Button>
         </Card>
 
-        <Card padding="md" className="mt-4 border border-red-500/40 bg-red-500/10">
+        <Card
+          padding="md"
+          className={`mt-4 border ${
+            cycleGaps.taskCount > 0
+              ? "border-red-500/40 bg-red-500/10"
+              : "border-emerald-400/30 bg-emerald-400/[0.06]"
+          }`}
+        >
           <Text variant="body-sm" weight="semibold">
-            卦象缺口：{cycleGaps.taskCount}项待补
+            {cycleGaps.taskCount > 0
+              ? `卦象缺口：${cycleGaps.taskCount}项待补`
+              : "周期卦覆盖：已齐"}
           </Text>
           <Text variant="caption" color="secondary" className="mt-1 block">
             周卦检查：{cycleGaps.weeklyStart}—{cycleGaps.weeklyEnd} · 月卦检查：{cycleGaps.monthlyLabel}
@@ -138,16 +140,9 @@ export default async function AdminHomePage() {
             </Text>
           )}
           <Button asChild size="sm" className="mt-3 w-fit">
-            <Link href="/admin/weekly">补充周卦</Link>
-          </Button>
-        </Card>
-
-        <Card padding="md" className="mt-4">
-          <Text variant="body-sm" weight="semibold">
-            待审核付款：{pending}笔
-          </Text>
-          <Button asChild size="sm" className="mt-3 w-fit">
-            <Link href="/admin/payments">处理付款</Link>
+            <Link href="/admin/weekly">
+              {cycleGaps.taskCount > 0 ? "补充周卦" : "查看周度研究"}
+            </Link>
           </Button>
         </Card>
 
@@ -176,7 +171,7 @@ export default async function AdminHomePage() {
               ["/admin/users", "用户与会员"],
               ["/admin/consultations", "会员问卦"],
               ["/admin/security", "会员设备安全"],
-              ["/admin/payments", "支付审核"],
+              ["/admin/payments", "支付记录"],
               ["/admin/automation", "自动化状态"],
               ["/admin/settings", "设置"],
             ] as const
