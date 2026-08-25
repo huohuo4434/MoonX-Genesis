@@ -341,6 +341,43 @@ function indexForecasts(assetId: "sp500" | "nasdaq-100"): ConvictionPeriodForeca
         validationStatus: "UNVERIFIED",
       } satisfies ConvictionPeriodForecast;
     });
+  const higherPriorityMonthly: ConvictionPeriodForecast[] = assetId === "sp500" ? [{
+    id: "SPX-MONTH-TEACHER-20260819-V1",
+    assetId: "sp500",
+    forecastType: "MONTH_1",
+    periodStart: "2026-08-19",
+    periodEnd: "2026-09-18",
+    direction: "震荡下跌",
+    upProbability: 25,
+    sidewaysProbability: 35,
+    downProbability: 40,
+    summary: "水泽节六合静卦以节制和流动性上限为主，父母申金得申月与丑日扶助，卖压端偏强；月初允许结构性修复，但整体按冲高受限、重心偏弱处理。",
+    expectedPath: "月初结构性修复或冲高 → 上方承接受限 → 卖压逐步接掌，重心转弱。",
+    supportLevels: [],
+    resistanceLevels: [],
+    confirmationLevel: "冲高受限并失守主要结构后，偏弱路径得到确认。",
+    invalidationLevel: "若持续放量创新高且回踩不破，未来一月偏弱判断失效。",
+    riskLevel: "高",
+    catalysts: ["完整月卦"],
+    risks: ["六合只表示黏着，不等于单边上涨", "高位流动性上限"],
+    consensusStars: 2,
+    consensusLabel: "完整月卦负责正式方向；同期另一张9月卦保留为分歧证据，不重复投票",
+    methodViews: [
+      { id: "spx-month-primary-20260819", label: "六爻·完整月卦", direction: "震荡下跌", weight: 65, summary: "水泽节静卦强调流动性封顶和卖压偏强。" },
+      { id: "spx-month-disagreement-20260801", label: "六爻·同期分歧记录", direction: "震荡上涨", weight: 35, summary: "风泽中孚化山雷颐显示资金修复，但兄弟持世与游魂使上涨不稳；作为分歧保留。" },
+    ],
+    ichingEvidence: {
+      primaryHexagram: "水泽节（六合静卦）",
+      changingHexagram: null,
+      notes: "父母申金得申月与丑日扶助，空方与卖压偏强。本卦按完整月卦确定正式月方向；同期风泽中孚→山雷颐偏强记录继续保留为分歧，没有删除。",
+    },
+    version: 1,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: "2026-08-23T15:30:00+08:00",
+    lockedAt: "2026-08-23T15:30:00+08:00",
+    validationStatus: "UNVERIFIED",
+  }] : [];
   const current = WEEKLY_RESEARCH_REVISIONS_20260823
     .filter((item) => item.assetId === assetId && item.weekStart === "2026-08-24" && item.weekEnd === "2026-08-30")
     .sort((a, b) => b.version - a.version)[0];
@@ -371,6 +408,7 @@ function indexForecasts(assetId: "sp500" | "nasdaq-100"): ConvictionPeriodForeca
   }] : [];
   return [
     ...monthly,
+    ...higherPriorityMonthly,
     ...adapted,
     ...US_INDEX_WEEKLY_REVISIONS_20260825.filter((item) => item.assetId === assetId),
   ];

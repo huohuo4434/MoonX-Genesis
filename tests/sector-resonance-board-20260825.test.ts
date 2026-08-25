@@ -42,8 +42,8 @@ test("标普与纳指9月月卦、长鑫新年卦和9月月卦均进入板块详
   const spx = board.rows.find((row) => row.symbol === "SPX");
   const ndx = board.rows.find((row) => row.symbol === "NDX");
   const cxmt = board.rows.find((row) => row.symbol === "CXMT");
-  assert.match(spx?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /风泽中孚/u);
-  assert.match(spx?.monthlyLiuyaoDetail?.changingHexagram ?? "", /山雷颐/u);
+  assert.match(spx?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /水泽节/u);
+  assert.match(spx?.monthlyLiuyaoDetail?.structureNote ?? "", /风泽中孚.*山雷颐.*分歧/u);
   assert.match(ndx?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /兑为泽/u);
   assert.match(cxmt?.annualLiuyaoDetail?.primaryHexagram ?? "", /地火明夷/u);
   assert.match(cxmt?.annualLiuyaoDetail?.changingHexagram ?? "", /震为雷/u);
