@@ -242,6 +242,58 @@ export const VERIFIED_CYCLE_EVIDENCE: readonly VerifiedCycleEvidence[] = [
     capturedAt: "2026-08-25T19:43:00+08:00",
     verifiedAt: "2026-08-25T20:15:00+08:00",
   },
+  {
+    id: "USER-MU-202609-MONTH-LIUYAO", assetId: "mu", horizon: "MONTH", periodStart: "2026-09-01", periodEnd: "2026-09-30", monthIds: ["2026-09"],
+    primaryHexagram: "天山遁", changingHexagram: null, capturedAt: "2026-08-24T21:23:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MU-20260824-0830-LIUYAO", assetId: "mu", horizon: "WEEK", periodStart: "2026-08-24", periodEnd: "2026-08-30",
+    primaryHexagram: "雷地豫（六合）", changingHexagram: "水雷屯", capturedAt: "2026-08-24T21:16:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MU-20260907-0913-LIUYAO", assetId: "mu", horizon: "WEEK", periodStart: "2026-09-07", periodEnd: "2026-09-13",
+    primaryHexagram: "火水未济", changingHexagram: null, capturedAt: "2026-08-24T21:18:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MU-20260914-0920-LIUYAO", assetId: "mu", horizon: "WEEK", periodStart: "2026-09-14", periodEnd: "2026-09-20",
+    primaryHexagram: "水雷屯", changingHexagram: "水山蹇", capturedAt: "2026-08-24T21:19:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MU-20260921-0927-LIUYAO", assetId: "mu", horizon: "WEEK", periodStart: "2026-09-21", periodEnd: "2026-09-27",
+    primaryHexagram: "火水未济", changingHexagram: "火山旅（六合）", capturedAt: "2026-08-24T21:20:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MU-20260928-1004-LIUYAO", assetId: "mu", horizon: "WEEK", periodStart: "2026-09-28", periodEnd: "2026-10-04",
+    primaryHexagram: "天雷无妄（六冲）", changingHexagram: "火雷噬嗑", capturedAt: "2026-08-24T21:22:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-202609-MONTH-LIUYAO", assetId: "msft", horizon: "MONTH", periodStart: "2026-09-01", periodEnd: "2026-09-30", monthIds: ["2026-09"],
+    primaryHexagram: "雷山小过（游魂）", changingHexagram: "地山谦", capturedAt: "2026-08-08T07:09:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-20260831-0906-LIUYAO", assetId: "msft", horizon: "WEEK", periodStart: "2026-08-31", periodEnd: "2026-09-06",
+    primaryHexagram: "山泽损", changingHexagram: "风泽中孚（游魂）", capturedAt: "2026-08-25T19:25:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-20260907-0913-LIUYAO", assetId: "msft", horizon: "WEEK", periodStart: "2026-09-07", periodEnd: "2026-09-13",
+    primaryHexagram: "火泽睽", changingHexagram: "山泽损", capturedAt: "2026-08-25T19:26:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-20260914-0920-LIUYAO", assetId: "msft", horizon: "WEEK", periodStart: "2026-09-14", periodEnd: "2026-09-20",
+    primaryHexagram: "巽为风（六冲）", changingHexagram: "风水涣", capturedAt: "2026-08-25T19:27:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-20260921-0927-LIUYAO", assetId: "msft", horizon: "WEEK", periodStart: "2026-09-21", periodEnd: "2026-09-27",
+    primaryHexagram: "雷水解", changingHexagram: "火地晋（游魂）", capturedAt: "2026-08-25T19:28:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-MSFT-20260928-1004-LIUYAO", assetId: "msft", horizon: "WEEK", periodStart: "2026-09-28", periodEnd: "2026-10-04",
+    primaryHexagram: "天山遁", changingHexagram: "火山旅（六合）", capturedAt: "2026-08-25T19:30:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
+  {
+    id: "USER-TENCENT-202609-MONTH-LIUYAO", assetId: "tencent", horizon: "MONTH", periodStart: "2026-09-01", periodEnd: "2026-09-30", monthIds: ["2026-09"],
+    primaryHexagram: "火风鼎", changingHexagram: "山天大畜", capturedAt: "2026-08-09T07:00:00+08:00", verifiedAt: "2026-08-25T22:10:00+08:00",
+  },
 ] as const;
 
 export function hasVerifiedWeeklyCycleEvidence(

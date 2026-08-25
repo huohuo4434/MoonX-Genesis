@@ -21,6 +21,7 @@ import { listCryptoSeptemberForecastRevisions20260823 } from "@/lib/data/convict
 import { listSpcxLiteLiuyaoRevisions20260823 } from "@/lib/data/conviction/spcx-lite-liuyao-20260823";
 import { listSeptemberWeeklyRevisions20260824 } from "@/lib/data/conviction/september-weekly-revisions-20260824";
 import { listMetalsEnergyFocusForecasts } from "@/lib/data/conviction/metals-energy-focus-forecasts";
+import { listPriorityAssetCycleCompletions20260825 } from "@/lib/data/conviction/priority-asset-cycle-completions-20260825";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
@@ -34,10 +35,10 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "eth": return [...listEthPeriodForecasts(), ...listCryptoSeptemberForecastRevisions20260823("eth")];
     case "btc": return [...listBtcPeriodForecasts20260801(), ...listCryptoSeptemberForecastRevisions20260823("btc")];
     case "googl": return [...listGooglePeriodForecasts(), ...listSeptemberWeeklyRevisions20260824("googl")];
-    case "msft": return listMsftPeriodForecasts();
-    case "tencent": return listTencentPeriodForecasts();
+    case "msft": return [...listMsftPeriodForecasts(), ...listPriorityAssetCycleCompletions20260825("msft")];
+    case "tencent": return [...listTencentPeriodForecasts(), ...listPriorityAssetCycleCompletions20260825("tencent")];
     case "kingsoft-office": return listVibeFocusPeriodForecasts(assetId);
-    case "mu": return listMuHypePeriodForecasts(assetId);
+    case "mu": return [...listMuHypePeriodForecasts(assetId), ...listPriorityAssetCycleCompletions20260825("mu")];
     case "tsla": return listTSLAPeriodForecasts20260816();
     case "lite": return [...listLITEPeriodForecasts20260816(), ...listSpcxLiteLiuyaoRevisions20260823("lite")];
     case "spcx": return [...listSpcxPeriodForecasts(), ...listSpcxLiteLiuyaoRevisions20260823("spcx")];

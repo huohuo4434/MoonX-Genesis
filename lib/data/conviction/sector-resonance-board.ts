@@ -258,9 +258,10 @@ function calendarPathCell(assetId: string, forecasts: ConvictionPeriodForecast[]
       return start === week.start && end === week.end;
     });
     if (!path) continue;
+    const isIndependentWeekly = /独立周卦|完整周卦/u.test(path.sourceNote ?? "");
     return {
       direction: normalizeDirection(path.direction),
-      sourceKind: "WEEKLY",
+      sourceKind: isIndependentWeekly ? "WEEKLY" : "MONTHLY_CONTEXT",
       sourceLabel: path.sourceNote || "月内周路径",
       summary: path.summary,
       forecastId: forecast.id,

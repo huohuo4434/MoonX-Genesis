@@ -16,6 +16,7 @@ describe("verified cycle evidence coverage", () => {
       "shanghai-composite",
       "hang-seng",
       "mu",
+      "msft",
     ]) {
       assert.equal(
         hasVerifiedWeeklyCycleEvidence(assetId, "2026-08-31", "2026-09-06"),
@@ -31,7 +32,7 @@ describe("verified cycle evidence coverage", () => {
 
   test("recognizes source coverage that is current or upcoming", () => {
     assert.equal(hasVerifiedCurrentOrUpcomingWeeklyCycleEvidence("mu", "2026-08-25"), true);
-    assert.equal(hasVerifiedCurrentOrUpcomingWeeklyCycleEvidence("mu", "2026-09-07"), false);
+    assert.equal(hasVerifiedCurrentOrUpcomingWeeklyCycleEvidence("mu", "2026-09-07"), true);
   });
 
   test("keeps the supplied SPX, SHCOMP and HSTECH five-week sequence on file", () => {
@@ -51,6 +52,9 @@ describe("verified cycle evidence coverage", () => {
 
   test("recognizes the complete ETH You-month chart as September evidence", () => {
     assert.equal(hasVerifiedMonthlyCycleEvidence("eth", "2026-09"), true);
+    assert.equal(hasVerifiedMonthlyCycleEvidence("mu", "2026-09"), true);
+    assert.equal(hasVerifiedMonthlyCycleEvidence("msft", "2026-09"), true);
+    assert.equal(hasVerifiedMonthlyCycleEvidence("tencent", "2026-09"), true);
     assert.equal(hasVerifiedMonthlyCycleEvidence("eth", "2026-10"), false);
     assert.equal(hasVerifiedMonthlyCycleEvidence("bitcoin", "2026-09"), false);
   });

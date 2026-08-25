@@ -80,15 +80,27 @@ test("周格优先显示明确关键日，没有明确日时只生成有来源�
   assert.match(derived[0]?.label ?? "", /转强观察/u);
 });
 
-test("完整周卦与上级周期背景分开，背景不计入板块共振", () => {
+test("美光与微软完整周卦已接入，腾讯月卦拆分仍不冒充独立周卦", () => {
   const board = buildSectorResonanceBoard();
   const mu = board.rows.find((row) => row.symbol === "MU");
   assert.ok(mu);
-  assert.equal(mu.cells[1]?.sourceKind, "MONTHLY_CONTEXT");
+  assert.ok(mu.cells.every((cell) => cell.sourceKind === "WEEKLY"));
+  assert.match(mu.monthlyLiuyaoDetail?.primaryHexagram ?? "", /天山遁/u);
+
+  const msft = board.rows.find((row) => row.symbol === "MSFT");
+  assert.ok(msft?.cells.every((cell) => cell.sourceKind === "WEEKLY"));
+  assert.match(msft?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /雷山小过/u);
+
+  const tencent = board.rows.find((row) => row.symbol === "0700.HK");
+  assert.equal(tencent?.cells[0]?.sourceKind, "WEEKLY");
+  assert.ok(tencent?.cells.slice(1).every((cell) => cell.sourceKind === "MONTHLY_CONTEXT"));
+  assert.ok(tencent?.cells.slice(1).every((cell) => /月卦拆分/u.test(cell.sourceLabel)));
+  assert.match(tencent?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /火风鼎/u);
+  assert.match(tencent?.monthlyLiuyaoDetail?.changingHexagram ?? "", /山天大畜/u);
 
   const semiconductorNext = board.summaries.find((item) => item.group === "半导体 / AI基础设施" && item.weekStart === "2026-08-31");
   assert.ok(semiconductorNext);
-  assert.equal(semiconductorNext.exact, 5, "MU上级周期背景不得冒充第六张完整周卦");
+  assert.equal(semiconductorNext.exact, 6, "美光独立周卦应成为半导体板块第六张完整周卦");
 });
 
 test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指数新周卦均已接入", () => {
