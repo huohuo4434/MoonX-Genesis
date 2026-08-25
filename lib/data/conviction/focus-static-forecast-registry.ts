@@ -49,3 +49,27 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     default: return [];
   }
 }
+
+/**
+ * Member surfaces must not each invent their own "latest" rule.  Revisions are
+ * immutable siblings of the original forecast, so the current view selects the
+ * highest version for each forecast type while the full registry keeps every
+ * historical record available for audit.
+ */
+export function listLatestStaticFocusForecastsByType(
+  assetId: StaticFocusAssetId,
+): ConvictionPeriodForecast[] {
+  const latest = new Map<ConvictionPeriodForecast["forecastType"], ConvictionPeriodForecast>();
+  for (const row of listStaticFocusForecasts(assetId).filter((item) => item.status === "published")) {
+    const current = latest.get(row.forecastType);
+    if (
+      !current ||
+      row.version > current.version ||
+      (row.version === current.version && row.publishedAt > current.publishedAt) ||
+      (row.version === current.version && row.publishedAt === current.publishedAt && row.id > current.id)
+    ) {
+      latest.set(row.forecastType, row);
+    }
+  }
+  return [...latest.values()];
+}

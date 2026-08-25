@@ -16,8 +16,7 @@ import {
 import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
 import type { GeneratedDailyForecastRecord } from "@/lib/weekly-source/types";
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
-import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
-import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { findBtcAuxiliaryWeeklyLiuyao20260820 } from "@/lib/data/crypto-liuyao-supplement-20260820";
 import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guidance";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
@@ -106,7 +105,7 @@ function analysisAsWeeklySource(
 function btcResearchAsWeeklySource(
   forecastDate: string
 ): WeeklyForecastSourceRecord | null {
-  const hit = listBtcPeriodForecasts20260801()
+  let hit = listStaticFocusForecasts("btc")
     .filter(
       (item) =>
         item.forecastType.startsWith("WEEK") &&
@@ -117,28 +116,33 @@ function btcResearchAsWeeklySource(
 // MOOX_V720104_BTC_AUX_WEEKLY_QIMEN_PIPELINE
   if (!hit) {
     const auxiliary = findBtcAuxiliaryWeeklyLiuyao20260820(forecastDate);
-    if (!auxiliary) return null;
-    return {
-      id: auxiliary.id,
-      marketCode: "BTC",
-      periodStart: auxiliary.periodStart,
-      periodEnd: auxiliary.periodEnd,
-      primaryHexagram: auxiliary.primaryHexagram,
-      changedHexagram: auxiliary.changingHexagram,
-      movingLines: [],
-      specialPatterns: ["USER_LIUYAO_TEACHER_METHOD_WEEKLY_AUTHORITY"],
-      weeklyDirection: auxiliary.direction,
-      weeklyPath: auxiliary.expectedPath,
-      interpretation: auxiliary.teacherMethodSummary,
-      riskSummary: [auxiliary.riskNote, `目标月令：${auxiliary.targetMonthEvidence}`].join("；"),
-      sourceType: "LIUYAO_WEEKLY",
-      version: 1,
-      status: "LOCKED",
-      publishedAt: auxiliary.lockedAt,
-      lockedAt: auxiliary.lockedAt,
-      createdAt: auxiliary.lockedAt,
-      updatedAt: auxiliary.lockedAt,
-    };
+    if (auxiliary) {
+      return {
+        id: auxiliary.id,
+        marketCode: "BTC",
+        periodStart: auxiliary.periodStart,
+        periodEnd: auxiliary.periodEnd,
+        primaryHexagram: auxiliary.primaryHexagram,
+        changedHexagram: auxiliary.changingHexagram,
+        movingLines: [],
+        specialPatterns: ["USER_LIUYAO_TEACHER_METHOD_WEEKLY_AUTHORITY"],
+        weeklyDirection: auxiliary.direction,
+        weeklyPath: auxiliary.expectedPath,
+        interpretation: auxiliary.teacherMethodSummary,
+        riskSummary: [auxiliary.riskNote, `目标月令：${auxiliary.targetMonthEvidence}`].join("；"),
+        sourceType: "LIUYAO_WEEKLY",
+        version: 1,
+        status: "LOCKED",
+        publishedAt: auxiliary.lockedAt,
+        lockedAt: auxiliary.lockedAt,
+        createdAt: auxiliary.lockedAt,
+        updatedAt: auxiliary.lockedAt,
+      };
+    }
+    hit = listStaticFocusForecasts("btc")
+      .filter((item) => item.forecastType === "MONTH_1" && item.periodStart <= forecastDate && item.periodEnd >= forecastDate)
+      .sort((a, b) => b.version - a.version || b.publishedAt.localeCompare(a.publishedAt))[0];
+    if (!hit) return null;
   }
 
   const pointGate = getCryptoPointGuidanceForDate("BTC", forecastDate);
@@ -182,14 +186,17 @@ function btcResearchAsWeeklySource(
 function ethResearchAsWeeklySource(
   forecastDate: string
 ): WeeklyForecastSourceRecord | null {
-  const hit = listEthPeriodForecasts()
+  const hit = listStaticFocusForecasts("eth")
     .filter(
       (item) =>
-        item.forecastType.startsWith("WEEK") &&
+        (item.forecastType.startsWith("WEEK") || item.forecastType === "MONTH_1") &&
         item.periodStart <= forecastDate &&
         item.periodEnd >= forecastDate
     )
-    .sort((a, b) => b.version - a.version)[0];
+    .sort((a, b) =>
+      Number(b.forecastType.startsWith("WEEK")) - Number(a.forecastType.startsWith("WEEK")) ||
+      b.version - a.version || b.publishedAt.localeCompare(a.publishedAt)
+    )[0];
   if (!hit) return null;
 
   const pointGate = getCryptoPointGuidanceForDate("ETH", forecastDate);

@@ -29,9 +29,12 @@ test("Liuyao and Qimen are independent parallel forecasts", () => {
   assert.equal(LIUYAO_QIMEN_PARALLEL_POLICY.missingEvidence, "DO_NOT_FABRICATE");
 });
 
-test("all eight priority course topics are inventoried without inventing missing directions", () => {
-  assert.equal(TEACHER_COURSE_COVERAGE_20260821.length, 8);
+test("priority course topics include the latest BTC, gold and SOXL sources without inventing missing directions", () => {
+  assert.equal(TEACHER_COURSE_COVERAGE_20260821.length, 11);
   assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.asset === "WTI" && row.siteUse === "SOURCE_ARCHIVE_NO_DIRECTION_INVENTION"));
+  assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-BTC-TARGET-20260825"));
+  assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-GOLD-2M-20260825"));
+  assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-SOXL-2M-20260825"));
 });
 
 test("BTC, NDX and SHCOMP teacher stage records are active only inside their source windows", () => {
@@ -40,4 +43,19 @@ test("BTC, NDX and SHCOMP teacher stage records are active only inside their sou
   assert.match(findTeacherPriorityLiuyaoSource("SSEC", "2026-09-01")?.id ?? "", /BINGWU-SHCOMP/);
   assert.equal(findTeacherPriorityLiuyaoSource("NDX", "2026-09-03"), null);
   assert.ok(listTeacherPriorityLiuyaoSources20260821().every((row) => row.specialPatterns.includes("SOURCE_AUTHORITY_TEACHER_ORIGINAL")));
+});
+
+test("latest teacher phases own BTC, gold and SOXL daily derivation inside their exact windows", () => {
+  const btc = findTeacherPriorityLiuyaoSource("BTC", "2026-09-07");
+  assert.equal(btc?.id, "TL-BINGWU-BTC-TARGET-20260824-V2");
+  assert.equal(btc?.weeklyDirection, "震荡上涨");
+  assert.match(btc?.weeklyPath ?? "", /9月10日前趋势仍向上/);
+
+  assert.equal(findTeacherPriorityLiuyaoSource("GLD", "2026-09-06")?.weeklyDirection, "震荡上涨");
+  assert.equal(findTeacherPriorityLiuyaoSource("GOLD", "2026-09-07")?.weeklyDirection, "震荡下跌");
+  assert.equal(findTeacherPriorityLiuyaoSource("GOLD", "2026-10-08")?.weeklyDirection, "震荡上涨");
+
+  assert.equal(findTeacherPriorityLiuyaoSource("SOX", "2026-09-06")?.weeklyDirection, "震荡");
+  assert.equal(findTeacherPriorityLiuyaoSource("SOXL", "2026-09-07")?.weeklyDirection, "震荡上涨");
+  assert.equal(findTeacherPriorityLiuyaoSource("SOXL", "2026-10-08")?.weeklyDirection, "震荡");
 });

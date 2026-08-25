@@ -92,14 +92,14 @@ export const ANNUAL_FORECAST_ROADMAPS_2026: readonly AnnualForecastRoadmap[] = [
   record({
     assetId: "gold", name: "黄金", symbol: "GOLD", sourceAuthority: "TEACHER_ANNUAL",
     sourceCastDate: null, sourceHexagram: "2026独立流年卦", annualDirection: "先涨后跌",
-    annualSummary: "年度强势主要集中在前半段，后半段以高位波动和逐步转弱为主。",
-    remainingYearPath: "9月仍可能冲高，但越往后持续性越弱；10月承压，11—12月转入震荡与局部修复。",
-    highMonthCandidates: ["2026-09"], lowMonthCandidates: ["2026-10", "2026-11"],
+    annualSummary: "老师流年原始结论把年度高位放在上半年；7月以后逐步转弱。最新两个月专项卦只说明9月7日前仍可高位试高，不能改写成9月是全年最高月。",
+    remainingYearPath: "9月7日前高位整理并保留试高空间，9月7日至10月7日温和回调；10月7日后仅保留小幅、偏慢反弹，后续仍受年度后半段偏弱背景约束。",
+    highMonthCandidates: [], lowMonthCandidates: ["2026-10"],
     months: [
-      month("2026-09", "先涨后跌", "高位冲击后防回落；奇门若继续提示上行，只提高关键窗关注，不取消回落风险。", "MEDIUM"),
-      month("2026-10", "震荡下跌", "年度后半段压力延续。"),
-      month("2026-11", "震荡", "方向收敛，等待月卦。"),
-      month("2026-12", "震荡上涨", "弱修复候选，不等同于新主升。"),
+      month("2026-09", "先涨后跌", "9月7日前仍可试高，随后进入温和回调；这是阶段高位，不是全年高点重判。", "MEDIUM"),
+      month("2026-10", "先跌后涨", "10月7日前延续温和回调，之后只看小幅慢反弹。", "MEDIUM"),
+      month("2026-11", "震荡下跌", "超出最新两个月专项卦，沿用年度后半段偏弱背景并等待独立月卦。"),
+      month("2026-12", "震荡下跌", "仅保留年度偏弱背景，不提前制造年末反转。"),
     ],
   }),
   record({

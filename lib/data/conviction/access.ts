@@ -130,7 +130,7 @@ import type {
   MemberStockWeeklyMemberView,
 } from "@/types/member-stock";
 import { ACTIVE_STATIC_FOCUS_ASSET_IDS, type StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
-import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
+import { listLatestStaticFocusForecastsByType, listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { INTEL_PERIOD_LABELS, INTEL_PERIOD_ORDER, INTEL_VISIBLE_PERIOD_ORDER, intelPeriodMeta } from "@/lib/data/conviction/intel-liuyao-20260822";
 import { buildMemberStockPickResearchRows } from "@/lib/data/conviction/stock-picks-dashboard-core";
 import type { MemberStockPickResearchRow } from "@/types/member-stock-picks-dashboard";
@@ -417,11 +417,9 @@ function buildStaticPeriodSlots(
   includeBody: boolean,
   asOfDate: string
 ): ConvictionPeriodSlot[] {
-  const published = staticPublished(assetId);
+  const published = listLatestStaticFocusForecastsByType(assetId);
   return fullOrder(assetId).map((type) => {
-    const hit = published
-      .filter((f) => f.forecastType === type && f.status === "published")
-      .sort((a, b) => b.version - a.version || b.publishedAt.localeCompare(a.publishedAt))[0] ?? null;
+    const hit = published.find((forecast) => forecast.forecastType === type) ?? null;
     return {
       type,
       labelZh: periodLabelForAsset(assetId, type).zh,

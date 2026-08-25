@@ -3,6 +3,16 @@ import type { MonthlyMarketOutlook } from "@/lib/data/monthly-market-outlook";
 /** Immutable V1 rows retained when a pre-period revision becomes active. */
 export const MONTHLY_MARKET_OUTLOOKS_202609_ARCHIVED_REVISIONS: MonthlyMarketOutlook[] = [
   {
+    assetId: "bitcoin", assetName: "比特币", assetNameEn: "Bitcoin", symbol: "BTC", venue: "全球加密市场", venueEn: "Global crypto market",
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
+    probabilities: { up: 42, flat: 30, down: 28 },
+    path: "前中段延续修复并冲击下半年主要高点/转折区；高位形成后，月中后段进入分化、回吐与重新筑底风险。",
+    pathEn: "The early-to-middle part of September extends the repair into a test of the main H2 high/turn zone, followed by later-month giveback risk.",
+    keyWindow: "9月前中段观察高点形成；不编造精确日期。", keyWindowEn: "Watch the early-to-mid September high formation; no exact day is invented.",
+    risk: "到达高点窗口不等于整月持续上涨。", riskEn: "A high window does not mean uninterrupted gains all month.",
+    sourceNote: "老师年度/半月六爻优先，MOOX九月专问卦同向验证。", sourceNoteEn: "Teacher annual/half-month Liu Yao first, with an aligned September-specific check.", sourceComplete: true, version: 1,
+  },
+  {
     assetId: "eth", assetName: "以太坊", assetNameEn: "Ether", symbol: "ETH", venue: "全球加密市场", venueEn: "Global crypto market",
     periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
     probabilities: { up: 50, flat: 29, down: 21 },
@@ -24,6 +34,16 @@ export const MONTHLY_MARKET_OUTLOOKS_202609_ARCHIVED_REVISIONS: MonthlyMarketOut
     sourceNote: "WTI九月六爻。", sourceNoteEn: "WTI September Liu Yao.", sourceComplete: true,
     version: 1,
   },
+  {
+    assetId: "gold", assetName: "国际金价", assetNameEn: "Gold", symbol: "GOLD", venue: "COMEX黄金期货", venueEn: "COMEX gold futures",
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡下跌", volatility: "HIGH",
+    probabilities: { up: 28, flat: 37, down: 35 },
+    path: "妻财寅木持世但受酉月兄弟酉金克制，月内先承压；子孙亥水得金生后保留修复，因此不是单边崩跌。",
+    pathEn: "Wealth Yin holds self but is restrained by Brother You in You month, creating pressure. Child Hai preserves a repair branch, so this is not a one-way collapse call.",
+    keyWindow: "先压后修复；反弹是否转强必须等新周卦确认。", keyWindowEn: "Pressure first, then repair; a stronger reversal requires a new weekly chart.",
+    risk: "长期与单月方向分开。", riskEn: "Long-term and monthly directions remain separate.",
+    sourceNote: "黄金九月六爻V1。", sourceNoteEn: "Gold September Liu Yao V1.", sourceComplete: true, version: 1,
+  },
 ];
 
 /**
@@ -35,12 +55,15 @@ export const MONTHLY_MARKET_OUTLOOKS_202609: MonthlyMarketOutlook[] = [
   {
     assetId: "bitcoin", assetName: "比特币", assetNameEn: "Bitcoin", symbol: "BTC", venue: "全球加密市场", venueEn: "Global crypto market",
     periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
-    probabilities: { up: 42, flat: 30, down: 28 },
-    path: "前中段延续修复并冲击下半年主要高点/转折区；高位形成后，月中后段进入分化、回吐与重新筑底风险。",
-    pathEn: "The early-to-middle part of September extends the repair into a test of the main H2 high/turn zone. Once a high forms, divergence, giveback and renewed basing risk rise later in the month.",
-    keyWindow: "9月前中段观察高点形成；不编造精确日期。", keyWindowEn: "Watch the early-to-mid September high formation; no exact day is invented.",
-    risk: "老师年度卦与半月卦同向，MOOX新卦只作第二票；到达高点窗口不等于整月持续上涨。", riskEn: "The teacher's annual and half-month readings align; the new MOOX chart is only secondary confirmation. A high window does not mean uninterrupted gains all month.",
-    sourceNote: "老师年度/半月六爻优先，MOOX九月专问卦同向验证。", sourceNoteEn: "Teacher annual/half-month Liu Yao first, with an aligned MOOX September-specific check.", sourceComplete: true,
+    probabilities: { up: 38, flat: 31, down: 31 },
+    path: "最新老师专项卦确认9月10日前趋势仍可向上，但8万至8.5万美元是明显兑现区；9月9日至11日观察主要高点候选能否站稳，若承接不足，中下旬转入退守与回吐。",
+    pathEn: "The latest teacher-specific reading keeps an upward bias into Sep 10 but identifies USD 80k-85k as a supply zone. Watch Sep 9-11 for a hold; weak follow-through shifts the later month into defense.",
+    keyWindow: "9月9日至11日为上冲受阻/变盘观察窗，不是保证见顶日。", keyWindowEn: "Sep 9-11 is an upside-cap/turn window, not a guaranteed top date.",
+    risk: "老师约八成难破8.5万美元是主观判断，不是统计概率；若有效站稳8.5万美元且回踩有承接，本条上冲受限失效。", riskEn: "The roughly 80% difficulty above USD 85k is a discretionary source view, not a statistical probability. A sustained break and supported retest invalidates the cap thesis.",
+    sourceNote: "最新核心六爻专项卦优先，九月月卦与奇门只作同向交叉。", sourceNoteEn: "Latest core Liu Yao target reading first; September Liu Yao and Qimen remain aligned cross-checks.", sourceComplete: true,
+    version: 2,
+    revisedAt: "2026-08-26T06:30:00+08:00",
+    revisionReason: "目标月开始前收到更高优先级老师专项卦，补齐9月10日前上行趋势、8万至8.5万美元压力与失效条件；旧版保留。",
   },
   {
     assetId: "eth", assetName: "以太坊", assetNameEn: "Ether", symbol: "ETH", venue: "全球加密市场", venueEn: "Global crypto market",
@@ -87,13 +110,16 @@ export const MONTHLY_MARKET_OUTLOOKS_202609: MonthlyMarketOutlook[] = [
   },
   {
     assetId: "gold", assetName: "国际金价", assetNameEn: "Gold", symbol: "GOLD", venue: "COMEX黄金期货", venueEn: "COMEX gold futures",
-    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡下跌", volatility: "HIGH",
-    probabilities: { up: 28, flat: 37, down: 35 },
-    path: "妻财寅木持世但受酉月兄弟酉金克制，月内先承压；子孙亥水得金生后保留修复，因此不是单边崩跌。",
-    pathEn: "Wealth Yin holds self but is restrained by Brother You in You month, creating early pressure. Child Hai can receive metal support and preserve a repair branch, so this is not a one-way collapse call.",
-    keyWindow: "先压后修复；反弹是否转强必须等新周卦确认。", keyWindowEn: "Pressure first, then repair; a stronger reversal requires a new weekly chart.",
-    risk: "长期看多黄金的外部宏观观点不覆盖九月月卦；长期与单月方向分开。", riskEn: "An outside long-term bullish gold view does not override the September monthly chart; long-term and one-month directions stay separate.",
-    sourceNote: "黄金九月六爻主导，贵金属专项周卦只负责对应周。", sourceNoteEn: "September gold Liu Yao owns the month; specialist weekly readings only govern their own week.", sourceComplete: true,
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
+    probabilities: { up: 31, flat: 38, down: 31 },
+    path: "最新老师两个月专项卦把顺序明确为：9月7日前保持高位并仍可试高；9月7日后重心缓慢回落，跌幅偏温和，不按崩跌处理。",
+    pathEn: "The latest teacher two-month reading keeps gold elevated with room to probe higher before Sep 7, followed by a gradual and limited pullback rather than a crash.",
+    keyWindow: "9月7日由高位试高切换为温和回调。", keyWindowEn: "Sep 7 marks the transition from elevated upside probes to a mild pullback.",
+    risk: "老师专项趋势高于旧自起九月卦；温和回调不等于持续大跌，9月7日前也不能抢跑做空。", riskEn: "The teacher-specific trend outranks the older self-cast September chart. A mild pullback is not a crash, and pre-Sep-7 shorts would be premature.",
+    sourceNote: "最新核心六爻两个月专项结论优先；旧九月V1永久保留。", sourceNoteEn: "Latest core two-month Liu Yao conclusion first; the old September V1 remains archived.", sourceComplete: true,
+    version: 2,
+    revisedAt: "2026-08-26T06:30:00+08:00",
+    revisionReason: "目标月开始前收到更高优先级老师两个月专项卦，纠正旧V1先压后修复的月内顺序；旧版保留，不回写历史。",
   },
   {
     assetId: "silver", assetName: "国际银价", assetNameEn: "Silver", symbol: "SILVER", venue: "COMEX白银期货", venueEn: "COMEX silver futures",

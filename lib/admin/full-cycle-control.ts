@@ -8,8 +8,7 @@ import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-foreca
 import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
 import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
 import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
-import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
-import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
+import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecasts";
 import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
 import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
@@ -184,8 +183,8 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     ...listMuHypePeriodForecasts("mu"),
     ...listHypePeriodForecasts20260809(),
     ...listSolPeriodForecasts20260809(),
-    ...listEthPeriodForecasts(),
-    ...listBtcPeriodForecasts20260801(),
+    ...listStaticFocusForecasts("eth"),
+    ...listStaticFocusForecasts("btc"),
     ...listGooglePeriodForecasts(),
     ...listMsftPeriodForecasts(),
     ...listSandiskPeriodForecasts(),

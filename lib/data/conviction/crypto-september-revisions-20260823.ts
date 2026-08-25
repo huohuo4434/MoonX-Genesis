@@ -2,6 +2,53 @@ import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-fo
 
 const PUBLISHED_AT = "2026-08-23T18:55:00+08:00";
 
+function ethSeptemberWeek(input: {
+  id: string;
+  forecastType: ConvictionPeriodForecast["forecastType"];
+  periodStart: string;
+  periodEnd: string;
+  direction: ConvictionPeriodForecast["direction"];
+  primaryHexagram: string;
+  changingHexagram: string;
+  summary: string;
+  expectedPath: string;
+  risks: string[];
+}): ConvictionPeriodForecast {
+  const probabilities = input.direction === "先跌后涨" || input.direction === "震荡上涨"
+    ? { up: 42, flat: 33, down: 25 }
+    : input.direction === "先涨后跌"
+      ? { up: 34, flat: 33, down: 33 }
+      : input.direction === "震荡下跌"
+        ? { up: 27, flat: 28, down: 45 }
+        : { up: 27, flat: 46, down: 27 };
+  return {
+    id: input.id, assetId: "eth", forecastType: input.forecastType,
+    periodStart: input.periodStart, periodEnd: input.periodEnd, direction: input.direction,
+    upProbability: probabilities.up, sidewaysProbability: probabilities.flat, downProbability: probabilities.down,
+    summary: input.summary, expectedPath: input.expectedPath,
+    supportLevels: [], resistanceLevels: [], riskLevel: "极高",
+    catalysts: ["独立周卦与酉月月卦合读"],
+    risks: [...input.risks, "没有同周期奇门盘，不能标记双方法共振"],
+    consensusStars: 2,
+    consensusLabel: "独立六爻周卦负责本周方向；同周期奇门证据缺失，维持较低信心",
+    methodViews: [{ id: `${input.id}-liuyao`, label: "六爻·独立周卦", direction: input.direction, weight: 100, summary: input.summary }],
+    ichingEvidence: {
+      primaryHexagram: input.primaryHexagram, changingHexagram: input.changingHexagram,
+      notes: "2026-08-23收到的ETH五张独立周卦之一；按老师方法解读，周卦拥有本周正式方向，日度只能由周路径与目标日历拆分。",
+    },
+    version: 2, status: "published", sourceType: "ICHING_RESEARCH",
+    publishedAt: PUBLISHED_AT, lockedAt: PUBLISHED_AT, validationStatus: "UNVERIFIED",
+  };
+}
+
+export const ETH_SEPTEMBER_WEEKLY_REVISIONS_20260823: ConvictionPeriodForecast[] = [
+  ethSeptemberWeek({ id: "ETH-W5-20260831-V2", forecastType: "WEEK_5", periodStart: "2026-08-31", periodEnd: "2026-09-06", direction: "先跌后涨", primaryHexagram: "水山蹇", changingHexagram: "风山渐", summary: "周初阻滞与压力仍在，后段逐步修复；不把第一根反弹直接定义为主升。", expectedPath: "周初先弱或下探 → 中段止跌换手 → 周后段渐进修复。", risks: ["蹇卦前段阻力", "修复斜率有限"] }),
+  ethSeptemberWeek({ id: "ETH-W6-20260907-V2", forecastType: "WEEK_6", periodStart: "2026-09-07", periodEnd: "2026-09-13", direction: "先涨后跌", primaryHexagram: "天地否", changingHexagram: "天山遁", summary: "先稳或冲高后退守，9月9日至11日是冲高受阻与方向切换候选窗。", expectedPath: "前段延续修复或冲高 → 9月9日至11日高位换手 → 后段退守。", risks: ["否化遁的退守结构", "高位承接衰减"] }),
+  ethSeptemberWeek({ id: "ETH-W7-20260914-V2", forecastType: "WEEK_7", periodStart: "2026-09-14", periodEnd: "2026-09-20", direction: "震荡", primaryHexagram: "风地观", changingHexagram: "水风井", summary: "多爻同动放大双向波动，先观察再重建承接，不把盘中急拉或急跌外推成单边。", expectedPath: "高波动拉锯 → 方向反复 → 周后段等待结构稳定。", risks: ["多爻同动", "高波动整理"] }),
+  ethSeptemberWeek({ id: "ETH-W8-20260921-V2", forecastType: "WEEK_8", periodStart: "2026-09-21", periodEnd: "2026-09-27", direction: "震荡下跌", primaryHexagram: "雷山小过", changingHexagram: "泽山咸", summary: "重心偏弱并寻找低位承接，反弹只作风险释放后的局部修复。", expectedPath: "反抽受限 → 重心下移 → 低位换手并观察止跌。", risks: ["妻财化兄弟", "酉月金旺克木"] }),
+  ethSeptemberWeek({ id: "ETH-W9-20260928-V2", forecastType: "WEEK_9", periodStart: "2026-09-28", periodEnd: "2026-10-04", direction: "震荡上涨", primaryHexagram: "地火明夷", changingHexagram: "雷山小过", summary: "低位存在有限修复条件，但幅度受限，不能据此提前宣布趋势反转。", expectedPath: "低位整理 → 条件式修复 → 反弹受限并等待10月新证据。", risks: ["修复幅度有限", "跨月结构尚未确认"] }),
+];
+
 /**
  * Future-only revisions from the 2026-08-23 source review.
  *
@@ -277,7 +324,7 @@ export const CRYPTO_SEPTEMBER_REVISIONS_20260823: ConvictionPeriodForecast[] = [
 
 export function listCryptoSeptemberForecastRevisions20260823(assetId: "btc" | "eth" | "hype") {
   const storedAssetId = assetId === "btc" ? "bitcoin" : assetId;
-  return CRYPTO_SEPTEMBER_REVISIONS_20260823.filter(
+  return [...CRYPTO_SEPTEMBER_REVISIONS_20260823, ...ETH_SEPTEMBER_WEEKLY_REVISIONS_20260823].filter(
     (forecast) => forecast.assetId === storedAssetId && forecast.status === "published",
   );
 }

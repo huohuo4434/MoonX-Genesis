@@ -1,6 +1,5 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
-import { listBtcPeriodForecasts20260801 } from "@/lib/data/conviction/btc-forecasts-20260801";
-import { listEthPeriodForecasts } from "@/lib/data/conviction/eth-forecasts";
+import { listLatestStaticFocusForecastsByType } from "@/lib/data/conviction/focus-static-forecast-registry";
 
 export type CryptoCycleAlignment = {
   id: string;
@@ -78,14 +77,36 @@ export const BTC_ETH_CYCLE_ALIGNMENTS_20260801: CryptoCycleAlignment[] = [
   },
 ];
 
+/**
+ * The August array above is preserved as the locked comparison history.  The
+ * current member page gets a new forward comparison instead of rewriting the
+ * old three-month judgement after newer September readings arrived.
+ */
+export const BTC_ETH_CURRENT_ALIGNMENTS_20260826: CryptoCycleAlignment[] = [
+  ...BTC_ETH_CYCLE_ALIGNMENTS_20260801.filter((item) =>
+    item.id !== "BTC-ETH-ALIGN-3M"
+  ),
+  {
+    id: "BTC-ETH-ALIGN-202609-V2",
+    period: "2026年9月",
+    btcDirection: "先涨后跌",
+    ethDirection: "先涨后跌",
+    alignment: "高度一致",
+    conclusion:
+      "两者都按上旬修复或冲高、9月7日至13日进入转弱风险窗、中下旬偏弱处理；BTC有当前老师专项趋势依据，ETH则来自独立月卦和五张周卦，不因BTC方向被强行类推。",
+    tradingMeaning:
+      "同向只提高加密板块节奏的参考价值。BTC关注9月10日前上冲受限，ETH因缺同周期老师卦与奇门盘维持较低信心并单独验证。",
+  },
+];
+
 export function getBtcEthCycleBundle(): {
   btc: ConvictionPeriodForecast[];
   eth: ConvictionPeriodForecast[];
   alignments: CryptoCycleAlignment[];
 } {
   return {
-    btc: listBtcPeriodForecasts20260801(),
-    eth: listEthPeriodForecasts(),
-    alignments: BTC_ETH_CYCLE_ALIGNMENTS_20260801,
+    btc: listLatestStaticFocusForecastsByType("btc"),
+    eth: listLatestStaticFocusForecastsByType("eth"),
+    alignments: BTC_ETH_CURRENT_ALIGNMENTS_20260826,
   };
 }

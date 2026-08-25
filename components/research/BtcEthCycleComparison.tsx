@@ -30,7 +30,7 @@ function ForecastCard({
         </div>
       </div>
       <Text variant="body-sm" weight="semibold" className="block leading-relaxed text-white/90">
-        MOOX唯一方向：{mooxDirectionLabelZh(item.direction)}
+        本周期正式方向：{mooxDirectionLabelZh(item.direction)}
       </Text>
       <Text variant="caption" className="block leading-relaxed text-white/55">
         研究说明：{item.summary}
@@ -69,8 +69,17 @@ export function BtcEthCycleComparison({
   alignments: CryptoCycleAlignment[];
   admin?: boolean;
 }) {
-  const btcVisible = admin ? btc : btc.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
-  const ethVisible = admin ? eth : eth.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
+  const hideSupersededBroadMonth = (rows: ConvictionPeriodForecast[]) => {
+    const currentMonth = rows.find((item) => item.forecastType === "MONTH_1");
+    return rows.filter((item) => !(
+      currentMonth && item.forecastType === "MONTH_3" &&
+      item.periodStart <= currentMonth.periodEnd && item.periodEnd >= currentMonth.periodStart &&
+      item.publishedAt < currentMonth.publishedAt
+    ));
+  };
+  const visibleTypes = ["WEEK", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "WEEK_9", "MONTH_1", "YEAR_1", "YEAR_10"];
+  const btcVisible = admin ? btc : hideSupersededBroadMonth(btc).filter((item) => visibleTypes.includes(item.forecastType));
+  const ethVisible = admin ? eth : hideSupersededBroadMonth(eth).filter((item) => visibleTypes.includes(item.forecastType));
   const alignmentFacts: ConclusionFirstFact[] = alignments.map((item) => ({
     label: item.period,
     value: `${item.btcDirection} / ${item.ethDirection}`,
@@ -92,7 +101,7 @@ export function BtcEthCycleComparison({
 
       <ConclusionFirstPanel
         title="BTC／ETH周期结论"
-        conclusion={`当前可比周期中，同向 ${alignedCount} 项，分歧 ${divergentCount} 项。先看各周期两者方向是否一致，再决定能否把BTC走势类推到ETH。`}
+        conclusion={`当前可比周期中，同向 ${alignedCount} 项，分歧 ${divergentCount} 项。两者同向只形成板块节奏共振，ETH仍必须由自己的月卦与周卦独立确认。`}
         facts={alignmentFacts}
         actions={["同向只提高周期判断信心，不代表涨跌幅相同。", "分歧时分别按BTC、ETH自己的周月方向处理，不强行绑定。"]}
       />
