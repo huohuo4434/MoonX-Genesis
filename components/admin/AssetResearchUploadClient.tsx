@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  formatLiuyaoPeriod,
+  getLiuyaoHorizonRule,
+  LIUYAO_HORIZON_RULES,
+  type LiuyaoHorizonKind,
+} from "@/lib/research/liuyao-horizon-policy";
 
 type UploadRecord = {
   id: string;
@@ -29,7 +35,8 @@ export function AssetResearchUploadClient() {
   const [assetName, setAssetName] = useState("");
   const [assetType, setAssetType] = useState("CRYPTO");
   const [method, setMethod] = useState("六爻");
-  const [period, setPeriod] = useState("近期");
+  const [period, setPeriod] = useState("");
+  const [liuyaoHorizon, setLiuyaoHorizon] = useState<LiuyaoHorizonKind>("WEEK");
   const [notes, setNotes] = useState("");
   const [evidenceKind, setEvidenceKind] = useState("LIUYAO");
   const [sourceLabel, setSourceLabel] = useState("");
@@ -71,6 +78,10 @@ export function AssetResearchUploadClient() {
       setMessage("请选择文件");
       return;
     }
+    if (!period.trim()) {
+      setMessage(evidenceKind === "LIUYAO" ? "请填写年、月、周或可选季卦的明确适用周期" : "请填写明确预测周期");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -80,7 +91,7 @@ export function AssetResearchUploadClient() {
       fd.set("assetName", assetName);
       fd.set("assetType", assetType);
       fd.set("method", method);
-      fd.set("period", period);
+      fd.set("period", evidenceKind === "LIUYAO" ? formatLiuyaoPeriod(liuyaoHorizon, period) : period.trim());
       fd.set("notes", notes);
       fd.set("evidenceKind", evidenceKind);
       fd.set("sourceLabel", sourceLabel);
@@ -165,6 +176,23 @@ export function AssetResearchUploadClient() {
               <option value="NEWS">新闻事件</option>
             </select>
           </label>
+          {evidenceKind === "LIUYAO" ? (
+            <label className="space-y-1 text-body-sm">
+              <span>卦象周期层级</span>
+              <select
+                className={inputClass}
+                value={liuyaoHorizon}
+                onChange={(e) => setLiuyaoHorizon(e.target.value as LiuyaoHorizonKind)}
+              >
+                {LIUYAO_HORIZON_RULES.map((rule) => (
+                  <option key={rule.kind} value={rule.kind}>{rule.labelZh} · {rule.requirementLabelZh}</option>
+                ))}
+              </select>
+              <span className="block text-caption text-foreground-tertiary">
+                {getLiuyaoHorizonRule(liuyaoHorizon).roleZh}
+              </span>
+            </label>
+          ) : null}
           <label className="space-y-1 text-body-sm">
             <span>来源（仅内部审计）</span>
             <input className={inputClass} value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} placeholder="账号、课程或原始文件标识" />
@@ -208,8 +236,13 @@ export function AssetResearchUploadClient() {
               className={inputClass}
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              placeholder="例如 8月1日至9日、3个月、1年"
+              placeholder={evidenceKind === "LIUYAO" ? getLiuyaoHorizonRule(liuyaoHorizon).periodPlaceholder : "例如 2026-08-31至2026-09-06"}
             />
+            {evidenceKind === "LIUYAO" ? (
+              <span className="block text-caption text-cyan-200">
+                保存后标准格式：{formatLiuyaoPeriod(liuyaoHorizon, period) || `${getLiuyaoHorizonRule(liuyaoHorizon).labelZh}｜待填写明确日期`}
+              </span>
+            ) : null}
           </label>
           <label className="space-y-1 text-body-sm md:col-span-2">
             <span>补充说明</span>

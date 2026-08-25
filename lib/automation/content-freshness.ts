@@ -138,7 +138,7 @@ async function evaluate(now: Date): Promise<ContentFreshnessReport> {
     items,
     policies: CONTENT_FRESHNESS_POLICIES,
     repairs: [],
-    noteZh: "自检只做可安全重复的补跑和重新验证，不会修改程序代码、不伪造缺失周卦/月卦，也不会事后改写已锁定预测。",
+    noteZh: "自检只做可安全重复的补跑和重新验证，不会修改程序代码、不伪造缺失年卦/月卦/周卦，也不会事后改写已锁定预测。季卦属于按需桥接层，不单独触发缺失报警。",
   };
 }
 

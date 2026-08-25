@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminMethodologyClient } from "@/components/admin/AdminMethodologyClient";
+import { LiuyaoCadenceGuide } from "@/components/admin/LiuyaoCadenceGuide";
 import { Heading, Section, Text } from "@/components/ui";
 import { getAccessUser } from "@/lib/auth/get-access-user";
 import { MOOX_DAILY_ANALYSIS_POLICY, MOOX_LOCK_POLICY, MOOX_PREDICTION_LAYERS, MOOX_TOP5_POLICY } from "@/lib/forecasts/prediction-governance";
@@ -24,6 +25,9 @@ export default async function AdminMethodologyPage() {
         <Text variant="body-sm" color="secondary" className="mt-2 max-w-2xl">
           管理公开「/methodology」页展示的分析模块、简介与权重说明。核心预测治理规则由源码锁定，不能在这里改成多模型随意投票。
         </Text>
+        <div className="mt-6">
+          <LiuyaoCadenceGuide />
+        </div>
         <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-5">
           <Heading as="h2" size="h3">核心规则（源码锁定）</Heading>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
