@@ -19,11 +19,18 @@ export type AnnualForecastRoadmap = {
   sourceCastDate: string | null;
   sourceHexagram: string;
   sourceDigest?: string;
-  version: 1;
+  version: 1 | 2;
   publishedAt: string;
   locked: true;
   revisionReason: string;
   historicalScoringEligible: false;
+  revisionHistory?: readonly {
+    version: number;
+    sourceHexagram: string;
+    sourceDigest: string;
+    publishedAt: string;
+    supersededReason: string;
+  }[];
   annualDirection: OfficialDirection;
   annualSummary: string;
   remainingYearPath: string;
@@ -55,6 +62,13 @@ function month(
 
 function record(seed: RoadmapSeed): AnnualForecastRoadmap {
   return Object.freeze({ ...seed, aliases: seed.aliases ?? [], ...COMMON_LOCK });
+}
+
+function revisedRecord(
+  seed: RoadmapSeed,
+  governance: Pick<AnnualForecastRoadmap, "version" | "publishedAt" | "revisionReason" | "revisionHistory">,
+): AnnualForecastRoadmap {
+  return Object.freeze({ ...seed, aliases: seed.aliases ?? [], ...COMMON_LOCK, ...governance });
 }
 
 /**
@@ -152,13 +166,24 @@ export const ANNUAL_FORECAST_ROADMAPS_2026: readonly AnnualForecastRoadmap[] = [
     highMonthCandidates: ["2026-12"], lowMonthCandidates: ["2026-09", "2026-10"],
     months: [month("2026-09", "震荡下跌", "否象阻力仍在。", "MEDIUM"), month("2026-10", "震荡", "六合黏着，等待突破。"), month("2026-11", "先跌后涨", "解除阻滞候选。"), month("2026-12", "震荡上涨", "修复候选，仍需周卦确认。")],
   }),
-  record({
+  revisedRecord({
     assetId: "intel", aliases: ["intc"], name: "英特尔", symbol: "INTC", sourceAuthority: "USER_ANNUAL", sourceCastDate: "2026-08-25",
-    sourceHexagram: "风山渐（归魂），静卦", sourceDigest: "AFF725700EF98E4B1C2831A8488CD37289B6C76EDC27B25F0BBA5DC52B0060F9",
-    annualDirection: "震荡上涨", annualSummary: "渐主缓慢推进，归魂提示回到原有区间；方向可偏上，但速度和空间不能按急涨外推。",
-    remainingYearPath: "9月先强后整理，10月震荡，11月再修复，12月高位消化。",
-    highMonthCandidates: ["2026-11", "2026-12"], lowMonthCandidates: ["2026-10"],
-    months: [month("2026-09", "先涨后跌", "渐进后的阶段整理。", "MEDIUM"), month("2026-10", "震荡", "归魂区间。"), month("2026-11", "震荡上涨", "渐进修复候选。"), month("2026-12", "震荡", "高位消化。")],
+    sourceHexagram: "雷泽归妹（归魂、六冲）→兑为泽（六冲），二、五爻动", sourceDigest: "4F44D590567A2040AB3DBB3B9F1D559A25F34BB63F43076305C2A7CDB6CEA250",
+    annualDirection: "震荡", annualSummary: "归妹与归魂提示阶段关系不稳，主变六冲进一步放大切换速度；新卦不再支持旧版‘缓慢稳定推进’，但六冲也不能机械等同全年单边下跌。",
+    remainingYearPath: "9月仍按独立月周卦处理为先强后弱；10月重点观察六冲后的压力释放，11—12月暂列震荡与修复验证，不预写稳定主升。",
+    highMonthCandidates: ["2026-09"], lowMonthCandidates: ["2026-10", "2026-11"],
+    months: [month("2026-09", "先涨后跌", "月卦与周卦拥有9月路径权；年卦只提高转折和波动警觉。", "MEDIUM"), month("2026-10", "震荡下跌", "双六冲后的压力释放候选。"), month("2026-11", "震荡", "等待独立月卦确认是否完成消化。"), month("2026-12", "震荡", "不从年卦提前制造稳定主升。")],
+  }, {
+    version: 2,
+    publishedAt: "2026-08-25T19:56:00+08:00",
+    revisionReason: "用户于2026-08-25 19:44重新起卦；新盘与18:41旧盘结构不同，因此建立V2，旧V1保留且不回写历史。",
+    revisionHistory: [{
+      version: 1,
+      sourceHexagram: "风山渐（归魂），静卦",
+      sourceDigest: "AFF725700EF98E4B1C2831A8488CD37289B6C76EDC27B25F0BBA5DC52B0060F9",
+      publishedAt: "2026-08-25T12:30:00+08:00",
+      supersededReason: "同日重新起卦后由V2接替；V1仅保留为修订历史。",
+    }],
   }),
   record({
     assetId: "mu", name: "美光", symbol: "MU", sourceAuthority: "USER_ANNUAL", sourceCastDate: "2026-08-25",

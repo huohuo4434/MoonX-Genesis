@@ -2,18 +2,34 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveForecastHorizonHierarchy } from "../lib/forecasts/forecast-horizon-hierarchy";
 import { getAnnualForecastRoadmap2026, listAnnualForecastRoadmaps2026 } from "../lib/research/annual-forecast-roadmap-2026";
+import { annualTrendWindowRange, buildAnnualTrendWindows } from "../lib/research/annual-key-months";
 import { MEMBER_RESEARCH_NAV } from "../config/member-channel-navigation";
 
 test("年度正式层覆盖21个资产且8月25日前不参与历史统计", () => {
   const rows = listAnnualForecastRoadmaps2026();
   assert.equal(rows.length, 21);
-  assert.ok(rows.every((item) => item.locked && item.version === 1));
+  assert.ok(rows.every((item) => item.locked));
+  assert.ok(rows.filter((item) => item.assetId !== "intel").every((item) => item.version === 1));
   assert.ok(rows.every((item) => item.historicalScoringEligible === false));
   assert.ok(rows.every((item) => item.months.map((month) => month.month).join(",") === "2026-09,2026-10,2026-11,2026-12"));
   assert.equal(getAnnualForecastRoadmap2026("NDX")?.assetId, "nasdaq-100");
   assert.equal(getAnnualForecastRoadmap2026("INTC")?.assetId, "intel");
+  assert.equal(getAnnualForecastRoadmap2026("INTC")?.version, 2);
+  assert.match(getAnnualForecastRoadmap2026("INTC")?.sourceHexagram ?? "", /归妹.*兑为泽/u);
+  assert.equal(getAnnualForecastRoadmap2026("INTC")?.revisionHistory?.[0]?.version, 1);
   assert.equal(getAnnualForecastRoadmap2026("CXMT"), null);
   assert.ok(MEMBER_RESEARCH_NAV.some((item) => item.href === "/member/annual-outlook" && item.groupKey === "forecast"));
+});
+
+test("年度关键月按连续方向分段且不跨越相反月份合并", () => {
+  const intel = getAnnualForecastRoadmap2026("INTC");
+  assert.ok(intel);
+  const windows = buildAnnualTrendWindows(intel.months);
+  assert.deepEqual(windows.map((item) => `${item.label}:${annualTrendWindowRange(item)}`), [
+    "转折段:9月",
+    "看跌段:10月",
+    "震荡段:11月—12月",
+  ]);
 });
 
 test("年、月、周同向提高信心，但周卦仍拥有当周方向", () => {

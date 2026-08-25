@@ -67,7 +67,7 @@ export const BINGWU_2026_SUPPLEMENTAL_READINGS: readonly AnnualCoverageRecord[] 
 const USER_ANNUAL_SOURCE_FILES: Readonly<Record<string, string>> = {
   eth: "eth/2026.jpg", hype: "HYPE/2026.jpg", sol: "SOL/2026.jpg", sp500: "标普500/2026.jpg",
   "nasdaq-100": "纳斯达克100/2026.jpg", silver: "白银/2026.jpg", "wti-crude": "WTI原油/2026.jpg",
-  hstech: "恒生科技/2026.jpg", intel: "intel/2026.jpg", mu: "MU/2026.jpg", sandisk: "sandisk闪迪/2026.jpg",
+  hstech: "恒生科技/2026.jpg", intel: "intel/重新起卦2026年走势.jpg", mu: "MU/2026.jpg", sandisk: "sandisk闪迪/2026.jpg",
   lite: "LITE/2026.jpg", nbis: "NBIS/2026.jpg", googl: "谷歌/2026.jpg", spcx: "SPCX/2026.jpg",
   asteroid: "太空狗/2026.jpg", tencent: "腾讯/2026.jpg", tsla: "特斯拉/2026.jpg", msft: "微软/2026.jpg",
 };

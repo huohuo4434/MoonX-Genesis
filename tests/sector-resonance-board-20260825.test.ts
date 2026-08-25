@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSectorResonanceBoard, SECTOR_RESONANCE_GROUP_ORDER } from "../lib/data/conviction/sector-resonance-board";
+import { buildSectorResonanceBoard, buildSectorTimingMarkers, SECTOR_RESONANCE_GROUP_ORDER } from "../lib/data/conviction/sector-resonance-board";
 import { listNbisPeriodForecasts } from "../lib/data/conviction/nbis-liuyao-20260811";
 import { listSandiskPeriodForecasts } from "../lib/data/conviction/sandisk-forecasts";
 
@@ -16,8 +16,25 @@ test("板块共振独立模块覆盖全部21个重点品种和本周至10月初�
   const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NBIS", "MSFT", "TSLA", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
   for (const symbol of required) assert.ok(board.rows.some((row) => row.symbol === symbol), `missing ${symbol}`);
   assert.ok(board.rows.every((row) => row.cells.length === board.weeks.length));
+  assert.ok(board.rows.every((row) => Array.isArray(row.monthKeyWeeks)));
   assert.equal(board.rows.find((row) => row.symbol === "CXMT")?.annualDirection, null);
   assert.ok(board.rows.filter((row) => row.symbol !== "CXMT").every((row) => row.annualDirection));
+});
+
+test("周格优先显示明确关键日，没有明确日时只生成有来源标识的观察窗", () => {
+  const exact = buildSectorTimingMarkers({
+    assetId: "btc",
+    direction: "先涨后跌",
+    periodStart: "2026-08-24",
+    periodEnd: "2026-08-30",
+    keyDates: [{ date: "2026-08-27", type: "阶段高点", label: "阶段高点候选", source: "LIUYAO" }],
+  });
+  assert.deepEqual(exact, [{ date: "2026-08-27", label: "8/27 阶段高点候选", sourceLabel: "六爻明确", strength: "EXACT" }]);
+
+  const derived = buildSectorTimingMarkers({ assetId: "intel", direction: "先跌后涨", periodStart: "2026-08-31", periodEnd: "2026-09-06" });
+  assert.equal(derived.length, 1);
+  assert.equal(derived[0]?.sourceLabel, "周卦路径");
+  assert.match(derived[0]?.label ?? "", /转强观察/u);
 });
 
 test("完整周卦与上级周期背景分开，背景不计入板块共振", () => {

@@ -4,6 +4,8 @@ import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-for
 import { US_INDEX_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
 import { WEEKLY_RESEARCH_REVISIONS_20260823 } from "@/lib/data/published-weekly-research-20260823";
 import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
+import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
+import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 
 export type SectorResonanceGroup =
   | "半导体 / AI基础设施"
@@ -19,6 +21,20 @@ export type SectorResonanceCell = {
   sourceLabel: string;
   summary: string;
   forecastId: string | null;
+  timingMarkers: SectorTimingMarker[];
+};
+
+export type SectorTimingMarker = {
+  date: string;
+  label: string;
+  sourceLabel: "六爻明确" | "奇门校准" | "八字窗口" | "技术确认" | "人工录入" | "周卦路径" | "日干支观察";
+  strength: "EXACT" | "DERIVED" | "SOFT";
+};
+
+export type SectorMonthKeyWeek = {
+  weekLabel: string;
+  label: string;
+  tone: "BULL" | "BEAR" | "TURN" | "NEUTRAL";
 };
 
 export type SectorResonanceRow = {
@@ -28,6 +44,9 @@ export type SectorResonanceRow = {
   group: SectorResonanceGroup;
   annualDirection: string | null;
   annualMonthPath: string;
+  annualHighMonths: string[];
+  annualLowMonths: string[];
+  monthKeyWeeks: SectorMonthKeyWeek[];
   longCycle: string;
   cells: SectorResonanceCell[];
 };
@@ -130,7 +149,79 @@ function latestFirst(a: ConvictionPeriodForecast, b: ConvictionPeriodForecast): 
   return daysInclusive(a.periodStart, a.periodEnd) - daysInclusive(b.periodStart, b.periodEnd);
 }
 
-function weeklyCell(forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell | null {
+function dateLabel(value: string): string {
+  const [, month, day] = value.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function datesInWindow(start: string, end: string): string[] {
+  const first = utcDay(start);
+  const last = utcDay(end);
+  return Array.from({ length: Math.round(last - first) + 1 }, (_, index) =>
+    new Date((first + index) * 86_400_000).toISOString().slice(0, 10)
+  );
+}
+
+/**
+ * Exact supplied dates win. When a weekly chart contains only an ordered path,
+ * expose a clearly-labelled turning window instead of inventing a daily chart.
+ * Ganzhi markers are deliberately soft and never alter the weekly direction.
+ */
+export function buildSectorTimingMarkers(input: {
+  assetId: string;
+  direction: string;
+  periodStart: string;
+  periodEnd: string;
+  keyDates?: ConvictionPeriodForecast["keyDates"];
+}): SectorTimingMarker[] {
+  const explicitSourceLabel = (source: NonNullable<ConvictionPeriodForecast["keyDates"]>[number]["source"]): SectorTimingMarker["sourceLabel"] => {
+    if (source === "LIUYAO") return "六爻明确";
+    if (source === "QIMEN") return "奇门校准";
+    if (source === "BAZI") return "八字窗口";
+    if (source === "TECHNICAL") return "技术确认";
+    return "人工录入";
+  };
+  const explicit = (input.keyDates ?? [])
+    .filter((item) => item.date && item.date >= input.periodStart && item.date <= input.periodEnd)
+    .slice(0, 2)
+    .map((item) => ({
+      date: item.date!,
+      label: `${dateLabel(item.date!)} ${item.label}`,
+      sourceLabel: explicitSourceLabel(item.source),
+      strength: "EXACT" as const,
+    }));
+  if (explicit.length) return explicit;
+
+  const tradingDates = datesInWindow(input.periodStart, input.periodEnd)
+    .filter((date) => isFocusTradingDay(input.assetId, date));
+  if (!tradingDates.length) return [];
+  const middle = tradingDates[Math.floor((tradingDates.length - 1) / 2)]!;
+  if (/先涨后跌|冲高回落/u.test(input.direction)) {
+    return [{ date: middle, label: `${dateLabel(middle)}前后 转弱观察`, sourceLabel: "周卦路径", strength: "DERIVED" }];
+  }
+  if (/先跌后涨|探底回升/u.test(input.direction)) {
+    return [{ date: middle, label: `${dateLabel(middle)}前后 转强观察`, sourceLabel: "周卦路径", strength: "DERIVED" }];
+  }
+
+  const related = tradingDates.map((date) => ({
+    date,
+    relation: relateGanzhiToWeeklyDirection(getDayGanzhi(date), input.direction),
+    ganzhi: getDayGanzhi(date).ganzhiLabel,
+  }));
+  const picked = [related.find((item) => item.relation === "增强"), related.find((item) => item.relation === "减弱")]
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  if (picked.length) {
+    return picked.map((item) => ({
+      date: item.date,
+      label: `${dateLabel(item.date)} ${item.ganzhi}${item.relation}`,
+      sourceLabel: "日干支观察" as const,
+      strength: "SOFT" as const,
+    }));
+  }
+  return [{ date: middle, label: `${dateLabel(middle)} 周中节奏观察`, sourceLabel: "周卦路径", strength: "DERIVED" }];
+}
+
+function weeklyCell(assetId: string, forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell | null {
   const candidates = forecasts
     .filter((item) => item.status === "published")
     .filter((item) => daysInclusive(item.periodStart, item.periodEnd) <= 10)
@@ -144,10 +235,11 @@ function weeklyCell(forecasts: ConvictionPeriodForecast[], week: SectorResonance
     sourceLabel: "完整周卦",
     summary: selected.expectedPath || selected.summary,
     forecastId: selected.id,
+    timingMarkers: buildSectorTimingMarkers({ assetId, direction: normalizeDirection(selected.direction), periodStart: week.start, periodEnd: week.end, keyDates: selected.keyDates }),
   };
 }
 
-function calendarPathCell(forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell | null {
+function calendarPathCell(assetId: string, forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell | null {
   const ordered = [...forecasts].sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
   for (const forecast of ordered) {
     const path = forecast.calendarMonthPath?.find((item) => {
@@ -161,6 +253,7 @@ function calendarPathCell(forecasts: ConvictionPeriodForecast[], week: SectorRes
       sourceLabel: path.sourceNote || "月内周路径",
       summary: path.summary,
       forecastId: forecast.id,
+      timingMarkers: buildSectorTimingMarkers({ assetId, direction: normalizeDirection(path.direction), periodStart: week.start, periodEnd: week.end, keyDates: forecast.keyDates }),
     };
   }
   return null;
@@ -182,6 +275,7 @@ function monthlyContextCell(forecasts: ConvictionPeriodForecast[], week: SectorR
     sourceLabel: daysInclusive(selected.periodStart, selected.periodEnd) <= 45 ? "月度背景" : "上级周期背景",
     summary: `缺少该周完整周卦；这里只显示上级周期背景，不把它冒充周方向：${selected.summary}`,
     forecastId: selected.id,
+    timingMarkers: [],
   };
 }
 
@@ -226,17 +320,36 @@ function forecastsFor(definition: AssetDefinition): ConvictionPeriodForecast[] {
   return [];
 }
 
-function cellFor(forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell {
-  return weeklyCell(forecasts, week)
-    ?? calendarPathCell(forecasts, week)
+function cellFor(assetId: string, forecasts: ConvictionPeriodForecast[], week: SectorResonanceWeek): SectorResonanceCell {
+  return weeklyCell(assetId, forecasts, week)
+    ?? calendarPathCell(assetId, forecasts, week)
     ?? monthlyContextCell(forecasts, week)
-    ?? { direction: "待补", sourceKind: "MISSING", sourceLabel: "待补完整周卦", summary: "该周尚无可追溯完整周卦，不从长周期硬拆方向。", forecastId: null };
+    ?? { direction: "待补", sourceKind: "MISSING", sourceLabel: "待补完整周卦", summary: "该周尚无可追溯完整周卦，不从长周期硬拆方向。", forecastId: null, timingMarkers: [] };
 }
 
 function directionSide(direction: string): "BULL" | "NEUTRAL" | "BEAR" {
   if (/上涨|先跌后涨/u.test(direction)) return "BULL";
   if (/下跌|先涨后跌/u.test(direction)) return "BEAR";
   return "NEUTRAL";
+}
+
+export function buildSectorMonthKeyWeeks(cells: SectorResonanceCell[], weeks: SectorResonanceWeek[]): SectorMonthKeyWeek[] {
+  const output: SectorMonthKeyWeek[] = [];
+  let previousSide: ReturnType<typeof directionSide> | null = null;
+  for (let index = 1; index < weeks.length; index += 1) {
+    const cell = cells[index]!;
+    if (cell.sourceKind !== "WEEKLY") continue;
+    const side = directionSide(cell.direction);
+    if (/先涨后跌/u.test(cell.direction)) output.push({ weekLabel: weeks[index]!.label, label: "见高转弱周", tone: "TURN" });
+    else if (/先跌后涨/u.test(cell.direction)) output.push({ weekLabel: weeks[index]!.label, label: "探底转强周", tone: "TURN" });
+    else if (previousSide && previousSide !== side) output.push({ weekLabel: weeks[index]!.label, label: side === "BULL" ? "方向转强周" : side === "BEAR" ? "方向转弱周" : "转入震荡周", tone: side });
+    previousSide = side;
+  }
+  if (!output.length) {
+    const firstExact = cells.findIndex((cell, index) => index > 0 && cell.sourceKind === "WEEKLY");
+    if (firstExact > 0) output.push({ weekLabel: weeks[firstExact]!.label, label: "月初定调周", tone: directionSide(cells[firstExact]!.direction) });
+  }
+  return output.slice(0, 3);
 }
 
 export function buildSectorResonanceBoard(): {
@@ -255,10 +368,13 @@ export function buildSectorResonanceBoard(): {
       group: definition.group,
       annualDirection: annual?.annualDirection ?? null,
       annualMonthPath: annual?.months.map((item) => `${Number(item.month.slice(5))}月${item.direction}`).join(" → ") ?? "独立年卦待补",
+      annualHighMonths: annual?.highMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
+      annualLowMonths: annual?.lowMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
+      monthKeyWeeks: [],
       longCycle: annual?.remainingYearPath ?? definition.longCycle,
-      cells: SECTOR_RESONANCE_WEEKS_20260825.map((week) => cellFor(forecasts, week)),
+      cells: SECTOR_RESONANCE_WEEKS_20260825.map((week) => cellFor(definition.assetId, forecasts, week)),
     } satisfies SectorResonanceRow;
-  });
+  }).map((row) => ({ ...row, monthKeyWeeks: buildSectorMonthKeyWeeks(row.cells, SECTOR_RESONANCE_WEEKS_20260825) }));
 
   const summaries = SECTOR_RESONANCE_GROUP_ORDER.flatMap((group) =>
     SECTOR_RESONANCE_WEEKS_20260825.map((week, weekIndex) => {
