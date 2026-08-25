@@ -98,7 +98,8 @@ test("短线每分钟扫描但1分钟不能替代5分钟入场，三周期有独
   assert.match(engine, /HORIZON_PERIOD_TRADE_CAP/);
   assert.match(engine, /所有新开仓入口（含首笔闭环验收）均已关闭/);
   assert.match(engine, /TRADE_CADENCE_READ_FAILED/);
-  assert.match(engine, /const LIVE_ACTIVITY_ENABLED = false/);
+  assert.match(engine, /LIVE_ACTIVITY_CONTROL\.configured && LIVE_ACTIVITY_CONTROL\.mode === "LIVE"/);
+  assert.match(engine, /"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
   assert.match(engine, /bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN/);
 });
 

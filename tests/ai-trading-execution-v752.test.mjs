@@ -47,6 +47,8 @@ test('hard risk protections remain present', () => {
   }
 });
 
-test('legacy activity quota is opt-in/configured rather than forced by default', () => {
-  assert.equal(has(strategy, '"MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4'), true);
+test('daily activity target defaults to one but remains behind unified live and hard risk gates', () => {
+  assert.equal(has(strategy, '"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5'), true);
+  assert.equal(has(strategy, 'LIVE_ACTIVITY_CONTROL.configured && LIVE_ACTIVITY_CONTROL.mode === "LIVE"'), true);
+  assert.equal(has(strategy, 'isActivityPromotionEligible(decision)'), true);
 });

@@ -13,7 +13,7 @@ test('live commissioning is enabled by default but still uses MOOX direction and
   assert.match(source, /forecastDirectionForStrategy\(input\.plan, input\.strategyType\)/);
   assert.match(source, /MOOX玄学方向/);
   assert.match(source, /技术指标替代决定多空/);
-  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);
+  assert.match(source, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
   assert.match(source, /prepareAiTradePlanBeforeExecution/);
   assert.match(source, /executeReadyDecision/);
 });

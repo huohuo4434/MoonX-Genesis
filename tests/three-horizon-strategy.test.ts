@@ -184,6 +184,7 @@ test("daily activity targets promote only an observing low-confidence candidate"
     "AUXILIARY_DIRECTION_CONFLICT",
     "DIRECTION_EVIDENCE_LOW",
     "ENTRY_STRUCTURE_INVALID",
+    "TECHNICAL_SCORE_LOW",
     "RISK_FILTER",
     "RISK_PLAN_INVALID",
     "TIMING_RISK",
@@ -335,11 +336,18 @@ test("database migration is additive and seeds only shadow profiles", () => {
   assert.doesNotMatch(migration, /DROP\s+TABLE|DELETE\s+FROM/i);
 });
 
-test("live active execution is fail-closed and quantity promotion is permanently disabled", () => {
+test("live daily activity remains fail-closed and can only promote qualified low-confidence candidates", () => {
   const source = engine();
   const client = read("lib/bitget/demo-client.ts");
   assert.match(source, /MOOX_TRADING_CONTROL_MODE/);
-  assert.match(source, /const LIVE_ACTIVITY_ENABLED = false/);
+  assert.match(source, /LIVE_ACTIVITY_CONTROL\.configured && LIVE_ACTIVITY_CONTROL\.mode === "LIVE"/);
+  assert.match(source, /"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
+  assert.match(source, /isActivityPromotionEligible\(decision\)/);
+  assert.match(source, /decision\.technicalScore >= 34/);
+  assert.match(source, /condition\.key === "entry" && condition\.met/);
+  assert.match(source, /decisionRewardRisk\(decision\) >= 1\.05/);
+  assert.match(source, /maxLossPercent: liveRiskBudgetPct/);
+  assert.match(source, /riskPct > liveRiskBudgetPct/);
   assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
   assert.match(source, /environment\.liveMaxTradesPerDay/);
   assert.match(source, /HORIZON_PERIOD_TRADE_CAP/);

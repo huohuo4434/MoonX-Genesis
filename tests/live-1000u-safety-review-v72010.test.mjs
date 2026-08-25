@@ -59,10 +59,12 @@ test("official live switch always preserves position management and MANAGE_ONLY 
   assert.match(reliability, /readUnifiedLiveRuntimeConfig\(\)\.positionManagementEnabled/);
 });
 
-test("live does not create quota-filling or commissioning trades by default", () => {
+test("live daily target cannot bypass explicit activation, custody or execution safety", () => {
   const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
   assert.match(strategy, /BITGET_LIVE_COMMISSIONING_ENABLED\?\.toLowerCase\(\) === "true"/);
-  assert.match(strategy, /"MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4/);
+  assert.match(strategy, /"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
+  assert.match(strategy, /LIVE_ACTIVITY_CONTROL\.configured && LIVE_ACTIVITY_CONTROL\.mode === "LIVE"/);
+  assert.match(strategy, /isActivityPromotionEligible\(decision\)/);
   assert.match(strategy, /!entrySafetyStop/);
   assert.match(strategy, /custodyRegistrationFailed/);
   assert.match(strategy, /本轮立即停止继续新开仓/);

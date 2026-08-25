@@ -185,8 +185,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
         <Text variant="caption" color="secondary" className="mt-3 block leading-5">
           {en
-            ? "The engine scans intraday setups every minute. One-minute candles refine execution only; formal direction, closed 5-minute structure, plan locking and all hard risk gates still decide whether an order is allowed. Zero qualified trades is valid."
-            : "短线每分钟扫描；1分钟K线只微调成交时机，不能代替正式方向和5分钟收盘结构。计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门；没有合格机会时允许0单，绝不为凑数强开。"}
+            ? "Intraday setups are scanned every minute, targeting 1–5 qualified orders a day. One-minute candles refine timing only. A small probe may be selected only when formal direction, complete levels and risk/reward agree; plan locks, position conflicts, loss caps, exchange protection and data freshness remain hard gates. If no order is allowed, the desk shows the blocker."
+            : "短线每分钟扫描，日目标1—5笔；1分钟K线只微调成交时机，不能代替正式方向和5分钟收盘结构。若常规入场没有触发，系统只会从正式方向一致、点位完整、风险收益合格的候选中选择小风险探路仓；计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门。今日未开仓时，页面应显示具体阻断原因。"}
         </Text>
       </details>
 

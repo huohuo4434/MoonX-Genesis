@@ -6,11 +6,12 @@ const read = (rel) => fs.readFileSync(rel, 'utf8');
 
 test('LIVE has one real activation target without removing hard risk gates', () => {
   const s = read('lib/trading-signals/three-horizon-strategy.ts');
-  assert.match(s, /LIVE_ACTIVITY_TARGET = Math\.max\(1,/);
-  assert.match(s, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 0, 4/);
+  assert.match(s, /LIVE_ACTIVITY_TARGET = Math\.floor\(envNumber\(/);
+  assert.match(s, /MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
   assert.match(s, /LIVE_NATIVE_RISK_GATE/);
   assert.match(s, /LIVE_ACTIVITY_PROBE_RISK_PCT/);
-  assert.match(s, /decision\.technicalScore >= 25/);
+  assert.match(s, /decision\.technicalScore >= 34/);
+  assert.match(s, /condition\.key === "entry" && condition\.met/);
   assert.match(s, /decisionRewardRisk\(decision\) >= 1\.05/);
   assert.match(s, /PROJECTED_OPEN_RISK_LIMIT/);
   assert.match(s, /SYMBOL_POSITION_EXISTS/);

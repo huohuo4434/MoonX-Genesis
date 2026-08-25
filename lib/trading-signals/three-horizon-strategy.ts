@@ -33,7 +33,10 @@ import {
   isActivityPromotionEligible,
   resolveIntradayExecutionDirection,
 } from "@/lib/trading-signals/intraday-direction-authority-core";
-import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
+import {
+  isUnifiedLiveActiveExecutionEnabled,
+  readAuthoritativeTradingControlMode,
+} from "@/lib/trading-signals/unified-live-config";
 import { protectExecutionLifecycleStatus } from "@/lib/trading-signals/decision-status-transition-core";
 import { prisma } from "@/lib/prisma";
 import {
@@ -130,11 +133,16 @@ const LIVE_COMMISSIONING_ENABLED =
   process.env.BITGET_LIVE_COMMISSIONING_ENABLED?.toLowerCase() === "true";
 const LIVE_ACTIVE_EXECUTION_ENABLED =
   isUnifiedLiveActiveExecutionEnabled();
-// Legacy quantity-driven promotion is permanently disabled. A desired cadence
-// is a monitoring/capacity objective, never a reason to make a real order READY.
-const LIVE_ACTIVITY_ENABLED = false;
+// The owner requires an active short-horizon cadence. This path may relax only
+// the low-confidence threshold of an otherwise valid, formally directed setup.
+// It remains disabled whenever the single authoritative control is not LIVE,
+// and every plan, custody, position, loss, risk, protection and exchange gate
+// below still applies before a real order can be submitted.
+const LIVE_ACTIVITY_CONTROL = readAuthoritativeTradingControlMode();
+const LIVE_ACTIVITY_ENABLED =
+  LIVE_ACTIVITY_CONTROL.configured && LIVE_ACTIVITY_CONTROL.mode === "LIVE";
 const LIVE_ACTIVITY_TARGET = Math.floor(envNumber(
-  "MOOX_LIVE_ACTIVITY_TARGET_V641", 0, 0, 4
+  "MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5
 ));
 const LIVE_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
   "MOOX_LIVE_ACTIVITY_START_HOUR_BJ_V641",
@@ -1345,9 +1353,12 @@ function finalizeEvaluation(
   } else if (directionEvidenceMet < minimumEvidence) {
     rejectionCode = "DIRECTION_EVIDENCE_LOW";
     rejectionReason = `执行结构证据仅${directionEvidenceMet}/${directionEvidenceKeys.length}项，未达到最小要求${minimumEvidence}项。`;
-  } else if (confidence < probeThreshold || technicalScore < probeTechnicalFloor) {
+  } else if (technicalScore < probeTechnicalFloor) {
+    rejectionCode = "TECHNICAL_SCORE_LOW";
+    rejectionReason = `技术分${technicalScore}%低于探路仓门槛${probeTechnicalFloor}%；活动目标不得放宽真实入场结构。`;
+  } else if (confidence < probeThreshold) {
     rejectionCode = "CONFIDENCE_LOW";
-    rejectionReason = `综合置信度${confidence}%或技术分${technicalScore}%低于探路仓门槛。`;
+    rejectionReason = `综合置信度${confidence}%低于探路仓门槛${probeThreshold}%。`;
   } else if (probeReady) {
     rejectionCode = "PROBE_ENTRY";
   }
@@ -3417,6 +3428,10 @@ async function executeReadyDecision(input: {
     if (environment.mode === "LIVE_EXPERIMENT") {
       if (!unifiedSetting) throw new Error(`${unifiedHorizon}实盘周期设置不可用`);
       const availableMargin = Math.min(input.risk.availableUsdt ?? equityUsdt, equityUsdt);
+      // Use the exact risk budget already reserved by the portfolio gate.  This
+      // keeps a daily activity probe at <=0.08% instead of silently reverting
+      // to the broader per-horizon setting during Unified Live sizing.
+      const liveRiskBudgetPct = Math.min(unifiedSetting.maxLossPercent, plannedRiskPct);
       const calculated = calculateUnifiedLivePositionSize({
         equity: equityUsdt,
         availableMargin,
@@ -3426,7 +3441,7 @@ async function executeReadyDecision(input: {
         sizingValue: unifiedSetting.sizingValue,
         leverage: Math.min(unifiedSetting.leverage, environment.leverage),
         maxMarginUsePercent: unifiedSetting.maxMarginUsePercent,
-        maxLossPercent: unifiedSetting.maxLossPercent,
+        maxLossPercent: liveRiskBudgetPct,
       });
       if (!calculated.accepted) throw new Error(`Unified Live仓位计算拒绝：${calculated.reason ?? "UNKNOWN"}`);
       const entryPrice = input.evaluation.entryPrice ?? 0;
@@ -3445,8 +3460,8 @@ async function executeReadyDecision(input: {
       const stopDistancePercent = Math.abs(entryPrice - stopPrice) / entryPrice * 100;
       const projectedLoss = notionalAmount * ((stopDistancePercent + 0.16) / 100);
       const riskPct = projectedLoss / equityUsdt * 100;
-      if (riskPct > unifiedSetting.maxLossPercent + 1e-9) {
-        throw new Error(`归一化后风险${round(riskPct, 4)}%超过${unifiedSetting.maxLossPercent}%上限`);
+      if (riskPct > liveRiskBudgetPct + 1e-9) {
+        throw new Error(`归一化后风险${round(riskPct, 4)}%超过本单已预留${round(liveRiskBudgetPct, 4)}%预算`);
       }
       sizing = {
         quantity: normalizedQuantity,
@@ -3911,6 +3926,12 @@ export async function runThreeHorizonStrategyEngine(
   let orderSuccess = management.orderSuccess + (commissioningSuccess ? 1 : 0);
   let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
   let executedToday = await executedOrderCountToday(now, liveExperimentMode ? "LIVE" : "DEMO");
+  const intradayProfile = liveExperimentMode
+    ? profiles.find((profile) => profile.strategyType === "INTRADAY" && profile.mode === "LIVE")
+    : null;
+  let intradayExecutedToday = intradayProfile
+    ? await cadenceTradeCount(intradayProfile, now)
+    : 0;
   let scanErrors = 0;
   let directionalDecisions = 0;
   let entryTriggers = 0;
@@ -4217,10 +4238,11 @@ export async function runThreeHorizonStrategyEngine(
     LIVE_ACTIVITY_TARGET > 0 &&
     beijingHour(now) >= LIVE_ACTIVITY_START_HOUR_BJ &&
     !risk.blocked &&
-    executedToday < Math.min(LIVE_ACTIVITY_TARGET, environment.liveMaxTradesPerDay)
+    intradayExecutedToday < LIVE_ACTIVITY_TARGET &&
+    executedToday < environment.liveMaxTradesPerDay
   ) {
     const needed = Math.min(
-      LIVE_ACTIVITY_TARGET - executedToday,
+      LIVE_ACTIVITY_TARGET - intradayExecutedToday,
       environment.liveMaxTradesPerDay - executedToday
     );
     const candidates = decisions
@@ -4230,7 +4252,8 @@ export async function runThreeHorizonStrategyEngine(
         decision.mode === "LIVE" &&
         (decision.direction === "LONG" || decision.direction === "SHORT") &&
         decision.confidence >= LIVE_ACTIVITY_MIN_CONFIDENCE &&
-        decision.technicalScore >= 20 &&
+        decision.technicalScore >= 34 &&
+        decision.conditions.some((condition) => condition.key === "entry" && condition.met) &&
         decision.conditionsTotal > 0 &&
         decision.conditionsMet >= Math.max(2, Math.ceil(decision.conditionsTotal * 0.25)) &&
         Boolean(decision.entryPrice && decision.stopLoss && decision.target1 && decision.target2) &&
@@ -4329,6 +4352,7 @@ export async function runThreeHorizonStrategyEngine(
         if (executed.success) {
           orderSuccess += 1;
           executedToday += 1;
+          intradayExecutedToday += 1;
           promotedCount += 1;
           reservedSymbols.add(candidate.symbol);
           reservedRiskPct += executed.riskReservedPct;
@@ -4347,8 +4371,8 @@ export async function runThreeHorizonStrategyEngine(
       if (entrySafetyStop) break;
     }
     dailyMinimumMessage = messages.length
-      ? `实盘每日活动目标${executedToday}/${LIVE_ACTIVITY_TARGET}：${messages.join("；")}`
-      : `实盘每日活动目标${executedToday}/${LIVE_ACTIVITY_TARGET}：本轮没有通过最小方向、宽止损和安全闸门的候选。`;
+      ? `实盘短线每日活动目标${intradayExecutedToday}/${LIVE_ACTIVITY_TARGET}：${messages.join("；")}`
+      : `实盘短线每日活动目标${intradayExecutedToday}/${LIVE_ACTIVITY_TARGET}：本轮没有通过真实入场触发、最小技术结构和安全闸门的候选。`;
   }
   let demoActivityMessage = "";
   if (
