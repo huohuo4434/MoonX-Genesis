@@ -19,6 +19,10 @@ import {
   getUnifiedLiveAccount,
 } from "@/lib/trading-signals/unified-live-store";
 import { getReadOnlyLiveStatusSnapshot, type ReadOnlyLiveDecision } from "@/lib/live-status-readonly";
+import { getChinaDateKey } from "@/lib/date/china-date";
+import { aiTradingFocusPriority } from "@/lib/trading-signals/ai-trading-focus";
+import { rankDailyChampionBoard } from "@/lib/trading-signals/daily-champion-core";
+import { evaluateMarketSessionExposureSafety } from "@/lib/trading-signals/market-session-exposure-core";
 
 // MOOX_V720105_LIVE_VISIBILITY: authoritative positions + plans + no-order diagnosis for the member live page.
 export const dynamic = "force-dynamic";
@@ -117,6 +121,13 @@ function mapExecution(row: ReadOnlyLiveDecision) {
   };
 }
 
+function decisionRewardRisk(row: ReadOnlyLiveDecision): number {
+  if (row.entryPrice == null || row.stopLoss == null || row.target2 == null) return 0;
+  const risk = Math.abs(row.entryPrice - row.stopLoss);
+  if (!Number.isFinite(risk) || risk <= 0) return 0;
+  return Math.abs(row.target2 - row.entryPrice) / risk;
+}
+
 function scanFreshness(lastScanAt: string | null, now = Date.now()) {
   if (!lastScanAt) return { fresh: false, ageSeconds: null as number | null };
   const parsed = Date.parse(lastScanAt);
@@ -175,6 +186,7 @@ function summarizeNoOrderDiagnosis(input: {
 }
 
 async function buildLiveTradingStatus(request: NextRequest) {
+  const now = new Date();
   const actor = await resolveUnifiedLiveActor(request);
   if (!actor) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
@@ -323,6 +335,39 @@ async function buildLiveTradingStatus(request: NextRequest) {
   }
 
   const allDecisions = strategyDashboard?.latestDecisions ?? [];
+  const todayKey = getChinaDateKey(now);
+  const dailyChampions = rankDailyChampionBoard(
+    allDecisions
+      .filter((row) => row.strategyType === "INTRADAY" && getChinaDateKey(new Date(row.updatedAt)) === todayKey)
+      .map((row) => ({
+        id: row.id,
+        symbol: row.symbol,
+        direction: row.direction,
+        status: row.status,
+        rejectionCode: row.rejectionCode,
+        confidence: row.confidence,
+        technicalScore: row.technicalScore,
+        forecastScore: row.forecastScore,
+        conditionsMet: row.conditionsMet,
+        conditionsTotal: row.conditionsTotal,
+        entryTriggered: row.conditions.some((condition) => condition.key === "entry" && condition.met),
+        rewardRisk: decisionRewardRisk(row),
+        marketSessionAllowed: evaluateMarketSessionExposureSafety({
+          symbol: row.symbol,
+          action: "DAILY_MINIMUM_ENTRY",
+          nowMs: now.getTime(),
+        }).allowed,
+        focusPriority: aiTradingFocusPriority(row.symbol, now),
+        currentPrice: row.currentPrice,
+        entryPrice: row.entryPrice,
+        stopLoss: row.stopLoss,
+        target1: row.target1,
+        target2: row.target2,
+        rejectionReason: row.rejectionReason,
+        updatedAt: row.updatedAt,
+      })),
+    3,
+  );
   const plans = latestUnique(
     allDecisions.filter((row) => row.direction !== "NEUTRAL" && PLAN_STATUSES.has(row.status)),
     12,
@@ -450,6 +495,7 @@ async function buildLiveTradingStatus(request: NextRequest) {
     positions: authoritativePositions,
     recentClosedPositions: officialControl ? recentClosedPositions : [],
     plans,
+    dailyChampions,
     recentExecutions,
     diagnosis: diagnosis.reasons,
     today: totals,

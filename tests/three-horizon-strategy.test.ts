@@ -40,6 +40,8 @@ test("live scheduling prioritizes a fresh locked weekly entry zone without chang
   });
   assert.deepEqual(selected, ["ETHUSDT"]);
   assert.equal(selected.length, 1);
+  assert.doesNotMatch(engine(), /fallback\.length !== 1/);
+  assert.match(engine(), /selectOpportunityBatchWithinDeadline\(\{/);
 });
 
 test("live plan maintenance reports bounded phase timings without changing serial lifecycle writes", async () => {
@@ -112,6 +114,14 @@ test("risk engine enforces daily weekly open and correlated crypto limits", () =
   ]) {
     assert.match(source, new RegExp(token));
   }
+  assert.match(source, /CRYPTO_RISK_GROUP_SYMBOLS[\s\S]*"SOLUSDT"/);
+  assert.match(source, /BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0\.2, 0\.1, 0\.3/);
+  assert.match(source, /LIVE_ACTIVITY_PROBE_RISK_PCT/);
+  assert.match(source, /promotionRiskScale = dailyChampionRiskScale\(\[/);
+  assert.match(source, /riskScale: promotionRiskScale/);
+  assert.doesNotMatch(source, /liveActivityProbe:[\s\S]{0,400}riskScale: 1/);
+  assert.match(source, /PROJECTED_OPEN_RISK_LIMIT/);
+  assert.match(source, /PROJECTED_CRYPTO_GROUP_LIMIT/);
 });
 
 test("weekly forecast owns direction while technical structure only controls entry state", () => {

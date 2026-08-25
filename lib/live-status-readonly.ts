@@ -36,6 +36,8 @@ type DecisionRow = {
   status: string;
   direction: string;
   confidence: number;
+  technical_score: number;
+  forecast_score: number;
   conditions: unknown;
   rejection_code: string | null;
   rejection_reason: string | null;
@@ -74,6 +76,8 @@ export type ReadOnlyLiveDecision = {
   status: ThreeHorizonDecisionStatus;
   direction: ThreeHorizonDirection;
   confidence: number;
+  technicalScore: number;
+  forecastScore: number;
   conditions: ThreeHorizonCondition[];
   conditionsMet: number;
   conditionsTotal: number;
@@ -129,6 +133,7 @@ export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
       `,
       prisma.$queryRaw<DecisionRow[]>`
         SELECT id, run_id, strategy_type, mode, symbol, status, direction, confidence,
+               technical_score, forecast_score,
                conditions, rejection_code, rejection_reason, current_price, entry_price,
                stop_loss, target_1, target_2, quantity, risk_amount_usdt, expires_at,
                opened_at, closed_at, realized_pnl_usdt, created_at, updated_at
@@ -161,6 +166,8 @@ export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
         status: row.status as ThreeHorizonDecisionStatus,
         direction: row.direction as ThreeHorizonDirection,
         confidence: Number(row.confidence) || 0,
+        technicalScore: Number(row.technical_score) || 0,
+        forecastScore: Number(row.forecast_score) || 0,
         conditions: rowConditions,
         conditionsMet: rowConditions.filter((item) => item.met).length,
         conditionsTotal: rowConditions.length,

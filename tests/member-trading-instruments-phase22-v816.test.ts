@@ -42,7 +42,7 @@ test("member automation union covers every active focus asset and exact official
   }
   assert.equal(staticFocus.find((row) => row.assetId === "asteroid")?.assetClass, "CRYPTO");
   assert.equal(staticFocus.find((row) => row.assetId === "cxmt")?.displayName, "长鑫科技");
-  const onlineSymbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT", "MUUSDT", "SNDKUSDT", "NBISUSDT", "GOOGLUSDT", "MSFTUSDT", "TENCENTUSDT"];
+  const onlineSymbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT", "MUUSDT", "SNDKUSDT", "NBISUSDT", "GOOGLUSDT", "MSFTUSDT", "TENCENTUSDT", "LITEUSDT", "TSLAUSDT", "INTCUSDT"];
   const contracts = [
     ...onlineSymbols.map((symbol) => ({ symbol, category: "USDT-FUTURES", status: "online" })),
     { symbol: "SANDUSDT", category: "USDT-FUTURES", status: "online" },
@@ -60,6 +60,9 @@ test("member automation union covers every active focus asset and exact official
     assert.equal(row.executionScope, "RESEARCH_ONLY", assetId);
   }
   assert.equal(rows.find((row) => row.assetId === "tencent")?.bitgetSymbol, "TENCENTUSDT");
+  assert.equal(rows.find((row) => row.assetId === "lite")?.bitgetSymbol, "LITEUSDT");
+  assert.equal(rows.find((row) => row.assetId === "tsla")?.bitgetSymbol, "TSLAUSDT");
+  assert.equal(rows.find((row) => row.assetId === "intel")?.bitgetSymbol, "INTCUSDT");
 });
 
 test("instrument API and UI remain member/device gated and expose explicit unavailable state", () => {

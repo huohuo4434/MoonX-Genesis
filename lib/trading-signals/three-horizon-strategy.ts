@@ -114,6 +114,7 @@ import {
   classifyDirectionalMarketStructure,
   resolveAuthoritativeForecastDirection,
 } from "@/lib/trading-signals/authoritative-market-structure-core";
+import { dailyChampionRiskScale, dailyChampionScore } from "@/lib/trading-signals/daily-champion-core";
 
 // MOOX_V720101_BAZI_DIVERGENCE_GUARD: asset-Bazi regime prior + BTC/ETH independent execution guard.
 // MOOX_V72010_1000U_LIVE_EXECUTION: formal direction + three-horizon execution with hard live risk caps.
@@ -121,10 +122,11 @@ import {
 // The live allow-list in demo-client remains authoritative; V7.9.1 adds the explicitly approved SNDK/MSFT stock perps, then dynamically selects only currently available contracts.
 const LIVE_EXPERIMENT_SYMBOL_PATTERN = /^[A-Z0-9]{2,20}USDT$/;
 const LIVE_FULL_UNIVERSE_SYMBOLS: BitgetSupportedSymbol[] = [
-  "BTCUSDT", "ETHUSDT", "HYPEUSDT", "MUUSDT", "QQQUSDT",
-  "XAUTUSDT", "XAGUSDT", "GOOGLUSDT", "CLUSDT", "SPYUSDT",
-  "SNDKUSDT", "MSFTUSDT",
+  "BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT", "MUUSDT", "NBISUSDT",
+  "QQQUSDT", "XAUTUSDT", "XAGUSDT", "GOOGLUSDT", "CLUSDT", "SPYUSDT",
+  "SNDKUSDT", "MSFTUSDT", "TENCENTUSDT", "LITEUSDT", "TSLAUSDT", "INTCUSDT",
 ];
+const CRYPTO_RISK_GROUP_SYMBOLS = new Set<string>(["BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT"]);
 const LIVE_COMMISSIONING_PREFERRED_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT"];
 const LIVE_COMMISSIONING_QUOTE_MAX_AGE_SECONDS = 30;
 // MOOX_TRADING_CONTROL_MODE is the single operational control. Legacy
@@ -158,9 +160,9 @@ const LIVE_ACTIVITY_MIN_CONFIDENCE = envNumber(
 );
 const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
   "MOOX_LIVE_ACTIVITY_PROBE_RISK_PCT_V641",
-  envNumber("BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.08, 0.05, 0.15),
-  0.05,
-  0.15
+  envNumber("BITGET_LIVE_DAILY_MINIMUM_RISK_PCT", 0.2, 0.1, 0.3),
+  0.1,
+  0.3
 );
 const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
   "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
@@ -1531,7 +1533,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         UPDATE trade_three_horizon_profiles SET
           enabled = TRUE,
           mode = 'LIVE',
-          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT"]'::jsonb,
+          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","SOLUSDT","MUUSDT","NBISUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT","TENCENTUSDT","LITEUSDT","TSLAUSDT","INTCUSDT"]'::jsonb,
           scan_interval_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 1
             WHEN strategy_type='SWING' THEN 15
@@ -1565,7 +1567,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
         UPDATE trade_three_horizon_profiles SET
           enabled = TRUE,
           mode = 'DEMO',
-          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","MUUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT"]'::jsonb,
+          symbols = '["BTCUSDT","ETHUSDT","HYPEUSDT","SOLUSDT","MUUSDT","NBISUSDT","QQQUSDT","XAUTUSDT","XAGUSDT","GOOGLUSDT","CLUSDT","SPYUSDT","SNDKUSDT","MSFTUSDT","TENCENTUSDT","LITEUSDT","TSLAUSDT","INTCUSDT"]'::jsonb,
           scan_interval_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 5
             WHEN strategy_type='SWING' THEN 15
@@ -1850,15 +1852,17 @@ function decisionRewardRisk(decision: ThreeHorizonStrategyDecision): number {
 }
 
 function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision, now = new Date()): number {
-  const completion = decision.conditionsTotal > 0
-    ? decision.conditionsMet / decision.conditionsTotal
-    : 0;
-  return aiTradingFocusPriority(decision.symbol, now) * 1.5
-    + decision.confidence * 2
-    + decision.technicalScore
-    + decision.forecastScore * 0.5
-    + completion * 50
-    + decisionRewardRisk(decision) * 10;
+  return dailyChampionScore({
+    focusPriority: aiTradingFocusPriority(decision.symbol, now),
+    confidence: decision.confidence,
+    technicalScore: decision.technicalScore,
+    forecastScore: decision.forecastScore,
+    conditionsMet: decision.conditionsMet,
+    conditionsTotal: decision.conditionsTotal,
+    rewardRisk: decisionRewardRisk(decision),
+    entryTriggered: decision.conditions.some((condition) => condition.key === "entry" && condition.met),
+    ready: decision.status === "READY",
+  });
 }
 
 async function selectDynamicTradeUniverse(
@@ -1990,7 +1994,7 @@ async function buildRiskSnapshot(now: Date): Promise<ThreeHorizonRiskSnapshot> {
     const weeklyLossPct = equity > 0 && weeklyNet < 0 ? Math.abs(weeklyNet) / equity * 100 : 0;
     const openRiskAmount = active.reduce((sum, row) => sum + Number(row.risk_amount_usdt ?? 0), 0);
     const cryptoRiskAmount = active
-      .filter((row) => ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(row.symbol))
+      .filter((row) => CRYPTO_RISK_GROUP_SYMBOLS.has(row.symbol))
       .reduce((sum, row) => sum + Number(row.risk_amount_usdt ?? 0), 0);
     const openRiskPct = equity > 0 ? openRiskAmount / equity * 100 : 0;
     const cryptoGroupRiskPct = equity > 0 ? cryptoRiskAmount / equity * 100 : 0;
@@ -2799,7 +2803,7 @@ async function manageActiveDecisions(now: Date): Promise<{
   const environment = getBitgetDemoEnvironment();
   let projectedOpenRiskPct = decisions.reduce((sum, row) => sum + Number(row.riskPct ?? 0), 0);
   let projectedCryptoRiskPct = decisions
-    .filter((row) => ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(row.symbol))
+    .filter((row) => CRYPTO_RISK_GROUP_SYMBOLS.has(row.symbol))
     .reduce((sum, row) => sum + Number(row.riskPct ?? 0), 0);
   let orderAttempts = 0;
   let orderSuccess = 0;
@@ -2887,7 +2891,7 @@ async function manageActiveDecisions(now: Date): Promise<{
       const profile = profileByType.get(current.strategyType);
       const currentRiskPct = Number(current.riskPct ?? 0);
       const remainingRiskPct = profile ? Math.max(0, profile.riskPerTradePct - currentRiskPct) : 0;
-      const crypto = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(current.symbol);
+      const crypto = CRYPTO_RISK_GROUP_SYMBOLS.has(current.symbol);
       const riskRoom = projectedOpenRiskPct + remainingRiskPct <= OPEN_RISK_LIMIT_PCT + 1e-9;
       const cryptoRoom = !crypto || projectedCryptoRiskPct + remainingRiskPct <= CRYPTO_GROUP_RISK_LIMIT_PCT + 1e-9;
       if (profile && remainingRiskPct >= 0.04 && riskRoom && cryptoRoom) {
@@ -3380,7 +3384,7 @@ async function executeReadyDecision(input: {
     blockCode = "PROJECTED_OPEN_RISK_LIMIT";
     blockReason = `本单计入后，开放风险将达到${round(input.risk.openRiskPct + input.reservedRiskPct + plannedRiskPct, 3)}%，超过${input.risk.openRiskLimitPct}%上限。`;
   } else if (
-    ["BTCUSDT", "ETHUSDT", "HYPEUSDT"].includes(input.decision.symbol) &&
+    CRYPTO_RISK_GROUP_SYMBOLS.has(input.decision.symbol) &&
     input.risk.cryptoGroupRiskPct + input.reservedRiskPct + plannedRiskPct >
     input.risk.cryptoGroupRiskLimitPct + 1e-9
   ) {
@@ -3428,9 +3432,9 @@ async function executeReadyDecision(input: {
     if (environment.mode === "LIVE_EXPERIMENT") {
       if (!unifiedSetting) throw new Error(`${unifiedHorizon}实盘周期设置不可用`);
       const availableMargin = Math.min(input.risk.availableUsdt ?? equityUsdt, equityUsdt);
-      // Use the exact risk budget already reserved by the portfolio gate.  This
-      // keeps a daily activity probe at <=0.08% instead of silently reverting
-      // to the broader per-horizon setting during Unified Live sizing.
+      // Use the exact risk budget already reserved by the portfolio gate. The
+      // daily champion path now uses the normal 0.20% intraday budget by
+      // default, but remains bounded by every Unified Live and portfolio cap.
       const liveRiskBudgetPct = Math.min(unifiedSetting.maxLossPercent, plannedRiskPct);
       const calculated = calculateUnifiedLivePositionSize({
         equity: equityUsdt,
@@ -3700,7 +3704,7 @@ export async function runThreeHorizonStrategyEngine(
     }),
     canSelect: () => !managementReadError,
     select: async (fallback) => {
-      if (!liveExperimentMode || fallback.length !== 1) return fallback;
+      if (!liveExperimentMode || !fallback.length) return fallback;
       return selectOpportunityBatchWithinDeadline({
         symbols: eligibleLiveSymbols,
         maxItems: maxNewSymbols,
@@ -4266,7 +4270,7 @@ export async function runThreeHorizonStrategyEngine(
 
     const messages: string[] = [];
     let promotedCount = 0;
-    for (const candidate of candidates) {
+    for (const [candidateIndex, candidate] of candidates.entries()) {
       if (Date.now() >= newEntryCutoffMs) break;
       if (
         promotedCount >= needed ||
@@ -4286,6 +4290,38 @@ export async function runThreeHorizonStrategyEngine(
         maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, 180),
         maxTradesPerDay: environment.liveMaxTradesPerDay,
       };
+      const entryConfirmed = candidate.conditions.some((condition) => condition.key === "entry" && condition.met);
+      const peerDirection = candidate.symbol === "BTCUSDT"
+        ? forecastDirectionForStrategy(forecastBySymbol.get("ETHUSDT"), candidate.strategyType)
+        : candidate.symbol === "ETHUSDT"
+          ? forecastDirectionForStrategy(forecastBySymbol.get("BTCUSDT"), candidate.strategyType)
+          : "NEUTRAL";
+      const crossAssetRiskScale = evaluateCryptoCrossAssetGuard({
+        symbol: candidate.symbol,
+        selfDirection: candidate.direction,
+        peerDirection,
+        selfEntryConfirmed: entryConfirmed,
+      }).riskScale;
+      const activityFocus = getAiTradingExecutionFocus(candidate.symbol, now);
+      const focusMainDirection = activityFocus?.day?.mainDirection ?? activityFocus?.weeklyDirection ?? "NEUTRAL";
+      const focusTacticalDirection = activityFocus?.day?.tacticalDirection ?? "NEUTRAL";
+      const focusCountertrendRiskScale = activityFocus?.countertrendPolicy === "STRONG_ONLY"
+        && focusTacticalDirection !== "NEUTRAL"
+        && focusTacticalDirection !== focusMainDirection
+        && candidate.direction === focusTacticalDirection
+        ? activityFocus.countertrendRiskScale
+        : 1;
+      const octoberRiskScale = applyOctober2026LongRiskScale(
+        1,
+        candidate.direction,
+        getOctober2026AssetRisk(candidate.symbol, now),
+      );
+      const promotionRiskScale = dailyChampionRiskScale([
+        crossAssetRiskScale,
+        focusCountertrendRiskScale,
+        octoberRiskScale,
+      ]);
+      const effectiveRiskPct = round(activityProfile.riskPerTradePct * promotionRiskScale, 4);
       const evaluation: EvaluationResult = {
         direction: candidate.direction,
         confidence: candidate.confidence,
@@ -4299,13 +4335,18 @@ export async function runThreeHorizonStrategyEngine(
         target2: candidate.target2,
         ready: true,
         rejectionCode: "DAILY_MINIMUM_EXECUTION",
-        rejectionReason: `今日实盘成交低于${LIVE_ACTIVITY_TARGET}笔活动目标，从动态候选池Top${dynamicLiveSymbols.length || environment.liveAllowedSymbols.length}中选择综合得分靠前的${candidate.symbol}，以${activityProfile.riskPerTradePct}%风险开第一批探路仓。`,
+        rejectionReason: `今日实盘成交低于${LIVE_ACTIVITY_TARGET}笔活动目标；全池冠军第${candidateIndex + 1}名${candidate.symbol}已满足方向、入场、技术结构和收益风险比，风险预算上限${activityProfile.riskPerTradePct}%、覆盖层缩放后${effectiveRiskPct}%。`,
         executionTier: "PROBE",
-        riskScale: 1,
+        riskScale: promotionRiskScale,
         directionStrength: candidate.direction === "LONG" ? candidate.confidence : -candidate.confidence,
         raw: {
           liveActivityProbe: true,
+          dailyChampionRank: candidateIndex + 1,
           candidateScore: dailyMinimumCandidateScore(candidate, now),
+          promotionRiskScale,
+          crossAssetRiskScale,
+          focusCountertrendRiskScale,
+          octoberRiskScale,
           originalRejectionCode: candidate.rejectionCode,
           originalRejectionReason: candidate.rejectionReason,
         },

@@ -927,3 +927,18 @@ test("unified custody inspection is read-only and reconciliation remains an expl
   assert.match(custodianCron, /export const maxDuration = 300/);
   assert.match(custodianCron, /runUnifiedLiveCustodyCycle/);
 });
+
+test("daily champion expansion keeps exact contracts and every live risk boundary", () => {
+  const client = read("lib/bitget/demo-client.ts");
+  const engine = read("lib/trading-signals/three-horizon-strategy.ts");
+  const session = read("lib/trading-signals/market-session-exposure-core.ts");
+  const memberApi = read("app/api/member/live-trading/route.ts");
+  const memberUi = read("components/live-trading/MemberLiveTradingClient.tsx");
+  all(client, ["LITEUSDT", "NBISUSDT", "SOLUSDT", "TENCENTUSDT", "TSLAUSDT", "INTCUSDT"]);
+  all(engine, ["LIVE_FULL_UNIVERSE_SYMBOLS", "CRYPTO_RISK_GROUP_SYMBOLS", "dailyChampionScore", "PROJECTED_OPEN_RISK_LIMIT", "PROJECTED_CRYPTO_GROUP_LIMIT"]);
+  assert.doesNotMatch(engine, /fallback\.length !== 1/);
+  all(session, ["CONTINUOUS_CRYPTO_SYMBOLS", "TRADITIONAL_MARKET_SYMBOLS", "MARKET_SESSION_CLOSED"]);
+  assert.match(memberApi, /rankDailyChampionBoard/);
+  assert.match(memberUi, /今日短线冠军池/);
+  assert.doesNotMatch(`${memberApi}\n${memberUi}`, /强制下单|无条件下单|取消止损/);
+});

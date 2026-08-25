@@ -9,7 +9,7 @@ test("traditional mapped markets block new weekend exposure while crypto and ris
   const sundayBeijing = Date.parse("2026-08-23T12:00:00+08:00");
   const mondayBeijing = Date.parse("2026-08-24T12:00:00+08:00");
 
-  for (const symbol of ["BTCUSDT", "ETHUSDT", "HYPEUSDT"]) {
+  for (const symbol of ["BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT"]) {
     assert.equal(evaluateMarketSessionExposureSafety({
       symbol,
       action: "NORMAL_PROFILE_ENTRY",
@@ -25,6 +25,7 @@ test("traditional mapped markets block new weekend exposure while crypto and ris
   for (const symbol of [
     "MUUSDT", "QQQUSDT", "XAUTUSDT", "XAGUSDT", "GOOGLUSDT",
     "CLUSDT", "SPYUSDT", "SNDKUSDT", "MSFTUSDT",
+    "NBISUSDT", "TENCENTUSDT", "LITEUSDT", "TSLAUSDT", "INTCUSDT",
   ]) {
     for (const nowMs of [saturdayBeijing, sundayBeijing]) {
       for (const action of ["NORMAL_PROFILE_ENTRY", "SCALE_IN"] as const) {

@@ -62,6 +62,33 @@ test("a fresh symbol nearest its locked weekly entry zone is scanned first", () 
   }), ["ETH"]);
 });
 
+test("a multi-symbol live pass scans the strongest full-pool opportunities instead of a blind slice", () => {
+  const hints = [
+    { ...opportunityHint("BTC", 99, 101), status: "WATCHING", planningConfidence: 55, conditionsMet: 2, conditionsTotal: 4 },
+    { ...opportunityHint("ETH", 99, 101), status: "ARMED", planningConfidence: 70, conditionsMet: 4, conditionsTotal: 4 },
+    { ...opportunityHint("LITE", 99, 101), status: "ARMED", planningConfidence: 65, conditionsMet: 3, conditionsTotal: 4 },
+    { ...opportunityHint("XAU", 90, 91), status: "ARMED", planningConfidence: 80, conditionsMet: 4, conditionsTotal: 4 },
+  ];
+  const quotes = ["BTC", "ETH", "LITE", "XAU"].map((symbol) => opportunityQuote(symbol, 100));
+  assert.deepEqual(selectOpportunityAwareScanBatch({
+    symbols: ["BTC", "ETH", "LITE", "XAU"], maxItems: 2, nowMs: opportunityNowMs, hints, quotes,
+  }), ["ETH", "LITE"]);
+});
+
+test("multi-symbol champion scheduling retains a mandatory fair rotation cycle", () => {
+  const symbols = ["BTC", "ETH", "LITE", "XAU"];
+  const hints = symbols.map((symbol, index) => ({
+    ...opportunityHint(symbol, 99, 101),
+    status: "ARMED",
+    planningConfidence: 80 - index,
+    conditionsMet: 4,
+    conditionsTotal: 4,
+  }));
+  const quotes = symbols.map((symbol) => opportunityQuote(symbol, 100));
+  assert.deepEqual(selectOpportunityAwareScanBatch({ symbols, maxItems: 2, nowMs: 4 * 60_000, hints, quotes }), ["BTC", "ETH"]);
+  assert.deepEqual(selectOpportunityAwareScanBatch({ symbols, maxItems: 2, nowMs: 5 * 60_000, hints, quotes }), ["LITE", "XAU"]);
+});
+
 test("equal opportunity scores retain minute rotation", () => {
   const hints = [opportunityHint("BTC", 99, 101), opportunityHint("ETH", 99, 101), opportunityHint("XAU", 99, 101)];
   const quotes = [opportunityQuote("BTC", 100), opportunityQuote("ETH", 100), opportunityQuote("XAU", 100)];

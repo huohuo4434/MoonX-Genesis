@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
+import { resolveAllowedSymbolUniverse } from "@/lib/bitget/live-symbol-universe-core";
 
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
 import {
@@ -294,7 +295,9 @@ export const DEFAULT_LIVE_EXPERIMENT_SYMBOLS: BitgetSupportedSymbol[] = [
   "BTCUSDT",
   "ETHUSDT",
   "HYPEUSDT",
+  "SOLUSDT",
   "MUUSDT",
+  "NBISUSDT",
   "QQQUSDT",
   "XAUTUSDT",
   "XAGUSDT",
@@ -303,6 +306,10 @@ export const DEFAULT_LIVE_EXPERIMENT_SYMBOLS: BitgetSupportedSymbol[] = [
   "SPYUSDT",
   "SNDKUSDT",
   "MSFTUSDT",
+  "TENCENTUSDT",
+  "LITEUSDT",
+  "TSLAUSDT",
+  "INTCUSDT",
 ];
 
 // V7.9.1: the user explicitly approved these stock-perp symbols for the live candidate pool.
@@ -314,16 +321,39 @@ export const USER_APPROVED_STOCK_PERP_SYMBOLS_V791: BitgetSupportedSymbol[] = [
   "MSFTUSDT",
 ];
 
+// V7.20.11.5: exact-online Bitget instruments for the remaining active focus assets.
+// Keep this separate from free-form symbol input: no fuzzy substitution is allowed.
+// Emergency opt-out: set MOOX_APPROVED_FOCUS_PERPS_V720115=false.
+export const USER_APPROVED_FOCUS_PERP_SYMBOLS_V720115: BitgetSupportedSymbol[] = [
+  "SOLUSDT",
+  "NBISUSDT",
+  "TENCENTUSDT",
+  "LITEUSDT",
+  "TSLAUSDT",
+  "INTCUSDT",
+];
+
+export function resolveLiveAllowedSymbols(input: {
+  configuredSymbols?: string;
+  includeStockPerps?: boolean;
+  includeFocusPerps?: boolean;
+} = {}): BitgetSupportedSymbol[] {
+  return resolveAllowedSymbolUniverse({
+    defaultSymbols: DEFAULT_LIVE_EXPERIMENT_SYMBOLS,
+    configuredSymbols: input.configuredSymbols,
+    stockPerps: USER_APPROVED_STOCK_PERP_SYMBOLS_V791,
+    focusPerps: USER_APPROVED_FOCUS_PERP_SYMBOLS_V720115,
+    includeStockPerps: input.includeStockPerps,
+    includeFocusPerps: input.includeFocusPerps,
+  });
+}
+
 function liveAllowedSymbols(): BitgetSupportedSymbol[] {
-  const raw = process.env.BITGET_LIVE_ALLOWED_SYMBOLS?.trim() || DEFAULT_LIVE_EXPERIMENT_SYMBOLS.join(",");
-  const values = raw.split(",")
-    .map((value) => normalizeBitgetUsdtSymbol(value))
-    .filter((value): value is BitgetSupportedSymbol => Boolean(value));
-  const approvedStockPerps = process.env.MOOX_APPROVED_STOCK_PERPS_V791?.trim().toLowerCase() === "false"
-    ? []
-    : USER_APPROVED_STOCK_PERP_SYMBOLS_V791;
-  const combined = [...values, ...approvedStockPerps];
-  return combined.length ? Array.from(new Set(combined)) : [...DEFAULT_LIVE_EXPERIMENT_SYMBOLS];
+  return resolveLiveAllowedSymbols({
+    configuredSymbols: process.env.BITGET_LIVE_ALLOWED_SYMBOLS,
+    includeStockPerps: process.env.MOOX_APPROVED_STOCK_PERPS_V791?.trim().toLowerCase() !== "false",
+    includeFocusPerps: process.env.MOOX_APPROVED_FOCUS_PERPS_V720115?.trim().toLowerCase() !== "false",
+  });
 }
 
 export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {

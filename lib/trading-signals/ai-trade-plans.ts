@@ -1702,9 +1702,11 @@ export async function getLiveScanOpportunityHints(): Promise<LiveScanOpportunity
   const rows = await prisma.$queryRawUnsafe<Array<Pick<PlanRow,
     "id" | "symbol" | "direction" | "entry_zone_low" | "entry_zone_high"
     | "forecast_locked_at" | "forecast_valid_from" | "forecast_valid_until" | "last_checked_at" | "updated_at"
+    | "status" | "planning_confidence" | "execution_threshold" | "conditions_met" | "conditions_total"
   >>>(`
     SELECT id, symbol, direction, entry_zone_low, entry_zone_high,
-           forecast_locked_at, forecast_valid_from, forecast_valid_until, last_checked_at, updated_at
+           forecast_locked_at, forecast_valid_from, forecast_valid_until, last_checked_at, updated_at,
+           status, planning_confidence, execution_threshold, conditions_met, conditions_total
     FROM trade_ai_plans
     WHERE execution_mode = 'BITGET_LIVE'
       AND strategy_type = 'SWING'
@@ -1724,6 +1726,11 @@ export async function getLiveScanOpportunityHints(): Promise<LiveScanOpportunity
     forecastValidUntil: iso(row.forecast_valid_until),
     lastCheckedAt: iso(row.last_checked_at),
     updatedAt: row.updated_at.toISOString(),
+    status: row.status,
+    planningConfidence: Number(row.planning_confidence),
+    executionThreshold: Number(row.execution_threshold),
+    conditionsMet: Number(row.conditions_met),
+    conditionsTotal: Number(row.conditions_total),
   }));
 }
 

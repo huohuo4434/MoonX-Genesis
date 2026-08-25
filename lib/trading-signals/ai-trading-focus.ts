@@ -38,12 +38,18 @@ const CORE_PRIORITY: Record<string, number> = {
   ETHUSDT: 24,
   XAGUSDT: 22,
   BTCUSDT: 20,
+  SOLUSDT: 16,
   QQQUSDT: 14,
   SPYUSDT: 13,
+  NBISUSDT: 13,
+  TSLAUSDT: 13,
   GOOGLUSDT: 12,
   MUUSDT: 11,
   HYPEUSDT: 10,
   SNDKUSDT: 12,
+  LITEUSDT: 12,
+  INTCUSDT: 10,
+  TENCENTUSDT: 9,
   MSFTUSDT: 8,
   CLUSDT: 7,
 };
@@ -59,7 +65,13 @@ const ASSET_NAMES: Record<string, [string, string]> = {
   GOOGLUSDT: ["谷歌", "Google"],
   MUUSDT: ["美光", "Micron"],
   HYPEUSDT: ["HYPE", "HYPE"],
+  SOLUSDT: ["Solana", "Solana"],
+  NBISUSDT: ["Nebius", "Nebius"],
   SNDKUSDT: ["闪迪", "SanDisk"],
+  LITEUSDT: ["Lumentum", "Lumentum"],
+  TSLAUSDT: ["特斯拉", "Tesla"],
+  INTCUSDT: ["英特尔", "Intel"],
+  TENCENTUSDT: ["腾讯", "Tencent"],
   MSFTUSDT: ["微软", "Microsoft"],
 };
 
@@ -67,7 +79,7 @@ export function listAiTradingFocusRegistry(): Array<{
   assetId: string; canonicalSymbol: string | null; displayName: string; assetClass: "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF";
 }> {
   const classes: Record<string, "CRYPTO" | "COMMODITY" | "EQUITY" | "ETF"> = {
-    BTCUSDT: "CRYPTO", ETHUSDT: "CRYPTO", HYPEUSDT: "CRYPTO",
+    BTCUSDT: "CRYPTO", ETHUSDT: "CRYPTO", HYPEUSDT: "CRYPTO", SOLUSDT: "CRYPTO",
     XAUTUSDT: "COMMODITY", XAGUSDT: "COMMODITY", CLUSDT: "COMMODITY",
     QQQUSDT: "ETF", SPYUSDT: "ETF",
   };

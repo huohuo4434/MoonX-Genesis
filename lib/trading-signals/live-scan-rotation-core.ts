@@ -22,6 +22,11 @@ export type LiveScanOpportunityHint = {
   forecastValidUntil: string | null;
   lastCheckedAt: string | null;
   updatedAt: string;
+  status?: "PUBLISHED" | "WATCHING" | "ARMED" | string;
+  planningConfidence?: number;
+  executionThreshold?: number;
+  conditionsMet?: number;
+  conditionsTotal?: number;
 };
 
 export type LiveScanOpportunityQuote = {
@@ -61,10 +66,12 @@ export function selectOpportunityAwareScanBatch<T extends string>(input: {
   quotes: readonly LiveScanOpportunityQuote[];
 }): T[] {
   const fallback = selectRotatingScanBatch(input.symbols, input.maxItems, input.nowMs);
-  if (fallback.length !== 1 || input.symbols.length < 2) return fallback;
+  if (!fallback.length || input.symbols.length < 2) return fallback;
 
   const minute = Math.floor(input.nowMs / 60_000);
-  const cycle = Math.floor(minute / input.symbols.length);
+  const batchSize = Math.min(Math.max(1, Math.floor(input.maxItems)), input.symbols.length);
+  const batchCount = Math.max(1, Math.ceil(input.symbols.length / batchSize));
+  const cycle = Math.floor(minute / batchCount);
   if (((cycle % FAIRNESS_CYCLE_INTERVAL) + FAIRNESS_CYCLE_INTERVAL) % FAIRNESS_CYCLE_INTERVAL === FAIRNESS_CYCLE_INTERVAL - 1) {
     return fallback;
   }
@@ -83,7 +90,7 @@ export function selectOpportunityAwareScanBatch<T extends string>(input: {
     hintsBySymbol.set(symbol, list);
   }
 
-  const candidates: Array<{ symbol: T; distancePct: number; rotationDistance: number }> = [];
+  const candidates: Array<{ symbol: T; priorityScore: number; distancePct: number; rotationDistance: number }> = [];
   for (const symbol of input.symbols) {
     const normalized = symbol.toUpperCase();
     const quote = quoteBySymbol.get(normalized);
@@ -111,11 +118,24 @@ export function selectOpportunityAwareScanBatch<T extends string>(input: {
     if (!latest) continue;
     const distancePct = zoneDistancePct(quote.price, latest.entryZoneLow, latest.entryZoneHigh);
     if (distancePct > OPPORTUNITY_MAX_ZONE_DISTANCE_PCT) continue;
+    const completion = Number(latest.conditionsTotal) > 0
+      ? Math.min(1, Math.max(0, Number(latest.conditionsMet ?? 0) / Number(latest.conditionsTotal)))
+      : 0;
+    const statusBonus = latest.status === "ARMED" ? 25 : latest.status === "WATCHING" ? 10 : 0;
+    const planningConfidence = Number.isFinite(Number(latest.planningConfidence))
+      ? Number(latest.planningConfidence)
+      : 0;
+    const priorityScore = statusBonus + planningConfidence + completion * 30 - distancePct * 100;
     const index = symbolIndex.get(normalized) ?? 0;
-    candidates.push({ symbol, distancePct, rotationDistance: (index - baselineIndex + input.symbols.length) % input.symbols.length });
+    candidates.push({ symbol, priorityScore, distancePct, rotationDistance: (index - baselineIndex + input.symbols.length) % input.symbols.length });
   }
-  candidates.sort((a, b) => a.distancePct - b.distancePct || a.rotationDistance - b.rotationDistance || a.symbol.localeCompare(b.symbol));
-  return candidates[0] ? [candidates[0].symbol] : fallback;
+  candidates.sort((a, b) => b.priorityScore - a.priorityScore || a.distancePct - b.distancePct || a.rotationDistance - b.rotationDistance || a.symbol.localeCompare(b.symbol));
+  const selected = candidates.slice(0, batchSize).map((candidate) => candidate.symbol);
+  for (const symbol of fallback) {
+    if (selected.length >= batchSize) break;
+    if (!selected.includes(symbol)) selected.push(symbol);
+  }
+  return selected.length ? selected : fallback;
 }
 
 export async function selectOpportunityBatchWithinDeadline<T extends string>(input: {

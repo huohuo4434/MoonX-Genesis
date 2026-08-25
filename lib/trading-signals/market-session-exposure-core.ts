@@ -1,6 +1,6 @@
 import type { NewExposureAction } from "@/lib/trading-signals/weekly-long-entry-timing-core";
 
-const CONTINUOUS_CRYPTO_SYMBOLS = new Set(["BTCUSDT", "ETHUSDT", "HYPEUSDT"]);
+const CONTINUOUS_CRYPTO_SYMBOLS = new Set(["BTCUSDT", "ETHUSDT", "HYPEUSDT", "SOLUSDT"]);
 
 const TRADITIONAL_MARKET_SYMBOLS = new Set([
   "MUUSDT",
@@ -12,6 +12,11 @@ const TRADITIONAL_MARKET_SYMBOLS = new Set([
   "SPYUSDT",
   "SNDKUSDT",
   "MSFTUSDT",
+  "NBISUSDT",
+  "TENCENTUSDT",
+  "LITEUSDT",
+  "TSLAUSDT",
+  "INTCUSDT",
 ]);
 
 export type MarketSessionExposureGate = {

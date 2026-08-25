@@ -98,6 +98,33 @@ type ClosedPosition = {
   closedAt?: string | null;
 };
 
+type DailyChampion = {
+  id: string;
+  symbol: string;
+  direction: "LONG" | "SHORT";
+  status: string;
+  rejectionCode: string;
+  rank: number;
+  tier: "CHAMPION" | "RUNNER_UP" | "WATCH";
+  score: number;
+  qualified: boolean;
+  suggestedRiskPct: number;
+  confidence: number;
+  technicalScore: number;
+  forecastScore: number;
+  conditionsMet: number;
+  conditionsTotal: number;
+  rewardRisk: number;
+  marketSessionAllowed: boolean;
+  currentPrice: number | null;
+  entryPrice: number | null;
+  stopLoss: number | null;
+  target1: number | null;
+  target2: number | null;
+  rejectionReason: string;
+  updatedAt: string;
+};
+
 type OfficialFeed = {
   state?: "LIVE_POSITION_OPEN" | "READY_WAITING_TRIGGER" | "BLOCKED" | string;
   generatedAt?: string;
@@ -120,6 +147,7 @@ type OfficialFeed = {
   positions?: LivePosition[];
   recentClosedPositions?: ClosedPosition[];
   plans?: TradePlan[];
+  dailyChampions?: DailyChampion[];
   recentExecutions?: ExecutionRow[];
   diagnosis?: string[];
   today?: {
@@ -423,6 +451,7 @@ export default function MemberLiveTradingClient() {
   const runtimeHeartbeat = feed?.runtimeHeartbeat;
   const cronHeartbeatFresh = runtimeHeartbeat?.heartbeatAgeSeconds != null && runtimeHeartbeat.heartbeatAgeSeconds <= 180;
   const plans = feed?.plans ?? [];
+  const dailyChampions = feed?.dailyChampions ?? [];
   const executions = feed?.recentExecutions ?? [];
   const closed = feed?.recentClosedPositions ?? [];
 
@@ -550,6 +579,41 @@ export default function MemberLiveTradingClient() {
               <a className="rounded-xl border border-cyan-400/30 px-5 py-3 text-cyan-200" href="/downloads/MOOX-Bitget-Live-Agent-v72031.zip">下载会员实盘代理</a>
             </>
           )}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-violet-400/20 bg-slate-950/75 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs tracking-[0.2em] text-violet-300">FULL-POOL RANKING</p>
+            <h2 className="mt-2 text-xl font-semibold">今日短线冠军池</h2>
+            <p className="mt-1 text-sm text-slate-400">每分钟从全部可交易重点标的重新排名。第一名优先进入5分钟/1分钟触发检查；排名不是成交承诺，未触发止损结构就继续等待。</p>
+          </div>
+          <p className="text-xs text-slate-500">合格冠军默认单笔风险预算0.20% · 硬风控不变</p>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {dailyChampions.map((row) => {
+            const tierLabel = row.tier === "CHAMPION" ? "每日冠军" : row.tier === "RUNNER_UP" ? "次选" : "观察";
+            const estimatedRisk = (liveState?.experimentCapitalUsdt ?? 1000) * row.suggestedRiskPct / 100;
+            return (
+              <article key={row.id} className={`rounded-2xl border p-4 ${row.qualified ? "border-emerald-400/25 bg-emerald-400/5" : "border-amber-400/20 bg-amber-400/5"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-xs text-slate-400">#{row.rank} {tierLabel}</p><p className="mt-1 text-xl font-semibold">{row.symbol}</p></div>
+                  <span className={`rounded-full px-3 py-1 text-xs ${row.qualified ? "bg-emerald-400/15 text-emerald-200" : "bg-amber-400/15 text-amber-200"}`}>{row.qualified ? "可进安全预检" : row.marketSessionAllowed ? "等待触发" : "市场休市"}</span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-slate-300">
+                  <p>方向：<span className="font-medium text-white">{directionLabel(row.direction)}</span></p><p>综合分：{fmt(row.score, 1)}</p>
+                  <p>方向置信：{fmt(row.confidence, 0)}%</p><p>结构分：{fmt(row.technicalScore, 0)}</p>
+                  <p>预测分：{fmt(row.forecastScore, 0)}</p><p>条件：{row.conditionsMet}/{row.conditionsTotal}</p>
+                  <p>盈亏比：{fmt(row.rewardRisk, 2)}</p><p>当前价：{fmt(row.currentPrice, 4)}</p>
+                </div>
+                <p className="mt-3 text-xs text-slate-400">入场 {fmt(row.entryPrice, 4)} · 止损 {fmt(row.stopLoss, 4)} · TP1/TP2 {fmt(row.target1, 4)} / {fmt(row.target2, 4)}</p>
+                {row.qualified ? <p className="mt-3 text-xs text-emerald-200">可进入服务器安全预检；风险预算上限 {fmt(row.suggestedRiskPct, 2)}%：按1000U计算，预检前最大计划亏损不超过 {fmt(estimatedRisk, 2)}U，实际还会被风险窗缩仓。计划、托管、组合风险和保护单全部通过后才会提交。</p> : <p className="mt-3 text-xs text-amber-200">当前未执行：{!row.marketSessionAllowed ? "对应市场当前休市，只允许持仓管理和风险降低。" : row.rejectionReason || "分钟级入场结构尚未确认。"}</p>}
+                <p className="mt-2 text-xs text-slate-500">更新 {fmtTime(row.updatedAt)}</p>
+              </article>
+            );
+          })}
+          {!dailyChampions.length && <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-400">今天尚无方向明确的短线候选；系统会继续按分钟扫描全部在线重点标的。</div>}
         </div>
       </section>
 
