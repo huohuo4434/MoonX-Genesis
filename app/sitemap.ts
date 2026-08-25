@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { siteConfig } from "@/lib/site-config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://mooxintel.com").replace(/\/$/, "");
+  const base = siteConfig.url.replace(/\/$/, "");
   const paths = [
     "/", "/en", "/featured-stocks", "/en/featured-stocks",
     "/verification", "/en/verification", "/pricing", "/en/pricing",

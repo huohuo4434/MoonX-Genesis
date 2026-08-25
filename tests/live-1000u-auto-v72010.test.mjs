@@ -53,7 +53,7 @@ test("1000U experiment has hard capital and loss caps independent of stale large
 test("short-term execution is 4H -> 30m -> 5m and only execution timing can change, not official direction", () => {
   assert.match(strategy, /environmentTimeframe: "4H"/);
   assert.match(strategy, /directionTimeframe: "30m"/);
-  assert.match(strategy, /entryTimeframe: "5m"/);
+  assert.match(strategy, /entryTimeframe: "5m\/1m"/);
   assert.match(strategy, /analyzeChanStructure\(m30\)/);
   assert.match(strategy, /analyzeChanStructure\(m5\)/);
   assert.match(strategy, /strictChanTrigger/);
@@ -83,13 +83,14 @@ test("unified custody reads authoritative UTA positions and protection orders an
 
 test("admin member page controls official 1000U settings, ordinary members remain local-agent scoped", () => {
   assert.match(memberLive, /officialControl \? "official" : `member:\$\{actor\.id\}`/);
-  assert.match(memberLive, /if \(officialControl\) \{[\s\S]*runUnifiedLiveCustodyCycle/);
+  assert.doesNotMatch(memberLive, /runUnifiedLiveCustodyCycle/);
+  assert.match(memberLive, /LIVE_STATUS_DEADLINE_MS = 9_000/);
   assert.match(memberSettings, /const leverageMax = officialControl \? 2 : 10/);
   assert.match(memberSettings, /officialControl \? "official" : `member:\$\{actor\.id\}`/);
   assert.match(memberClient, /启用1000U实盘/);
   assert.match(memberClient, /请输入 LIVE1000/);
   assert.match(memberClient, /停止新开仓/);
-  assert.match(memberLive, /getThreeHorizonStrategyDashboard/);
+  assert.match(memberLive, /getReadOnlyLiveStatusSnapshot/);
   assert.match(memberLive, /strategyDiagnostics:/);
   assert.match(memberClient, /三周期自动扫描诊断/);
   assert.match(memberClient, /今天扫描了多少、为什么没下单/);

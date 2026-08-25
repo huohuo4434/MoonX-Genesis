@@ -140,8 +140,11 @@ type ActivationStatus = {
   exchangeReadOnlyReady?: boolean;
   cronReady?: boolean;
   custodyReady?: boolean;
+  custodyAuditAuthoritative?: boolean;
+  eligibleForServerPreflight?: boolean;
   readyForAccountSwitch?: boolean;
   accountLiveEnabled?: boolean;
+  liveConfigured?: boolean;
   fullyLive?: boolean;
   missingEnv?: string[];
   envChecks?: Array<{ name?: string; ok?: boolean; expected?: string; secret?: boolean }>;
@@ -281,18 +284,23 @@ export default function MemberLiveTradingClient() {
   const [settings, setSettings] = useState<Setting[]>(defaultSettings);
   const [status, setStatus] = useState("正在读取实盘托管状态……");
   const [liveState, setLiveState] = useState<LiveStatusPayload | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (options?: { silent?: boolean; syncSettings?: boolean }) => {
     const silent = options?.silent === true;
     const syncSettings = options?.syncSettings !== false;
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 20000);
+    const timer = window.setTimeout(() => controller.abort(), 11_000);
     try {
       const response = await fetch("/api/member/live-trading", { cache: "no-store", signal: controller.signal });
-      if (!response.ok) throw new Error(`LIVE_STATUS_HTTP_${response.status}`);
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({})) as { message?: string; error?: string };
+        throw new Error(failure.message || failure.error || `LIVE_STATUS_HTTP_${response.status}`);
+      }
       const payload = await response.json() as LiveStatusPayload;
       setLiveState(payload);
+      setLoadError(null);
       if (payload?.migrationRequired) {
         if (!silent) setStatus("Unified Live 数据表尚未迁移，因此不会开仓；但本页会继续检查 Bitget、Vercel 环境和 Cron，避免把数据库问题误报成密钥问题。");
       }
@@ -310,8 +318,12 @@ export default function MemberLiveTradingClient() {
           );
         }
       }
-    } catch {
-      if (!silent) setStatus("20秒内仍未取得状态。当前不会因此自动开仓；请点“立即刷新状态”，若持续出现则检查生产API日志。");
+    } catch (error) {
+      const reason = error instanceof Error && error.name !== "AbortError"
+        ? error.message
+        : "11秒内仍未取得状态";
+      setLoadError(reason);
+      if (!silent) setStatus(`${reason}。当前状态未知，不能视为“没有阻断”；请点“立即刷新状态”，若持续出现则检查生产API日志。`);
     } finally {
       window.clearTimeout(timer);
     }
@@ -323,7 +335,7 @@ export default function MemberLiveTradingClient() {
     return () => window.clearInterval(interval);
   }, [load]);
 
-  const statusLoaded = liveState !== null;
+  const statusLoaded = liveState !== null && loadError === null;
   const officialControl = liveState?.officialControl === true;
   const maxLeverage = officialControl ? 2 : 10;
   const update = (index: number, patch: Partial<Setting>) => setSettings((rows) => rows.map((row, i) => i === index ? { ...row, ...patch, isolatedMargin: true } : row));
@@ -479,7 +491,7 @@ export default function MemberLiveTradingClient() {
                 <p className="font-semibold text-white">1000U 实盘激活五步检查</p>
                 <p className="mt-1 text-xs text-slate-400">这五步全部通过以后，才允许点击“启用1000U实盘”。数据库未迁移时仍会继续检查其他步骤。</p>
               </div>
-              <span className={`rounded-full border px-3 py-1 text-xs ${activation.fullyLive ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : activation.readyForAccountSwitch ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200"}`}>{activation.fullyLive ? "已进入真实自动开仓" : activation.readyForAccountSwitch ? "前置完成，待账户启用" : "仍有前置未完成"}</span>
+              <span className={`rounded-full border px-3 py-1 text-xs ${activation.liveConfigured ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : activation.eligibleForServerPreflight ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200"}`}>{activation.liveConfigured ? "LIVE已启用 · 托管由服务器复核" : activation.eligibleForServerPreflight ? "可提交服务器完整审计" : "仍有前置未完成"}</span>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-5">
               {[
@@ -487,7 +499,7 @@ export default function MemberLiveTradingClient() {
                 ["2 Vercel/实盘环境", activation.environmentReady, activation.environmentReady ? "已就绪" : `${activation.missingEnv?.length ?? 0}项未就绪`],
                 ["3 Bitget只读验收", activation.exchangeReadOnlyReady, activation.exchangeReadOnlyReady ? "UTA读取成功" : activation.exchangeReadOnlyAttempted ? "读取失败" : "尚未尝试"],
                 ["4 每分钟Cron", activation.cronReady, activation.cronReady ? "心跳正常" : "未确认/暂停/超时"],
-                ["5 官方账户开仓", activation.accountLiveEnabled, activation.accountLiveEnabled ? "已启用" : activation.readyForAccountSwitch ? "可手工启用" : "等待前置"],
+                ["5 官方账户开仓", activation.accountLiveEnabled, activation.accountLiveEnabled ? "已启用；每次执行仍受托管闸门限制" : activation.eligibleForServerPreflight ? "可提交服务器完整审计" : "等待前置"],
               ].map(([label, ok, detail]) => (
                 <div key={String(label)} className={`rounded-xl border p-3 text-xs ${ok ? "border-emerald-400/20 bg-emerald-400/5" : "border-amber-400/20 bg-amber-400/5"}`}>
                   <p className={ok ? "font-medium text-emerald-200" : "font-medium text-amber-200"}>{ok ? "✓" : "!"} {String(label)}</p>
@@ -528,7 +540,7 @@ export default function MemberLiveTradingClient() {
           <button disabled={busy} className="rounded-xl bg-violet-500 px-5 py-3 font-medium disabled:opacity-50" onClick={save}>保存设置</button>
           {officialControl ? (
             <>
-              <button disabled={busy || !activation?.readyForAccountSwitch} title={!activation?.readyForAccountSwitch ? "数据库/环境/Bitget只读/Cron等前置条件尚未全部通过" : "前置检查已通过"} className="rounded-xl border border-emerald-400/30 px-5 py-3 text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => void setOfficialMode("LIVE")}>{activation?.readyForAccountSwitch ? "启用1000U实盘" : "启用1000U实盘（前置未完成）"}</button>
+              <button disabled={busy || !activation?.eligibleForServerPreflight} title={!activation?.eligibleForServerPreflight ? "数据库/环境/Bitget只读/Cron等前置条件尚未全部通过" : "点击后由服务器执行完整托管审计；审计不通过不会启用"} className="rounded-xl border border-emerald-400/30 px-5 py-3 text-emerald-200 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => void setOfficialMode("LIVE")}>{activation?.eligibleForServerPreflight ? "提交完整审计并启用1000U实盘" : "启用1000U实盘（前置未完成）"}</button>
               <button disabled={busy} className="rounded-xl border border-amber-400/30 px-5 py-3 text-amber-200 disabled:opacity-50" onClick={() => void setOfficialMode("MANAGE_ONLY")}>停止新开仓</button>
               <button disabled={busy} className="rounded-xl border border-white/15 px-5 py-3 disabled:opacity-50" onClick={() => void load({ syncSettings: true })}>立即刷新状态</button>
             </>
@@ -603,7 +615,8 @@ export default function MemberLiveTradingClient() {
         <h2 className="text-xl font-semibold">为什么现在没有下单 / 系统排查</h2>
         <div className="mt-4 space-y-2">
           {(feed?.diagnosis ?? []).map((reason, index) => <div key={`${index}-${reason}`} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">{index + 1}. {reason}</div>)}
-          {!(feed?.diagnosis ?? []).length && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">没有发现阻断项。</div>}
+          {!statusLoaded && <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">{loadError ? `当前状态读取失败：${loadError}。页面上残留的旧数据不能代表当前状态。` : "状态仍在读取，尚不能判断是否存在阻断项。"}</div>}
+          {statusLoaded && !(feed?.diagnosis ?? []).length && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">状态已成功读取，暂未发现阻断项。</div>}
         </div>
       </section>
 

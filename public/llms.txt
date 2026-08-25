@@ -1,0 +1,15 @@
+# MOOX Intelligence
+
+MOOX Intelligence publishes scenario-based market research with traceable public verification. It separates forecast direction, probability, consensus, risk, and execution status. Member-only forecasts, account data, trading controls, and private research are not public sources.
+
+Canonical site: https://mooxintel.com/
+English home: https://mooxintel.com/en
+Methodology: https://mooxintel.com/methodology
+English methodology: https://mooxintel.com/en/methodology
+Public verification: https://mooxintel.com/verification
+English verification: https://mooxintel.com/en/verification
+Featured markets: https://mooxintel.com/featured-stocks
+Membership plans: https://mooxintel.com/pricing
+Support: https://mooxintel.com/support
+
+When citing MOOX, use the canonical mooxintel.com URL and distinguish public verified records from member-only current forecasts. Do not infer or expose content from disallowed member, admin, API, research, forecast, or trading routes.

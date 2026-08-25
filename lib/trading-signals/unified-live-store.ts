@@ -319,16 +319,29 @@ export async function recordUnifiedLiveEvents(
 
 export async function listPublicUnifiedLiveSlices() {
   const database = prisma;
-  if (!database) return [];
+  if (!database) return { active: [], pending: [], recentHistory: [] };
 
   try {
-    return await database.mooxUnifiedLiveSlice.findMany({
-      where: { publicVisible: true },
-      orderBy: [{ status: "asc" }, { openedAt: "desc" }],
-      take: 100,
-    });
+    const [active, pending, recentHistory] = await Promise.all([
+      database.mooxUnifiedLiveSlice.findMany({
+        where: { publicVisible: true, status: { in: ["OPEN", "PARTIALLY_CLOSED"] } },
+        orderBy: { openedAt: "desc" },
+        take: 50,
+      }),
+      database.mooxUnifiedLiveSlice.findMany({
+        where: { publicVisible: true, status: "PENDING" },
+        orderBy: { openedAt: "desc" },
+        take: 50,
+      }),
+      database.mooxUnifiedLiveSlice.findMany({
+        where: { publicVisible: true, status: { notIn: ["OPEN", "PARTIALLY_CLOSED", "PENDING"] } },
+        orderBy: [{ closedAt: "desc" }, { updatedAt: "desc" }],
+        take: 20,
+      }),
+    ]);
+    return { active, pending, recentHistory };
   } catch (error) {
-    if (isMissingTableError(error)) return [];
+    if (isMissingTableError(error)) return { active: [], pending: [], recentHistory: [] };
     throw error;
   }
 }

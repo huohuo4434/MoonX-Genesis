@@ -11,22 +11,19 @@ import {
   getBitgetDemoCurrentPositions,
   getBitgetDemoEnvironment,
 } from "@/lib/bitget/demo-client";
-import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
 import {
   isUnifiedLiveActiveExecutionEnabled,
   readUnifiedLiveRuntimeConfig,
 } from "@/lib/trading-signals/unified-live-config";
 import {
-  ensureUnifiedLiveAccount,
   getUnifiedLiveAccount,
 } from "@/lib/trading-signals/unified-live-store";
-import { getThreeHorizonStrategyDashboard } from "@/lib/trading-signals/three-horizon-strategy";
-import type { ThreeHorizonStrategyDecision } from "@/types/three-horizon-strategy";
-import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
+import { getReadOnlyLiveStatusSnapshot, type ReadOnlyLiveDecision } from "@/lib/live-status-readonly";
 
 // MOOX_V720105_LIVE_VISIBILITY: authoritative positions + plans + no-order diagnosis for the member live page.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+const LIVE_STATUS_DEADLINE_MS = 9_000;
 
 const ACTIVE_SLICE_STATUSES = new Set(["PENDING", "OPEN", "PARTIALLY_CLOSED", "ORPHAN_PENDING_CLAIM"]);
 const PLAN_STATUSES = new Set(["OBSERVING", "READY", "SHADOW_READY", "BLOCKED"]);
@@ -72,7 +69,7 @@ function latestUnique<T extends { strategyType: string; symbol: string }>(rows: 
   return result;
 }
 
-function mapPlan(row: ThreeHorizonStrategyDecision) {
+function mapPlan(row: ReadOnlyLiveDecision) {
   return {
     id: row.id,
     strategyType: row.strategyType,
@@ -97,7 +94,7 @@ function mapPlan(row: ThreeHorizonStrategyDecision) {
   };
 }
 
-function mapExecution(row: ThreeHorizonStrategyDecision) {
+function mapExecution(row: ReadOnlyLiveDecision) {
   return {
     id: row.id,
     strategyType: row.strategyType,
@@ -177,41 +174,51 @@ function summarizeNoOrderDiagnosis(input: {
   return { reasons, runnerFresh: freshness.fresh, lastScanAgeSeconds: freshness.ageSeconds };
 }
 
-export async function GET(request: NextRequest) {
+async function buildLiveTradingStatus(request: NextRequest) {
   const actor = await resolveUnifiedLiveActor(request);
   if (!actor) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const officialControl = await isUnifiedLiveAdmin(actor);
+  if (!officialControl && actor.raw.isActiveMember !== true) {
+    return NextResponse.json({ error: "ACTIVE_MEMBERSHIP_REQUIRED" }, { status: 403 });
+  }
   const ownerKey = officialControl ? "official" : `member:${actor.id}`;
   const accountScope = officialControl ? "OFFICIAL" : "MEMBER";
-  const ensured = await ensureUnifiedLiveAccount({
-    ownerKey,
-    accountScope,
-    displayName: officialControl ? "MOOX Official 1000U" : actor.email,
-  });
-  const migrationRequired = !ensured.ok;
 
-  // Status pages are read-only. Custody/reconciliation belongs to the minute runner;
-  // running it inside a member GET made the UI exceed its 10s timeout and hid admin controls.
-  const result = migrationRequired
-    ? { migrationRequired: true, account: null }
-    : await getUnifiedLiveAccount(ownerKey);
+  // Status pages are strictly read-only. Account creation, schema creation, strategy seeding,
+  // custody reconciliation and gate mutations belong to POST/admin or the minute runner.
+  const result = await getUnifiedLiveAccount(ownerKey);
   const officialStored = officialControl
     ? result
     : await getUnifiedLiveAccount("official").catch(() => ({ migrationRequired: true, account: null }));
 
   const runtimeConfig = readUnifiedLiveRuntimeConfig();
   const bitget = getBitgetDemoEnvironment();
-  const [strategyDashboard, bitgetRuntime, baseNewEntryGate] = await Promise.all([
-    getThreeHorizonStrategyDashboard().catch(() => null),
-    getBitgetRuntimeState().catch(() => null),
-    evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
-      allowed: false,
-      reasons: [error instanceof Error ? error.message : "UNIFIED_LIVE_GATE_UNAVAILABLE"],
-      mode: "MANAGE_ONLY" as const,
-      positionManagementContinues: true,
-    })),
-  ]);
+  const readOnly = await getReadOnlyLiveStatusSnapshot();
+  const strategyDashboard = readOnly.strategy;
+  const bitgetRuntime = readOnly.runtime;
+  const gateReasons: string[] = [];
+  if (officialStored.migrationRequired) gateReasons.push("UNIFIED_LIVE_MIGRATION_REQUIRED");
+  if (!officialStored.account) gateReasons.push("UNIFIED_LIVE_ACCOUNT_UNAVAILABLE");
+  if (runtimeConfig.mode !== "LIVE") gateReasons.push(`RUNTIME_MODE_${runtimeConfig.mode}`);
+  if (!runtimeConfig.allowNewEntriesByEnv) gateReasons.push("ENV_NEW_ENTRIES_DISABLED");
+  if (!officialStored.account?.newEntriesEnabled) gateReasons.push("ACCOUNT_NEW_ENTRIES_DISABLED");
+  if (!officialStored.account?.positionManagementEnabled) gateReasons.push("POSITION_MANAGEMENT_DISABLED");
+  const stalePending = (officialStored.account?.slices ?? []).some((slice) =>
+    String(slice.status) === "PENDING" && Date.now() - new Date(slice.openedAt).getTime() > 2 * 60_000
+  );
+  if (stalePending) gateReasons.push("CUSTODY_STALE_PENDING_PRESENT");
+  // This GET intentionally does not run the mutating custody cycle or fetch protection orders.
+  // Therefore it must not present its preliminary gate as the authoritative enablement verdict.
+  // The admin POST/runner performs the complete custody audit before any mode change or order.
+  gateReasons.push("READ_ONLY_CUSTODY_AUDIT_NOT_AUTHORITATIVE");
+  const baseNewEntryGate = {
+    allowed: gateReasons.length === 0,
+    reasons: gateReasons,
+    mode: officialStored.account?.mode ?? runtimeConfig.mode,
+    positionManagementContinues: runtimeConfig.positionManagementEnabled,
+    readOnly: true,
+  };
   const strategyActiveExecutionEnabled = isUnifiedLiveActiveExecutionEnabled();
   const newEntryGate = strategyActiveExecutionEnabled
     ? baseNewEntryGate
@@ -220,11 +227,13 @@ export async function GET(request: NextRequest) {
   // The minute runner already persists an account snapshot. Use that immediately so the page can
   // establish readiness without waiting on a fresh exchange round-trip. A best-effort live snapshot
   // is still attempted below, but it is capped so it can never stall the whole status response.
+  const cachedCheckedAt = typeof bitgetRuntime?.account?.checkedAt === "string" ? bitgetRuntime.account.checkedAt : null;
   const cachedExchangeReady = bitgetRuntime?.account?.connected === true
-    && isFreshIso(bitgetRuntime.account.checkedAt, 300);
+    && isFreshIso(cachedCheckedAt, 300);
   let exchangeSnapshotAvailable = cachedExchangeReady;
   let bitgetReadOnlyAttempted = cachedExchangeReady;
   let bitgetReadOnlyOk = cachedExchangeReady;
+  let freshPositionsReadOk = false;
   let authoritativePositions: Array<Record<string, unknown>> = [];
   let recentClosedPositions: Array<Record<string, unknown>> = [];
 
@@ -237,6 +246,7 @@ export async function GET(request: NextRequest) {
       ]), 4_500);
       if (snapshot) {
         const [positions, closed] = snapshot;
+        freshPositionsReadOk = true;
         exchangeSnapshotAvailable = true;
         bitgetReadOnlyOk = true;
         const slices = officialStored.account?.slices ?? [];
@@ -285,9 +295,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!authoritativePositions.length) {
+  // A successful exchange response with positions=[] is authoritative empty custody. Never
+  // resurrect stale database slices merely because the confirmed exchange array is empty.
+  if (!freshPositionsReadOk) {
     authoritativePositions = (officialStored.account?.slices ?? [])
-      .filter((slice) => ACTIVE_SLICE_STATUSES.has(String(slice.status)))
+      .filter((slice) => ["OPEN", "PARTIALLY_CLOSED"].includes(String(slice.status)))
       .slice(0, 20)
       .map((slice) => ({
         source: "MOOX_CUSTODY",
@@ -341,8 +353,8 @@ export async function GET(request: NextRequest) {
     bitgetExecutionAllowed: bitget.executionAllowed,
     bitgetMode: bitget.mode,
     exchangeSnapshotAvailable,
-    riskBlocked: strategyDashboard?.risk.blocked === true,
-    riskBlockReason: strategyDashboard?.risk.blockReason,
+    riskBlocked: bitgetRuntime?.paused === true,
+    riskBlockReason: bitgetRuntime?.pauseReason,
     positionsCount: authoritativePositions.length,
     plansCount: plans.length,
     readyToday: totals.readyToday,
@@ -381,14 +393,20 @@ export async function GET(request: NextRequest) {
     && bitgetRuntime?.heartbeatAgeSeconds != null
     && bitgetRuntime.heartbeatAgeSeconds <= 180
     && !bitgetRuntime.paused;
-  const custodyReady = databaseReady && !(newEntryGate.reasons ?? []).includes("CUSTODY_BLOCKER_PRESENT");
-  const readyForAccountSwitch = databaseReady
+  // Protection/orphan/duplicate/time-exit custody evidence is deliberately not collected in this
+  // read-only endpoint. Keep switch readiness fail-closed; the admin mutation endpoint owns the
+  // authoritative custody preflight.
+  const custodyReady = false;
+  const eligibleForServerPreflight = databaseReady
     && strategyDatabaseReady
     && environmentReady
     && exchangeReadOnlyReady
-    && cronReady
-    && custodyReady;
+    && cronReady;
+  // Compatibility field: "ready" means the administrator may submit the server-side preflight;
+  // it never means this read-only GET has approved custody or permissioned an order.
+  const readyForAccountSwitch = eligibleForServerPreflight;
   const accountLiveEnabled = result.account?.mode === "LIVE" && result.account?.newEntriesEnabled === true;
+  const liveConfigured = accountLiveEnabled && eligibleForServerPreflight;
 
   const activation = {
     version: "7.20.10.8",
@@ -400,9 +418,12 @@ export async function GET(request: NextRequest) {
     exchangeReadOnlyReady,
     cronReady,
     custodyReady,
+    custodyAuditAuthoritative: false,
+    eligibleForServerPreflight,
     readyForAccountSwitch,
     accountLiveEnabled,
-    fullyLive: readyForAccountSwitch && accountLiveEnabled && newEntryGate.allowed === true,
+    liveConfigured,
+    fullyLive: false,
     missingEnv: envChecks.filter((item) => !item.ok).map((item) => item.name),
     envChecks,
   };
@@ -468,16 +489,16 @@ export async function GET(request: NextRequest) {
     },
     officialFeed,
     strategyDiagnostics: strategyDashboard ? {
-      generatedAt: strategyDashboard.generatedAt,
+      generatedAt: new Date().toISOString(),
       databaseReady: strategyDashboard.databaseReady,
-      executionEnvironmentAllowed: strategyDashboard.executionEnvironmentAllowed,
+      executionEnvironmentAllowed: bitget.executionAllowed && strategyActiveExecutionEnabled,
       risk: {
-        blocked: strategyDashboard.risk.blocked,
-        blockReason: strategyDashboard.risk.blockReason,
-        dailyLossPct: strategyDashboard.risk.dailyLossPct,
-        weeklyLossPct: strategyDashboard.risk.weeklyLossPct,
-        openRiskPct: strategyDashboard.risk.openRiskPct,
-        availableUsdt: strategyDashboard.risk.availableUsdt,
+        blocked: bitgetRuntime?.paused === true,
+        blockReason: bitgetRuntime?.pauseReason || "",
+        dailyLossPct: undefined,
+        weeklyLossPct: undefined,
+        openRiskPct: undefined,
+        availableUsdt: typeof bitgetRuntime?.account?.availableUsdt === "number" ? bitgetRuntime.account.availableUsdt : null,
       },
       horizons: strategyDashboard.profiles.map((profile) => {
         const stats = strategyDashboard.stats.find((row) => row.strategyType === profile.strategyType);
@@ -508,4 +529,18 @@ export async function GET(request: NextRequest) {
       }),
     } : null,
   });
+}
+
+export async function GET(request: NextRequest) {
+  // This is an observability endpoint, not an execution endpoint. A slow database,
+  // exchange or runtime diagnostic must never leave the member page spinning forever.
+  // The underlying trading engine remains fail-closed and is not changed here.
+  const bounded = await withTimeout(buildLiveTradingStatus(request), LIVE_STATUS_DEADLINE_MS);
+  if (bounded) return bounded;
+  return NextResponse.json({
+    error: "LIVE_STATUS_TIMEOUT",
+    message: "AI交易状态读取超时；当前状态未知，不能视为无阻断。",
+    retryable: true,
+    generatedAt: new Date().toISOString(),
+  }, { status: 503, headers: { "cache-control": "no-store" } });
 }

@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json(await getPublicUnifiedLiveSnapshot(), { headers: PUBLIC_CACHE });
   } catch {
     return NextResponse.json(
-      { generatedAt: new Date().toISOString(), product: "MOOX AI Live Trading", positions: [] },
+      { generatedAt: new Date().toISOString(), product: "MOOX AI Live Trading", positions: [], pendingReconciliation: [], recentHistory: [] },
       { headers: PUBLIC_CACHE },
     );
   }
