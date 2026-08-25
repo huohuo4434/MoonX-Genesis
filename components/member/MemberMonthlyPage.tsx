@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
+import { MemberSeptemberRotationReport } from "@/components/member/MemberSeptemberRotationReport";
 import { listMonthlyMarketCycles, type MonthlyMarketCycle } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
@@ -113,6 +114,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
           </div>
         </Card>
       ) : null}
+      {cycleId === "2026-09" ? <MemberSeptemberRotationReport /> : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
           <Card key={item.assetId} padding="lg" className="space-y-4">
