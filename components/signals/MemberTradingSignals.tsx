@@ -1,4 +1,5 @@
 import { Badge, Card, Heading, Text } from "@/components/ui";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { assetDisplayName, assetDisplaySymbol, assetVenue } from "@/lib/presentation/asset-catalog";
 import { cleanMemberCopy, directionLabel, signalStatusLabel, timeframeLabel } from "@/lib/presentation/public-copy";
 import type { TradeSignalRecord, TradeSignalStarStat } from "@/types/trading-signal";
@@ -35,6 +36,11 @@ function waitingReason(signal: TradeSignalRecord): string | null {
 export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalRecord[]; stats: TradeSignalStarStat[] }) {
   const visible = signals.filter((signal) => signal.apiVisible && !["DRAFT", "CANCELLED", "CLOSED"].includes(signal.status));
   const usefulStats = stats.filter((stat) => stat.sampleCount > 0);
+  const facts: ConclusionFirstFact[] = visible.map((signal) => ({
+    label: assetDisplaySymbol(signal.symbol),
+    value: `${directionLabel(signal.direction)} · ${signalStatusLabel(signal.status)}`,
+    tone: signal.direction === "LONG" ? "positive" : signal.direction === "SHORT" ? "negative" : "muted",
+  }));
 
   return (
     <div className="space-y-8">
@@ -48,14 +54,24 @@ export function MemberTradingSignals({ signals, stats }: { signals: TradeSignalR
         </a>
       </div>
 
-      <Card padding="md" className="border-primary/15 bg-primary/[0.025]">
+      <ConclusionFirstPanel
+        title={visible.length ? `当前 ${visible.length} 个有效信号` : "当前没有有效交易信号"}
+        conclusion={visible.length
+          ? "先看每个标的的方向和执行状态；只有状态已触发、入场区有效且止损完整时，才继续考虑执行。"
+          : "没有满足发布条件的信号时保持等待，不用草稿、旧信号或缺少价格的计划凑数。"}
+        facts={facts}
+        actions={["先筛方向与执行状态，再核对入场、止损和目标。", "等待技术位置不等于改变正式方向；失效后停止执行。"]}
+      />
+
+      <details className="rounded-xl border border-primary/15 bg-primary/[0.025] p-4">
+        <summary className="cursor-pointer text-sm font-medium text-white/55">展开星级、共识、状态与风险说明</summary>
         <div className="grid gap-3 text-body-sm md:grid-cols-4">
           <div><span className="font-medium">星级</span><span className="mt-1 block text-foreground-secondary">方法共识度，不代表预期涨幅。</span></div>
           <div><span className="font-medium">共识分</span><span className="mt-1 block text-foreground-secondary">发布时锁定的证据一致程度。</span></div>
           <div><span className="font-medium">执行状态</span><span className="mt-1 block text-foreground-secondary">观察、等待技术位置、已触发或结束；这些是执行状态，不修改MOOX方向。</span></div>
           <div><span className="font-medium">风险</span><span className="mt-1 block text-foreground-secondary">与方向独立；高风险不等于看空。</span></div>
         </div>
-      </Card>
+      </details>
 
       <div className="grid gap-4 xl:grid-cols-2">
         {visible.map((signal) => {

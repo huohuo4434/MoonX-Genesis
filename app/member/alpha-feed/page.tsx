@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
+import { ConclusionFirstPanel } from "@/components/member/ConclusionFirstPanel";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
@@ -482,6 +483,22 @@ export default async function AlphaFeedPage() {
             : "博主名称、用户名和原帖链接继续全部隐藏。外部观点只做辅助情报，不覆盖MOOX正式方向，也不单独触发实盘。"}</Text>
         </div>
 
+        <ConclusionFirstPanel
+          eyebrow={en ? "Consensus first" : "先看多空结论"}
+          title={en ? "Current multi-view balance" : "当前多方观点结论"}
+          conclusion={en
+            ? `Bullish-leading: ${bullishAssets.length ? bullishAssets.slice(0, 12).join(" · ") : "none"}. Bearish-leading: ${bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : "none"}.`
+            : `看多占优：${bullishAssets.length ? bullishAssets.slice(0, 12).join("、") : "暂无"}；看跌占优：${bearishAssets.length ? bearishAssets.slice(0, 12).join("、") : "暂无"}。`}
+          facts={[
+            { label: en ? "Assets" : "覆盖资产", value: String(groups.length), tone: groups.length ? "neutral" : "muted" },
+            { label: en ? "Active researchers · 10d" : "10天活跃研究者", value: String(health?.activeResearchers10d ?? 0), tone: (health?.activeResearchers10d ?? 0) > 0 ? "positive" : "muted" },
+            { label: en ? "Newest data" : "最新数据", value: health?.lastPostAt ? dateShort(health.lastPostAt) : (en ? "pending" : "待补"), tone: health?.lastPostAt ? "neutral" : "muted" },
+          ]}
+          actions={en
+            ? ["Use the heatmap only to spot agreement or conflict.", "MOOX remains the official direction; external views only add caution."]
+            : ["先用热力图找同向或相反，不必先读每个博主的长文。", "与MOOX相反时只增加谨慎，不覆盖网站正式方向。"]}
+        />
+
         <Card padding="md" className="border border-cyan-300/15 bg-cyan-300/[0.03]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -504,11 +521,6 @@ export default async function AlphaFeedPage() {
             {health?.lastPostAt ? <Text variant="caption" color="tertiary" className="mt-3 block">{en ? "Newest stored post" : "数据库最新帖子"}：{formatDateTimeChina(health.lastPostAt)}</Text> : null}
           </details>
         </Card>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bullish-leading assets" : "当前看多占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bullishAssets.length ? bullishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
-          <Card padding="md"><Text variant="caption" color="tertiary" className="block">{en ? "Bearish-leading assets" : "当前看跌占优"}</Text><Text variant="body" weight="semibold" className="mt-2 block">{bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : (en ? "None" : "暂无")}</Text></Card>
-        </div>
 
         <AssetDateOpinionHeatmap groups={groups} officialByAsset={officialByAsset} en={en} />
 

@@ -88,14 +88,13 @@ function WeeklyAtAGlance({ rows }: { rows: WeeklyMarketSlot[] }) {
   const revisionRows = published.filter((row) => row.memberRevisionNotice);
 
   return (
-    <section className="mb-8 space-y-4" aria-labelledby="weekly-at-a-glance">
+    <section className="mb-8 space-y-4" aria-labelledby="weekly-at-a-glance" data-conclusion-first="1">
       <div>
-        <Heading as="h2" size="h3" id="weekly-at-a-glance">{en ? "This week at a glance" : "本周一眼看懂"}</Heading>
+        <Heading as="h2" size="h3" id="weekly-at-a-glance">{en ? "Final weekly calls" : "本周最终结论"}</Heading>
         <Text variant="body-sm" color="secondary" className="mt-1 block">
-          {en ? "Read the current version first. Material pre-window revisions are shown explicitly below." : "先认当前版本，再看关键节奏；目标窗口前发生的重要修订会明确列出，不让旧观点和新结论混在一起。"}
+          {en ? "Read the current call first. Open revision history only when you need the reason for a change." : "先看当前正式方向；想知道为什么修订，再展开版本变化。"}
         </Text>
       </div>
-      {revisionRows.map((row) => <RevisionNotice key={`${row.id}-revision`} a={row} />)}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {published.map((row) => (
           <article key={`${row.id}-glance`} className="rounded-xl border border-border/[0.09] bg-card/45 p-4">
@@ -110,6 +109,10 @@ function WeeklyAtAGlance({ rows }: { rows: WeeklyMarketSlot[] }) {
           </article>
         ))}
       </div>
+      {revisionRows.length ? <details className="rounded-xl border border-amber-300/15 bg-amber-300/[.035] p-3">
+        <summary className="min-h-8 cursor-pointer py-1 text-body-sm font-medium text-amber-100/70">{en ? "Open revision history" : "展开版本变化与修订原因"}</summary>
+        <div className="mt-3 space-y-3">{revisionRows.map((row) => <RevisionNotice key={`${row.id}-revision`} a={row} />)}</div>
+      </details> : null}
     </section>
   );
 }
@@ -225,8 +228,8 @@ export function MemberWeeklyFullPage({ slots, summary }: { slots: WeeklyMarketSl
     <Badge variant="default" className="mb-3">{en ? "Members" : "会员"}</Badge>
     <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Outlook" : "会员周走势预测"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-3xl">{en ? "Direction, weekly path, key dates, price levels and invalidation for every core market." : "逐个标的讲清本周方向、周内路径、关键日期、支撑压力与失效条件。"}</Text>
-    <MetaHeader summary={summary} />
     <WeeklyAtAGlance rows={rows} />
+    <MetaHeader summary={summary} />
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
         <Heading as="h2" size="h3">{en ? "Nine core markets" : "九大核心市场"}</Heading>

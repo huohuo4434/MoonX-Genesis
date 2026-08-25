@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { Badge } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { WATCHLIST_TEASERS } from "@/lib/data/conviction/watchlist-teasers";
@@ -91,8 +92,26 @@ export function MemberRecommendationList({ payload, kind }: { payload: Convictio
   const { locale, href } = useLocale();
   const en = locale === "en";
   const rows = mergeRows(payload, kind);
+  const bullish = rows.filter((row) => row.signal?.direction === "BULLISH").map((row) => row.symbol);
+  const bearish = rows.filter((row) => row.signal?.direction === "BEARISH").map((row) => row.symbol);
+  const facts: ConclusionFirstFact[] = rows.map((row) => ({
+    label: row.symbol,
+    value: signalLabel(row.signal, en),
+    tone: row.signal?.direction === "BULLISH" ? "positive" : row.signal?.direction === "BEARISH" ? "negative" : "muted",
+  }));
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="space-y-4">
+      <ConclusionFirstPanel
+        title={en ? "Current crypto calls" : "当前加密结论"}
+        conclusion={en
+          ? `Bullish: ${bullish.join(" · ") || "none"}. Bearish: ${bearish.join(" · ") || "none"}.`
+          : `看涨：${bullish.join("、") || "暂无"}；看跌：${bearish.join("、") || "暂无"}。`}
+        facts={facts}
+        actions={en
+          ? ["Pick the direction first, then open the asset for its timing and invalidation.", "Rating is research priority, not expected return."]
+          : ["先按方向筛选，再进入标的查看时间窗口和失效条件。", "评级只代表研究优先级，不代表预期涨幅。"]}
+      />
+      <div className="grid gap-4 lg:grid-cols-2">
       {rows.map((row) => (
         <Link key={row.slug} href={href(row.detailHref)} className="group rounded-2xl border border-white/[0.08] bg-[#0c0e12] p-5 transition hover:-translate-y-0.5 hover:border-violet-300/25">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -109,6 +128,7 @@ export function MemberRecommendationList({ payload, kind }: { payload: Convictio
         </Link>
       ))}
       {!rows.length ? <div className="rounded-2xl border border-white/[0.08] p-5 text-body-sm text-white/55">{en ? "No published recommendations yet." : "暂无已发布推荐。"}</div> : null}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConclusionFirstPanel } from "@/components/member/ConclusionFirstPanel";
 import type { StrategyCenterSnapshot } from "@/lib/presentation/strategy-center";
 
 function signedPct(value: number | null): string {
@@ -49,6 +50,9 @@ function orderStatus(value: string): string {
 }
 
 export function StrategyCenterPage({ snapshot }: { snapshot: StrategyCenterSnapshot }) {
+  const runningOrders = snapshot.liveOrders.filter((order) => !["CLOSED", "ERROR"].includes(order.status));
+  const enabledStrategies = snapshot.strategies.filter((row) => row.enabled);
+  const runningTrades = snapshot.strategies.reduce((sum, row) => sum + row.runningTrades, 0);
   return (
     <main className="min-h-screen bg-[#06070b] pb-24 text-white md:pb-12">
       <section className="mx-auto max-w-[1180px] px-4 py-7 sm:px-6 md:py-10">
@@ -60,6 +64,21 @@ export function StrategyCenterPage({ snapshot }: { snapshot: StrategyCenterSnaps
           </div>
           <Link href="/member/ai-trading" className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm text-white/75">进入交易台</Link>
         </div>
+
+        <ConclusionFirstPanel
+          className="mt-5"
+          title={runningOrders.length ? `当前有 ${runningOrders.length} 笔实盘单仍在运行` : "当前没有运行中的实盘单"}
+          conclusion={runningOrders.length
+            ? `先看运行单的方向、开单价、止损和止盈；只有感兴趣时再展开玄学依据、技术入场理由和历史成绩。`
+            : "没有真实运行单时保持空白，不用模拟单或观察计划填充。可以继续看各策略最近表现，但不能把历史成绩当成当前开单结论。"}
+          facts={[
+            { label: "运行实盘单", value: String(runningOrders.length), tone: runningOrders.length ? "turn" : "muted" },
+            { label: "已启用策略", value: `${enabledStrategies.length}/${snapshot.strategies.length}`, tone: enabledStrategies.length ? "positive" : "muted" },
+            { label: "策略运行交易", value: String(runningTrades), tone: runningTrades ? "neutral" : "muted" },
+            { label: "真实记录", value: String(snapshot.liveOrders.length), tone: snapshot.liveOrders.length ? "neutral" : "muted" },
+          ]}
+          actions={["有运行单：先核对方向、开单、止损、止盈和状态。", "无运行单：不要从历史收益推导当前应该开单。"]}
+        />
 
         <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-5 text-white/45">{snapshot.dataNotice}</div>
 

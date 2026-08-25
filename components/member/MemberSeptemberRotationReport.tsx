@@ -21,7 +21,7 @@ export function MemberSeptemberRotationReport() {
 
   return (
     <section className="space-y-4" aria-labelledby="september-rotation-title">
-      <Card padding="lg" className="overflow-hidden border-violet-400/25 bg-gradient-to-br from-violet-500/[0.10] via-background to-cyan-500/[0.05]">
+      <Card padding="lg" data-conclusion-first="1" className="overflow-hidden border-violet-400/25 bg-gradient-to-br from-violet-500/[0.10] via-background to-cyan-500/[0.05]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             <Badge variant="default">{en ? "September member briefing" : "9月会员月报"}</Badge>

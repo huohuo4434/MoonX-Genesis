@@ -1,5 +1,6 @@
 import type { AnnualForecastRoadmap } from "@/lib/research/annual-forecast-roadmap-2026";
 import { annualTrendWindowRange, buildAnnualTrendWindows, type AnnualTrendFamily } from "@/lib/research/annual-key-months";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 
 function directionTone(value: string): string {
   if (/上涨|先跌后涨/u.test(value)) return "border-emerald-300/25 bg-emerald-300/[.07] text-emerald-100";
@@ -19,11 +20,29 @@ function trendWindowTone(family: AnnualTrendFamily): string {
 }
 
 export function AnnualForecastRoadmap2026({ rows }: { rows: readonly AnnualForecastRoadmap[] }) {
+  const september = rows.map((row) => ({ row, month: row.months.find((item) => item.month === "2026-09") })).filter((item) => item.month);
+  const septemberFacts: ConclusionFirstFact[] = september.map(({ row, month }) => ({
+    label: row.symbol,
+    value: month!.direction,
+    tone: /先跌后涨|上涨/u.test(month!.direction) ? "positive" : /先涨后跌|下跌/u.test(month!.direction) ? "negative" : /先/u.test(month!.direction) ? "turn" : "neutral",
+  }));
+  const highCandidates = rows.filter((row) => row.highMonthCandidates.includes("2026-09")).map((row) => row.symbol);
+
   return <div className="space-y-5">
     <section className="rounded-[26px] border border-amber-300/15 bg-[radial-gradient(circle_at_10%_0%,rgba(251,191,36,.12),transparent_35%),radial-gradient(circle_at_90%_0%,rgba(139,92,246,.12),transparent_34%),#090b0f] p-5 sm:p-7">
       <p className="text-xs font-semibold uppercase tracking-[.2em] text-amber-100/55">ANNUAL → MONTH → WEEK → DAY</p>
       <h1 className="mt-2 text-3xl font-semibold text-white">2026年度路线总览</h1>
-      <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">年卦先标出全年看涨段、看跌段、转折段和关键月；月卦校准当月关键周，周卦再标关键日。周卦拥有本周正式方向，跨周期不一致时并列显示并降低信心。</p>
+      <ConclusionFirstPanel
+        className="mt-5"
+        title="9月先看：各资产方向与高点候选"
+        conclusion={`9月方向已经按资产分列；其中 ${highCandidates.length ? highCandidates.join("、") : "暂无资产"} 被年卦列为高点候选。高点候选不等于整月上涨，先涨后跌的资产必须同时看转折窗。`}
+        facts={septemberFacts}
+        actions={["先用本表确定9月背景，再进入月报看关键周。", "进入具体一周后，以当周六爻锁定正式方向；跨周期冲突会降低信心。"]}
+      />
+      <details className="mt-4 rounded-xl border border-white/[.07] bg-black/15 px-4 py-3 text-sm text-white/50">
+        <summary className="cursor-pointer font-medium text-white/58">展开年度体系说明</summary>
+        <p className="mt-3 leading-7">年卦先标出全年看涨段、看跌段、转折段和关键月；月卦校准当月关键周，周卦再标关键日。周卦拥有本周正式方向，跨周期不一致时并列显示并降低信心。</p>
+      </details>
       <div className="mt-4 flex flex-wrap gap-2 text-[11px]"><span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.06] px-2.5 py-1 text-emerald-100/70">看涨段</span><span className="rounded-full border border-rose-300/20 bg-rose-300/[.06] px-2.5 py-1 text-rose-100/70">看跌段</span><span className="rounded-full border border-violet-300/20 bg-violet-300/[.06] px-2.5 py-1 text-violet-100/70">转折段</span><span className="rounded-full border border-amber-300/20 bg-amber-300/[.05] px-2.5 py-1 text-amber-100/65">震荡段</span></div>
       <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-white/40"><span className="rounded-full border border-white/10 px-2.5 py-1">正式年度版 · 修订留痕</span><span className="rounded-full border border-white/10 px-2.5 py-1">生效：2026-08-25</span><span className="rounded-full border border-white/10 px-2.5 py-1">已锁定 {rows.length} 个资产</span></div>
       <p className="mt-4 rounded-xl border border-amber-300/10 bg-amber-300/[.035] px-4 py-3 text-xs leading-6 text-amber-100/55">1—8月已经发生，不使用这批8月25日新卦回填预测，也不纳入这批年卦的历史命中统计。下表只对8月25日之后负责。</p>

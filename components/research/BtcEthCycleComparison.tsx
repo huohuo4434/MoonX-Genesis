@@ -1,4 +1,5 @@
 import { Badge, Card, Heading, Text } from "@/components/ui";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import type { CryptoCycleAlignment } from "@/lib/data/crypto-cycle-comparison-20260801";
 import { mooxDirectionArrow, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
@@ -70,6 +71,13 @@ export function BtcEthCycleComparison({
 }) {
   const btcVisible = admin ? btc : btc.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
   const ethVisible = admin ? eth : eth.filter((item) => ["WEEK", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_10"].includes(item.forecastType));
+  const alignmentFacts: ConclusionFirstFact[] = alignments.map((item) => ({
+    label: item.period,
+    value: `${item.btcDirection} / ${item.ethDirection}`,
+    tone: item.alignment === "高度一致" ? "positive" : item.alignment === "明显分化" ? "turn" : "neutral",
+  }));
+  const alignedCount = alignments.filter((item) => item.alignment === "高度一致").length;
+  const divergentCount = alignments.filter((item) => item.alignment === "明显分化").length;
 
   return (
     <div className="space-y-8">
@@ -81,6 +89,13 @@ export function BtcEthCycleComparison({
           两套卦独立起卦、分别判断。只有方向和路径同向时才记为交叉印证；出现分歧时改用相对强弱，不把相关性误写成共同结论。
         </Text>
       </section>
+
+      <ConclusionFirstPanel
+        title="BTC／ETH周期结论"
+        conclusion={`当前可比周期中，同向 ${alignedCount} 项，分歧 ${divergentCount} 项。先看各周期两者方向是否一致，再决定能否把BTC走势类推到ETH。`}
+        facts={alignmentFacts}
+        actions={["同向只提高周期判断信心，不代表涨跌幅相同。", "分歧时分别按BTC、ETH自己的周月方向处理，不强行绑定。"]}
+      />
 
       <section className="grid gap-4 lg:grid-cols-2">
         {alignments.map((item) => (

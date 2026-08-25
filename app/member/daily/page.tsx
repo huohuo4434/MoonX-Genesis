@@ -6,6 +6,7 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
+import { ConclusionFirstPanel, type ConclusionFirstFact, type ConclusionFirstTone } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { displayDirection, isHumanPublishedForecast } from "@/lib/data/daily-forecasts";
@@ -92,6 +93,14 @@ function tone(direction: string): string {
   if (/上涨|回升/.test(direction)) return "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-100";
   if (/下跌|回落/.test(direction)) return "border-rose-400/25 bg-rose-400/[0.07] text-rose-100";
   return "border-sky-400/20 bg-sky-400/[0.05] text-sky-100";
+}
+
+function conclusionTone(direction: string): ConclusionFirstTone {
+  const family = directionFamily(direction);
+  if (family === "UP" || family === "PATH_UP") return "positive";
+  if (family === "DOWN" || family === "PATH_DOWN") return "negative";
+  if (family === "FLAT") return "neutral";
+  return "muted";
 }
 
 function stars(forecast: DailyForecast): string {
@@ -269,6 +278,11 @@ export default async function MemberDailyPage() {
     .filter((value): value is string => Boolean(value))
     .sort()
     .at(-1);
+  const todayPublished = todayRows.filter(isHumanPublishedForecast).sort((left, right) => dailyAssetOrderIndex(left.assetId) - dailyAssetOrderIndex(right.assetId));
+  const todayFacts: ConclusionFirstFact[] = todayPublished.map((forecast) => {
+    const direction = displayDirection(forecast);
+    return { label: forecast.symbol, value: direction, tone: conclusionTone(direction) };
+  });
 
   return (
     <>
@@ -285,6 +299,13 @@ export default async function MemberDailyPage() {
                 </div>
                 <div className="text-right text-xs text-foreground-tertiary">北京时间<br />{formatDateTimeChina(now.toISOString())}</div>
               </div>
+              <ConclusionFirstPanel
+                className="mt-5"
+                title={todayPublished.length ? "今日最终结论" : "今日结论等待发布"}
+                conclusion={todayPublished.length ? `今日已发布${todayPublished.length}个市场。先看下面的正式方向；同向共振只提高信心，分歧则降低信心，不让技术面反向改写方向。` : "当前没有可展示的正式今日结论；系统会继续重试，不用旧内容冒充今天。"}
+                facts={todayFacts}
+                actions={["先选方向明确、双法同向的市场，再看4H位置。", "未到入场位置或触发失效条件时，方向正确也先不做。"]}
+              />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />
                 <StatusCard label="下一交易日" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows[0]?.forecastForDate ? formatDateChina(tomorrowRows[0].forecastForDate) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />

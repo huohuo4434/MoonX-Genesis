@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ConclusionFirstPanel, type ConclusionFirstTone } from "@/components/member/ConclusionFirstPanel";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { buildMemberStockForecastProjection } from "@/lib/research/member-stock-forecast-candles";
 import type { MemberStockPathSnapshot, MemberStockPickResearchRow } from "@/types/member-stock-picks-dashboard";
@@ -15,6 +16,14 @@ function relationTone(value: MemberStockPickResearchRow["dailyMethods"][number][
   if (value === "RESONANCE") return "border-emerald-300/25 bg-emerald-300/[0.06] text-emerald-100";
   if (value === "DIVERGENCE") return "border-rose-300/25 bg-rose-300/[0.06] text-rose-100";
   return "border-white/10 bg-white/[0.03] text-white/50";
+}
+
+function conclusionTone(value: string | null | undefined): ConclusionFirstTone {
+  if (!value) return "muted";
+  if (/先跌后涨|上涨/u.test(value)) return "positive";
+  if (/先涨后跌|下跌/u.test(value)) return "negative";
+  if (/先/u.test(value)) return "turn";
+  return "neutral";
 }
 
 function price(value: number | null): string {
@@ -149,12 +158,19 @@ export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickRe
       <div className="mt-5 flex gap-2 overflow-x-auto pb-2">{rows.map((row) => <button key={row.slug} type="button" onClick={() => setSelectedSlug(row.slug)} className={`shrink-0 rounded-xl border px-4 py-3 text-left transition ${row.slug === selected.slug ? "border-violet-300/45 bg-violet-300/[.1] text-white" : "border-white/10 bg-black/20 text-white/55 hover:border-white/20"}`}><span className="block text-sm font-semibold">{en ? row.nameEn : row.nameZh}</span><span className="mt-1 block font-mono text-[11px] opacity-55">{row.symbol} · {row.dataCompleteness === "READY" ? "月周齐" : row.dataCompleteness === "PARTIAL" ? "待补一层" : "资料待补"}</span></button>)}</div>
     </section>
 
-    <AnnualCard view={selected.annual}/>
+    <ConclusionFirstPanel
+      title={`${en ? selected.nameEn : selected.nameZh}｜${selected.weekly.direction ?? selected.monthly.direction ?? selected.annual.direction ?? "待补方向"}`}
+      conclusion={selected.hierarchy.note}
+      facts={[
+        { label: "当前阶段", value: selected.currentStage.label, tone: "turn" },
+        { label: "本周方向", value: selected.weekly.direction ?? "待补", tone: conclusionTone(selected.weekly.direction) },
+        { label: "当前方向权", value: selected.hierarchy.authority === "WEEK" ? "周卦" : selected.hierarchy.authority === "MONTH" ? "月卦" : selected.hierarchy.authority === "YEAR" ? "年卦候选" : "待补", tone: "neutral" },
+        { label: "跨周期信心", value: selected.hierarchy.confidenceLabel, tone: selected.hierarchy.confidence === "HIGH" ? "positive" : selected.hierarchy.confidence === "MEDIUM" ? "neutral" : "turn" },
+      ]}
+      actions={["先按本周方向和当前阶段判断是否值得继续看。", "感兴趣再向下查看年、月、周路线、模拟K线和三方日分析。"]}
+    />
 
-    <section className={`rounded-2xl border p-4 ${selected.hierarchy.confidence === "HIGH" ? "border-emerald-300/20 bg-emerald-300/[.04]" : selected.hierarchy.confidence === "MEDIUM" ? "border-cyan-300/20 bg-cyan-300/[.04]" : "border-amber-300/20 bg-amber-300/[.04]"}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-white">跨周期结论：{selected.hierarchy.confidenceLabel}</p><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/45">当前方向权：{selected.hierarchy.authority === "WEEK" ? "周卦" : selected.hierarchy.authority === "MONTH" ? "月卦" : selected.hierarchy.authority === "YEAR" ? "年卦候选" : "待补"}</span></div>
-      <p className="mt-2 text-xs leading-6 text-white/50">{selected.hierarchy.note}</p>
-    </section>
+    <AnnualCard view={selected.annual}/>
 
     <div className="grid gap-4 lg:grid-cols-[1.45fr_.75fr]">
       <PeriodCard title="整月长线走势" view={selected.monthly}/>

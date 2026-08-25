@@ -76,10 +76,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
   return (
     <div className="space-y-5">
-      <Card padding="lg" className="border-primary/20 bg-gradient-to-r from-primary/[0.04] to-transparent">
+      <Card padding="lg" data-conclusion-first="1" className="border-primary/20 bg-gradient-to-r from-primary/[0.04] to-transparent">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{en ? "Execution summary" : "执行结论"}</Badge>
               <Heading size="h2">{en ? "AI Trading Desk" : "AI交易执行台"}</Heading>
               <Badge variant={live ? "danger" : "warning"}>{live ? (en ? "LIVE FUNDS" : "实盘") : "DEMO"}</Badge>
               <Badge variant="success">{en ? "ACTIVE MODE" : "主动交易模式"}</Badge>
