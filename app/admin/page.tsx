@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LiuyaoAnnualCoverage2026 } from "@/components/admin/LiuyaoAnnualCoverage2026";
+import { PromotionReadinessPanel } from "@/components/admin/PromotionReadinessPanel";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
-import { isActiveMember, isAdmin, listAllAuthUsers } from "@/lib/auth/permissions";
+import { isActiveMember, isAdmin, listAllAuthUsers, requireAdminOrRedirect } from "@/lib/auth/permissions";
 import { getAdminPaymentQueueSummary } from "@/lib/payments/admin-payment-summary";
 import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 import { isSandboxUser } from "@/lib/admin/sandbox-data";
@@ -11,11 +12,14 @@ import { listAdminConsultations } from "@/lib/consultations/store";
 import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { getConvictionWeeklyFreshnessOverview } from "@/lib/data/conviction/access";
+import { isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { buildPromotionReadinessSummary } from "@/lib/admin/promotion-readiness";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminHomePage() {
+  await requireAdminOrRedirect("/admin");
   const now = new Date();
   const [users, verificationSnapshot, paymentQueue, tlcStats, todayRows, tomorrowRows, consultationQueue] = await Promise.all([
     listAllAuthUsers(),
@@ -35,6 +39,19 @@ export default async function AdminHomePage() {
   const cycleGaps = buildAdminCycleGapSummary(now);
   const productionUsers = users.filter((u) => !isSandboxUser(u));
   const memberCount = productionUsers.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
+  const promotionReadiness = buildPromotionReadinessSummary({
+    todayPublished: todayRows.length,
+    tomorrowPublished: tomorrowRows.length,
+    focusCurrent: convictionFreshness.current,
+    focusTotal: convictionFreshness.total,
+    focusAffectedAssets: convictionFreshness.affectedAssets,
+    cycleGapCount: cycleGaps.taskCount,
+    pendingPayments: pending,
+    consultationAvailable: consultationQueue.available,
+    pendingConsultations: consultationQueue.available ? consultationQueue.summary.total : 0,
+    failedConsultations: consultationQueue.available ? consultationQueue.summary.failed : 0,
+    emailProductionReady: isPaymentEmailProductionReady(),
+  });
 
   const tiles = [
     { label: "有效会员", value: String(memberCount) },
@@ -57,6 +74,8 @@ export default async function AdminHomePage() {
         <Heading as="h1" size="h2">
           管理后台
         </Heading>
+
+        <PromotionReadinessPanel summary={promotionReadiness} />
 
         <Card
           padding="md"

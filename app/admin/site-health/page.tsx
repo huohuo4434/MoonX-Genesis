@@ -2,11 +2,13 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { buildSiteHealthReport } from "@/lib/admin/site-health";
 import { countPendingPaymentOrders } from "@/lib/payments/payment-orders-store";
+import { requireAdminOrRedirect } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminSiteHealthPage() {
+  await requireAdminOrRedirect("/admin/site-health");
   const [report, pending] = await Promise.all([buildSiteHealthReport(), countPendingPaymentOrders()]);
   return (
     <main>

@@ -1,9 +1,9 @@
 // MOOX_MEMBER_DAILY_TERMINAL_V720114
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
+import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
@@ -230,8 +230,19 @@ function StatusCard({ label, value, note, toneClass }: { label: string; value: s
 export default async function MemberDailyPage() {
   noStore();
   const gate = await getMemberDevicePageAccess();
-  if (gate.status === "LOGIN_REQUIRED") redirect(`/login?next=${path}`);
-  if (gate.status === "MEMBERSHIP_REQUIRED") redirect("/pricing");
+  if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
+    const en = (await getRequestLocale()) === "en";
+    return <main><Section spacing="lg"><PublicFeaturePreview
+      eyebrow={en ? "Daily terminal · Public preview" : "每日市场终端 · 公开预览"}
+      title={en ? "See the call, levels and invalidation on one screen" : "先看方向，再看位置与失效"}
+      description={en ? "The daily terminal compresses nine core markets into a single board. Members see the official direction, Liu Yao/Qimen relationship, 4H structural levels and invalidation for today and the next session." : "把九大核心市场压缩到一张表：今日与下一交易日的正式方向、六爻与奇门关系、4H结构位和失效条件。"}
+      solves={en ? ["Separate direction from timing", "Avoid stale or overly narrow levels", "Know exactly when a view is invalid"] : ["方向与时机分开看", "避免过期或过窄点位", "明确什么情况判定失效"]}
+      memberBenefits={en ? ["Nine-market today/next-session board", "Liu Yao and Qimen agreement alerts", "4H support, resistance and invalidation", "Versioned update timestamps"] : ["九大市场今日/下一交易日总表", "六爻与奇门同向/分歧提示", "4H支撑、压力与失效位", "每条观点独立更新时间"]}
+      exampleTitle={en ? "BTC · Daily row example" : "BTC · 日报行示例"}
+      exampleLines={en ? ["Official direction: rally then fade", "Methods: diverging · use caution", "4H support / resistance", "Invalidation: shown explicitly"] : ["正式方向：先涨后跌", "双法关系：分歧，降低信心", "4H支撑 / 压力", "失效条件：单独列明"]}
+      nextPath={path}
+    /></Section></main>;
+  }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const now = new Date();
