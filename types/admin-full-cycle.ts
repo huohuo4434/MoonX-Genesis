@@ -1,6 +1,6 @@
 export type AdminCycleAssetClass = "CORE" | "FOCUS";
 export type AdminCycleMarket = "crypto" | "us" | "cn" | "hk" | "commodity" | "stock";
-export type AdminCycleHorizon = "DAY" | "WEEK" | "MONTH";
+export type AdminCycleHorizon = "DAY" | "WEEK" | "MONTH" | "YEAR";
 export type AdminLevelTimeframe = "4H" | "1D" | "1W";
 
 export type AdminCycleAsset = {

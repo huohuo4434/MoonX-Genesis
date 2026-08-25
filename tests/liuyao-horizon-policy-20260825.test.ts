@@ -36,7 +36,7 @@ test("research protocol no longer promotes Qimen over Liuyao direction authority
   assert.match(RESEARCH_AUTHORITY_CHAIN[2], /奇门.*时间窗口/);
   assert.doesNotMatch(RESEARCH_AUTHORITY_CHAIN.join("\n"), /奇门：第一方向/);
   assert.doesNotMatch(RESEARCH_AUTHORITY_CHAIN.join("\n"), /六爻：辅助确认/);
-  assert.equal(MOOX_PREDICTION_GOVERNANCE_VERSION, "2026-08-25.v3");
+  assert.equal(MOOX_PREDICTION_GOVERNANCE_VERSION, "2026-08-25.v4");
   assert.match(MOOX_PREDICTION_LAYERS[0].authorityZh, /季卦只在.*按需补充/);
   assert.equal(MOOX_DAILY_ANALYSIS_POLICY.requiresDailyHexagram, false);
 });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -52,6 +53,7 @@ export default async function MemberSectorResonancePage() {
       <main className="min-h-screen bg-[#07080a] text-white">
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
+            <Link href="/member/annual-outlook" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[.04] px-5 py-4 text-sm text-amber-100/70"><span><b className="text-white">先看2026年度路线</b><span className="ml-2 text-white/40">9—12月候选与高低点候选月</span></span><span>进入 →</span></Link>
             <SectorResonanceBoard {...board} />
           </div>
         </Section>

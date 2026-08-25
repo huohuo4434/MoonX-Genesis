@@ -79,7 +79,7 @@ function GroupTable({
                   {week.label}
                 </th>
               ))}
-              <th className="min-w-[190px] px-3 py-3">长周期背景</th>
+              <th className="min-w-[250px] px-3 py-3">2026年度背景</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[.05]">
@@ -90,7 +90,7 @@ function GroupTable({
                   <p className="mt-1 font-mono text-[10px] tracking-wide text-white/32">{row.symbol}</p>
                 </td>
                 {row.cells.map((cell, index) => <td key={`${row.assetId}-${weeks[index]!.start}`} className="px-3 py-3.5"><Cell cell={cell} /></td>)}
-                <td className="px-3 py-3.5 text-xs leading-5 text-white/46">{row.longCycle}</td>
+                <td className="px-3 py-3.5 text-xs leading-5 text-white/46"><span className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${directionTone(row.annualDirection ?? "待补")}`}>{row.annualDirection ?? "年卦待补"}</span><p>{row.annualMonthPath}</p><p className="mt-1 text-[10px] text-white/30">{row.longCycle}</p></td>
               </tr>
             ))}
           </tbody>
@@ -127,7 +127,7 @@ export function SectorResonanceBoard({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[.2em] text-cyan-100/55">SECTOR RESONANCE</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">板块共振分析</h1>
-            <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">把本周、下周及后续周全部按同一日期对齐。绿色偏多、红色偏空、黄色震荡；只有完整周卦参与板块共振计数，上级周期背景只补充上下文，不冒充周预测。</p>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">先看年度9—12月候选，再把本周、下周及后续周按同一日期对齐。绿色偏多、红色偏空、黄色震荡；只有完整周卦参与板块共振计数，年度和月度背景只补充上下文，不冒充周预测。</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/42">资料截至 {asOf}</span>
         </div>

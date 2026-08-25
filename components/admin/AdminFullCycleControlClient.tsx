@@ -41,7 +41,7 @@ export function AdminFullCycleControlClient({ initial }: { initial: AdminFullCyc
   const [snapshot, setSnapshot] = useState(initial);
   const [view, setView] = useState<View>("forecast");
   const [assetId, setAssetId] = useState(initial.assets[0]?.id ?? "bitcoin");
-  const [horizon, setHorizon] = useState<"DAY" | "WEEK" | "MONTH">("DAY");
+  const [horizon, setHorizon] = useState<"DAY" | "WEEK" | "MONTH" | "YEAR">("DAY");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -156,6 +156,9 @@ export function AdminFullCycleControlClient({ initial }: { initial: AdminFullCyc
       {view === "forecast" ? (
         <section className="space-y-4">
           <div className="flex flex-wrap gap-2">
+            <Button variant={horizon === "YEAR" ? "primary" : "outline"} onClick={() => setHorizon("YEAR")}>
+              年度总路线
+            </Button>
             <Button variant={horizon === "DAY" ? "primary" : "outline"} onClick={() => setHorizon("DAY")}>
               一周内逐日
             </Button>

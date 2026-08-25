@@ -101,6 +101,17 @@ function PeriodCard({ title, view }: { title: string; view: MemberStockPickResea
   </section>;
 }
 
+function AnnualCard({ view }: { view: MemberStockPickResearchRow["annual"] }) {
+  return <section className="rounded-2xl border border-amber-300/15 bg-amber-300/[.035] p-5">
+    <div><p className="text-xs font-semibold uppercase tracking-[.16em] text-amber-100/55">YEAR · 2026年度基准</p><h2 className="mt-2 text-2xl font-semibold text-white">{view.direction ?? "待补独立年卦"}</h2></div>
+    <p className="mt-3 text-sm leading-7 text-white/70">{view.summary}</p>
+    {view.remainingYearPath ? <p className="mt-3 rounded-xl border border-white/[.06] bg-black/20 p-3 text-sm leading-6 text-amber-50/70"><b className="text-amber-100">8/25后路线：</b>{view.remainingYearPath}</p> : null}
+    {view.months.length ? <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{view.months.map((item) => <div key={item.month} className="rounded-xl border border-white/[.07] bg-black/20 p-3"><p className="text-[11px] text-white/35">{item.month.slice(5)}月候选</p><p className="mt-1 text-sm font-semibold text-white">{item.direction}</p><p className="mt-1 text-xs leading-5 text-white/45">{item.note}</p></div>)}</div> : null}
+    {view.highMonthCandidates.length || view.lowMonthCandidates.length ? <p className="mt-3 text-xs leading-5 text-white/40">剩余年度高点候选：{view.highMonthCandidates.map((item) => `${Number(item.slice(5))}月`).join("、") || "待定"} · 低点候选：{view.lowMonthCandidates.map((item) => `${Number(item.slice(5))}月`).join("、") || "待定"}</p> : null}
+    <p className="mt-2 text-[11px] leading-5 text-amber-100/40">1—8月不回填预测、不计入这批年卦命中统计；年度月份只是上层候选，独立月卦与周卦会逐层校准。</p>
+  </section>;
+}
+
 export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickResearchRow[] }) {
   const { locale, href } = useLocale();
   const en = locale === "en";
@@ -134,8 +145,15 @@ export function MemberStockResearchDashboard({ rows }: { rows: MemberStockPickRe
 
   return <div className="space-y-6">
     <section className="rounded-[24px] border border-violet-300/15 bg-[radial-gradient(circle_at_85%_0%,rgba(139,92,246,.14),transparent_36%),#0b0d12] p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.2em] text-violet-200/65">MONTH → WEEK → DAY</p><h2 className="mt-2 text-2xl font-semibold">先定整月，再找当前阶段</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-white/55">按整月、当前阶段、本周和日内依次查看；六爻定方向，奇门看时机，4H缠论看结构和价格位置。</p></div><p className="text-xs text-white/40">完整 {coverage.ready} · 待补周期 {coverage.partial}</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.2em] text-violet-200/65">YEAR → MONTH → WEEK → DAY</p><h2 className="mt-2 text-2xl font-semibold">先定全年，再逐层缩小到今天</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-white/55">年卦给出年度月份候选，月卦校准当月路线，周卦锁定本周；日分析从周卦拆分，奇门看时机，4H缠论看结构和价格位置。</p></div><p className="text-xs text-white/40">完整 {coverage.ready} · 待补周期 {coverage.partial}</p></div>
       <div className="mt-5 flex gap-2 overflow-x-auto pb-2">{rows.map((row) => <button key={row.slug} type="button" onClick={() => setSelectedSlug(row.slug)} className={`shrink-0 rounded-xl border px-4 py-3 text-left transition ${row.slug === selected.slug ? "border-violet-300/45 bg-violet-300/[.1] text-white" : "border-white/10 bg-black/20 text-white/55 hover:border-white/20"}`}><span className="block text-sm font-semibold">{en ? row.nameEn : row.nameZh}</span><span className="mt-1 block font-mono text-[11px] opacity-55">{row.symbol} · {row.dataCompleteness === "READY" ? "月周齐" : row.dataCompleteness === "PARTIAL" ? "待补一层" : "资料待补"}</span></button>)}</div>
+    </section>
+
+    <AnnualCard view={selected.annual}/>
+
+    <section className={`rounded-2xl border p-4 ${selected.hierarchy.confidence === "HIGH" ? "border-emerald-300/20 bg-emerald-300/[.04]" : selected.hierarchy.confidence === "MEDIUM" ? "border-cyan-300/20 bg-cyan-300/[.04]" : "border-amber-300/20 bg-amber-300/[.04]"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-white">跨周期结论：{selected.hierarchy.confidenceLabel}</p><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/45">当前方向权：{selected.hierarchy.authority === "WEEK" ? "周卦" : selected.hierarchy.authority === "MONTH" ? "月卦" : selected.hierarchy.authority === "YEAR" ? "年卦候选" : "待补"}</span></div>
+      <p className="mt-2 text-xs leading-6 text-white/50">{selected.hierarchy.note}</p>
     </section>
 
     <div className="grid gap-4 lg:grid-cols-[1.45fr_.75fr]">

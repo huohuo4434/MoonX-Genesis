@@ -3,6 +3,7 @@ import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-co
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { US_INDEX_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
 import { WEEKLY_RESEARCH_REVISIONS_20260823 } from "@/lib/data/published-weekly-research-20260823";
+import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
 export type SectorResonanceGroup =
   | "半导体 / AI基础设施"
@@ -25,6 +26,8 @@ export type SectorResonanceRow = {
   name: string;
   symbol: string;
   group: SectorResonanceGroup;
+  annualDirection: string | null;
+  annualMonthPath: string;
   longCycle: string;
   cells: SectorResonanceCell[];
 };
@@ -244,12 +247,15 @@ export function buildSectorResonanceBoard(): {
 } {
   const rows = SECTOR_RESONANCE_ASSETS_20260825.map((definition) => {
     const forecasts = forecastsFor(definition);
+    const annual = getAnnualForecastRoadmap2026(definition.assetId);
     return {
       assetId: definition.assetId,
       name: definition.name,
       symbol: definition.symbol,
       group: definition.group,
-      longCycle: definition.longCycle,
+      annualDirection: annual?.annualDirection ?? null,
+      annualMonthPath: annual?.months.map((item) => `${Number(item.month.slice(5))}月${item.direction}`).join(" → ") ?? "独立年卦待补",
+      longCycle: annual?.remainingYearPath ?? definition.longCycle,
       cells: SECTOR_RESONANCE_WEEKS_20260825.map((week) => cellFor(forecasts, week)),
     } satisfies SectorResonanceRow;
   });

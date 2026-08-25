@@ -12,6 +12,7 @@ import type {
 type Group = AdminCycleAssetClass;
 
 const HORIZON_LABELS: Record<AdminCycleHorizon, string> = {
+  YEAR: "年度总路线",
   DAY: "一周内逐日",
   WEEK: "一月内逐周",
   MONTH: "一年内逐月",
@@ -32,7 +33,7 @@ export function AdminForecastMatrixClient({
   const [horizon, setHorizon] = useState<AdminCycleHorizon>("DAY");
 
   const allowedHorizons: AdminCycleHorizon[] =
-    group === "CORE" ? ["DAY", "WEEK", "MONTH"] : ["WEEK", "MONTH"];
+    group === "CORE" ? ["YEAR", "DAY", "WEEK", "MONTH"] : ["YEAR", "WEEK", "MONTH"];
 
   const assets = useMemo(
     () => initial.assets.filter((asset) => asset.assetClass === group),
@@ -76,8 +77,8 @@ export function AdminForecastMatrixClient({
 
         <Text variant="body-sm" color="secondary">
           {group === "CORE"
-            ? "核心市场展示：一周内每天、一个月内每周、一年内每月。"
-            : "重点关注展示：本周与一个月内逐周；长期材料只作总趋势背景。"}
+            ? "核心市场展示：年度总路线、一周内每天、一个月内每周、一年内每月。"
+            : "重点关注展示：年度总路线、本周与一个月内逐周；年卦不越级替代周卦。"}
         </Text>
       </Card>
 

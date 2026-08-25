@@ -6,6 +6,8 @@ import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-fo
 import type { ConvictionPublicCard } from "@/types/conviction-asset";
 import type { MemberStockPickResearchRow, StockPickPeriodView, StockPickSourcePriority } from "@/types/member-stock-picks-dashboard";
 import { normalizeOfficialDirection } from "@/lib/forecasts/formal-direction";
+import { resolveForecastHorizonHierarchy } from "@/lib/forecasts/forecast-horizon-hierarchy";
+import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
 const DAY_MS = 86_400_000;
 const STATIC_IDS = new Set<string>(STATIC_FOCUS_ASSET_IDS);
@@ -141,6 +143,12 @@ export function buildMemberStockPickResearchRows(input: {
         relationLabel: todayOrNext.relationLabel,
       }] : [];
       const shape = futureShape(weeklyForecast, monthlyForecast, input.asOfDate);
+      const annualForecast = getAnnualForecastRoadmap2026(teaser.slug);
+      const hierarchy = resolveForecastHorizonHierarchy({
+        annualDirection: annualForecast?.annualDirection,
+        monthlyDirection: monthlyForecast?.direction,
+        weeklyDirection: weeklyForecast?.direction,
+      });
       return {
         slug: card.slug,
         nameZh: card.nameZh,
@@ -149,9 +157,24 @@ export function buildMemberStockPickResearchRows(input: {
         detailHref: card.detailHref,
         rating: card.rating,
         riskLevel: card.riskLevel,
+        annual: {
+          direction: annualForecast?.annualDirection ?? null,
+          summary: annualForecast?.annualSummary ?? "独立年卦待补；不使用板块或大盘年卦替代。",
+          remainingYearPath: annualForecast?.remainingYearPath ?? null,
+          highMonthCandidates: annualForecast?.highMonthCandidates ?? [],
+          lowMonthCandidates: annualForecast?.lowMonthCandidates ?? [],
+          months: annualForecast?.months.map((item) => ({ month: item.month, direction: item.direction, note: item.note })) ?? [],
+        },
         monthly: periodView(monthlyForecast, "整月卦尚未发布；不使用周卦反推月方向。", "MONTH"),
         weekly: periodView(weeklyForecast, "本周同周期六爻尚未发布；只能显示月度背景，不能冒充周判断。", "WEEK"),
         currentStage: stageView(monthlyForecast, input.asOfDate),
+        hierarchy: {
+          officialDirection: hierarchy.officialDirection,
+          authority: hierarchy.authority,
+          confidence: hierarchy.confidence,
+          confidenceLabel: hierarchy.confidenceLabel,
+          note: hierarchy.note,
+        },
         dailyMethods,
         technicalKey: `FOCUS:${card.slug.toUpperCase()}`,
         ...shape,

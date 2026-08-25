@@ -24,6 +24,7 @@ export const NAV_ROUTES = {
   home: "/",
   guide: "/guide",
   memberChannel: "/member",
+  memberAnnualOutlook: "/member/annual-outlook",
   memberDaily: "/member/daily",
   memberWeeklyReport: "/member/weekly-report",
   memberSectorResonance: "/member/sector-resonance",
@@ -66,6 +67,15 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
     groupKey: "overview",
     groupZh: "会员总览",
     groupEn: "Overview",
+  },
+  {
+    key: "memberNav.annualOutlook",
+    href: NAV_ROUTES.memberAnnualOutlook,
+    labelZh: "2026年度路线",
+    labelEn: "2026 Annual Outlook",
+    groupKey: "forecast",
+    groupZh: "市场预测",
+    groupEn: "Forecasts",
   },
   {
     key: "memberNav.daily",
@@ -224,6 +234,7 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.memberChannel", href: NAV_ROUTES.memberChannel, labelZh: "会员频道", labelEn: "Member Channel" },
   ];
   const member: NavItem[] = [
+    { key: "footer.memberAnnual", href: NAV_ROUTES.memberAnnualOutlook, labelZh: "年度路线", labelEn: "Annual Outlook" },
     { key: "footer.memberDaily", href: NAV_ROUTES.memberDaily, labelZh: "会员日报", labelEn: "Daily Report" },
     { key: "footer.memberWeekly", href: NAV_ROUTES.weeklyAnalysis, labelZh: "周走势预测", labelEn: "Weekly Outlook" },
     { key: "footer.memberStrategy", href: NAV_ROUTES.strategyCenter, labelZh: "策略中心", labelEn: "Strategy Center" },

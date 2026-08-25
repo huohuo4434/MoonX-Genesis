@@ -29,6 +29,7 @@ type ChannelCard = {
 };
 
 const FORECASTS: ChannelCard[] = [
+  { href: "/member/annual-outlook", title: "2026年度路线", eyebrow: "全年先定调", description: "重点资产9—12月候选、高低点候选月和跨周期校准规则。" },
   { href: "/member/daily", title: "会员日报", eyebrow: "今天先看", description: "九大市场当日与下一交易日结论、关键位和失效条件。" },
   { href: "/member/weekly", title: "会员周走势预测", eyebrow: "逐个市场", description: "本周方向、周内路径、关键日期与支撑压力。" },
   { href: "/member/monthly", title: "会员月走势预测", eyebrow: "中期结构", description: "月度主方向、关键周与月内高低窗口。" },

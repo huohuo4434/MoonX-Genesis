@@ -25,6 +25,15 @@ export type StockPickDailyMethodRow = {
   relationLabel: string;
 };
 
+export type StockPickAnnualView = {
+  direction: string | null;
+  summary: string;
+  remainingYearPath: string | null;
+  highMonthCandidates: readonly string[];
+  lowMonthCandidates: readonly string[];
+  months: ReadonlyArray<{ month: string; direction: string; note: string }>;
+};
+
 export type MemberStockPickResearchRow = {
   slug: string;
   nameZh: string;
@@ -33,12 +42,20 @@ export type MemberStockPickResearchRow = {
   detailHref: string;
   rating: string;
   riskLevel: string;
+  annual: StockPickAnnualView;
   monthly: StockPickPeriodView;
   weekly: StockPickPeriodView;
   currentStage: {
     label: string;
     note: string;
     progressPct: number | null;
+  };
+  hierarchy: {
+    officialDirection: string;
+    authority: "WEEK" | "MONTH" | "YEAR" | "MISSING";
+    confidence: "HIGH" | "MEDIUM" | "LOW";
+    confidenceLabel: string;
+    note: string;
   };
   dailyMethods: StockPickDailyMethodRow[];
   technicalKey: string;

@@ -17,6 +17,7 @@ import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-li
 import { US_INDEX_CYCLE_ADMIN_ROWS_20260809 } from "@/lib/data/us-index-liuyao-20260809";
 import { REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-remaining-20260801";
 import { buildSixYaoMonthlyFallbackRows } from "@/lib/admin/six-yao-cycle-fallback";
+import { annualForecastToAdminRow, listAnnualForecastRoadmaps2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 import { hasPrisma, prisma } from "@/lib/prisma";
 import type {
   AdminBreakoutEvent,
@@ -36,12 +37,22 @@ export const ADMIN_FULL_CYCLE_ASSETS: AdminCycleAsset[] = [
   { id: "hang-seng", name: "恒生科技", symbol: "HSTECH", assetClass: "CORE", market: "hk" },
   { id: "gold", name: "国际金价", symbol: "GOLD", assetClass: "CORE", market: "commodity" },
   { id: "wti-crude", name: "WTI原油", symbol: "WTI", assetClass: "CORE", market: "commodity" },
+  { id: "silver", name: "白银", symbol: "SILVER", assetClass: "CORE", market: "commodity" },
   { id: "cxmt", name: "长鑫科技", symbol: "688825", assetClass: "FOCUS", market: "stock" },
   { id: "asteroid", name: "Asteroid（太空狗）", symbol: "ASTEROID", assetClass: "FOCUS", market: "crypto" },
   { id: "mu", name: "美光科技", symbol: "MU", assetClass: "FOCUS", market: "us" },
   { id: "hype", name: "HYPE", symbol: "HYPE", assetClass: "FOCUS", market: "crypto" },
   { id: "sol", name: "Solana", symbol: "SOL", assetClass: "FOCUS", market: "crypto" },
   { id: "eth", name: "以太坊", symbol: "ETH", assetClass: "FOCUS", market: "crypto" },
+  { id: "intel", name: "英特尔", symbol: "INTC", assetClass: "FOCUS", market: "us" },
+  { id: "sandisk", name: "闪迪", symbol: "SNDK", assetClass: "FOCUS", market: "us" },
+  { id: "lite", name: "Lumentum", symbol: "LITE", assetClass: "FOCUS", market: "us" },
+  { id: "nbis", name: "Nebius", symbol: "NBIS", assetClass: "FOCUS", market: "us" },
+  { id: "googl", name: "谷歌", symbol: "GOOGL", assetClass: "FOCUS", market: "us" },
+  { id: "msft", name: "微软", symbol: "MSFT", assetClass: "FOCUS", market: "us" },
+  { id: "tsla", name: "特斯拉", symbol: "TSLA", assetClass: "FOCUS", market: "us" },
+  { id: "tencent", name: "腾讯", symbol: "0700.HK", assetClass: "FOCUS", market: "hk" },
+  { id: "spcx", name: "SPCX", symbol: "SPCX", assetClass: "FOCUS", market: "stock" },
 ];
 
 const ASSET_ALIASES: Record<string, string[]> = {
@@ -52,12 +63,22 @@ const ASSET_ALIASES: Record<string, string[]> = {
   "hang-seng": ["hang-seng", "HSTECH", "恒生科技"],
   gold: ["gold", "GOLD", "GC=F", "国际金价"],
   "wti-crude": ["wti-crude", "WTI", "CL", "WTI原油"],
+  silver: ["silver", "SILVER", "白银"],
   cxmt: ["cxmt", "688825", "长鑫", "长鑫科技"],
   asteroid: ["asteroid", "ASTEROID", "太空狗"],
   mu: ["mu", "MU", "美光", "美光科技"],
   hype: ["hype", "HYPE"],
   sol: ["sol", "SOL", "Solana", "索拉纳"],
   eth: ["eth", "ETH", "以太坊"],
+  intel: ["intel", "INTC", "英特尔"],
+  sandisk: ["sandisk", "SNDK", "闪迪"],
+  lite: ["lite", "LITE", "Lumentum"],
+  nbis: ["nbis", "NBIS", "Nebius"],
+  googl: ["googl", "GOOGL", "谷歌"],
+  msft: ["msft", "MSFT", "微软"],
+  tsla: ["tsla", "TSLA", "特斯拉"],
+  tencent: ["tencent", "0700.HK", "腾讯"],
+  spcx: ["spcx", "SPCX"],
 };
 
 function canonicalAssetId(value: string): string {
@@ -100,6 +121,11 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
   const monthEnd = endOfMonth(today);
   const yearEnd = `${today.slice(0, 4)}-12-31`;
   const rows: AdminCycleForecastRow[] = [];
+
+  for (const annual of listAnnualForecastRoadmaps2026()) {
+    const row = annualForecastToAdminRow(annual);
+    rows.push({ ...row, assetId: canonicalAssetId(row.assetId) });
+  }
 
   for (const item of listDailyForecasts(now)) {
     if (item.forecastForDate < weekStart || item.forecastForDate > weekEnd) continue;
@@ -165,7 +191,11 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     ...listSandiskPeriodForecasts(),
   ];
   for (const item of focusGroups) {
-    const horizon = item.forecastType.startsWith("WEEK") ? "WEEK" : "MONTH";
+    const horizon = item.forecastType.startsWith("WEEK")
+      ? "WEEK"
+      : item.forecastType.startsWith("YEAR")
+        ? "YEAR"
+        : "MONTH";
     if (horizon === "WEEK" && item.periodStart > monthEnd) continue;
     if (horizon === "MONTH" && item.periodStart > yearEnd) continue;
     rows.push({
@@ -291,7 +321,9 @@ async function databaseRows(): Promise<{
       ? "DAY"
       : type.includes("WEEK")
         ? "WEEK"
-        : "MONTH";
+        : type.includes("YEAR") || type.includes("ANNUAL")
+          ? "YEAR"
+          : "MONTH";
     return {
       id: row.id,
       assetId: canonicalAssetId(row.assetId),

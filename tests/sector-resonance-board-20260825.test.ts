@@ -16,6 +16,8 @@ test("板块共振独立模块覆盖全部21个重点品种和本周至10月初�
   const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NBIS", "MSFT", "TSLA", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
   for (const symbol of required) assert.ok(board.rows.some((row) => row.symbol === symbol), `missing ${symbol}`);
   assert.ok(board.rows.every((row) => row.cells.length === board.weeks.length));
+  assert.equal(board.rows.find((row) => row.symbol === "CXMT")?.annualDirection, null);
+  assert.ok(board.rows.filter((row) => row.symbol !== "CXMT").every((row) => row.annualDirection));
 });
 
 test("完整周卦与上级周期背景分开，背景不计入板块共振", () => {

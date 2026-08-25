@@ -1,4 +1,4 @@
-export const LIUYAO_HORIZON_POLICY_VERSION = "2026-08-25.v1" as const;
+export const LIUYAO_HORIZON_POLICY_VERSION = "2026-08-25.v2" as const;
 
 export type LiuyaoHorizonKind = "YEAR" | "QUARTER" | "MONTH" | "WEEK";
 export type LiuyaoHorizonRequirement =
@@ -27,7 +27,7 @@ export const LIUYAO_HORIZON_RULES: readonly LiuyaoHorizonRule[] = [
     labelZh: "年卦",
     requirement: "BASELINE_REQUIRED",
     requirementLabelZh: "年度基线",
-    roleZh: "确定全年大环境、主要风险月和大级别高低点区域；只做战略背景，不直接决定某一周。",
+    roleZh: "确定全年大环境、逐月涨跌候选、年度高低点候选月；已经发生的月份不回填预测。年卦可形成年度层正式版本，但不直接决定某一周。",
     refreshZh: "每个自然年一次；若老师发布新的年度卦，以新版本补充并保留旧记录。",
     maySetOfficialDirection: false,
     createsRoutineGap: true,
@@ -53,7 +53,7 @@ export const LIUYAO_HORIZON_RULES: readonly LiuyaoHorizonRule[] = [
     labelZh: "月卦",
     requirement: "ACTIVE_REQUIRED",
     requirementLabelZh: "重点资产必需",
-    roleZh: "确定当月阶段、月内先后顺序和周卦所处位置；不越级替代当前周卦的正式方向。",
+    roleZh: "校准年卦给出的当月候选，确定月内哪些周偏强或偏弱、先后顺序和关键时间窗；与年卦冲突时并列显示并降低信心，不越级替代当前周卦。",
     refreshZh: "重点资产每月一次，建议在上月末准备；老师同月卦优先保留为来源记录。",
     maySetOfficialDirection: false,
     createsRoutineGap: true,
@@ -66,7 +66,7 @@ export const LIUYAO_HORIZON_RULES: readonly LiuyaoHorizonRule[] = [
     labelZh: "周卦",
     requirement: "ACTIVE_REQUIRED",
     requirementLabelZh: "重点资产必需",
-    roleZh: "锁定本周短中线正式方向和先后节奏；发布后保持历史，只能通过带原因的新版本修订。",
+    roleZh: "与月卦交叉后锁定本周短中线正式方向和先后节奏，再拆成交易日与关键窗；发布后保持历史，只能通过带原因的新版本修订。",
     refreshZh: "重点资产每周一次，周末准备下一周；日分析从周卦拆分，不要求另起日卦。",
     maySetOfficialDirection: true,
     createsRoutineGap: true,

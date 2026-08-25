@@ -8,6 +8,7 @@ import {
   LIUYAO_2026_LATER_ANNUAL_GAPS,
   LIUYAO_2026_TONIGHT_PRIORITY,
   LIUYAO_ANNUAL_COVERAGE_VERSION,
+  USER_2026_CONFIRMED_ANNUAL_READINGS,
   type AnnualCoverageRecord,
 } from "@/lib/research/liuyao-annual-coverage-2026";
 
@@ -18,11 +19,11 @@ export function LiuyaoAnnualCoverage2026({ compact = false }: Props) {
     return (
       <Card padding="md" className="mt-4 border border-amber-300/20 bg-amber-300/[0.045]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Text variant="body-sm" weight="semibold">2026年卦覆盖：老师年度基准 {LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedTeacherAnnuals} 张</Text>
-          <Badge variant="warning">核心独立年卦缺 {LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.coreGaps} 张</Badge>
+          <Text variant="body-sm" weight="semibold">2026年卦覆盖：老师基准 {LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedTeacherAnnuals} 张 · 新补 {LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedUserAnnuals} 张</Text>
+          <Badge variant={LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.laterGaps ? "warning" : "success"}>重点资产还缺 {LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.laterGaps} 张</Badge>
         </div>
         <Text variant="caption" color="secondary" className="mt-2 block">
-          今晚最优先：{LIUYAO_2026_TONIGHT_PRIORITY.map((item) => item.assetName).join("、")}。美股整体、恒生指数和A股大盘只算背景，不能冒充纳指、标普、恒生科技或个股年卦。
+          当前只需补：{LIUYAO_2026_TONIGHT_PRIORITY.map((item) => item.assetName).join("、") || "无"}。8月25日新补年卦已进入未来年度层；1—8月不回填命中统计。
         </Text>
         <Button asChild size="sm" className="mt-3 w-fit">
           <Link href="/admin/asset-research">查看并补录年度卦</Link>
@@ -37,9 +38,9 @@ export function LiuyaoAnnualCoverage2026({ compact = false }: Props) {
     variant: "success" | "info" | "warning" | "neutral";
   }[] = [
     { label: "老师年度基准", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedTeacherAnnuals, variant: "success" },
-    { label: "年度专题", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.supplementalTopics, variant: "info" },
-    { label: "核心独立缺口", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.coreGaps, variant: "warning" },
-    { label: "后续个股缺口", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.laterGaps, variant: "neutral" },
+    { label: "8/25新补年卦", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.confirmedUserAnnuals, variant: "info" },
+    { label: "年度专题", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.supplementalTopics, variant: "neutral" },
+    { label: "重点资产缺口", count: LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.coreGaps + LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY.laterGaps, variant: "warning" },
   ];
 
   return (
@@ -64,12 +65,13 @@ export function LiuyaoAnnualCoverage2026({ compact = false }: Props) {
       </div>
 
       <CoverageGroup title="已有老师年度基准" badge="可用" badgeVariant="success" rows={BINGWU_2026_CONFIRMED_ANNUAL_READINGS} />
+      <CoverageGroup title="8月25日新补独立年卦" badge="已进入未来正式层" badgeVariant="info" rows={USER_2026_CONFIRMED_ANNUAL_READINGS} />
       <CoverageGroup title="年度专题（不能冒充年卦）" badge="辅助" badgeVariant="info" rows={BINGWU_2026_SUPPLEMENTAL_READINGS} />
-      <CoverageGroup title="核心独立年卦缺口" badge="优先补" badgeVariant="warning" rows={LIUYAO_2026_CORE_ANNUAL_GAPS} />
-      <CoverageGroup title="重点个股后续缺口" badge="后续补" badgeVariant="neutral" rows={LIUYAO_2026_LATER_ANNUAL_GAPS} />
+      {LIUYAO_2026_CORE_ANNUAL_GAPS.length ? <CoverageGroup title="核心独立年卦缺口" badge="优先补" badgeVariant="warning" rows={LIUYAO_2026_CORE_ANNUAL_GAPS} /> : null}
+      <CoverageGroup title="仍缺独立年卦" badge="待补" badgeVariant="warning" rows={LIUYAO_2026_LATER_ANNUAL_GAPS} />
 
       <Text variant="caption" color="tertiary" className="mt-5 block leading-relaxed">
-        补录后先保留原盘、问题、起卦时间与时区；1—8月只做历史验证，9—12月形成新的前瞻锁定版。不得根据已发生行情改写原始解读。
+        原盘、问题、起卦时间、时区与SHA256均已留作内部溯源；会员端不显示含个人资料的截图。8月25日前不回填预测、不纳入这批年卦的命中统计；9—12月年度候选已锁定，后续由独立月卦、周卦逐层校准。
       </Text>
     </Card>
   );
@@ -98,6 +100,7 @@ function CoverageGroup({
             <Text variant="body-sm" weight="semibold">{row.assetName}</Text>
             <Text variant="caption" color="secondary" className="mt-1 block leading-relaxed">{row.roleZh}</Text>
             {row.sourceFile ? <Text variant="caption" className="mt-2 block font-mono text-cyan-100">原盘：{row.sourceFile}</Text> : null}
+            {row.sourceDigest ? <Text variant="caption" className="mt-1 block break-all font-mono text-white/35">SHA256：{row.sourceDigest}</Text> : null}
             {row.doesNotReplace?.length ? (
               <Text variant="caption" className="mt-2 block text-amber-200">不能替代：{row.doesNotReplace.join("、")}</Text>
             ) : null}

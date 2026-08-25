@@ -5,7 +5,7 @@ import {
 } from "./formal-direction";
 
 export type GovernanceMarket = "crypto" | "us" | "cn" | "hk" | "commodity";
-export const MOOX_PREDICTION_GOVERNANCE_VERSION = "2026-08-25.v3" as const;
+export const MOOX_PREDICTION_GOVERNANCE_VERSION = "2026-08-25.v4" as const;
 
 export const MOOX_LIUYAO_SOURCE_ARBITRATION = {
   defaultAuthority: "TEACHER_SOFT_PRIORITY_55_TO_45",
@@ -40,7 +40,7 @@ export const MOOX_PREDICTION_LAYERS: readonly GovernanceLayer[] = [
     order: 1,
     nameZh: "大周期环境",
     nameEn: "Higher-horizon context",
-    authorityZh: "年卦定义全年环境，月卦定义当前阶段；季卦只在重大切换或跨层级冲突时按需补充。它们说明本周是在顺势、逆势反弹还是回踩修复，但不越级替代周卦。",
+    authorityZh: "年卦形成年度正式背景与逐月候选，月卦校准当月路线，周卦再锁定本周方向；年/月或月/周冲突必须并列并降低信心。季卦只在重大切换或跨层级冲突时按需补充。上级周期不越级替代周卦。",
     authorityEn: "Yearly readings define the annual regime and monthly readings define the active phase. Quarterly readings are optional bridges for major transitions or cross-horizon conflicts. These layers contextualize the week but do not replace the weekly reading.",
     maySetOfficialDirection: false,
     mayChangeLockedDirection: false,
