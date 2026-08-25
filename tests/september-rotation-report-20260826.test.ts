@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import path from "node:path";
 import { bingwuCrossAssetRotation20260825Records } from "../lib/data/bingwu-cross-asset-rotation-20260825";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as report } from "../lib/data/member-september-rotation-report-20260826";
 import { listResearchRecords } from "../lib/data/research-records";
@@ -36,14 +38,28 @@ test("member report labels the idea as relative rotation rather than guaranteed 
 });
 
 test("member report exposes a concrete time map and does not leak teacher identities", () => {
-  assert.equal(report.assets.length, 3);
+  assert.equal(report.assets.length, 4);
   assert.equal(report.phases.length, 4);
   assert.ok(report.phases.some((phase) => phase.periodZh === "9月7日—9月14日"));
   assert.ok(report.assets.find((asset) => asset.symbol === "BTC")?.windowZh.includes("9月9日至11日"));
+  const eth = report.assets.find((asset) => asset.symbol === "ETH");
+  assert.equal(eth?.directionZh, "先涨后跌");
+  assert.match(eth?.conclusionZh ?? "", /中下旬.*偏弱/);
+  assert.ok(report.phases.every((phase) => Boolean(phase.ethZh) && Boolean(phase.ethEn)));
 
   const memberFacing = JSON.stringify(report);
   assert.doesNotMatch(memberFacing, /丙午|吴昌烨|狼叔|金兔子/);
   assert.doesNotMatch(memberFacing, /AI生成|人工智能生成/);
+});
+
+test("monthly page puts the concise conclusion and trading plan before supporting research", () => {
+  const reportSource = fs.readFileSync(path.join(process.cwd(), "components/member/MemberSeptemberRotationReport.tsx"), "utf8");
+  const pageSource = fs.readFileSync(path.join(process.cwd(), "components/member/MemberMonthlyPage.tsx"), "utf8");
+
+  assert.ok(reportSource.indexOf("data-monthly-action-summary") < reportSource.indexOf("report.assets.map"));
+  assert.match(reportSource, /<details[\s\S]*展开确认与失效条件/);
+  assert.ok(pageSource.indexOf("<MemberSeptemberRotationReport") < pageSource.indexOf("cycleResearchOverlays.length"));
+  assert.equal((pageSource.match(/Expected path|运行路径/g) ?? []).length, 0, "monthly cards must not repeat the path twice");
 });
 
 test("new records are wired into the research loader exactly once and remain non-executable", async () => {

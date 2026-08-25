@@ -59,6 +59,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
           {cycle.isUpcoming ? <span className="text-amber-200/80">{en ? "Forward research; subject to pre-period teacher updates" : "事前预测；开盘前若有更高优先级老师新卦可修订"}</span> : null}
         </div>
       </Card>
+      {cycleId === "2026-09" ? <MemberSeptemberRotationReport /> : null}
       {cycleId === "2026-09" && cycleResearchOverlays.length ? (
         <Card padding="lg" className="space-y-5 border-cyan-300/20 bg-cyan-300/[0.025]" data-cycle-research-overlay="btc-gold-20260823">
           <div>
@@ -114,7 +115,6 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
           </div>
         </Card>
       ) : null}
-      {cycleId === "2026-09" ? <MemberSeptemberRotationReport /> : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
           <Card key={item.assetId} padding="lg" className="space-y-4">
@@ -140,7 +140,6 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
                 </div>
               ))}
             </div>
-            <div><Text variant="caption" color="tertiary">{en ? "Expected path" : "运行路径"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.pathEn : item.path}</Text></div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Key window" : "重点窗口"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.keyWindowEn : item.keyWindow}</Text></div>
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Primary risk" : "主要风险"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.riskEn : item.risk}</Text></div>

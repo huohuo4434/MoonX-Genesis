@@ -1,5 +1,5 @@
 export type SeptemberRotationAsset = {
-  symbol: "SOXL" | "BTC" | "GOLD";
+  symbol: "SOXL" | "BTC" | "ETH" | "GOLD";
   nameZh: string;
   nameEn: string;
   directionZh: string;
@@ -22,19 +22,21 @@ export type SeptemberRotationPhase = {
   soxlEn: string;
   btcZh: string;
   btcEn: string;
+  ethZh: string;
+  ethEn: string;
   goldZh: string;
   goldEn: string;
 };
 
 export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
-  version: "SEP_ROTATION_REPORT_20260826_V1",
-  publishedAt: "2026-08-26T07:00:00+08:00",
-  titleZh: "9月资金轮动地图：半导体转强，黄金降温，BTC上冲受限",
-  titleEn: "September Rotation Map: Semiconductors Strengthen, Gold Cools, BTC Upside Is Capped",
+  version: "SEP_ROTATION_REPORT_20260826_V2",
+  publishedAt: "2026-08-26T11:30:00+08:00",
+  titleZh: "9月最终结论：半导体转强，加密资产上旬冲高后转弱",
+  titleEn: "September Final View: Semiconductors Strengthen as Crypto Fades After an Early Push",
   conclusionZh:
-    "主线不是“AI涨、黄金和BTC必然跌”，而是9月7日后相对强弱可能切换：半导体进入更强窗口，黄金由高位强势转为温和回调，BTC在9月10日前仍可上冲，但8万至8.5万美元上方卖压增强。",
+    "9月不把ETH定义为整月看涨。BTC与ETH都按“上旬仍可修复或冲高、9月7日至13日进入转弱窗、中下旬偏弱”处理；半导体9月7日后相对强弱占优，黄金由高位转为温和回调，但这不是“AI涨、加密与黄金必然跌”。",
   conclusionEn:
-    "The thesis is not that AI rises while gold and BTC must fall. It is a relative-strength rotation after Sep 7: semiconductors enter a stronger window, gold moves from elevated strength into a mild pullback, and BTC can still probe higher into Sep 10 but faces heavier supply around USD 80k-85k.",
+    "ETH is not classified as bullish for the whole month. BTC and ETH can still repair or push higher early, enter a turn-risk window from Sep 7-13, and trade softer later in September. Semiconductors can gain relative strength after Sep 7, while gold shifts from elevated levels into a mild pullback.",
   resonanceZh:
     "六爻三条跨资产路径可以拼成同一轮动图；现有奇门资料只覆盖8月24日至29日，提示半导体高风险震荡、黄金小回调、BTC高波动分化。方向存在部分呼应，但时间跨度不一致，因此标记为“跨周期部分共振”，不是满级同周期共振。",
   resonanceEn:
@@ -77,6 +79,22 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
       invalidationEn: "Breaks and holds above USD 85k before Sep 10 with fresh demand on retests.",
     },
     {
+      symbol: "ETH",
+      nameZh: "以太坊",
+      nameEn: "Ether",
+      directionZh: "先涨后跌",
+      directionEn: "Rise, then fade",
+      tone: "negative",
+      windowZh: "9月7日至13日转弱风险最高",
+      windowEn: "Highest turn risk Sep 7-13",
+      conclusionZh: "月初先弱后修复；9月9日至11日前后防冲高受阻，中下旬高波动偏弱，月底仅看有限修复。",
+      conclusionEn: "Early weakness can give way to a repair, but watch for an upside stall around Sep 9-11. Mid/late September is volatile and softer, with only a limited recovery near month-end.",
+      confirmationZh: "上旬修复后冲高承接衰减，并在9月9日至11日后跌回启动区或转为低高点。",
+      confirmationEn: "Demand fades after the early repair and price returns to the launch zone or forms lower highs after Sep 9-11.",
+      invalidationZh: "9月7日至13日持续放量上行，回踩不破且高低点继续抬升。",
+      invalidationEn: "Sustained high-volume advance from Sep 7-13 with retests holding and higher highs/lows continuing.",
+    },
+    {
       symbol: "GOLD",
       nameZh: "黄金",
       nameEn: "Gold",
@@ -101,6 +119,8 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
       soxlEn: "Range / base",
       btcZh: "继续试高",
       btcEn: "Keeps probing higher",
+      ethZh: "先弱后修复",
+      ethEn: "Weak first, then repairs",
       goldZh: "高位或再试高",
       goldEn: "Elevated / another high probe",
     },
@@ -111,6 +131,8 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
       soxlEn: "Relative strength begins",
       btcZh: "上冲受限，9—11日观察变盘",
       btcEn: "Capped push; watch Sep 9-11",
+      ethZh: "冲高后退守，9—11日重点观察",
+      ethEn: "Push then retreat; watch Sep 9-11",
       goldZh: "由强转入缓慢回调",
       goldEn: "Strength shifts to a mild pullback",
     },
@@ -121,6 +143,8 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
       soxlEn: "Strong / candidate high zone",
       btcZh: "退守与高波动，等待新证据",
       btcEn: "Defensive / volatile; await new evidence",
+      ethZh: "高波动偏弱",
+      ethEn: "Volatile / softer",
       goldZh: "温和回调延续",
       goldEn: "Mild pullback continues",
     },
@@ -131,18 +155,20 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
       soxlEn: "High volatility; protect gains",
       btcZh: "本条资料不延伸判断",
       btcEn: "Not covered by this evidence",
+      ethZh: "月底有限修复后等新卦",
+      ethEn: "Limited late repair; await new reading",
       goldZh: "小幅反弹候选",
       goldEn: "Small-rebound candidate",
     },
   ] satisfies SeptemberRotationPhase[],
   executionZh: [
-    "9月7日前不因轮动预期提前追SOXL或抢跑做空黄金、BTC；先等相对强弱真正切换。",
-    "9月7日后同时观察SOXL/NDX相对强度、BTC在8万至8.5万美元的承接、黄金是否由高位转为缓降；三项至少两项确认，再提高轮动判断信心。",
-    "BTC的9月9日至11日是窗口，不是保证见顶日；黄金是温和回调预期，不是崩跌；SOXL是三倍杠杆产品，10月7日后首先考虑保护利润。",
+    "月初不追高BTC、ETH；已有多单在9月7日至13日转弱窗优先保护利润，9日至11日重点看冲高能否站稳。",
+    "半导体只在9月7日后出现相对强势并回踩守住时跟随，不提前抢跑；SOXL是三倍杠杆产品，必须控制单笔风险。",
+    "BTC若站稳8.5万美元、ETH若在9月7日至13日持续放量且回踩不破，就暂停“冲高转弱”方案；黄金按温和回调看，不按崩跌做。",
   ],
   executionEn: [
-    "Before Sep 7, do not chase SOXL or pre-emptively short gold/BTC solely on the rotation thesis; wait for relative strength to switch.",
-    "After Sep 7, track SOXL/NDX relative strength, BTC demand around USD 80k-85k, and whether gold shifts from elevated levels into a gradual fade. Raise confidence only when at least two of the three confirm.",
-    "Sep 9-11 is a BTC window, not a guaranteed top date. Gold is a mild-pullback thesis, not a crash call. SOXL is a 3x product, so protect gains first after Oct 7.",
+    "Do not chase BTC or ETH at the start of the month. Existing longs should prioritize profit protection in the Sep 7-13 turn window, with Sep 9-11 focused on whether breakouts can hold.",
+    "Follow semiconductors only after relative strength appears after Sep 7 and survives a retest. SOXL is a 3x product, so cap risk per trade.",
+    "Pause the crypto fade plan if BTC holds above USD 85k or ETH sustains high-volume gains and holds retests from Sep 7-13. Treat gold as a mild pullback, not a crash call.",
   ],
 } as const;

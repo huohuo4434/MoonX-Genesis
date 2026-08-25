@@ -3,6 +3,17 @@ import type { MonthlyMarketOutlook } from "@/lib/data/monthly-market-outlook";
 /** Immutable V1 rows retained when a pre-period revision becomes active. */
 export const MONTHLY_MARKET_OUTLOOKS_202609_ARCHIVED_REVISIONS: MonthlyMarketOutlook[] = [
   {
+    assetId: "eth", assetName: "以太坊", assetNameEn: "Ether", symbol: "ETH", venue: "全球加密市场", venueEn: "Global crypto market",
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
+    probabilities: { up: 50, flat: 29, down: 21 },
+    path: "三个月卦把8月至9月列为相对偏强阶段，9月更容易形成阶段高点；进入高位后防六冲放大的急涨急跌。",
+    pathEn: "The three-month reading keeps August–September relatively constructive and makes a September stage high more likely. Six-clash volatility raises sharp two-way risk near highs.",
+    keyWindow: "9月阶段高点观察，10月结构变化风险随后上升。", keyWindowEn: "Watch for a September stage high; structural-change risk rises into October.",
+    risk: "没有独立9月日卦或逐日路径，不能把三个月分段拆成每天必涨。", riskEn: "There is no standalone daily September chart or day-by-day path; the three-month segment cannot be converted into daily certainty.",
+    sourceNote: "ETH三个月六爻的9月分段，不冒充独立日卦。", sourceNoteEn: "September segment of the ETH three-month Liu Yao study, not a fabricated daily reading.", sourceComplete: false,
+    version: 1,
+  },
+  {
     assetId: "wti-crude", assetName: "WTI原油", assetNameEn: "WTI Crude Oil", symbol: "WTI", venue: "NYMEX原油期货", venueEn: "NYMEX crude oil futures",
     periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
     probabilities: { up: 45, flat: 35, down: 20 },
@@ -33,13 +44,16 @@ export const MONTHLY_MARKET_OUTLOOKS_202609: MonthlyMarketOutlook[] = [
   },
   {
     assetId: "eth", assetName: "以太坊", assetNameEn: "Ether", symbol: "ETH", venue: "全球加密市场", venueEn: "Global crypto market",
-    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "震荡上涨", volatility: "HIGH",
-    probabilities: { up: 50, flat: 29, down: 21 },
-    path: "三个月卦把8月至9月列为相对偏强阶段，9月更容易形成阶段高点；进入高位后防六冲放大的急涨急跌。",
-    pathEn: "The three-month reading keeps August–September relatively constructive and makes a September stage high more likely. Six-clash volatility raises sharp two-way risk near highs.",
-    keyWindow: "9月阶段高点观察，10月结构变化风险随后上升。", keyWindowEn: "Watch for a September stage high; structural-change risk rises into October.",
-    risk: "没有独立9月日卦或逐日路径，不能把三个月分段拆成每天必涨。", riskEn: "There is no standalone daily September chart or day-by-day path; the three-month segment cannot be converted into daily certainty.",
-    sourceNote: "ETH三个月六爻的9月分段，不冒充独立日卦。", sourceNoteEn: "September segment of the ETH three-month Liu Yao study, not a fabricated daily reading.", sourceComplete: false,
+    periodStart: "2026-09-01", periodEnd: "2026-09-30", direction: "先涨后跌", volatility: "HIGH",
+    probabilities: { up: 27, flat: 32, down: 41 },
+    path: "9月1日至6日先弱后修复；7日至13日先稳或冲高后退守，9日至11日是重点变盘窗；中旬转为高波动整理，下旬震荡偏弱，月底只保留有限修复。",
+    pathEn: "Sep 1-6 starts weak and then repairs. Sep 7-13 can stabilize or push higher before retreating, with Sep 9-11 as the key turn window. Mid-month shifts into high-volatility consolidation, followed by a softer late month and only a limited recovery near month-end.",
+    keyWindow: "9月7日至13日防冲高后退守；9日至11日是窗口，不是保证见顶日。", keyWindowEn: "Watch Sep 7-13 for a rally-then-retreat; Sep 9-11 is a window, not a guaranteed top date.",
+    risk: "酉月卦与五张周卦内部同向，但没有ETH同周期奇门盘；只能给中等信心，不能写成六爻、奇门满级共振。", riskEn: "The You-month and five weekly Liu Yao readings align internally, but there is no same-window ETH Qimen chart. Confidence remains moderate rather than full cross-method resonance.",
+    sourceNote: "ETH酉月完整月卦与五张周卦交叉；旧三个月偏强V1永久保留。", sourceNoteEn: "Complete ETH You-month and five weekly readings cross-checked; the prior constructive three-month V1 remains archived.", sourceComplete: true,
+    version: 2,
+    revisedAt: "2026-08-26T11:30:00+08:00",
+    revisionReason: "目标月开始前收到完整酉月卦与五张周卦，将旧三个月粗粒度方向细化为上旬修复见高、中下旬偏弱；保留V1，不回写历史。",
   },
   {
     assetId: "sp500", assetName: "标普500指数", assetNameEn: "S&P 500", symbol: "SPX", venue: "美国指数市场", venueEn: "U.S. equity index market",
