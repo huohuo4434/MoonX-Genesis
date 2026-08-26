@@ -11,7 +11,7 @@ export type PublicationQualityResult = {
 };
 
 const INTERNAL_ENUM = /\b(?:OVERHEATED|COOLING|PLACEHOLDER|TODO|TBD|UNDEFINED|NULL)\b/i;
-const BAD_PUNCTUATION = /(?:。|；；|，，|、、|\.\.|;;|,,)/;
+const BAD_PUNCTUATION = /[。！？；，、.!?;,]{2,}/;
 
 function normalizedSentences(text: string): string[] {
   return text

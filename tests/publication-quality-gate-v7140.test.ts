@@ -45,3 +45,20 @@ test("broken template text is blocked", () => {
   assert.ok(result.issues.some((issue) => issue.code === "INTERNAL_ENUM"));
   assert.ok(result.issues.some((issue) => issue.code === "BAD_PUNCTUATION"));
 });
+
+test("normal Chinese sentence endings pass while consecutive mixed punctuation remains blocked", () => {
+  const normal = sample();
+  normal.expectedPath = "先观察支撑是否有效，再确认日内节奏。";
+  normal.liuyaoEvidence = "周度方向保持不变。";
+  normal.technicalEvidence = "技术行情暂不可用，等待真实K线更新。";
+  const normalResult = validateGeneratedDailyPublication(normal);
+  assert.equal(normalResult.ok, true, JSON.stringify(normalResult.issues));
+
+  for (const punctuation of ["。。", "。！", "。；", "。.", "！？", "？！", "..", ";;", ",,"]) {
+    const invalid = sample();
+    invalid.expectedPath = `先观察支撑是否有效${punctuation}再确认日内节奏。`;
+    const invalidResult = validateGeneratedDailyPublication(invalid);
+    assert.equal(invalidResult.ok, false, punctuation);
+    assert.ok(invalidResult.issues.some((issue) => issue.code === "BAD_PUNCTUATION"), punctuation);
+  }
+});
