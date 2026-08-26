@@ -6,6 +6,8 @@ import { execSync } from "child_process";
 
 const onVercel = process.env.VERCEL === "1";
 const shouldRun = process.env.RUN_ADMIN_BOOTSTRAP === "true" || onVercel;
+const allowContentMaintenance =
+  process.env.RUN_BOOTSTRAP_CONTENT_MAINTENANCE === "true" && !onVercel;
 const allowDestructive =
   process.env.ALLOW_DESTRUCTIVE_PAYMENT_CLEANUP === "true" &&
   process.env.VERCEL_ENV !== "production" &&
@@ -34,9 +36,16 @@ if (shouldRun) {
   } else {
     runStep("apply-migrations", "npx tsx scripts/apply-migrations.ts", false);
   }
-  runStep("seed-daily-forecasts", "npx tsx scripts/seed-daily-forecasts.ts", false);
-  runStep("verify-review", "npx tsx scripts/run-verify-review-once.ts", false);
-  runStep("fix-hstech-index", "npx tsx scripts/fix-hstech-index-quotes.ts", false);
+  if (allowContentMaintenance) {
+    console.warn("[bootstrap] explicit non-Vercel content maintenance enabled");
+    runStep("seed-daily-forecasts", "npx tsx scripts/seed-daily-forecasts.ts", false);
+    runStep("verify-review", "npx tsx scripts/run-verify-review-once.ts", false);
+    runStep("fix-hstech-index", "npx tsx scripts/fix-hstech-index-quotes.ts", false);
+  } else {
+    console.log(
+      "[bootstrap] skipped forecast generation, verification and quote repair (independent cron/manual jobs only)",
+    );
+  }
   runStep("membership-deploy-guard", "npx tsx scripts/membership-deploy-guard.ts", false);
 
   // Destructive payment/membership wipes are FORBIDDEN on production.

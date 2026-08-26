@@ -41,3 +41,16 @@ test("Vercel postbuild does not replay every legacy Supabase SQL migration", () 
   assert.ok(skip >= 0 && legacyRunner > skip);
   assert.match(script, /skipped legacy Supabase SQL replay/);
 });
+
+test("Vercel postbuild never generates, verifies or seeds forecast content", () => {
+  const postbuild = source("scripts/run-postbuild-safe.ts");
+  assert.doesNotMatch(postbuild, /seed-weekly-liuyao|seed-iching|seed-master-intelligence/);
+
+  const bootstrap = source("scripts/run-bootstrap-if-requested.ts");
+  assert.match(bootstrap, /RUN_BOOTSTRAP_CONTENT_MAINTENANCE === "true" && !onVercel/);
+  const gate = bootstrap.indexOf("if (allowContentMaintenance)");
+  for (const command of ["seed-daily-forecasts", "verify-review", "fix-hstech-index"]) {
+    assert.ok(bootstrap.indexOf(command) > gate, `${command} must stay behind the explicit gate`);
+  }
+  assert.match(bootstrap, /independent cron\/manual jobs only/);
+});
