@@ -499,6 +499,7 @@ async function buildLiveTradingStatus(request: NextRequest) {
     plans,
     dailyChampions,
     recentExecutions,
+    candidateFunnel: strategyDashboard?.candidateFunnel ?? null,
     diagnosis: diagnosis.reasons,
     today: totals,
   };

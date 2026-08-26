@@ -149,6 +149,7 @@ type OfficialFeed = {
   plans?: TradePlan[];
   dailyChampions?: DailyChampion[];
   recentExecutions?: ExecutionRow[];
+  candidateFunnel?: CandidateFunnel | null;
   diagnosis?: string[];
   today?: {
     scansToday?: number;
@@ -156,6 +157,19 @@ type OfficialFeed = {
     orderAttemptsToday?: number;
     openedToday?: number;
   };
+};
+
+type CandidateFunnelGroup = {
+  strategyType?: string;
+  stages?: Array<{ key?: string; labelZh?: string; count?: number }>;
+  noAttemptReasons?: Array<{ code?: string; labelZh?: string; count?: number; symbols?: string[] }>;
+  postAttemptReasons?: Array<{ code?: string; labelZh?: string; count?: number; symbols?: string[] }>;
+};
+type CandidateFunnel = {
+  generatedAt?: string;
+  sampleRuleZh?: string;
+  overall?: CandidateFunnelGroup;
+  horizons?: CandidateFunnelGroup[];
 };
 
 type ActivationStatus = {
@@ -646,6 +660,31 @@ export default function MemberLiveTradingClient() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h2 className="text-xl font-semibold">今日候选漏斗</h2><p className="mt-1 text-sm text-slate-400">从全部已评估标的一直看到真实开仓；数字下降的位置，就是今天没有下单的真实原因。</p></div>
+          <p className="text-xs text-slate-500">{fmtTime(feed?.candidateFunnel?.generatedAt)}</p>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-7">
+          {(feed?.candidateFunnel?.overall?.stages ?? []).map((stage, index, stages) => (
+            <div key={stage.key ?? index} className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-xs text-slate-400">{stage.labelZh ?? stage.key}</p><p className="mt-1 text-2xl font-semibold">{stage.count ?? 0}</p>
+              {index < stages.length - 1 ? <span className="absolute -right-2 top-1/2 hidden text-slate-600 md:block">→</span> : null}
+            </div>
+          ))}
+        </div>
+        {(feed?.candidateFunnel?.horizons ?? []).map((group) => (
+          <div key={group.strategyType} className="mt-4 rounded-2xl border border-white/10 p-4">
+            <h3 className="font-medium">{horizonName[group.strategyType ?? ""] ?? group.strategyType}</h3>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">{(group.stages ?? []).map((stage) => <span key={stage.key} className="rounded-full bg-white/[0.05] px-3 py-1.5">{stage.labelZh} {stage.count ?? 0}</span>)}</div>
+            <div className="mt-3 space-y-1 text-xs text-amber-200">{(group.noAttemptReasons ?? []).slice(0, 4).map((reason) => <p key={reason.code}>未尝试下单 {reason.count ?? 0}：{reason.labelZh}{reason.symbols?.length ? `（${reason.symbols.join("、")}）` : ""}</p>)}</div>
+            <div className="mt-2 space-y-1 text-xs text-cyan-200">{(group.postAttemptReasons ?? []).slice(0, 4).map((reason) => <p key={reason.code}>已尝试、未形成仓位 {reason.count ?? 0}：{reason.labelZh}{reason.symbols?.length ? `（${reason.symbols.join("、")}）` : ""}</p>)}</div>
+          </div>
+        ))}
+        {!feed?.candidateFunnel?.overall?.stages?.length ? <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">今天尚未读取到最新决策样本；不能把空数据解释为“没有机会”。</p> : null}
+        <p className="mt-3 text-xs text-slate-500">{feed?.candidateFunnel?.sampleRuleZh}</p>
       </section>
 
       <section className="mt-6 rounded-3xl border border-white/10 bg-slate-950/75 p-6">

@@ -8,6 +8,8 @@ import type {
   ThreeHorizonStrategyMode,
   ThreeHorizonStrategyType,
 } from "@/types/three-horizon-strategy";
+import { beijingDayUtcRange, buildTradingCandidateFunnel } from "@/lib/trading-signals/trading-candidate-funnel-core";
+import type { FunnelDecision } from "@/lib/trading-signals/trading-candidate-funnel-core";
 
 type RuntimeRow = {
   paused: boolean;
@@ -66,6 +68,23 @@ type DailyStatRow = {
   opened_today: number;
 };
 
+type FunnelDecisionRow = {
+  strategy_type: string;
+  symbol: string;
+  direction: string;
+  status: string;
+  conditions: unknown;
+  rejection_code: string | null;
+  rejection_reason: string | null;
+  entry_price: number | null;
+  stop_loss: number | null;
+  target_1: number | null;
+  target_2: number | null;
+  client_oid: string | null;
+  bitget_order_id: string | null;
+  updated_at: Date;
+};
+
 export type ReadOnlyLiveDecision = {
   id: string;
   runId: string;
@@ -121,7 +140,8 @@ function conditions(value: unknown): ThreeHorizonCondition[] {
 export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
   if (!prisma) return { databaseReady: false, runtime: null, strategy: null };
   try {
-    const [runtimeRows, profileRows, decisionRows, dailyStatRows] = await Promise.all([
+    const day = beijingDayUtcRange(now);
+    const [runtimeRows, profileRows, decisionRows, dailyStatRows, funnelDecisionRows] = await Promise.all([
       prisma.$queryRaw<RuntimeRow[]>`
         SELECT paused, pause_reason, last_heartbeat_at, last_strategy_at,
                last_order_attempt_at, last_order_success_at, account_snapshot, last_error
@@ -148,8 +168,16 @@ export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
                COUNT(*) FILTER (WHERE status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSED','ERROR'))::int AS order_attempts_today,
                COUNT(*) FILTER (WHERE status IN ('OPEN','PARTIAL','CLOSED'))::int AS opened_today
         FROM trade_three_horizon_decisions
-        WHERE timezone('Asia/Shanghai', updated_at)::date = timezone('Asia/Shanghai', ${now})::date
+        WHERE updated_at >= ${day.start} AND updated_at < ${day.end}
         GROUP BY strategy_type
+      `,
+      prisma.$queryRaw<FunnelDecisionRow[]>`
+        SELECT DISTINCT ON (strategy_type, UPPER(symbol))
+               strategy_type, symbol, direction, status, conditions, rejection_code, rejection_reason,
+               entry_price, stop_loss, target_1, target_2, client_oid, bitget_order_id, updated_at
+        FROM trade_three_horizon_decisions
+        WHERE updated_at >= ${day.start} AND updated_at < ${day.end}
+        ORDER BY strategy_type, UPPER(symbol), updated_at DESC, created_at DESC
       `,
     ]);
     const runtime = runtimeRows[0] ?? null;
@@ -209,6 +237,22 @@ export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
         lastScanAt: iso(row.last_scan_at),
       };
     });
+    const funnelDecisions: FunnelDecision[] = funnelDecisionRows.map((row) => ({
+      strategyType: row.strategy_type as ThreeHorizonStrategyType,
+      symbol: row.symbol,
+      direction: row.direction,
+      status: row.status,
+      conditions: conditions(row.conditions),
+      rejectionCode: row.rejection_code ?? "",
+      rejectionReason: row.rejection_reason ?? "",
+      entryPrice: row.entry_price,
+      stopLoss: row.stop_loss,
+      target1: row.target_1,
+      target2: row.target_2,
+      clientOid: row.client_oid,
+      bitgetOrderId: row.bitget_order_id,
+      updatedAt: iso(row.updated_at) ?? now.toISOString(),
+    }));
     const account = asRecord(runtime?.account_snapshot);
     const lastHeartbeatAt = iso(runtime?.last_heartbeat_at);
     const heartbeatAgeSeconds = lastHeartbeatAt
@@ -229,7 +273,13 @@ export async function getReadOnlyLiveStatusSnapshot(now = new Date()) {
         lastError: runtime.last_error ?? "",
         account,
       } : null,
-      strategy: { databaseReady: profileRows.length > 0, profiles, latestDecisions, stats },
+      strategy: {
+        databaseReady: profileRows.length > 0,
+        profiles,
+        latestDecisions,
+        stats,
+        candidateFunnel: buildTradingCandidateFunnel(funnelDecisions, now),
+      },
     };
   } catch {
     return { databaseReady: false, runtime: null, strategy: null };
