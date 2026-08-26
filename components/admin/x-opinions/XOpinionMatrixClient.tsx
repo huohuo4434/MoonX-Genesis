@@ -51,7 +51,7 @@ export function XOpinionMatrixClient({ initial }: Props) {
         cells: Object.fromEntries(Object.entries(row.cells).map(([symbol, current]) => [symbol, current && cellKey(current) === key ? { ...current, approval: json.approval ?? null } : current])),
       })),
     }));
-    setMessage(status === "APPROVED" ? "已批准：后续新生成预测会读取该权重。" : status === "REJECTED" ? "已拒绝。" : "已恢复待审核。");
+    setMessage(status === "APPROVED" ? "已批准：后续新版本会展示该观点；正式概率权重仍由已完成验证样本决定。" : status === "REJECTED" ? "已拒绝。" : "已恢复待审核。");
   }
 
   return (
@@ -74,6 +74,16 @@ export function XOpinionMatrixClient({ initial }: Props) {
                 <td className="sticky left-0 z-10 border-b border-r border-white/10 bg-[#0d0f16] px-3 py-3">
                   <div className="font-semibold text-white">@{row.username}</div>
                   <div className="mt-1 text-[10px] text-slate-500">{row.family}</div>
+                  {row.verification ? (
+                    <div className="mt-2 rounded-lg border border-violet-300/15 bg-violet-300/[0.05] p-2 text-[10px] leading-4 text-violet-100">
+                      <div>{row.verification.roleZh ?? "一级验证源"}</div>
+                      <div className="mt-1 text-slate-400">
+                        {row.verification.maturity === "VERIFIED"
+                          ? `全资产概览：已完成 ${row.verification.sampleCount} · 加权命中率 ${row.verification.weightedHitRatePct ?? 0}% · 概览权重 ${row.verification.promotionWeightPct}`
+                          : `样本积累 ${row.verification.sampleCount}/10 · 暂不增加正式概率权重`}
+                      </div>
+                    </div>
+                  ) : null}
                 </td>
                 {matrix.assets.map((asset) => {
                   const cell = row.cells[asset.code];
@@ -89,7 +99,7 @@ export function XOpinionMatrixClient({ initial }: Props) {
                       <div className="mt-1 text-[10px] text-slate-500">{shortTime(cell.postedAt)}</div>
                       <div className="mt-2 flex items-center gap-1">
                         <select className="rounded border border-white/10 bg-black/40 px-1 py-1" value={draft.weightPct} onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: { ...draft, weightPct: Number(e.target.value) } }))}>
-                          {[1,2,3,4,5,6,7,8,9,10].map((n) => <option key={n} value={n}>{n}%</option>)}
+                          {[1,2,3,4,5,6,7,8,9,10].map((n) => <option key={n} value={n}>优先级 {n}</option>)}
                         </select>
                         <label className="flex items-center gap-1 whitespace-nowrap text-[10px] text-slate-400"><input type="checkbox" checked={draft.displayAllowed} onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: { ...draft, displayAllowed: e.target.checked } }))}/>可展示</label>
                       </div>
@@ -98,7 +108,7 @@ export function XOpinionMatrixClient({ initial }: Props) {
                         <button disabled={busy === key} onClick={() => save(cell, "REJECTED")} className="rounded bg-rose-500/15 px-2 py-1 text-rose-200 disabled:opacity-40">拒绝</button>
                         <button disabled={busy === key} onClick={() => save(cell, "PENDING")} className="rounded bg-white/5 px-2 py-1 text-slate-300 disabled:opacity-40">待审</button>
                       </div>
-                      {cell.approval ? <div className="mt-1 text-[10px] text-slate-500">当前 {cell.approval.status} · {cell.approval.weightPct}%{cell.approval.displayAllowed ? " · 可展示" : ""}</div> : null}
+                      {cell.approval ? <div className="mt-1 text-[10px] text-slate-500">当前 {cell.approval.status} · 编辑优先级 {cell.approval.weightPct}{cell.approval.displayAllowed ? " · 可展示" : ""}</div> : null}
                     </td>
                   );
                 })}
@@ -107,7 +117,7 @@ export function XOpinionMatrixClient({ initial }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs leading-5 text-slate-500">批准只影响以后新生成的预测版本，不回写已锁定历史。管理员权重只调整情景概率与风险提示，不能单独覆盖奇门正式方向，也不能单独触发实盘。</p>
+      <p className="text-xs leading-5 text-slate-500">批准只影响以后新生成的预测版本，不回写已锁定历史。1—10是编辑与展示优先级，不等于正式预测权重；正式概率权重按“分析师＋品种＋周期”的已完成样本自动计算，一级来源单个最高3个百分点。任何外部观点都不能覆盖六爻正式方向，也不能单独触发实盘。</p>
     </div>
   );
 }

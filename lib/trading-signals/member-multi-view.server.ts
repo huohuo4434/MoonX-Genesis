@@ -23,6 +23,9 @@ import {
   type MultiViewTheory,
 } from "@/lib/research/member-multi-view-core";
 import type { ExternalAnalystParsedPost } from "@/types/external-analyst";
+import type { XSourceVerificationDisplay } from "@/types/x-opinion-matrix";
+import { getXSourceVerificationStatsMap } from "@/lib/trading-signals/x-source-verification.server";
+import { xSourceVerificationKey, type XSourceVerificationStats } from "@/lib/trading-signals/x-source-verification-core";
 
 export type MemberAssetOpinionDirection = MultiViewDirection | "MIXED";
 
@@ -49,6 +52,7 @@ export type MemberAssetResearcherOpinion = {
   postCount: number;
   latestAt: string;
   entries: MemberAssetOpinionEntry[];
+  verification: XSourceVerificationDisplay | null;
 };
 
 export type MemberAssetOpinionGroup = {
@@ -235,7 +239,10 @@ function overallDirection(entries: MemberAssetOpinionEntry[]): MemberAssetOpinio
   return "NEUTRAL";
 }
 
-export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAssetOpinionGroup[] {
+export function buildMemberAssetOpinionGroups(
+  rows: StoredPostRow[],
+  verificationStats: Map<string, XSourceVerificationStats> = new Map(),
+): MemberAssetOpinionGroup[] {
   const allowed = new Set(X_SOURCE_REGISTRY.map((row) => row.handle.toLowerCase()));
   type ResearcherBucket = {
     family: string;
@@ -243,6 +250,7 @@ export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAsse
     specialty: string | null;
     priorityTier: 1 | 2 | null;
     priorityRank: number | null;
+    username: string;
     entries: MemberAssetOpinionEntry[];
     theoryText: string[];
   };
@@ -280,6 +288,7 @@ export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAsse
         specialty: profile?.specialty ?? null,
         priorityTier: profile?.priorityTier ?? null,
         priorityRank: profile?.priorityRank ?? null,
+        username,
         entries: [],
         theoryText: [],
       };
@@ -305,6 +314,17 @@ export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAsse
       const entries = [...raw.entries]
         .sort((a, b) => Date.parse(b.postedAt) - Date.parse(a.postedAt))
         .slice(0, 20);
+      const profile = xSourceRegistryEntryForHandle(raw.username);
+      const latestHorizon = entries[0]?.horizon === "SHORT" || entries[0]?.horizon === "LONG" ? entries[0].horizon : "MEDIUM";
+      const stat = verificationStats.get(xSourceVerificationKey(raw.username, asset, latestHorizon));
+      const verification: XSourceVerificationDisplay | null = profile?.verifiedPromotionEligible ? {
+        eligible: true,
+        roleZh: profile.verificationRoleZh ?? null,
+        maturity: stat?.maturity ?? "BUILDING",
+        sampleCount: stat?.sampleCount ?? 0,
+        weightedHitRatePct: stat?.weightedHitRatePct ?? null,
+        promotionWeightPct: stat?.promotionWeightPct ?? 0,
+      } : null;
       const theoryMap = new Map<MultiViewTheory, { theory: MultiViewTheory; score: number; explanation: string }>();
       for (const text of raw.theoryText) {
         for (const theory of classifyMultiViewTheory(text)) {
@@ -326,6 +346,7 @@ export function buildMemberAssetOpinionGroups(rows: StoredPostRow[]): MemberAsse
         postCount: entries.length,
         latestAt: entries[0]?.postedAt ?? new Date(0).toISOString(),
         entries,
+        verification,
       });
     }
     opinions.sort((a, b) => {
@@ -384,7 +405,11 @@ async function queryMemberOpinionRows(): Promise<StoredPostRow[]> {
 
 /** Lightweight asset groups for dated forecast advisories; no collector-health query. */
 export async function getMemberAssetOpinionGroups(): Promise<MemberAssetOpinionGroup[]> {
-  return buildMemberAssetOpinionGroups(await queryMemberOpinionRows());
+  const [rows, stats] = await Promise.all([
+    queryMemberOpinionRows(),
+    getXSourceVerificationStatsMap().catch(() => new Map<string, XSourceVerificationStats>()),
+  ]);
+  return buildMemberAssetOpinionGroups(rows, stats);
 }
 
 function emptyHealth(registryCount: number): MemberMultiViewCollectionHealth {
@@ -424,7 +449,7 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
     return { generatedAt, lookbackDays: 10, databaseAvailable: false, health: emptyHealth(registryCount), assets: [] };
   }
 
-  const [rows, states, xSnapshot] = await Promise.all([
+  const [rows, states, xSnapshot, verificationStats] = await Promise.all([
     queryMemberOpinionRows(),
     prisma.$queryRawUnsafe<StateRow[]>(`
       SELECT state_key, payload, updated_at
@@ -432,6 +457,7 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
       WHERE state_key IN ('refresh', 'local_x_collector')
     `),
     getXIntelligenceSnapshot({ force: true, now }).catch(() => null),
+    getXSourceVerificationStatsMap().catch(() => new Map<string, XSourceVerificationStats>()),
   ]);
 
   const registryRows = rows;
@@ -486,6 +512,6 @@ export async function getMemberMultiViewSnapshot(now = new Date()): Promise<Memb
       localCollectorMessage: localCollector?.message ?? "未读取到本地采集器状态。",
       effectiveSource,
     },
-    assets: buildMemberAssetOpinionGroups(registryRows),
+    assets: buildMemberAssetOpinionGroups(registryRows, verificationStats),
   };
 }

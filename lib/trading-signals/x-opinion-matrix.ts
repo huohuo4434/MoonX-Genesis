@@ -1,13 +1,16 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { getBeijingTodayKey } from "@/lib/calendar/beijing-date";
 import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
-import { X_SOURCE_REGISTRY, xSourceFamilyForHandle, xSourceRegistryEntryForHandle } from "@/lib/trading-signals/x-source-registry.server";
-import { resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
+import { X_SOURCE_REGISTRY, isVerifiedPromotionXSource, xSourceFamilyForHandle, xSourceRegistryEntryForHandle } from "@/lib/trading-signals/x-source-registry.server";
+import { redactMultiViewSourceHandles, resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
+import { getXSourceVerificationStatsMap, lockXSourceVerificationSample, lockXSourceVerificationSamples } from "@/lib/trading-signals/x-source-verification.server";
+import { isXSourceVerifiableSymbol, verificationHorizon, xSourceVerificationKey, type XSourceVerificationStats } from "@/lib/trading-signals/x-source-verification-core";
 import type { ExternalAnalystParsedPost } from "@/types/external-analyst";
 import type { ApprovedXForecastOverlay } from "@/lib/trading-signals/x-opinion-overlay-core";
 
-import type { XOpinionApproval, XOpinionApprovalStatus, XOpinionAsset, XOpinionCell, XOpinionDirection, XOpinionMatrix } from "@/types/x-opinion-matrix";
+import type { XOpinionApproval, XOpinionApprovalStatus, XOpinionAsset, XOpinionCell, XOpinionDirection, XOpinionMatrix, XSourceVerificationDisplay } from "@/types/x-opinion-matrix";
 
 export const X_OPINION_MATRIX_ASSETS: readonly XOpinionAsset[] = [
   { code: "BTC", label: "比特币", aliases: ["BTC", "BTCUSDT", "BITCOIN", "比特币", "大饼"] },
@@ -115,6 +118,24 @@ function approvalFromRow(row: ApprovalRow): XOpinionApproval {
   };
 }
 
+function memberSafeBrief(parsed: ExternalAnalystParsedPost): string {
+  return redactMultiViewSourceHandles(brief(parsed), X_SOURCE_REGISTRY.map((entry) => entry.handle));
+}
+
+function verificationDisplay(username: string, stats: Map<string, XSourceVerificationStats>): XSourceVerificationDisplay | null {
+  const profile = xSourceRegistryEntryForHandle(username);
+  if (!profile?.verifiedPromotionEligible) return null;
+  const row = stats.get(xSourceVerificationKey(username, "ALL", "ALL"));
+  return {
+    eligible: true,
+    roleZh: profile.verificationRoleZh ?? null,
+    maturity: row?.maturity ?? "BUILDING",
+    sampleCount: row?.sampleCount ?? 0,
+    weightedHitRatePct: row?.weightedHitRatePct ?? null,
+    promotionWeightPct: row?.promotionWeightPct ?? 0,
+  };
+}
+
 export async function ensureXOpinionApprovalTable(): Promise<boolean> {
   const db = prisma;
   if (!db || !(await ensureExternalAnalystTables())) return false;
@@ -158,8 +179,9 @@ export async function setXOpinionApproval(input: {
   const symbol = input.symbol.trim().toUpperCase();
   const postId = input.postId.trim();
   if (!username || !symbol || !postId) throw new Error("INVALID_X_OPINION_KEY");
-  const exists = await db.$queryRawUnsafe<Array<{ ok: number }>>(
-    `SELECT 1 AS ok FROM trade_external_analyst_posts WHERE username = $1 AND post_id = $2 LIMIT 1`,
+  const exists = await db.$queryRawUnsafe<StoredPostRow[]>(
+    `SELECT username, post_id, post_url, posted_at, text, parsed
+     FROM trade_external_analyst_posts WHERE username = $1 AND post_id = $2 LIMIT 1`,
     username,
     postId,
   );
@@ -178,15 +200,111 @@ export async function setXOpinionApproval(input: {
      RETURNING id, username, post_id, symbol, status, weight_pct, display_allowed, note, updated_at`,
     id, username, postId, symbol, input.status, weight, Boolean(input.displayAllowed), input.note ?? null,
   );
+  if (rows[0] && status === "APPROVED" && exists[0] && isVerifiedPromotionXSource(username)) {
+    const parsed = parseJson<ExternalAnalystParsedPost | null>(exists[0].parsed, null);
+    if (parsed) {
+      const lock = await lockXSourceVerificationSample({
+        username,
+        postId,
+        symbol,
+        parsed,
+        postedAt: iso(exists[0].posted_at),
+      });
+      if (lock.reason === "DATABASE_UNAVAILABLE" || lock.reason.startsWith("DB_ERROR:")) {
+        throw new Error(`X_SOURCE_VERIFICATION_LOCK_FAILED:${lock.reason}`);
+      }
+    }
+  }
   return rows[0] ? approvalFromRow(rows[0]) : null;
+}
+
+/** Auto-track the two user-authorized Tier-1 sources. Existing manual rejects stay untouched. */
+export async function autoApprovePriorityXOpinions(now = new Date()): Promise<{ scanned: number; approved: number; locked: number; skipped: number; errors: string[] }> {
+  const db = prisma;
+  if (!db || !(await ensureXOpinionApprovalTable())) return { scanned: 0, approved: 0, locked: 0, skipped: 0, errors: ["DATABASE_UNAVAILABLE"] };
+  const handles = X_SOURCE_REGISTRY.filter((row) => row.verifiedPromotionEligible).map((row) => row.handle.toLowerCase());
+  if (!handles.length) return { scanned: 0, approved: 0, locked: 0, skipped: 0, errors: [] };
+  const posts = await db.$queryRawUnsafe<StoredPostRow[]>(
+    `SELECT username, post_id, post_url, posted_at, text, parsed
+     FROM trade_external_analyst_posts
+     WHERE LOWER(username) = ANY($1::text[]) AND posted_at >= NOW() - INTERVAL '36 hours'
+     ORDER BY posted_at DESC
+     LIMIT 80`,
+    handles,
+  );
+  let skipped = 0;
+  const today = getBeijingTodayKey(now);
+  const candidates = new Map<string, {
+    id: string;
+    username: string;
+    postId: string;
+    symbol: string;
+    parsed: ExternalAnalystParsedPost;
+    postedAt: string;
+  }>();
+  for (const post of posts) {
+    const parsed = parseJson<ExternalAnalystParsedPost | null>(post.parsed, null);
+    if (!parsed || (parsed.direction !== "LONG" && parsed.direction !== "SHORT")) {
+      skipped += 1;
+      continue;
+    }
+    const horizon = verificationHorizon(parsed.horizon);
+    const targets = resolveMultiViewTargetDates({
+      postedAt: parsed.postedAt || iso(post.posted_at),
+      horizon,
+      timeWindows: parsed.timeWindows,
+      summary: parsed.summary || parsed.text,
+    });
+    if (!targets.some((date) => date > today)) {
+      skipped += 1;
+      continue;
+    }
+    const symbols = detectedAssets(parsed, post.text).filter(isXSourceVerifiableSymbol);
+    if (!symbols.length) {
+      skipped += 1;
+      continue;
+    }
+    for (const symbol of symbols) {
+      const id = `${post.username.toLowerCase()}:${post.post_id}:${symbol}`;
+      candidates.set(id, { id, username: post.username, postId: post.post_id, symbol, parsed, postedAt: iso(post.posted_at) });
+    }
+  }
+  if (!candidates.size) return { scanned: posts.length, approved: 0, locked: 0, skipped, errors: [] };
+
+  const candidateRows = [...candidates.values()];
+  const inserted = await db.$queryRawUnsafe<Array<{ id: string }>>(
+    `INSERT INTO ${APPROVAL_TABLE}(id, username, post_id, symbol, status, weight_pct, display_allowed, note, created_at, updated_at)
+     SELECT x.id, x.username, x.post_id, x.symbol, 'APPROVED', 3, TRUE, 'AUTO_TIER1_TRACKING_V1', NOW(), NOW()
+     FROM jsonb_to_recordset($1::jsonb) AS x(id text, username text, post_id text, symbol text)
+     ON CONFLICT (username, post_id, symbol) DO NOTHING
+     RETURNING id`,
+    JSON.stringify(candidateRows.map((row) => ({ id: row.id, username: row.username, post_id: row.postId, symbol: row.symbol }))),
+  );
+  const approvedRows = await db.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM ${APPROVAL_TABLE} WHERE id = ANY($1::text[]) AND status = 'APPROVED'`,
+    candidateRows.map((row) => row.id),
+  );
+  const approvedIds = new Set(approvedRows.map((row) => row.id));
+  const locks = await lockXSourceVerificationSamples(
+    candidateRows.filter((row) => approvedIds.has(row.id)).map((row) => ({
+      username: row.username,
+      postId: row.postId,
+      symbol: row.symbol,
+      parsed: row.parsed,
+      postedAt: row.postedAt,
+    })),
+  );
+  return { scanned: posts.length, approved: inserted.length, locked: locks.created, skipped, errors: locks.errors };
 }
 
 export async function getXOpinionMatrix(options: { lookbackDays?: number; now?: Date } = {}): Promise<XOpinionMatrix> {
   const now = options.now ?? new Date();
   const lookbackDays = Math.max(1, Math.min(30, Math.round(options.lookbackDays ?? 7)));
+  const verificationStats = await getXSourceVerificationStatsMap().catch(() => new Map<string, XSourceVerificationStats>());
   const emptyRows = X_SOURCE_REGISTRY.map((entry) => ({
     username: entry.handle,
     family: entry.family,
+    verification: verificationDisplay(entry.handle, verificationStats),
     cells: Object.fromEntries(X_OPINION_MATRIX_ASSETS.map((asset) => [asset.code, null])) as Record<string, XOpinionCell | null>,
   }));
   const db = prisma;
@@ -256,6 +374,7 @@ export async function getApprovedXForecastOverlay(marketCode: string, now: Date,
   const symbol = MARKET_TO_MATRIX[marketCode.toUpperCase()] ?? marketCode.toUpperCase();
   const db = prisma;
   if (!db || !(await ensureXOpinionApprovalTable())) return null;
+  const verificationStats = await getXSourceVerificationStatsMap().catch(() => new Map<string, XSourceVerificationStats>());
   const rows = await db.$queryRawUnsafe<Array<ApprovalRow & { parsed: unknown; posted_at: Date | string }>>(
     `SELECT * FROM (
        SELECT DISTINCT ON (a.username)
@@ -272,13 +391,16 @@ export async function getApprovedXForecastOverlay(marketCode: string, now: Date,
     new Date(now.getTime() - 7 * 24 * 60 * 60_000).toISOString(),
   );
   if (!rows.length) return null;
-  let signed = 0;
-  let weightSum = 0;
+  let rawSigned = 0;
+  let matchedCount = 0;
   let displayAllowedCount = 0;
   const summaries: string[] = [];
   const displaySummaries: string[] = [];
   const levels: number[] = [];
   const timeWindows: string[] = [];
+  const verifiedSources = new Set<string>();
+  const buildingSources = new Set<string>();
+  const familyVotes = new Map<string, { signed: number; weight: number }>();
   for (const row of rows) {
     const parsed = parseJson<ExternalAnalystParsedPost | null>(row.parsed, null);
     if (!parsed) continue;
@@ -290,27 +412,43 @@ export async function getApprovedXForecastOverlay(marketCode: string, now: Date,
       summary: parsed.summary || parsed.text,
     });
     if (!targetDates.includes(forecastDate)) continue;
-    const weight = Math.max(1, Math.min(10, Number(row.weight_pct) || 5));
+    matchedCount += 1;
+    const horizonKey = verificationHorizon(parsed.horizon);
+    const exactStats = verificationStats.get(xSourceVerificationKey(row.username, symbol, horizonKey));
+    const sourceStats = exactStats;
+    const eligible = isVerifiedPromotionXSource(row.username);
+    const weight = eligible ? (sourceStats?.promotionWeightPct ?? 0) : Math.min(1, Math.max(0, Number(row.weight_pct) || 0));
+    if (eligible) {
+      if (sourceStats?.maturity === "VERIFIED") verifiedSources.add(row.username.toLowerCase());
+      else buildingSources.add(row.username.toLowerCase());
+    }
     const confidenceFactor = Math.max(0.35, Math.min(1, (parsed.confidence || 50) / 100));
     const sign = parsed.direction === "LONG" ? 1 : parsed.direction === "SHORT" ? -1 : 0;
-    signed += sign * weight * confidenceFactor;
-    weightSum += weight;
+    rawSigned += sign * confidenceFactor;
+    if (weight > 0) {
+      const family = xSourceFamilyForHandle(row.username);
+      const vote = { signed: sign * weight * confidenceFactor, weight };
+      const existing = familyVotes.get(family);
+      if (!existing || Math.abs(vote.signed) > Math.abs(existing.signed)) familyVotes.set(family, vote);
+    }
     if (row.display_allowed) {
       displayAllowedCount += 1;
       const alias = xSourceRegistryEntryForHandle(row.username)?.memberAlias ?? "匿名分析师";
-      if (displaySummaries.length < 3) displaySummaries.push(`${alias}：${brief(parsed)}`);
+      if (displaySummaries.length < 3) displaySummaries.push(`${alias}：${memberSafeBrief(parsed)}`);
     }
     if (summaries.length < 4) summaries.push(`${xSourceRegistryEntryForHandle(row.username)?.memberAlias ?? "匿名分析师"}：${brief(parsed)}`);
     levels.push(...parsed.supportLevels, ...parsed.resistanceLevels, ...parsed.targetLevels, ...parsed.invalidationLevels);
     timeWindows.push(...parsed.timeWindows);
   }
-  if (weightSum <= 0) return null;
+  if (matchedCount <= 0) return null;
+  const signed = [...familyVotes.values()].reduce((sum, row) => sum + row.signed, 0);
+  const weightSum = [...familyVotes.values()].reduce((sum, row) => sum + row.weight, 0);
   const probabilityShiftPct = Math.max(-8, Math.min(8, Math.round(signed)));
-  const direction: XOpinionDirection = probabilityShiftPct >= 1 ? "LONG" : probabilityShiftPct <= -1 ? "SHORT" : "NEUTRAL";
+  const direction: XOpinionDirection = rawSigned > 0.25 ? "LONG" : rawSigned < -0.25 ? "SHORT" : "NEUTRAL";
   return {
     symbol,
     direction,
-    approvedCount: rows.length,
+    approvedCount: matchedCount,
     totalWeightPct: Math.min(12, weightSum),
     probabilityShiftPct,
     summaries,
@@ -318,5 +456,7 @@ export async function getApprovedXForecastOverlay(marketCode: string, now: Date,
     levels: [...new Set(levels.filter(Number.isFinite))].sort((a, b) => a - b).slice(0, 8),
     timeWindows: [...new Set(timeWindows)].slice(0, 6),
     displayAllowedCount,
+    verifiedSourceCount: verifiedSources.size,
+    buildingSourceCount: buildingSources.size,
   };
 }

@@ -13,7 +13,7 @@ const readSharedAlphaFeed = unstable_cache(
     ]);
     return { snapshot, todayForecasts };
   },
-  ["member-alpha-feed-v720113"],
+  ["member-alpha-feed-v720115"],
   { revalidate: 60 },
 );
 

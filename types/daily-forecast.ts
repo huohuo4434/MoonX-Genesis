@@ -134,6 +134,10 @@ export interface DailyForecast {
   directionConflict?: boolean;
   methodPriority?: string;
 
+  /** Anonymous, verified external-research layer. It may adjust scenarios/risk, never the official direction. */
+  externalResearchEvidence?: string;
+  externalResearchRelation?: "ALIGNED" | "CONFLICT" | "NEUTRAL";
+
   evidenceRecordIds?: string[];
   correctionNote?: string;
 

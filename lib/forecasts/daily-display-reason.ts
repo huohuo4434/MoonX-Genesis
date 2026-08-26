@@ -5,6 +5,7 @@ type ExtendedDaily = DailyForecast & {
   liuyaoEvidence?: string;
   qimenMysticNote?: string;
   qimenAgreementLabel?: string;
+  externalResearchEvidence?: string;
 };
 
 function field(text: string | undefined, key: string): string {
@@ -87,9 +88,13 @@ export function buildDailyResearchReason(forecast: DailyForecast): string {
     : row.qimenAgreementLabel?.includes("分歧")
       ? "两法分歧"
       : "";
+  const external = firstCompleteClauses(row.externalResearchEvidence ?? "", 2)
+    .replace(/^外部验证层[：:]?/u, "")
+    .trim();
   const parts = [
     liuyao ? `周卦/阶段卦派生：${liuyao}` : "",
     qimen ? `奇门独立验算：${qimen}` : "",
+    external ? `外部验证：${external}` : "",
     `网站正式观点：${direction}${relation ? `，${relation}` : ""}`,
   ].filter(Boolean);
   return parts.join("；");

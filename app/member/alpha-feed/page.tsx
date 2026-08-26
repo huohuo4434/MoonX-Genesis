@@ -147,6 +147,16 @@ function OpinionRows({ opinions, direction, en }: { opinions: MemberAssetResearc
                 <td className="px-4 py-4">
                   <Text variant="body-sm" weight="semibold" className="block">{researcherAlias(opinion)}</Text>
                   {opinion.priorityTier ? <Badge variant={opinion.priorityTier === 1 ? "success" : "outline"} className="mt-2">{en ? `Tier ${opinion.priorityTier}` : `第${opinion.priorityTier === 1 ? "一" : "二"}梯队`}</Badge> : null}
+                  {opinion.verification ? (
+                    <div className="mt-2">
+                      <Badge variant={opinion.verification.maturity === "VERIFIED" ? "success" : "warning"}>
+                        {opinion.verification.maturity === "VERIFIED"
+                          ? (en ? `Verified ${opinion.verification.weightedHitRatePct ?? 0}% · W${opinion.verification.promotionWeightPct}` : `验证命中 ${opinion.verification.weightedHitRatePct ?? 0}% · 权重${opinion.verification.promotionWeightPct}`)
+                          : (en ? `Building ${opinion.verification.sampleCount}/10` : `验证样本 ${opinion.verification.sampleCount}/10`)}
+                      </Badge>
+                      {opinion.verification.roleZh ? <Text variant="caption" color="tertiary" className="mt-1 block">{en ? "Tier-1 verified research source" : opinion.verification.roleZh}</Text> : null}
+                    </div>
+                  ) : null}
                   {opinion.specialty ? <Text variant="caption" color="secondary" className="mt-2 block leading-relaxed">{opinion.specialty}</Text> : null}
                   <Text variant="caption" color="tertiary" className="mt-1 block">{opinion.family}</Text>
                   <Badge variant={directionVariant(opinion.overallDirection)} className="mt-2">{directionLabel(opinion.overallDirection, en)}</Badge>

@@ -7,6 +7,8 @@ import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-s
 import { ensureExternalAnalystTables, refreshExternalAnalystSignals } from "@/lib/trading-signals/external-analyst-signals";
 import { generateAndStoreXScanReport } from "@/lib/trading-signals/x-scan-report";
 import { generateAndStoreEarlyAltcoinRadar } from "@/lib/trading-signals/early-altcoin-radar";
+import { autoApprovePriorityXOpinions } from "@/lib/trading-signals/x-opinion-matrix";
+import { verifyPendingXSourceSamples } from "@/lib/trading-signals/x-source-verification.server";
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route-handler";
@@ -182,15 +184,16 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
     // finishing later and overwriting a report built from freshly collected posts.
     try {
       const refresh = await refreshExternalAnalystSignals(now, { force: true });
-      const [scan, altcoin] = await Promise.all([
+      const [tier1, scan, altcoin] = await Promise.all([
+        autoApprovePriorityXOpinions(now),
         generateAndStoreXScanReport(now),
         generateAndStoreEarlyAltcoinRadar(now),
       ]);
       repairs.push({
         key: "x",
-        ok: refresh.errors.length === 0,
+        ok: refresh.errors.length === 0 && tier1.errors.length === 0,
         actionZh: "更新X采集、观点报告与早期币雷达",
-        detailZh: `${refresh.message}；观点资产 ${scan.assets.length}；早期币线索 ${altcoin.candidateCount}`,
+        detailZh: `${refresh.message}；一级验证源自动批准 ${tier1.approved}，新锁定样本 ${tier1.locked}，锁样错误 ${tier1.errors.length}；观点资产 ${scan.assets.length}；早期币线索 ${altcoin.candidateCount}`,
       });
     } catch (error) {
       repairs.push({ key: "x", ok: false, actionZh: "更新X采集、观点报告与早期币雷达", detailZh: error instanceof Error ? error.message : String(error) });
@@ -234,9 +237,21 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
         repairs.push({ key: "verification", ok: false, actionZh: "例行验证补偿检查", detailZh: error instanceof Error ? error.message : String(error) });
       }
     }
+    try {
+      const sourceVerification = await verifyPendingXSourceSamples(now);
+      repairs.push({
+        key: "x-source-verification",
+        ok: sourceVerification.errors.length === 0,
+        actionZh: "验证一级外部研究源",
+        detailZh: `待处理 ${sourceVerification.pending}，新验证 ${sourceVerification.verified}，等待实际行情 ${sourceVerification.waitingActual}，错误 ${sourceVerification.errors.length}`,
+      });
+    } catch (error) {
+      repairs.push({ key: "x-source-verification", ok: false, actionZh: "验证一级外部研究源", detailZh: error instanceof Error ? error.message : String(error) });
+    }
   }
   const after = await evaluate(now);
   after.repairs = repairs;
+  if (repairs.some((item) => !item.ok)) after.status = "ATTENTION";
   await storeReport(after).catch(() => undefined);
   return after;
 }

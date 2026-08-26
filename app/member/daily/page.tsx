@@ -89,6 +89,19 @@ function relationLabel(forecast: DailyForecast): { label: string; className: str
   return { label: "暂无共振结论", className: "border-slate-400/20 bg-slate-400/[0.06] text-slate-200" };
 }
 
+function externalRelationLabel(forecast: DailyForecast): { label: string; className: string } {
+  if (forecast.externalResearchRelation === "ALIGNED") {
+    return { label: "外部验证同向", className: "border-cyan-400/25 bg-cyan-400/[0.08] text-cyan-100" };
+  }
+  if (forecast.externalResearchRelation === "CONFLICT") {
+    return { label: "外部验证相反", className: "border-orange-400/25 bg-orange-400/[0.08] text-orange-100" };
+  }
+  if (forecast.externalResearchEvidence) {
+    return { label: /样本积累中/u.test(forecast.externalResearchEvidence) ? "外部样本积累中" : "外部观点中性", className: "border-slate-400/20 bg-slate-400/[0.06] text-slate-200" };
+  }
+  return { label: "外部暂无明确观点", className: "border-slate-400/15 bg-slate-400/[0.04] text-slate-400" };
+}
+
 function tone(direction: string): string {
   if (/上涨|回升/.test(direction)) return "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-100";
   if (/下跌|回落/.test(direction)) return "border-rose-400/25 bg-rose-400/[0.07] text-rose-100";
@@ -160,6 +173,7 @@ function ForecastBoard({
             {rows.map((forecast) => {
               const direction = displayDirection(forecast);
               const relation = relationLabel(forecast);
+              const externalRelation = externalRelationLabel(forecast);
               const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
               return (
                 <article id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 rounded-2xl border border-border/[0.1] bg-card/55 p-4">
@@ -169,6 +183,7 @@ function ForecastBoard({
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <span className={`rounded-full border px-2.5 py-1 text-xs ${relation.className}`}>{relation.label}</span>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs ${externalRelation.className}`}>{externalRelation.label}</span>
                     <span className="font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>奇门 {qimenDirectionLabel(forecast)}</span>
                   </div>
@@ -189,18 +204,20 @@ function ForecastBoard({
           <div className="hidden overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2 md:block">
             <table className="min-w-[980px] w-full border-separate border-spacing-y-2 text-left">
               <thead className="text-caption text-foreground-tertiary">
-                <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">正式方向</th><th className="px-3 py-2">双法关系</th><th className="px-3 py-2">奇门时机</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">支撑 / 压力</th><th className="px-3 py-2">失效条件</th><th className="px-3 py-2">更新</th></tr>
+                <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">正式方向</th><th className="px-3 py-2">双法关系</th><th className="px-3 py-2">外部验证</th><th className="px-3 py-2">奇门时机</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">支撑 / 压力</th><th className="px-3 py-2">失效条件</th><th className="px-3 py-2">更新</th></tr>
               </thead>
               <tbody>
                 {rows.map((forecast) => {
                   const direction = displayDirection(forecast);
                   const relation = relationLabel(forecast);
+                  const externalRelation = externalRelationLabel(forecast);
                   const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
                   return (
                     <tr id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
                       <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
                       <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span></td>
                       <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${relation.className}`}>{relation.label}</span></td>
+                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${externalRelation.className}`}>{externalRelation.label}</span></td>
                       <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>{qimenDirectionLabel(forecast)}</span></td>
                       <td className="px-3 py-3 font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</td>
                       <td className="px-3 py-3 text-body-sm"><div className="text-emerald-100">支 {technical.support}</div><div className="mt-1 text-rose-100">压 {technical.resistance}</div></td>

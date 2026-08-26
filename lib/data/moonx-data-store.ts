@@ -111,6 +111,40 @@ async function readJsonFile<T>(file: DataFile, fallback: DailyJsonStore<T>): Pro
   return (await request) as DailyJsonStore<T>;
 }
 
+type StrictJsonReadResult<T> = {
+  store: DailyJsonStore<T>;
+  source: "REMOTE" | "CACHE";
+};
+
+/** Strict read for verification jobs: storage failures must never masquerade as an empty healthy store. */
+async function readJsonFileStrict<T>(file: DataFile): Promise<StrictJsonReadResult<T>> {
+  const cached = jsonReadCache.get(file);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { store: cached.value as DailyJsonStore<T>, source: "CACHE" };
+  }
+  const admin = getAdminClient();
+  if (!admin) throw new Error(`${file}:SUPABASE_ADMIN_UNAVAILABLE`);
+  const { data, error } = await withStorageTimeout(
+    admin.storage.from(MOONX_DATA_BUCKET).download(file),
+    file,
+  );
+  if (error || !data) throw new Error(`${file}:${error?.message ?? "STORAGE_OBJECT_UNAVAILABLE"}`);
+  let parsed: DailyJsonStore<T>;
+  try {
+    parsed = JSON.parse(await data.text()) as DailyJsonStore<T>;
+  } catch (error) {
+    throw new Error(`${file}:INVALID_JSON:${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!parsed || !Array.isArray(parsed.records)) throw new Error(`${file}:INVALID_STORE_SHAPE`);
+  const store: DailyJsonStore<T> = {
+    version: 1,
+    updatedAt: parsed.updatedAt ?? new Date(0).toISOString(),
+    records: parsed.records,
+  };
+  jsonReadCache.set(file, { expiresAt: Date.now() + STORAGE_READ_CACHE_MS, value: store as DailyJsonStore<unknown> });
+  return { store, source: "REMOTE" };
+}
+
 async function writeJsonFile<T>(file: DataFile, store: DailyJsonStore<T>, retries = 3): Promise<void> {
   const admin = getAdminClient();
   if (!admin) throw new Error("Supabase service role not configured");
@@ -198,6 +232,39 @@ export async function listDailyVerificationResults(): Promise<DailyVerificationR
   if (primary.records.length) return primary.records;
   const alt = await readJsonFile<DailyVerificationResult>("daily-verifications.json", emptyStore());
   return alt.records;
+}
+
+/**
+ * Strict counterpart used by automated scoring. It accepts a fresh cache, but
+ * throws when neither canonical nor legacy storage can be read successfully.
+ */
+export async function listDailyVerificationResultsStrict(): Promise<{
+  records: DailyVerificationResult[];
+  source: "REMOTE" | "CACHE";
+}> {
+  let primary: StrictJsonReadResult<DailyVerificationResult> | null = null;
+  let primaryError: unknown = null;
+  try {
+    primary = await readJsonFileStrict<DailyVerificationResult>("daily-verification-results.json");
+    if (primary.store.records.length) return { records: primary.store.records, source: primary.source };
+  } catch (error) {
+    primaryError = error;
+  }
+
+  let legacy: StrictJsonReadResult<DailyVerificationResult> | null = null;
+  let legacyError: unknown = null;
+  try {
+    legacy = await readJsonFileStrict<DailyVerificationResult>("daily-verifications.json");
+    if (legacy.store.records.length) return { records: legacy.store.records, source: legacy.source };
+  } catch (error) {
+    legacyError = error;
+  }
+
+  if (primary) return { records: primary.store.records, source: primary.source };
+  if (legacy) return { records: legacy.store.records, source: legacy.source };
+  throw new Error(`DAILY_VERIFICATION_STORAGE_UNAVAILABLE:${[primaryError, legacyError]
+    .map((error) => error instanceof Error ? error.message : String(error))
+    .join("|")}`);
 }
 
 export async function upsertDailyVerificationResult(

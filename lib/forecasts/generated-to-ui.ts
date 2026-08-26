@@ -20,6 +20,16 @@ export function generatedDailyToUi(
   const qimenSummary = r.qimenEvidence
     ? r.qimenEvidence.split("；").slice(0, 3).join("；")
     : null; // MOOX_QIMEN_PARALLEL_V720130_UI
+  const externalResearchEvidence = r.newsEvidence?.includes("外部验证层：")
+    ? `外部验证层：${r.newsEvidence.split("外部验证层：").at(-1)}`
+    : undefined;
+  const externalResearchRelation = externalResearchEvidence?.includes("与MOOX同向")
+    ? "ALIGNED" as const
+    : externalResearchEvidence?.includes("与MOOX相反")
+      ? "CONFLICT" as const
+      : externalResearchEvidence
+        ? "NEUTRAL" as const
+        : undefined;
   const consensus = consensusStarsFromInputs({
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
     frameworkCount: [r.liuyaoEvidence, r.qimenEvidence, r.calendarEvidence, r.newsEvidence].filter(Boolean).length || 1,
@@ -78,6 +88,8 @@ export function generatedDailyToUi(
     },
     qimenEvidence: r.qimenEvidence ?? undefined, // MOOX_QIMEN_DAILY_RESONANCE_V7201_RAW
     liuyaoEvidence: r.liuyaoEvidence || undefined,
+    externalResearchEvidence,
+    externalResearchRelation,
     reviewedBy: "weekly-to-daily",
     reviewedAt: r.publishedAt ?? r.generatedAt,
     publishedBy: "weekly-to-daily",

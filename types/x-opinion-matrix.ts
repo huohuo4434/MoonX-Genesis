@@ -1,5 +1,13 @@
 export type XOpinionDirection = "LONG" | "SHORT" | "NEUTRAL";
 export type XOpinionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type XSourceVerificationDisplay = {
+  eligible: boolean;
+  roleZh: string | null;
+  maturity: "BUILDING" | "VERIFIED";
+  sampleCount: number;
+  weightedHitRatePct: number | null;
+  promotionWeightPct: 0 | 1 | 2 | 3;
+};
 export type XOpinionAsset = { code: string; label: string; aliases: string[] };
 export type XOpinionApproval = {
   id: string;
@@ -30,5 +38,5 @@ export type XOpinionMatrix = {
   generatedAt: string;
   lookbackDays: number;
   assets: readonly XOpinionAsset[];
-  rows: Array<{ username: string; family: string; cells: Record<string, XOpinionCell | null> }>;
+  rows: Array<{ username: string; family: string; verification: XSourceVerificationDisplay | null; cells: Record<string, XOpinionCell | null> }>;
 };

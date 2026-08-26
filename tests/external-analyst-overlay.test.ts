@@ -81,6 +81,7 @@ test("external analyst overlay cannot reverse the Liuyao primary direction", () 
     overlay,
     strategyType: "SWING",
     primaryForecastDirection: "LONG",
+    externalVerification: { sampleCount: 10, weightedHitRatePct: 70 },
   });
   assert.equal(result.direction, "LONG");
   assert.equal(result.stopLoss, 62500);

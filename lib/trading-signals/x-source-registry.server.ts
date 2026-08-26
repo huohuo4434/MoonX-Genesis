@@ -17,12 +17,14 @@ export type XSourceRegistryEntry = {
   specialty?: string;
   priorityTier?: 1 | 2;
   priorityRank?: number;
+  verifiedPromotionEligible?: boolean;
+  verificationRoleZh?: string;
 };
 
 // Private operating registry only. Member-facing pages must not expose handles.
 export const X_SOURCE_REGISTRY: readonly XSourceRegistryEntry[] = [
-  { handle: "BTCTW0", family: "CYCLE_TIMING", memberAlias: "江恩跨市场分析师", specialty: "江恩周期、加密、美股与贵金属", priorityTier: 1, priorityRank: 1 },
-  { handle: "formnoshape", family: "MARKET_STRUCTURE", memberAlias: "低风险策略分析师", specialty: "日内结构、低风险交易与执行纪律", priorityTier: 1, priorityRank: 2 },
+  { handle: "BTCTW0", family: "CYCLE_TIMING", memberAlias: "江恩跨市场分析师", specialty: "江恩周期、加密、美股与贵金属", priorityTier: 1, priorityRank: 1, verifiedPromotionEligible: true, verificationRoleZh: "一级江恩与跨市场验证源" },
+  { handle: "formnoshape", family: "MARKET_STRUCTURE", memberAlias: "低风险策略分析师", specialty: "日内结构、低风险交易与执行纪律", priorityTier: 1, priorityRank: 2, verifiedPromotionEligible: true, verificationRoleZh: "一级短线结构与执行验证源" },
   { handle: "btcpiggy", family: "METAPHYSICAL_TIMING", memberAlias: "奇门周期分析师", specialty: "奇门遁甲、玄学周期与市场择时", priorityTier: 1, priorityRank: 3 },
   { handle: "yijiangren", family: "MARKET_STRUCTURE", memberAlias: "建模趋势分析师", specialty: "趋势建模、仓位结构与Web3", priorityTier: 1, priorityRank: 4 },
   { handle: "laban_li", family: "FUNDAMENTAL_EVENT", memberAlias: "宏观趋势分析师", specialty: "宏观、趋势预判与AI策略", priorityTier: 1, priorityRank: 5 },
@@ -74,4 +76,8 @@ export function xSourceRegistryEntryForHandle(value: string | null | undefined):
 
 export function configuredXWatchHandles(): string[] {
   return X_SOURCE_REGISTRY.map((entry) => entry.handle);
+}
+
+export function isVerifiedPromotionXSource(value: string | null | undefined): boolean {
+  return Boolean(xSourceRegistryEntryForHandle(value)?.verifiedPromotionEligible);
 }

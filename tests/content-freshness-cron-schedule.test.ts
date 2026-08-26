@@ -44,3 +44,14 @@ test("the single freshness owner refreshes posts before building both X reports"
   assert.ok(altcoinAt > refreshAt);
   assert.match(source, /sole production scheduler/);
 });
+
+test("failed repairs downgrade the report and both repair routes return non-200", () => {
+  const source = read("lib/automation/content-freshness.ts");
+  const cronRoute = read("app/api/cron/content-freshness/route.ts");
+  const adminRoute = read("app/api/admin/content-freshness/route.ts");
+  assert.match(source, /repairs\.some\(\(item\) => !item\.ok\)\) after\.status = "ATTENTION"/);
+  for (const route of [cronRoute, adminRoute]) {
+    assert.match(route, /ok: report\.status === "OK"/);
+    assert.match(route, /status: report\.status === "OK" \? 200 : 207/);
+  }
+});
