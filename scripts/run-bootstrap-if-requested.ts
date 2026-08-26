@@ -47,7 +47,15 @@ if (shouldRun) {
   if (process.env.RUN_ADMIN_BOOTSTRAP === "true" && process.env.RUN_SMOKE_AUTH === "true" && allowDestructive) {
     runStep("smoke-auth", "npx tsx scripts/smoke-auth.ts", false);
   }
-  runStep("payment-email-test", "npx tsx scripts/send-payment-test-email.ts", false);
+  const allowPaymentEmailTest =
+    process.env.RUN_PAYMENT_EMAIL_TEST === "true" &&
+    process.env.VERCEL_ENV !== "production" &&
+    process.env.NODE_ENV !== "production";
+  if (allowPaymentEmailTest) {
+    runStep("payment-email-test", "npx tsx scripts/send-payment-test-email.ts", false);
+  } else {
+    console.log("[bootstrap] skipped payment-email-test (explicit non-production opt-in required)");
+  }
 } else {
   console.log("[bootstrap] skipped");
 }

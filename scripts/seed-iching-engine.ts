@@ -245,6 +245,7 @@ async function main() {
       if (exists) continue;
       await prisma.masterRule.create({
         data: {
+          id: r.ruleCode,
           ruleCode: r.ruleCode,
           title: r.title,
           category: r.category,
@@ -258,7 +259,6 @@ async function main() {
           status: "DRAFT",
           createdAt: new Date(),
           updatedAt: new Date(),
-          createdBy: "seed",
           sourceResearchId: null,
           supersedesRuleId: null,
         },
