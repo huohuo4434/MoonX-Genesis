@@ -6,6 +6,7 @@ import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { ensureExternalAnalystTables, refreshExternalAnalystSignals } from "@/lib/trading-signals/external-analyst-signals";
 import { generateAndStoreXScanReport } from "@/lib/trading-signals/x-scan-report";
+import { generateAndStoreEarlyAltcoinRadar } from "@/lib/trading-signals/early-altcoin-radar";
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route-handler";
@@ -175,15 +176,24 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
   const repairs: ContentFreshnessReport["repairs"] = [];
   if (options.repair !== false) {
     const byKey = new Map(before.items.map((item) => [item.key, item]));
-    const x = byKey.get("x");
-    if (x && x.status !== "OK") {
-      try {
-        const refresh = await refreshExternalAnalystSignals(now, { force: true });
-        await generateAndStoreXScanReport(now);
-        repairs.push({ key: "x", ok: refresh.errors.length === 0, actionZh: "重跑X采集汇总与扫描报告", detailZh: refresh.message });
-      } catch (error) {
-        repairs.push({ key: "x", ok: false, actionZh: "重跑X采集汇总与扫描报告", detailZh: error instanceof Error ? error.message : String(error) });
-      }
+    // This dedicated 15-minute self-check is the sole production scheduler for
+    // external-analyst refresh, the X scan report and the early-altcoin radar.
+    // Keeping the sequence under one owner prevents an older snapshot from
+    // finishing later and overwriting a report built from freshly collected posts.
+    try {
+      const refresh = await refreshExternalAnalystSignals(now, { force: true });
+      const [scan, altcoin] = await Promise.all([
+        generateAndStoreXScanReport(now),
+        generateAndStoreEarlyAltcoinRadar(now),
+      ]);
+      repairs.push({
+        key: "x",
+        ok: refresh.errors.length === 0,
+        actionZh: "更新X采集、观点报告与早期币雷达",
+        detailZh: `${refresh.message}；观点资产 ${scan.assets.length}；早期币线索 ${altcoin.candidateCount}`,
+      });
+    } catch (error) {
+      repairs.push({ key: "x", ok: false, actionZh: "更新X采集、观点报告与早期币雷达", detailZh: error instanceof Error ? error.message : String(error) });
     }
     const today = byKey.get("today");
     const tomorrow = byKey.get("tomorrow");

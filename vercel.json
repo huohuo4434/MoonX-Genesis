@@ -53,15 +53,11 @@
       "schedule": "30 10 * * 1-5"
     },
     {
-      "path": "/api/cron/external-analysts",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/bitget-runtime-health",
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/x-intelligence-report",
+      "path": "/api/cron/content-freshness",
       "schedule": "*/15 * * * *"
     },
     {

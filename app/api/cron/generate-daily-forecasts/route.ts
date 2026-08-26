@@ -1,7 +1,6 @@
-// MOOX_V72051_DAILY_SELF_CHECK
+// Daily forecast owner only. Content repair has a separate 15-minute cron owner.
 import { NextResponse, type NextRequest } from "next/server";
 import { runDailyForecastPipeline, resolvePipelinePhase } from "@/lib/forecasts/daily-pipeline";
-import { runContentFreshnessSelfCheck } from "@/lib/automation/content-freshness";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,12 +28,7 @@ export async function GET(request: NextRequest) {
       forcePhase: forcePhase ?? resolvePipelinePhase(),
       forceDraftDate: date,
     });
-    const freshness = await runContentFreshnessSelfCheck({ repair: true, now: new Date() }).catch((error) => ({
-      status: "ATTENTION" as const,
-      generatedAt: new Date().toISOString(),
-      error: error instanceof Error ? error.message : String(error),
-    }));
-    return NextResponse.json({ ok: true, report, freshness });
+    return NextResponse.json({ ok: true, report });
   } catch (err) {
     console.error("[cron/generate-daily-forecasts]", err);
     return NextResponse.json(
