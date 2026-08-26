@@ -9,15 +9,17 @@ import {
   CONDITIONAL_LIUYAO_AUTHORITY_POLICY,
 } from "../lib/data/teacher-priority-liuyao-20260821";
 
-test("teacher originals outrank user hexagrams inside the Liuyao source hierarchy", () => {
-  assert.ok(PREDICTION_SOURCE_PRIORITY.TEACHER_ORIGINAL < PREDICTION_SOURCE_PRIORITY.USER_HEXAGRAM_TEACHER_METHOD);
+test("Bingwu uniquely outranks Wolf and user while Wolf and user remain equal", () => {
+  assert.ok(PREDICTION_SOURCE_PRIORITY.BINGWU_TEACHER_ORIGINAL < PREDICTION_SOURCE_PRIORITY.WOLF_TEACHER_ORIGINAL);
+  assert.equal(PREDICTION_SOURCE_PRIORITY.WOLF_TEACHER_ORIGINAL, PREDICTION_SOURCE_PRIORITY.USER_HEXAGRAM_TEACHER_METHOD);
   assert.ok(PREDICTION_SOURCE_PRIORITY.USER_HEXAGRAM_TEACHER_METHOD < PREDICTION_SOURCE_PRIORITY.PERIOD_PATH_DERIVATION);
 });
 
-test("teacher priority is soft and can yield before lock only under strict cross-method consensus", () => {
-  assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.defaultTeacherWeightPct, 55);
-  assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.defaultUserWeightPct, 45);
-  assert.deepEqual(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.requiredUserAlignedLayers, ["QIMEN", "ANALYST_MAJORITY", "CHAN"]);
+test("Bingwu is uniquely first while Wolf and user are equal-rank before lock", () => {
+  assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.uniquePrioritySourceKind, "BINGWU_TEACHER");
+  assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.defaultWolfWeightPct, 50);
+  assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.defaultUserWeightPct, 50);
+  assert.deepEqual(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.requiredTieBreakLayers, ["QIMEN", "ANALYST_MAJORITY", "CHAN"]);
   assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.externalLayersSetDirectionDirectly, false);
   assert.equal(CONDITIONAL_LIUYAO_AUTHORITY_POLICY.lockedRecordsRemainImmutable, true);
 });

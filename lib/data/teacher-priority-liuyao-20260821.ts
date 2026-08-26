@@ -1,12 +1,14 @@
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 
 export type PredictionSourceAuthority =
-  | "TEACHER_ORIGINAL"
+  | "BINGWU_TEACHER_ORIGINAL"
+  | "WOLF_TEACHER_ORIGINAL"
   | "USER_HEXAGRAM_TEACHER_METHOD"
   | "PERIOD_PATH_DERIVATION";
 
 export const PREDICTION_SOURCE_PRIORITY: Readonly<Record<PredictionSourceAuthority, number>> = Object.freeze({
-  TEACHER_ORIGINAL: 1,
+  BINGWU_TEACHER_ORIGINAL: 1,
+  WOLF_TEACHER_ORIGINAL: 2,
   USER_HEXAGRAM_TEACHER_METHOD: 2,
   PERIOD_PATH_DERIVATION: 3,
 });

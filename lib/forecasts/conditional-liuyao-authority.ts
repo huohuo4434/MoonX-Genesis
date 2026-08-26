@@ -1,6 +1,6 @@
 import { normalizeOfficialDirection, type OfficialDirection } from "./formal-direction";
 
-export const CONDITIONAL_LIUYAO_AUTHORITY_VERSION = "2026-08-25.v1" as const;
+export const CONDITIONAL_LIUYAO_AUTHORITY_VERSION = "2026-08-26.v2" as const;
 
 export type LiuyaoAuthoritySource = "TEACHER" | "USER";
 export type LiuyaoAuthorityStage = "PRE_PUBLICATION" | "LOCKED";
@@ -41,8 +41,10 @@ export type ConditionalLiuyaoAuthorityReason =
   | "NO_ELIGIBLE_LIUYAO_CANDIDATE"
   | "CANDIDATES_NOT_COMPARABLE"
   | "LIUYAO_CANDIDATES_AGREE"
+  | "BINGWU_TEACHER_HAS_UNIQUE_PRIORITY"
   | "USER_SELECTED_BY_STRICT_CROSS_METHOD_CONSENSUS"
-  | "TEACHER_RETAINS_SOFT_PRIORITY";
+  | "WOLF_SELECTED_BY_STRICT_CROSS_METHOD_CONSENSUS"
+  | "WOLF_USER_EQUAL_CONFLICT_REQUIRES_HUMAN_REVIEW";
 
 export type ConditionalLiuyaoAuthorityResult = {
   selectedSource: LiuyaoAuthoritySource | null;
@@ -60,15 +62,17 @@ export type ConditionalLiuyaoAuthorityResult = {
 };
 
 export const CONDITIONAL_LIUYAO_AUTHORITY_POLICY = Object.freeze({
-  defaultTeacherWeightPct: 55,
-  defaultUserWeightPct: 45,
+  uniquePrioritySourceKind: "BINGWU_TEACHER" as const,
+  bingwuTeacherHasUniquePriority: true,
+  defaultWolfWeightPct: 50,
+  defaultUserWeightPct: 50,
   minimumIndependentAnalysts: 3,
   strictAnalystMajority: "MORE_THAN_HALF",
-  requiredUserAlignedLayers: ["QIMEN", "ANALYST_MAJORITY", "CHAN"] as const,
+  requiredTieBreakLayers: ["QIMEN", "ANALYST_MAJORITY", "CHAN"] as const,
   externalLayersSetDirectionDirectly: false,
   lockedRecordsRemainImmutable: true,
   ruleZh:
-    "丙午老师、狼叔同周期完整六爻默认以55:45略高于用户自起六爻；仅在发布锁定前，且奇门、至少3名独立已批准博主的严格多数、完整缠论结构全部与用户六爻同向时，改由用户六爻拥有正式方向。外部三层只是六爻来源裁决证据，不能自己定方向；老师分歧继续展示。",
+    "丙午老师是六爻来源中的唯一第一优先级；狼叔与用户按老师方法解读的自起六爻同为第二优先级，默认各50%。狼叔与用户同周期结论冲突时不得默认选择狼叔：仅在发布锁定前，由奇门、至少3名独立已批准博主的严格多数、完整缠论结构三层一致支持其中一方时完成同级裁决；证据不足则并列展示、降低信心并进入人工复核。外部三层只用于同级裁决，不能自己生成正式方向；锁定历史不得改写。",
 });
 
 function eligible(evidence: ArbitrationEvidence | null): evidence is ArbitrationEvidence {
@@ -136,10 +140,10 @@ function selectedResult(input: {
 }
 
 /**
- * Pre-publication source arbitration only. Qimen, approved analyst consensus
- * and Chan structure may choose between two complete Liuyao candidates, but
- * they never create an official direction of their own and never rewrite a
- * locked forecast.
+ * Pre-publication source arbitration only. Bingwu is the sole first-priority
+ * Liuyao source. Wolf and user charts are equal-rank candidates; Qimen,
+ * approved analyst consensus and Chan structure may break that equal-rank tie,
+ * but never create an official direction of their own or rewrite a locked call.
  */
 export function resolveConditionalLiuyaoAuthority(
   input: ConditionalLiuyaoAuthorityInput,
@@ -201,7 +205,7 @@ export function resolveConditionalLiuyaoAuthority(
 
   if (!sameScope(teacher!, user!)) {
     return selectedResult({
-      source: "TEACHER", direction: teacherDirection, reason: "CANDIDATES_NOT_COMPARABLE",
+      source: null, direction: null, reason: "CANDIDATES_NOT_COMPARABLE",
       teacherDirection, userDirection, showBoth: true, confidenceAdjustment: -8,
       analystEligibleCount: 0, analystUserAlignedCount: 0, strictConsensusPassed: false,
     });
@@ -214,7 +218,23 @@ export function resolveConditionalLiuyaoAuthority(
     });
   }
 
+  if (teacher!.sourceKind === "BINGWU_TEACHER") {
+    return selectedResult({
+      source: "TEACHER",
+      direction: teacherDirection,
+      reason: "BINGWU_TEACHER_HAS_UNIQUE_PRIORITY",
+      teacherDirection,
+      userDirection,
+      showBoth: true,
+      confidenceAdjustment: -5,
+      analystEligibleCount: 0,
+      analystUserAlignedCount: 0,
+      strictConsensusPassed: false,
+    });
+  }
+
   const userSignature = arbitrationDirection(user!.direction);
+  const teacherSignature = arbitrationDirection(teacher!.direction);
   const qimenAligned =
     eligibleWithDirection(input.qimen) &&
     sameScope(input.qimen, user!) &&
@@ -237,12 +257,27 @@ export function resolveConditionalLiuyaoAuthority(
   const analystUserAlignedCount = independentAnalysts.filter(
     (view) => arbitrationDirection(view.direction) === userSignature,
   ).length;
-  const analystMajority =
+  const analystTeacherAlignedCount = independentAnalysts.filter(
+    (view) => arbitrationDirection(view.direction) === teacherSignature,
+  ).length;
+  const userAnalystMajority =
     independentAnalysts.length >= CONDITIONAL_LIUYAO_AUTHORITY_POLICY.minimumIndependentAnalysts &&
     analystUserAlignedCount > independentAnalysts.length / 2;
-  const strictConsensusPassed = qimenAligned && chanAligned && analystMajority;
+  const teacherAnalystMajority =
+    independentAnalysts.length >= CONDITIONAL_LIUYAO_AUTHORITY_POLICY.minimumIndependentAnalysts &&
+    analystTeacherAlignedCount > independentAnalysts.length / 2;
+  const qimenTeacherAligned =
+    eligibleWithDirection(input.qimen) &&
+    sameScope(input.qimen, teacher!) &&
+    arbitrationDirection(input.qimen.direction) === teacherSignature;
+  const chanTeacherAligned =
+    eligibleWithDirection(input.chan) &&
+    sameScope(input.chan, teacher!) &&
+    arbitrationDirection(input.chan.direction) === teacherSignature;
+  const userConsensusPassed = qimenAligned && chanAligned && userAnalystMajority;
+  const teacherConsensusPassed = qimenTeacherAligned && chanTeacherAligned && teacherAnalystMajority;
 
-  if (strictConsensusPassed) {
+  if (userConsensusPassed && !teacherConsensusPassed) {
     return selectedResult({
       source: "USER",
       direction: userDirection,
@@ -257,14 +292,29 @@ export function resolveConditionalLiuyaoAuthority(
     });
   }
 
+  if (teacherConsensusPassed && !userConsensusPassed) {
+    return selectedResult({
+      source: "TEACHER",
+      direction: teacherDirection,
+      reason: "WOLF_SELECTED_BY_STRICT_CROSS_METHOD_CONSENSUS",
+      teacherDirection,
+      userDirection,
+      showBoth: true,
+      confidenceAdjustment: 5,
+      analystEligibleCount: independentAnalysts.length,
+      analystUserAlignedCount,
+      strictConsensusPassed: true,
+    });
+  }
+
   return selectedResult({
-    source: "TEACHER",
-    direction: teacherDirection,
-    reason: "TEACHER_RETAINS_SOFT_PRIORITY",
+    source: null,
+    direction: null,
+    reason: "WOLF_USER_EQUAL_CONFLICT_REQUIRES_HUMAN_REVIEW",
     teacherDirection,
     userDirection,
     showBoth: true,
-    confidenceAdjustment: -10,
+    confidenceAdjustment: -12,
     analystEligibleCount: independentAnalysts.length,
     analystUserAlignedCount,
     strictConsensusPassed: false,
