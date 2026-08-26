@@ -25,6 +25,7 @@ export function ConclusionFirstPanel({
   detailLabel,
   children,
   className = "",
+  headingLevel = "h2",
 }: {
   eyebrow?: string;
   title: string;
@@ -34,14 +35,16 @@ export function ConclusionFirstPanel({
   detailLabel?: string;
   children?: ReactNode;
   className?: string;
+  headingLevel?: "h1" | "h2";
 }) {
+  const HeadingTag = headingLevel;
   return (
     <section
       data-conclusion-first="1"
       className={`rounded-2xl border border-violet-300/20 bg-[linear-gradient(145deg,rgba(58,38,108,.20),rgba(7,9,14,.94))] p-4 sm:p-5 ${className}`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-violet-200/70">{eyebrow}</p>
-      <h2 className="mt-2 text-xl font-semibold text-white sm:text-2xl">{title}</h2>
+      <HeadingTag className="mt-2 text-xl font-semibold text-white sm:text-2xl">{title}</HeadingTag>
       <p className="mt-2 max-w-5xl text-sm leading-6 text-white/68">{conclusion}</p>
 
       {facts.length ? (

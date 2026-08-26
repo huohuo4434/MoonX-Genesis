@@ -5,10 +5,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
 import { mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { weeklyReportActions } from "@/lib/presentation/member-conclusion-summaries";
 import type { WeeklyAnalysisMemberView } from "@/types/weekly-analysis";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,12 @@ export default async function MemberWeeklyReportPage() {
   const risks = published
     .flatMap((row) => row.risks?.map((risk) => ({ asset: row.assetName, risk })) ?? [])
     .slice(0, 5);
+  const lead = top[0] ?? null;
+  const weeklyFacts: ConclusionFirstFact[] = [
+    { label: "本周覆盖", value: `${published.length}/${payload.summary.coverageCount}`, tone: published.length ? "neutral" : "muted" },
+    ...(lead ? [{ label: "首要关注", value: `${lead.assetName} · ${mooxDirectionLabelZh(lead.overallDirection)}`, tone: "turn" as const }] : []),
+    { label: "明确风险", value: `${risks.length}项`, tone: risks.length ? "negative" : "muted" },
+  ];
 
   return (
     <>
@@ -60,12 +68,18 @@ export default async function MemberWeeklyReportPage() {
       <main>
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-6xl space-y-9">
-            <header className="rounded-3xl border border-amber-300/15 bg-[radial-gradient(circle_at_90%_0%,rgba(245,158,11,.13),transparent_34%),linear-gradient(145deg,#12110d,#090a0e)] p-6 sm:p-8">
-              <Badge variant="warning">会员周报</Badge>
-              <Heading as="h1" size="h2" className="mt-4">本周先看什么</Heading>
-              <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">周报只保留最重要的机会、风险和行动顺序；九大市场逐项研究请进入“周走势预测”。</Text>
-              <div className="mt-4 flex flex-wrap gap-4 text-caption text-foreground-tertiary"><span>{payload.summary.weekLabel}</span><span>已发布 {published.length}/{payload.summary.coverageCount}</span><span>{payload.summary.lastUpdatedLabel}</span></div>
-            </header>
+            <ConclusionFirstPanel
+              eyebrow={`会员周报 · ${payload.summary.weekLabel}`}
+              headingLevel="h1"
+              title="本周行动结论"
+              conclusion={lead
+                ? `先看${lead.assetName}的${mooxDirectionLabelZh(lead.overallDirection)}路径；其余标的按下方信心排序核验，技术位置未确认前不追单。`
+                : "本周研究仍在审核，暂不为了凑数给出低质量结论。"}
+              facts={weeklyFacts}
+              actions={weeklyReportActions(Boolean(lead))}
+            >
+              <p>{payload.summary.lastUpdatedLabel}。九大市场逐项研究请进入“周走势预测”。</p>
+            </ConclusionFirstPanel>
 
             <section>
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">本周优先关注</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">按当前信心和研究新鲜度筛出前5项，不代表全部都要立即交易。</Text></div><Link href="/member/weekly" className="text-body-sm text-primary">查看完整周走势 →</Link></div>

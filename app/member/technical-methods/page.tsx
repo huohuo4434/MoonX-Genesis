@@ -85,7 +85,7 @@ export default async function MemberTechnicalMethodsPage({ searchParams }: { sea
   const selectedIsCatalogued = catalogState.instruments.some((row) => row.symbol === symbol);
 
   return <><MemberDeviceHeartbeat /><main className="mx-auto max-w-7xl px-4 py-8 text-zinc-100">
-    <section className="rounded-3xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.08] to-violet-400/[0.05] p-5 sm:p-7">
+    <section data-conclusion-first="1" className="rounded-3xl border border-amber-300/20 bg-gradient-to-br from-amber-300/[0.08] to-violet-400/[0.05] p-5 sm:p-7">
       <p className="text-xs font-semibold tracking-[.14em] text-amber-300">缠论阶段分析 · {instrument.label} · {selectedTimeframe}</p>
       <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_360px]">
         <div>

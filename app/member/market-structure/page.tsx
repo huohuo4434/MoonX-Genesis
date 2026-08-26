@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { loadCryptoDerivativesDashboard } from "@/lib/market-data/crypto-derivatives-dashboard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { hasMarketStructureEvidence } from "@/lib/presentation/member-conclusion-summaries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,12 +48,31 @@ export default async function MarketStructurePage() {
   if (gate.status === "DEVICE_REQUIRED") return <main className="min-h-screen bg-[#07080a] text-white"><div className="mx-auto max-w-6xl px-4 py-12"><MemberDeviceGate decision={gate.device} nextPath={path} /></div></main>;
 
   const rows = await loadCryptoDerivativesDashboard().catch(() => []);
+  const evidenceRows = rows.filter(hasMarketStructureEvidence);
+  const structureFacts: ConclusionFirstFact[] = evidenceRows.slice(0, 4).map((row) => ({
+    label: row.symbol,
+    value: row.price !== null || row.chanConfirmation !== null || row.chanInvalidation !== null
+      ? `${row.chanStageZh} · ${row.crowdingZh}`
+      : `衍生品数据可用 · ${row.crowdingZh}`,
+    tone: "neutral",
+  }));
   return <main className="min-h-screen bg-[#07080a] text-white">
     <MemberDeviceHeartbeat />
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">会员实验数据台</p>
-      <h1 className="mt-3 text-3xl font-semibold">交易结构与多空数据</h1>
-      <p className="mt-3 max-w-4xl text-sm leading-7 text-white/60">看缠论位置、多空是否拥挤、杠杆资金有没有明显偏向。正式方向看日报/周报，这里只判断当前位置和风险。</p>
+      <ConclusionFirstPanel
+        eyebrow="会员实验数据台"
+        headingLevel="h1"
+        title="当前位置结论"
+        conclusion={evidenceRows.length
+          ? `已取得${evidenceRows.length}个市场的有效结构或衍生品字段。本页只判断位置和风险，不改变日报、周报已经锁定的正式方向。`
+          : "行情源暂无可用数据，当前暂停结构判断，不使用旧值或假数据补齐。"}
+        facts={structureFacts}
+        actions={[
+          "先看4H结构是否与正式方向同向。",
+          "资金费率或多空比拥挤时降低执行优先级。",
+          "确认位未突破或失效位已触发时继续等待。",
+        ]}
+      />
 
       <div className="mt-7 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.025] p-2">
         <table className="min-w-[980px] w-full text-left text-sm">
@@ -68,7 +89,6 @@ export default async function MarketStructurePage() {
           </tr>)}</tbody>
         </table>
       </div>
-      {!rows.length ? <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/[0.05] p-4 text-sm text-amber-100">当前公开行情源没有返回可用数据，页面不会用旧值或假数据填充。</div> : null}
       <p className="mt-4 text-xs leading-6 text-white/35">强平热力图只有接入可靠的实时强平流后才展示；当前不把普通多空比伪装成“爆仓点位”。</p>
     </div>
   </main>;

@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
-import { Badge, Heading, Section, Text } from "@/components/ui";
+import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
+import { Badge, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { getOrRefreshEarlyAltcoinRadar, type EarlyAltcoinCandidate, type EarlyAltcoinVerdict } from "@/lib/trading-signals/early-altcoin-radar";
@@ -76,15 +77,29 @@ export default async function EarlyAltcoinRadarPage() {
 
   let report;
   try { report = projectPublicAttribution(await getOrRefreshEarlyAltcoinRadar(20), { locale: en ? "en" : "zh" }); } catch { report = null; }
+  const radarFacts: ConclusionFirstFact[] = report ? [
+    { label: "早期候选", value: `${report.earlyCandidateCount}个`, tone: report.earlyCandidateCount ? "positive" : "muted" },
+    { label: "本轮线索", value: `${report.candidateCount}个`, tone: report.candidateCount ? "neutral" : "muted" },
+    { label: "扫描频率", value: "15分钟", tone: "turn" },
+  ] : [{ label: "当前状态", value: "等待扫描", tone: "muted" }];
 
   return <main className="min-h-screen bg-[#07080a] text-white"><Section spacing="lg"><MemberDeviceHeartbeat />
     <div className="flex flex-wrap items-center gap-2"><Text variant="caption" color="tertiary" className="font-mono uppercase tracking-[0.18em]">MOOX EARLY ALTCOIN RADAR · 15 MIN</Text><Badge variant="warning">实验性功能</Badge></div>
-    <Heading as="h1" size="h2" className="mt-2">早期山寨币雷达</Heading>
-    <Text variant="body" color="secondary" className="mt-3 max-w-4xl leading-relaxed">先看扫描时间、博主价与当前价，再看X热度和链上条件。少量提及且尚未大涨的候选优先研究；已经过热的不追。</Text>
+    <ConclusionFirstPanel
+      headingLevel="h1"
+      title="本轮雷达结论"
+      conclusion={report?.conclusionZh ?? "等待下一轮15分钟扫描结果，不用旧数据补齐候选。"}
+      facts={radarFacts}
+      actions={[
+        "少量提及且尚未大涨的候选优先核验。",
+        "先核对流动性、合约和提及后涨幅。",
+        "已经过热的标的不追。",
+      ]}
+      className="mt-4"
+    />
 
-    {!report ? <div className="mt-7 rounded-2xl border border-dashed border-white/10 p-6 text-white/55">等待下一轮15分钟扫描结果。</div> : <>
-      <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"><div><p className="text-sm font-semibold">本轮：{report.earlyCandidateCount} 个早期候选 / {report.candidateCount} 个线索</p><p className="mt-1 text-xs text-white/40">生成 {formatDateTimeChina(report.generatedAt)}</p></div><p className="max-w-3xl text-sm text-white/65">{report.conclusionZh}</p></div>
-
+    {!report ? null : <>
+      <p className="mt-4 text-xs text-white/40">生成 {formatDateTimeChina(report.generatedAt)}</p>
       <div className="mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2">
         <table className="min-w-[1320px] w-full text-left text-sm">
           <thead className="text-xs tracking-[0.1em] text-white/40"><tr><th className="px-3 py-3">扫描/提及</th><th className="px-3 py-3">币</th><th className="px-3 py-3">合约 / 链</th><th className="px-3 py-3">来源</th><th className="px-3 py-3">博主价</th><th className="px-3 py-3">当前价</th><th className="px-3 py-3">提及后</th><th className="px-3 py-3">X热度</th><th className="px-3 py-3">流动性</th><th className="px-3 py-3">实验奇门</th><th className="px-3 py-3">结论</th></tr></thead>
