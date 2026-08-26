@@ -4,8 +4,10 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   buildWeeklyRollingVerification,
+  normalizeWeeklyRollingSymbol,
   scoreRollingDailyDirection,
 } from "../lib/verification/weekly-rolling-core";
+import { buildWeeklyRollingActualsFromBars } from "../lib/verification/weekly-rolling-market-core";
 import type {
   DailyAccuracyDirection,
   DailyForecastRecord,
@@ -195,6 +197,44 @@ test("traditional markets mark weekends closed while crypto retains all seven da
     spx.days.filter((day) => day.marketClosed).map((day) => day.date),
     ["2026-08-29", "2026-08-30"],
   );
+  assert.equal(normalizeWeeklyRollingSymbol("GC"), "GOLD");
+});
+
+test("weekly path is verified from realized bars even when no daily forecast exists", () => {
+  const report = buildWeeklyRollingVerification({
+    weekly: weekly("BTC"),
+    forecasts: [],
+    results: [],
+    actuals: [
+      { symbol: "BTC", date: "2026-08-24", actualDirection: "DOWN", actualLabel: "下跌", marketClosed: false, verifiedAt: "2026-08-25T00:30:00.000Z", dataSource: "test-bars" },
+      { symbol: "BTC", date: "2026-08-25", actualDirection: "UP", actualLabel: "上涨", marketClosed: false, verifiedAt: "2026-08-26T00:30:00.000Z", dataSource: "test-bars" },
+    ],
+    now: NOW,
+  });
+
+  assert.equal(report.verifiedDays, 2);
+  assert.equal(report.days[0]?.predictionSource, "WEEKLY_PLAN");
+  assert.equal(report.days[0]?.actualDirection, "DOWN");
+  assert.equal(report.days[1]?.actualDirection, "UP");
+});
+
+test("one fetched bar window produces every completed crypto session", () => {
+  const actuals = buildWeeklyRollingActualsFromBars({
+    symbol: "BTC",
+    quoteSymbol: "BTC-USD",
+    readyDates: ["2026-08-24", "2026-08-25"],
+    bars: [
+      { date: "2026-08-23", open: 100, high: 101, low: 99, close: 100 },
+      { date: "2026-08-24", open: 100, high: 100, low: 97, close: 98 },
+      { date: "2026-08-25", open: 98, high: 101, low: 98, close: 100 },
+    ],
+    dataSource: "test-bars",
+    verifiedAt: NOW.toISOString(),
+  });
+  assert.deepEqual(actuals.map((row) => [row.date, row.actualDirection]), [
+    ["2026-08-24", "DOWN"],
+    ["2026-08-25", "UP"],
+  ]);
 });
 
 test("weekly member route loads verification only after the locked-member branch", () => {
@@ -203,6 +243,9 @@ test("weekly member route loads verification only after the locked-member branch
   const rollingLoad = route.indexOf("await getWeeklyRollingVerification(payload.slots)");
   assert.ok(lockedBranch >= 0 && rollingLoad > lockedBranch);
   assert.match(route, /rollingVerification=\{rollingVerification\}/);
+
+  const loader = readFileSync(resolve("lib/accuracy/get-weekly-rolling-verification.ts"), "utf8");
+  assert.match(loader, /getWeeklyRollingActuals\(slots, results, now\)/);
 
   const panel = readFileSync(resolve("components/member/WeeklyRollingVerificationPanel.tsx"), "utf8");
   assert.match(panel, /未来日期、休市日和事后补写内容不计分/);

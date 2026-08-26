@@ -3,6 +3,7 @@ import { DIRECTION_LABELS } from "@/types/daily-accuracy";
 import type { WeeklyAnalysisMemberView } from "@/types/weekly-analysis";
 import type {
   WeeklyRollingConfidence,
+  WeeklyRollingActualSession,
   WeeklyRollingDay,
   WeeklyRollingDayMatch,
   WeeklyRollingVerification,
@@ -18,9 +19,9 @@ function addDays(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-function normalizeSymbol(value: string): string {
+export function normalizeWeeklyRollingSymbol(value: string): string {
   const symbol = value.trim().toUpperCase();
-  if (["GLD", "GOLD", "XAU", "GC=F"].includes(symbol)) return "GOLD";
+  if (["GLD", "GOLD", "XAU", "GC", "GC=F"].includes(symbol)) return "GOLD";
   if (["SHCOMP", "SSEC", "000001.SS"].includes(symbol)) return "SSEC";
   if (["SILVER", "SI", "SI=F", "SLV"].includes(symbol)) return "SILVER";
   if (["WTI", "CL", "CL=F"].includes(symbol)) return "WTI";
@@ -28,7 +29,7 @@ function normalizeSymbol(value: string): string {
 }
 
 function isMarketClosed(symbol: string, date: string): boolean {
-  if (CRYPTO_SYMBOLS.has(normalizeSymbol(symbol))) return false;
+  if (CRYPTO_SYMBOLS.has(normalizeWeeklyRollingSymbol(symbol))) return false;
   const day = new Date(`${date}T12:00:00Z`).getUTCDay();
   return day === 0 || day === 6;
 }
@@ -103,14 +104,15 @@ export function buildWeeklyRollingVerification(input: {
   weekly: WeeklyAnalysisMemberView;
   forecasts: readonly DailyForecastRecord[];
   results: readonly DailyVerificationResult[];
+  actuals?: readonly WeeklyRollingActualSession[];
   now?: Date;
 }): WeeklyRollingVerification {
   const { weekly } = input;
   const now = input.now ?? new Date();
   const todayKey = getChinaDateKey(now);
-  const symbol = normalizeSymbol(weekly.displaySymbol ?? weekly.symbol);
+  const symbol = normalizeWeeklyRollingSymbol(weekly.displaySymbol ?? weekly.symbol);
   const canonical = selectCanonicalDailyForecasts(input.forecasts).filter(
-    (row) => normalizeSymbol(row.symbol) === symbol
+    (row) => normalizeWeeklyRollingSymbol(row.symbol) === symbol
       && row.forecastDate >= weekly.weekStart
       && row.forecastDate <= weekly.weekEnd
       && wasPublishedBeforeCutoff(row),
@@ -124,11 +126,21 @@ export function buildWeeklyRollingVerification(input: {
       })
       .map((row) => [row.forecastId, row]),
   );
+  const actualByDate = new Map(
+    (input.actuals ?? [])
+      .filter((row) => normalizeWeeklyRollingSymbol(row.symbol) === symbol)
+      .filter((row) => {
+        const verifiedAt = Date.parse(row.verifiedAt);
+        return row.date <= todayKey && Number.isFinite(verifiedAt) && verifiedAt <= now.getTime();
+      })
+      .map((row) => [row.date, row]),
+  );
   const dates = Array.from({ length: 7 }, (_, index) => addDays(weekly.weekStart, index));
   const tradingDates = dates.filter((date) => !isMarketClosed(symbol, date));
 
   const days: WeeklyRollingDay[] = dates.map((date) => {
-    const marketClosed = isMarketClosed(symbol, date);
+    const actual = actualByDate.get(date);
+    const marketClosed = isMarketClosed(symbol, date) || actual?.marketClosed === true;
     if (marketClosed) {
       return {
         date, marketClosed, predictedDirection: null, predictedLabel: null, predictionSource: null,
@@ -140,18 +152,19 @@ export function buildWeeklyRollingVerification(input: {
     const planned = weeklyPlanDirection(weekly.overallDirection, tradingIndex, tradingDates.length);
     const predictedDirection = locked?.direction ?? planned;
     const result = locked ? resultByForecastId.get(locked.id) : undefined;
-    if (!result || !predictedDirection) {
+    const actualDirection = result?.actualDirection ?? actual?.actualDirection ?? null;
+    if (!actualDirection || !predictedDirection) {
       return {
         date, marketClosed, predictedDirection, predictedLabel: predictedDirection ? DIRECTION_LABELS[predictedDirection] : null,
         predictionSource: predictedDirection ? (locked ? "LOCKED_DAILY" : "WEEKLY_PLAN") : null,
         actualDirection: null, actualLabel: null, status: "PENDING", match: "PENDING", score: null,
       };
     }
-    const scored = scoreRollingDailyDirection(predictedDirection, result.actualDirection);
+    const scored = scoreRollingDailyDirection(predictedDirection, actualDirection);
     return {
       date, marketClosed, predictedDirection, predictedLabel: DIRECTION_LABELS[predictedDirection],
-      predictionSource: "LOCKED_DAILY", actualDirection: result.actualDirection,
-      actualLabel: DIRECTION_LABELS[result.actualDirection], status: "VERIFIED",
+      predictionSource: locked ? "LOCKED_DAILY" : "WEEKLY_PLAN", actualDirection,
+      actualLabel: result ? DIRECTION_LABELS[result.actualDirection] : actual?.actualLabel ?? DIRECTION_LABELS[actualDirection], status: "VERIFIED",
       match: scored.match, score: scored.score,
     };
   });
