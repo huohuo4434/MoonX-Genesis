@@ -17,9 +17,10 @@ import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { projectPublicAttribution, PUBLIC_ATTRIBUTION_DISCLOSURE_EN, PUBLIC_ATTRIBUTION_DISCLOSURE_ZH } from "@/lib/presentation/public-attribution";
 import { buildMultiViewResearcherAlias, summarizeMultiViewConsensus } from "@/lib/research/member-multi-view-core";
 import { resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
-import { DATED_EXTERNAL_INDICATORS_20260823 } from "@/lib/data/external-indicators-20260823";
+import { DATED_EXTERNAL_INDICATORS } from "@/lib/data/dated-external-indicators";
 import { getCachedMemberAlphaFeed } from "@/lib/trading-signals/member-alpha-feed-cache";
 import { displayMarketCode, normalizeOfficialDirection, type OfficialDirection } from "@/lib/forecasts/formal-direction";
+import { getChinaDateKey } from "@/lib/date/china-date";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -195,6 +196,7 @@ type DatedOpinion = {
   direction: MemberAssetOpinionEntry["direction"];
   summary: string;
   method: string;
+  condition?: string;
 };
 
 type DatedAssetRow = {
@@ -237,12 +239,13 @@ function datedAssetRows(groups: MemberAssetOpinionGroup[]): DatedAssetRow[] {
       }
     }
   }
-  for (const signal of DATED_EXTERNAL_INDICATORS_20260823) {
+  for (const signal of DATED_EXTERNAL_INDICATORS) {
     add(signal.asset, ASSET_DISPLAY_NAMES[signal.asset] ?? signal.asset, signal.date, {
       alias: signal.analystAlias,
       direction: signal.direction,
       summary: signal.reason,
       method: signal.layer === "TECHNICAL" ? "技术面" : signal.layer === "NEWS" ? "新闻/事件" : "宏观面",
+      condition: signal.condition,
     });
   }
   const preferred = ["BTC", "ETH", "SPX", "NDX", "GOLD", "SILVER", "WTI", "NVDA", "MRVL", "MU", "TSLA"];
@@ -251,6 +254,18 @@ function datedAssetRows(groups: MemberAssetOpinionGroup[]): DatedAssetRow[] {
     return index < 0 ? preferred.length : index;
   };
   return [...rows.values()].sort((a, b) => b.date.localeCompare(a.date) || assetRank(a.asset) - assetRank(b.asset) || a.asset.localeCompare(b.asset, "en-US")).slice(0, 80);
+}
+
+function dateKeyDaysBefore(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const value = new Date(Date.UTC(year!, month! - 1, day!));
+  value.setUTCDate(value.getUTCDate() - days);
+  return value.toISOString().slice(0, 10);
+}
+
+function recentDatedAssetRows(groups: MemberAssetOpinionGroup[], todayKey = getChinaDateKey()): DatedAssetRow[] {
+  const earliestDate = dateKeyDaysBefore(todayKey, 9);
+  return datedAssetRows(groups).filter((row) => row.date >= earliestDate && row.date <= todayKey);
 }
 
 function opinionNames(opinions: DatedOpinion[], direction: DatedOpinion["direction"]): string {
@@ -292,7 +307,7 @@ function AssetDateOpinionHeatmap({
   officialByAsset: Map<string, OfficialDirection>;
   en: boolean;
 }) {
-  const rows = datedAssetRows(groups);
+  const rows = recentDatedAssetRows(groups);
   if (!rows.length) return null;
   const dates = [...new Set(rows.map((row) => row.date))].sort().slice(-10);
   const assetRows = new Map<string, { asset: string; displayAsset: string; cells: Map<string, DatedAssetRow> }>();
@@ -336,7 +351,7 @@ function AssetDateOpinionHeatmap({
               const overall = heatDirection(allOpinions);
               return (
                 <tr key={`heat:${assetRow.asset}`} className="group/row">
-                  <td className="sticky left-0 z-10 border-b border-r border-white/[0.07] bg-[#0b0e13] px-4 py-3"><a className="font-semibold text-cyan-100 hover:text-cyan-50" href={`#asset-${assetRow.asset.toLowerCase()}`}>{assetRow.displayAsset}</a><span className="mt-0.5 block font-mono text-[10px] text-white/35">{assetRow.asset}</span></td>
+                  <td className="sticky left-0 z-10 border-b border-r border-white/[0.07] bg-[#0b0e13] px-4 py-3"><a className="font-semibold text-cyan-100 hover:text-cyan-50" href={`#dated-asset-${assetRow.asset.toLowerCase()}`}>{assetRow.displayAsset}</a><span className="mt-0.5 block font-mono text-[10px] text-white/35">{assetRow.asset}</span></td>
                   {dates.map((date) => {
                     const row = assetRow.cells.get(date);
                     if (!row) return <td key={date} className="border-b border-white/[0.06] p-1.5"><div className="flex h-[68px] items-center justify-center rounded-lg border border-white/[0.05] bg-white/[0.012] text-white/18">—</div></td>;
@@ -350,8 +365,9 @@ function AssetDateOpinionHeatmap({
                     const alignedCount = new Set(aligned.map((item) => item.alias)).size;
                     const oppositeCount = new Set(opposite.map((item) => item.alias)).size;
                     const relation = !official ? (en ? "MOOX —" : "待MOOX") : mooxSide === "NEUTRAL" ? (en ? "PATH" : "路径") : `${en ? "A" : "同"}${alignedCount} ${en ? "O" : "反"}${oppositeCount}`;
-                    const title = `${row.displayAsset} ${row.date}\n${en ? "Bullish" : "看涨"}：${opinionNames(row.opinions, "BULLISH") || "—"}\n${en ? "Bearish" : "看跌"}：${opinionNames(row.opinions, "BEARISH") || "—"}\n${en ? "Neutral" : "中性"}：${opinionNames(row.opinions, "NEUTRAL") || "—"}\nMOOX：${official ?? "—"}`;
-                    return <td key={date} className="border-b border-white/[0.06] p-1.5"><a href={`#asset-${assetRow.asset.toLowerCase()}`} title={title} aria-label={`${row.displayAsset} ${row.date} ${directionLabel(direction, en)}`} className={`flex h-[68px] flex-col items-center justify-center rounded-lg border transition hover:-translate-y-0.5 hover:brightness-125 ${heatCellClass(direction)}`}><div className="flex items-center gap-1"><HeatSignal direction={direction} /><span className="text-[11px] font-semibold">{bullish.size}{en ? "B" : "多"}/{bearish.size}{en ? "S" : "空"}</span></div><span className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[9px] ${oppositeCount ? "bg-rose-300/15 text-rose-100" : "bg-black/20 text-current opacity-75"}`}>{relation}</span></a></td>;
+                    const conditions = row.opinions.filter((item) => item.condition).map((item) => `${item.alias}：${item.condition}`).join("；");
+                    const title = `${row.displayAsset} ${row.date}\n${en ? "Bullish" : "看涨"}：${opinionNames(row.opinions, "BULLISH") || "—"}\n${en ? "Bearish" : "看跌"}：${opinionNames(row.opinions, "BEARISH") || "—"}\n${en ? "Neutral" : "中性"}：${opinionNames(row.opinions, "NEUTRAL") || "—"}${conditions ? `\n${en ? "Conditions" : "确认/失效条件"}：${conditions}` : ""}\nMOOX：${official ?? "—"}`;
+                    return <td key={date} className="border-b border-white/[0.06] p-1.5"><a href={`#dated-asset-${assetRow.asset.toLowerCase()}`} title={title} aria-label={`${row.displayAsset} ${row.date} ${directionLabel(direction, en)}`} className={`flex h-[68px] flex-col items-center justify-center rounded-lg border transition hover:-translate-y-0.5 hover:brightness-125 ${heatCellClass(direction)}`}><div className="flex items-center gap-1"><HeatSignal direction={direction} /><span className="text-[11px] font-semibold">{bullish.size}{en ? "B" : "多"}/{bearish.size}{en ? "S" : "空"}</span></div><span className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[9px] ${oppositeCount ? "bg-rose-300/15 text-rose-100" : "bg-black/20 text-current opacity-75"}`}>{relation}</span></a></td>;
                   })}
                   <td className="border-b border-l border-white/[0.07] px-3 py-2 text-center"><Badge variant={directionVariant(overall)}>{directionLabel(overall, en)}</Badge><span className="mt-1 block text-[10px] text-white/40">{totalBull}{en ? " bull" : "多"} / {totalBear}{en ? " bear" : "空"}</span></td>
                 </tr>
@@ -362,6 +378,43 @@ function AssetDateOpinionHeatmap({
       </div>
       <div className="border-t border-white/[0.08] px-5 py-3 text-xs leading-5 text-white/45">{en ? "Cell format: bullish votes / bearish votes; A/O means aligned/opposite to MOOX. Hover or tap an asset to read the anonymous evidence. Only exact-date views enter the heatmap." : "格内数字=看多票数/看跌票数；“同/反”表示与MOOX正式方向的关系。悬停看名单，点击资产进入匿名观点详情。只有明确生效日期的观点进入热力图；少于10个有效验证样本仍为0%权重。"}</div>
     </Card>
+  );
+}
+
+function DatedEvidenceSections({ groups, en }: { groups: MemberAssetOpinionGroup[]; en: boolean }) {
+  const rows = recentDatedAssetRows(groups);
+  if (!rows.length) return null;
+  const byAsset = new Map<string, { displayAsset: string; rows: DatedAssetRow[] }>();
+  for (const row of rows) {
+    const current = byAsset.get(row.asset) ?? { displayAsset: row.displayAsset, rows: [] };
+    current.rows.push(row);
+    byAsset.set(row.asset, current);
+  }
+  return (
+    <div className="space-y-3">
+      <div><Heading as="h2" size="h3">{en ? "Dated evidence" : "按资产查看日期化证据"}</Heading><Text variant="body-sm" color="tertiary" className="mt-1 block">{en ? "Open only the asset you need. Each item preserves its date, method and condition." : "只展开你关心的资产；每条保留生效日期、方法、方向与条件，不把月份观点冒充单日观点。"}</Text></div>
+      {[...byAsset.entries()].map(([asset, value]) => (
+        <details id={`dated-asset-${asset.toLowerCase()}`} key={`dated:${asset}`} className="rounded-2xl border border-white/[0.09] bg-white/[0.02] p-4">
+          <summary className="cursor-pointer list-none"><div className="flex items-center justify-between gap-3"><div><Heading as="h3" size="h3">{value.displayAsset}</Heading><Text variant="caption" color="tertiary" className="mt-1 block">{asset} · {value.rows.length}{en ? " dated windows" : "个日期窗口"}</Text></div><Badge variant="outline">{en ? "Open" : "展开"}</Badge></div></summary>
+          <div className="mt-4 space-y-3">
+            {value.rows.sort((a, b) => b.date.localeCompare(a.date)).map((row) => (
+              <div key={`${asset}:${row.date}`} className="rounded-xl border border-white/[0.07] bg-black/20 p-4">
+                <Text variant="caption" className="font-mono text-cyan-200/70">{row.date}</Text>
+                <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                  {row.opinions.map((opinion, index) => (
+                    <div key={`${row.date}:${opinion.alias}:${index}`} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                      <div className="flex flex-wrap items-center gap-2"><Badge variant={opinion.direction === "BULLISH" ? "success" : opinion.direction === "BEARISH" ? "danger" : "outline"}>{entryDirectionLabel(opinion.direction, en)}</Badge><Badge variant="outline">{opinion.method}</Badge><Text variant="caption" color="tertiary">{opinion.alias}</Text></div>
+                      <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{opinion.summary}</Text>
+                      {opinion.condition ? <Text variant="caption" className="mt-2 block leading-relaxed text-amber-100/80">{en ? "Confirmation / invalidation" : "确认 / 失效"}：{opinion.condition}</Text> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -460,13 +513,28 @@ export default async function AlphaFeedPage() {
   const { snapshot, todayForecasts } = await getCachedMemberAlphaFeed();
   const report = projectPublicAttribution(snapshot, { locale: en ? "en" : "zh" });
   const groups = report?.assets ?? [];
+  const todayKey = getChinaDateKey();
+  const datedRows = recentDatedAssetRows(groups, todayKey);
+  const latestDatedDate = datedRows.map((row) => row.date).sort().at(-1) ?? null;
+  const latestDatedRows = latestDatedDate ? datedRows.filter((row) => row.date === latestDatedDate) : [];
   const officialByAsset = new Map<string, OfficialDirection>();
   for (const forecast of todayForecasts) {
     officialByAsset.set(`${canonicalForecastSymbol(forecast.symbol)}:${forecast.forecastForDate}`, normalizeOfficialDirection(forecast.directionLabel ?? forecast.direction));
   }
   const health = report?.health;
-  const bullishAssets = groups.filter((group) => group.bullishResearchers > group.bearishResearchers).map((group) => group.displayAsset);
-  const bearishAssets = groups.filter((group) => group.bearishResearchers > group.bullishResearchers).map((group) => group.displayAsset);
+  const liveBullishAssets = groups.filter((group) => group.bullishResearchers > group.bearishResearchers).map((group) => group.displayAsset);
+  const liveBearishAssets = groups.filter((group) => group.bearishResearchers > group.bullishResearchers).map((group) => group.displayAsset);
+  const fallbackBullishAssets = latestDatedRows.filter((row) => heatDirection(row.opinions) === "BULLISH").map((row) => row.displayAsset);
+  const fallbackBearishAssets = latestDatedRows.filter((row) => heatDirection(row.opinions) === "BEARISH").map((row) => row.displayAsset);
+  const bullishAssets = liveBullishAssets.length || liveBearishAssets.length ? liveBullishAssets : fallbackBullishAssets;
+  const bearishAssets = liveBullishAssets.length || liveBearishAssets.length ? liveBearishAssets : fallbackBearishAssets;
+  const coveredAssetCount = new Set([...groups.map((group) => group.asset), ...datedRows.map((row) => row.asset)]).size;
+  const latestServerTimestamp = health?.lastPostAt ? new Date(health.lastPostAt) : null;
+  const latestServerDate = latestServerTimestamp && !Number.isNaN(latestServerTimestamp.getTime())
+    ? getChinaDateKey(latestServerTimestamp)
+    : null;
+  const latestDataDate = [latestServerDate, latestDatedDate].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+  const latestDataLabel = latestDataDate === latestServerDate && health?.lastPostAt ? dateShort(health.lastPostAt) : latestDataDate?.slice(5) ?? (en ? "pending" : "待补");
 
   return (
     <main data-moox-alpha-feed-native="1" data-moox-server-multi-view="1" data-moox-asset-opinion-matrix="v720109">
@@ -490,9 +558,9 @@ export default async function AlphaFeedPage() {
             ? `Bullish-leading: ${bullishAssets.length ? bullishAssets.slice(0, 12).join(" · ") : "none"}. Bearish-leading: ${bearishAssets.length ? bearishAssets.slice(0, 12).join(" · ") : "none"}.`
             : `看多占优：${bullishAssets.length ? bullishAssets.slice(0, 12).join("、") : "暂无"}；看跌占优：${bearishAssets.length ? bearishAssets.slice(0, 12).join("、") : "暂无"}。`}
           facts={[
-            { label: en ? "Assets" : "覆盖资产", value: String(groups.length), tone: groups.length ? "neutral" : "muted" },
+            { label: en ? "Assets" : "覆盖资产", value: String(coveredAssetCount), tone: coveredAssetCount ? "neutral" : "muted" },
             { label: en ? "Active researchers · 10d" : "10天活跃研究者", value: String(health?.activeResearchers10d ?? 0), tone: (health?.activeResearchers10d ?? 0) > 0 ? "positive" : "muted" },
-            { label: en ? "Newest data" : "最新数据", value: health?.lastPostAt ? dateShort(health.lastPostAt) : (en ? "pending" : "待补"), tone: health?.lastPostAt ? "neutral" : "muted" },
+            { label: en ? "Newest data" : "最新数据", value: latestDataLabel, tone: latestDataDate ? "neutral" : "muted" },
           ]}
           actions={en
             ? ["Use the heatmap only to spot agreement or conflict.", "MOOX remains the official direction; external views only add caution."]
@@ -524,21 +592,23 @@ export default async function AlphaFeedPage() {
 
         <AssetDateOpinionHeatmap groups={groups} officialByAsset={officialByAsset} en={en} />
 
+        <DatedEvidenceSections groups={groups} en={en} />
+
         {groups.length ? <details className="rounded-2xl border border-white/[0.08] bg-white/[0.015] p-4"><summary className="cursor-pointer text-sm font-medium text-white/65">{en ? "View overall consensus ranking" : "展开核心资产共识排行"}</summary><div className="mt-4"><ConsensusTable groups={groups} en={en} /></div></details> : null}
 
-        {!groups.length ? (
+        {!groups.length && !datedRows.length ? (
           <Card padding="lg" className="border border-dashed border-white/15">
             <Heading as="h2" size="h3">{en ? "No asset opinions in the last 10 days" : "最近10天暂无可展示的资产观点"}</Heading>
             <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">{en
               ? "If the collector is healthy but this is empty, the 10-day history backfill has not completed yet."
               : "如果上面的采集状态正常但这里为空，说明10天历史回补尚未完成；升级后的采集器会继续补齐，而不是只等未来新帖。"}</Text>
           </Card>
-        ) : (
+        ) : groups.length ? (
           <div className="space-y-4">
             <div><Heading as="h2" size="h3">{en ? "Asset evidence" : "各资产观点详情"}</Heading><Text variant="body-sm" color="tertiary" className="mt-1 block">{en ? "Collapsed by default. Open only the asset you need." : "默认全部收起，只展开你要看的资产。"}</Text></div>
             {groups.map((group) => <AssetSection key={group.asset} group={group} en={en} />)}
           </div>
-        )}
+        ) : null}
       </Section>
     </main>
   );

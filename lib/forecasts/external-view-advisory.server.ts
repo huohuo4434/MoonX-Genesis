@@ -1,13 +1,13 @@
 import "server-only";
 
-import { DATED_EXTERNAL_INDICATORS_20260823, type DatedExternalIndicator } from "@/lib/data/external-indicators-20260823";
+import { DATED_EXTERNAL_INDICATORS, type DatedExternalIndicator } from "@/lib/data/dated-external-indicators";
 import { normalizeOfficialDirection } from "@/lib/forecasts/formal-direction";
 import { canonicalAssetCode } from "@/lib/presentation/asset-catalog";
 import { buildMultiViewResearcherAlias, resolveMultiViewTargetDates } from "@/lib/research/member-multi-view-core";
 import { getMemberAssetOpinionGroups } from "@/lib/trading-signals/member-multi-view.server";
 import type { DailyForecast } from "@/types/daily-forecast";
 
-type AdvisorySignal = Pick<DatedExternalIndicator, "asset" | "date" | "direction" | "analystAlias" | "reason"> & {
+type AdvisorySignal = Pick<DatedExternalIndicator, "asset" | "date" | "direction" | "analystAlias" | "reason" | "condition"> & {
   source: "DESKTOP" | "X_15M";
 };
 
@@ -25,6 +25,13 @@ function sideLabel(direction: AdvisorySignal["direction"]): string {
 function concise(value: string, max = 96): string {
   const text = value.replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function signalExplanation(signal: AdvisorySignal, max = 120): string {
+  if (!signal.condition) return concise(signal.reason, max);
+  const conditionBudget = Math.max(48, Math.floor(max * 0.55));
+  const reasonBudget = Math.max(40, max - conditionBudget - 8);
+  return `${concise(signal.reason, reasonBudget)}；确认/失效：${concise(signal.condition, conditionBudget)}`;
 }
 
 function dedupeSignals(signals: AdvisorySignal[]): AdvisorySignal[] {
@@ -86,13 +93,13 @@ export function buildExternalViewWarning(forecast: DailyForecast, inputSignals: 
     segments.push(`同向：${aligned.slice(0, 3).map((signal) => `${signal.analystAlias}${sideLabel(signal.direction)}`).join("、")}`);
   }
   if (opposite.length) {
-    segments.push(`相反：${opposite.slice(0, 3).map((signal) => `${signal.analystAlias}${sideLabel(signal.direction)}，因${concise(signal.reason, 72)}`).join("；")}`);
+    segments.push(`相反：${opposite.slice(0, 3).map((signal) => `${signal.analystAlias}${sideLabel(signal.direction)}，因${signalExplanation(signal, 96)}`).join("；")}`);
   }
   if (official === "NEUTRAL" && directional.length) {
     segments.push(`外部：${directional.slice(0, 3).map((signal) => `${signal.analystAlias}${sideLabel(signal.direction)}`).join("、")}`);
   }
   if (neutral.length) {
-    segments.push(`事件/条件：${neutral.slice(0, 2).map((signal) => `${signal.analystAlias}提示${concise(signal.reason, 72)}`).join("；")}`);
+    segments.push(`事件/条件：${neutral.slice(0, 2).map((signal) => `${signal.analystAlias}提示${signalExplanation(signal, 112)}`).join("；")}`);
   }
   segments.push(opposite.length ? "存在反向证据，需谨慎并等待价格确认" : "仅作交叉验证，不改变MOOX正式方向");
   return `外部交叉提醒（${forecast.forecastForDate}）：${segments.join("；")}。`;
@@ -102,12 +109,13 @@ export function buildExternalViewWarning(forecast: DailyForecast, inputSignals: 
 export async function applyExternalViewAdvisories(forecasts: DailyForecast[]): Promise<DailyForecast[]> {
   if (!forecasts.length) return forecasts;
   const xSignals = await loadXSignals();
-  const desktopSignals: AdvisorySignal[] = DATED_EXTERNAL_INDICATORS_20260823.map((signal) => ({
+  const desktopSignals: AdvisorySignal[] = DATED_EXTERNAL_INDICATORS.map((signal) => ({
     asset: signal.asset,
     date: signal.date,
     direction: signal.direction,
     analystAlias: signal.analystAlias,
     reason: signal.reason,
+    condition: signal.condition,
     source: "DESKTOP",
   }));
   const allSignals = [...desktopSignals, ...xSignals];
