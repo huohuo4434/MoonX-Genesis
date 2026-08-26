@@ -19,6 +19,14 @@ export {
 
 export const MEMBER_VIDEO_BUCKET = "moonx-member-videos";
 
+function storageAdminError(label: string, error: unknown): Error {
+  const detail =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "").trim()
+      : "";
+  return new Error(detail ? `${label}：${detail}` : label);
+}
+
 export const MEMBER_VIDEO_STORAGE = {
   "nasdaq-100-historic-drop-window-2026": {
     manifest: "nasdaq-100-historic-drop-window-2026/manifest.json",
@@ -74,7 +82,7 @@ export async function ensureMemberVideoBucket() {
   const admin = getAdminClient();
   if (!admin) throw new Error("会员视频存储尚未配置");
   const { data: buckets, error: listError } = await admin.storage.listBuckets();
-  if (listError) throw new Error("无法检查会员视频存储");
+  if (listError) throw storageAdminError("无法检查会员视频存储", listError);
   const current = buckets?.find((bucket) => bucket.name === MEMBER_VIDEO_BUCKET);
   if (current?.public) throw new Error("会员视频存储必须保持私有");
   if (!current) {
@@ -83,14 +91,14 @@ export async function ensureMemberVideoBucket() {
       fileSizeLimit: 100 * 1024 * 1024,
       allowedMimeTypes: ["video/mp4", "text/vtt", "application/json"],
     });
-    if (error) throw new Error("无法创建会员视频私有存储");
+    if (error) throw storageAdminError("无法创建会员视频私有存储", error);
   } else {
     const { error } = await admin.storage.updateBucket(MEMBER_VIDEO_BUCKET, {
       public: false,
       fileSizeLimit: 100 * 1024 * 1024,
       allowedMimeTypes: ["video/mp4", "text/vtt", "application/json"],
     });
-    if (error) throw new Error("无法校准会员视频私有存储配置");
+    if (error) throw storageAdminError("无法校准会员视频私有存储配置", error);
   }
   return admin;
 }

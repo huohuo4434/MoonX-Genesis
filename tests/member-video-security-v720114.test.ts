@@ -37,6 +37,7 @@ test("member-only copy and storage coordinates stay in server-only modules", () 
   assert.match(storage, /!bucket \|\| bucket\.public/);
   assert.match(storage, /"video\/mp4", "text\/vtt", "application\/json"/);
   assert.match(storage, /updateBucket\(MEMBER_VIDEO_BUCKET/);
+  assert.match(storage, /storageAdminError/);
   assert.doesNotMatch(storage, /getPublicUrl|publicUrl/);
 });
 
