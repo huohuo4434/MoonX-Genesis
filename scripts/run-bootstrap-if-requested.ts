@@ -27,7 +27,13 @@ if (shouldRun) {
     runStep("bootstrap-admin", "npx tsx scripts/bootstrap-admin.ts", true);
   }
   runStep("confirm-existing-users", "npx tsx scripts/confirm-existing-users.ts", false);
-  runStep("apply-migrations", "npx tsx scripts/apply-migrations.ts", false);
+  if (onVercel) {
+    console.log(
+      "[bootstrap] skipped legacy Supabase SQL replay (Vercel uses its separate Prisma migration step)",
+    );
+  } else {
+    runStep("apply-migrations", "npx tsx scripts/apply-migrations.ts", false);
+  }
   runStep("seed-daily-forecasts", "npx tsx scripts/seed-daily-forecasts.ts", false);
   runStep("verify-review", "npx tsx scripts/run-verify-review-once.ts", false);
   runStep("fix-hstech-index", "npx tsx scripts/fix-hstech-index-quotes.ts", false);

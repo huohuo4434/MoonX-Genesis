@@ -33,3 +33,11 @@ test("production bootstrap never sends a payment test email", () => {
   const send = script.indexOf('runStep("payment-email-test"');
   assert.ok(gate >= 0 && send > gate);
 });
+
+test("Vercel postbuild does not replay every legacy Supabase SQL migration", () => {
+  const script = source("scripts/run-bootstrap-if-requested.ts");
+  const skip = script.indexOf("if (onVercel)");
+  const legacyRunner = script.indexOf('runStep("apply-migrations"');
+  assert.ok(skip >= 0 && legacyRunner > skip);
+  assert.match(script, /skipped legacy Supabase SQL replay/);
+});
