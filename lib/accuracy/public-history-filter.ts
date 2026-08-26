@@ -12,6 +12,12 @@ import type {
 } from "@/types/daily-accuracy";
 import { DIRECTION_LABELS, PATTERN_LABELS, VERDICT_LABELS } from "@/types/daily-accuracy";
 import { inferPredictedPattern } from "@/lib/verification/pattern-classifier";
+import {
+  STAR_BUCKET_MIN_SAMPLE_SIZE,
+  exactAccuracy,
+  isLockedBeforeCutoff,
+  weightedAccuracy,
+} from "@/lib/accuracy/accuracy-governance-core";
 
 /**
  * Public history: HIT / MISS only (PARTIAL maps here if introduced later).
@@ -65,6 +71,7 @@ export type PublicAccuracyHistoryItem = {
   mainLowTime?: string | null;
   intradayPath?: Array<{ time: string; close: number }>;
   verdict: DailyVerdict;
+  directionVerdict: DailyVerdict;
   verdictLabel: string;
   verifiedAt: string;
   version: number;
@@ -120,7 +127,7 @@ function isLaterCanonicalForecast(candidate: DailyForecastRecord, current: Daily
 export function selectCanonicalDailyForecasts(forecasts: readonly DailyForecastRecord[]): DailyForecastRecord[] {
   const selected = new Map<string, DailyForecastRecord>();
   for (const forecast of forecasts) {
-    if (forecast.isSystemTest || forecast.status === "draft" || forecast.status === "invalid") continue;
+    if (!isLockedBeforeCutoff(forecast)) continue;
     const key = canonicalForecastKey(forecast);
     const current = selected.get(key);
     if (!current || isLaterCanonicalForecast(forecast, current)) selected.set(key, forecast);
@@ -131,12 +138,6 @@ export function selectCanonicalDailyForecasts(forecasts: readonly DailyForecastR
 function inLastDays(isoDate: string, days: number, now: Date): boolean {
   const t = new Date(`${isoDate}T12:00:00Z`).getTime();
   return t >= now.getTime() - days * 24 * 60 * 60 * 1000;
-}
-
-function rate(hits: number, misses: number): number | null {
-  const den = hits + misses;
-  if (den === 0) return null;
-  return hits / den;
 }
 
 /**
@@ -169,9 +170,8 @@ export function filterPublicAccuracyHistory(input: {
     if (r.forecastDate > todayKey) continue;
 
     const f = forecastById.get(r.forecastId);
-    if (f) {
-      if (!canonicalForecastIds.has(f.id)) continue;
-    }
+    // A public score must always be traceable to the exact pre-cutoff locked forecast.
+    if (!f || !canonicalForecastIds.has(f.id)) continue;
 
     // HSTECH ETF-scale closes (e.g. 4.644) must never enter public accuracy.
     if (
@@ -219,6 +219,11 @@ export function filterPublicAccuracyHistory(input: {
       mainLowTime: r.mainLowTime ?? null,
       intradayPath: r.intradayPath,
       verdict: r.verdict,
+      directionVerdict: isPublicCountableVerdict(r.directionVerdict)
+        ? r.directionVerdict!
+        : isPublicCountableVerdict(r.verdict)
+          ? f.direction === r.actualDirection ? "FULL_HIT" : "MISS"
+          : "UNVERIFIABLE",
       verdictLabel: VERDICT_LABELS[r.verdict] ?? r.verdictLabel,
       verifiedAt: r.verifiedAt,
       version: f?.originalVersion ?? 1,
@@ -280,13 +285,14 @@ export function computePublicAccuracyStats(
   const miss30 = countable.filter(
     (i) => i.verdict === "MISS" && inLastDays(i.forecastDate, 30, now)
   ).length;
-  const weighted = (full: number, partial: number, miss: number) => {
-    const den = full + partial + miss;
-    return den ? (full + partial * 0.5) / den : null;
-  };
   const fullPathItems = countable.filter((i) => i.validationMode === "FULL_PATH");
-  const fullPathHits = fullPathItems.filter((i) => i.verdict === "FULL_HIT" || i.verdict === "HIT").length;
-  const directionHits = countable.filter((i) => i.verdict !== "MISS").length;
+  const fullPathFull = fullPathItems.filter((i) => i.verdict === "FULL_HIT" || i.verdict === "HIT").length;
+  const fullPathPartial = fullPathItems.filter((i) => i.verdict === "PARTIAL_HIT").length;
+  const fullPathMiss = fullPathItems.filter((i) => i.verdict === "MISS").length;
+  const directionCountable = items.filter((i) => isPublicCountableVerdict(i.directionVerdict));
+  const directionFull = directionCountable.filter((i) => i.directionVerdict === "FULL_HIT" || i.directionVerdict === "HIT").length;
+  const directionPartial = directionCountable.filter((i) => i.directionVerdict === "PARTIAL_HIT").length;
+  const directionMiss = directionCountable.filter((i) => i.directionVerdict === "MISS").length;
 
   return {
     totalForecasts: items.length,
@@ -296,12 +302,12 @@ export function computePublicAccuracyStats(
     partialHitCount,
     unverifiableCount: items.filter((i) => i.verdict === "UNVERIFIABLE").length,
     missCount,
-    hitRate: rate(fullHitCount, missCount),
-    weightedHitRate: weighted(fullHitCount, partialHitCount, missCount),
-    pathHitRate: fullPathItems.length ? fullPathHits / fullPathItems.length : null,
-    directionHitRate: countable.length ? directionHits / countable.length : null,
-    hitRate7d: weighted(full7, partial7, miss7),
-    hitRate30d: weighted(full30, partial30, miss30),
+    hitRate: exactAccuracy({ full: fullHitCount, partial: partialHitCount, miss: missCount }),
+    weightedHitRate: weightedAccuracy({ full: fullHitCount, partial: partialHitCount, miss: missCount }),
+    pathHitRate: weightedAccuracy({ full: fullPathFull, partial: fullPathPartial, miss: fullPathMiss }),
+    directionHitRate: weightedAccuracy({ full: directionFull, partial: directionPartial, miss: directionMiss }),
+    hitRate7d: weightedAccuracy({ full: full7, partial: partial7, miss: miss7 }),
+    hitRate30d: weightedAccuracy({ full: full30, partial: partial30, miss: miss30 }),
     voidCount: 0,
     manualReviewCount: 0,
     pendingCount: 0,
@@ -311,8 +317,8 @@ export function computePublicAccuracyStats(
 
 export function publicSourceAccuracyBreakdown(
   items: PublicAccuracyHistoryItem[]
-): Array<{ source: string; hit: number; miss: number; hitRate: number | null }> {
-  const buckets = new Map<string, { hit: number; miss: number }>();
+): Array<{ source: string; hit: number; partial: number; miss: number; hitRate: number | null }> {
+  const buckets = new Map<string, { hit: number; partial: number; miss: number }>();
   const normalize = (s: string) => {
     if (/老师|teacher/i.test(s)) return "老师研究";
     if (/周期|推演|cycle|综合|composite|MoonX/i.test(s)) return "MOOX综合判断";
@@ -323,42 +329,50 @@ export function publicSourceAccuracyBreakdown(
   for (const r of items) {
     if (!isPublicCountableVerdict(r.verdict)) continue;
     const source = normalize(r.source);
-    const cur = buckets.get(source) ?? { hit: 0, miss: 0 };
-    if (r.verdict === "HIT" || r.verdict === "FULL_HIT" || r.verdict === "PARTIAL_HIT") cur.hit += 1;
+    const cur = buckets.get(source) ?? { hit: 0, partial: 0, miss: 0 };
+    if (r.verdict === "HIT" || r.verdict === "FULL_HIT") cur.hit += 1;
+    else if (r.verdict === "PARTIAL_HIT") cur.partial += 1;
     else cur.miss += 1;
     buckets.set(source, cur);
   }
   return [...buckets.entries()].map(([source, v]) => ({
     source,
     hit: v.hit,
+    partial: v.partial,
     miss: v.miss,
-    hitRate: rate(v.hit, v.miss),
+    hitRate: weightedAccuracy({ full: v.hit, partial: v.partial, miss: v.miss }),
   }));
 }
 
 export function publicConfidenceAccuracyBreakdown(
   items: PublicAccuracyHistoryItem[]
-): Array<{ bucket: string; hit: number; miss: number; hitRate: number | null }> {
+): Array<{ bucket: string; hit: number; partial: number; miss: number; hitRate: number | null }> {
   const order = ["50%以下", "50%至59%", "60%至69%", "70%以上"] as const;
-  const buckets: Record<(typeof order)[number], { hit: number; miss: number }> = {
-    "50%以下": { hit: 0, miss: 0 },
-    "50%至59%": { hit: 0, miss: 0 },
-    "60%至69%": { hit: 0, miss: 0 },
-    "70%以上": { hit: 0, miss: 0 },
+  const buckets: Record<(typeof order)[number], { hit: number; partial: number; miss: number }> = {
+    "50%以下": { hit: 0, partial: 0, miss: 0 },
+    "50%至59%": { hit: 0, partial: 0, miss: 0 },
+    "60%至69%": { hit: 0, partial: 0, miss: 0 },
+    "70%以上": { hit: 0, partial: 0, miss: 0 },
   };
   for (const r of items) {
     if (!isPublicCountableVerdict(r.verdict)) continue;
     const p = r.probability ?? 0;
     const key =
       p < 50 ? "50%以下" : p < 60 ? "50%至59%" : p < 70 ? "60%至69%" : "70%以上";
-    if (r.verdict === "HIT" || r.verdict === "FULL_HIT" || r.verdict === "PARTIAL_HIT") buckets[key].hit += 1;
+    if (r.verdict === "HIT" || r.verdict === "FULL_HIT") buckets[key].hit += 1;
+    else if (r.verdict === "PARTIAL_HIT") buckets[key].partial += 1;
     else buckets[key].miss += 1;
   }
   return order.map((bucket) => ({
     bucket,
     hit: buckets[bucket].hit,
+    partial: buckets[bucket].partial,
     miss: buckets[bucket].miss,
-    hitRate: rate(buckets[bucket].hit, buckets[bucket].miss),
+    hitRate: weightedAccuracy({
+      full: buckets[bucket].hit,
+      partial: buckets[bucket].partial,
+      miss: buckets[bucket].miss,
+    }),
   }));
 }
 
@@ -466,7 +480,11 @@ export function publicStarTrendAnalysis(
   const correlation = pearson(rated.map((item) => ({ x: item.stars, y: item.score })));
 
   let conclusion: PublicStarTrendAnalysis["conclusion"] = "INSUFFICIENT";
-  if (rated.length >= 10 && ratedBucketCount >= 2) {
+  if (
+    high.length >= STAR_BUCKET_MIN_SAMPLE_SIZE &&
+    low.length >= STAR_BUCKET_MIN_SAMPLE_SIZE &&
+    ratedBucketCount >= 2
+  ) {
     const signal = lift ?? correlation;
     if (signal != null) {
       if (signal >= 0.1) conclusion = "POSITIVE";

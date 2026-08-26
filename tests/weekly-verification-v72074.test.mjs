@@ -61,22 +61,27 @@ test("opposite explicit reversal order remains a miss", () => {
   assert.deepEqual(score("先跌后涨", "先涨后跌"), ["MISS", 0]);
 });
 
-test("public history normalizes stale database results immediately", () => {
-  assert.match(history, /scoreWeeklyVerification\(row\.predictedPattern, row\.actualPattern\)/);
-  assert.match(history, /WEEKLY_SCORE_VERSION/);
+test("public history never recomputes stored outcomes during a read", () => {
+  assert.doesNotMatch(history, /scoreWeeklyVerification\(/);
+  assert.match(history, /where: \{ scoreVersion: WEEKLY_SCORE_VERSION \}/);
+  assert.match(history, /select: \{ result: true, predictedPattern: true, actualPattern: true \}/);
+  assert.match(history, /take: 200/);
+  assert.match(history, /const eligible = currentVersionRows\.filter/);
+  assert.match(history, /excludedOtherScoreVersions/);
 });
 
-test("public weekly API uses the same normalized score", () => {
-  assert.match(api, /scoreWeeklyVerification\(row\.predictedPattern, row\.actualPattern\)/);
+test("public weekly API uses the shared version-governed loader", () => {
+  assert.match(api, /getWeeklyAccuracyHistory\(\)/);
+  assert.doesNotMatch(api, /scoreWeeklyVerification\(/);
 });
 
 test("direction accuracy is based on final-direction match, not any partial score", () => {
-  assert.match(history, /weeklyDirectionMatches\(r\.predictedPattern, r\.actualPattern\)/);
+  assert.match(history, /weeklyDirectionMatches\(row\.predictedPattern, row\.actualPattern\)/);
 });
 
-test("runner rechecks all rows that do not carry V3 score version", () => {
-  assert.match(runner, /existing\.explanation\?\.includes\(WEEKLY_SCORE_VERSION\)/);
-  assert.match(runner, /options\.force/);
+test("runner requires an explicit version upgrade and retains append-only revisions", () => {
+  assert.match(runner, /existing\.scoreVersion !== WEEKLY_SCORE_VERSION && !options\.force/);
+  assert.match(runner, /weeklyVerificationRevision\.upsert/);
 });
 
 test("core full-hit gate is strict and no same-family branch returns full", () => {

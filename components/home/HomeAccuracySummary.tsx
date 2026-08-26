@@ -5,28 +5,29 @@ import { Card, Text } from "@/components/ui";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
 import { publicSourceAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 import { PUBLIC_INTERPRETATION_LABEL_ZH,publicAttributionText } from "@/lib/presentation/public-attribution";
+import { ASSET_RANK_MIN_SAMPLE_SIZE, DAILY_STABLE_SAMPLE_SIZE } from "@/lib/accuracy/accuracy-governance-core";
 
-const MIN_SAMPLE = 5;
-
-function pct(n: number | null): string {
+function pct(n: number | null | undefined): string {
   if (n == null) return "暂无足够样本";
   return `${(n * 100).toFixed(1)}%`;
 }
 
-function assetSampleLabel(hit: number, miss: number, hitRate: number | null): string {
-  const total = hit + miss;
+function assetSampleLabel(hit: number, partial: number, miss: number, hitRate: number | null): string {
+  const total = hit + partial + miss;
   if (total === 0) return "暂无足够样本";
-  if (total < MIN_SAMPLE) {
-    return `${hit}/${total}命中\n样本较少`;
+  if (total < ASSET_RANK_MIN_SAMPLE_SIZE) {
+    return `样本 ${total} 条\n暂不排名`;
   }
-  return `命中率：${pct(hitRate)}\n${hit}/${total}命中`;
+  return `加权命中率：${pct(hitRate)}\n完全${hit} · 部分${partial} · 未中${miss}`;
 }
 
 export async function HomeAccuracySummary() {
   noStore();
   const { items, stats } = await getPublicAccuracyHistory();
   const byAsset = publicSourceAccuracyBreakdown(items);
-  const sampleCount = stats.hitCount + stats.missCount;
+  const sampleCount = stats.verifiedCount;
+  const sampleReady = sampleCount >= DAILY_STABLE_SAMPLE_SIZE;
+  const governedPct = (value: number | null | undefined) => sampleReady ? pct(value) : "样本积累中";
 
   return (
     <section className="border-t border-border/[0.06] py-8 lg:py-12">
@@ -38,9 +39,9 @@ export async function HomeAccuracySummary() {
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
-            ["总命中率", `${pct(stats.hitRate)}（有效样本 ${sampleCount}）`],
-            ["最近7日", pct(stats.hitRate7d)],
-            ["最近30日", pct(stats.hitRate30d)],
+            ["日度辅助加权命中率", `${governedPct(stats.weightedHitRate)}（有效样本 ${sampleCount}/${DAILY_STABLE_SAMPLE_SIZE}）`],
+            ["日度辅助最近7日", governedPct(stats.hitRate7d)],
+            ["日度辅助最近30日", governedPct(stats.hitRate30d)],
           ].map(([label, value]) => (
             <Card key={label} padding="md">
               <Text variant="caption" color="tertiary">
@@ -59,7 +60,7 @@ export async function HomeAccuracySummary() {
                 {publicAttributionText(a.source.replace(/准确率$/, "")) || PUBLIC_INTERPRETATION_LABEL_ZH}
               </Text>
               <Text variant="body-sm" weight="semibold" className="mt-1 whitespace-pre-line break-words">
-                {assetSampleLabel(a.hit, a.miss, a.hitRate)}
+                {assetSampleLabel(a.hit, a.partial, a.miss, a.hitRate)}
               </Text>
             </Card>
           ))}

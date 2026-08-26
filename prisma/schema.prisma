@@ -824,6 +824,7 @@ model WeeklyVerificationRecord {
   pathScore       Int?
   levelScore      Int?
   totalScore      Int?
+  scoreVersion    String   @default("LEGACY_UNVERSIONED")
   dataSource      String?
   explanation     String?
   verifiedAt      DateTime?
@@ -832,6 +833,30 @@ model WeeklyVerificationRecord {
 
   @@index([weekEnd, result])
   @@index([assetId, weekStart])
+}
+
+/// Append-only scoring snapshots. A scoring-policy upgrade must create a new
+/// revision instead of erasing the result produced by an earlier policy.
+model WeeklyVerificationRevision {
+  id                         String   @id
+  weeklyAnalysisId           String
+  weeklyVerificationRecordId String
+  scoreVersion               String
+  predictedPattern           String
+  actualPattern              String?
+  result                     String
+  directionScore             Int?
+  pathScore                  Int?
+  levelScore                 Int?
+  totalScore                 Int?
+  dataSource                 String?
+  explanation                String?
+  verifiedAt                 DateTime?
+  createdAt                  DateTime @default(now())
+
+  @@unique([weeklyAnalysisId, scoreVersion])
+  @@index([weeklyVerificationRecordId, createdAt])
+  @@index([scoreVersion, result])
 }
 
 /// Optional administrator override. Automation remains the default publisher.

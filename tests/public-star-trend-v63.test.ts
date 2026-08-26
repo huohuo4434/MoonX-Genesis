@@ -47,8 +47,8 @@ test("1星到5星分别统计且部分命中按0.5计", () => {
 
 test("高星明显优于低星时给出正向结论", () => {
   const rows: PublicAccuracyHistoryItem[] = [];
-  for (let i = 0; i < 5; i += 1) rows.push(item(1, "MISS", `l${i}`));
-  for (let i = 0; i < 5; i += 1) rows.push(item(5, "FULL_HIT", `h${i}`));
+  for (let i = 0; i < 10; i += 1) rows.push(item(1, "MISS", `l${i}`));
+  for (let i = 0; i < 10; i += 1) rows.push(item(5, "FULL_HIT", `h${i}`));
   const result = publicStarTrendAnalysis(rows);
   assert.equal(result.conclusion, "POSITIVE");
   assert.equal(result.highMinusLow, 1);
@@ -61,4 +61,11 @@ test("样本不足时不强行宣称高星更准", () => {
   ]);
   assert.equal(result.conclusion, "INSUFFICIENT");
   assert.equal(result.ratedSampleCount, 2);
+});
+
+test("总样本够但高低任一组未满单档阈值时仍不排名", () => {
+  const rows: PublicAccuracyHistoryItem[] = [];
+  for (let i = 0; i < 9; i += 1) rows.push(item(1, "MISS", `l${i}`));
+  for (let i = 0; i < 11; i += 1) rows.push(item(5, "FULL_HIT", `h${i}`));
+  assert.equal(publicStarTrendAnalysis(rows).conclusion, "INSUFFICIENT");
 });

@@ -27,7 +27,7 @@ function resultClass(result: string): string {
 export function WeeklyAccuracySummary({ items, stats }: { items: WeeklyAccuracyPublicItem[]; stats: WeeklyAccuracyPublicStats }) {
   const { locale } = useLocale();
   const en = locale === "en";
-  const sampleReady = stats.sampleSize >= 12;
+  const sampleReady = stats.sampleReady;
   const emptyCard = (
     <Card padding="lg">
       <Text variant="body" weight="semibold">{en ? "Weekly verification samples are building" : "周度验证样本正在积累"}</Text>
@@ -55,6 +55,7 @@ export function WeeklyAccuracySummary({ items, stats }: { items: WeeklyAccuracyP
         <Card padding="md"><Text variant="caption" color="tertiary">{en ? "Direction accuracy" : "周度方向命中率"}</Text><div className="mt-2 text-2xl font-semibold tabular-nums">{sampleReady ? pct(stats.directionAccuracyPct, en) : en ? "Building sample" : "积累中"}</div></Card>
         <Card padding="md"><Text variant="caption" color="tertiary">{en ? "Full / partial / miss" : "完全 / 部分 / 未命中"}</Text><div className="mt-2 text-xl font-semibold tabular-nums">{stats.full} / {stats.partial} / {stats.miss}</div></Card>
       </div>
+      {!sampleReady && stats.sampleSize > 0 ? <Text variant="body-sm" color="tertiary" className="mt-3 block">{en ? `Current score-version sample: ${stats.sampleSize}. Headline rates remain in sample-building state until ${stats.stableAt}.` : `当前同评分版本样本 ${stats.sampleSize} 条；累计满 ${stats.stableAt} 条前，主命中率统一显示为“积累中”。`}</Text> : null}
 
       {items.length ? (
         <div className="mt-5 grid gap-3 lg:grid-cols-2">

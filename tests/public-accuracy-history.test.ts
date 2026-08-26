@@ -6,6 +6,7 @@ import {
   filterPublicAccuracyHistory,
   isPublicCountableVerdict,
   isPublicFinalVerdict,
+  publicSourceAccuracyBreakdown,
   selectCanonicalDailyForecasts,
 } from "../lib/accuracy/public-history-filter.ts";
 import type { DailyForecastRecord, DailyVerificationResult } from "../types/daily-accuracy.ts";
@@ -63,6 +64,63 @@ describe("china date key", () => {
 });
 
 describe("public accuracy history filter", () => {
+  test("a late higher version cannot replace the last pre-cutoff locked version", () => {
+    const locked = forecast({ id: "locked-v1", originalVersion: 1, publishedAt: "2026-08-01T15:00:00.000Z" });
+    const hindsight = forecast({ id: "late-v2", originalVersion: 2, publishedAt: "2026-08-01T16:00:01.000Z" });
+    assert.deepEqual(selectCanonicalDailyForecasts([locked, hindsight]).map((row) => row.id), ["locked-v1"]);
+  });
+
+  test("direction accuracy stays independent when the path verdict misses", () => {
+    const items = filterPublicAccuracyHistory({
+      forecasts: [forecast({ direction: "UP", directionLabel: "上涨" })],
+      results: [result({ verdict: "MISS", verdictLabel: "未命中", directionVerdict: "FULL_HIT", actualDirection: "UP", validationMode: "FULL_PATH" })],
+      now: NOW,
+    });
+    const stats = computePublicAccuracyStats(items, NOW);
+    assert.equal(stats.weightedHitRate, 0);
+    assert.equal(stats.pathHitRate, 0);
+    assert.equal(stats.directionHitRate, 1);
+  });
+
+  test("an explicitly verified direction remains countable when only the path is unverifiable", () => {
+    const items = filterPublicAccuracyHistory({
+      forecasts: [forecast({ direction: "UP", directionLabel: "上涨" })],
+      results: [result({ verdict: "UNVERIFIABLE", directionVerdict: "FULL_HIT", actualDirection: "UP" })],
+      now: NOW,
+    });
+    const stats = computePublicAccuracyStats(items, NOW);
+    assert.equal(stats.verifiedCount, 0);
+    assert.equal(stats.pathHitRate, null);
+    assert.equal(stats.directionHitRate, 1);
+  });
+
+  test("an orphan result without its exact locked forecast is never scored publicly", () => {
+    const items = filterPublicAccuracyHistory({
+      forecasts: [],
+      results: [result({ forecastId: "orphan" })],
+      now: NOW,
+    });
+    assert.equal(items.length, 0);
+  });
+
+  test("source breakdown uses the same partial-hit weight instead of treating partial as full", () => {
+    const rows = filterPublicAccuracyHistory({
+      forecasts: [
+        forecast({ id: "partial", forecastDate: "2026-08-02" }),
+        forecast({ id: "miss", forecastDate: "2026-08-01" }),
+      ],
+      results: [
+        result({ forecastId: "partial", forecastDate: "2026-08-02", verdict: "PARTIAL_HIT" }),
+        result({ forecastId: "miss", forecastDate: "2026-08-01", verdict: "MISS" }),
+      ],
+      now: NOW,
+    });
+    const source = publicSourceAccuracyBreakdown(rows)[0]!;
+    assert.equal(source.partial, 1);
+    assert.equal(source.miss, 1);
+    assert.equal(source.hitRate, 0.25);
+  });
+
   test("keeps one canonical version per symbol and date while retaining old rows outside the public projection", () => {
     const v1 = forecast({ id: "df-v1", originalVersion: 1, publishedAt: "2026-08-01T12:00:00.000Z" });
     const v2 = forecast({ id: "df-v2", originalVersion: 2, publishedAt: "2026-08-01T15:00:00.000Z" });

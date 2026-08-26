@@ -2,20 +2,26 @@
 
 import { Card, Heading, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import {
+  ASSET_RANK_MIN_SAMPLE_SIZE,
+  DAILY_STABLE_SAMPLE_SIZE,
+  STAR_BUCKET_MIN_SAMPLE_SIZE,
+  WEEKLY_STABLE_SAMPLE_SIZE,
+} from "@/lib/accuracy/accuracy-governance-core";
 
 export function VerificationMethodDisclosure() {
   const { locale } = useLocale();
   const en = locale === "en";
   const items = en
     ? [
-        ["Direction hit", "The actual closing direction matches the locked view."],
-        ["Path hit", "The intraday sequence and structure are scored separately; crypto uses the Beijing natural day (00:00–24:00)."],
+        ["Direction hit", "The actual closing direction matches the locked view. It is independent from the path verdict."],
+        ["Path hit", "The intraday sequence and structure are scored independently; crypto uses the Beijing natural day (00:00–24:00)."],
         ["Partial hit", "Counts as 0.5 in the weighted hit rate."],
         ["Unverifiable", "Closed market, missing data or inapplicable rules; excluded from the denominator."],
       ]
     : [
-        ["方向命中", "实际收盘方向符合锁定判断。"],
-        ["路径命中", "按日内结构与先后顺序单独判定；加密资产统一使用北京时间自然日（00:00—24:00）。"],
+        ["方向命中", "实际收盘方向符合锁定判断；方向与路径互不替代。"],
+        ["路径命中", "按日内结构与先后顺序独立判定；加密资产统一使用北京时间自然日（00:00—24:00）。"],
         ["部分命中", "按0.5权重计入加权命中率。"],
         ["不可验证", "休市、数据缺失或规则不适用，不进入分母。"],
       ];
@@ -48,6 +54,11 @@ export function VerificationMethodDisclosure() {
           </div>
         ))}
       </div>
+      <Text variant="caption" color="tertiary" className="block">
+        {en
+          ? `Sample governance: daily headline stable at n=${DAILY_STABLE_SAMPLE_SIZE}; weekly at n=${WEEKLY_STABLE_SAMPLE_SIZE}; asset ranking at n=${ASSET_RANK_MIN_SAMPLE_SIZE}; each star bucket at n=${STAR_BUCKET_MIN_SAMPLE_SIZE}.`
+          : `样本治理：日度主口径满${DAILY_STABLE_SAMPLE_SIZE}条、周度满${WEEKLY_STABLE_SAMPLE_SIZE}条后进入稳定展示；单资产满${ASSET_RANK_MIN_SAMPLE_SIZE}条才排名；单个星级满${STAR_BUCKET_MIN_SAMPLE_SIZE}条才比较。`}
+      </Text>
     </Card>
   );
 }

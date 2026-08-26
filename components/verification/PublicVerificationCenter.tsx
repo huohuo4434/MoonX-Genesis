@@ -9,6 +9,10 @@ import type {
 } from "@/lib/accuracy/get-weekly-history";
 import { publicStarAccuracyBreakdown } from "@/lib/accuracy/public-history-filter";
 import {
+  ASSET_RANK_MIN_SAMPLE_SIZE,
+  STAR_BUCKET_MIN_SAMPLE_SIZE,
+} from "@/lib/accuracy/accuracy-governance-core";
+import {
   DEFAULT_PUBLIC_VERIFICATION_PERIOD,
   selectPublicVerificationDetails,
   type PublicVerificationPeriod,
@@ -36,6 +40,7 @@ type UnifiedRow = {
   resistanceLevels?: string[];
   confirmation?: string;
   invalidation?: string;
+  eligibleForHeadline: boolean;
 };
 
 function normalizeDailyVerdict(verdict: DailyVerdict): UnifiedRow["result"] {
@@ -218,6 +223,7 @@ export function PublicVerificationCenter({
         resistanceLevels: item.resistanceLevels,
         confirmation: item.confirmation,
         invalidation: item.invalidation,
+        eligibleForHeadline: true,
       };
     });
     const weekly: UnifiedRow[] = weeklyItems.map((item) => {
@@ -232,14 +238,15 @@ export function PublicVerificationCenter({
         actual: item.actualPattern ?? (en ? "Tracking" : "持续跟踪"),
         result,
         score: item.totalScore != null ? item.totalScore / 100 : scoreOf(result),
-        version: "LOCKED",
+        version: item.scoreVersion,
         verifiedAt: item.verifiedAt,
         detail: item.explanation,
-        dataSource: null,
+        dataSource: item.dataSource,
+        eligibleForHeadline: item.scoreVersion === weeklyStats.scoreVersion,
       };
     });
     return [...daily, ...weekly].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [dailyItems, weeklyItems, en]);
+  }, [dailyItems, weeklyItems, weeklyStats.scoreVersion, en]);
 
   const assetOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -262,6 +269,7 @@ export function PublicVerificationCenter({
   const assetPerformance = useMemo(() => {
     const groups = new Map<string, { name: string; count: number; score: number; full: number; partial: number; miss: number }>();
     for (const row of filteredRows) {
+      if (!row.eligibleForHeadline) continue;
       const score = scoreOf(row.result);
       if (score == null) continue;
       const cur = groups.get(row.symbol) ?? { name: assetLabel(row.symbol, row.assetName, en), count: 0, score: 0, full: 0, partial: 0, miss: 0 };
@@ -274,7 +282,7 @@ export function PublicVerificationCenter({
     }
     return [...groups.entries()]
       .map(([symbol, value]) => ({ symbol, ...value, rate: value.count ? value.score / value.count : 0 }))
-      .sort((a, b) => b.rate - a.rate || b.count - a.count)
+      .sort((a, b) => Number(b.count >= ASSET_RANK_MIN_SAMPLE_SIZE) - Number(a.count >= ASSET_RANK_MIN_SAMPLE_SIZE) || b.rate - a.rate || b.count - a.count)
       .slice(0, 8);
   }, [filteredRows, en]);
 
@@ -292,8 +300,8 @@ export function PublicVerificationCenter({
     [en ? "Daily pending" : "日度待验证", String(Math.max(dailyStats.pendingCount, pendingCount)), en ? "Processed after the session" : "交易时段结束后处理"],
   ] : period === "WEEKLY" ? [
     [en ? "Verified weekly samples" : "已验证周样本", String(weeklyStats.sampleSize), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
-    [en ? "Weekly weighted accuracy" : "周度加权命中率", pct(weeklyStats.weightedAccuracyPct, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
-    [en ? "Weekly direction accuracy" : "周度方向命中率", pct(weeklyStats.directionAccuracyPct, en), en ? "Locked weekly direction" : "核对锁定周方向"],
+    [en ? "Weekly weighted accuracy" : "周度加权命中率", weeklyStats.sampleReady ? pct(weeklyStats.weightedAccuracyPct, en) : en ? "Building" : "积累中", en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
+    [en ? "Weekly direction accuracy" : "周度方向命中率", weeklyStats.sampleReady ? pct(weeklyStats.directionAccuracyPct, en) : en ? "Building" : "积累中", en ? "Locked weekly direction" : "核对锁定周方向"],
     [en ? "Weekly full hits" : "周度完全命中", String(weeklyStats.full), en ? "Strict full-path result" : "严格完整路径结果"],
     [en ? "Weekly misses" : "周度未命中", String(weeklyStats.miss), en ? "Never deleted" : "失败记录永久保留"],
     [en ? "Weekly pending" : "周度待验证", String(weeklyStats.pending), en ? "Processed after week end" : "周线周期结束后处理"],
@@ -321,7 +329,7 @@ export function PublicVerificationCenter({
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Verified weekly samples" : "已验证周样本"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{weeklyStats.sampleSize}</div></div>
-            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Weekly weighted accuracy" : "周度加权命中率"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pct(weeklyStats.weightedAccuracyPct, en)}</div></div>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Weekly weighted accuracy" : "周度加权命中率"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{weeklyStats.sampleReady ? pct(weeklyStats.weightedAccuracyPct, en) : en ? "Building" : "积累中"}</div></div>
             <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Pending verification" : "待验证记录"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pendingCount}</div></div>
           </div>
           <p className="mt-4 text-xs text-foreground-tertiary">{en ? "Loading interactive filters and the complete archive…" : "正在载入筛选器与完整验证档案…"}</p>
@@ -387,10 +395,10 @@ export function PublicVerificationCenter({
           <p className="mt-1 text-sm text-foreground-tertiary">{en ? "The curve uses only completed, countable locked weekly forecasts." : "曲线只使用周期结束、取得真实行情且可计分的锁定周预测。"}</p>
         </div>
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
-          <MiniTrend rows={filteredRows} en={en} />
+          <MiniTrend rows={filteredRows.filter((row) => row.eligibleForHeadline)} en={en} />
           <div className="rounded-xl border border-border/60 bg-background/20 p-4">
             <div className="mb-3 text-sm font-semibold text-foreground">{en ? "Performance by asset" : "按资产表现"}</div>
-            {assetPerformance.length ? <div className="space-y-3">{assetPerformance.map((item) => <div key={item.symbol}><div className="mb-1 flex items-center justify-between gap-3 text-xs"><span className="truncate text-foreground-secondary">{item.name} <span className="text-foreground-tertiary">{item.symbol}</span></span><span className="font-semibold tabular-nums text-foreground">{pct(item.rate, en)} · n={item.count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, Math.min(100, item.rate * 100))}%` }} /></div></div>)}</div> : <div className="py-12 text-center text-sm text-foreground-tertiary">{en ? "No countable samples yet." : "样本积累中，暂不排名。"}</div>}
+            {assetPerformance.length ? <div className="space-y-3">{assetPerformance.map((item) => <div key={item.symbol}><div className="mb-1 flex items-center justify-between gap-3 text-xs"><span className="truncate text-foreground-secondary">{item.name} <span className="text-foreground-tertiary">{item.symbol}</span></span><span className="font-semibold tabular-nums text-foreground">{item.count >= ASSET_RANK_MIN_SAMPLE_SIZE ? pct(item.rate, en) : en ? "Building" : "暂不排名"} · n={item.count}</span></div>{item.count >= ASSET_RANK_MIN_SAMPLE_SIZE ? <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, Math.min(100, item.rate * 100))}%` }} /></div> : null}</div>)}</div> : <div className="py-12 text-center text-sm text-foreground-tertiary">{en ? "No countable samples yet." : "样本积累中，暂不排名。"}</div>}
           </div>
         </div>
       </section> : null}
@@ -402,7 +410,7 @@ export function PublicVerificationCenter({
           <div><h2 className="text-xl font-semibold text-foreground">{en ? "Consensus-star validation" : "共识星级真实表现"}</h2><p className="mt-1 text-sm text-foreground-tertiary">{en ? "Stars measure cross-method agreement, not bullishness or expected return." : "星级代表多方法共识度，不代表看涨程度或涨跌幅。"}</p></div>
           <div className="text-xs text-foreground-tertiary">{en ? `Rated daily samples n=${ratedSamples}` : `带星级日度样本 n=${ratedSamples}`}</div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{starBuckets.map((bucket) => <div key={bucket.stars} className="rounded-xl border border-border/60 bg-background/20 p-4"><div className="text-base tracking-wider text-amber-400">{"★".repeat(bucket.stars)}<span className="text-foreground-tertiary">{"☆".repeat(5 - bucket.stars)}</span></div><div className="mt-3 text-2xl font-bold tabular-nums text-foreground">{bucket.sampleCount ? pct(bucket.weightedHitRate, en) : "—"}</div><div className="mt-1 text-xs text-foreground-tertiary">n={bucket.sampleCount} · {bucket.fullHit}/{bucket.partialHit}/{bucket.miss}</div></div>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{starBuckets.map((bucket) => <div key={bucket.stars} className="rounded-xl border border-border/60 bg-background/20 p-4"><div className="text-base tracking-wider text-amber-400">{"★".repeat(bucket.stars)}<span className="text-foreground-tertiary">{"☆".repeat(5 - bucket.stars)}</span></div><div className="mt-3 text-2xl font-bold tabular-nums text-foreground">{bucket.sampleCount >= STAR_BUCKET_MIN_SAMPLE_SIZE ? pct(bucket.weightedHitRate, en) : en ? "Building" : "积累中"}</div><div className="mt-1 text-xs text-foreground-tertiary">n={bucket.sampleCount} · {bucket.fullHit}/{bucket.partialHit}/{bucket.miss}</div></div>)}</div>
         </div>
       </details> : null}
 

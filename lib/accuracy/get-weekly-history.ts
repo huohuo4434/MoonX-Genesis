@@ -1,7 +1,13 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { WEEKLY_SCORE_VERSION, explainWeeklyVerification, scoreWeeklyVerification, weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
+import {
+  ACCURACY_GOVERNANCE_VERSION,
+  WEEKLY_STABLE_SAMPLE_SIZE,
+  accuracySampleMaturity,
+  weightedAccuracy,
+} from "@/lib/accuracy/accuracy-governance-core";
+import { WEEKLY_SCORE_VERSION, weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
 
 export type WeeklyAccuracyPublicItem = {
   id: string;
@@ -15,28 +21,44 @@ export type WeeklyAccuracyPublicItem = {
   directionScore: number | null;
   pathScore: number | null;
   totalScore: number | null;
+  scoreVersion: string;
+  dataSource: string | null;
   explanation: string | null;
   verifiedAt: string | null;
 };
 
 export type WeeklyAccuracyPublicStats = {
+  governanceVersion: string;
+  scoreVersion: string;
   sampleSize: number;
+  sampleReady: boolean;
+  sampleState: "BUILDING" | "STABLE";
+  stableAt: number;
+  remaining: number;
   full: number;
   partial: number;
   miss: number;
   unverifiable: number;
   pending: number;
+  excludedOtherScoreVersions: number;
   weightedAccuracyPct: number | null;
   directionAccuracyPct: number | null;
 };
 
 const EMPTY_STATS: WeeklyAccuracyPublicStats = {
+  governanceVersion: ACCURACY_GOVERNANCE_VERSION,
+  scoreVersion: WEEKLY_SCORE_VERSION,
   sampleSize: 0,
+  sampleReady: false,
+  sampleState: "BUILDING",
+  stableAt: WEEKLY_STABLE_SAMPLE_SIZE,
+  remaining: WEEKLY_STABLE_SAMPLE_SIZE,
   full: 0,
   partial: 0,
   miss: 0,
   unverifiable: 0,
   pending: 0,
+  excludedOtherScoreVersions: 0,
   weightedAccuracyPct: null,
   directionAccuracyPct: null,
 };
@@ -48,57 +70,64 @@ export async function getWeeklyAccuracyHistory(): Promise<{
   if (!prisma) return { items: [], stats: EMPTY_STATS };
 
   try {
-    const storedRows = await prisma.weeklyVerificationRecord.findMany({
-      orderBy: [{ weekEnd: "desc" }, { symbol: "asc" }],
-      take: 200,
-    });
-    // V3 display normalization: old database rows are never allowed to keep showing stale
-    // 0/65/90 outcomes after the scoring policy changes. The background/admin reverify
-    // still writes V3 back to the database; this makes the public page correct immediately.
-    const rows = storedRows.map((row) => {
-      if (!row.actualPattern || row.result === "PENDING") return row;
-      const scored = scoreWeeklyVerification(row.predictedPattern, row.actualPattern);
-      const isCurrent = row.explanation?.includes(WEEKLY_SCORE_VERSION) ?? false;
-      return {
-        ...row,
-        ...scored,
-        explanation: isCurrent
-          ? row.explanation
-          : `[${WEEKLY_SCORE_VERSION}] ${explainWeeklyVerification(row.predictedPattern, row.actualPattern, scored)}`,
-      };
-    });
-    const eligible = rows.filter((r) => !["PENDING", "UNVERIFIABLE"].includes(r.result));
-    const full = eligible.filter((r) => r.result === "FULL_HIT").length;
-    const partial = eligible.filter((r) => r.result === "PARTIAL_HIT").length;
-    const miss = eligible.filter((r) => r.result === "MISS").length;
-    const directionHits = eligible.filter((r) => r.actualPattern && weeklyDirectionMatches(r.predictedPattern, r.actualPattern)).length;
+    const [rows, currentVersionRows, excludedOtherScoreVersions] = await Promise.all([
+      prisma.weeklyVerificationRecord.findMany({
+        orderBy: [{ weekEnd: "desc" }, { symbol: "asc" }],
+        take: 200,
+      }),
+      prisma.weeklyVerificationRecord.findMany({
+        where: { scoreVersion: WEEKLY_SCORE_VERSION },
+        select: { result: true, predictedPattern: true, actualPattern: true },
+      }),
+      prisma.weeklyVerificationRecord.count({
+        where: { scoreVersion: { not: WEEKLY_SCORE_VERSION } },
+      }),
+    ]);
+    const eligible = currentVersionRows.filter((row) => !["PENDING", "UNVERIFIABLE"].includes(row.result));
+    const full = eligible.filter((row) => row.result === "FULL_HIT").length;
+    const partial = eligible.filter((row) => row.result === "PARTIAL_HIT").length;
+    const miss = eligible.filter((row) => row.result === "MISS").length;
+    const weighted = weightedAccuracy({ full, partial, miss });
+    const directionHits = eligible.filter(
+      (row) => row.actualPattern && weeklyDirectionMatches(row.predictedPattern, row.actualPattern)
+    ).length;
+    const maturity = accuracySampleMaturity(eligible.length, WEEKLY_STABLE_SAMPLE_SIZE);
 
     return {
-      items: rows.map((r) => ({
-        id: r.id,
-        assetId: r.assetId,
-        symbol: r.symbol,
-        weekStart: r.weekStart,
-        weekEnd: r.weekEnd,
-        predictedPattern: r.predictedPattern,
-        actualPattern: r.actualPattern,
-        result: r.result,
-        directionScore: r.directionScore,
-        pathScore: r.pathScore,
-        totalScore: r.totalScore,
-        explanation: r.explanation,
-        verifiedAt: r.verifiedAt?.toISOString() ?? null,
+      // Every stored result remains visible. Only the current score version enters
+      // the headline rate, so policy changes cannot silently blend denominators.
+      items: rows.map((row) => ({
+        id: row.id,
+        assetId: row.assetId,
+        symbol: row.symbol,
+        weekStart: row.weekStart,
+        weekEnd: row.weekEnd,
+        predictedPattern: row.predictedPattern,
+        actualPattern: row.actualPattern,
+        result: row.result,
+        directionScore: row.directionScore,
+        pathScore: row.pathScore,
+        totalScore: row.totalScore,
+        scoreVersion: row.scoreVersion,
+        dataSource: row.dataSource,
+        explanation: row.explanation,
+        verifiedAt: row.verifiedAt?.toISOString() ?? null,
       })),
       stats: {
+        governanceVersion: ACCURACY_GOVERNANCE_VERSION,
+        scoreVersion: WEEKLY_SCORE_VERSION,
         sampleSize: eligible.length,
+        sampleReady: maturity.state === "STABLE",
+        sampleState: maturity.state,
+        stableAt: maturity.stableAt,
+        remaining: maturity.remaining,
         full,
         partial,
         miss,
-        unverifiable: rows.filter((r) => r.result === "UNVERIFIABLE").length,
-        pending: rows.filter((r) => r.result === "PENDING").length,
-        weightedAccuracyPct: eligible.length
-          ? Math.round(((full + partial * 0.5) / eligible.length) * 1000) / 10
-          : null,
+        unverifiable: currentVersionRows.filter((row) => row.result === "UNVERIFIABLE").length,
+        pending: currentVersionRows.filter((row) => row.result === "PENDING").length,
+        excludedOtherScoreVersions,
+        weightedAccuracyPct: weighted == null ? null : Math.round(weighted * 1000) / 10,
         directionAccuracyPct: eligible.length
           ? Math.round((directionHits / eligible.length) * 1000) / 10
           : null,
