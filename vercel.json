@@ -57,6 +57,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/member-ai-trading-desk-sync",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/content-freshness",
       "schedule": "*/15 * * * *"
     },

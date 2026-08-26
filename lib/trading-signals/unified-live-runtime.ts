@@ -12,6 +12,7 @@ import {
 import type { UnifiedLiveCustodyAudit } from "@/types/unified-live-trading";
 import { cancelBitgetDemoStrategyOrder } from "@/lib/bitget/demo-client";
 import { runOrphanProtectionCleanup } from "@/lib/trading-signals/orphan-protection-cleanup-core";
+import { requiresPersistentManageOnly } from "@/lib/trading-signals/unified-live-freeze-policy-core";
 
 type StoredUnifiedLiveSlice = {
   id: string;
@@ -82,7 +83,8 @@ export async function runUnifiedLiveCustodyCycle(input: {
   await recordUnifiedLiveEvents(ownerKey, audit.issues);
 
   const config = readUnifiedLiveRuntimeConfig();
-  if (audit.freezeNewEntries && stored.account?.newEntriesEnabled) {
+  const persistentManageOnly = requiresPersistentManageOnly(audit.issues);
+  if (persistentManageOnly && stored.account?.newEntriesEnabled) {
     await setUnifiedLiveMode({
       ownerKey,
       mode: "MANAGE_ONLY",
