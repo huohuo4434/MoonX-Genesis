@@ -29,9 +29,16 @@ test("public member-video catalogue exposes title metadata but not the member re
 test("member-only copy and storage coordinates stay in server-only modules", () => {
   const memberContent = source("lib/member-videos/member-content.server.ts");
   const storage = source("lib/member-videos/storage.server.ts");
+  const core = source("lib/member-videos/core.ts");
+  const uploader = source("components/admin/MemberVideoUploadClient.tsx");
   assert.match(memberContent, /^import "server-only";/);
   assert.match(storage, /^import "server-only";/);
   assert.match(storage, /moonx-member-videos/);
+  assert.match(core, /MEMBER_VIDEO_FILE_SIZE_LIMIT = 32 \* 1024 \* 1024/);
+  assert.match(storage, /fileSizeLimit: MEMBER_VIDEO_FILE_SIZE_LIMIT/);
+  assert.match(uploader, /video\.size > MEMBER_VIDEO_FILE_SIZE_LIMIT/);
+  assert.match(uploader, /视频不能超过32MB/);
+  assert.doesNotMatch(uploader, /100 \* 1024 \* 1024|超过100MB/);
   assert.match(storage, /createSignedUrl/);
   assert.match(storage, /listBuckets/);
   assert.match(storage, /!bucket \|\| bucket\.public/);

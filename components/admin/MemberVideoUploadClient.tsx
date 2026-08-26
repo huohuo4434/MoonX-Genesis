@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MEMBER_VIDEO_FILE_SIZE_LIMIT } from "@/lib/member-videos/core";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Asset = "video" | "subtitle";
@@ -65,8 +66,8 @@ export function MemberVideoUploadClient() {
       setMessage("视频必须是 MP4，字幕必须是 VTT");
       return;
     }
-    if (video.size > 100 * 1024 * 1024) {
-      setMessage("视频不能超过100MB");
+    if (video.size > MEMBER_VIDEO_FILE_SIZE_LIMIT) {
+      setMessage("视频不能超过32MB");
       return;
     }
     setBusy(true);

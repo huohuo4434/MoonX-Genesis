@@ -2,6 +2,7 @@ import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
+  MEMBER_VIDEO_FILE_SIZE_LIMIT,
   memberVideoReleaseObjectPath,
   parseMemberVideoManifest,
   type MemberVideoAsset,
@@ -88,14 +89,14 @@ export async function ensureMemberVideoBucket() {
   if (!current) {
     const { error } = await admin.storage.createBucket(MEMBER_VIDEO_BUCKET, {
       public: false,
-      fileSizeLimit: 100 * 1024 * 1024,
+      fileSizeLimit: MEMBER_VIDEO_FILE_SIZE_LIMIT,
       allowedMimeTypes: ["video/mp4", "text/vtt", "application/json"],
     });
     if (error) throw storageAdminError("无法创建会员视频私有存储", error);
   } else {
     const { error } = await admin.storage.updateBucket(MEMBER_VIDEO_BUCKET, {
       public: false,
-      fileSizeLimit: 100 * 1024 * 1024,
+      fileSizeLimit: MEMBER_VIDEO_FILE_SIZE_LIMIT,
       allowedMimeTypes: ["video/mp4", "text/vtt", "application/json"],
     });
     if (error) throw storageAdminError("无法校准会员视频私有存储配置", error);
