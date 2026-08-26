@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const now = new Date();
-  const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch((error) => ({
+  const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch(() => ({
     allowed: false,
-    reasons: [error instanceof Error ? error.message : "UNIFIED_LIVE_GATE_UNAVAILABLE"],
+    reasons: ["UNIFIED_LIVE_GATE_UNAVAILABLE"],
     mode: "MANAGE_ONLY" as const,
     positionManagementContinues: true,
   }));
@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
   const report = await runBitgetDemoServerRuntime(now, "CRON", {
     absoluteDeadlineAt: new Date(Date.now() + 285_000),
     forceManageOnly: !autoEntryAllowed,
+    forceManageOnlyReason: !autoEntryAllowed ? effectiveGate.reasons.join(",") : undefined,
   });
 
   return NextResponse.json({

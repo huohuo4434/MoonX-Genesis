@@ -316,12 +316,17 @@ test("same-run reservations and projected risk prevent concurrent duplicate orde
 test("runtime pause manages positions while a unified-gate pause can still shadow-scan", () => {
   const engineSource = engine();
   const runtime = read("lib/bitget/demo-runtime.ts");
+  const predictionCron = read("app/api/cron/prediction-auto-trader/route.ts");
   assert.match(engineSource, /options: \{[\s\S]*manageOnly\?: boolean;[\s\S]*\} = \{\}/);
   assert.match(engineSource, /options\.manageOnly/);
+  assert.match(runtime, /forceManageOnlyReason\?: string/);
+  assert.match(runtime, /composeRuntimePauseMessage/);
   assert.match(runtime, /manageOnly: !scanOnly/);
   assert.match(runtime, /scanOnly: forcedManageOnly && marketOk && account\.connected|const scanOnly = forcedManageOnly && marketOk && account\.connected/);
   assert.match(runtime, /THREE_HORIZON_MANAGE_ONLY/);
   assert.match(runtime, /THREE_HORIZON_SHADOW_SCAN/);
+  assert.match(predictionCron, /forceManageOnly: !autoEntryAllowed/);
+  assert.match(predictionCron, /forceManageOnlyReason: !autoEntryAllowed \? effectiveGate\.reasons\.join\(","\) : undefined/);
 });
 
 

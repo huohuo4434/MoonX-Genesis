@@ -170,6 +170,7 @@ export default async function AdminHomePage() {
               ["/admin/stocks", "个股分析"],
               ["/admin/users", "用户与会员"],
               ["/admin/consultations", "会员问卦"],
+              ["/admin/live-trading", "AI实盘控制"],
               ["/admin/security", "会员设备安全"],
               ["/admin/payments", "支付记录"],
               ["/admin/automation", "自动化状态"],

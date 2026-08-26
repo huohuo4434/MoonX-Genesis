@@ -4,7 +4,12 @@ import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } fro
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
 import { getUnifiedLiveRuntimeStatus, inspectUnifiedLiveCustody, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 import { claimUnifiedLivePosition, setUnifiedLiveMode } from "@/lib/trading-signals/unified-live-store";
-import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
+import {
+  applyUnifiedLiveModeChange,
+  buildUnifiedLiveRestoreBlockers,
+  type UnifiedLiveRestoreReadiness,
+} from "@/lib/trading-signals/unified-live-admin-control-core";
+import type { UnifiedLiveCustodyAudit, UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,9 +19,34 @@ async function requireAdmin(request: NextRequest) {
   return (await isUnifiedLiveAdmin(actor)) ? actor : null;
 }
 
+function readRestoreReadiness(status: {
+  migrationRequired?: boolean;
+  audit?: UnifiedLiveCustodyAudit | null;
+}): UnifiedLiveRestoreReadiness {
+  const runtime = readUnifiedLiveRuntimeConfig();
+  const bitget = getBitgetDemoEnvironment();
+  return {
+    runtimeModeLive: runtime.mode === "LIVE",
+    liveSwitchAllowed: runtime.allowLiveSwitch,
+    environmentAllowsNewEntries: runtime.allowNewEntriesByEnv,
+    positionManagementEnabled: runtime.positionManagementEnabled,
+    bitgetLiveExperiment: bitget.mode === "LIVE_EXPERIMENT",
+    bitgetConfigured: bitget.configured,
+    bitgetExecutionAllowed: bitget.executionAllowed,
+    bitgetLiveConfirmationAccepted: bitget.liveConfirmationAccepted,
+    initialCapitalIs1000U: Math.abs(bitget.liveInitialCapitalUsdt - 1000) < 0.01,
+    strategyActiveExecutionEnabled: isUnifiedLiveActiveExecutionEnabled(),
+    migrationRequired: Boolean(status.migrationRequired),
+    custodyFreezeNewEntries: Boolean(status.audit?.freezeNewEntries),
+    custodyIssues: status.audit?.issues ?? [],
+  };
+}
+
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  return NextResponse.json(await inspectUnifiedLiveCustody("official"), {
+  const status = await inspectUnifiedLiveCustody("official");
+  const restoreBlockers = buildUnifiedLiveRestoreBlockers(readRestoreReadiness(status));
+  return NextResponse.json({ ...status, restoreBlockers }, {
     headers: { "Cache-Control": "no-store" },
   });
 }
@@ -31,44 +61,20 @@ export async function POST(request: NextRequest) {
   if (action === "SET_MODE") {
     const mode = String(payload?.mode ?? "MANAGE_ONLY").toUpperCase() as UnifiedLiveMode;
     if (!["PAUSED", "MANAGE_ONLY", "LIVE"].includes(mode)) return NextResponse.json({ error: "INVALID_MODE" }, { status: 400 });
-    const runtime = readUnifiedLiveRuntimeConfig();
     const status = await getUnifiedLiveRuntimeStatus("official");
-    const bitget = getBitgetDemoEnvironment();
-    const liveRuntimeReady = runtime.mode === "LIVE"
-      && runtime.allowLiveSwitch
-      && runtime.allowNewEntriesByEnv
-      && runtime.positionManagementEnabled;
-    const strategyActiveExecutionEnabled = isUnifiedLiveActiveExecutionEnabled();
-    const bitgetReady = bitget.mode === "LIVE_EXPERIMENT"
-      && bitget.configured
-      && bitget.executionAllowed
-      && bitget.liveConfirmationAccepted
-      && Math.abs(bitget.liveInitialCapitalUsdt - 1000) < 0.01;
-    if (mode === "LIVE" && (!liveRuntimeReady || !bitgetReady || !strategyActiveExecutionEnabled || status.audit?.freezeNewEntries || status.migrationRequired)) {
-      return NextResponse.json({
-        error: "LIVE_SWITCH_BLOCKED",
-        runtime,
-        bitgetReadiness: {
-          mode: bitget.mode,
-          configured: bitget.configured,
-          executionAllowed: bitget.executionAllowed,
-          liveConfirmationAccepted: bitget.liveConfirmationAccepted,
-          initialCapitalUsdt: bitget.liveInitialCapitalUsdt,
-          strategyActiveExecutionEnabled,
-        },
-        blockers: [
-          ...(status.audit?.issues ?? []),
-          ...(!strategyActiveExecutionEnabled ? [{ code: "TRADING_CONTROL_MODE_BLOCKED", severity: "BLOCK", message: "交易控制模式当前不允许新开仓" }] : []),
-        ],
-      }, { status: 409 });
-    }
-    const account = await setUnifiedLiveMode({
-      ownerKey: "official",
+    const result = await applyUnifiedLiveModeChange({
       mode,
-      newEntriesEnabled: mode === "LIVE",
-      positionManagementEnabled: mode !== "PAUSED",
+      confirmation: payload?.confirmation,
+      readiness: readRestoreReadiness(status),
+      apply: (nextMode) => setUnifiedLiveMode({
+        ownerKey: "official",
+        mode: nextMode,
+        newEntriesEnabled: nextMode === "LIVE",
+        positionManagementEnabled: nextMode !== "PAUSED",
+      }),
     });
-    return NextResponse.json({ ok: true, account });
+    if (!result.ok) return NextResponse.json(result, { status: 409 });
+    return NextResponse.json(result);
   }
   if (action === "CLAIM_POSITION") {
     const horizon = String(payload?.horizon ?? "").toUpperCase() as UnifiedLiveHorizon;

@@ -17,10 +17,12 @@ type AdminLiveStatusPayload = {
   migrationRequired?: boolean;
   account?: AdminLiveAccount | null;
   audit?: UnifiedLiveCustodyAudit | null;
+  restoreBlockers?: Array<{ code?: string; message?: string; detail?: string }>;
 };
 
 type AdminLiveErrorPayload = {
   error?: string;
+  blockers?: Array<{ code?: string; message?: string; detail?: string }>;
 };
 
 const HORIZONS: ReadonlyArray<{ value: UnifiedLiveHorizon; label: string }> = [
@@ -64,19 +66,32 @@ export default function AdminLiveTradingClient() {
       body: JSON.stringify(body),
     });
     const payload = toErrorPayload(await response.json().catch(() => ({})));
-    setMessage(
-      response.ok
-        ? "操作完成。"
-        : `操作被安全闸门阻止：${payload.error ?? response.status}`,
+    const blockerText = payload.blockers
+      ?.map((item) => item.message || item.detail || item.code)
+      .filter(Boolean)
+      .join("；");
+    setMessage(response.ok
+      ? "操作完成。"
+      : `操作被安全闸门阻止：${payload.error ?? response.status}${blockerText ? `；${blockerText}` : ""}`,
     );
     await load();
+  };
+
+  const requestLive = async () => {
+    const confirmation = window.prompt("这会重新允许1000U真实账户在策略命中时开仓。请输入 LIVE1000 确认：");
+    if (confirmation !== "LIVE1000") {
+      setMessage("未输入 LIVE1000，账户继续保持只管理已有仓位。");
+      return;
+    }
+    await action({ action: "SET_MODE", mode: "LIVE", confirmation });
   };
 
   const account = data?.account ?? null;
   const audit = data?.audit ?? null;
   const issues = audit?.issues ?? [];
   const orphans = audit?.orphanPositions ?? [];
-  const blockerCount = issues.filter((item) => item.severity === "BLOCKER").length;
+  const restoreBlockers = data?.restoreBlockers ?? [];
+  const blockerCount = restoreBlockers.length;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 text-white">
@@ -109,6 +124,23 @@ export default function AdminLiveTradingClient() {
             <b>{blockerCount}</b>
           </div>
         </div>
+        {account?.mode === "MANAGE_ONLY" && blockerCount === 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+            当前托管对账没有发现阻断项，但账户仍保留在“只管理已有仓位”的安全锁状态。系统不会自动恢复真实开仓；确认后可在下方输入 LIVE1000 显式恢复。
+          </div>
+        ) : null}
+        {account?.mode === "MANAGE_ONLY" && blockerCount > 0 ? (
+          <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+            <b>暂不能恢复LIVE：</b>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {restoreBlockers.map((item, index) => (
+                <li key={`${item.code ?? "BLOCKER"}-${index}`}>
+                  {item.message || item.detail || item.code || "安全闸门未通过"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-wrap gap-3">
           <button
             className="rounded-xl border border-white/15 px-4 py-2"
@@ -130,9 +162,10 @@ export default function AdminLiveTradingClient() {
           </button>
           <button
             className="rounded-xl bg-emerald-500/20 px-4 py-2 text-emerald-200"
-            onClick={() => action({ action: "SET_MODE", mode: "LIVE" })}
+            onClick={() => void requestLive()}
+            disabled={blockerCount > 0}
           >
-            申请切换LIVE
+            {blockerCount > 0 ? "存在阻断，不能恢复LIVE" : "对账通过后恢复LIVE"}
           </button>
         </div>
       </section>

@@ -32,6 +32,11 @@ import {
 import type { AiTradePlan } from "../types/ai-trade-plan";
 import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
 import { resolveLiveCapacityV4 } from "../lib/bitget/live-capacity-core";
+import { composeRuntimePauseMessage } from "../lib/bitget/runtime-observability-core";
+import {
+  applyUnifiedLiveModeChange,
+  type UnifiedLiveRestoreReadiness,
+} from "../lib/trading-signals/unified-live-admin-control-core";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -865,6 +870,7 @@ test("registered general X sources remain outside the trading overlay", () => {
 
 test("live runtime startup uses one fail-closed execution-control read instead of a broad dashboard", () => {
   const runtime = read("lib/bitget/demo-runtime.ts");
+  const cron = read("app/api/cron/prediction-auto-trader/route.ts");
   const startup = runtime.slice(
     runtime.indexOf("export async function runBitgetDemoServerRuntime"),
     runtime.indexOf("export async function getBitgetLiveAdminDashboard")
@@ -872,6 +878,13 @@ test("live runtime startup uses one fail-closed execution-control read instead o
   assert.match(runtime, /adapter\.\$queryRaw<[\s\S]*SELECT paused, pause_reason[\s\S]*WHERE id = \$\{"default"\}/);
   assert.match(startup, /readControl: readRuntimeExecutionControl/);
   assert.doesNotMatch(startup, /before = await getBitgetRuntimeState\(now\)/);
+  assert.match(runtime, /forceManageOnlyReason\?: string/);
+  assert.match(runtime, /composeRuntimePauseMessage/);
+  assert.match(runtime, /const primaryFinalMessage = engineFailure[\s\S]*finalMessage = composeRuntimePauseMessage\(\{/);
+  assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
+  assert.match(cron, /forceManageOnlyReason: !autoEntryAllowed \? effectiveGate\.reasons\.join\(","\) : undefined/);
+  assert.match(cron, /reasons: \["UNIFIED_LIVE_GATE_UNAVAILABLE"\]/);
+  assert.doesNotMatch(cron, /error instanceof Error \? error\.message/);
   assert.match(startup, /runRuntimeStartupSafetySequence/);
   assert.match(startup, /engineFailure = true[\s\S]*RUNTIME_CONTROL_ERROR/);
   assert.match(startup, /startup\.policy\.allowManageOnly && !engineFailure/);
@@ -926,6 +939,44 @@ test("unified custody inspection is read-only and reconciliation remains an expl
   assert.doesNotMatch(inspection, /ensureUnifiedLiveAccount|markUnifiedLiveManualClosures|recordUnifiedLiveEvents|setUnifiedLiveMode/);
   assert.match(custodianCron, /export const maxDuration = 300/);
   assert.match(custodianCron, /runUnifiedLiveCustodyCycle/);
+});
+
+test("unified LIVE restore requires the explicit server-side LIVE1000 confirmation", () => {
+  const route = read("app/api/admin/live-trading/route.ts");
+  const client = read("components/live-trading/AdminLiveTradingClient.tsx");
+  assert.match(route, /applyUnifiedLiveModeChange/);
+  assert.match(client, /mode: "LIVE", confirmation/);
+});
+
+test("unified LIVE control and concurrent pause observability are behavioral fail-closed gates", async () => {
+  const readiness: UnifiedLiveRestoreReadiness = {
+    runtimeModeLive: false,
+    liveSwitchAllowed: true,
+    environmentAllowsNewEntries: true,
+    positionManagementEnabled: true,
+    bitgetLiveExperiment: true,
+    bitgetConfigured: false,
+    bitgetExecutionAllowed: true,
+    bitgetLiveConfirmationAccepted: true,
+    initialCapitalIs1000U: true,
+    strategyActiveExecutionEnabled: true,
+    migrationRequired: false,
+    custodyFreezeNewEntries: false,
+  };
+  let modeWrites = 0;
+  const result = await applyUnifiedLiveModeChange({
+    mode: "LIVE",
+    confirmation: "LIVE1000",
+    readiness,
+    apply: async () => { modeWrites += 1; return {}; },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(modeWrites, 0);
+  assert.match(composeRuntimePauseMessage({
+    primaryReason: "行情不可用",
+    forcedManageOnly: true,
+    forcedManageOnlyReason: "ACCOUNT_NEW_ENTRIES_DISABLED",
+  }), /行情不可用[\s\S]*ACCOUNT_NEW_ENTRIES_DISABLED/);
 });
 
 test("daily champion expansion keeps exact contracts and every live risk boundary", () => {

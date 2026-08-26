@@ -13,17 +13,23 @@ const store = read("lib/trading-signals/unified-live-store.ts");
 const adapter = read("lib/trading-signals/unified-live-exchange-adapter.ts");
 const custody = read("lib/trading-signals/unified-live-custody-core.ts");
 const adminLive = read("app/api/admin/live-trading/route.ts");
+const adminControlCore = read("lib/trading-signals/unified-live-admin-control-core.ts");
+const runtimeObservability = read("lib/bitget/runtime-observability-core.ts");
 const unifiedRuntime = read("lib/trading-signals/unified-live-runtime.ts");
 const custodianCron = read("app/api/cron/live-trading-custodian/route.ts");
 const memberLive = read("app/api/member/live-trading/route.ts");
 const memberSettings = read("app/api/member/live-trading/settings/route.ts");
 const memberClient = read("components/live-trading/MemberLiveTradingClient.tsx");
+const adminClient = read("components/live-trading/AdminLiveTradingClient.tsx");
 const vercel = JSON.parse(read("vercel.json"));
 
 test("prediction cron now delegates to the existing three-horizon server runtime behind the unified gate", () => {
   assert.match(cron, /evaluateUnifiedLiveNewEntryGate\("official"\)/);
   assert.match(cron, /runBitgetDemoServerRuntime\(now, "CRON"/);
   assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
+  assert.match(cron, /forceManageOnlyReason: !autoEntryAllowed \? effectiveGate\.reasons\.join\(","\) : undefined/);
+  assert.match(cron, /catch\(\(\) => \(\{[\s\S]*reasons: \["UNIFIED_LIVE_GATE_UNAVAILABLE"\]/);
+  assert.doesNotMatch(cron, /error instanceof Error \? error\.message/);
   assert.match(cron, /isUnifiedLiveActiveExecutionEnabled/);
   assert.match(cron, /Date\.now\(\) \+ 285_000/);
   assert.match(cron, /CRON_SECRET/);
@@ -35,6 +41,9 @@ test("prediction cron now delegates to the existing three-horizon server runtime
 
 test("runtime cannot start live experiment or new exposure while unified gate forces manage-only", () => {
   assert.match(runtime, /forceManageOnly\?: boolean/);
+  assert.match(runtime, /forceManageOnlyReason\?: string/);
+  assert.match(runtime, /composeRuntimePauseMessage/);
+  assert.match(runtimeObservability, /阻断码：\$\{codes\}/);
   assert.match(runtime, /allowStart: syncOptions\.allowStart && !options\.forceManageOnly/);
   assert.match(runtime, /startup\.policy\.allowNewEntries && !forcedManageOnly/);
   assert.match(runtime, /const scanOnly = forcedManageOnly && marketOk && account\.connected/);
@@ -128,6 +137,13 @@ test("LIVE mode switch is explicit and requires runtime, Bitget, 1000U and custo
   assert.match(adminLive, /bitget\.mode === "LIVE_EXPERIMENT"/);
   assert.match(adminLive, /bitget\.executionAllowed/);
   assert.match(adminLive, /strategyActiveExecutionEnabled/);
+  assert.match(adminLive, /applyUnifiedLiveModeChange/);
+  assert.match(adminControlCore, /input\.confirmation !== "LIVE1000"/);
+  assert.match(adminControlCore, /LIVE_CONFIRMATION_REQUIRED/);
   assert.match(adminLive, /Math\.abs\(bitget\.liveInitialCapitalUsdt - 1000\) < 0\.01/);
   assert.match(adminLive, /status\.audit\?\.freezeNewEntries/);
+  assert.match(adminClient, /请输入 LIVE1000/);
+  assert.match(adminClient, /mode: "LIVE", confirmation/);
+  assert.match(adminClient, /account\?\.mode === "MANAGE_ONLY" && blockerCount === 0/);
+  assert.match(adminClient, /restoreBlockers/);
 });

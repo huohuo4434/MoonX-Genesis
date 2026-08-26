@@ -54,6 +54,10 @@ import {
   type RuntimeLeaseStore,
 } from "@/lib/bitget/runtime-lease-core";
 import {
+  composeRuntimePauseMessage,
+  normalizeUnifiedLiveGateCodes,
+} from "@/lib/bitget/runtime-observability-core";
+import {
   buildRuntimeDeadlinePolicy,
   canStartNewEntry,
   finalizeRuntimeOwner,
@@ -895,7 +899,7 @@ export async function refreshBitgetRuntimeHealthOnly(
 export async function runBitgetDemoServerRuntime(
   now = new Date(),
   source: BitgetRuntimeSource = "CRON",
-  options: { absoluteDeadlineAt?: Date; forceManageOnly?: boolean } = {}
+  options: { absoluteDeadlineAt?: Date; forceManageOnly?: boolean; forceManageOnlyReason?: string } = {}
 ): Promise<BitgetRuntimeRunReport> {
   const runtimeTiming = captureWallClockRunTiming({ businessNow: now });
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
@@ -1084,6 +1088,7 @@ export async function runBitgetDemoServerRuntime(
 
     const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
     const forcedManageOnly = Boolean(options.forceManageOnly);
+    const forcedManageOnlyReason = normalizeUnifiedLiveGateCodes(options.forceManageOnlyReason);
     const executionPaused = before.paused || forcedManageOnly || !marketOk || !account.connected || !liveAllowsNewEntries;
     if (startup.policy.allowNewEntries && !forcedManageOnly && marketOk && account.connected && liveAllowsNewEntries) {
       if (environment.mode !== "LIVE_EXPERIMENT") {
@@ -1309,20 +1314,25 @@ export async function runBitgetDemoServerRuntime(
         });
       }
     } else {
+      const primaryPauseReason = !marketOk
+        ? `行情读取失败或数据不足，本轮禁止新开仓。${marketMessage}`
+        : !account.connected
+          ? `账户对账未通过，本轮禁止新开仓。${account.message}`
+          : !liveAllowsNewEntries
+            ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
+            : before.paused
+              ? `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`
+              : "本轮禁止新开仓。";
       await recordEvent({
         runId,
         stage: "SYSTEM",
         level: "WARNING",
         action: "PAUSED_SKIP",
-        message: !marketOk
-          ? `行情读取失败或数据不足，本轮禁止新开仓。${marketMessage}`
-          : !account.connected
-            ? `账户对账未通过，本轮禁止新开仓。${account.message}`
-            : !liveAllowsNewEntries
-              ? liveExperiment?.stopReason || `实盘实验状态为${liveExperiment?.status ?? "NOT_STARTED"}，本轮不扫描新入场。`
-              : forcedManageOnly
-                ? "Unified Live新开仓闸门未通过；本轮仅管理已有仓位。"
-                : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
+        message: composeRuntimePauseMessage({
+          primaryReason: primaryPauseReason,
+          forcedManageOnly,
+          forcedManageOnlyReason,
+        }),
       });
       if (startup.policy.allowManageOnly && !engineFailure) {
         try {
@@ -1417,12 +1427,10 @@ export async function runBitgetDemoServerRuntime(
 
     const wallFinish = runtimeTiming.finish();
     const finishedAt = new Date(wallFinish.finishedAtMs);
-    finalMessage = engineFailure
+    const primaryFinalMessage = engineFailure
       ? "Three-horizon engine failed; no post-engine order chain was started."
-      : before.paused || forcedManageOnly
-      ? forcedManageOnly
-        ? "服务器心跳和对账已运行；Unified Live新开仓闸门未通过，本轮仅管理已有仓位。"
-        : "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
+      : before.paused
+      ? "服务器心跳和对账已运行；因管理员或风控暂停，本轮没有新策略下单。"
       : !marketOk
         ? `服务器心跳和对账已运行；行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。${marketMessage ? ` 原因：${marketMessage}` : ""}`
         : !account.connected
@@ -1432,6 +1440,11 @@ export async function runBitgetDemoServerRuntime(
             : threeHorizon?.message
               ? `${threeHorizon.message} ${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}订单成功${(mirrorResult?.success ?? 0) + (threeHorizon?.orderSuccess ?? 0) + liveExit.success}笔、失败${(mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors}笔。`
               : `服务器链路完成：行情正常，策略${strategyRan ? "已检查" : "未完成"}，本轮没有形成可执行订单。`;
+    finalMessage = composeRuntimePauseMessage({
+      primaryReason: primaryFinalMessage,
+      forcedManageOnly,
+      forcedManageOnlyReason,
+    });
     const report: BitgetRuntimeRunReport = {
       ok: resolveRuntimeEngineFailureGate({ engineFailure, engineOk: threeHorizon?.ok }).runtimeOk && marketEndpointOk && account.connected && (mirrorResult?.errors ?? 0) === 0 && (threeHorizon?.orderErrors ?? 0) === 0 && liveExit.errors === 0,
       locked: false,
