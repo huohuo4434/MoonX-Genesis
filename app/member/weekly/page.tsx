@@ -12,6 +12,7 @@ import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
+import { getWeeklyRollingVerification } from "@/lib/accuracy/get-weekly-rolling-verification";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -42,5 +43,6 @@ export default async function MemberWeeklyRoute() {
   if (payload.mode === "locked") {
     return <MemberWeeklyLockedPage summary={payload.summary} />;
   }
-  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} /></>;
+  const rollingVerification = await getWeeklyRollingVerification(payload.slots);
+  return <><MemberDeviceHeartbeat /><MemberWeeklyFullPage slots={payload.slots} summary={payload.summary} rollingVerification={rollingVerification} /></>;
 }

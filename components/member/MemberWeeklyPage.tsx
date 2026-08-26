@@ -14,6 +14,8 @@ import type {
   WeeklyAnalysisPublicSummary,
   WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
+import type { WeeklyRollingVerification } from "@/types/weekly-rolling-verification";
+import { WeeklyRollingVerificationPanel } from "@/components/member/WeeklyRollingVerificationPanel";
 
 function sourceLabel(source: "LIUYAO" | "QIMEN" | "BAZI" | "TECHNICAL" | "MACRO", en: boolean): string {
   const zh = { LIUYAO: "六爻", QIMEN: "奇门", BAZI: "八字", TECHNICAL: "技术", MACRO: "宏观" } as const;
@@ -220,7 +222,7 @@ export function MemberWeeklyLockedPage({ summary }: { summary: WeeklyAnalysisPub
   </div></Section></main>;
 }
 
-export function MemberWeeklyFullPage({ slots, summary }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary }) {
+export function MemberWeeklyFullPage({ slots, summary, rollingVerification = [] }: { slots: WeeklyMarketSlot[]; summary: WeeklyAnalysisPublicSummary; rollingVerification?: WeeklyRollingVerification[] }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const rows = slots?.length > 0 ? slots : (summary.teasers.map((item) => item.isReady ? null : ({ kind: "unpublished" as const, assetId: item.assetId, assetName: item.assetName, symbol: item.symbol, displaySymbol: item.displaySymbol ?? item.symbol })).filter(Boolean) as WeeklyMarketSlot[]);
@@ -229,6 +231,7 @@ export function MemberWeeklyFullPage({ slots, summary }: { slots: WeeklyMarketSl
     <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Outlook" : "会员周走势预测"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-3xl">{en ? "Direction, weekly path, key dates, price levels and invalidation for every core market." : "逐个标的讲清本周方向、周内路径、关键日期、支撑压力与失效条件。"}</Text>
     <WeeklyAtAGlance rows={rows} />
+    <WeeklyRollingVerificationPanel reports={rollingVerification} />
     <MetaHeader summary={summary} />
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
