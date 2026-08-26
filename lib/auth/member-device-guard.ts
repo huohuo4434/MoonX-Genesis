@@ -30,6 +30,7 @@ function degradedAllowedDecision(label: string): DeviceAccessDecision {
 
 async function evaluateMemberDevicePageAccess(input?: {
   forceAcquire?: boolean;
+  failClosed?: boolean;
 }): Promise<MemberDevicePageAccess> {
   const access = await getAccessUser();
   if (!access.authenticated || !access.userId) {
@@ -68,6 +69,9 @@ async function evaluateMemberDevicePageAccess(input?: {
     // Device security is a secondary anti-sharing layer. A missing migration must
     // never take down paid content after authentication and membership already pass.
     if (device.reason === "SETUP_REQUIRED") {
+      if (input?.failClosed) {
+        return { access, status: "DEVICE_REQUIRED", device };
+      }
       return {
         access,
         status: "ALLOWED",
@@ -81,6 +85,17 @@ async function evaluateMemberDevicePageAccess(input?: {
       device,
     };
   } catch {
+    if (input?.failClosed) {
+      return {
+        access,
+        status: "DEVICE_REQUIRED",
+        device: {
+          allowed: false,
+          reason: "SETUP_REQUIRED",
+          displayName: "设备守卫暂不可用",
+        },
+      };
+    }
     // Fail open only for this secondary device layer. Login, role and membership
     // checks above remain authoritative; transient database failures no longer make
     // the entire member site unusable.
@@ -99,7 +114,9 @@ const getCachedMemberDevicePageAccess = cache(() => evaluateMemberDevicePageAcce
 
 export function getMemberDevicePageAccess(input?: {
   forceAcquire?: boolean;
+  failClosed?: boolean;
 }): Promise<MemberDevicePageAccess> {
   if (input?.forceAcquire) return evaluateMemberDevicePageAccess(input);
+  if (input?.failClosed) return evaluateMemberDevicePageAccess(input);
   return getCachedMemberDevicePageAccess();
 }
