@@ -72,6 +72,10 @@ export function auditUnifiedLiveCustody(input: {
   }
 
   const settlementGraceMs = 2 * 60_000;
+  const matchedPendingSlices = active.filter((slice) =>
+    String(slice.status) === "PENDING"
+    && input.positions.some((position) => positionMatchesSlice(position, slice))
+  );
   const siteOnlySlices = active.filter((slice) => {
     if (input.positions.some((position) => positionMatchesSlice(position, slice))) return false;
     const openedAt = new Date(slice.openedAt).getTime();
@@ -174,6 +178,7 @@ export function auditUnifiedLiveCustody(input: {
     orphanPositions,
     orphanOrders,
     unknownSideOrders,
+    matchedPendingSlices,
     siteOnlySlices,
     protectionMissing,
     timeExitDue,

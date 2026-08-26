@@ -297,6 +297,25 @@ export async function markUnifiedLiveManualClosures(ownerKey: string, sliceIds: 
   });
 }
 
+export async function markUnifiedLivePendingSlicesOpen(ownerKey: string, sliceIds: string[]) {
+  if (!sliceIds.length) return { count: 0 };
+  const database = requireUnifiedLiveDatabase();
+  const account = await database.mooxUnifiedLiveAccount.findUnique({ where: { ownerKey } });
+  if (!account) return { count: 0 };
+  return database.mooxUnifiedLiveSlice.updateMany({
+    where: {
+      accountId: account.id,
+      id: { in: sliceIds },
+      status: "PENDING",
+    },
+    data: {
+      status: "OPEN",
+      lastManagedAt: new Date(),
+      nextCheckAt: new Date(Date.now() + 60_000),
+    },
+  });
+}
+
 export async function recordUnifiedLiveEvents(
   ownerKey: string,
   events: Array<{

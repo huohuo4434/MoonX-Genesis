@@ -5,6 +5,7 @@ import {
   ensureUnifiedLiveAccount,
   getUnifiedLiveAccount,
   markUnifiedLiveManualClosures,
+  markUnifiedLivePendingSlicesOpen,
   recordUnifiedLiveEvents,
   setUnifiedLiveMode,
 } from "@/lib/trading-signals/unified-live-store";
@@ -62,6 +63,9 @@ export async function runUnifiedLiveCustodyCycle(input: {
     slices,
   });
 
+  if (audit.snapshotAvailable && audit.matchedPendingSlices.length) {
+    await markUnifiedLivePendingSlicesOpen(ownerKey, audit.matchedPendingSlices.map((slice) => slice.id));
+  }
   if (audit.snapshotAvailable && audit.siteOnlySlices.length) {
     await markUnifiedLiveManualClosures(ownerKey, audit.siteOnlySlices.map((slice) => slice.id));
   }
@@ -94,6 +98,7 @@ export async function runUnifiedLiveCustodyCycle(input: {
     newOrdersPlaced: 0,
     positionManagementContinues: config.positionManagementEnabled,
     exchangePositions: exchange.positions,
+    settledPendingSlices: audit.matchedPendingSlices.map((slice) => slice.id),
     orphanOrderCleanup,
     audit,
   };

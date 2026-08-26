@@ -52,6 +52,28 @@ test("新开仓两分钟结算宽限内的保护单不误判为孤立单", () =>
   assert.ok(!audit.issues.some((issue) => issue.code === "ORPHAN_EXCHANGE_PROTECTION"));
 });
 
+test("交易所已出现同方向持仓时，PENDING切片进入可结算集合", () => {
+  const audit = auditUnifiedLiveCustody({
+    snapshotAvailable: true,
+    positions: [{ positionKey: "BTCUSDT:LONG", symbol: "BTCUSDT", side: "LONG", quantity: 0.01 }],
+    orders: [],
+    slices: [{
+      id: "pending-btc",
+      symbol: "BTCUSDT",
+      horizon: "SHORT",
+      side: "LONG",
+      status: "PENDING",
+      quantity: 0.01,
+      openedAt: new Date("2026-08-26T00:00:00.000Z"),
+      maxHoldMinutes: 90,
+      exchangePositionKey: null,
+    }],
+    now: new Date("2026-08-26T00:01:00.000Z"),
+  });
+  assert.deepEqual(audit.matchedPendingSlices.map((slice) => slice.id), ["pending-btc"]);
+  assert.equal(audit.siteOnlySlices.length, 0);
+});
+
 test("LONG持仓不能借用SHORT保护单，反向残单必须同时进入清理", () => {
   const shortOrder = { ...order, orderKey: "short-protection", orderId: "short-protection", side: "short" };
   const audit = auditUnifiedLiveCustody({

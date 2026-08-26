@@ -78,6 +78,8 @@ test("live sizing comes from unified short-medium-long settings and successful o
   assert.match(strategy, /registerUnifiedLiveStrategySlice/);
   assert.match(store, /strategyDecisionId: input\.strategyDecisionId/);
   assert.match(store, /status: "PENDING"/);
+  assert.match(store, /markUnifiedLivePendingSlicesOpen/);
+  assert.match(unifiedRuntime, /audit\.matchedPendingSlices[\s\S]*markUnifiedLivePendingSlicesOpen/);
   assert.match(custody, /settlementGraceMs = 2 \* 60_000/);
 });
 

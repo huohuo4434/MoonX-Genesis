@@ -133,6 +133,7 @@ export interface UnifiedLiveCustodyAudit {
   orphanPositions: UnifiedLiveExchangePosition[];
   orphanOrders: UnifiedLiveExchangeOrder[];
   unknownSideOrders: UnifiedLiveExchangeOrder[];
+  matchedPendingSlices: UnifiedLiveCustodySliceLike[];
   siteOnlySlices: UnifiedLiveCustodySliceLike[];
   protectionMissing: string[];
   timeExitDue: string[];
