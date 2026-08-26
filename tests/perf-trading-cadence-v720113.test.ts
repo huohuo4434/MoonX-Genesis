@@ -83,8 +83,36 @@ test("页面首屏不再同步等待交易所，多方观点使用共享短缓�
   const alphaCache = read("lib/trading-signals/member-alpha-feed-cache.ts");
   assert.doesNotMatch(layout, /getAdminTradingPerformanceSnapshot|getBitget/);
   assert.match(page, /MemberAiTradingDashboardLazy/);
+  assert.match(page, /MemberTradingOnboardingLazy/);
   assert.match(alphaCache, /unstable_cache/);
   assert.match(alphaCache, /revalidate: 60/);
+  const dashboardLazy = read("components/member/MemberAiTradingDashboardLazy.tsx");
+  const onboardingLazy = read("components/member/MemberTradingOnboardingLazy.tsx");
+  assert.match(dashboardLazy, /dynamic\(/);
+  assert.match(dashboardLazy, /AiTradingDeskClient/);
+  assert.match(onboardingLazy, /dynamic\(/);
+  assert.match(onboardingLazy, /if \(open\)/);
+  assert.doesNotMatch(page, /MemberTradingOnboarding[^L]/);
+});
+
+test("板块共振客户端不再导入完整研究注册表", () => {
+  const client = read("components/conviction/DailySectorResonanceBoard.tsx");
+  const groups = read("lib/data/conviction/sector-resonance-groups.ts");
+  assert.match(client, /sector-resonance-groups/);
+  assert.doesNotMatch(client, /sector-resonance-board/);
+  assert.match(groups, /SECTOR_RESONANCE_GROUP_ORDER/);
+  assert.doesNotMatch(groups, /focus-static-forecast-registry|member-liuyao-detail/);
+});
+
+test("同一扫描只读取一次外部观点快照并在内存聚合", () => {
+  const engine = read("lib/trading-signals/three-horizon-strategy.ts");
+  const signals = read("lib/trading-signals/external-analyst-signals.ts");
+  assert.match(engine, /getExternalAnalystOverlays\(/);
+  assert.match(engine, /analystOverlayByKey\.get/);
+  assert.doesNotMatch(engine, /getExternalAnalystOverlay\(symbol, profile\.strategyType/);
+  assert.match(signals, /export async function getExternalAnalystOverlays/);
+  assert.match(signals, /const rows = await prisma\.\$queryRawUnsafe/);
+  assert.match(signals, /for \(const symbol of uniqueSymbols\)[\s\S]*for \(const strategyType of uniqueStrategyTypes\)/);
 });
 
 test("超短线每分钟扫描并由1分钟收盘触发，三周期有独立数量上限", () => {

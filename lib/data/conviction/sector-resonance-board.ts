@@ -13,14 +13,13 @@ import {
   selectCurrentMonthlyForecast,
   type MemberLiuyaoDetail,
 } from "@/lib/research/member-liuyao-detail";
+import {
+  SECTOR_RESONANCE_GROUP_ORDER,
+  type SectorResonanceGroup,
+} from "@/lib/data/conviction/sector-resonance-groups";
 
-export type SectorResonanceGroup =
-  | "半导体 / AI基础设施"
-  | "太空与高波动成长"
-  | "大型科技"
-  | "加密资产"
-  | "美股指数"
-  | "贵金属与能源";
+export { SECTOR_RESONANCE_GROUP_ORDER } from "@/lib/data/conviction/sector-resonance-groups";
+export type { SectorResonanceGroup } from "@/lib/data/conviction/sector-resonance-groups";
 
 export type SectorResonanceCell = {
   direction: string;
@@ -119,15 +118,6 @@ export const SECTOR_RESONANCE_ASSETS_20260825: AssetDefinition[] = [
   { assetId: "gold", focusId: "gold", name: "黄金", symbol: "GOLD", group: "贵金属与能源", longCycle: "9月高位震荡、分段修复" },
   { assetId: "silver", focusId: "silver", name: "白银", symbol: "SILVER", group: "贵金属与能源", longCycle: "9月前强后弱" },
   { assetId: "wti-crude", focusId: "wti-crude", name: "WTI原油", symbol: "WTI", group: "贵金属与能源", longCycle: "高波动先强后弱" },
-];
-
-export const SECTOR_RESONANCE_GROUP_ORDER: SectorResonanceGroup[] = [
-  "半导体 / AI基础设施",
-  "太空与高波动成长",
-  "大型科技",
-  "加密资产",
-  "美股指数",
-  "贵金属与能源",
 ];
 
 function utcDay(value: string): number {

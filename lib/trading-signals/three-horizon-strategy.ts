@@ -93,7 +93,10 @@ import { getHexagramDirectionPrior, type HexagramDirectionPrior } from "@/lib/tr
 import { getMarketBaziRegimePrior } from "@/lib/trading-signals/market-bazi-regime";
 import { evaluateCryptoCrossAssetGuard } from "@/lib/trading-signals/crypto-cross-asset-policy";
 import { applyOctober2026LongRiskScale, getOctober2026AssetRisk } from "@/lib/research/october-2026-flash-crash-risk";
-import { getExternalAnalystOverlay } from "@/lib/trading-signals/external-analyst-signals";
+import {
+  externalAnalystOverlayKey,
+  getExternalAnalystOverlays,
+} from "@/lib/trading-signals/external-analyst-signals";
 import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
 import { buildXIntelligenceTradeUniverseBoost } from "@/lib/trading-signals/market-environment";
 import type { PredictionStrategyPlan } from "@/types/prediction-auto-trader";
@@ -4072,6 +4075,26 @@ export async function runThreeHorizonStrategyEngine(
     symbols: dynamicLiveSymbols,
     timeBudgetReached,
   });
+  const analystOverlaySymbols = Array.from(new Set(
+    dueProfiles.flatMap((profile) => (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
+      .map((value) => value as BitgetSupportedSymbol)
+      .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol)))
+  ));
+  // Every overlay is derived from the same latest stored-post snapshot. Read
+  // that snapshot once per scan, then aggregate it in memory by symbol/horizon.
+  // This layer may only resize or block risk; it cannot reverse the locked MOOX
+  // direction or create an entry.
+  const analystOverlayByKey = timeBudgetReached
+    ? new Map()
+    : await getExternalAnalystOverlays(
+        analystOverlaySymbols,
+        dueProfiles.map((profile) => profile.strategyType),
+        now
+      ).catch(() => new Map());
+  await reportProgress("ANALYST_OVERLAYS_COMPLETE", {
+    symbols: analystOverlaySymbols.length,
+    overlays: analystOverlayByKey.size,
+  });
   const eligibleUniverseSymbols = new Set<string>();
   for (const profile of dueProfiles) {
     if (timeBudgetReached || entrySafetyStop) break;
@@ -4102,10 +4125,11 @@ export async function runThreeHorizonStrategyEngine(
         // MOOX_EXTERNAL_ANALYST_OVERLAY_V1
         // Liuyao weekly/monthly direction remains primary. External analysts may only
         // refine technical levels when aligned; they cannot flip direction or create readiness.
-        // This accessor may run ensureExternalAnalystTables DDL. It must remain
-        // fully awaited under the owner lease and must never outlive a read race.
-        const analystOverlay = await getExternalAnalystOverlay(symbol, profile.strategyType, now)
-          .catch(() => null);
+        // The shared post snapshot was fully awaited under the owner lease before
+        // this loop; this lookup is now in-memory and cannot outlive the run.
+        const analystOverlay = analystOverlayByKey.get(
+          externalAnalystOverlayKey(symbol, profile.strategyType)
+        ) ?? null;
         await reportProgress("PROFILE_DATA_COMPLETE", {
           profile: profile.strategyType,
           symbol,

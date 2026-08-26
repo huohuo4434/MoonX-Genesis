@@ -1,9 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { AiTradingDeskClient } from "@/components/member/AiTradingDeskClient";
 import { Card, Text } from "@/components/ui";
 import type { AiTradingDeskSnapshot } from "@/types/ai-trading-desk";
+
+const AiTradingDeskClient = dynamic(
+  () => import("@/components/member/AiTradingDeskClient").then((module) => module.AiTradingDeskClient),
+  {
+    ssr: false,
+    loading: () => <Card padding="lg"><Text variant="body-sm" color="tertiary">交易台数据已到达，正在绘制面板……</Text></Card>,
+  }
+);
 
 async function readSnapshot(signal: AbortSignal): Promise<AiTradingDeskSnapshot> {
   const response = await fetch("/api/member/ai-trading-desk", {

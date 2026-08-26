@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   SECTOR_RESONANCE_GROUP_ORDER,
   type SectorResonanceGroup,
-} from "@/lib/data/conviction/sector-resonance-board";
+} from "@/lib/data/conviction/sector-resonance-groups";
 import type {
   DailySectorCell,
   DailySectorRow,

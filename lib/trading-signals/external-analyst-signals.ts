@@ -611,8 +611,28 @@ export async function getExternalAnalystOverlay(
   strategyType: ThreeHorizonStrategyType,
   now = new Date()
 ): Promise<ExternalAnalystOverlay | null> {
+  const overlays = await getExternalAnalystOverlays([symbol], [strategyType], now);
+  return overlays.get(externalAnalystOverlayKey(symbol, strategyType)) ?? null;
+}
+
+export function externalAnalystOverlayKey(
+  symbol: string,
+  strategyType: ThreeHorizonStrategyType
+): string {
+  return `${symbol.trim().toUpperCase()}:${strategyType}`;
+}
+
+export async function getExternalAnalystOverlays(
+  symbols: readonly string[],
+  strategyTypes: readonly ThreeHorizonStrategyType[],
+  now = new Date()
+): Promise<Map<string, ExternalAnalystOverlay>> {
   const enabled = process.env.MOOX_EXTERNAL_ANALYST_ENABLED?.toLowerCase() !== "false";
-  if (!enabled || !prisma || !(await ensureExternalAnalystTables())) return null;
+  const overlays = new Map<string, ExternalAnalystOverlay>();
+  const uniqueSymbols = Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)));
+  const uniqueStrategyTypes = Array.from(new Set(strategyTypes));
+  if (!uniqueSymbols.length || !uniqueStrategyTypes.length) return overlays;
+  if (!enabled || !prisma || !(await ensureExternalAnalystTables())) return overlays;
   const rows = await prisma.$queryRawUnsafe<StoredRow[]>(`
     SELECT source, username, post_id, post_url, posted_at, text, parsed, fetched_at
     FROM trade_external_analyst_posts
@@ -622,7 +642,13 @@ export async function getExternalAnalystOverlay(
     ORDER BY posted_at DESC
     LIMIT 160
   `, now.toISOString());
-  return buildExternalAnalystOverlayFromRows({ rows, symbol, strategyType, nowMs: now.getTime() });
+  for (const symbol of uniqueSymbols) {
+    for (const strategyType of uniqueStrategyTypes) {
+      const overlay = buildExternalAnalystOverlayFromRows({ rows, symbol, strategyType, nowMs: now.getTime() });
+      if (overlay) overlays.set(externalAnalystOverlayKey(symbol, strategyType), overlay);
+    }
+  }
+  return overlays;
 }
 
 export async function getLatestExternalAnalystPosts(input: {
