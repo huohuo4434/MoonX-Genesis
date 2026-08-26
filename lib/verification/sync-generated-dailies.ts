@@ -313,7 +313,8 @@ async function queryGeneratedDailyRows(
 }
 
 export async function listFormalGeneratedDailiesForVerification(
-  now = new Date()
+  now = new Date(),
+  options: { repairSchema?: boolean } = {},
 ): Promise<GeneratedDailyLike[]> {
   if (!hasPrisma() || !prisma) return [];
   const futureDateKey = beijingDateKey(new Date(now.getTime() + 45 * 86_400_000));
@@ -334,6 +335,14 @@ export async function listFormalGeneratedDailiesForVerification(
         error instanceof Error ? error.message : String(error)
       );
     }
+  }
+
+  if (options.repairSchema === false) {
+    throw new Error(
+      `GeneratedDailyForecast source unavailable in read-only mode: ${
+        lastError instanceof Error ? lastError.message : String(lastError ?? "unknown")
+      }`,
+    );
   }
 
   // Production databases created before this optional source table was migrated

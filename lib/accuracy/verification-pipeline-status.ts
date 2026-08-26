@@ -53,7 +53,10 @@ function maxIso(values: Array<string | null | undefined>): string | null {
   return best;
 }
 
-export async function getVerificationPipelineStatus(now = new Date()): Promise<VerificationPipelineStatus> {
+export async function getVerificationPipelineStatus(
+  now = new Date(),
+  options: { repairSchema?: boolean } = {},
+): Promise<VerificationPipelineStatus> {
   const checkedAt = now.toISOString();
   const sourceAvailable = hasPrisma();
 
@@ -128,7 +131,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
 
   let generated: Awaited<ReturnType<typeof listFormalGeneratedDailiesForVerification>>;
   try {
-    generated = await listFormalGeneratedDailiesForVerification(now);
+    generated = await listFormalGeneratedDailiesForVerification(now, options);
   } catch (error) {
     console.error("[verification-pipeline-status] GeneratedDailyForecast source unavailable", error);
     return {
