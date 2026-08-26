@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { MEMBER_VIDEO_CATALOG } from "../lib/member-videos/catalog";
 import {
+  isMemberVideoSlug,
   isMemberVideoReleaseId,
   memberVideoReleaseObjectPath,
   parseMemberVideoManifest,
@@ -20,6 +21,12 @@ test("public member-video catalogue exposes title metadata but not the member re
       title: "纳指100 · 十年周期风险窗口",
       durationLabel: "4分51秒",
       publishedAt: "2026-08-26",
+    },
+    {
+      slug: "soxl-two-month-cycle-2026",
+      title: "SOXL · 两个月走势与风险窗口",
+      durationLabel: "4分47秒",
+      publishedAt: "2026-08-27",
     },
   ]);
   const catalogue = source("lib/member-videos/catalog.ts");
@@ -50,6 +57,10 @@ test("member-only copy and storage coordinates stay in server-only modules", () 
 
 test("release core rejects path injection, wrong manifests and incomplete bundles", () => {
   const releaseId = "123e4567-e89b-42d3-a456-426614174000";
+  assert.equal(isMemberVideoSlug("nasdaq-100-historic-drop-window-2026"), true);
+  assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026"), true);
+  assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026/../manifest.json"), false);
+  assert.equal(isMemberVideoSlug("SOXL-two-month-cycle-2026"), false);
   assert.equal(isMemberVideoReleaseId(releaseId), true);
   assert.equal(isMemberVideoReleaseId("../../public"), false);
   assert.throws(() =>
@@ -118,17 +129,18 @@ test("playback API authenticates member and device before signing a short-lived 
   assert.match(guardSource, /input\?\.failClosed[\s\S]*status: "DEVICE_REQUIRED"/);
 });
 
-test("admin uploader is admin-only, fixed-path, private and atomically published", () => {
+test("admin uploader is admin-only, allowlisted, private and atomically published", () => {
   const route = source("app/api/admin/member-videos/upload-url/route.ts");
   const client = source("components/admin/MemberVideoUploadClient.tsx");
   assert.match(route, /await requireAdmin\(\)/);
   assert.match(route, /ensureMemberVideoBucket/);
   assert.match(route, /randomUUID\(\)/);
   assert.match(route, /createSignedUploadUrl\(objectPath, \{ upsert: false \}\)/);
+  assert.match(route, /isMemberVideoSlug/);
   const core = source("lib/member-videos/core.ts");
   assert.match(core, /video\.mp4/);
   assert.match(core, /subtitles\.vtt/);
-  assert.match(route, /MEMBER_VIDEO_STORAGE\[SLUG\]\.manifest/);
+  assert.match(route, /MEMBER_VIDEO_STORAGE\[slug\]\.manifest/);
   const publishManifest = route.lastIndexOf("const manifest = {");
   assert.ok(route.indexOf("视频文件未完整上传") < publishManifest);
   assert.ok(route.indexOf("字幕文件未完整上传") < publishManifest);
@@ -139,6 +151,8 @@ test("admin uploader is admin-only, fixed-path, private and atomically published
   assert.match(client, /files\["subtitles\.vtt"\]/);
   assert.match(client, /action: "prepare"/);
   assert.match(client, /action: "publish"/);
+  assert.match(client, /MEMBER_VIDEO_CATALOG\.map/);
+  assert.match(client, /refreshSequence/);
   assert.ok(client.indexOf('uploadOne("subtitle"') < client.indexOf('action: "publish"'));
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
 });

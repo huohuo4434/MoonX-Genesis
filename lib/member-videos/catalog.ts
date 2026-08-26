@@ -12,6 +12,12 @@ export const MEMBER_VIDEO_CATALOG: readonly MemberVideoRecord[] = [
     durationLabel: "4分51秒",
     publishedAt: "2026-08-26",
   },
+  {
+    slug: "soxl-two-month-cycle-2026",
+    title: "SOXL · 两个月走势与风险窗口",
+    durationLabel: "4分47秒",
+    publishedAt: "2026-08-27",
+  },
 ];
 
 export function getMemberVideoRecord(slug: string): MemberVideoRecord | null {

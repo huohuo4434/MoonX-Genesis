@@ -29,6 +29,9 @@ function storageAdminError(label: string, error: unknown): Error {
 }
 
 export const MEMBER_VIDEO_STORAGE = {
+  "soxl-two-month-cycle-2026": {
+    manifest: "soxl-two-month-cycle-2026/manifest.json",
+  },
   "nasdaq-100-historic-drop-window-2026": {
     manifest: "nasdaq-100-historic-drop-window-2026/manifest.json",
   },
