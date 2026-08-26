@@ -44,6 +44,23 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const output = new Array<R>(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      output[index] = await worker(items[index]!);
+    }
+  });
+  await Promise.all(runners);
+  return output;
+}
+
 function ema(values: number[], period: number): number[] {
   if (!values.length) return [];
   const alpha = 2 / (period + 1);
@@ -142,8 +159,8 @@ function qimenConfidence(row: DailyForecast): number {
 
 async function coreCandidates(now: Date): Promise<StrategyEnsembleCandidate[]> {
   const rows = await loadTodayForecastRows(now).catch(() => [] as DailyForecast[]);
-  const output: StrategyEnsembleCandidate[] = [];
-  for (const row of rows) {
+  const groups = await mapWithConcurrency(rows, 4, async (row) => {
+    const output: StrategyEnsembleCandidate[] = [];
     const tech = await technicalSignal({ quoteSymbol: quoteForDaily(row), market: marketForDaily(row), asOfDate: row.forecastForDate });
     const qimen = normalizeSide(row.qimenPrimaryDirection ?? qimenDirectionFromEvidence(row.qimenEvidence));
     const liuyao = normalizeSide(row.liuyaoAuxiliaryDirection ?? liuyaoDirectionFromEvidence(row.liuyaoEvidence));
@@ -172,20 +189,22 @@ async function coreCandidates(now: Date): Promise<StrategyEnsembleCandidate[]> {
       compositeReason = "奇门与技术同向，六爻信号缺失";
     }
     output.push(candidate({ now, forecastDate: row.forecastForDate, sleeve: "COMPOSITE", assetId: row.assetId, symbol: row.symbol, displayName: row.assetName, side: composite, confidence: compositeConfidence, eligibleForApproval: composite !== "WAIT" && compositeConfidence >= 60, reason: compositeReason, support, resistance, invalidation, technicalScore: tech.score, technicalNote: tech.note }));
-  }
-  return output;
+    return output;
+  });
+  return groups.flat();
 }
 
 async function focusCandidates(now: Date): Promise<StrategyEnsembleCandidate[]> {
   const today = getBeijingTodayKey(now);
-  const output: StrategyEnsembleCandidate[] = [];
-  for (const watch of FOCUS_WATCH) {
-    let row: GeneratedDailyForecastRecord | null = null;
-    if (["googl", "mu", "sandisk"].includes(watch.assetId)) {
-      const rows = await listLatestGeneratedDailiesForMarketDates(focusDailyMarketCode(watch.assetId), [today], { readOnly: true }).catch(() => []);
-      row = rows[0] ?? null;
-    }
-    const tech = await technicalSignal({ quoteSymbol: watch.quoteSymbol, market: "US", asOfDate: today });
+  const groups = await mapWithConcurrency(FOCUS_WATCH, 4, async (watch) => {
+    const output: StrategyEnsembleCandidate[] = [];
+    const [generatedRows, tech] = await Promise.all([
+      ["googl", "mu", "sandisk"].includes(watch.assetId)
+        ? listLatestGeneratedDailiesForMarketDates(focusDailyMarketCode(watch.assetId), [today], { readOnly: true }).catch(() => [])
+        : Promise.resolve([] as GeneratedDailyForecastRecord[]),
+      technicalSignal({ quoteSymbol: watch.quoteSymbol, market: "US", asOfDate: today }),
+    ]);
+    const row = generatedRows[0] ?? null;
     const qimen = qimenDirectionFromEvidence(row?.qimenEvidence ?? null);
     const liuyao = liuyaoDirectionFromEvidence(row?.liuyaoEvidence ?? null);
     const support = row?.supportLevels?.[0] ?? null;
@@ -209,8 +228,9 @@ async function focusCandidates(now: Date): Promise<StrategyEnsembleCandidate[]> 
       composite = qimen; conf = 68; reason = "奇门与六爻同向，技术等待/分歧";
     }
     make("COMPOSITE", composite, conf, reason, composite !== "WAIT" && conf >= 65);
-  }
-  return output;
+    return output;
+  });
+  return groups.flat();
 }
 
 export async function buildStrategyEnsembleSnapshot(now = new Date()): Promise<StrategyEnsembleSnapshot> {

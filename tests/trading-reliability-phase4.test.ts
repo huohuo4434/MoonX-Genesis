@@ -776,7 +776,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);
   assert.match(strategy, /if \(timeBudgetReached \|\| entrySafetyStop\) break;\s*await markProfileScanned/);
   assert.match(strategy, /reportProgress\("PROFILE_DATA_COMPLETE"[\s\S]*dataDurationMs[\s\S]*candleCacheHit/);
-  assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*!entrySafetyStop &&\s*liveExperimentMode &&\s*LIVE_ACTIVITY_ENABLED/);
+  assert.match(strategy, /if \(\s*!timeBudgetReached &&\s*!entrySafetyStop &&\s*liveExperimentMode &&\s*!options\.scanOnly &&\s*LIVE_ACTIVITY_ENABLED/);
   assert.doesNotMatch(strategy, /readWithinLiveScanDeadline\([\s\S]{0,120}getExternalAnalystOverlay/);
   all(runtime, [
     "run_lock_owner = $1",

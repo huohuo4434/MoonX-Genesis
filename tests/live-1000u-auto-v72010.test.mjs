@@ -37,8 +37,13 @@ test("runtime cannot start live experiment or new exposure while unified gate fo
   assert.match(runtime, /forceManageOnly\?: boolean/);
   assert.match(runtime, /allowStart: syncOptions\.allowStart && !options\.forceManageOnly/);
   assert.match(runtime, /startup\.policy\.allowNewEntries && !forcedManageOnly/);
+  assert.match(runtime, /const scanOnly = forcedManageOnly && marketOk && account\.connected/);
+  assert.match(runtime, /scanOnly,/);
   assert.match(runtime, /runThreeHorizonStrategyEngine/);
   assert.match(runtime, /LIVE_STRATEGY_SYMBOLS_PER_RUN/);
+  assert.match(strategy, /scanOnly\?: boolean/);
+  assert.match(strategy, /options\.scanOnly[\s\S]*?"SHADOW_READY"/);
+  assert.match(strategy, /!options\.scanOnly && Date\.now\(\) < newEntryCutoffMs/);
 });
 
 test("1000U experiment has hard capital and loss caps independent of stale larger env aliases", () => {
@@ -111,7 +116,7 @@ test("admin member page controls official 1000U settings, ordinary members remai
   assert.match(memberLive, /getReadOnlyLiveStatusSnapshot/);
   assert.match(memberLive, /strategyDiagnostics:/);
   assert.match(memberClient, /三周期自动扫描诊断/);
-  assert.match(memberClient, /今天扫描了多少、为什么没下单/);
+  assert.match(memberClient, /为什么现在没有下单 \/ 系统排查/);
 });
 
 test("LIVE mode switch is explicit and requires runtime, Bitget, 1000U and custody readiness", () => {

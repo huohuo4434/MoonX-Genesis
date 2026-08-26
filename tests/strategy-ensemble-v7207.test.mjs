@@ -26,8 +26,12 @@ test("focus watch includes user-requested names without auto execution", () => {
   assert.match(core, /researchOnly: true/);
 });
 
-test("custodian can run ensemble without placing orders", () => {
-  const route = read("app/api/cron/live-trading-custodian/route.ts");
+test("ensemble has an independent research-only cron and cannot delay custody", () => {
+  const route = read("app/api/cron/strategy-ensemble/route.ts");
+  const custody = read("app/api/cron/live-trading-custodian/route.ts");
   assert.match(route, /buildStrategyEnsembleSnapshot/);
   assert.match(route, /persistStrategyEnsembleSnapshot/);
+  assert.match(route, /RESEARCH_ONLY/);
+  assert.doesNotMatch(route, /placeOrder|submitOrder|setLeverage|closePosition/);
+  assert.doesNotMatch(custody, /buildStrategyEnsembleSnapshot|persistStrategyEnsembleSnapshot/);
 });

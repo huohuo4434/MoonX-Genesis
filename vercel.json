@@ -75,6 +75,10 @@
     {
       "path": "/api/cron/live-trading-custodian",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/strategy-ensemble",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

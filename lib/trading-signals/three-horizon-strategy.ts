@@ -3759,6 +3759,7 @@ export async function runThreeHorizonStrategyEngine(
   source: "CRON" | "ADMIN" | "SYSTEM" = "CRON",
   options: {
     manageOnly?: boolean;
+    scanOnly?: boolean;
     eligibleSymbols?: BitgetSupportedSymbol[];
     quotes?: BitgetDemoMarketQuote[];
     maxNewSymbols?: number;
@@ -3987,7 +3988,7 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
-  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && Date.now() < newEntryCutoffMs) {
+  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && !options.scanOnly && Date.now() < newEntryCutoffMs) {
     const commissioning = await runLiveCommissioning({
       runId,
       now,
@@ -4163,9 +4164,17 @@ export async function runThreeHorizonStrategyEngine(
             },
           };
         }
-        let status: ThreeHorizonDecisionStatus = evaluation.ready ? "READY" : "OBSERVING";
+        let status: ThreeHorizonDecisionStatus = evaluation.ready
+          ? options.scanOnly
+            ? "SHADOW_READY"
+            : "READY"
+          : "OBSERVING";
         let rejectionCode = evaluation.rejectionCode;
         let rejectionReason = evaluation.rejectionReason;
+        if (evaluation.ready && options.scanOnly) {
+          rejectionCode = "NEW_ENTRIES_DISABLED";
+          rejectionReason = "新开仓闸门未通过；候选与事前计划继续刷新，但本轮禁止提交新订单。";
+        }
         if (
           evaluation.ready &&
           profile.mode !== "SHADOW" &&
@@ -4346,6 +4355,7 @@ export async function runThreeHorizonStrategyEngine(
     !timeBudgetReached &&
     !entrySafetyStop &&
     liveExperimentMode &&
+    !options.scanOnly &&
     LIVE_ACTIVITY_ENABLED &&
     Date.now() < newEntryCutoffMs &&
     LIVE_ACTIVITY_TARGET > 0 &&
@@ -4528,6 +4538,7 @@ export async function runThreeHorizonStrategyEngine(
   if (
     Date.now() < newEntryCutoffMs &&
     environment.mode === "DEMO" &&
+    !options.scanOnly &&
     DEMO_ACTIVE_EXECUTION_ENABLED &&
     DEMO_ACTIVITY_TARGET > 0 &&
     beijingHour(now) >= DEMO_ACTIVITY_START_HOUR_BJ &&
@@ -4682,7 +4693,7 @@ export async function runThreeHorizonStrategyEngine(
     orderAttempts,
     orderSuccess,
     orderErrors,
-    message: `${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；方向明确${directionalDecisions}，入场触发${entryTriggers}，事前发布时间拦截${leadTimeBlocks}，风险拦截${riskBlocks}，可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${entrySafetyStop ? "；本轮因实盘执行/托管异常已停止继续新开仓" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
+    message: `${options.scanOnly ? "影子扫描（禁止新开仓）：" : ""}${commissioningMessage ? `首笔闭环：${commissioningMessage}；` : ""}三周期全品种扫描${scannedSymbols.length}/${eligibleUniverseSymbols.size || scannedSymbols.length}个可用标的（${scannedSymbols.join("、") || "无"}）；方向明确${directionalDecisions}，入场触发${entryTriggers}，事前发布时间拦截${leadTimeBlocks}，风险拦截${riskBlocks}，可执行${readyCount}，数据异常${scanErrors}，真实下单成功${orderSuccess}，订单错误${orderErrors}${timeBudgetReached ? "；本轮达到时间预算，剩余标的下一分钟继续" : ""}${entrySafetyStop ? "；本轮因实盘执行/托管异常已停止继续新开仓" : ""}${noOrderReasons.length ? `；未下单原因：${noOrderReasons.join("；")}` : ""}。`,
   };
 }
 

@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
-import { buildStrategyEnsembleSnapshot } from "@/lib/trading-signals/strategy-ensemble";
-import { persistStrategyEnsembleSnapshot } from "@/lib/trading-signals/strategy-ensemble-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// Custody runs first. The research-only ensemble may still perform up to nine
-// sequential 15-second market reads, so retain the same 300-second budget as
-// the primary trading runner instead of allowing Vercel to cut off the response.
+// Custody is an execution-safety path. Keep research data collection on its own
+// schedule so a slow market-data provider can never delay position reconciliation.
 export const maxDuration = 300;
 
 function authorized(request: NextRequest) {
@@ -19,7 +16,5 @@ function authorized(request: NextRequest) {
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const custody = await runUnifiedLiveCustodyCycle({ trigger: "CRON_CUSTODIAN", ownerKey: "official" });
-  const ensemble = await buildStrategyEnsembleSnapshot();
-  const persisted = await persistStrategyEnsembleSnapshot(ensemble, "official");
-  return NextResponse.json({ custody, ensemble, persisted, newOrdersPlaced: 0, execution: "ADMIN_CONFIRMATION_REQUIRED" });
+  return NextResponse.json({ custody, newOrdersPlaced: 0, execution: "CUSTODY_ONLY" });
 }

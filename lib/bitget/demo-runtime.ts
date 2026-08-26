@@ -1324,13 +1324,26 @@ export async function runBitgetDemoServerRuntime(
                 ? "Unified Live新开仓闸门未通过；本轮仅管理已有仓位。"
                 : `服务器交易执行已暂停：${before.pauseReason || "等待管理员恢复"}`,
       });
-      if (startup.policy.allowManageOnly && !engineFailure && (environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active)) {
+      if (startup.policy.allowManageOnly && !engineFailure) {
         try {
+          const scanOnly = forcedManageOnly && marketOk && account.connected;
           threeHorizon = await runThreeHorizonStrategyEngine(
             now,
             source === "ADMIN" ? "ADMIN" : "CRON",
             {
-              ...{ manageOnly: true },
+              manageOnly: !scanOnly,
+              scanOnly,
+              eligibleSymbols: scanOnly ? freshSymbols : undefined,
+              quotes: scanOnly ? quotes : undefined,
+              maxNewSymbols: scanOnly && environment.mode === "LIVE_EXPERIMENT"
+                ? LIVE_STRATEGY_SYMBOLS_PER_RUN
+                : undefined,
+              deadlineAt: scanOnly && environment.mode === "LIVE_EXPERIMENT"
+                ? new Date(Math.min(Date.now() + LIVE_STRATEGY_BUDGET_MS, deadlinePolicy.newEntryCutoffMs))
+                : undefined,
+              newEntryCutoffAt: scanOnly && Number.isFinite(deadlinePolicy.newEntryCutoffMs)
+                ? new Date(deadlinePolicy.newEntryCutoffMs)
+                : undefined,
               progressStartedAtMs: runtimeTiming.startedAtMs,
               progressElapsedMs: runtimeTiming.elapsedMs,
             }
@@ -1341,9 +1354,12 @@ export async function runBitgetDemoServerRuntime(
             runId,
             stage: "STRATEGY",
             level: threeHorizon.ok ? "INFO" : "WARNING",
-            action: "THREE_HORIZON_MANAGE_ONLY",
+            action: scanOnly ? "THREE_HORIZON_SHADOW_SCAN" : "THREE_HORIZON_MANAGE_ONLY",
             message: threeHorizon.message,
             payload: {
+              scanOnly,
+              scannedStrategies: threeHorizon.scannedStrategies,
+              decisions: threeHorizon.decisions.length,
               managedOpenDecisions: threeHorizon.managedOpenDecisions,
               orderAttempts: threeHorizon.orderAttempts,
               orderSuccess: threeHorizon.orderSuccess,
