@@ -181,6 +181,10 @@ const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
 const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
   "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
 ));
+// Plan lifecycle maintenance performs authoritative writes and therefore cannot
+// be abandoned with Promise.race. Do not start it near the new-entry cutoff;
+// finish the current owner round and let the next minute retry safely.
+const LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000;
 
 // MOOX_ACTIVE_EXECUTION_V64
 // Demo execution remains separately controllable and cannot affect live credentials.
@@ -325,6 +329,20 @@ interface DecisionRow {
   created_at: Date | string;
   updated_at: Date | string;
 }
+
+interface ExecutionCountRow {
+  strategy_type: ThreeHorizonStrategyType;
+  symbol: string;
+  today_count: bigint | number | string;
+  cadence_count: bigint | number | string;
+}
+
+type ExecutionCountSnapshot = {
+  executedToday: number;
+  todayByStrategy: Map<ThreeHorizonStrategyType, number>;
+  cadenceByStrategy: Map<ThreeHorizonStrategyType, number>;
+  todayBySymbol: Map<string, number>;
+};
 
 interface EvaluationResult {
   direction: ThreeHorizonDirection;
@@ -2280,22 +2298,6 @@ async function syncManagedDecisionFromAuthority(input: {
   throw new Error(`三周期策略决策${input.id}在持仓同步期间已由其他托管任务推进为${latest.status}；本轮禁止新开仓并等待下一次权威对账。`);
 }
 
-async function todayTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
-  if (!prisma) return 0;
-  const start = beijingStartOfDay(now);
-  const rows = await prisma.$queryRawUnsafe<Array<{ count: number | string | bigint }>>(
-    `SELECT COUNT(*) AS count
-     FROM trade_three_horizon_decisions
-     WHERE strategy_type = $1 AND mode = $2
-       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
-       AND created_at >= $3::timestamptz`,
-    profile.strategyType,
-    profile.mode,
-    start.toISOString()
-  );
-  return Number(rows[0]?.count ?? 0);
-}
-
 async function loadCandleSet(symbol: BitgetSupportedSymbol): Promise<CandleSet> {
   const intervals: BitgetCandleInterval[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"];
   const rows = await Promise.allSettled(
@@ -2337,6 +2339,69 @@ function cadenceLabel(strategyType: ThreeHorizonStrategyType): string {
   if (strategyType === "SWING") return "本周";
   if (strategyType === "POSITION") return "本月";
   return "今日";
+}
+
+/**
+ * One bounded authority read replaces the former global, per-profile and
+ * per-symbol count queries. These counts are hard order limits: an unavailable
+ * snapshot must stop new entries rather than defaulting to zero.
+ */
+async function loadExecutionCountSnapshot(
+  now: Date,
+  mode: "LIVE" | "DEMO",
+): Promise<ExecutionCountSnapshot> {
+  if (!prisma) throw new Error("TRADE_COUNT_DATABASE_UNAVAILABLE");
+  const todayStart = beijingStartOfDay(now);
+  const weekStart = beijingStartOfWeek(now);
+  const monthStart = beijingStartOfMonth(now);
+  const earliestStart = new Date(Math.min(
+    todayStart.getTime(),
+    weekStart.getTime(),
+    monthStart.getTime(),
+  ));
+  const rows = await prisma.$queryRawUnsafe<ExecutionCountRow[]>(
+    `SELECT strategy_type, symbol,
+            COUNT(*) FILTER (WHERE created_at >= $3::timestamptz)::bigint AS today_count,
+            COUNT(*) FILTER (
+              WHERE created_at >= CASE
+                WHEN strategy_type = 'SWING' THEN $4::timestamptz
+                WHEN strategy_type = 'POSITION' THEN $5::timestamptz
+                ELSE $3::timestamptz
+              END
+            )::bigint AS cadence_count
+       FROM trade_three_horizon_decisions
+      WHERE mode = $1
+        AND created_at >= $2::timestamptz
+        AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+      GROUP BY strategy_type, symbol`,
+    mode,
+    earliestStart.toISOString(),
+    todayStart.toISOString(),
+    weekStart.toISOString(),
+    monthStart.toISOString(),
+  );
+  const todayByStrategy = new Map<ThreeHorizonStrategyType, number>();
+  const cadenceByStrategy = new Map<ThreeHorizonStrategyType, number>();
+  const todayBySymbol = new Map<string, number>();
+  let executedToday = 0;
+  for (const row of rows) {
+    const todayCount = Number(row.today_count ?? 0);
+    const cadenceCount = Number(row.cadence_count ?? 0);
+    const safeToday = Number.isFinite(todayCount) ? todayCount : 0;
+    const safeCadence = Number.isFinite(cadenceCount) ? cadenceCount : 0;
+    executedToday += safeToday;
+    todayByStrategy.set(
+      row.strategy_type,
+      (todayByStrategy.get(row.strategy_type) ?? 0) + safeToday,
+    );
+    cadenceByStrategy.set(
+      row.strategy_type,
+      (cadenceByStrategy.get(row.strategy_type) ?? 0) + safeCadence,
+    );
+    const symbol = String(row.symbol).toUpperCase();
+    todayBySymbol.set(symbol, (todayBySymbol.get(symbol) ?? 0) + safeToday);
+  }
+  return { executedToday, todayByStrategy, cadenceByStrategy, todayBySymbol };
 }
 
 async function cadenceTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
@@ -3938,6 +4003,14 @@ export async function runThreeHorizonStrategyEngine(
         : `持仓管理已完成；请求已进入收尾保留时间，不启动计划维护、新标的扫描或新订单。`,
     };
   }
+  if (
+    liveExperimentMode
+    && effectiveNewEntryCutoffMs - Date.now() < LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS
+  ) {
+    return finishAfterDeadline(
+      "持仓管理已完成；本轮剩余时间不足以安全完成计划生命周期写入，不启动计划维护、新标的扫描或新订单。"
+    );
+  }
   // LIVE synchronizes the exact decisions managed in this pass, even when
   // management has just advanced one of them to CLOSED/ERROR. The bounded
   // query also carries a small recent-terminal recovery set, but it never
@@ -4088,21 +4161,27 @@ export async function runThreeHorizonStrategyEngine(
     success: commissioningSuccess,
     error: commissioningError,
   });
+  const finishAfterCommissioning = (
+    message: string,
+    forceError = false,
+  ): ThreeHorizonRunReport => ({
+    ok: !forceError && !commissioningError && management.orderErrors === 0,
+    runId,
+    source,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    scannedStrategies: commissioningMessage ? (["INTRADAY"] as ThreeHorizonStrategyType[]) : [],
+    decisions,
+    managedOpenDecisions: management.managed,
+    orderAttempts: management.orderAttempts + (commissioningAttempted ? 1 : 0),
+    orderSuccess: management.orderSuccess + (commissioningSuccess ? 1 : 0),
+    orderErrors: management.orderErrors + (commissioningError ? 1 : 0),
+    message,
+  });
   if (newEntryDeadlineReached()) {
-    return {
-      ok: !commissioningError && management.orderErrors === 0,
-      runId,
-      source,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      scannedStrategies: commissioningMessage ? (["INTRADAY"] as ThreeHorizonStrategyType[]) : [],
-      decisions,
-      managedOpenDecisions: management.managed,
-      orderAttempts: management.orderAttempts + (commissioningAttempted ? 1 : 0),
-      orderSuccess: management.orderSuccess + (commissioningSuccess ? 1 : 0),
-      orderErrors: management.orderErrors + (commissioningError ? 1 : 0),
-      message: `${commissioningMessage ? `${commissioningMessage} ` : ""}请求已进入收尾保留时间，不启动后续新标的扫描或新订单。`,
-    };
+    return finishAfterCommissioning(
+      `${commissioningMessage ? `${commissioningMessage} ` : ""}请求已进入收尾保留时间，不启动后续新标的扫描或新订单。`
+    );
   }
   if (!dueProfiles.length) {
     return {
@@ -4120,15 +4199,38 @@ export async function runThreeHorizonStrategyEngine(
       message: `${commissioningMessage ? `${commissioningMessage} ` : ""}三周期持仓管理已执行，本分钟没有到期的正常策略扫描。`,
     };
   }
+  let executionCounts: ExecutionCountSnapshot;
+  try {
+    executionCounts = await readWithinLiveScanDeadline(
+      () => loadExecutionCountSnapshot(now, liveExperimentMode ? "LIVE" : "DEMO"),
+      deadlineMs,
+    );
+    await reportProgress("COUNT_LIMITS_COMPLETE", {
+      executedToday: executionCounts.executedToday,
+      authorityReadsOk: true,
+    });
+  } catch (error) {
+    const timedOut = error instanceof LiveScanReadDeadlineError;
+    await reportProgress("COUNT_LIMITS_COMPLETE", {
+      executedToday: null,
+      authorityReadsOk: false,
+      rejectionCode: timedOut ? "NEW_ENTRY_DEADLINE_REACHED" : "RISK_LIMIT_AUTHORITY_UNAVAILABLE",
+    });
+    return finishAfterCommissioning(timedOut
+      ? "持仓管理已完成；订单数量硬上限读取到达本轮截止时间，不再启动新仓并进入安全收尾。"
+      : "持仓管理已完成；订单数量硬上限读取失败，为防止超额开仓，本轮禁止新入场。",
+      !timedOut,
+    );
+  }
   let orderAttempts = management.orderAttempts + (commissioningAttempted ? 1 : 0);
   let orderSuccess = management.orderSuccess + (commissioningSuccess ? 1 : 0);
   let orderErrors = management.orderErrors + (commissioningError ? 1 : 0);
-  let executedToday = await executedOrderCountToday(now, liveExperimentMode ? "LIVE" : "DEMO");
+  let executedToday = executionCounts.executedToday;
   const intradayProfile = liveExperimentMode
     ? profiles.find((profile) => profile.strategyType === "INTRADAY" && profile.mode === "LIVE")
     : null;
   let intradayExecutedToday = intradayProfile
-    ? await cadenceTradeCount(intradayProfile, now)
+    ? executionCounts.cadenceByStrategy.get(intradayProfile.strategyType) ?? 0
     : 0;
   let scanErrors = 0;
   let directionalDecisions = 0;
@@ -4185,8 +4287,8 @@ export async function runThreeHorizonStrategyEngine(
   for (const profile of dueProfiles) {
     if (timeBudgetReached || entrySafetyStop) break;
     const profileStartedAt = Date.now();
-    let tradesToday = await todayTradeCount(profile, now);
-    let tradesInCadence = await cadenceTradeCount(profile, now);
+    let tradesToday = executionCounts.todayByStrategy.get(profile.strategyType) ?? 0;
+    let tradesInCadence = executionCounts.cadenceByStrategy.get(profile.strategyType) ?? 0;
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
@@ -4311,7 +4413,7 @@ export async function runThreeHorizonStrategyEngine(
           rejectionReason = `${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}今日已达到${globalTradeCap}笔全局硬上限；活动目标不是无限交易。`;
         }
         if (evaluation.ready && status === "READY") {
-          const symbolTradesToday = await symbolExecutedOrderCountToday(symbol, now, profile.mode === "LIVE" ? "LIVE" : "DEMO");
+          const symbolTradesToday = executionCounts.todayBySymbol.get(symbol) ?? 0;
           if (symbolTradesToday >= symbolTradeCap) {
             status = "BLOCKED";
             rejectionCode = "SYMBOL_DAILY_TRADE_CAP";

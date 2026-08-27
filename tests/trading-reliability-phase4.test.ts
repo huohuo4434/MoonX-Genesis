@@ -754,7 +754,7 @@ test("实盘持仓同步以原子局部更新返回结果且不覆盖并发托�
   const updateEnd = strategy.indexOf("async function syncManagedDecisionFromAuthority", updateStart);
   const updateSource = strategy.slice(updateStart, updateEnd);
   const authorityStart = updateEnd;
-  const authorityEnd = strategy.indexOf("async function todayTradeCount", authorityStart);
+  const authorityEnd = strategy.indexOf("async function loadCandleSet", authorityStart);
   const authoritySource = strategy.slice(authorityStart, authorityEnd);
   const manageStart = strategy.indexOf("async function manageActiveDecisions");
   const manageEnd = strategy.indexOf("function unifiedHorizonForStrategy", manageStart);
@@ -829,7 +829,12 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /const newEntryDeadlineReached = \(\) => Date\.now\(\) >= effectiveNewEntryCutoffMs/);
   assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,900}if \(newEntryDeadlineReached\(\)\)/);
   assert.match(strategy, /RISK_ACCOUNT_COMPLETE[\s\S]{0,900}if \(newEntryDeadlineReached\(\)\)/);
-  assert.match(strategy, /COMMISSIONING_COMPLETE[\s\S]{0,600}if \(newEntryDeadlineReached\(\)\)/);
+  const commissioningCompleteIndex = strategy.indexOf('reportProgress("COMMISSIONING_COMPLETE"');
+  const commissioningDeadlineIndex = strategy.indexOf("if (newEntryDeadlineReached())", commissioningCompleteIndex);
+  assert.ok(
+    commissioningCompleteIndex >= 0 && commissioningDeadlineIndex > commissioningCompleteIndex,
+    "首单验收结束后必须再次检查统一的新开仓截止线",
+  );
   const commissioningStart = strategy.indexOf("async function runLiveCommissioning");
   const commissioningEnd = strategy.indexOf("function orderSide", commissioningStart);
   const commissioningSource = strategy.slice(commissioningStart, commissioningEnd);
@@ -876,6 +881,16 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(executeReadySource, /await placeBitgetDemoMarketOrder\(\{[\s\S]{0,300}reduceOnly: false/);
   assert.match(predictionAutoTraderCron, /if \(Array\.isArray\(candidate\)\) return candidate\.length/);
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
+  assert.match(strategy, /LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000/);
+  assert.match(strategy, /effectiveNewEntryCutoffMs - Date\.now\(\) < LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS[\s\S]{0,260}不启动计划维护、新标的扫描或新订单/);
+  assert.match(strategy, /readWithinLiveScanDeadline\([\s\S]{0,180}loadExecutionCountSnapshot\(now, liveExperimentMode \? "LIVE" : "DEMO"\)[\s\S]{0,80}deadlineMs/);
+  assert.match(strategy, /COUNT_LIMITS_COMPLETE/);
+  assert.match(strategy, /const finishAfterCommissioning = \([\s\S]*ok: !forceError && !commissioningError && management\.orderErrors === 0[\s\S]*decisions,[\s\S]*orderAttempts: management\.orderAttempts \+ \(commissioningAttempted \? 1 : 0\)[\s\S]*orderSuccess: management\.orderSuccess \+ \(commissioningSuccess \? 1 : 0\)[\s\S]*orderErrors: management\.orderErrors \+ \(commissioningError \? 1 : 0\)/);
+  assert.match(strategy, /catch \(error\) \{[\s\S]{0,900}return finishAfterCommissioning\(timedOut[\s\S]{0,350}!timedOut/);
+  assert.match(strategy, /COUNT\(\*\) FILTER \(WHERE created_at >= \$3::timestamptz\)[\s\S]*GROUP BY strategy_type, symbol/);
+  assert.match(strategy, /executionCounts\.todayByStrategy\.get\(profile\.strategyType\)/);
+  assert.match(strategy, /executionCounts\.cadenceByStrategy\.get\(profile\.strategyType\)/);
+  assert.match(strategy, /executionCounts\.todayBySymbol\.get\(symbol\)/);
   assert.match(strategy, /runLiveScanSymbolStep\(async \(\) =>[\s\S]{0,1000}readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);
   assert.match(strategy, /if \(timeBudgetReached \|\| entrySafetyStop\) break;\s*await markProfileScanned/);
