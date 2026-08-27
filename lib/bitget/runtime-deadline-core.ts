@@ -1,5 +1,8 @@
 export const RUNTIME_FINALIZE_RESERVE_MS = 20_000;
 export const MEMBER_DESK_MIN_REMAINING_MS = 30_000;
+export const DEFAULT_RUNTIME_LEASE_SECONDS = 330;
+export const RUNTIME_LEASE_GRACE_SECONDS = 30;
+export const MIN_RUNTIME_LEASE_SECONDS = 30;
 
 export type RuntimeDeadlinePolicy = {
   absoluteDeadlineMs: number;
@@ -80,6 +83,23 @@ export function buildRuntimeDeadlinePolicy(absoluteDeadlineAt?: Date): RuntimeDe
     absoluteDeadlineMs,
     newEntryCutoffMs: absoluteDeadlineMs - RUNTIME_FINALIZE_RESERVE_MS,
   };
+}
+
+/**
+ * Keep the owner fence slightly longer than the server route, without leaving a
+ * five-minute stale lock behind when a shorter serverless invocation is killed.
+ */
+export function resolveRuntimeLeaseSeconds(
+  absoluteDeadlineAt?: Date,
+  nowMs = Date.now()
+): number {
+  const deadlineMs = absoluteDeadlineAt?.getTime();
+  if (deadlineMs == null || !Number.isFinite(deadlineMs)) return DEFAULT_RUNTIME_LEASE_SECONDS;
+  const remainingSeconds = Math.max(0, Math.ceil((deadlineMs - nowMs) / 1000));
+  return Math.max(
+    MIN_RUNTIME_LEASE_SECONDS,
+    Math.min(DEFAULT_RUNTIME_LEASE_SECONDS, remainingSeconds + RUNTIME_LEASE_GRACE_SECONDS)
+  );
 }
 
 export function canStartNewEntry(policy: RuntimeDeadlinePolicy, nowMs = Date.now()): boolean {

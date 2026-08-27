@@ -31,6 +31,7 @@ import {
   finalizeRuntimeOwner,
   readAuthoritativeRuntimeExecutionControl,
   releaseOwnerOrThrow,
+  resolveRuntimeLeaseSeconds,
   runNewEntryBeforeCutoff,
   runRuntimeStartupSafetySequence,
 } from "../lib/bitget/runtime-deadline-core";
@@ -180,6 +181,24 @@ test("runtime deadline uses fake time to stop new entries while leaving a finali
   assert.equal(canStartNewEntry(policy, 265_000), false);
   assert.equal(canStartMemberDeskSync(policy.absoluteDeadlineMs, 254_999), true);
   assert.equal(canStartMemberDeskSync(policy.absoluteDeadlineMs, 255_001), false);
+});
+
+test("a short serverless deadline also shortens the stale runtime lease", () => {
+  assert.equal(resolveRuntimeLeaseSeconds(new Date(105_000), 0), 135);
+  assert.equal(resolveRuntimeLeaseSeconds(new Date(10_000), 0), 40);
+  assert.equal(resolveRuntimeLeaseSeconds(new Date(-1), 0), 30);
+  assert.equal(resolveRuntimeLeaseSeconds(undefined, 0), 330);
+  assert.equal(resolveRuntimeLeaseSeconds(new Date(600_000), 0), 330);
+});
+
+test("a slow preflight gate cannot move the request-anchored finalization cutoff", () => {
+  const requestStartedAtMs = 0;
+  const gateFinishedAtMs = 30_000;
+  const policy = buildRuntimeDeadlinePolicy(new Date(requestStartedAtMs + 105_000));
+  assert.equal(policy.absoluteDeadlineMs, 105_000);
+  assert.equal(policy.newEntryCutoffMs, 85_000);
+  assert.equal(canStartNewEntry(policy, gateFinishedAtMs), true);
+  assert.equal(canStartNewEntry(policy, 85_000), false);
 });
 
 test("a new order lifecycle started before cutoff is fully awaited but no later order starts", async () => {

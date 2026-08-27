@@ -63,6 +63,7 @@ import {
   finalizeRuntimeOwner,
   readAuthoritativeRuntimeExecutionControl,
   releaseOwnerOrThrow,
+  resolveRuntimeLeaseSeconds,
   runRuntimeStartupSafetySequence,
 } from "@/lib/bitget/runtime-deadline-core";
 import {
@@ -197,6 +198,38 @@ let ensured = false;
 export async function ensureBitgetRuntimeTables(): Promise<boolean> {
   if (!prisma) return false;
   if (ensured) return true;
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; event_probe_id: string | null }>>(`
+      SELECT runtime_state.id,
+             runtime_state.run_lock_owner,
+             runtime_state.consecutive_healthy_runs,
+             runtime_state.pause_source,
+             runtime_state.last_market_error,
+             runtime_state.last_account_error,
+             event_probe.id AS event_probe_id
+      FROM trade_bitget_runtime_state AS runtime_state
+      LEFT JOIN LATERAL (
+        SELECT id FROM trade_bitget_runtime_events LIMIT 1
+      ) AS event_probe ON TRUE
+      WHERE runtime_state.id = 'default'
+      LIMIT 1
+    `);
+    if (rows.length > 0) {
+      ensured = true;
+      return true;
+    }
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const schemaMissing = code === "P2021" || code === "P2022" ||
+      /(?:42P01|42703|relation .* does not exist|column .* does not exist)/i.test(message);
+    if (!schemaMissing) {
+      console.error("Bitget runtime schema probe failed", error);
+      return false;
+    }
+  }
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_bitget_runtime_state (
@@ -334,8 +367,8 @@ const runtimeLeaseStore: RuntimeLeaseStore = {
   },
 };
 
-async function acquireRuntimeLock(owner: string): Promise<boolean> {
-  return acquireRuntimeLease(runtimeLeaseStore, owner, LOCK_SECONDS);
+async function acquireRuntimeLock(owner: string, leaseSeconds = LOCK_SECONDS): Promise<boolean> {
+  return acquireRuntimeLease(runtimeLeaseStore, owner, leaseSeconds);
 }
 
 async function releaseRuntimeLock(owner: string): Promise<boolean> {
@@ -908,7 +941,10 @@ export async function runBitgetDemoServerRuntime(
   const runId = `bgr_${randomUUID()}`;
   const startedAt = runtimeTiming.startedAt;
   const deadlinePolicy = buildRuntimeDeadlinePolicy(options.absoluteDeadlineAt);
-  const locked = await acquireRuntimeLock(runId);
+  const locked = await acquireRuntimeLock(
+    runId,
+    resolveRuntimeLeaseSeconds(options.absoluteDeadlineAt, runtimeTiming.startedAtMs)
+  );
   if (!locked) {
     return {
       ok: true,

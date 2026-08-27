@@ -7,7 +7,7 @@ import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unifi
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 120;
 
 function authorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -18,7 +18,8 @@ function authorized(request: NextRequest) {
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const now = new Date();
+  const requestStartedAtMs = Date.now();
+  const now = new Date(requestStartedAtMs);
   const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch(() => ({
     allowed: false,
     reasons: ["UNIFIED_LIVE_GATE_UNAVAILABLE"],
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     : { ...unifiedGate, allowed: false, reasons: [...unifiedGate.reasons, "LEGACY_STRATEGY_EXECUTION_DISABLED"] };
 
   const report = await runBitgetDemoServerRuntime(now, "CRON", {
-    absoluteDeadlineAt: new Date(Date.now() + 285_000),
+    absoluteDeadlineAt: new Date(requestStartedAtMs + 105_000),
     forceManageOnly: !autoEntryAllowed,
     forceManageOnlyReason: !autoEntryAllowed ? effectiveGate.reasons.join(",") : undefined,
   });

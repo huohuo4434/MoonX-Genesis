@@ -31,7 +31,11 @@ test("prediction cron now delegates to the existing three-horizon server runtime
   assert.match(cron, /catch\(\(\) => \(\{[\s\S]*reasons: \["UNIFIED_LIVE_GATE_UNAVAILABLE"\]/);
   assert.doesNotMatch(cron, /error instanceof Error \? error\.message/);
   assert.match(cron, /isUnifiedLiveActiveExecutionEnabled/);
-  assert.match(cron, /Date\.now\(\) \+ 285_000/);
+  assert.match(cron, /export const maxDuration = 120/);
+  assert.match(cron, /const requestStartedAtMs = Date\.now\(\)/);
+  assert.match(cron, /new Date\(requestStartedAtMs \+ 105_000\)/);
+  const routeBody = cron.slice(cron.indexOf("export async function GET"));
+  assert.ok(routeBody.indexOf("const requestStartedAtMs = Date.now()") < routeBody.indexOf("evaluateUnifiedLiveNewEntryGate"));
   assert.match(cron, /CRON_SECRET/);
   assert.doesNotMatch(cron, /placeBitgetDemoMarketOrder/);
   assert.doesNotMatch(cron, /fetch\(/);
@@ -146,4 +150,13 @@ test("LIVE mode switch is explicit and requires runtime, Bitget, 1000U and custo
   assert.match(adminClient, /mode: "LIVE", confirmation/);
   assert.match(adminClient, /account\?\.mode === "MANAGE_ONLY" && blockerCount === 0/);
   assert.match(adminClient, /restoreBlockers/);
+});
+
+test("runtime cold starts probe existing tables before schema compatibility DDL", () => {
+  const probe = runtime.indexOf("SELECT runtime_state.id,");
+  const ddl = runtime.indexOf("CREATE TABLE IF NOT EXISTS trade_bitget_runtime_state");
+  assert.ok(probe >= 0);
+  assert.ok(ddl > probe);
+  assert.match(runtime, /runtime_state\.run_lock_owner[\s\S]{0,300}runtime_state\.last_account_error/);
+  assert.match(runtime, /resolveRuntimeLeaseSeconds\(options\.absoluteDeadlineAt, runtimeTiming\.startedAtMs\)/);
 });

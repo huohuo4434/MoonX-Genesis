@@ -127,7 +127,9 @@ test("runtime routes reserve finalization time while analysts run on an independ
     path: "/api/cron/external-analysts",
     schedule: "*/15 * * * *",
   });
-  assert.match(predictionCron, /Date\.now\(\) \+ 285_000/);
+  assert.match(predictionCron, /export const maxDuration = 120/);
+  assert.match(predictionCron, /const requestStartedAtMs = Date\.now\(\)/);
+  assert.match(predictionCron, /new Date\(requestStartedAtMs \+ 105_000\)/);
   assert.match(adminRuntimeRoute, /export const maxDuration = 300/);
   assert.match(adminRuntimeRoute, /Date\.now\(\) \+ 285_000/);
   assert.match(strategy, /newEntryCutoffAt/);
@@ -786,7 +788,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   all(runtime, [
     "run_lock_owner = $1",
     "WHERE id = 'default' AND run_lock_owner = $1",
-    "acquireRuntimeLock(runId)",
+    "resolveRuntimeLeaseSeconds(options.absoluteDeadlineAt, runtimeTiming.startedAtMs)",
     "releaseRuntimeLock(runId)",
     'action: "THREE_HORIZON_PROGRESS"',
     "strategyStage: progress.stage",
