@@ -51,6 +51,17 @@ test("same-symbol exposure is limited to a protected, same-direction staged add-
   assert.match(client, /existingPositionNotional \+ notional > perPositionLimit/);
 });
 
+test("legacy protected positions are managed without applying the stricter scale-in full-mode gate", () => {
+  const managementStart = strategy.indexOf("let protection = matchingProtection(protections, current)");
+  const scaleInStart = strategy.indexOf("// V6.4 staged entry", managementStart);
+  const managementProtection = strategy.slice(managementStart, scaleInStart);
+  const scaleInSection = strategy.slice(scaleInStart, strategy.indexOf("if (options.scaleInOnly) continue;", scaleInStart));
+
+  assert.match(managementProtection, /!options\.scaleInOnly &&\s*!protection &&/);
+  assert.doesNotMatch(managementProtection, /hasPositionSideProtectionCoverage/);
+  assert.match(scaleInSection, /hasPositionSideProtectionCoverage\(protections, current, position\.markPrice\)/);
+});
+
 test("scale-in retains exchange protection and idempotent rollback behavior", () => {
   assert.match(strategy, /scale-in-2:\$\{technicalTriggerFingerprint\}/);
   assert.match(strategy, /getBitgetDemoPendingStrategyOrders\(\)/);

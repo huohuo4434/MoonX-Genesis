@@ -2992,7 +2992,7 @@ async function manageActiveDecisions(
     let protection = matchingProtection(protections, current);
     if (
       !options.scaleInOnly &&
-      !hasPositionSideProtectionCoverage(protections, current, position.markPrice) &&
+      !protection &&
       current.stopLoss &&
       current.target2
     ) {
