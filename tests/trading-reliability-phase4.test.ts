@@ -80,6 +80,7 @@ test("live plan maintenance never substitutes a source-linked plan for an author
 });
 const strategy = read("lib/trading-signals/three-horizon-strategy.ts");
 const runtime = read("lib/bitget/demo-runtime.ts");
+const predictionAutoTraderCron = read("app/api/cron/prediction-auto-trader/route.ts");
 const migration = read("prisma/migrations/20260804050000_trade_reliability_phase4/migration.sql");
 const liveMigration = read("prisma/migrations/20260807010000_trade_reliability_live_mode/migration.sql");
 const commissioningPlans = read("lib/trading-signals/ai-trade-plans.ts");
@@ -851,7 +852,25 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(commissioningPlans, /runClassifiedPlanMaintenance\(\{/);
   assert.match(commissioningPlans, /LEFT JOIN LATERAL[\s\S]*plan_snapshot ON TRUE/);
   assert.match(strategy, /runLiveCommissioning\([\s\S]{0,500}eligibleSymbols: liveSymbolsForThisRun/);
-  assert.match(strategy, /selectDynamicTradeUniverse\(liveSymbolsForThisRun, forecastBySymbol, now\)/);
+  assert.match(strategy, /selectDynamicTradeUniverse\([\s\S]{0,220}liveSymbolsForThisRun[\s\S]{0,220}preselectedFreshBatch: true/);
+  const normalizeEvaluationStart = strategy.indexOf("async function normalizeExecutionEvaluation");
+  const normalizeEvaluationEnd = strategy.indexOf("function evaluationRiskBudgetPct", normalizeEvaluationStart);
+  const normalizeEvaluationSource = strategy.slice(normalizeEvaluationStart, normalizeEvaluationEnd);
+  all(normalizeEvaluationSource, [
+    "await getContractConfig(input.symbol)",
+    "if (!contract.available) throw new Error",
+  ]);
+  const executeReadyStart = strategy.indexOf("async function executeReadyDecision");
+  const executeReadyEnd = strategy.indexOf("async function buildStrategyStats", executeReadyStart);
+  const executeReadySource = strategy.slice(executeReadyStart, executeReadyEnd);
+  const normalizeCallIndex = executeReadySource.indexOf("await normalizeExecutionEvaluation");
+  const marketOrderIndex = executeReadySource.indexOf("await placeBitgetDemoMarketOrder");
+  assert.ok(
+    normalizeCallIndex >= 0 && marketOrderIndex >= 0 && normalizeCallIndex < marketOrderIndex,
+    "真实新开仓必须在市价单提交前重新确认精确合约在线状态和价格规格",
+  );
+  assert.match(executeReadySource, /await placeBitgetDemoMarketOrder\(\{[\s\S]{0,300}reduceOnly: false/);
+  assert.match(predictionAutoTraderCron, /if \(Array\.isArray\(candidate\)\) return candidate\.length/);
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /runLiveScanSymbolStep\(async \(\) =>[\s\S]{0,1000}readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /if \(scanStep\.timedOut\)[\s\S]{0,120}timeBudgetReached = true;[\s\S]{0,80}break/);

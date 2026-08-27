@@ -1893,11 +1893,17 @@ function dailyMinimumCandidateScore(decision: ThreeHorizonStrategyDecision, now 
 async function selectDynamicTradeUniverse(
   allowedSymbols: BitgetSupportedSymbol[],
   forecastBySymbol: Map<string, PredictionStrategyPlan>,
-  now: Date
+  now: Date,
+  options: { preselectedFreshBatch?: boolean } = {}
 ): Promise<BitgetSupportedSymbol[]> {
   const allowed = Array.from(new Set(allowedSymbols))
     .map((value) => String(value).toUpperCase() as BitgetSupportedSymbol)
     .filter((value) => LIVE_EXPERIMENT_SYMBOL_PATTERN.test(value));
+  // The minute runtime already claimed this exact batch from the immutable
+  // allow-list and intersected it with fresh Bitget quotes. Repeating contract,
+  // history and X-snapshot discovery here can consume the whole scan window.
+  // Order execution still re-reads the exact contract and all hard gates.
+  if (options.preselectedFreshBatch) return allowed;
   // V7.9.1: stock-perp availability can differ by account/product state.
   // Keep the user-approved symbols in the pool, but only score contracts that Bitget reports online now.
   const contractRows = await Promise.all(
@@ -4135,7 +4141,12 @@ export async function runThreeHorizonStrategyEngine(
   if (liveExperimentMode) {
     try {
       dynamicLiveSymbols = await readWithinLiveScanDeadline(
-        () => selectDynamicTradeUniverse(liveSymbolsForThisRun, forecastBySymbol, now),
+        () => selectDynamicTradeUniverse(
+          liveSymbolsForThisRun,
+          forecastBySymbol,
+          now,
+          { preselectedFreshBatch: true }
+        ),
         deadlineMs
       );
     } catch (error) {

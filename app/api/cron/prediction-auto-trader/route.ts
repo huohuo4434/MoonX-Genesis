@@ -17,6 +17,7 @@ function authorized(request: NextRequest) {
 
 function reportCount(value: Record<string, unknown> | null, key: string): number {
   const candidate = value?.[key];
+  if (Array.isArray(candidate)) return candidate.length;
   return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : 0;
 }
 
