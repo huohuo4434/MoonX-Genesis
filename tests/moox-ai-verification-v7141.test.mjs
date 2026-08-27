@@ -6,9 +6,9 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('live commissioning is enabled by default but still uses MOOX direction and safety gates', () => {
+test('live commissioning requires explicit enablement and still uses MOOX direction and safety gates', () => {
   const source = read('lib/trading-signals/three-horizon-strategy.ts');
-  assert.match(source, /BITGET_LIVE_COMMISSIONING_ENABLED\?\.toLowerCase\(\) !== "false"/);
+  assert.match(source, /BITGET_LIVE_COMMISSIONING_ENABLED\?\.toLowerCase\(\) === "true"/);
   assert.match(source, /resolveOfficialMooxDirection\(\{ plan, prior, strategyType:/);
   assert.match(source, /forecastDirectionForStrategy\(input\.plan, input\.strategyType\)/);
   assert.match(source, /MOOX玄学方向/);
@@ -69,7 +69,8 @@ test('future TRC20 payments keep autonomous hash discovery and membership activa
   const vercel = JSON.parse(read('vercel.json'));
   const reconcile = vercel.crons.find((row) => row.path === '/api/cron/reconcile-payments');
   assert.deepEqual(reconcile, { path: '/api/cron/reconcile-payments', schedule: '* * * * *' });
-  assert.match(process, /discoverTronTransferHash/);
+  assert.match(process, /discoverTronTransferCandidate/);
+  assert.match(process, /每分钟继续扫描/);
   assert.match(process, /finalizeAutoPaymentMembership/);
   assert.match(cron, /reconcileAutoPayments/);
 });

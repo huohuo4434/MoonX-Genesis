@@ -102,9 +102,58 @@ function mapSettings(row?: DbDeskSettings): AiTradingDeskSettings {
   };
 }
 
+type MemberAiDeskSchemaProbe = "READY" | "MISSING" | "UNAVAILABLE";
+
+async function probeMemberAiTradingDeskSchema(): Promise<MemberAiDeskSchemaProbe> {
+  if (!prisma) return "UNAVAILABLE";
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{
+      id: string;
+      snapshot_id: string;
+      last_synced_at: Date | string | null;
+      last_error: string | null;
+    }>>(`
+      SELECT settings.id,
+             snapshot.id AS snapshot_id,
+             snapshot.last_synced_at,
+             snapshot.last_error
+      FROM trade_member_ai_desk_settings AS settings
+      INNER JOIN trade_member_ai_desk_snapshot AS snapshot ON snapshot.id = 'default'
+      WHERE settings.id = 'default'
+        AND settings.enabled IS NOT NULL
+        AND settings.show_current_positions IS NOT NULL
+        AND settings.show_trade_history IS NOT NULL
+        AND settings.show_absolute_pnl IS NOT NULL
+        AND settings.history_limit IS NOT NULL
+        AND settings.updated_at IS NOT NULL
+        AND snapshot.payload IS NOT NULL
+        AND snapshot.updated_at IS NOT NULL
+      LIMIT 1
+    `);
+    return rows.length > 0 ? "READY" : "MISSING";
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const schemaMissing = code === "P2021" || code === "P2022" ||
+      /(?:42P01|42703|relation .* does not exist|column .* does not exist)/i.test(message);
+    if (schemaMissing) return "MISSING";
+    console.error("member AI trading desk schema probe failed", error);
+    return "UNAVAILABLE";
+  }
+}
+
 export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
-  if (!(await ensurePredictionAutoTraderTables()) || !prisma) return false;
+  if (!prisma) return false;
   if (ensured) return true;
+  const initialProbe = await probeMemberAiTradingDeskSchema();
+  if (initialProbe === "READY") {
+    ensured = true;
+    return true;
+  }
+  if (initialProbe === "UNAVAILABLE") return false;
+  if (!(await ensurePredictionAutoTraderTables())) return false;
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_member_ai_desk_settings (
@@ -116,6 +165,15 @@ export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
         history_limit INTEGER NOT NULL DEFAULT 20,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_member_ai_desk_settings
+        ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS show_current_positions BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS show_trade_history BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS show_absolute_pnl BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS history_limit INTEGER NOT NULL DEFAULT 20,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     `);
     await prisma.$executeRawUnsafe(`
       INSERT INTO trade_member_ai_desk_settings (id)
@@ -132,10 +190,21 @@ export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
       )
     `);
     await prisma.$executeRawUnsafe(`
+      ALTER TABLE trade_member_ai_desk_snapshot
+        ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS last_error TEXT,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    `);
+    await prisma.$executeRawUnsafe(`
       INSERT INTO trade_member_ai_desk_snapshot (id)
       VALUES ('default')
       ON CONFLICT (id) DO NOTHING
     `);
+    if (await probeMemberAiTradingDeskSchema() !== "READY") {
+      console.error("member AI trading desk schema verification failed after compatibility DDL");
+      return false;
+    }
     ensured = true;
     return true;
   } catch (error) {

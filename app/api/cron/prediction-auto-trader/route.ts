@@ -15,6 +15,11 @@ function authorized(request: NextRequest) {
   return request.headers.get("authorization") === `Bearer ${secret}` || request.nextUrl.searchParams.get("secret") === secret;
 }
 
+function reportCount(value: Record<string, unknown> | null, key: string): number {
+  const candidate = value?.[key];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : 0;
+}
+
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
@@ -38,6 +43,22 @@ export async function GET(request: NextRequest) {
     forceManageOnly: !autoEntryAllowed,
     forceManageOnlyReason: !autoEntryAllowed ? effectiveGate.reasons.join(",") : undefined,
   });
+
+  // Production-safe summary for diagnosing the live runner without logging
+  // account values, credentials, order ids, quantities or strategy payloads.
+  console.info("[prediction-auto-trader]", JSON.stringify({
+    ok: report.ok,
+    locked: report.locked,
+    paused: report.paused,
+    execution: autoEntryAllowed ? "LIVE" : "MANAGE_ONLY",
+    marketOk: report.market.ok,
+    accountConnected: report.reconcile.connected,
+    scannedStrategies: reportCount(report.threeHorizon, "scannedStrategies"),
+    decisions: Array.isArray(report.threeHorizon?.decisions) ? report.threeHorizon.decisions.length : 0,
+    orderAttempts: reportCount(report.threeHorizon, "orderAttempts"),
+    orderSuccess: reportCount(report.threeHorizon, "orderSuccess"),
+    orderErrors: reportCount(report.threeHorizon, "orderErrors"),
+  }));
 
   return NextResponse.json({
     ok: report.ok,

@@ -34,6 +34,9 @@ test("prediction cron now delegates to the existing three-horizon server runtime
   assert.match(cron, /export const maxDuration = 120/);
   assert.match(cron, /const requestStartedAtMs = Date\.now\(\)/);
   assert.match(cron, /new Date\(requestStartedAtMs \+ 105_000\)/);
+  assert.match(cron, /\[prediction-auto-trader\]/);
+  assert.match(cron, /orderAttempts: reportCount\(report\.threeHorizon, "orderAttempts"\)/);
+  assert.doesNotMatch(cron, /console\.info[\s\S]{0,500}(orderId|quantity|credentials)/);
   const routeBody = cron.slice(cron.indexOf("export async function GET"));
   assert.ok(routeBody.indexOf("const requestStartedAtMs = Date.now()") < routeBody.indexOf("evaluateUnifiedLiveNewEntryGate"));
   assert.match(cron, /CRON_SECRET/);
