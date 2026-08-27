@@ -68,4 +68,9 @@ test("member AI desk refresh remains authenticated and on-demand without competi
   assert.match(runtime, /memberDeskSync: \{ ok: true, mode: "ON_DEMAND" \}/);
   const cron = vercel.crons.find((item) => item.path === "/api/cron/member-ai-trading-desk-sync");
   assert.equal(cron, undefined);
+  assert.match(runtime, /\[prediction-auto-trader-stage\]/);
+  assert.match(runtime, /logStage\("STARTUP_SAFETY_START"\)/);
+  assert.match(runtime, /logStage\("MARKET_ACCOUNT_START"\)/);
+  assert.match(runtime, /logStage\("THREE_HORIZON_START"\)/);
+  assert.match(runtime, /logStage\("FINALIZED"\)/);
 });

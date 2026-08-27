@@ -935,9 +935,15 @@ export async function runBitgetDemoServerRuntime(
   options: { absoluteDeadlineAt?: Date; forceManageOnly?: boolean; forceManageOnlyReason?: string } = {}
 ): Promise<BitgetRuntimeRunReport> {
   const runtimeTiming = captureWallClockRunTiming({ businessNow: now });
+  const logStage = (stage: string) => console.info("[prediction-auto-trader-stage]", JSON.stringify({
+    stage,
+    elapsedMs: runtimeTiming.elapsedMs(),
+  }));
+  logStage("SCHEMA_CHECK_START");
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
     throw new Error("交易数据库未连接");
   }
+  logStage("SCHEMA_READY");
   const runId = `bgr_${randomUUID()}`;
   const startedAt = runtimeTiming.startedAt;
   const deadlinePolicy = buildRuntimeDeadlinePolicy(options.absoluteDeadlineAt);
@@ -946,6 +952,7 @@ export async function runBitgetDemoServerRuntime(
     resolveRuntimeLeaseSeconds(options.absoluteDeadlineAt, runtimeTiming.startedAtMs)
   );
   if (!locked) {
+    logStage("LOCKED_SKIP");
     return {
       ok: true,
       locked: true,
@@ -965,6 +972,7 @@ export async function runBitgetDemoServerRuntime(
       message: "检测到运行锁，本轮未重复执行。",
     };
   }
+  logStage("LOCK_ACQUIRED");
 
   const environment = getBitgetDemoEnvironment();
   const runtimeSymbols = environment.mode === "LIVE_EXPERIMENT" ? environment.liveAllowedSymbols : DEFAULT_SYMBOLS;
@@ -992,6 +1000,7 @@ export async function runBitgetDemoServerRuntime(
   let engineFailure = false;
 
   try {
+    logStage("STARTUP_SAFETY_START");
     const startup = await runRuntimeStartupSafetySequence<BitgetLiveExperimentStatus, LiveExperimentExitResult>({
       readControl: readRuntimeExecutionControl,
       onControlResolved: async ({ controlError }) => {
@@ -1036,11 +1045,14 @@ export async function runBitgetDemoServerRuntime(
     const before = startup.control;
     liveExperiment = startup.liveStatus;
     if (startup.riskExit) liveExit = startup.riskExit;
+    logStage("STARTUP_SAFETY_DONE");
 
+    logStage("MARKET_ACCOUNT_START");
     const [marketResult, accountResult] = await Promise.allSettled([
       getBitgetDemoMarketQuotes(runtimeSymbols),
       reconcileAccount(now),
     ] as const);
+    logStage("MARKET_ACCOUNT_DONE");
 
     if (marketResult.status === "fulfilled") {
       const fetchedQuotes = marketResult.value;
@@ -1114,6 +1126,7 @@ export async function runBitgetDemoServerRuntime(
       accountError,
       message: healthMessage,
     });
+    logStage("HEALTH_PERSISTED");
     await recordEvent({
       runId,
       stage: "HEARTBEAT",
@@ -1168,6 +1181,7 @@ export async function runBitgetDemoServerRuntime(
 
 
       try {
+        logStage("THREE_HORIZON_START");
         threeHorizon = await runThreeHorizonStrategyEngine(
           now,
           source === "ADMIN" ? "ADMIN" : "CRON",
@@ -1200,6 +1214,7 @@ export async function runBitgetDemoServerRuntime(
             },
           }
         );
+        logStage("THREE_HORIZON_DONE");
         strategyRan = true;
         if (!threeHorizon.ok) engineFailure = true;
         await recordEvent({
@@ -1372,6 +1387,7 @@ export async function runBitgetDemoServerRuntime(
       });
       if (startup.policy.allowManageOnly && !engineFailure) {
         try {
+          logStage("THREE_HORIZON_MANAGE_START");
           const scanOnly = forcedManageOnly && marketOk && account.connected;
           threeHorizon = await runThreeHorizonStrategyEngine(
             now,
@@ -1394,6 +1410,7 @@ export async function runBitgetDemoServerRuntime(
               progressElapsedMs: runtimeTiming.elapsedMs,
             }
           );
+          logStage("THREE_HORIZON_MANAGE_DONE");
           strategyRan = true;
           if (!threeHorizon.ok) engineFailure = true;
           await recordEvent({
@@ -1577,6 +1594,7 @@ export async function runBitgetDemoServerRuntime(
         finalizationPersisted = true;
       },
     });
+    logStage("FINALIZED");
     finalizationPersisted = finalized.finalizationPersisted;
     return report;
   } catch (error) {
