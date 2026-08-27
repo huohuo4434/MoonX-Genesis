@@ -158,7 +158,9 @@ test("mixed maintenance writes material rows immediately and batches eight check
     plans.indexOf("async function loadEvents")
   );
   assert.match(maintenanceBody, /runClassifiedPlanMaintenance/);
-  assert.match(engine, /const planMaintenance = await syncAiTradePlansFromRecentDecisions[\s\S]*await reportProgress\("PLAN_MAINTENANCE_COMPLETE"/);
+  assert.match(engine, /const planMaintenance = await syncAiTradePlansFromRecentDecisions[\s\S]*lifecycleDecisionIds: management\.managedDecisionIds[\s\S]*await reportProgress\("PLAN_MAINTENANCE_COMPLETE"/);
+  assert.match(engine, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,180}lifecycleOnlyInLive: liveExperimentMode/);
+  assert.match(maintenanceBody, /options\.lifecycleDecisionIds[\s\S]*managed_lifecycle[\s\S]*recent_terminal[\s\S]*CLOSED','ERROR[\s\S]*selected AS/);
   assert.doesNotMatch(engine, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
   for (const field of [
     "selected", "none", "material", "duplicateFresh", "checkpointRows", "checkpointBatchCalls",

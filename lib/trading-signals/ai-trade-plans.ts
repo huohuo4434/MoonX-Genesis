@@ -1265,7 +1265,7 @@ async function syncAiTradePlanFromPrefetchedSnapshot(
 
 export async function syncAiTradePlansFromRecentDecisions(
   now = new Date(),
-  options: { symbols?: readonly string[]; limit?: number } = {}
+  options: { symbols?: readonly string[]; limit?: number; lifecycleDecisionIds?: readonly string[] } = {}
 ): Promise<DynamicPlanMaintenanceTelemetry> {
   const schemaReady = await ensureAiTradePlanTables();
   requireDynamicPlanMaintenanceStore({ schemaReady, adapterReady: Boolean(prisma) });
@@ -1277,6 +1277,91 @@ export async function syncAiTradePlansFromRecentDecisions(
   const symbolClause = symbols.length
     ? ` AND d.symbol IN (${symbols.map((_, index) => `$${index + 2}`).join(",")})`
     : "";
+  const lifecycleDecisionIds = Array.from(new Set((options.lifecycleDecisionIds ?? [])
+    .map((id) => String(id).trim())
+    .filter(Boolean)));
+  const lifecyclePlaceholders = lifecycleDecisionIds.length
+    ? lifecycleDecisionIds.map((_, index) => `$${index + 1}`).join(",")
+    : "NULL";
+  const selectionCtes = options.lifecycleDecisionIds !== undefined
+    ? `
+    WITH managed_lifecycle AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.id IN (${lifecyclePlaceholders})
+        AND (
+          d.plan_id IS NOT NULL OR EXISTS (
+            SELECT 1 FROM trade_ai_plans source_plan
+            WHERE source_plan.source_decision_id = d.id
+          )
+        )
+    ), recent_terminal AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.status IN ('CLOSED','ERROR')
+        AND (
+          d.plan_id IS NOT NULL OR EXISTS (
+          SELECT 1 FROM trade_ai_plans source_plan
+          WHERE source_plan.source_decision_id = d.id
+          )
+        )
+      ORDER BY d.updated_at DESC, d.id ASC
+      LIMIT 6
+    ), selected AS (
+      SELECT * FROM managed_lifecycle
+      UNION ALL
+      SELECT terminal.* FROM recent_terminal terminal
+      WHERE NOT EXISTS (
+        SELECT 1 FROM managed_lifecycle managed WHERE managed.id = terminal.id
+      )
+    )`
+    : `
+    WITH active_direct AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NOT NULL
+        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+    ), active_legacy AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NULL
+        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+        AND EXISTS (
+          SELECT 1 FROM trade_ai_plans source_plan
+          WHERE source_plan.source_decision_id = d.id
+        )
+    ), active_audit AS (
+      SELECT * FROM active_direct
+      UNION ALL
+      SELECT * FROM active_legacy
+    ), nonactive_direct AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NOT NULL
+        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+    ), nonactive_legacy AS (
+      SELECT d.* FROM trade_three_horizon_decisions d
+      WHERE d.plan_id IS NULL
+        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
+        AND EXISTS (
+          SELECT 1 FROM trade_ai_plans source_plan
+          WHERE source_plan.source_decision_id = d.id
+        )
+    ), nonactive_eligible AS (
+      SELECT * FROM nonactive_direct
+      UNION ALL
+      SELECT * FROM nonactive_legacy
+    ), recent_increment AS (
+      SELECT scoped.* FROM (
+        SELECT DISTINCT ON (d.symbol, d.strategy_type) d.*
+        FROM nonactive_eligible d
+        ORDER BY d.symbol, d.strategy_type, d.updated_at DESC, d.id ASC
+      ) scoped
+      ORDER BY scoped.updated_at DESC, scoped.id ASC
+      LIMIT $1
+    ), selected AS (
+      SELECT * FROM active_audit
+      UNION ALL
+      SELECT * FROM recent_increment
+    )`;
+  const queryArgs = options.lifecycleDecisionIds !== undefined
+    ? lifecycleDecisionIds
+    : [limit, ...symbols];
   const queryStartedAt = performance.now();
   const rows = await prisma.$queryRawUnsafe<Array<{
     id: string;
@@ -1331,51 +1416,7 @@ export async function syncAiTradePlansFromRecentDecisions(
     audit_bitget_order_id: string | null;
     audit_close_reason: string | null;
   }>>(`
-    WITH active_direct AS (
-      SELECT d.* FROM trade_three_horizon_decisions d
-      WHERE d.plan_id IS NOT NULL
-        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
-    ), active_legacy AS (
-      SELECT d.* FROM trade_three_horizon_decisions d
-      WHERE d.plan_id IS NULL
-        AND d.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
-        AND EXISTS (
-          SELECT 1 FROM trade_ai_plans source_plan
-          WHERE source_plan.source_decision_id = d.id
-        )
-    ), active_audit AS (
-      SELECT * FROM active_direct
-      UNION ALL
-      SELECT * FROM active_legacy
-    ), nonactive_direct AS (
-      SELECT d.* FROM trade_three_horizon_decisions d
-      WHERE d.plan_id IS NOT NULL
-        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
-    ), nonactive_legacy AS (
-      SELECT d.* FROM trade_three_horizon_decisions d
-      WHERE d.plan_id IS NULL
-        AND d.status NOT IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')${symbolClause}
-        AND EXISTS (
-          SELECT 1 FROM trade_ai_plans source_plan
-          WHERE source_plan.source_decision_id = d.id
-        )
-    ), nonactive_eligible AS (
-      SELECT * FROM nonactive_direct
-      UNION ALL
-      SELECT * FROM nonactive_legacy
-    ), recent_increment AS (
-      SELECT scoped.* FROM (
-        SELECT DISTINCT ON (d.symbol, d.strategy_type) d.*
-        FROM nonactive_eligible d
-        ORDER BY d.symbol, d.strategy_type, d.updated_at DESC, d.id ASC
-      ) scoped
-      ORDER BY scoped.updated_at DESC, scoped.id ASC
-      LIMIT $1
-    ), selected AS (
-      SELECT * FROM active_audit
-      UNION ALL
-      SELECT * FROM recent_increment
-    )
+    ${selectionCtes}
     SELECT selected.*,
       plan_snapshot.id AS audit_plan_id,
       plan_snapshot.version AS audit_plan_version,
@@ -1421,7 +1462,7 @@ export async function syncAiTradePlansFromRecentDecisions(
       LIMIT 1
     ) plan_snapshot ON TRUE
     ORDER BY selected.updated_at DESC
-  `, limit, ...symbols);
+  `, ...queryArgs);
   const queryMs = Math.max(0, performance.now() - queryStartedAt);
   const authoritativeRows = await readAuthoritativePlanMaintenanceRows(async () => rows.map((row) => ({
     row,

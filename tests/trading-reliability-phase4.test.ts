@@ -811,7 +811,11 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(weeklySourceStore, /if \(!options\.readOnly\)[\s\S]*ensureGeneratedForecastSourceSchema/);
   assert.match(strategy, /to_regclass\('trade_three_horizon_profiles'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
   assert.match(commissioningPlans, /to_regclass\('trade_ai_plans'\)[\s\S]*information_schema\.columns[\s\S]*catch\(\(\) => false\)[\s\S]*if \(catalogReady\)/);
-  assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ symbols: liveSymbolsForThisRun, limit: 3 \} : \{\}/);
+  assert.match(strategy, /managedDecisionIds: string\[\]/);
+  assert.match(strategy, /const managedDecisionIds = decisions\.map\(\(decision\) => decision\.id\)/);
+  assert.match(strategy, /syncAiTradePlansFromRecentDecisions\(\s*now,\s*liveExperimentMode \? \{ lifecycleDecisionIds: management\.managedDecisionIds \} : \{\}/);
+  assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,180}lifecycleOnlyInLive: liveExperimentMode/);
+  assert.match(strategy, /prepareAiTradePlanBeforeExecution[\s\S]*executeReadyDecision/);
   assert.match(runtime, /captureWallClockRunTiming\(\{ businessNow: now \}\)/);
   assert.match(runtime, /progressStartedAtMs: runtimeTiming\.startedAtMs/);
   assert.match(runtime, /durationMs: wallFinish\.durationMs/);
@@ -842,6 +846,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   );
   assert.doesNotMatch(strategy, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
   assert.match(commissioningPlans, /WITH active_direct AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*active_legacy AS[\s\S]*active_audit AS/);
+  assert.match(commissioningPlans, /options\.lifecycleDecisionIds[\s\S]*managed_lifecycle[\s\S]*recent_terminal[\s\S]*status IN \('CLOSED','ERROR'\)[\s\S]*LIMIT 6/);
   assert.match(commissioningPlans, /nonactive_eligible AS[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);
   assert.match(commissioningPlans, /runClassifiedPlanMaintenance\(\{/);
   assert.match(commissioningPlans, /LEFT JOIN LATERAL[\s\S]*plan_snapshot ON TRUE/);

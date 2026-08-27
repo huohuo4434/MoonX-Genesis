@@ -2858,10 +2858,12 @@ async function manageActiveDecisions(now: Date): Promise<{
   orderSuccess: number;
   orderErrors: number;
   activeLedger: Array<{ symbol: string; side: "long" | "short" }>;
+  managedDecisionIds: string[];
 }> {
   const rows = await listActiveDecisionRows();
-  if (!rows.length) return { managed: 0, orderAttempts: 0, orderSuccess: 0, orderErrors: 0, activeLedger: [] };
+  if (!rows.length) return { managed: 0, orderAttempts: 0, orderSuccess: 0, orderErrors: 0, activeLedger: [], managedDecisionIds: [] };
   const decisions = rows.map(mapDecision);
+  const managedDecisionIds = decisions.map((decision) => decision.id);
   const activeLedger = decisions.map((decision) => ({
     symbol: decision.symbol,
     side: decision.direction === "SHORT" ? "short" as const : "long" as const,
@@ -3223,7 +3225,7 @@ async function manageActiveDecisions(now: Date): Promise<{
       }
     }
   }
-  return { managed: decisions.length, orderAttempts, orderSuccess, orderErrors, activeLedger };
+  return { managed: decisions.length, orderAttempts, orderSuccess, orderErrors, activeLedger, managedDecisionIds };
 }
 
 function unifiedHorizonForStrategy(strategyType: ThreeHorizonStrategyType): "SHORT" | "MEDIUM" | "LONG" {
@@ -3858,6 +3860,7 @@ export async function runThreeHorizonStrategyEngine(
       orderSuccess: 0,
       orderErrors: 0,
       activeLedger: [],
+      managedDecisionIds: [],
     };
     }),
     canSelect: () => !managementReadError,
@@ -3929,11 +3932,16 @@ export async function runThreeHorizonStrategyEngine(
         : `持仓管理已完成；请求已进入收尾保留时间，不启动计划维护、新标的扫描或新订单。`,
     };
   }
+  // LIVE synchronizes the exact decisions managed in this pass, even when
+  // management has just advanced one of them to CLOSED/ERROR. The bounded
+  // query also carries a small recent-terminal recovery set, but it never
+  // scans the broad non-active history before the opportunity pass.
   const planMaintenance = await syncAiTradePlansFromRecentDecisions(
     now,
-    liveExperimentMode ? { symbols: liveSymbolsForThisRun, limit: 3 } : {}
+    liveExperimentMode ? { lifecycleDecisionIds: management.managedDecisionIds } : {}
   );
   await reportProgress("PLAN_MAINTENANCE_COMPLETE", {
+    lifecycleOnlyInLive: liveExperimentMode,
     maintainedPlans: planMaintenance.selected,
     selected: planMaintenance.selected,
     none: planMaintenance.none,
