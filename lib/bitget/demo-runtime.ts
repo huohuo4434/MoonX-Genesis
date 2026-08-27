@@ -28,6 +28,7 @@ import {
 import { runPredictionAutoTrader } from "@/lib/trading-signals/prediction-auto-trader";
 import {
   getThreeHorizonStrategyDashboard,
+  prefetchLiveExecutionCountSnapshot,
   runThreeHorizonStrategyEngine,
 } from "@/lib/trading-signals/three-horizon-strategy";
 import {
@@ -66,6 +67,7 @@ import {
   releaseOwnerOrThrow,
   resolveRuntimeLeaseSeconds,
   runRuntimeStartupSafetySequence,
+  shouldPrefetchLiveExecutionCounts,
 } from "@/lib/bitget/runtime-deadline-core";
 import {
   captureWallClockRunTiming,
@@ -1052,6 +1054,7 @@ export async function runBitgetDemoServerRuntime(
   let forcedManageOnlyReason = forcedManageOnly
     ? normalizeUnifiedLiveGateCodes(options.forceManageOnlyReason)
     : "";
+  let liveExecutionCountPrefetch: ReturnType<typeof prefetchLiveExecutionCountSnapshot> | undefined;
 
   const forceCurrentRoundManageOnly = (reason: string) => {
     forcedManageOnly = true;
@@ -1092,7 +1095,19 @@ export async function runBitgetDemoServerRuntime(
     logStage("STARTUP_SAFETY_START");
     const startup = await runRuntimeStartupSafetySequence<BitgetLiveExperimentStatus, LiveExperimentExitResult>({
       readControl: readRuntimeExecutionControl,
-      onControlResolved: async ({ controlError }) => {
+      onControlResolved: async ({ controlError, policy }) => {
+        if (shouldPrefetchLiveExecutionCounts({
+          liveExperimentMode: environment.mode === "LIVE_EXPERIMENT",
+          forcedManageOnly,
+          policy,
+        })) {
+          liveExecutionCountPrefetch = prefetchLiveExecutionCountSnapshot(
+            now,
+            "LIVE",
+            deadlinePolicy.newEntryCutoffMs,
+          );
+          logStage("COUNT_LIMITS_PREFETCH_START");
+        }
         if (controlError) {
           engineFailure = true;
           diagnosticErrors.push(controlError.message);
@@ -1290,6 +1305,7 @@ export async function runBitgetDemoServerRuntime(
               : undefined,
             progressStartedAtMs: runtimeTiming.startedAtMs,
             progressElapsedMs: runtimeTiming.elapsedMs,
+            executionCountPrefetch: liveExecutionCountPrefetch,
             manageOnly: !canStartNewEntry(deadlinePolicy),
             onProgress: (progress) => {
               // Per-stage remote DB writes multiplied cross-region latency and

@@ -883,7 +883,17 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000/);
   assert.match(strategy, /effectiveNewEntryCutoffMs - Date\.now\(\) < LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS[\s\S]{0,260}不启动计划维护、新标的扫描或新订单/);
-  assert.match(strategy, /const executionCountSnapshotBefore = new Date\(\);[\s\S]{0,260}loadExecutionCountSnapshot\([\s\S]{0,180}executionCountSnapshotBefore[\s\S]{0,100}deadlineMs/);
+  assert.match(strategy, /export function prefetchLiveExecutionCountSnapshot\([\s\S]{0,500}loadExecutionCountSnapshot\(now, mode, beforeExclusive\)[\s\S]{0,180}deadlineMs/);
+  assert.match(strategy, /const executionCountPrefetch = options\.executionCountPrefetch \?\?[\s\S]{0,260}prefetchLiveExecutionCountSnapshot/);
+  const lockAcquired = runtime.indexOf('logStage("LOCK_ACQUIRED")');
+  const custodyStart = runtime.indexOf('logStage("LOCKED_CUSTODY_START")');
+  const startupSafetyStart = runtime.indexOf('logStage("STARTUP_SAFETY_START")');
+  const controlResolved = runtime.indexOf('onControlResolved: async');
+  const prefetchStart = runtime.indexOf('liveExecutionCountPrefetch = prefetchLiveExecutionCountSnapshot');
+  assert.ok(lockAcquired >= 0 && custodyStart > lockAcquired && startupSafetyStart > custodyStart);
+  assert.ok(controlResolved > startupSafetyStart && prefetchStart > controlResolved);
+  assert.match(runtime, /shouldPrefetchLiveExecutionCounts\(\{[\s\S]{0,220}forcedManageOnly,[\s\S]{0,100}policy/);
+  assert.match(runtime, /executionCountPrefetch: liveExecutionCountPrefetch/);
   assert.equal((strategy.match(/AND created_at < \$2::timestamptz/g) ?? []).length, 3);
   assert.match(strategy, /ARRAY_AGG\(id\) FILTER \(WHERE created_at >= \$3::timestamptz\) AS today_decision_ids/);
   assert.match(strategy, /strategy_type = 'INTRADAY'[\s\S]{0,180}created_at >= \$3::timestamptz/);

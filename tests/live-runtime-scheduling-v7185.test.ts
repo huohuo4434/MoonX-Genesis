@@ -35,6 +35,7 @@ import {
   resolveRuntimeLeaseSeconds,
   runNewEntryBeforeCutoff,
   runRuntimeStartupSafetySequence,
+  shouldPrefetchLiveExecutionCounts,
 } from "../lib/bitget/runtime-deadline-core";
 
 const opportunityNowMs = 0;
@@ -631,9 +632,17 @@ test("runtime startup reads only authoritative pause control and fails closed be
     let validation = 0;
     let riskReducingClose = 0;
     let openingRemoteWrites = 0;
+    let executionCountPrefetches = 0;
     const result = await runRuntimeStartupSafetySequence<LiveStatus, { reduced: boolean }>({
       readControl: async () => { calls.push("control"); return readControl(); },
-      onControlResolved: ({ controlError }) => { calls.push(controlError ? "control:error" : "control:ok"); },
+      onControlResolved: ({ controlError, policy }) => {
+        calls.push(controlError ? "control:error" : "control:ok");
+        if (shouldPrefetchLiveExecutionCounts({
+          liveExperimentMode: true,
+          forcedManageOnly: false,
+          policy,
+        })) executionCountPrefetches += 1;
+      },
       syncLiveStatus: async ({ allowStart }) => {
         calls.push(`sync:${allowStart}`);
         return { active: allowStart, stopped: !allowStart, completed: false };
@@ -656,6 +665,7 @@ test("runtime startup reads only authoritative pause control and fails closed be
     return {
       result, calls, newEntry, manageOnly, mirror, validation,
       riskReducingClose, openingRemoteWrites,
+      executionCountPrefetches,
     };
   };
 
@@ -663,6 +673,7 @@ test("runtime startup reads only authoritative pause control and fails closed be
   assert.deepEqual(active.calls, ["control", "control:ok", "sync:true", "status:audit", "risk:close"]);
   assert.equal(active.newEntry, 1);
   assert.equal(active.riskReducingClose, 0);
+  assert.equal(active.executionCountPrefetches, 1);
 
   const paused = await runCase(async () => ({ paused: true, pauseReason: "manual pause" }));
   assert.deepEqual(paused.calls, ["control", "control:ok", "sync:false", "status:audit", "risk:close"]);
@@ -672,6 +683,7 @@ test("runtime startup reads only authoritative pause control and fails closed be
   assert.equal(paused.validation, 0);
   assert.equal(paused.openingRemoteWrites, 0);
   assert.equal(paused.riskReducingClose, 1, "risk-reducing close remains allowed while paused");
+  assert.equal(paused.executionCountPrefetches, 0);
 
   for (const readControl of [
     async () => readAuthoritativeRuntimeExecutionControl(async () => []),
@@ -686,6 +698,7 @@ test("runtime startup reads only authoritative pause control and fails closed be
     assert.equal(unknown.validation, 0);
     assert.equal(unknown.openingRemoteWrites, 0);
     assert.equal(unknown.riskReducingClose, 1, "unknown control cannot suppress an existing-position risk exit");
+    assert.equal(unknown.executionCountPrefetches, 0);
     const audit: string[] = [];
     await finalizeRuntimeOwner({
       allowCleanup: false,
@@ -705,6 +718,10 @@ test("runtime startup reads only authoritative pause control and fails closed be
       /RUNTIME_EXECUTION_CONTROL_INVALID_PAUSED/
     );
   }
+
+  const activePolicy = active.result.policy;
+  assert.equal(shouldPrefetchLiveExecutionCounts({ liveExperimentMode: false, forcedManageOnly: false, policy: activePolicy }), false);
+  assert.equal(shouldPrefetchLiveExecutionCounts({ liveExperimentMode: true, forcedManageOnly: true, policy: activePolicy }), false);
 });
 
 test("single-symbol live forecast read skips the broad admin snapshot and runs bounded reads together", async () => {

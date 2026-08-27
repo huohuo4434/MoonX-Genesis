@@ -22,6 +22,17 @@ export type RuntimeStartupSafetyPolicy = {
   allowRiskReducingExit: true;
 };
 
+export function shouldPrefetchLiveExecutionCounts(input: {
+  liveExperimentMode: boolean;
+  forcedManageOnly: boolean;
+  policy: RuntimeStartupSafetyPolicy;
+}): boolean {
+  return input.liveExperimentMode &&
+    !input.forcedManageOnly &&
+    input.policy.controlKnown &&
+    input.policy.allowNewEntries;
+}
+
 export async function readAuthoritativeRuntimeExecutionControl(
   readRows: () => Promise<ReadonlyArray<{ paused: boolean; pause_reason: string | null }>>
 ): Promise<RuntimeExecutionControl> {

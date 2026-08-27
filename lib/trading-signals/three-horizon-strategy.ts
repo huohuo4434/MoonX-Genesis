@@ -339,12 +339,20 @@ interface ExecutionCountRow {
   today_decision_ids: string[] | null;
 }
 
-type ExecutionCountSnapshot = {
+export type ExecutionCountSnapshot = {
   executedToday: number;
   todayByStrategy: Map<ThreeHorizonStrategyType, number>;
   cadenceByStrategy: Map<ThreeHorizonStrategyType, number>;
   todayBySymbol: Map<string, number>;
   todayCountedDecisionIds: Set<string>;
+};
+
+export type ExecutionCountSnapshotPrefetch = {
+  beforeExclusive: Date;
+  result: Promise<
+    | { ok: true; value: ExecutionCountSnapshot }
+    | { ok: false; error: unknown }
+  >;
 };
 
 interface EvaluationResult {
@@ -2421,6 +2429,22 @@ async function loadExecutionCountSnapshot(
   };
 }
 
+export function prefetchLiveExecutionCountSnapshot(
+  now: Date,
+  mode: "LIVE" | "DEMO",
+  deadlineMs: number,
+): ExecutionCountSnapshotPrefetch {
+  const beforeExclusive = new Date();
+  const result = readWithinLiveScanDeadline(
+    () => loadExecutionCountSnapshot(now, mode, beforeExclusive),
+    deadlineMs,
+  ).then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+  return { beforeExclusive, result };
+}
+
 async function cadenceTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
   if (!prisma) return 0;
   const rows = await prisma.$queryRawUnsafe<Array<{ count: number | string | bigint }>>(
@@ -3906,6 +3930,7 @@ export async function runThreeHorizonStrategyEngine(
     progressStartedAtMs?: number;
     progressElapsedMs?: () => number;
     onProgress?: (progress: ThreeHorizonProgress) => Promise<void> | void;
+    executionCountPrefetch?: ExecutionCountSnapshotPrefetch;
   } = {}
 ): Promise<ThreeHorizonRunReport> {
   const reportProgress = createStrategyProgressReporter({
@@ -4034,18 +4059,14 @@ export async function runThreeHorizonStrategyEngine(
   // bound makes the snapshot deterministic; a commissioning fill is added
   // locally below, while every real order still performs its own fresh hard
   // count reads immediately before submission.
-  const executionCountSnapshotBefore = new Date();
-  const executionCountSnapshotPromise = readWithinLiveScanDeadline(
-    () => loadExecutionCountSnapshot(
+  const executionCountPrefetch = options.executionCountPrefetch ??
+    prefetchLiveExecutionCountSnapshot(
       now,
       liveExperimentMode ? "LIVE" : "DEMO",
-      executionCountSnapshotBefore,
-    ),
-    deadlineMs,
-  ).then(
-    (value) => ({ ok: true as const, value }),
-    (error: unknown) => ({ ok: false as const, error }),
-  );
+      deadlineMs,
+    );
+  const executionCountSnapshotBefore = executionCountPrefetch.beforeExclusive;
+  const executionCountSnapshotPromise = executionCountPrefetch.result;
   // LIVE synchronizes the exact decisions managed in this pass, even when
   // management has just advanced one of them to CLOSED/ERROR. The bounded
   // query also carries a small recent-terminal recovery set, but it never
