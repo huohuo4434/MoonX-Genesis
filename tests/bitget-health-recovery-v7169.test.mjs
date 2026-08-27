@@ -36,7 +36,7 @@ test("read-only health refresher is present and cannot execute strategy/orders",
 test("180 second fail-closed health thresholds remain unchanged", () => {
   assert.match(runtime, /const HEARTBEAT_HEALTH_SECONDS = 180;/);
   assert.match(runtime, /const QUOTE_HEALTH_SECONDS = 180;/);
-  assert.match(runtime, /const LOCK_SECONDS = 270;/);
+  assert.match(runtime, /const LOCK_SECONDS = 330;/);
 });
 
 test("paused admin can request health refresh without calling RUN_NOW or RESUME", () => {
@@ -49,15 +49,15 @@ test("paused admin can request health refresh without calling RUN_NOW or RESUME"
   assert.match(client, /刷新健康快照（只读、不下单）/);
 });
 
-test("dedicated health cron is authenticated and scheduled every minute", () => {
+test("health endpoint remains authenticated but the minute runtime is the single scheduled heartbeat owner", () => {
   assert.match(cron, /authorization/);
   assert.match(cron, /Bearer \$\{secret\}/);
   assert.match(cron, /refreshBitgetRuntimeHealthOnly/);
   const crons = Array.isArray(vercel.crons) ? vercel.crons : [];
   const health = crons.filter((x) => x?.path === "/api/cron/bitget-runtime-health");
   const main = crons.filter((x) => x?.path === "/api/cron/prediction-auto-trader");
-  assert.equal(health.length, 1);
-  assert.equal(health[0].schedule, "* * * * *");
+  assert.equal(health.length, 0);
   assert.equal(main.length, 1);
   assert.equal(main[0].schedule, "* * * * *");
+  assert.match(runtime, /persistRuntimeHealthSnapshot/);
 });

@@ -53,10 +53,6 @@
       "schedule": "30 10 * * 1-5"
     },
     {
-      "path": "/api/cron/bitget-runtime-health",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/member-ai-trading-desk-sync",
       "schedule": "*/2 * * * *"
     },
