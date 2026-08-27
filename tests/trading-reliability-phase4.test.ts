@@ -123,8 +123,8 @@ test("opportunity scheduling stays read-only and fails closed to fair rotation w
 
 test("runtime routes reserve finalization time while analysts run on an independent cron", () => {
   assert.doesNotMatch(predictionCron, /refreshExternalAnalystSignals/);
-  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/external-analysts"), {
-    path: "/api/cron/external-analysts",
+  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/content-freshness"), {
+    path: "/api/cron/content-freshness",
     schedule: "*/15 * * * *",
   });
   assert.match(predictionCron, /export const maxDuration = 120/);
@@ -746,9 +746,15 @@ test("三周期新开仓进入可靠性闸门", () => {
 
 test("live cron keeps a bounded rotating batch and finalization reserve", () => {
   all(runtime, [
-    "Math.max(1, Math.min(4",
-    "MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2",
-    "LIVE_STRATEGY_BUDGET_MS = 55_000",
+    "LIVE_STRATEGY_SYMBOLS_PER_RUN = 1",
+    "LIVE_STRATEGY_BUDGET_MS = 35_000",
+    "freshSymbols = runtimeSymbols.filter((symbol) => quotedFreshSymbols.has(symbol))",
+    "runtime_state.live_scan_cursor",
+    "BITGET_RUNTIME_SCHEMA_COMPATIBILITY_VERIFICATION_FAILED",
+    "claimPersistentLiveScanBatch(runId, runtimeSymbols, freshSymbols, LIVE_STRATEGY_SYMBOLS_PER_RUN)",
+    "WHERE id = 'default' AND run_lock_owner = $1",
+    "AND run_lock_until > NOW()",
+    "live_scan_cursor = live_scan_cursor + $2::bigint",
     'maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined',
   ]);
   assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader")?.schedule, "* * * * *");

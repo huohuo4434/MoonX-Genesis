@@ -14,6 +14,7 @@ import {
   runLiveScanSymbolStep,
   selectOpportunityAwareScanBatch,
   selectOpportunityBatchWithinDeadline,
+  selectPersistentCursorBatch,
   selectRotatingScanBatch,
 } from "../lib/trading-signals/live-scan-rotation-core";
 import {
@@ -372,6 +373,50 @@ test("rotation safely handles empty, singleton and partial final batches", () =>
   assert.deepEqual(selectRotatingScanBatch([], 1, 0), []);
   assert.deepEqual(selectRotatingScanBatch(["BTC"], 1, 99 * 60_000), ["BTC"]);
   assert.deepEqual(selectRotatingScanBatch(["A", "B", "C", "D", "E"], 2, 2 * 60_000), ["E"]);
+});
+
+test("persistent cursor covers the full universe despite 2-minute, 5-minute and locked-skip cadences", () => {
+  const symbols = Array.from({ length: 18 }, (_, index) => `S${index}`);
+  for (const cadenceMinutes of [1, 2, 5]) {
+    let cursor = 0n;
+    const observed = new Set<string>();
+    for (let minute = 0; minute < cadenceMinutes * symbols.length; minute += cadenceMinutes) {
+      const selected = selectPersistentCursorBatch(symbols, 1, cursor);
+      cursor += BigInt(selected.length);
+      selected.forEach((symbol) => observed.add(symbol));
+    }
+    assert.equal(observed.size, symbols.length, `cadence ${cadenceMinutes} must not starve symbols`);
+  }
+
+  let cursor = 0n;
+  const afterLockedSkips: string[] = [];
+  for (const cronMinute of [0, 1, 8, 9, 17, 25]) {
+    if ([1, 8, 17].includes(cronMinute)) continue; // locked invocations never claim the cursor
+    const selected = selectPersistentCursorBatch(symbols, 1, cursor);
+    cursor += BigInt(selected.length);
+    afterLockedSkips.push(selected[0] ?? "");
+  }
+  assert.deepEqual(afterLockedSkips, ["S0", "S1", "S2"]);
+});
+
+test("persistent cursor wraps partial batches without duplicates", () => {
+  assert.deepEqual(selectPersistentCursorBatch(["A", "B", "C"], 2, 2n), ["C", "A"]);
+  assert.deepEqual(selectPersistentCursorBatch(["A", "B", "C"], 1, -1n), ["C"]);
+  assert.deepEqual(selectPersistentCursorBatch([], 2, 0n), []);
+});
+
+test("persistent cursor uses the stable allowlist when fresh membership churns", () => {
+  const stable = ["A", "B", "C"];
+  let cursor = 0n;
+  const observed: string[] = [];
+  for (let run = 0; run < 12; run += 1) {
+    const fresh = new Set(run % 2 === 0 ? ["A", "B"] : ["B", "C"]);
+    const claimedSlots = selectPersistentCursorBatch(stable, 1, cursor);
+    cursor += BigInt(claimedSlots.length);
+    observed.push(...claimedSlots.filter((symbol) => fresh.has(symbol)));
+  }
+  assert.ok(observed.includes("B"), "a continuously fresh symbol must not starve during membership churn");
+  assert.deepEqual(new Set(observed), new Set(stable));
 });
 
 test("a long read fails closed at the shared deadline while the round can finish", async () => {

@@ -70,6 +70,7 @@ import {
   captureWallClockRunTiming,
   resolveRuntimeEngineFailureGate,
 } from "@/lib/trading-signals/strategy-runtime-progress-core";
+import { selectPersistentCursorBatch } from "@/lib/trading-signals/live-scan-rotation-core";
 
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
@@ -83,15 +84,17 @@ const LOCK_SECONDS = 330;
 const EVENT_RETENTION_DAYS = 14;
 // Keep every live pass bounded so the one-minute cron can rotate through the
 // universe instead of timing out after repeatedly evaluating only its first symbol.
-const LIVE_STRATEGY_SYMBOLS_PER_RUN = Math.max(1, Math.min(4, Math.floor(Number(
-  process.env.MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2
-) || 2)));
-const LIVE_STRATEGY_BUDGET_MS = 55_000;
+// Rotate one symbol per minute so the live runner can finish account safety,
+// order reconciliation, and final persistence inside the platform deadline.
+// The full strategy universe is preserved; only the per-cycle batch is bounded.
+const LIVE_STRATEGY_SYMBOLS_PER_RUN = 1;
+const LIVE_STRATEGY_BUDGET_MS = 35_000;
 
 interface RuntimeStateRow {
   paused: boolean;
   pause_reason: string;
   run_lock_until: Date | string | null;
+  live_scan_cursor: bigint | number | string;
   last_heartbeat_at: Date | string | null;
   last_market_at: Date | string | null;
   last_strategy_at: Date | string | null;
@@ -202,6 +205,7 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
     const rows = await prisma.$queryRawUnsafe<Array<{ id: string; event_probe_id: string | null }>>(`
       SELECT runtime_state.id,
              runtime_state.run_lock_owner,
+             runtime_state.live_scan_cursor,
              runtime_state.consecutive_healthy_runs,
              runtime_state.pause_source,
              runtime_state.last_market_error,
@@ -238,6 +242,7 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
         pause_reason TEXT NOT NULL DEFAULT '',
         run_lock_until TIMESTAMPTZ,
         run_lock_owner TEXT,
+        live_scan_cursor BIGINT NOT NULL DEFAULT 0,
         last_heartbeat_at TIMESTAMPTZ,
         last_market_at TIMESTAMPTZ,
         last_strategy_at TIMESTAMPTZ,
@@ -267,6 +272,7 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_market_error TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS last_account_error TEXT NOT NULL DEFAULT ''`);
     await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS run_lock_owner TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE trade_bitget_runtime_state ADD COLUMN IF NOT EXISTS live_scan_cursor BIGINT NOT NULL DEFAULT 0`);
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS trade_bitget_runtime_events (
         id TEXT PRIMARY KEY,
@@ -306,6 +312,13 @@ export async function ensureBitgetRuntimeTables(): Promise<boolean> {
         AND star_4_position_pct = 12
         AND star_5_position_pct = 20
     `).catch(() => undefined);
+    const verified = await prisma.$queryRawUnsafe<Array<{ id: string; live_scan_cursor: bigint | number | string }>>(`
+      SELECT id, live_scan_cursor
+      FROM trade_bitget_runtime_state
+      WHERE id = 'default'
+      LIMIT 1
+    `);
+    if (!verified.length) throw new Error("BITGET_RUNTIME_SCHEMA_COMPATIBILITY_VERIFICATION_FAILED");
     ensured = true;
     return true;
   } catch (error) {
@@ -373,6 +386,34 @@ async function acquireRuntimeLock(owner: string, leaseSeconds = LOCK_SECONDS): P
 
 async function releaseRuntimeLock(owner: string): Promise<boolean> {
   return releaseRuntimeLease(runtimeLeaseStore, owner);
+}
+
+async function claimPersistentLiveScanBatch(
+  owner: string,
+  stableSymbols: readonly BitgetSupportedSymbol[],
+  freshSymbols: readonly BitgetSupportedSymbol[],
+  maxItems: number
+): Promise<BitgetSupportedSymbol[]> {
+  if (!prisma || !stableSymbols.length || !freshSymbols.length) return [];
+  const batchSize = Math.min(Math.max(1, Math.floor(maxItems)), stableSymbols.length);
+  const rows = await prisma.$queryRawUnsafe<Array<{ start_cursor: bigint | number | string }>>(
+    `UPDATE trade_bitget_runtime_state
+     SET live_scan_cursor = live_scan_cursor + $2::bigint,
+         updated_at = NOW()
+     WHERE id = 'default'
+       AND run_lock_owner = $1
+       AND run_lock_until > NOW()
+     RETURNING live_scan_cursor - $2::bigint AS start_cursor`,
+    owner,
+    batchSize
+  );
+  const claimed = rows[0];
+  if (!claimed) throw new Error("LIVE_SCAN_CURSOR_OWNER_MISMATCH");
+  const freshSet = new Set(freshSymbols);
+  // Claim against the immutable allowlist first. A stale slot is skipped for
+  // this pass rather than remapping the cursor onto a changing subset.
+  return selectPersistentCursorBatch(stableSymbols, batchSize, BigInt(claimed.start_cursor))
+    .filter((symbol) => freshSet.has(symbol));
 }
 
 async function readStateRow(): Promise<RuntimeStateRow | undefined> {
@@ -1061,7 +1102,10 @@ export async function runBitgetDemoServerRuntime(
         const captured = new Date(quote.capturedAt).getTime();
         return Number.isFinite(captured) && Math.max(0, now.getTime() - captured) <= QUOTE_HEALTH_SECONDS * 1000;
       });
-      freshSymbols = quotes.map((quote) => quote.symbol);
+      const quotedFreshSymbols = new Set(quotes.map((quote) => quote.symbol));
+      // Cursor positions must map to a stable allowlist order even if the exchange
+      // changes response ordering between otherwise identical quote snapshots.
+      freshSymbols = runtimeSymbols.filter((symbol) => quotedFreshSymbols.has(symbol));
       marketOk = quotes.length > 0;
       const freshSet = new Set(freshSymbols);
       const staleSymbols = runtimeSymbols.filter((symbol) => !freshSet.has(symbol));
@@ -1182,11 +1226,14 @@ export async function runBitgetDemoServerRuntime(
 
       try {
         logStage("THREE_HORIZON_START");
+        const liveStrategySymbols = environment.mode === "LIVE_EXPERIMENT"
+          ? await claimPersistentLiveScanBatch(runId, runtimeSymbols, freshSymbols, LIVE_STRATEGY_SYMBOLS_PER_RUN)
+          : freshSymbols;
         threeHorizon = await runThreeHorizonStrategyEngine(
           now,
           source === "ADMIN" ? "ADMIN" : "CRON",
           {
-            eligibleSymbols: freshSymbols,
+            eligibleSymbols: liveStrategySymbols,
             quotes,
             maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined,
             deadlineAt: environment.mode === "LIVE_EXPERIMENT"
@@ -1389,13 +1436,16 @@ export async function runBitgetDemoServerRuntime(
         try {
           logStage("THREE_HORIZON_MANAGE_START");
           const scanOnly = forcedManageOnly && marketOk && account.connected;
+          const liveStrategySymbols = scanOnly && environment.mode === "LIVE_EXPERIMENT"
+            ? await claimPersistentLiveScanBatch(runId, runtimeSymbols, freshSymbols, LIVE_STRATEGY_SYMBOLS_PER_RUN)
+            : freshSymbols;
           threeHorizon = await runThreeHorizonStrategyEngine(
             now,
             source === "ADMIN" ? "ADMIN" : "CRON",
             {
               manageOnly: !scanOnly,
               scanOnly,
-              eligibleSymbols: scanOnly ? freshSymbols : undefined,
+              eligibleSymbols: scanOnly ? liveStrategySymbols : undefined,
               quotes: scanOnly ? quotes : undefined,
               maxNewSymbols: scanOnly && environment.mode === "LIVE_EXPERIMENT"
                 ? LIVE_STRATEGY_SYMBOLS_PER_RUN

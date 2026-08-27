@@ -11,6 +11,23 @@ export function selectRotatingScanBatch<T>(
   return values.slice(rotationSlot * batchSize, rotationSlot * batchSize + batchSize);
 }
 
+/**
+ * Selects the next batch from a cursor advanced only by a lease-owning runtime.
+ * Unlike wall-clock rotation, skipped cron minutes cannot permanently starve a
+ * fixed subset of symbols.
+ */
+export function selectPersistentCursorBatch<T>(
+  values: readonly T[],
+  maxItems: number,
+  cursor: bigint
+): T[] {
+  if (!values.length) return [];
+  const batchSize = Math.min(Math.max(1, Math.floor(maxItems)), values.length);
+  const length = BigInt(values.length);
+  const start = Number(((cursor % length) + length) % length);
+  return Array.from({ length: batchSize }, (_, offset) => values[(start + offset) % values.length] as T);
+}
+
 export type LiveScanOpportunityHint = {
   id: string;
   symbol: string;
