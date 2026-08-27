@@ -22,18 +22,22 @@ test("existing Vercel live variables are honored", () => {
   assert.match(client, /\["LIVE", "LIVE_EXPERIMENT", "REAL", "REAL_TRADING"\]/);
 });
 
-test("live execution targets one qualified daily opportunity without bypassing cadence caps", () => {
+test("live execution keeps the qualified activity target without mechanical trade-count quotas", () => {
   for (const token of [
     "MOOX_TRADING_CONTROL_MODE",
-    "MOOX_LIVE_SYMBOL_TRADE_CAP_V641",
     "const LIVE_ACTIVITY_CONTROL = readAuthoritativeTradingControlMode()",
     'LIVE_ACTIVITY_CONTROL.configured && LIVE_ACTIVITY_CONTROL.mode === "LIVE"',
     '"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5',
     "isActivityPromotionEligible(decision)",
-    "HORIZON_PERIOD_TRADE_CAP",
-    "environment.liveMaxTradesPerDay",
     "LIVE_ACTIVITY_TARGET - intradayExecutedToday",
   ]) assert.ok(engine.includes(token), `missing ${token}`);
+  for (const removedQuota of [
+    "MOOX_LIVE_SYMBOL_TRADE_CAP_V641",
+    "HORIZON_PERIOD_TRADE_CAP",
+    "GLOBAL_DAILY_TRADE_CAP",
+    "SYMBOL_DAILY_TRADE_CAP",
+    "DAILY_TRADE_LIMIT",
+  ]) assert.ok(!engine.includes(removedQuota), `obsolete quota remains: ${removedQuota}`);
 });
 
 test("live orders remain behind explicit authorization and all safety gates", () => {
@@ -45,9 +49,14 @@ test("live orders remain behind explicit authorization and all safety gates", ()
     "PROJECTED_OPEN_RISK_LIMIT",
     "PROJECTED_CRYPTO_GROUP_LIMIT",
     "PROTECTION_MISSING",
-    "GLOBAL_DAILY_TRADE_CAP",
-    "SYMBOL_DAILY_TRADE_CAP",
+    "UNIFIED_HORIZON_POSITION_CAP",
+    "UNIFIED_DAILY_LOSS_LIMIT",
+    "UNIFIED_WEEKLY_LOSS_LIMIT",
+    "SYMBOL_RESERVED_THIS_RUN",
   ]) assert.ok((client + engine).includes(token), `missing safety token ${token}`);
+  assert.match(client, /positions\.length >= environment\.liveMaxConcurrentPositions/);
+  assert.match(client, /existingPositionNotional \+ notional > perPositionLimit/);
+  assert.match(client, /currentGross \+ notional > grossLimit/);
 });
 
 test("Demo header never leaks into live requests", () => {

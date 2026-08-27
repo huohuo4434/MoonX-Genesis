@@ -74,6 +74,14 @@ import { classifyLiveOrderFailure } from "@/lib/trading-signals/live-order-prefl
 import { LiveTradeExecutionError } from "@/lib/bitget/live-execution-core";
 import { evaluateMarketSessionExposureSafety } from "@/lib/trading-signals/market-session-exposure-core";
 import {
+  evaluateScaleInAuthority,
+  evaluateUnresolvedScaleInRecovery,
+  isManagedScaleInRecovery,
+  requiresAuthoritativeRiskRefresh,
+  rollbackRemovedAddedQuantity,
+  scaleInExecutionIdentity,
+} from "@/lib/trading-signals/live-scale-in-safety-core";
+import {
   getLiveScanOpportunityHints,
   prepareAiTradePlanBeforeExecution,
   syncAiTradePlanFromDecision,
@@ -175,9 +183,6 @@ const LIVE_ACTIVITY_PROBE_RISK_PCT = envNumber(
   0.1,
   0.3
 );
-const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
-  "MOOX_LIVE_SYMBOL_TRADE_CAP_V641", 2, 1, 4
-));
 
 // MOOX_ACTIVE_EXECUTION_V64
 // Demo execution remains separately controllable and cannot affect live credentials.
@@ -190,12 +195,6 @@ const DEMO_ACTIVITY_START_HOUR_BJ = Math.floor(envNumber(
 const DEMO_ACTIVITY_PROBE_RISK_PCT = envNumber(
   "MOOX_DEMO_ACTIVITY_PROBE_RISK_PCT_V64", 0.12, 0.05, 0.2
 );
-const DEMO_GLOBAL_TRADE_CAP = Math.floor(envNumber(
-  "MOOX_DEMO_GLOBAL_TRADE_CAP_V64", 8, 2, 12
-));
-const DEMO_SYMBOL_TRADE_CAP = Math.floor(envNumber(
-  "MOOX_DEMO_SYMBOL_TRADE_CAP_V64", 2, 1, 4
-));
 const PROBE_RISK_SCALE = envNumber("MOOX_PROBE_RISK_SCALE_V64", 0.45, 0.25, 0.6);
 const SCALE_IN_MIN_AGE_MINUTES = Math.floor(envNumber(
   "MOOX_SCALE_IN_MIN_AGE_MINUTES_V64", 5, 3, 30
@@ -1779,6 +1778,7 @@ async function listActiveDecisionRows(): Promise<DecisionRow[]> {
     prisma.$queryRawUnsafe<DecisionRow[]>(`
       SELECT * FROM trade_three_horizon_decisions
       WHERE status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+         OR (status='ERROR' AND rejection_code='SCALE_IN_PROTECTION_UNRESOLVED')
       ORDER BY created_at ASC
     `),
     prisma.$queryRawUnsafe<Array<DecisionRow & {
@@ -1843,22 +1843,6 @@ async function executedOrderCountToday(now: Date, mode: "LIVE" | "DEMO"): Promis
      WHERE created_at >= $1 AND mode = $2
        AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
     start,
-    mode,
-  );
-  const value = Number(rows[0]?.count ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-async function symbolExecutedOrderCountToday(symbol: string, now: Date, mode: "LIVE" | "DEMO"): Promise<number> {
-  if (!prisma) return 0;
-  const start = beijingStartOfDay(now);
-  const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint | number | string }>>(
-    `SELECT COUNT(*)::bigint AS count
-     FROM trade_three_horizon_decisions
-     WHERE created_at >= $1 AND symbol = $2 AND mode = $3
-       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))`,
-    start,
-    symbol,
     mode,
   );
   const value = Number(rows[0]?.count ?? 0);
@@ -2179,6 +2163,7 @@ async function updateDecision(
     closedAt?: Date | null;
     realizedPnlUsdt?: number | null;
     maxHoldingUntil?: Date | null;
+    rawPayloadPatch?: Record<string, unknown>;
   }
 ): Promise<ThreeHorizonStrategyDecision> {
   if (!prisma) throw new Error("三周期策略数据库未连接");
@@ -2188,6 +2173,12 @@ async function updateDecision(
   );
   const current = currentRows[0];
   if (!current) throw new Error("三周期策略决策不存在");
+  const nextRawPayload = fields.rawPayloadPatch === undefined
+    ? current.raw_payload
+    : {
+      ...parseJson<Record<string, unknown>>(current.raw_payload, {}),
+      ...fields.rawPayloadPatch,
+    };
   const transition = protectExecutionLifecycleStatus({
     currentStatus: current.status,
     requestedStatus: fields.status ?? current.status,
@@ -2218,6 +2209,7 @@ async function updateDecision(
       closed_at = ${fields.closedAt === undefined ? current.closed_at : fields.closedAt},
       realized_pnl_usdt = ${fields.realizedPnlUsdt === undefined ? current.realized_pnl_usdt : fields.realizedPnlUsdt},
       max_holding_until = ${fields.maxHoldingUntil === undefined ? current.max_holding_until : fields.maxHoldingUntil},
+      raw_payload = ${JSON.stringify(nextRawPayload)}::jsonb,
       updated_at = NOW()
     WHERE id = ${id}
   `;
@@ -2227,22 +2219,6 @@ async function updateDecision(
   );
   if (!rows[0]) throw new Error("三周期策略决策更新失败");
   return mapDecision(rows[0]);
-}
-
-async function todayTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
-  if (!prisma) return 0;
-  const start = beijingStartOfDay(now);
-  const rows = await prisma.$queryRawUnsafe<Array<{ count: number | string | bigint }>>(
-    `SELECT COUNT(*) AS count
-     FROM trade_three_horizon_decisions
-     WHERE strategy_type = $1 AND mode = $2
-       AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
-       AND created_at >= $3::timestamptz`,
-    profile.strategyType,
-    profile.mode,
-    start.toISOString()
-  );
-  return Number(rows[0]?.count ?? 0);
 }
 
 async function loadCandleSet(symbol: BitgetSupportedSymbol): Promise<CandleSet> {
@@ -2280,12 +2256,6 @@ function cadenceStart(strategyType: ThreeHorizonStrategyType, now: Date): Date {
   if (strategyType === "SWING") return beijingStartOfWeek(now);
   if (strategyType === "POSITION") return beijingStartOfMonth(now);
   return beijingStartOfDay(now);
-}
-
-function cadenceLabel(strategyType: ThreeHorizonStrategyType): string {
-  if (strategyType === "SWING") return "本周";
-  if (strategyType === "POSITION") return "本月";
-  return "今日";
 }
 
 async function cadenceTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
@@ -2726,11 +2696,47 @@ function matchingProtection(
   orders: BitgetDemoStrategyOrder[],
   decision: Pick<ThreeHorizonStrategyDecision, "symbol" | "direction">
 ): BitgetDemoStrategyOrder | undefined {
-  return orders.find(
+  const matched = orders.filter(
     (row) =>
       row.symbol === decision.symbol &&
       row.posSide === (decision.direction === "SHORT" ? "short" : "long")
   );
+  return matched.find((row) => row.tpslMode === "full" && row.stopLoss && row.takeProfit)
+    ?? matched.find((row) => row.tpslMode === "full")
+    ?? matched[0];
+}
+
+function hasPositionSideProtectionCoverage(
+  orders: BitgetDemoStrategyOrder[],
+  decision: Pick<ThreeHorizonStrategyDecision, "symbol" | "direction">,
+  markPrice: number,
+): boolean {
+  const side = decision.direction === "SHORT" ? "short" : "long";
+  const matched = orders.filter((row) => row.symbol === decision.symbol && row.posSide === side);
+  const stopCovered = matched.some((row) => row.tpslMode === "full" && row.stopLoss != null && row.stopLoss > 0 && (
+    decision.direction === "LONG" ? row.stopLoss < markPrice : row.stopLoss > markPrice
+  ));
+  const targetCovered = matched.some((row) => row.tpslMode === "full" && row.takeProfit != null && row.takeProfit > 0 && (
+    decision.direction === "LONG" ? row.takeProfit > markPrice : row.takeProfit < markPrice
+  ));
+  return stopCovered && targetCovered;
+}
+
+function scaleInTechnicalTriggerFingerprint(
+  profile: ThreeHorizonStrategyProfile,
+  decision: Pick<ThreeHorizonStrategyDecision, "symbol" | "direction" | "openedAt">,
+  candles: CandleSet,
+  now: Date,
+): string | null {
+  const interval: keyof CandleSet = profile.strategyType === "INTRADAY"
+    ? "1m"
+    : profile.strategyType === "SWING"
+      ? "1H"
+      : "4H";
+  const triggerCandle = last(closedCandles(candles[interval], interval, now));
+  const openedAt = Date.parse(decision.openedAt ?? "");
+  if (!triggerCandle || !Number.isFinite(openedAt) || triggerCandle.timestamp <= openedAt) return null;
+  return `${profile.strategyType}:${decision.symbol}:${decision.direction}:${interval}:${triggerCandle.timestamp}`;
 }
 
 function targetReached(
@@ -2742,17 +2748,26 @@ function targetReached(
   return direction === "LONG" ? price >= target : direction === "SHORT" ? price <= target : false;
 }
 
-async function readScopedForecastPlanForScaleIn(
-  symbol: string,
-  now: Date
-): Promise<PredictionStrategyPlan | null> {
-  const settings = await getPredictionAutoTraderSettings({ readOnly: true });
-  const baseSymbol = symbol.toUpperCase().replace(/USDT$/, "");
-  const plans = await resolvePredictionStrategyPlans(settings, now, [baseSymbol]);
-  return plans.find((plan) => {
-    const normalized = String(plan.symbol).toUpperCase().replace(/USDT$/, "");
-    return normalized === baseSymbol;
-  }) ?? null;
+async function confirmPositionQuantityAtOrBelow(input: {
+  decision: Pick<ThreeHorizonStrategyDecision, "symbol" | "direction">;
+  maximumQuantity: number;
+  addedQuantity: number;
+  attempts?: number;
+}): Promise<boolean> {
+  const attempts = Math.max(1, Math.min(5, input.attempts ?? 3));
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const positions = await getBitgetDemoCurrentPositions();
+    const current = matchingPosition(positions, input.decision);
+    if (rollbackRemovedAddedQuantity({
+      beforeQuantity: input.maximumQuantity,
+      addedQuantity: input.addedQuantity,
+      observedQuantity: current?.total ?? null,
+    })) return true;
+    if (attempt + 1 < attempts) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  return false;
 }
 
 function hardIntradayExit(decision: ThreeHorizonStrategyDecision, now: Date): boolean {
@@ -2807,7 +2822,19 @@ async function closePosition(
   });
 }
 
-async function manageActiveDecisions(now: Date): Promise<{
+async function manageActiveDecisions(
+  now: Date,
+  options: {
+    scaleInOnly?: boolean;
+    manageOnly?: boolean;
+    scanOnly?: boolean;
+    canonicalForecastBySymbol?: ReadonlyMap<string, PredictionStrategyPlan>;
+    authorityReadsOk?: boolean;
+    ledgerConsistent?: boolean;
+    newEntryCutoffMs?: number;
+    riskSnapshot?: ThreeHorizonRiskSnapshot;
+  } = {},
+): Promise<{
   managed: number;
   orderAttempts: number;
   orderSuccess: number;
@@ -2817,10 +2844,15 @@ async function manageActiveDecisions(now: Date): Promise<{
   const rows = await listActiveDecisionRows();
   if (!rows.length) return { managed: 0, orderAttempts: 0, orderSuccess: 0, orderErrors: 0, activeLedger: [] };
   const decisions = rows.map(mapDecision);
-  const activeLedger = decisions.map((decision) => ({
+  const activeLedger = decisions
+    .filter((decision) => decision.status !== "ERROR" || isManagedScaleInRecovery({
+      status: decision.status,
+      rejectionCode: decision.rejectionCode,
+    }))
+    .map((decision) => ({
     symbol: decision.symbol,
     side: decision.direction === "SHORT" ? "short" as const : "long" as const,
-  }));
+    }));
   // Closed history is auxiliary confirmation only. Current positions and
   // protections remain authoritative, so a history outage must never suppress
   // 60/90-minute exits, TP1 handling or protection repair.
@@ -2843,6 +2875,9 @@ async function manageActiveDecisions(now: Date): Promise<{
   });
   const profileByType = new Map(profiles.map((profile) => [profile.strategyType, profile] as const));
   const environment = getBitgetDemoEnvironment();
+  const scaleInRiskSnapshot = options.scaleInOnly
+    ? options.riskSnapshot ?? await buildRiskSnapshot(now)
+    : null;
   let projectedOpenRiskPct = decisions.reduce((sum, row) => sum + Number(row.riskPct ?? 0), 0);
   let projectedCryptoRiskPct = decisions
     .filter((row) => CRYPTO_RISK_GROUP_SYMBOLS.has(row.symbol))
@@ -2853,6 +2888,7 @@ async function manageActiveDecisions(now: Date): Promise<{
   for (const decision of decisions) {
     const position = matchingPosition(positions, decision);
     if (!position) {
+      if (options.scaleInOnly) continue;
       const ageMs = now.getTime() - Date.parse(decision.createdAt);
       if (decision.status === "ORDER_SUBMITTED" && ageMs < 2 * 60_000) continue;
       const closedMatch = recentClosedMatch(closed, decision);
@@ -2867,16 +2903,99 @@ async function manageActiveDecisions(now: Date): Promise<{
       });
       continue;
     }
-    const openedAt = decision.openedAt ? new Date(decision.openedAt) : now;
-    let current = await updateDecision(decision.id, {
-      status: decision.status === "PARTIAL" ? "PARTIAL" : "OPEN",
-      currentPrice: position.markPrice,
-      entryPrice: position.avgPrice || decision.entryPrice,
-      quantity: position.total,
-      openedAt,
-    });
+    let decisionForManagement = decision;
+    if (!options.scaleInOnly && isManagedScaleInRecovery({
+      status: decision.status,
+      rejectionCode: decision.rejectionCode,
+    })) {
+      const persisted = rows.find((row) => row.id === decision.id);
+      const payload = parseJson<Record<string, unknown>>(persisted?.raw_payload, {});
+      const recoveryPayload = payload.scaleInRecovery && typeof payload.scaleInRecovery === "object"
+        ? payload.scaleInRecovery as Record<string, unknown>
+        : {};
+      const storedBaseline = Number(recoveryPayload.baselineQuantity);
+      const baselineQuantity = Number.isFinite(storedBaseline)
+        ? storedBaseline
+        : decision.quantity;
+      const recoveryState = evaluateUnresolvedScaleInRecovery({
+        baselineQuantity,
+        currentQuantity: position.total,
+        hasFullPositionSideProtection: hasPositionSideProtectionCoverage(
+          protections,
+          decision,
+          position.markPrice,
+        ),
+      });
+      if (recoveryState === "BASELINE_RESTORED" || recoveryState === "FULLY_PROTECTED") {
+        decisionForManagement = await updateDecision(decision.id, {
+          status: "OPEN",
+          rejectionCode: "SCALE_IN_RECOVERED",
+          rejectionReason: recoveryState === "BASELINE_RESTORED"
+            ? "权威仓位已回到第二批加仓前基线，未解决状态已解除；原仓继续按完整保护规则托管。"
+            : "交易所已确认当前合并仓位具备同方向full模式止盈止损，未解决状态已解除。",
+        });
+      } else {
+        orderErrors += 1;
+        let repaired = false;
+        if (decision.stopLoss && decision.target2) {
+          orderAttempts += 1;
+          try {
+            const placed = await placeBitgetDemoProtectionOrder({
+              paperOrderId: `${decision.id}:scale-in-recovery-full-protection`,
+              symbol: decision.symbol as BitgetSupportedSymbol,
+              posSide: decision.direction === "SHORT" ? "short" : "long",
+              stopLoss: decision.stopLoss,
+              takeProfit: decision.target2,
+            });
+            const refreshed = await getBitgetDemoPendingStrategyOrders();
+            repaired = hasPositionSideProtectionCoverage(refreshed, decision, position.markPrice);
+            if (repaired) {
+              protections.splice(0, protections.length, ...refreshed);
+              orderSuccess += 1;
+              decisionForManagement = await updateDecision(decision.id, {
+                status: "OPEN",
+                protectionOrderId: placed.orderId,
+                rejectionCode: "SCALE_IN_RECOVERED",
+                rejectionReason: "未解决第二批仓位已重建并确认同方向full模式止盈止损；本轮仍阻断所有新增敞口。",
+              });
+            }
+          } catch {
+            repaired = false;
+          }
+        }
+        if (!repaired) {
+          orderAttempts += 1;
+          try {
+            await closePosition(decision, position, "第二批仓位保护未解决，执行全仓紧急退出");
+            orderSuccess += 1;
+          } catch (error) {
+            await updateDecision(decision.id, {
+              status: "ERROR",
+              rejectionCode: "SCALE_IN_PROTECTION_UNRESOLVED",
+              rejectionReason: `第二批仓位仍缺少完整full模式保护，紧急退出也未确认：${error instanceof Error ? error.message : "退出失败"}`,
+            });
+          }
+          continue;
+        }
+      }
+    }
+    const openedAt = decisionForManagement.openedAt ? new Date(decisionForManagement.openedAt) : now;
+    let current = options.scaleInOnly
+      ? decisionForManagement
+      : await updateDecision(decisionForManagement.id, {
+        status: decisionForManagement.status === "PARTIAL" ? "PARTIAL" : "OPEN",
+        currentPrice: position.markPrice,
+        entryPrice: position.avgPrice || decisionForManagement.entryPrice,
+        quantity: position.total,
+        openedAt,
+      });
     let protection = matchingProtection(protections, current);
-    if (!protection && current.stopLoss && current.target2) {
+    if (
+      !options.scaleInOnly &&
+      !hasPositionSideProtectionCoverage(protections, current, position.markPrice) &&
+      current.stopLoss &&
+      current.target2
+    ) {
       const ageMs = now.getTime() - Date.parse(current.createdAt);
       if (ageMs >= 30_000) {
         orderAttempts += 1;
@@ -2898,6 +3017,7 @@ async function manageActiveDecisions(now: Date): Promise<{
             clientOid: placed.clientOid,
             symbol: current.symbol,
             posSide: current.direction === "SHORT" ? "short" : "long",
+            tpslMode: "full",
             takeProfit: current.target2,
             stopLoss: current.stopLoss,
             createdAt: now.toISOString(),
@@ -2917,15 +3037,31 @@ async function manageActiveDecisions(now: Date): Promise<{
         }
       }
     }
-    // V6.4 staged entry: a probe position may receive one confirmation add-on.
-    // The existing exchange-side position protection is kept in place; Bitget UTA strategy
-    // protection is position-side based, so the added quantity remains covered.
+    // V6.4 staged entry; LIVE extension keeps this as the only same-symbol add-on path.
+    // It reuses the existing
+    // lifecycle instead of manufacturing a second decision, and requires a new
+    // closed-candle trigger plus verified position-side exchange protection.
+    const canonicalForecast = options.canonicalForecastBySymbol?.get(current.symbol) ?? null;
+    const canonicalDirection = forecastDirectionForStrategy(canonicalForecast ?? undefined, current.strategyType);
+    const scaleInAuthority = evaluateScaleInAuthority({
+      manageOnly: options.manageOnly ?? !options.scaleInOnly,
+      scanOnly: options.scanOnly ?? false,
+      nowMs: Date.now(),
+      cutoffMs: options.newEntryCutoffMs ?? Number.NEGATIVE_INFINITY,
+      authorityReadsOk: options.authorityReadsOk ?? false,
+      canonicalDirection: canonicalForecast ? canonicalDirection : null,
+      decisionDirection: current.direction === "SHORT" ? "SHORT" : "LONG",
+      riskBlocked: Boolean(scaleInRiskSnapshot?.blocked),
+      ledgerConsistent: (options.ledgerConsistent ?? false) && managementLedgerConsistent,
+      decisionStatus: current.status,
+    });
     if (
-      environment.mode === "DEMO" &&
+      scaleInAuthority.allowed &&
       current.entryStage === 1 &&
       current.maxEntryStages >= 2 &&
+      !current.scaleInOrderId &&
       !current.tp1Done &&
-      Boolean(protection?.orderId) &&
+      hasPositionSideProtectionCoverage(protections, current, position.markPrice) &&
       current.openedAt &&
       now.getTime() - Date.parse(current.openedAt) >= SCALE_IN_MIN_AGE_MINUTES * 60_000 &&
       !targetReached(current.direction, position.markPrice, current.target1)
@@ -2937,6 +3073,9 @@ async function manageActiveDecisions(now: Date): Promise<{
       const riskRoom = projectedOpenRiskPct + remainingRiskPct <= OPEN_RISK_LIMIT_PCT + 1e-9;
       const cryptoRoom = !crypto || projectedCryptoRiskPct + remainingRiskPct <= CRYPTO_GROUP_RISK_LIMIT_PCT + 1e-9;
       if (profile && remainingRiskPct >= 0.04 && riskRoom && cryptoRoom) {
+        let submittedScaleInOrder: { orderId: string; size: string } | null = null;
+        let submittedScaleInRiskAmount = 0;
+        let submittedScaleInRiskPct = 0;
         try {
           const marketSessionGate = evaluateMarketSessionExposureSafety({
             symbol: current.symbol,
@@ -2949,12 +3088,12 @@ async function manageActiveDecisions(now: Date): Promise<{
               rejectionReason: marketSessionGate.reason,
             });
           } else {
-            const forecastPlan = await readScopedForecastPlanForScaleIn(current.symbol, now);
+            const forecastPlan = canonicalForecast;
             const scaleInGate = evaluateNewExposureSafety({
               action: "SCALE_IN",
               direction: current.direction,
-              authorityReadsOk: true,
-              ledgerConsistent: managementLedgerConsistent,
+              authorityReadsOk: options.authorityReadsOk ?? false,
+              ledgerConsistent: (options.ledgerConsistent ?? false) && managementLedgerConsistent,
               timing: weeklyTimingForNewExposure({ direction: current.direction, plan: forecastPlan, now }),
             });
             if (!scaleInGate.allowed) {
@@ -2968,9 +3107,15 @@ async function manageActiveDecisions(now: Date): Promise<{
                 profile,
                 current.symbol as BitgetSupportedSymbol,
                 candles,
-                undefined,
+                forecastPlan ?? undefined,
                 now,
                 position.markPrice
+              );
+              const technicalTriggerFingerprint = scaleInTechnicalTriggerFingerprint(
+                profile,
+                current,
+                candles,
+                now,
               );
               const entryConfirmed = confirmation.conditions.find((row) => row.key === "entry")?.met === true;
               const directionStillValid = confirmation.direction === current.direction;
@@ -2986,6 +3131,7 @@ async function manageActiveDecisions(now: Date): Promise<{
                 entryConfirmed &&
                 confirmation.confidence >= profile.minConfidence &&
                 confirmation.executionTier === "FULL" &&
+                Boolean(technicalTriggerFingerprint) &&
                 notDeeplyAdverse
               ) {
                 const equity = currentRiskPct > 0 && current.riskAmountUsdt
@@ -3007,21 +3153,71 @@ async function manageActiveDecisions(now: Date): Promise<{
                     symbol: current.symbol as BitgetSupportedSymbol,
                     riskPctOverride: remainingRiskPct,
                   });
+                  const existingNotional = Math.abs(position.total * position.markPrice);
+                  const addedNotional = sizing.quantity * position.markPrice;
+                  const liveSinglePositionLimit = Math.min(
+                    environment.liveMaxPositionNotionalUsdt,
+                    equity * 0.3,
+                    400,
+                  );
+                  if (
+                    environment.mode === "LIVE_EXPERIMENT" &&
+                    existingNotional + addedNotional > liveSinglePositionLimit + 0.01
+                  ) {
+                    current = await updateDecision(current.id, {
+                      rejectionCode: "SCALE_IN_POSITION_NOTIONAL_LIMIT",
+                      rejectionReason: `第二批加入后单仓名义价值将达到${round(existingNotional + addedNotional, 2)} USDT，超过${round(liveSinglePositionLimit, 2)} USDT硬上限。`,
+                    });
+                    continue;
+                  }
                   orderAttempts += 1;
+                  if (Date.now() >= (options.newEntryCutoffMs ?? Number.NEGATIVE_INFINITY)) {
+                    current = await updateDecision(current.id, {
+                      rejectionCode: "NEW_ENTRY_CUTOFF_REACHED",
+                      rejectionReason: "第二批加仓提交前已进入本轮收尾时间，禁止新增敞口。",
+                    });
+                    continue;
+                  }
                   const addOrder = await placeBitgetDemoMarketOrder({
-                    paperOrderId: `${current.id}:scale-in-2`,
+                    paperOrderId: scaleInExecutionIdentity({
+                      decisionId: current.id,
+                      technicalTriggerFingerprint: technicalTriggerFingerprint ?? "",
+                    }),
                     symbol: current.symbol as BitgetSupportedSymbol,
                     quantity: sizing.quantity,
                     side: orderSide(current.direction),
                     reduceOnly: false,
+                    leverage: Math.min(position.leverage, environment.leverage),
+                    stopLoss: current.stopLoss ?? undefined,
+                    takeProfit: current.target2 ?? undefined,
+                    exposureAction: "SCALE_IN",
+                    technicalTriggerFingerprint: technicalTriggerFingerprint ?? undefined,
                   });
+                  submittedScaleInOrder = { orderId: addOrder.orderId, size: addOrder.size };
+                  submittedScaleInRiskAmount = sizing.riskAmountUsdt;
+                  submittedScaleInRiskPct = sizing.riskPct;
+                  let refreshedProtections = await getBitgetDemoPendingStrategyOrders();
+                  if (!hasPositionSideProtectionCoverage(refreshedProtections, current, position.markPrice)) {
+                    if (!current.stopLoss || !current.target2) throw new Error("第二批加仓后缺少可重建的保护价格");
+                    await placeBitgetDemoProtectionOrder({
+                      paperOrderId: `${current.id}:scale-in-2:${technicalTriggerFingerprint}:coverage`,
+                      symbol: current.symbol as BitgetSupportedSymbol,
+                      posSide: current.direction === "SHORT" ? "short" : "long",
+                      stopLoss: current.stopLoss,
+                      takeProfit: current.target2,
+                    });
+                    refreshedProtections = await getBitgetDemoPendingStrategyOrders();
+                    if (!hasPositionSideProtectionCoverage(refreshedProtections, current, position.markPrice)) {
+                      throw new Error("第二批加仓后无法确认合并仓位保护");
+                    }
+                  }
                   current = await updateDecision(current.id, {
                     entryStage: 2,
                     scaleInOrderId: addOrder.orderId,
                     riskAmountUsdt: round(Number(current.riskAmountUsdt ?? 0) + sizing.riskAmountUsdt, 4),
                     riskPct: round(currentRiskPct + sizing.riskPct, 4),
                     rejectionCode: "",
-                    rejectionReason: `第二批确认仓已提交，orderId=${addOrder.orderId}；总风险约${round(currentRiskPct + sizing.riskPct, 3)}%，原交易所侧宽止损保护保持有效。`,
+                    rejectionReason: `第二批确认仓已提交，orderId=${addOrder.orderId}；触发指纹${technicalTriggerFingerprint}；总风险约${round(currentRiskPct + sizing.riskPct, 3)}%，合并仓位止盈止损已复核。`,
                   });
                   projectedOpenRiskPct += sizing.riskPct;
                   if (crypto) projectedCryptoRiskPct += sizing.riskPct;
@@ -3031,15 +3227,58 @@ async function manageActiveDecisions(now: Date): Promise<{
             }
           }
         } catch (error) {
-          // The first batch already has exchange-side protection. A failed add-on check is
-          // an informational skip, not an order-chain failure and must not stop the runtime.
+          let rollbackError: unknown = null;
+          let rollbackConfirmed = false;
+          if (submittedScaleInOrder) {
+            try {
+              await placeBitgetDemoMarketOrder({
+                paperOrderId: `${current.id}:scale-in-2:rollback:${submittedScaleInOrder.orderId}`,
+                symbol: current.symbol as BitgetSupportedSymbol,
+                quantity: Number(submittedScaleInOrder.size),
+                side: orderSide(current.direction, true),
+                reduceOnly: true,
+              });
+              rollbackConfirmed = await confirmPositionQuantityAtOrBelow({
+                decision: current,
+                maximumQuantity: position.total,
+                addedQuantity: Number(submittedScaleInOrder.size),
+              });
+            } catch (failure) {
+              rollbackError = failure;
+            }
+          }
+          if (submittedScaleInOrder && (!rollbackConfirmed || rollbackError)) {
+            orderErrors += 1;
+            current = await updateDecision(current.id, {
+              status: "ERROR",
+              entryStage: 2,
+              scaleInOrderId: submittedScaleInOrder.orderId,
+              riskAmountUsdt: round(Number(current.riskAmountUsdt ?? 0) + submittedScaleInRiskAmount, 4),
+              riskPct: round(Number(current.riskPct ?? 0) + submittedScaleInRiskPct, 4),
+              rawPayloadPatch: {
+                scaleInRecovery: {
+                  baselineQuantity: position.total,
+                  submittedQuantity: Number(submittedScaleInOrder.size),
+                  submittedOrderId: submittedScaleInOrder.orderId,
+                  recordedAt: now.toISOString(),
+                },
+              },
+              rejectionCode: "SCALE_IN_PROTECTION_UNRESOLVED",
+              rejectionReason: `第二批订单${submittedScaleInOrder.orderId}已提交，但无法确认合并仓位保护且未从权威仓位确认新增数量完全消失；禁止继续新增敞口并要求人工核对：${rollbackError instanceof Error ? rollbackError.message : "回撤仅获受理或仍有剩余数量"}`,
+            });
+            continue;
+          }
           await updateDecision(current.id, {
             rejectionCode: "SCALE_IN_SKIPPED",
-            rejectionReason: `第二批确认未执行，首批仓位和保护单保持不变：${error instanceof Error ? error.message : "加仓检查失败"}`,
+            rejectionReason: submittedScaleInOrder
+              ? `第二批订单${submittedScaleInOrder.orderId}因保护复核未通过，新增数量已用幂等请求回撤；首批仓位继续由原保护单管理：${error instanceof Error ? error.message : "加仓后复核失败"}`
+              : `第二批确认未执行，首批仓位和保护单保持不变：${error instanceof Error ? error.message : "加仓检查失败"}`,
           });
         }
       }
     }
+
+    if (options.scaleInOnly) continue;
 
     const ultraShortTimeExit = current.strategyType === "INTRADAY"
       ? evaluateUltraShortTimedExit({
@@ -3190,7 +3429,10 @@ async function activeDecisionCountForStrategy(strategyType: ThreeHorizonStrategy
     `SELECT COUNT(*) AS count
      FROM trade_three_horizon_decisions
      WHERE strategy_type=$1
-       AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')`,
+       AND (
+         status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+         OR (status='ERROR' AND rejection_code='SCALE_IN_PROTECTION_UNRESOLVED')
+       )`,
     strategyType,
   );
   return Number(rows[0]?.count ?? 0);
@@ -3364,45 +3606,6 @@ async function executeReadyDecision(input: {
     };
   }
   const environment = getBitgetDemoEnvironment();
-  let authoritativeDailyCount = 0;
-  let authoritativeCadenceCount = 0;
-  try {
-    [authoritativeDailyCount, authoritativeCadenceCount] = await Promise.all([
-      executedOrderCountToday(input.now, environment.mode === "LIVE_EXPERIMENT" ? "LIVE" : "DEMO"),
-      cadenceTradeCount(input.profile, input.now),
-    ]);
-  } catch (error) {
-    return {
-      decision: await updateDecision(input.decision.id, {
-        status: "BLOCKED",
-        rejectionCode: "TRADE_CADENCE_READ_FAILED",
-        rejectionReason: `无法确认当日与${cadenceLabel(input.profile.strategyType)}成交数量，按安全原则禁止新开仓：${error instanceof Error ? error.message : "未知错误"}`,
-      }),
-      attempted: false,
-      success: false,
-      error: false,
-      riskReservedPct: 0,
-    };
-  }
-  const globalDailyCap = environment.mode === "LIVE_EXPERIMENT"
-    ? environment.liveMaxTradesPerDay
-    : DEMO_GLOBAL_TRADE_CAP;
-  if (authoritativeDailyCount >= globalDailyCap || authoritativeCadenceCount >= input.profile.maxTradesPerDay) {
-    const globalCapReached = authoritativeDailyCount >= globalDailyCap;
-    return {
-      decision: await updateDecision(input.decision.id, {
-        status: "BLOCKED",
-        rejectionCode: globalCapReached ? "GLOBAL_DAILY_TRADE_CAP" : "HORIZON_PERIOD_TRADE_CAP",
-        rejectionReason: globalCapReached
-          ? `今日已记录${authoritativeDailyCount}笔订单，达到全局${globalDailyCap}笔硬上限；所有新开仓入口（含首笔闭环验收）均已关闭。`
-          : `${input.profile.label}${cadenceLabel(input.profile.strategyType)}已记录${authoritativeCadenceCount}笔订单，达到${input.profile.maxTradesPerDay}笔周期硬上限。`,
-      }),
-      attempted: false,
-      success: false,
-      error: false,
-      riskReservedPct: 0,
-    };
-  }
   const unifiedHorizon = unifiedHorizonForStrategy(input.profile.strategyType);
   const unifiedSetting = environment.mode === "LIVE_EXPERIMENT"
     ? await getUnifiedLiveSetting("official", unifiedHorizon)
@@ -3618,7 +3821,7 @@ async function executeReadyDecision(input: {
     rejectionCode: input.evaluation.executionTier === "PROBE" ? "PROBE_ENTRY" : "",
     rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "完整确认仓"}通过组合风控与交易所规格预检，准备提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单。`,
     entryStage: 0,
-    maxEntryStages: input.evaluation.executionTier === "PROBE" ? 2 : 1,
+    maxEntryStages: 2,
   });
 
   try {
@@ -3934,7 +4137,7 @@ export async function runThreeHorizonStrategyEngine(
     if (focusPlan) forecastBySymbol.set(symbol, focusPlan);
   }
   const quoteBySymbol = new Map((options.quotes ?? []).map((quote) => [quote.symbol, quote] as const));
-  const risk = await buildRiskSnapshot(now);
+  let risk = await buildRiskSnapshot(now);
   let positions: BitgetDemoPosition[];
   let protections: BitgetDemoStrategyOrder[];
   try {
@@ -3969,7 +4172,7 @@ export async function runThreeHorizonStrategyEngine(
     protections: protections.length,
     riskBlocked: risk.blocked,
   });
-  const newExposureLedgerConsistent = isExposureLedgerConsistent({
+  let newExposureLedgerConsistent = isExposureLedgerConsistent({
     positions: positions
       .filter((row) => row.total > 0)
       .map((row) => ({ symbol: row.symbol, side: row.posSide })),
@@ -3978,6 +4181,52 @@ export async function runThreeHorizonStrategyEngine(
       : []),
     activeDecisions: management.activeLedger,
   });
+  let scaleInManagementError = false;
+  if (!options.scanOnly && management.orderErrors === 0 && Date.now() < newEntryCutoffMs) {
+    try {
+      const scaleInManagement = await manageActiveDecisions(now, {
+        scaleInOnly: true,
+        manageOnly: options.manageOnly ?? false,
+        scanOnly: options.scanOnly ?? false,
+        canonicalForecastBySymbol,
+        authorityReadsOk: forecastAuthorityReadsOk,
+        ledgerConsistent: newExposureLedgerConsistent,
+        newEntryCutoffMs,
+        riskSnapshot: risk,
+      });
+      management.orderAttempts += scaleInManagement.orderAttempts;
+      management.orderSuccess += scaleInManagement.orderSuccess;
+      management.orderErrors += scaleInManagement.orderErrors;
+      if (requiresAuthoritativeRiskRefresh(scaleInManagement.orderSuccess)) {
+        try {
+          [risk, positions, protections] = await Promise.all([
+            buildRiskSnapshot(now),
+            getBitgetDemoCurrentPositions(),
+            getBitgetDemoPendingStrategyOrders(),
+          ]);
+          newExposureLedgerConsistent = isExposureLedgerConsistent({
+            positions: positions
+              .filter((row) => row.total > 0)
+              .map((row) => ({ symbol: row.symbol, side: row.posSide })),
+            protections: protections.flatMap((row) => row.posSide
+              ? [{ symbol: row.symbol, side: row.posSide }]
+              : []),
+            activeDecisions: scaleInManagement.activeLedger,
+          });
+          if (risk.blocked || !newExposureLedgerConsistent) {
+            management.orderErrors += 1;
+            scaleInManagementError = true;
+          }
+        } catch {
+          management.orderErrors += 1;
+          scaleInManagementError = true;
+        }
+      }
+    } catch {
+      management.orderErrors += 1;
+      scaleInManagementError = true;
+    }
+  }
   const candleCache = new Map<string, CandleSet>();
   const reservedSymbols = new Set(
     positions.filter((row) => row.total > 0).map((row) => row.symbol)
@@ -3988,7 +4237,16 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
-  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && !options.scanOnly && Date.now() < newEntryCutoffMs) {
+  if (
+    liveExperimentMode &&
+    LIVE_COMMISSIONING_ENABLED &&
+    !options.scanOnly &&
+    management.orderErrors === 0 &&
+    !scaleInManagementError &&
+    !risk.blocked &&
+    newExposureLedgerConsistent &&
+    Date.now() < newEntryCutoffMs
+  ) {
     const commissioning = await runLiveCommissioning({
       runId,
       now,
@@ -4052,7 +4310,7 @@ export async function runThreeHorizonStrategyEngine(
   let leadTimeBlocks = 0;
   let riskBlocks = 0;
   let timeBudgetReached = false;
-  let entrySafetyStop = liveExperimentMode && commissioningError;
+  let entrySafetyStop = commissioningError || scaleInManagementError || management.orderErrors > 0;
   let dynamicLiveSymbols: BitgetSupportedSymbol[] = [];
   if (liveExperimentMode) {
     try {
@@ -4076,8 +4334,6 @@ export async function runThreeHorizonStrategyEngine(
   for (const profile of dueProfiles) {
     if (timeBudgetReached || entrySafetyStop) break;
     const profileStartedAt = Date.now();
-    let tradesToday = await todayTradeCount(profile, now);
-    let tradesInCadence = await cadenceTradeCount(profile, now);
     const freshProfileSymbols = (liveExperimentMode ? dynamicLiveSymbols : profile.symbols)
       .map((value) => value as BitgetSupportedSymbol)
       .filter((symbol) => !eligibleSymbols || eligibleSymbols.has(symbol));
@@ -4164,7 +4420,7 @@ export async function runThreeHorizonStrategyEngine(
             },
           };
         }
-        let status: ThreeHorizonDecisionStatus = evaluation.ready
+        const status: ThreeHorizonDecisionStatus = evaluation.ready
           ? options.scanOnly
             ? "SHADOW_READY"
             : "READY"
@@ -4174,39 +4430,6 @@ export async function runThreeHorizonStrategyEngine(
         if (evaluation.ready && options.scanOnly) {
           rejectionCode = "NEW_ENTRIES_DISABLED";
           rejectionReason = "新开仓闸门未通过；候选与事前计划继续刷新，但本轮禁止提交新订单。";
-        }
-        if (
-          evaluation.ready &&
-          profile.mode !== "SHADOW" &&
-          tradesToday >= profile.maxTradesPerDay
-        ) {
-          status = "BLOCKED";
-          rejectionCode = "DAILY_TRADE_LIMIT";
-          rejectionReason = `${profile.label}今日已达到${profile.maxTradesPerDay}笔开仓上限。`;
-        }
-        if (evaluation.ready && profile.mode !== "SHADOW" && tradesInCadence >= 5) {
-          status = "BLOCKED";
-          rejectionCode = "HORIZON_PERIOD_TRADE_CAP";
-          rejectionReason = `${profile.label}${cadenceLabel(profile.strategyType)}已达到5笔合格开仓硬上限；继续监控，但不为凑数量重复下单。`;
-        }
-        const globalTradeCap = environment.mode === "LIVE_EXPERIMENT"
-          ? environment.liveMaxTradesPerDay
-          : DEMO_GLOBAL_TRADE_CAP;
-        const symbolTradeCap = environment.mode === "LIVE_EXPERIMENT"
-          ? LIVE_SYMBOL_TRADE_CAP
-          : DEMO_SYMBOL_TRADE_CAP;
-        if (evaluation.ready && executedToday >= globalTradeCap) {
-          status = "BLOCKED";
-          rejectionCode = "GLOBAL_DAILY_TRADE_CAP";
-          rejectionReason = `${environment.mode === "LIVE_EXPERIMENT" ? "实盘" : "Demo"}今日已达到${globalTradeCap}笔全局硬上限；活动目标不是无限交易。`;
-        }
-        if (evaluation.ready && status === "READY") {
-          const symbolTradesToday = await symbolExecutedOrderCountToday(symbol, now, profile.mode === "LIVE" ? "LIVE" : "DEMO");
-          if (symbolTradesToday >= symbolTradeCap) {
-            status = "BLOCKED";
-            rejectionCode = "SYMBOL_DAILY_TRADE_CAP";
-            rejectionReason = `${symbol}今日已完成${symbolTradesToday}笔，达到单品种${symbolTradeCap}笔硬上限。`;
-          }
         }
         const decisionStartedAt = Date.now();
         let decision = await insertDecision({
@@ -4270,8 +4493,6 @@ export async function runThreeHorizonStrategyEngine(
             if (executed.success) {
               orderSuccess += 1;
               executedToday += 1;
-              tradesToday += 1;
-              tradesInCadence += 1;
               reservedSymbols.add(symbol);
               reservedRiskPct += executed.riskReservedPct;
             }
@@ -4361,13 +4582,9 @@ export async function runThreeHorizonStrategyEngine(
     LIVE_ACTIVITY_TARGET > 0 &&
     beijingHour(now) >= LIVE_ACTIVITY_START_HOUR_BJ &&
     !risk.blocked &&
-    intradayExecutedToday < LIVE_ACTIVITY_TARGET &&
-    executedToday < environment.liveMaxTradesPerDay
+    intradayExecutedToday < LIVE_ACTIVITY_TARGET
   ) {
-    const needed = Math.min(
-      LIVE_ACTIVITY_TARGET - intradayExecutedToday,
-      environment.liveMaxTradesPerDay - executedToday
-    );
+    const needed = LIVE_ACTIVITY_TARGET - intradayExecutedToday;
     const candidates = decisions
       .filter((decision) =>
         isActivityPromotionEligible(decision) &&
@@ -4391,11 +4608,7 @@ export async function runThreeHorizonStrategyEngine(
     let promotedCount = 0;
     for (const [candidateIndex, candidate] of candidates.entries()) {
       if (Date.now() >= newEntryCutoffMs) break;
-      if (
-        promotedCount >= needed ||
-        executedToday >= environment.liveMaxTradesPerDay
-      ) break;
-      if (await symbolExecutedOrderCountToday(candidate.symbol, now, "LIVE") >= LIVE_SYMBOL_TRADE_CAP) continue;
+      if (promotedCount >= needed) break;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
       if (!baseProfile) continue;
       const activityProfile: ThreeHorizonStrategyProfile = {
@@ -4407,7 +4620,7 @@ export async function runThreeHorizonStrategyEngine(
         planningMinConfidence: 38,
         minConfidence: Math.max(38, Math.min(candidate.confidence, 44)),
         maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, ULTRA_SHORT_MAX_HOLDING_MINUTES),
-        maxTradesPerDay: environment.liveMaxTradesPerDay,
+        maxTradesPerDay: baseProfile.maxTradesPerDay,
       };
       const entryConfirmed = candidate.conditions.some((condition) => condition.key === "entry" && condition.met);
       const peerDirection = candidate.symbol === "BTCUSDT"
@@ -4543,12 +4756,9 @@ export async function runThreeHorizonStrategyEngine(
     DEMO_ACTIVITY_TARGET > 0 &&
     beijingHour(now) >= DEMO_ACTIVITY_START_HOUR_BJ &&
     !risk.blocked &&
-    executedToday < Math.min(DEMO_ACTIVITY_TARGET, DEMO_GLOBAL_TRADE_CAP)
+    executedToday < DEMO_ACTIVITY_TARGET
   ) {
-    const needed = Math.min(
-      DEMO_ACTIVITY_TARGET - executedToday,
-      DEMO_GLOBAL_TRADE_CAP - executedToday
-    );
+    const needed = DEMO_ACTIVITY_TARGET - executedToday;
     const candidates = decisions
       .filter((decision) =>
         isActivityPromotionEligible(decision) &&
@@ -4571,8 +4781,7 @@ export async function runThreeHorizonStrategyEngine(
     let promotedCount = 0;
     for (const candidate of candidates) {
       if (Date.now() >= newEntryCutoffMs) break;
-      if (promotedCount >= needed || executedToday >= DEMO_GLOBAL_TRADE_CAP) break;
-      if (await symbolExecutedOrderCountToday(candidate.symbol, now, "DEMO") >= DEMO_SYMBOL_TRADE_CAP) continue;
+      if (promotedCount >= needed) break;
       const baseProfile = profiles.find((profile) => profile.strategyType === candidate.strategyType);
       if (!baseProfile) continue;
       const activityProfile: ThreeHorizonStrategyProfile = {
@@ -4584,7 +4793,7 @@ export async function runThreeHorizonStrategyEngine(
         planningMinConfidence: 40,
         minConfidence: Math.max(40, Math.min(candidate.confidence, 46)),
         maxHoldingMinutes: Math.min(baseProfile.maxHoldingMinutes, ULTRA_SHORT_MAX_HOLDING_MINUTES),
-        maxTradesPerDay: DEMO_GLOBAL_TRADE_CAP,
+        maxTradesPerDay: baseProfile.maxTradesPerDay,
       };
       const evaluation: EvaluationResult = {
         direction: candidate.direction,
@@ -4717,10 +4926,10 @@ export async function getThreeHorizonStrategyDashboard(
     executionEnvironmentAllowed,
     executionSafetyNotice: environment.mode === "LIVE_EXPERIMENT"
       ? executionEnvironmentAllowed
-        ? "实盘主动执行已开启：超短线每分钟扫描，超短线每日/中线每周/长线每月各最多5笔；只有正式方向、1分钟真实收盘触发、计划锁和硬风控全部通过才下单，不为凑数交易。"
+        ? "实盘主动执行已开启：三周期独立扫描，不设每日/每周/每月成交笔数配额；同品种只允许既有决策在新技术触发后分批加仓，所有仓位、敞口、亏损、保护单与幂等硬风控继续生效。"
         : "实盘主动执行未获授权：请检查MOOX_TRADING_CONTROL_MODE与BITGET_LIVE_CONFIRMATION。"
       : executionEnvironmentAllowed
-        ? `主动Demo执行已开启：动态候选扫描、最多两批入场、2倍逐仓和${DEMO_GLOBAL_TRADE_CAP}笔全局硬上限生效；不再按成交数量晋级候选。`
+        ? "主动Demo执行已开启：动态候选扫描、最多两批入场和2倍逐仓生效；成交笔数不设机械配额，风险与保护闸门继续生效。"
         : "主动Demo执行当前关闭。请确认BITGET_DEMO_EXECUTION_ALLOWED=true；MOOX_DEMO_ACTIVE_EXECUTION_V64或旧兼容开关若显式设为false，也会立即停止新开仓。",
     profiles,
     risk,

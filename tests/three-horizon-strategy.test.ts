@@ -331,11 +331,12 @@ test("runtime pause manages positions while a unified-gate pause can still shado
 
 
 
-test("Demo keeps hard caps and staged entries without quantity-driven promotion", () => {
+test("Demo mirrors quota-free activity while retaining staged entries and hard risk gates", () => {
   const source = engine();
   assert.match(source, /const DEMO_ACTIVITY_TARGET = 0/);
-  assert.match(source, /MOOX_DEMO_GLOBAL_TRADE_CAP_V64/);
-  assert.match(source, /MOOX_DEMO_SYMBOL_TRADE_CAP_V64/);
+  assert.doesNotMatch(source, /MOOX_DEMO_GLOBAL_TRADE_CAP_V64/);
+  assert.doesNotMatch(source, /MOOX_DEMO_SYMBOL_TRADE_CAP_V64/);
+  assert.match(source, /OPEN_RISK_LIMIT_PCT/);
   assert.match(source, /DAILY_ACTIVITY_PROBE/);
   assert.match(source, /entryStage: 1/);
   assert.match(source, /entryStage: 2/);
@@ -382,10 +383,11 @@ test("live daily activity remains fail-closed and can only promote qualified low
   assert.match(source, /decisionRewardRisk\(decision\) >= MIN_NET_REWARD_RISK/);
   assert.match(source, /maxLossPercent: liveRiskBudgetPct/);
   assert.match(source, /riskPct > liveRiskBudgetPct/);
-  assert.match(source, /LIVE_SYMBOL_TRADE_CAP/);
-  assert.match(source, /environment\.liveMaxTradesPerDay/);
-  assert.match(source, /HORIZON_PERIOD_TRADE_CAP/);
-  assert.match(client, /BITGET_LIVE_MAX_TRADES_PER_DAY/);
+  assert.doesNotMatch(source, /LIVE_SYMBOL_TRADE_CAP/);
+  assert.doesNotMatch(source, /HORIZON_PERIOD_TRADE_CAP/);
+  assert.doesNotMatch(client, /attempts >= environment\.liveMaxTradesPerDay/);
+  assert.match(client, /liveMaxConcurrentPositions/);
+  assert.match(client, /currentGross \+ notional > grossLimit/);
   assert.match(client, /BITGET_LIVE_DAILY_LOSS_USDT/);
   assert.match(client, /BITGET_LIVE_MAX_DRAWDOWN_USDT/);
 });

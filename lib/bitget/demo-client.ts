@@ -1300,7 +1300,14 @@ export async function syncBitgetLiveExperimentStatus(
   return { enabled: true, active: status === "ACTIVE", completed: status === "COMPLETED", stopped: status === "STOPPED", status: status as BitgetLiveExperimentStatus["status"], startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: equity || 0, peakEquityUsdt: peak || 0, pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0, maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown), maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct), dailyPnlUsdt: dailySnapshot.current.pnlUsdt, dailyPnlPct: dailySnapshot.current.pnlPct, dailyHistory: dailySnapshot.history, stopReason, securityMessage };
 }
 
-async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedSymbol; size: string }): Promise<void> {
+async function assertLiveExperimentOpenAllowed(input: {
+  symbol: BitgetSupportedSymbol;
+  size: string;
+  side: "buy" | "sell";
+  executionIdentity: string;
+  exposureAction?: "SCALE_IN";
+  technicalTriggerFingerprint?: string;
+}): Promise<void> {
   const environment = getBitgetDemoEnvironment();
   if (environment.mode !== "LIVE_EXPERIMENT") return;
   if (!environment.executionAllowed) throw new Error("交易控制模式未授权执行，或真实风险确认无效");
@@ -1325,22 +1332,51 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
   if ((experiment.dailyPnlUsdt ?? 0) <= -environment.liveDailyLossUsdt) {
     throw new Error(`今日净亏损${Math.abs(experiment.dailyPnlUsdt ?? 0).toFixed(2)} USDT，达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损，明日再评估。`);
   }
-  const [positions, quotes, attempts, security] = await Promise.all([
+  const [positions, quotes, security] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoMarketQuotes([input.symbol]),
-    liveOpenAttemptsToday(new Date()),
     getBitgetApiSecurity(),
   ]);
   if (!security.failClosedReady) {
     throw new Error(`实盘安全检查未通过，fail-closed禁止新开仓：${security.message}`);
   }
-  if (positions.some((row) => row.symbol === input.symbol && row.total > 0)) {
-    throw new Error(`${input.symbol}已有持仓，禁止同品种重复开仓`);
+  const existingPosition = positions.find((row) => row.symbol === input.symbol && row.total > 0);
+  const scaleIn = input.exposureAction === "SCALE_IN";
+  if (existingPosition && !scaleIn) {
+    throw new Error(`${input.symbol}已有持仓；新增敞口只能通过既有决策的分批加仓路径`);
   }
-  if (positions.length >= environment.liveMaxConcurrentPositions) {
+  if (scaleIn) {
+    if (!existingPosition) throw new Error(`${input.symbol}没有可追加的既有持仓`);
+    const requestedSide = input.side === "buy" ? "long" : "short";
+    if (existingPosition.posSide !== requestedSide) {
+      throw new Error(`${input.symbol}分批加仓方向与既有${existingPosition.posSide}仓不一致`);
+    }
+    if (!input.technicalTriggerFingerprint?.trim()) {
+      throw new Error(`${input.symbol}分批加仓缺少新的技术触发指纹`);
+    }
+    if (!input.executionIdentity.includes(`:${input.technicalTriggerFingerprint}`)) {
+      throw new Error(`${input.symbol}分批加仓触发指纹未绑定到幂等执行身份`);
+    }
+    const sideProtections = (await getBitgetDemoPendingStrategyOrders()).filter(
+      (row) => row.symbol === input.symbol && row.posSide === existingPosition.posSide,
+    );
+    const hasFullStop = sideProtections.some((row) => row.tpslMode === "full" && Number(row.stopLoss) > 0 && (
+      existingPosition.posSide === "long"
+        ? Number(row.stopLoss) < existingPosition.markPrice
+        : Number(row.stopLoss) > existingPosition.markPrice
+    ));
+    const hasFullTarget = sideProtections.some((row) => row.tpslMode === "full" && Number(row.takeProfit) > 0 && (
+      existingPosition.posSide === "long"
+        ? Number(row.takeProfit) > existingPosition.markPrice
+        : Number(row.takeProfit) < existingPosition.markPrice
+    ));
+    if (!hasFullStop || !hasFullTarget) {
+      throw new Error(`${input.symbol}交易所侧全仓止盈止损未权威确认，禁止分批加仓`);
+    }
+  }
+  if (!existingPosition && positions.length >= environment.liveMaxConcurrentPositions) {
     throw new Error(`实盘实验最多同时持有${environment.liveMaxConcurrentPositions}个仓位`);
   }
-  if (attempts >= environment.liveMaxTradesPerDay) throw new Error(`今日已达到${environment.liveMaxTradesPerDay}笔开仓上限`);
   const quote = quotes.find((row) => row.symbol === input.symbol);
   const price = quote?.price ?? 0;
   const capturedAtMs = quote?.capturedAt ? Date.parse(quote.capturedAt) : Number.NaN;
@@ -1353,8 +1389,11 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
   if (!Number.isFinite(notional) || notional <= 0) throw new Error("无法计算实盘订单名义价值");
   const equity = experiment.currentEquityUsdt ?? environment.liveInitialCapitalUsdt;
   const perPositionLimit = Math.min(environment.liveMaxPositionNotionalUsdt, equity * 0.3);
-  if (notional > perPositionLimit + 0.01) {
-    throw new Error(`订单名义价值${notional.toFixed(2)} USDT超过单仓上限${perPositionLimit.toFixed(2)} USDT`);
+  const existingPositionNotional = existingPosition
+    ? Math.abs(existingPosition.total * existingPosition.markPrice)
+    : 0;
+  if (existingPositionNotional + notional > perPositionLimit + 0.01) {
+    throw new Error(`本次追加后${input.symbol}单仓名义价值将达到${(existingPositionNotional + notional).toFixed(2)} USDT，超过${perPositionLimit.toFixed(2)} USDT上限`);
   }
   const currentGross = positions.reduce((sum, row) => sum + Math.abs(row.total * row.markPrice), 0);
   const grossLimit = equity * environment.liveMaxGrossNotionalPct / 100;
@@ -1372,7 +1411,7 @@ async function assertLiveExperimentOpenAllowed(input: { symbol: BitgetSupportedS
   // The global ten-position gate is authoritative. Group notional caps still diversify risk.
   const groupCountLimit = environment.liveMaxConcurrentPositions;
   const groupPctLimit = group === "CRYPTO" ? 45 : group === "EQUITY" ? 50 : 40;
-  if (groupRows.length >= groupCountLimit) throw new Error(`${group}风险组最多同时持有${groupCountLimit}个仓位`);
+  if (!existingPosition && groupRows.length >= groupCountLimit) throw new Error(`${group}风险组最多同时持有${groupCountLimit}个仓位`);
   const groupNotional = groupRows.reduce((sum, row) => sum + Math.abs(row.total * row.markPrice), 0);
   const groupLimit = equity * groupPctLimit / 100;
   if (groupNotional + notional > groupLimit + 0.01) {
@@ -1627,6 +1666,8 @@ type MarketExecutionPayload = {
   leverage?: number;
   stopLoss?: number;
   takeProfit?: number;
+  exposureAction?: "SCALE_IN";
+  technicalTriggerFingerprint?: string;
   size: string;
   warnings: string[];
 };
@@ -2164,6 +2205,8 @@ export async function placeBitgetDemoMarketOrder(input: {
   leverage?: number;
   stopLoss?: number;
   takeProfit?: number;
+  exposureAction?: "SCALE_IN";
+  technicalTriggerFingerprint?: string;
 }): Promise<{
   orderId: string;
   clientOid: string;
@@ -2176,7 +2219,14 @@ export async function placeBitgetDemoMarketOrder(input: {
   await assertBitgetClockSafe();
   const contract = await getContractConfig(input.symbol);
   const size = normalizeOrderSize(input.quantity, contract);
-  if (!input.reduceOnly) await assertLiveExperimentOpenAllowed({ symbol: input.symbol, size });
+  if (!input.reduceOnly) await assertLiveExperimentOpenAllowed({
+    symbol: input.symbol,
+    size,
+    side: input.side,
+    executionIdentity: input.paperOrderId,
+    exposureAction: input.exposureAction,
+    technicalTriggerFingerprint: input.technicalTriggerFingerprint,
+  });
   const warnings: string[] = [];
   const stopLoss = !input.reduceOnly && input.stopLoss && input.stopLoss > 0
     ? normalizeContractTriggerPrice(input.stopLoss, contract, input.side === "buy" ? "floor" : "ceil")
@@ -2346,6 +2396,7 @@ export type BitgetDemoStrategyOrder = {
   clientOid: string;
   symbol: string;
   posSide: "long" | "short" | null;
+  tpslMode: "full" | string | null;
   takeProfit: number | null;
   stopLoss: number | null;
   createdAt: string | null;
@@ -2391,6 +2442,7 @@ type BitgetStrategyOrderRow = {
   clientOid?: string;
   symbol?: string;
   posSide?: string;
+  tpslMode?: string;
   takeProfit?: string;
   stopLoss?: string;
   createdTime?: string;
@@ -2551,6 +2603,7 @@ export async function getBitgetDemoPendingStrategyOrders(): Promise<
       clientOid: String(row.clientOid ?? ""),
       symbol: String(row.symbol ?? "").toUpperCase(),
       posSide: parseBitgetPositionSide(row.posSide),
+      tpslMode: row.tpslMode ? String(row.tpslMode).toLowerCase() : null,
       takeProfit: row.takeProfit ? finiteNumber(row.takeProfit) : null,
       stopLoss: row.stopLoss ? finiteNumber(row.stopLoss) : null,
       createdAt: timestampIso(row.createdTime),

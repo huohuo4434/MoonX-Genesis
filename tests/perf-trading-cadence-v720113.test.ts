@@ -87,7 +87,7 @@ test("页面首屏不再同步等待交易所，多方观点使用共享短缓�
   assert.match(alphaCache, /revalidate: 60/);
 });
 
-test("超短线每分钟扫描并由1分钟收盘触发，三周期有独立数量上限", () => {
+test("超短线每分钟扫描并由1分钟收盘触发，成交次数不设配额但仓位硬上限保留", () => {
   const engine = read("lib/trading-signals/three-horizon-strategy.ts");
   assert.match(engine, /entryTimeframe: "5m\/1m"/);
   assert.match(engine, /scanIntervalMinutes: 1/);
@@ -96,9 +96,10 @@ test("超短线每分钟扫描并由1分钟收盘触发，三周期有独立数�
   assert.match(engine, /ULTRA_SHORT_MAX_HOLDING_MINUTES/);
   assert.match(engine, /strategyType === "SWING"[\s\S]*beijingStartOfWeek/);
   assert.match(engine, /strategyType === "POSITION"[\s\S]*beijingStartOfMonth/);
-  assert.match(engine, /HORIZON_PERIOD_TRADE_CAP/);
-  assert.match(engine, /所有新开仓入口（含首笔闭环验收）均已关闭/);
-  assert.match(engine, /TRADE_CADENCE_READ_FAILED/);
+  assert.doesNotMatch(engine, /HORIZON_PERIOD_TRADE_CAP/);
+  assert.doesNotMatch(engine, /GLOBAL_DAILY_TRADE_CAP|SYMBOL_DAILY_TRADE_CAP|DAILY_TRADE_LIMIT/);
+  assert.match(engine, /UNIFIED_HORIZON_POSITION_CAP/);
+  assert.match(engine, /PROJECTED_OPEN_RISK_LIMIT/);
   assert.match(engine, /LIVE_ACTIVITY_CONTROL\.configured && LIVE_ACTIVITY_CONTROL\.mode === "LIVE"/);
   assert.match(engine, /"MOOX_LIVE_ACTIVITY_TARGET_V641", 1, 1, 5/);
   assert.match(engine, /bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN/);
