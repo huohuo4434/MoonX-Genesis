@@ -2358,34 +2358,36 @@ async function loadExecutionCountSnapshot(
   const todayStart = beijingStartOfDay(now);
   const weekStart = beijingStartOfWeek(now);
   const monthStart = beijingStartOfMonth(now);
-  const earliestStart = new Date(Math.min(
-    todayStart.getTime(),
-    weekStart.getTime(),
-    monthStart.getTime(),
-  ));
   const rows = await prisma.$queryRawUnsafe<ExecutionCountRow[]>(
     `SELECT strategy_type, symbol,
             COUNT(*) FILTER (WHERE created_at >= $3::timestamptz)::bigint AS today_count,
             ARRAY_AGG(id) FILTER (WHERE created_at >= $3::timestamptz) AS today_decision_ids,
-            COUNT(*) FILTER (
-              WHERE created_at >= CASE
-                WHEN strategy_type = 'SWING' THEN $4::timestamptz
-                WHEN strategy_type = 'POSITION' THEN $5::timestamptz
-                ELSE $3::timestamptz
-              END
-            )::bigint AS cadence_count
-       FROM trade_three_horizon_decisions
-      WHERE mode = $1
-        AND created_at >= $2::timestamptz
-        AND created_at < $6::timestamptz
-        AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+            COUNT(*)::bigint AS cadence_count
+       FROM (
+         SELECT id, strategy_type, symbol, created_at
+           FROM trade_three_horizon_decisions
+          WHERE mode = $1 AND strategy_type = 'INTRADAY'
+            AND created_at >= $3::timestamptz AND created_at < $2::timestamptz
+            AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+         UNION ALL
+         SELECT id, strategy_type, symbol, created_at
+           FROM trade_three_horizon_decisions
+          WHERE mode = $1 AND strategy_type = 'SWING'
+            AND created_at >= $4::timestamptz AND created_at < $2::timestamptz
+            AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+         UNION ALL
+         SELECT id, strategy_type, symbol, created_at
+           FROM trade_three_horizon_decisions
+          WHERE mode = $1 AND strategy_type = 'POSITION'
+            AND created_at >= $5::timestamptz AND created_at < $2::timestamptz
+            AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
+       ) AS executable_decisions
       GROUP BY strategy_type, symbol`,
     mode,
-    earliestStart.toISOString(),
+    beforeExclusive.toISOString(),
     todayStart.toISOString(),
     weekStart.toISOString(),
     monthStart.toISOString(),
-    beforeExclusive.toISOString(),
   );
   const todayByStrategy = new Map<ThreeHorizonStrategyType, number>();
   const cadenceByStrategy = new Map<ThreeHorizonStrategyType, number>();

@@ -884,8 +884,12 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000/);
   assert.match(strategy, /effectiveNewEntryCutoffMs - Date\.now\(\) < LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS[\s\S]{0,260}不启动计划维护、新标的扫描或新订单/);
   assert.match(strategy, /const executionCountSnapshotBefore = new Date\(\);[\s\S]{0,260}loadExecutionCountSnapshot\([\s\S]{0,180}executionCountSnapshotBefore[\s\S]{0,100}deadlineMs/);
-  assert.match(strategy, /AND created_at < \$6::timestamptz/);
+  assert.equal((strategy.match(/AND created_at < \$2::timestamptz/g) ?? []).length, 3);
   assert.match(strategy, /ARRAY_AGG\(id\) FILTER \(WHERE created_at >= \$3::timestamptz\) AS today_decision_ids/);
+  assert.match(strategy, /strategy_type = 'INTRADAY'[\s\S]{0,180}created_at >= \$3::timestamptz/);
+  assert.match(strategy, /strategy_type = 'SWING'[\s\S]{0,180}created_at >= \$4::timestamptz/);
+  assert.match(strategy, /strategy_type = 'POSITION'[\s\S]{0,180}created_at >= \$5::timestamptz/);
+  assert.equal((strategy.match(/UNION ALL/g) ?? []).length >= 2, true);
   assert.match(strategy, /const executionCountResult = await executionCountSnapshotPromise/);
   assert.match(strategy, /if \(commissioningSuccess && !commissioningDecision\)[\s\S]{0,220}commissioningError = true/);
   assert.match(strategy, /if \(commissioningSuccess && commissioningDecision\)[\s\S]{0,300}applyCommissioningExecutionCount\(executionCounts/);
@@ -893,7 +897,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /COUNT_LIMITS_COMPLETE/);
   assert.match(strategy, /const finishAfterCommissioning = \([\s\S]*ok: !forceError && !commissioningError && management\.orderErrors === 0[\s\S]*decisions,[\s\S]*orderAttempts: management\.orderAttempts \+ \(commissioningAttempted \? 1 : 0\)[\s\S]*orderSuccess: management\.orderSuccess \+ \(commissioningSuccess \? 1 : 0\)[\s\S]*orderErrors: management\.orderErrors \+ \(commissioningError \? 1 : 0\)/);
   assert.match(strategy, /catch \(error\) \{[\s\S]{0,900}return finishAfterCommissioning\(timedOut[\s\S]{0,350}!timedOut/);
-  assert.match(strategy, /COUNT\(\*\) FILTER \(WHERE created_at >= \$3::timestamptz\)[\s\S]*GROUP BY strategy_type, symbol/);
+  assert.match(strategy, /COUNT\(\*\) FILTER \(WHERE created_at >= \$3::timestamptz\)[\s\S]*COUNT\(\*\)::bigint AS cadence_count[\s\S]*GROUP BY strategy_type, symbol/);
   assert.match(strategy, /executionCounts\.todayByStrategy\.get\(profile\.strategyType\)/);
   assert.match(strategy, /executionCounts\.cadenceByStrategy\.get\(profile\.strategyType\)/);
   assert.match(strategy, /executionCounts\.todayBySymbol\.get\(symbol\)/);
