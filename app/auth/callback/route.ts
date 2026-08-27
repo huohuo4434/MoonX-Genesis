@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const nextParam = searchParams.get("next");
   const userFallback = safeRedirectPath(nextParam, "/account");
+  const passwordRecovery = type === "recovery" || userFallback === "/reset-password";
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
@@ -26,12 +27,16 @@ export async function GET(request: Request) {
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     if (error) {
-      return NextResponse.redirect(`${origin}/login?error=auth_callback`);
+      return NextResponse.redirect(
+        passwordRecovery ? `${origin}/forgot-password?error=expired` : `${origin}/login?error=auth_callback`
+      );
     }
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      return NextResponse.redirect(`${origin}/login?error=auth_callback`);
+      return NextResponse.redirect(
+        passwordRecovery ? `${origin}/forgot-password?error=expired` : `${origin}/login?error=auth_callback`
+      );
     }
   } else {
     return NextResponse.redirect(`${origin}${userFallback}`);
@@ -39,7 +44,13 @@ export async function GET(request: Request) {
 
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData.user?.email) {
-    return NextResponse.redirect(`${origin}/login?error=auth_callback`);
+    return NextResponse.redirect(
+      passwordRecovery ? `${origin}/forgot-password?error=expired` : `${origin}/login?error=auth_callback`
+    );
+  }
+
+  if (passwordRecovery) {
+    return NextResponse.redirect(`${origin}/reset-password`);
   }
 
   try {

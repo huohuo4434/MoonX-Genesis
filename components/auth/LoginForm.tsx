@@ -86,7 +86,13 @@ export function LoginForm({
   const [inviteCode, setInviteCode] = useState(refFromQuery ?? "");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(
+    searchParams.get("password_reset") === "success"
+      ? en
+        ? "Password updated. Sign in with your new password."
+        : "密码已更新，请使用新密码登录。"
+      : null
+  );
   const [loading, setLoading] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const lastSubmitAt = useRef(0);
@@ -354,6 +360,14 @@ export function LoginForm({
               ? en ? "Sign in" : "登录"
               : en ? "Create account" : "创建账户"}
         </Button>
+        {tab === "login" ? (
+          <a
+            href={href("/forgot-password")}
+            className="text-center text-body-sm text-foreground-secondary hover:text-foreground hover:underline"
+          >
+            {en ? "Forgot password?" : "忘记密码？"}
+          </a>
+        ) : null}
       </form>
     </Card>
   );
