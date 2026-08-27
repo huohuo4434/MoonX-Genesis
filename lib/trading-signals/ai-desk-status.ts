@@ -55,11 +55,18 @@ export function applyAiDeskOperationalState(
   // A plan check is not proof of a fresh exchange quote. Runtime market time is the only source.
   const latestQuoteAt = snapshot.latestQuoteAt ?? null;
   const runtimeQuoteCheck = timeMs(latestQuoteAt);
+  // Persisted runtime ages describe the instant when the snapshot was generated. Advance
+  // them by wall-clock time when an older snapshot is read so frozen ages can never make
+  // historical data look live.
+  const generatedAtMs = timeMs(snapshot.generatedAt);
+  const elapsedSinceSnapshot = generatedAtMs == null
+    ? 0
+    : Math.max(0, now.getTime() - generatedAtMs);
   const quoteAge = snapshot.runtime.quoteAgeSeconds != null
-    ? Math.max(0, snapshot.runtime.quoteAgeSeconds * 1000)
+    ? Math.max(0, snapshot.runtime.quoteAgeSeconds * 1000) + elapsedSinceSnapshot
     : ageMs(latestQuoteAt, now);
   const heartbeatAge = snapshot.runtime.heartbeatAgeSeconds != null
-    ? Math.max(0, snapshot.runtime.heartbeatAgeSeconds * 1000)
+    ? Math.max(0, snapshot.runtime.heartbeatAgeSeconds * 1000) + elapsedSinceSnapshot
     : ageMs(snapshot.runtime.lastHeartbeatAt, now);
   const heartbeatStale = heartbeatAge == null || heartbeatAge > AI_DESK_HEARTBEAT_STALE_MS;
   const quoteMissing = runtimeQuoteCheck == null;
@@ -190,6 +197,24 @@ export function applyAiDeskOperationalState(
     quoteReady,
     latestQuoteAt,
     syncStatus,
+    syncMessage: message,
+  };
+}
+
+export function markAiDeskSnapshotReadOnly(
+  snapshot: AiTradingDeskSnapshot,
+  message: string,
+  now = new Date()
+): AiTradingDeskSnapshot {
+  const evaluated = applyAiDeskOperationalState(snapshot, now);
+  return {
+    ...evaluated,
+    executionAllowed: false,
+    serverHealthy: false,
+    quoteReady: false,
+    operationalState: "SERVICE_ERROR",
+    operationalStateLabel: "只读历史快照",
+    syncStatus: "ERROR",
     syncMessage: message,
   };
 }

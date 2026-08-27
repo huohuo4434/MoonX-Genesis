@@ -153,7 +153,7 @@ export interface BitgetRuntimeRunReport {
     messages: string[];
   } | null;
   reconcile: BitgetRuntimeAccountSnapshot;
-  memberDeskSync: { ok: boolean; mode?: "INLINE" | "DEDICATED_CRON"; error?: string };
+  memberDeskSync: { ok: boolean; mode?: "INLINE" | "DEDICATED_CRON" | "ON_DEMAND"; error?: string };
   liveExperimentExit?: { attempted: number; success: number; errors: number; messages: string[] };
   message: string;
 }

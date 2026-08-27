@@ -961,7 +961,7 @@ export async function runBitgetDemoServerRuntime(
       generalSignalMonitor: null,
       mirror: null,
       reconcile: emptyAccount("上一轮任务仍在运行。"),
-      memberDeskSync: { ok: true, mode: "DEDICATED_CRON" },
+      memberDeskSync: { ok: true, mode: "ON_DEMAND" },
       message: "检测到运行锁，本轮未重复执行。",
     };
   }
@@ -1500,7 +1500,7 @@ export async function runBitgetDemoServerRuntime(
       generalSignalMonitor: signalMonitor as unknown as Record<string, unknown> | null,
       mirror: mirrorResult,
       reconcile: account,
-      memberDeskSync: { ok: true, mode: "DEDICATED_CRON" },
+      memberDeskSync: { ok: true, mode: "ON_DEMAND" },
       liveExperimentExit: liveExit,
       message: finalMessage,
     };

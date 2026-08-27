@@ -33,7 +33,7 @@ test("real custody blockers still require explicit audited LIVE restore", () => 
   );
 });
 
-test("production scheduled member AI desk refresh uses an authenticated dedicated cron", () => {
+test("member AI desk refresh remains authenticated and on-demand without competing with the minute live runner", () => {
   const root = process.cwd();
   const route = readFileSync(resolve(root, "app/api/cron/member-ai-trading-desk-sync/route.ts"), "utf8");
   const runtime = readFileSync(resolve(root, "lib/bitget/demo-runtime.ts"), "utf8");
@@ -61,7 +61,11 @@ test("production scheduled member AI desk refresh uses an authenticated dedicate
   assert.match(probe, /ALTER TABLE trade_member_ai_desk_snapshot[\s\S]{0,500}ADD COLUMN IF NOT EXISTS last_synced_at[\s\S]{0,200}ADD COLUMN IF NOT EXISTS last_error/);
   assert.match(probe, /probeMemberAiTradingDeskSchema\(\) !== "READY"/);
   assert.ok(probe.indexOf("probeMemberAiTradingDeskSchema() !== \"READY\"") > probe.indexOf("ALTER TABLE trade_member_ai_desk_snapshot"));
-  assert.match(runtime, /memberDeskSync: \{ ok: true, mode: "DEDICATED_CRON" \}/);
+  assert.match(probe, /const evaluatedSnapshot = applyAiDeskOperationalState\([\s\S]{0,5000}, new Date\(\)\)/);
+  assert.equal((probe.match(/markAiDeskSnapshotReadOnly\(/g) ?? []).length >= 4, true);
+  assert.equal(/lastReadableSnapshot[\s\S]{0,260}applyAiDeskOperationalState\(/.test(probe), false);
+  assert.match(probe, /stale \|\| Boolean\(row\.last_error\)[\s\S]{0,120}markAiDeskSnapshotReadOnly/);
+  assert.match(runtime, /memberDeskSync: \{ ok: true, mode: "ON_DEMAND" \}/);
   const cron = vercel.crons.find((item) => item.path === "/api/cron/member-ai-trading-desk-sync");
-  assert.equal(cron?.schedule, "*/2 * * * *");
+  assert.equal(cron, undefined);
 });

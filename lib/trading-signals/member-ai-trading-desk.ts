@@ -18,7 +18,10 @@ import {
 } from "@/lib/trading-signals/prediction-auto-trader";
 import { getThreeHorizonPublicStrategies } from "@/lib/trading-signals/three-horizon-strategy";
 import { getAiTradePlanDashboard } from "@/lib/trading-signals/ai-trade-plans";
-import { applyAiDeskOperationalState } from "@/lib/trading-signals/ai-desk-status";
+import {
+  applyAiDeskOperationalState,
+  markAiDeskSnapshotReadOnly,
+} from "@/lib/trading-signals/ai-desk-status";
 import {
   buildMemberDeskPlansFromPersistedAudit,
   summarizePersistedPlans,
@@ -598,12 +601,10 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
   if (!prisma) {
     const settings = await settingsPromise;
     return lastReadableSnapshot
-      ? applyAiDeskOperationalState({
-          ...lastReadableSnapshot,
-          settings,
-          syncStatus: "PARTIAL",
-          syncMessage: "交易数据库暂时不可用，继续展示本实例最近一次只读快照。",
-        })
+      ? markAiDeskSnapshotReadOnly(
+          { ...lastReadableSnapshot, settings },
+          "交易数据库暂时不可用，继续展示本实例最近一次只读快照。"
+        )
       : emptySnapshot(settings, "交易数据库暂时不可用；页面保持可打开并等待自动恢复。");
   }
 
@@ -623,12 +624,10 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     const row = rows[0];
     if (!row) {
       return lastReadableSnapshot
-        ? applyAiDeskOperationalState({
-            ...lastReadableSnapshot,
-            settings,
-            syncStatus: "PARTIAL",
-            syncMessage: "数据库尚未写入新的交易台快照，继续展示最近一次可读数据。",
-          })
+        ? markAiDeskSnapshotReadOnly(
+            { ...lastReadableSnapshot, settings },
+            "数据库尚未写入新的交易台快照，继续展示最近一次可读数据。"
+          )
         : emptySnapshot(settings, "等待服务器任务写入首轮交易台快照；会员访问不会直连Bitget。");
     }
     const payload = parseJson<AiTradingDeskSnapshot>(row.payload);
@@ -641,7 +640,7 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     const staleMessage = stale
       ? `交易台快照等待服务器更新；最近同步时间${syncedAt ?? "未知"}，旧数据继续只读展示。`
       : "";
-    const snapshot = applyAiDeskOperationalState({
+    const evaluatedSnapshot = applyAiDeskOperationalState({
       ...payload,
       settings,
       strategies: payload.strategies ?? [],
@@ -687,7 +686,13 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
           executed: 0,
         },
       },
-    });
+    }, new Date());
+    const readOnlyMessage = row.last_error
+      ? `最近同步异常：${row.last_error}；旧数据继续只读展示。`
+      : staleMessage;
+    const snapshot: AiTradingDeskSnapshot = stale || Boolean(row.last_error)
+      ? markAiDeskSnapshotReadOnly(evaluatedSnapshot, readOnlyMessage)
+      : evaluatedSnapshot;
     lastReadableSnapshot = snapshot;
     return snapshot;
   } catch (error) {
@@ -695,12 +700,10 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     const message = error instanceof Error ? error.message : "交易台读取失败";
     console.warn("member AI trading desk snapshot read failed", error);
     if (lastReadableSnapshot) {
-      return applyAiDeskOperationalState({
-        ...lastReadableSnapshot,
-        settings,
-        syncStatus: "PARTIAL",
-        syncMessage: `${message}；继续展示本实例最近一次只读快照。`,
-      });
+      return markAiDeskSnapshotReadOnly(
+        { ...lastReadableSnapshot, settings },
+        `${message}；继续展示本实例最近一次只读快照。`
+      );
     }
     return emptySnapshot(settings, `${message}；页面保持可用并将在后台自动重试。`);
   }

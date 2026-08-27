@@ -17,6 +17,7 @@ import { ALLOWED_FORMAL_DIRECTIONS } from "@/lib/forecasts/formal-direction";
 import { listCurrentMonthlyMarketOutlooks } from "@/lib/data/monthly-market-outlook";
 import {
   applyAiDeskOperationalState,
+  markAiDeskSnapshotReadOnly,
   sanitizePlanHorizonText,
 } from "@/lib/trading-signals/ai-desk-status";
 import {
@@ -189,6 +190,43 @@ test("AI desk uses runtime quote freshness and pauses execution when data is sta
   }), new Date("2026-08-03T10:01:00.000Z"));
   assert.equal(delayed.operationalState, "DATA_DELAYED");
   assert.equal(delayed.executionAllowed, false);
+
+  const frozenOldSnapshot = applyAiDeskOperationalState(snapshot({
+    generatedAt: "2026-08-03T10:00:00.000Z",
+    latestQuoteAt: "2026-08-03T09:59:30.000Z",
+    runtime: {
+      ...snapshot().runtime,
+      lastHeartbeatAt: "2026-08-03T09:59:30.000Z",
+      quoteAgeSeconds: 30,
+      heartbeatAgeSeconds: 30,
+    },
+    plans: [monitoredPlan],
+  }), new Date("2026-08-03T10:05:00.000Z"));
+  assert.equal(frozenOldSnapshot.operationalState, "SERVICE_ERROR");
+  assert.equal(frozenOldSnapshot.syncStatus, "ERROR");
+  assert.equal(frozenOldSnapshot.executionAllowed, false);
+
+  const persistedOldSnapshot = markAiDeskSnapshotReadOnly(
+    snapshot({
+      generatedAt: "2026-08-03T10:00:00.000Z",
+      latestQuoteAt: "2026-08-03T09:59:30.000Z",
+      runtime: {
+        ...snapshot().runtime,
+        lastHeartbeatAt: "2026-08-03T09:59:30.000Z",
+        quoteAgeSeconds: 30,
+        heartbeatAgeSeconds: 30,
+      },
+      plans: [monitoredPlan],
+      positions: [{ symbol: "BTCUSDT" } as never],
+    }),
+    "旧数据继续只读展示。",
+    new Date("2026-08-03T10:05:00.000Z")
+  );
+  assert.equal(persistedOldSnapshot.operationalStateLabel, "只读历史快照");
+  assert.equal(persistedOldSnapshot.serverHealthy, false);
+  assert.equal(persistedOldSnapshot.quoteReady, false);
+  assert.equal(persistedOldSnapshot.syncMessage, "旧数据继续只读展示。");
+  assert.equal(persistedOldSnapshot.executionAllowed, false);
 });
 
 test("AI plan horizon rejects weekly/monthly text in daily or weekly slots", () => {
