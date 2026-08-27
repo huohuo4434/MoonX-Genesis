@@ -883,7 +883,13 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(strategy, /readWithinLiveScanDeadline\(\(\) => loadCandleSet\(symbol\), deadlineMs\)/);
   assert.match(strategy, /LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000/);
   assert.match(strategy, /effectiveNewEntryCutoffMs - Date\.now\(\) < LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS[\s\S]{0,260}不启动计划维护、新标的扫描或新订单/);
-  assert.match(strategy, /readWithinLiveScanDeadline\([\s\S]{0,180}loadExecutionCountSnapshot\(now, liveExperimentMode \? "LIVE" : "DEMO"\)[\s\S]{0,80}deadlineMs/);
+  assert.match(strategy, /const executionCountSnapshotBefore = new Date\(\);[\s\S]{0,260}loadExecutionCountSnapshot\([\s\S]{0,180}executionCountSnapshotBefore[\s\S]{0,100}deadlineMs/);
+  assert.match(strategy, /AND created_at < \$6::timestamptz/);
+  assert.match(strategy, /ARRAY_AGG\(id\) FILTER \(WHERE created_at >= \$3::timestamptz\) AS today_decision_ids/);
+  assert.match(strategy, /const executionCountResult = await executionCountSnapshotPromise/);
+  assert.match(strategy, /if \(commissioningSuccess && !commissioningDecision\)[\s\S]{0,220}commissioningError = true/);
+  assert.match(strategy, /if \(commissioningSuccess && commissioningDecision\)[\s\S]{0,300}applyCommissioningExecutionCount\(executionCounts/);
+  assert.match(strategy, /prefetchedBeforePlanMaintenance: true/);
   assert.match(strategy, /COUNT_LIMITS_COMPLETE/);
   assert.match(strategy, /const finishAfterCommissioning = \([\s\S]*ok: !forceError && !commissioningError && management\.orderErrors === 0[\s\S]*decisions,[\s\S]*orderAttempts: management\.orderAttempts \+ \(commissioningAttempted \? 1 : 0\)[\s\S]*orderSuccess: management\.orderSuccess \+ \(commissioningSuccess \? 1 : 0\)[\s\S]*orderErrors: management\.orderErrors \+ \(commissioningError \? 1 : 0\)/);
   assert.match(strategy, /catch \(error\) \{[\s\S]{0,900}return finishAfterCommissioning\(timedOut[\s\S]{0,350}!timedOut/);

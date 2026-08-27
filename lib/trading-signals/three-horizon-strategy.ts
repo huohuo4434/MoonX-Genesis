@@ -119,6 +119,7 @@ import {
   resolveAuthoritativeForecastDirection,
 } from "@/lib/trading-signals/authoritative-market-structure-core";
 import { dailyChampionRiskScale, dailyChampionScore } from "@/lib/trading-signals/daily-champion-core";
+import { applyCommissioningExecutionCount } from "@/lib/trading-signals/execution-count-snapshot-core";
 import {
   buildUltraShortPriceGeometry,
   conservativeNetRewardRisk,
@@ -335,6 +336,7 @@ interface ExecutionCountRow {
   symbol: string;
   today_count: bigint | number | string;
   cadence_count: bigint | number | string;
+  today_decision_ids: string[] | null;
 }
 
 type ExecutionCountSnapshot = {
@@ -342,6 +344,7 @@ type ExecutionCountSnapshot = {
   todayByStrategy: Map<ThreeHorizonStrategyType, number>;
   cadenceByStrategy: Map<ThreeHorizonStrategyType, number>;
   todayBySymbol: Map<string, number>;
+  todayCountedDecisionIds: Set<string>;
 };
 
 interface EvaluationResult {
@@ -2349,6 +2352,7 @@ function cadenceLabel(strategyType: ThreeHorizonStrategyType): string {
 async function loadExecutionCountSnapshot(
   now: Date,
   mode: "LIVE" | "DEMO",
+  beforeExclusive: Date,
 ): Promise<ExecutionCountSnapshot> {
   if (!prisma) throw new Error("TRADE_COUNT_DATABASE_UNAVAILABLE");
   const todayStart = beijingStartOfDay(now);
@@ -2362,6 +2366,7 @@ async function loadExecutionCountSnapshot(
   const rows = await prisma.$queryRawUnsafe<ExecutionCountRow[]>(
     `SELECT strategy_type, symbol,
             COUNT(*) FILTER (WHERE created_at >= $3::timestamptz)::bigint AS today_count,
+            ARRAY_AGG(id) FILTER (WHERE created_at >= $3::timestamptz) AS today_decision_ids,
             COUNT(*) FILTER (
               WHERE created_at >= CASE
                 WHEN strategy_type = 'SWING' THEN $4::timestamptz
@@ -2372,6 +2377,7 @@ async function loadExecutionCountSnapshot(
        FROM trade_three_horizon_decisions
       WHERE mode = $1
         AND created_at >= $2::timestamptz
+        AND created_at < $6::timestamptz
         AND (bitget_order_id IS NOT NULL OR client_oid IS NOT NULL OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED'))
       GROUP BY strategy_type, symbol`,
     mode,
@@ -2379,10 +2385,12 @@ async function loadExecutionCountSnapshot(
     todayStart.toISOString(),
     weekStart.toISOString(),
     monthStart.toISOString(),
+    beforeExclusive.toISOString(),
   );
   const todayByStrategy = new Map<ThreeHorizonStrategyType, number>();
   const cadenceByStrategy = new Map<ThreeHorizonStrategyType, number>();
   const todayBySymbol = new Map<string, number>();
+  const todayCountedDecisionIds = new Set<string>();
   let executedToday = 0;
   for (const row of rows) {
     const todayCount = Number(row.today_count ?? 0);
@@ -2400,8 +2408,15 @@ async function loadExecutionCountSnapshot(
     );
     const symbol = String(row.symbol).toUpperCase();
     todayBySymbol.set(symbol, (todayBySymbol.get(symbol) ?? 0) + safeToday);
+    for (const id of row.today_decision_ids ?? []) todayCountedDecisionIds.add(String(id));
   }
-  return { executedToday, todayByStrategy, cadenceByStrategy, todayBySymbol };
+  return {
+    executedToday,
+    todayByStrategy,
+    cadenceByStrategy,
+    todayBySymbol,
+    todayCountedDecisionIds,
+  };
 }
 
 async function cadenceTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
@@ -4011,6 +4026,24 @@ export async function runThreeHorizonStrategyEngine(
       "持仓管理已完成；本轮剩余时间不足以安全完成计划生命周期写入，不启动计划维护、新标的扫描或新订单。"
     );
   }
+  // Start the read-only hard-count snapshot before plan maintenance. Production
+  // DB connection waits can otherwise collide with the next minute's payment
+  // reconciliation and consume the whole new-entry window. The fixed upper
+  // bound makes the snapshot deterministic; a commissioning fill is added
+  // locally below, while every real order still performs its own fresh hard
+  // count reads immediately before submission.
+  const executionCountSnapshotBefore = new Date();
+  const executionCountSnapshotPromise = readWithinLiveScanDeadline(
+    () => loadExecutionCountSnapshot(
+      now,
+      liveExperimentMode ? "LIVE" : "DEMO",
+      executionCountSnapshotBefore,
+    ),
+    deadlineMs,
+  ).then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
   // LIVE synchronizes the exact decisions managed in this pass, even when
   // management has just advanced one of them to CLOSED/ERROR. The bounded
   // query also carries a small recent-terminal recovery set, but it never
@@ -4129,6 +4162,7 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
+  let commissioningDecision: ThreeHorizonStrategyDecision | null = null;
   if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && !options.scanOnly && !newEntryDeadlineReached()) {
     const commissioning = await runLiveCommissioning({
       runId,
@@ -4150,11 +4184,16 @@ export async function runThreeHorizonStrategyEngine(
     commissioningSuccess = commissioning.success;
     commissioningError = commissioning.error;
     if (commissioning.decision) {
+      commissioningDecision = commissioning.decision;
       decisions.push(commissioning.decision);
       // Commissioning and normal full-universe scans run in parallel, but the same symbol
       // cannot submit a second order during this server pass.
       if (commissioning.state !== "COMPLETE") reservedSymbols.add(commissioning.decision.symbol);
     }
+  }
+  if (commissioningSuccess && !commissioningDecision) {
+    commissioningError = true;
+    commissioningMessage = "首笔闭环报告成交成功但缺少决策审计记录；本轮失败关闭并禁止继续开仓。";
   }
   await reportProgress("COMMISSIONING_COMPLETE", {
     attempted: commissioningAttempted,
@@ -4200,14 +4239,22 @@ export async function runThreeHorizonStrategyEngine(
     };
   }
   let executionCounts: ExecutionCountSnapshot;
+  const executionCountResult = await executionCountSnapshotPromise;
   try {
-    executionCounts = await readWithinLiveScanDeadline(
-      () => loadExecutionCountSnapshot(now, liveExperimentMode ? "LIVE" : "DEMO"),
-      deadlineMs,
-    );
+    if (!executionCountResult.ok) throw executionCountResult.error;
+    executionCounts = executionCountResult.value;
+    if (commissioningSuccess && commissioningDecision) {
+      applyCommissioningExecutionCount(executionCounts, {
+        id: commissioningDecision.id,
+        strategyType: "INTRADAY",
+        symbol: commissioningDecision.symbol,
+      });
+    }
     await reportProgress("COUNT_LIMITS_COMPLETE", {
       executedToday: executionCounts.executedToday,
       authorityReadsOk: true,
+      prefetchedBeforePlanMaintenance: true,
+      snapshotBefore: executionCountSnapshotBefore.toISOString(),
     });
   } catch (error) {
     const timedOut = error instanceof LiveScanReadDeadlineError;

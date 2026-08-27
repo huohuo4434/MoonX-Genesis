@@ -13,11 +13,48 @@ import {
   isActivityPromotionEligible,
   resolveIntradayExecutionDirection,
 } from "../lib/trading-signals/intraday-direction-authority-core";
+import { applyCommissioningExecutionCount } from "../lib/trading-signals/execution-count-snapshot-core";
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), "utf8");
 
 const engine = () => read("lib/trading-signals/three-horizon-strategy.ts");
+
+test("commissioning count merge uses snapshot decision membership instead of created time", () => {
+  const fresh = {
+    executedToday: 2,
+    todayByStrategy: new Map([["INTRADAY", 1]]),
+    cadenceByStrategy: new Map([["INTRADAY", 1]]),
+    todayBySymbol: new Map([["BTCUSDT", 1]]),
+    todayCountedDecisionIds: new Set(["older"]),
+  };
+  assert.equal(applyCommissioningExecutionCount(fresh, {
+    id: "commissioning-new",
+    strategyType: "INTRADAY",
+    symbol: "ethusdt",
+  }), true);
+  assert.equal(fresh.executedToday, 3);
+  assert.equal(fresh.todayByStrategy.get("INTRADAY"), 2);
+  assert.equal(fresh.cadenceByStrategy.get("INTRADAY"), 2);
+  assert.equal(fresh.todayBySymbol.get("ETHUSDT"), 1);
+
+  const alreadyCounted = {
+    executedToday: fresh.executedToday,
+    todayByStrategy: new Map(fresh.todayByStrategy),
+    cadenceByStrategy: new Map(fresh.cadenceByStrategy),
+    todayBySymbol: new Map(fresh.todayBySymbol),
+    todayCountedDecisionIds: new Set(fresh.todayCountedDecisionIds),
+  };
+  assert.equal(applyCommissioningExecutionCount(alreadyCounted, {
+    id: "commissioning-new",
+    strategyType: "INTRADAY",
+    symbol: "ETHUSDT",
+  }), false);
+  assert.equal(alreadyCounted.executedToday, 3);
+  assert.equal(alreadyCounted.todayByStrategy.get("INTRADAY"), 2);
+  assert.equal(alreadyCounted.cadenceByStrategy.get("INTRADAY"), 2);
+  assert.equal(alreadyCounted.todayBySymbol.get("ETHUSDT"), 1);
+});
 
 test("live scheduling prioritizes a fresh locked weekly entry zone without changing the one-symbol cap", () => {
   const selected = selectOpportunityAwareScanBatch({
