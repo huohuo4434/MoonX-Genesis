@@ -102,7 +102,7 @@ function mapSettings(row?: DbDeskSettings): AiTradingDeskSettings {
   };
 }
 
-type MemberAiDeskSchemaProbe = "READY" | "MISSING" | "UNAVAILABLE";
+type MemberAiDeskSchemaProbe = "READY" | "MISSING_ROWS" | "MISSING_SCHEMA" | "UNAVAILABLE";
 
 async function probeMemberAiTradingDeskSchema(): Promise<MemberAiDeskSchemaProbe> {
   if (!prisma) return "UNAVAILABLE";
@@ -130,7 +130,7 @@ async function probeMemberAiTradingDeskSchema(): Promise<MemberAiDeskSchemaProbe
         AND snapshot.updated_at IS NOT NULL
       LIMIT 1
     `);
-    return rows.length > 0 ? "READY" : "MISSING";
+    return rows.length > 0 ? "READY" : "MISSING_ROWS";
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error
       ? String((error as { code?: unknown }).code ?? "")
@@ -138,7 +138,7 @@ async function probeMemberAiTradingDeskSchema(): Promise<MemberAiDeskSchemaProbe
     const message = error instanceof Error ? error.message : String(error ?? "");
     const schemaMissing = code === "P2021" || code === "P2022" ||
       /(?:42P01|42703|relation .* does not exist|column .* does not exist)/i.test(message);
-    if (schemaMissing) return "MISSING";
+    if (schemaMissing) return "MISSING_SCHEMA";
     console.error("member AI trading desk schema probe failed", error);
     return "UNAVAILABLE";
   }
@@ -153,49 +153,53 @@ export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
     return true;
   }
   if (initialProbe === "UNAVAILABLE") return false;
-  if (!(await ensurePredictionAutoTraderTables())) return false;
+  if (initialProbe === "MISSING_SCHEMA" && !(await ensurePredictionAutoTraderTables())) return false;
   try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS trade_member_ai_desk_settings (
-        id TEXT PRIMARY KEY,
-        enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        show_current_positions BOOLEAN NOT NULL DEFAULT TRUE,
-        show_trade_history BOOLEAN NOT NULL DEFAULT TRUE,
-        show_absolute_pnl BOOLEAN NOT NULL DEFAULT FALSE,
-        history_limit INTEGER NOT NULL DEFAULT 20,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE trade_member_ai_desk_settings
-        ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        ADD COLUMN IF NOT EXISTS show_current_positions BOOLEAN NOT NULL DEFAULT TRUE,
-        ADD COLUMN IF NOT EXISTS show_trade_history BOOLEAN NOT NULL DEFAULT TRUE,
-        ADD COLUMN IF NOT EXISTS show_absolute_pnl BOOLEAN NOT NULL DEFAULT FALSE,
-        ADD COLUMN IF NOT EXISTS history_limit INTEGER NOT NULL DEFAULT 20,
-        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
+    if (initialProbe === "MISSING_SCHEMA") {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS trade_member_ai_desk_settings (
+          id TEXT PRIMARY KEY,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          show_current_positions BOOLEAN NOT NULL DEFAULT TRUE,
+          show_trade_history BOOLEAN NOT NULL DEFAULT TRUE,
+          show_absolute_pnl BOOLEAN NOT NULL DEFAULT FALSE,
+          history_limit INTEGER NOT NULL DEFAULT 20,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE trade_member_ai_desk_settings
+          ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          ADD COLUMN IF NOT EXISTS show_current_positions BOOLEAN NOT NULL DEFAULT TRUE,
+          ADD COLUMN IF NOT EXISTS show_trade_history BOOLEAN NOT NULL DEFAULT TRUE,
+          ADD COLUMN IF NOT EXISTS show_absolute_pnl BOOLEAN NOT NULL DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS history_limit INTEGER NOT NULL DEFAULT 20,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      `);
+    }
     await prisma.$executeRawUnsafe(`
       INSERT INTO trade_member_ai_desk_settings (id)
       VALUES ('default')
       ON CONFLICT (id) DO NOTHING
     `);
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS trade_member_ai_desk_snapshot (
-        id TEXT PRIMARY KEY,
-        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-        last_synced_at TIMESTAMPTZ,
-        last_error TEXT,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE trade_member_ai_desk_snapshot
-        ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-        ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS last_error TEXT,
-        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
+    if (initialProbe === "MISSING_SCHEMA") {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS trade_member_ai_desk_snapshot (
+          id TEXT PRIMARY KEY,
+          payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+          last_synced_at TIMESTAMPTZ,
+          last_error TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE trade_member_ai_desk_snapshot
+          ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+          ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS last_error TEXT,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      `);
+    }
     await prisma.$executeRawUnsafe(`
       INSERT INTO trade_member_ai_desk_snapshot (id)
       VALUES ('default')

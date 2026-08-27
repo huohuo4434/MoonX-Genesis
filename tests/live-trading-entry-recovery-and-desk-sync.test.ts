@@ -52,8 +52,11 @@ test("production scheduled member AI desk refresh uses an authenticated dedicate
   assert.match(probe, /snapshot\.last_synced_at/);
   assert.match(probe, /snapshot\.last_error/);
   assert.match(probe, /member AI trading desk schema probe failed/);
-  assert.match(probe, /if \(schemaMissing\) return "MISSING"/);
+  assert.match(probe, /if \(schemaMissing\) return "MISSING_SCHEMA"/);
+  assert.match(probe, /rows\.length > 0 \? "READY" : "MISSING_ROWS"/);
   assert.match(probe, /return "UNAVAILABLE"/);
+  assert.match(probe, /initialProbe === "MISSING_SCHEMA" && !\(await ensurePredictionAutoTraderTables\(\)\)/);
+  assert.match(probe, /if \(initialProbe === "MISSING_SCHEMA"\) \{[\s\S]{0,180}CREATE TABLE IF NOT EXISTS trade_member_ai_desk_settings/);
   assert.match(probe, /ALTER TABLE trade_member_ai_desk_settings[\s\S]{0,700}ADD COLUMN IF NOT EXISTS updated_at/);
   assert.match(probe, /ALTER TABLE trade_member_ai_desk_snapshot[\s\S]{0,500}ADD COLUMN IF NOT EXISTS last_synced_at[\s\S]{0,200}ADD COLUMN IF NOT EXISTS last_error/);
   assert.match(probe, /probeMemberAiTradingDeskSchema\(\) !== "READY"/);
