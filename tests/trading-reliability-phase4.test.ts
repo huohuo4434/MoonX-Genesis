@@ -786,7 +786,7 @@ test("实盘持仓同步以原子局部更新返回结果且不覆盖并发托�
 test("live cron keeps a bounded rotating batch and finalization reserve", () => {
   all(runtime, [
     "LIVE_STRATEGY_SYMBOLS_PER_RUN = 1",
-    "LIVE_STRATEGY_BUDGET_MS = 35_000",
+    "LIVE_STRATEGY_BUDGET_MS = 65_000",
     "freshSymbols = runtimeSymbols.filter((symbol) => quotedFreshSymbols.has(symbol))",
     "runtime_state.live_scan_cursor",
     "BITGET_RUNTIME_SCHEMA_COMPATIBILITY_VERIFICATION_FAILED",
@@ -816,6 +816,30 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   assert.match(runtime, /progressStartedAtMs: runtimeTiming\.startedAtMs/);
   assert.match(runtime, /durationMs: wallFinish\.durationMs/);
   assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,500}checkpointBatchCalls: planMaintenance\.checkpointBatchCalls/);
+  assert.match(strategy, /const effectiveNewEntryCutoffMs = Math\.min\(deadlineMs, newEntryCutoffMs\)/);
+  assert.match(strategy, /const newEntryDeadlineReached = \(\) => Date\.now\(\) >= effectiveNewEntryCutoffMs/);
+  assert.match(strategy, /PLAN_MAINTENANCE_COMPLETE[\s\S]{0,900}if \(newEntryDeadlineReached\(\)\)/);
+  assert.match(strategy, /RISK_ACCOUNT_COMPLETE[\s\S]{0,900}if \(newEntryDeadlineReached\(\)\)/);
+  assert.match(strategy, /COMMISSIONING_COMPLETE[\s\S]{0,600}if \(newEntryDeadlineReached\(\)\)/);
+  const commissioningStart = strategy.indexOf("async function runLiveCommissioning");
+  const commissioningEnd = strategy.indexOf("function orderSide", commissioningStart);
+  const commissioningSource = strategy.slice(commissioningStart, commissioningEnd);
+  assert.ok(
+    commissioningSource.indexOf("input.positions.some") < commissioningSource.indexOf("readLiveCommissioningState"),
+    "已有权威持仓时必须在首单验收数据库读取前返回",
+  );
+  const engineStart = strategy.indexOf("export async function runThreeHorizonStrategyEngine");
+  const engineSource = strategy.slice(engineStart);
+  assert.match(engineSource, /newEntryCutoffMs: effectiveNewEntryCutoffMs/);
+  assert.equal(
+    (engineSource.match(/cutoffMs: effectiveNewEntryCutoffMs/g) ?? []).length,
+    3,
+    "每个正常新订单入口都必须复查相同的有效截止线",
+  );
+  assert.match(
+    engineSource,
+    /if \(newEntryDeadlineReached\(\)\) \{[\s\S]{0,700}commissioningAttempted[\s\S]{0,300}commissioningSuccess[\s\S]{0,300}commissioningError/,
+  );
   assert.doesNotMatch(strategy, /syncAiTradePlansFromRecentDecisions\([\s\S]{0,180}\.catch\(/);
   assert.match(commissioningPlans, /WITH active_direct AS[\s\S]*status IN \('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING'\)[\s\S]*active_legacy AS[\s\S]*active_audit AS/);
   assert.match(commissioningPlans, /nonactive_eligible AS[\s\S]*recent_increment AS[\s\S]*DISTINCT ON \(d\.symbol, d\.strategy_type\)[\s\S]*LIMIT \$1/);

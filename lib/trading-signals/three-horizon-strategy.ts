@@ -2550,15 +2550,15 @@ async function runLiveCommissioning(input: {
   if (environment.mode !== "LIVE_EXPERIMENT" || !environment.executionAllowed) {
     return { state: "COMPLETE", decision: null, attempted: false, success: false, error: false, message: "非实盘执行环境，不运行首笔闭环验收。" };
   }
+  if (input.positions.some((row) => row.total > 0)) {
+    return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "账户已有持仓，首笔闭环验收暂缓，避免与现有仓位冲突。" };
+  }
   const state = await readLiveCommissioningState(input.now);
   if (state.active) {
     return { state: "ACTIVE", decision: state.latest ? mapDecision(state.latest) : null, attempted: false, success: false, error: false, message: "首笔实盘闭环验收已有委托或持仓，等待保护、止盈止损或限时平仓完成。" };
   }
   if (state.complete) {
     return { state: "COMPLETE", decision: state.latest ? mapDecision(state.latest) : null, attempted: false, success: false, error: false, message: state.recentlyCompleted ? "首笔实盘闭环刚刚完成，本轮不再开新仓。" : "首笔实盘闭环已经完成，正常三周期策略已接管。" };
-  }
-  if (input.positions.some((row) => row.total > 0)) {
-    return { state: "WAITING", decision: null, attempted: false, success: false, error: false, message: "账户已有持仓，首笔闭环验收暂缓，避免与现有仓位冲突。" };
   }
   const quoteMap = new Map(input.quotes.map((quote) => [quote.symbol, quote] as const));
   const requestedCommissioningSymbols = prioritizeAllowedCommissioningSymbols(
@@ -3840,6 +3840,8 @@ export async function runThreeHorizonStrategyEngine(
   const startedAt = now.toISOString();
   const deadlineMs = options.deadlineAt?.getTime() ?? Number.POSITIVE_INFINITY;
   const newEntryCutoffMs = options.newEntryCutoffAt?.getTime() ?? Number.POSITIVE_INFINITY;
+  const effectiveNewEntryCutoffMs = Math.min(deadlineMs, newEntryCutoffMs);
+  const newEntryDeadlineReached = () => Date.now() >= effectiveNewEntryCutoffMs;
   let managementReadError = "";
   const liveScanRound = await beginLiveScanRound({
     symbols: eligibleLiveSymbols,
@@ -3895,7 +3897,21 @@ export async function runThreeHorizonStrategyEngine(
       message: `持仓管理关键读取失败，本轮禁止扫描和开新仓：${managementReadError}`,
     };
   }
-  if (options.manageOnly || Date.now() >= newEntryCutoffMs) {
+  const finishAfterDeadline = (message: string): ThreeHorizonRunReport => ({
+    ok: management.orderErrors === 0,
+    runId,
+    source,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    scannedStrategies: [],
+    decisions: [],
+    managedOpenDecisions: management.managed,
+    orderAttempts: management.orderAttempts,
+    orderSuccess: management.orderSuccess,
+    orderErrors: management.orderErrors,
+    message,
+  });
+  if (options.manageOnly || newEntryDeadlineReached()) {
     return {
       ok: management.orderErrors === 0,
       runId,
@@ -3930,21 +3946,8 @@ export async function runThreeHorizonStrategyEngine(
     duplicateFreshMs: planMaintenance.duplicateFreshMs,
     checkpointBatchMs: planMaintenance.checkpointBatchMs,
   });
-  if (Date.now() >= newEntryCutoffMs) {
-    return {
-      ok: management.orderErrors === 0,
-      runId,
-      source,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      scannedStrategies: [],
-      decisions: [],
-      managedOpenDecisions: management.managed,
-      orderAttempts: management.orderAttempts,
-      orderSuccess: management.orderSuccess,
-      orderErrors: management.orderErrors,
-      message: `持仓管理和本轮计划维护已完成；请求已进入收尾保留时间，不启动新标的扫描或新订单。`,
-    };
+  if (newEntryDeadlineReached()) {
+    return finishAfterDeadline("持仓管理和本轮计划维护已完成；请求已进入收尾保留时间，不启动新标的扫描或新订单。");
   }
   // Apply the rotating bound before any live contract/candle discovery. Previously
   // the final loop selected one symbol only after commissioning had read every
@@ -4017,6 +4020,9 @@ export async function runThreeHorizonStrategyEngine(
     protections: protections.length,
     riskBlocked: risk.blocked,
   });
+  if (newEntryDeadlineReached()) {
+    return finishAfterDeadline("持仓管理、计划维护和风险账户读取已完成；请求已进入收尾保留时间，不启动新标的扫描或新订单。");
+  }
   const newExposureLedgerConsistent = isExposureLedgerConsistent({
     positions: positions
       .filter((row) => row.total > 0)
@@ -4036,7 +4042,7 @@ export async function runThreeHorizonStrategyEngine(
   let commissioningAttempted = false;
   let commissioningSuccess = false;
   let commissioningError = false;
-  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && !options.scanOnly && Date.now() < newEntryCutoffMs) {
+  if (liveExperimentMode && LIVE_COMMISSIONING_ENABLED && !options.scanOnly && !newEntryDeadlineReached()) {
     const commissioning = await runLiveCommissioning({
       runId,
       now,
@@ -4048,7 +4054,7 @@ export async function runThreeHorizonStrategyEngine(
       forecastBySymbol: canonicalForecastBySymbol,
       eligibleSymbols: liveSymbolsForThisRun,
       readDeadlineMs: deadlineMs,
-      newEntryCutoffMs,
+      newEntryCutoffMs: effectiveNewEntryCutoffMs,
       ledgerConsistent: newExposureLedgerConsistent,
       authorityReadsOk: forecastAuthorityReadsOk,
     });
@@ -4068,6 +4074,22 @@ export async function runThreeHorizonStrategyEngine(
     success: commissioningSuccess,
     error: commissioningError,
   });
+  if (newEntryDeadlineReached()) {
+    return {
+      ok: !commissioningError && management.orderErrors === 0,
+      runId,
+      source,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      scannedStrategies: commissioningMessage ? (["INTRADAY"] as ThreeHorizonStrategyType[]) : [],
+      decisions,
+      managedOpenDecisions: management.managed,
+      orderAttempts: management.orderAttempts + (commissioningAttempted ? 1 : 0),
+      orderSuccess: management.orderSuccess + (commissioningSuccess ? 1 : 0),
+      orderErrors: management.orderErrors + (commissioningError ? 1 : 0),
+      message: `${commissioningMessage ? `${commissioningMessage} ` : ""}请求已进入收尾保留时间，不启动后续新标的扫描或新订单。`,
+    };
+  }
   if (!dueProfiles.length) {
     return {
       ok: !commissioningError && management.orderErrors === 0,
@@ -4315,8 +4337,8 @@ export async function runThreeHorizonStrategyEngine(
               rejectionReason: planGate.reason,
             });
           } else {
-            const lifecycle = await runNewEntryBeforeCutoff({
-              cutoffMs: newEntryCutoffMs,
+      const lifecycle = await runNewEntryBeforeCutoff({
+        cutoffMs: effectiveNewEntryCutoffMs,
               now: Date.now,
               run: () => executeReadyDecision({
                 decision, profile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
@@ -4564,7 +4586,7 @@ export async function runThreeHorizonStrategyEngine(
         messages.push(`${candidate.symbol}等待计划闸门：${planGate.reason}`);
       } else {
         const lifecycle = await runNewEntryBeforeCutoff({
-          cutoffMs: newEntryCutoffMs,
+          cutoffMs: effectiveNewEntryCutoffMs,
           now: Date.now,
           run: () => executeReadyDecision({
             decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
@@ -4704,7 +4726,7 @@ export async function runThreeHorizonStrategyEngine(
         messages.push(`${candidate.symbol}等待计划闸门：${planGate.reason}`);
       } else {
         const lifecycle = await runNewEntryBeforeCutoff({
-          cutoffMs: newEntryCutoffMs,
+          cutoffMs: effectiveNewEntryCutoffMs,
           now: Date.now,
           run: () => executeReadyDecision({
             decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,

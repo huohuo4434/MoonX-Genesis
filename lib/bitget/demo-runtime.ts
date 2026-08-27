@@ -88,7 +88,7 @@ const EVENT_RETENTION_DAYS = 14;
 // order reconciliation, and final persistence inside the platform deadline.
 // The full strategy universe is preserved; only the per-cycle batch is bounded.
 const LIVE_STRATEGY_SYMBOLS_PER_RUN = 1;
-const LIVE_STRATEGY_BUDGET_MS = 35_000;
+const LIVE_STRATEGY_BUDGET_MS = 65_000;
 
 interface RuntimeStateRow {
   paused: boolean;
