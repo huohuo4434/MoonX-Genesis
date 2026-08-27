@@ -1245,19 +1245,14 @@ export async function runBitgetDemoServerRuntime(
             progressStartedAtMs: runtimeTiming.startedAtMs,
             progressElapsedMs: runtimeTiming.elapsedMs,
             manageOnly: !canStartNewEntry(deadlinePolicy),
-            onProgress: async (progress) => {
-              await recordEvent({
-                runId,
-                stage: "STRATEGY",
-                level: "INFO",
-                action: "THREE_HORIZON_PROGRESS",
-                message: `三周期策略阶段${progress.stage}，累计${progress.elapsedMs}ms。`,
-                payload: {
-                  strategyStage: progress.stage,
-                  elapsedMs: progress.elapsedMs,
-                  ...progress.detail,
-                },
-              });
+            onProgress: (progress) => {
+              // Per-stage remote DB writes multiplied cross-region latency and
+              // could consume the whole live function budget. The consolidated
+              // THREE_HORIZON event below remains the durable audit record.
+              console.info("[three-horizon-progress]", JSON.stringify({
+                stage: progress.stage,
+                elapsedMs: progress.elapsedMs,
+              }));
             },
           }
         );

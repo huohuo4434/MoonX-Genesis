@@ -796,8 +796,9 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
     "WHERE id = 'default' AND run_lock_owner = $1",
     "resolveRuntimeLeaseSeconds(options.absoluteDeadlineAt, runtimeTiming.startedAtMs)",
     "releaseRuntimeLock(runId)",
-    'action: "THREE_HORIZON_PROGRESS"',
-    "strategyStage: progress.stage",
+    'console.info("[three-horizon-progress]"',
+    "stage: progress.stage",
+    'action: "THREE_HORIZON"',
     "elapsedMs: progress.elapsedMs",
   ]);
   assert.deepEqual(
