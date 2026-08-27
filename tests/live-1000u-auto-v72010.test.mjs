@@ -24,7 +24,7 @@ const adminClient = read("components/live-trading/AdminLiveTradingClient.tsx");
 const vercel = JSON.parse(read("vercel.json"));
 
 test("prediction cron now delegates to the existing three-horizon server runtime behind the unified gate", () => {
-  assert.match(cron, /evaluateUnifiedLiveNewEntryGate\("official"\)/);
+  assert.match(cron, /evaluateUnifiedLiveNewEntryGateFast\("official"\)/);
   assert.match(cron, /runBitgetDemoServerRuntime\(now, "CRON"/);
   assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
   assert.match(cron, /forceManageOnlyReason: !autoEntryAllowed \? effectiveGate\.reasons\.join\(","\) : undefined/);
@@ -38,7 +38,7 @@ test("prediction cron now delegates to the existing three-horizon server runtime
   assert.match(cron, /orderAttempts: reportCount\(report\.threeHorizon, "orderAttempts"\)/);
   assert.doesNotMatch(cron, /console\.info[\s\S]{0,500}(orderId|quantity|credentials)/);
   const routeBody = cron.slice(cron.indexOf("export async function GET"));
-  assert.ok(routeBody.indexOf("const requestStartedAtMs = Date.now()") < routeBody.indexOf("evaluateUnifiedLiveNewEntryGate"));
+  assert.ok(routeBody.indexOf("const requestStartedAtMs = Date.now()") < routeBody.indexOf("evaluateUnifiedLiveNewEntryGateFast"));
   assert.match(cron, /CRON_SECRET/);
   assert.doesNotMatch(cron, /placeBitgetDemoMarketOrder/);
   assert.doesNotMatch(cron, /fetch\(/);
@@ -51,7 +51,13 @@ test("runtime cannot start live experiment or new exposure while unified gate fo
   assert.match(runtime, /forceManageOnlyReason\?: string/);
   assert.match(runtime, /composeRuntimePauseMessage/);
   assert.match(runtimeObservability, /阻断码：\$\{codes\}/);
-  assert.match(runtime, /allowStart: syncOptions\.allowStart && !options\.forceManageOnly/);
+  assert.match(runtime, /allowStart: syncOptions\.allowStart && !forcedManageOnly/);
+  assert.match(runtime, /inspectUnifiedLiveCustody\("official"\)/);
+  assert.match(runtime, /LOCKED_CUSTODY_AUDIT_BUDGET_MS = 15_000/);
+  assert.match(runtimeObservability, /CUSTODY_SNAPSHOT_UNAVAILABLE/);
+  assert.match(runtimeObservability, /CUSTODY_BLOCKER_PRESENT/);
+  assert.match(runtime, /CUSTODY_GATE_UNAVAILABLE/);
+  assert.doesNotMatch(runtime, /setUnifiedLiveMode/);
   assert.match(runtime, /startup\.policy\.allowNewEntries && !forcedManageOnly/);
   assert.match(runtime, /const scanOnly = forcedManageOnly && marketOk && account\.connected/);
   assert.match(runtime, /scanOnly,/);
@@ -59,7 +65,7 @@ test("runtime cannot start live experiment or new exposure while unified gate fo
   assert.match(runtime, /LIVE_STRATEGY_SYMBOLS_PER_RUN/);
   assert.match(strategy, /scanOnly\?: boolean/);
   assert.match(strategy, /options\.scanOnly[\s\S]*?"SHADOW_READY"/);
-  assert.match(strategy, /!options\.scanOnly && Date\.now\(\) < newEntryCutoffMs/);
+  assert.match(strategy, /!options\.scanOnly &&[\s\S]{0,120}Date\.now\(\) < newEntryCutoffMs/);
 });
 
 test("1000U experiment has hard capital and loss caps independent of stale larger env aliases", () => {

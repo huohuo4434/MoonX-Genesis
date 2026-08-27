@@ -1,9 +1,18 @@
 import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import { getUnifiedLiveRuntimeStatus, inspectUnifiedLiveCustody } from "@/lib/trading-signals/unified-live-runtime";
+import { getUnifiedLiveExecutionControl } from "@/lib/trading-signals/unified-live-store";
 
 function summarizeUnifiedLiveNewEntryGate(input: {
   runtime: ReturnType<typeof readUnifiedLiveRuntimeConfig>;
-  status: Awaited<ReturnType<typeof getUnifiedLiveRuntimeStatus>>;
+  status: {
+    migrationRequired: boolean;
+    account: {
+      mode: string;
+      newEntriesEnabled: boolean;
+      positionManagementEnabled: boolean;
+    } | null;
+    audit?: UnifiedLiveGateAudit | null;
+  };
 }) {
   const { runtime, status } = input;
   const reasons: string[] = [];
@@ -22,9 +31,24 @@ function summarizeUnifiedLiveNewEntryGate(input: {
   };
 }
 
+type UnifiedLiveGateAudit = {
+  freezeNewEntries: boolean;
+};
+
 export async function evaluateUnifiedLiveNewEntryGate(ownerKey = "official") {
   const runtime = readUnifiedLiveRuntimeConfig();
   const status = await getUnifiedLiveRuntimeStatus(ownerKey);
+  return summarizeUnifiedLiveNewEntryGate({ runtime, status });
+}
+
+/**
+ * Lock-front gate for the minute cron. Custody blockers are persisted as
+ * MANAGE_ONLY by the dedicated custodian, while the locked runtime and final
+ * order path still perform fresh exchange, ledger and risk checks.
+ */
+export async function evaluateUnifiedLiveNewEntryGateFast(ownerKey = "official") {
+  const runtime = readUnifiedLiveRuntimeConfig();
+  const status = await getUnifiedLiveExecutionControl(ownerKey);
   return summarizeUnifiedLiveNewEntryGate({ runtime, status });
 }
 

@@ -122,6 +122,34 @@ export async function getUnifiedLiveAccount(ownerKey: string) {
   }
 }
 
+/**
+ * Minimal authoritative control read for the minute trading cron. It avoids
+ * loading settings and up to 200 custody slices before the runtime lease is
+ * acquired. Full custody reconciliation remains in the locked runtime and the
+ * dedicated custodian; every live order rechecks these persisted controls.
+ */
+export async function getUnifiedLiveExecutionControl(ownerKey: string) {
+  const database = prisma;
+  if (!database) {
+    return { migrationRequired: true, account: null };
+  }
+
+  try {
+    const account = await database.mooxUnifiedLiveAccount.findUnique({
+      where: { ownerKey },
+      select: {
+        mode: true,
+        newEntriesEnabled: true,
+        positionManagementEnabled: true,
+      },
+    });
+    return { migrationRequired: false, account };
+  } catch (error) {
+    if (isMissingTableError(error)) return { migrationRequired: true, account: null };
+    throw error;
+  }
+}
+
 export async function setUnifiedLiveMode(input: {
   ownerKey: string;
   mode: UnifiedLiveMode;

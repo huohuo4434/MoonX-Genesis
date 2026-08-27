@@ -56,6 +56,7 @@ import {
 import {
   composeRuntimePauseMessage,
   normalizeUnifiedLiveGateCodes,
+  resolveLockedCustodyGateCode,
 } from "@/lib/bitget/runtime-observability-core";
 import {
   buildRuntimeDeadlinePolicy,
@@ -70,7 +71,11 @@ import {
   captureWallClockRunTiming,
   resolveRuntimeEngineFailureGate,
 } from "@/lib/trading-signals/strategy-runtime-progress-core";
-import { selectPersistentCursorBatch } from "@/lib/trading-signals/live-scan-rotation-core";
+import {
+  readWithinLiveScanDeadline,
+  selectPersistentCursorBatch,
+} from "@/lib/trading-signals/live-scan-rotation-core";
+import { inspectUnifiedLiveCustody } from "@/lib/trading-signals/unified-live-runtime";
 
 const DEFAULT_SYMBOLS: BitgetSupportedSymbol[] = ["BTCUSDT", "ETHUSDT", "HYPEUSDT"];
 const HEARTBEAT_HEALTH_SECONDS = 180;
@@ -89,6 +94,10 @@ const EVENT_RETENTION_DAYS = 14;
 // The full strategy universe is preserved; only the per-cycle batch is bounded.
 const LIVE_STRATEGY_SYMBOLS_PER_RUN = 1;
 const LIVE_STRATEGY_BUDGET_MS = 65_000;
+// This is a read-only safety check. If it cannot finish promptly, the current
+// owner round fails closed to position management without mutating saved LIVE
+// intent or delaying the one-minute route until the platform kills it.
+const LOCKED_CUSTODY_AUDIT_BUDGET_MS = 15_000;
 
 interface RuntimeStateRow {
   paused: boolean;
@@ -1039,8 +1048,47 @@ export async function runBitgetDemoServerRuntime(
   let finalizationPersisted = false;
   let finalizationFailureAudited = false;
   let engineFailure = false;
+  let forcedManageOnly = Boolean(options.forceManageOnly);
+  let forcedManageOnlyReason = forcedManageOnly
+    ? normalizeUnifiedLiveGateCodes(options.forceManageOnlyReason)
+    : "";
+
+  const forceCurrentRoundManageOnly = (reason: string) => {
+    forcedManageOnly = true;
+    forcedManageOnlyReason = normalizeUnifiedLiveGateCodes(
+      [forcedManageOnlyReason, reason].filter(Boolean).join(",")
+    );
+  };
 
   try {
+    // The minute cron's pre-lock gate intentionally reads only three execution
+    // control fields. Once this invocation owns the lease, perform one fresh,
+    // read-only cross-symbol custody audit before experiment commissioning or
+    // any new-order scan. A failure affects this round only; the dedicated
+    // custodian remains responsible for persisting proven custody blockers.
+    if (environment.mode === "LIVE_EXPERIMENT") {
+      logStage("LOCKED_CUSTODY_START");
+      try {
+        const custody = await readWithinLiveScanDeadline(
+          () => inspectUnifiedLiveCustody("official"),
+          Math.min(
+            deadlinePolicy.newEntryCutoffMs,
+            Date.now() + LOCKED_CUSTODY_AUDIT_BUDGET_MS
+          )
+        );
+        const custodyGateCode = resolveLockedCustodyGateCode({
+          migrationRequired: custody.migrationRequired,
+          accountAvailable: Boolean(custody.account),
+          audit: custody.audit,
+        });
+        if (custodyGateCode) forceCurrentRoundManageOnly(custodyGateCode);
+        logStage(forcedManageOnly ? "LOCKED_CUSTODY_MANAGE_ONLY" : "LOCKED_CUSTODY_DONE");
+      } catch {
+        forceCurrentRoundManageOnly("CUSTODY_GATE_UNAVAILABLE");
+        logStage("LOCKED_CUSTODY_UNAVAILABLE");
+      }
+    }
+
     logStage("STARTUP_SAFETY_START");
     const startup = await runRuntimeStartupSafetySequence<BitgetLiveExperimentStatus, LiveExperimentExitResult>({
       readControl: readRuntimeExecutionControl,
@@ -1066,7 +1114,7 @@ export async function runBitgetDemoServerRuntime(
       },
       syncLiveStatus: environment.mode === "LIVE_EXPERIMENT"
         ? (syncOptions) => syncBitgetLiveExperimentStatus(now, {
-            allowStart: syncOptions.allowStart && !options.forceManageOnly,
+            allowStart: syncOptions.allowStart && !forcedManageOnly,
           })
         : undefined,
       onLiveStatus: async (status) => {
@@ -1180,8 +1228,6 @@ export async function runBitgetDemoServerRuntime(
     });
 
     const liveAllowsNewEntries = environment.mode !== "LIVE_EXPERIMENT" || liveExperiment?.active === true;
-    const forcedManageOnly = Boolean(options.forceManageOnly);
-    const forcedManageOnlyReason = normalizeUnifiedLiveGateCodes(options.forceManageOnlyReason);
     const executionPaused = before.paused || forcedManageOnly || !marketOk || !account.connected || !liveAllowsNewEntries;
     if (startup.policy.allowNewEntries && !forcedManageOnly && marketOk && account.connected && liveAllowsNewEntries) {
       if (environment.mode !== "LIVE_EXPERIMENT") {

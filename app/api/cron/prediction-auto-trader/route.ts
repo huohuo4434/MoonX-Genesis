@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
-import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
+import { evaluateUnifiedLiveNewEntryGateFast } from "@/lib/trading-signals/unified-live-entry-gate";
 import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
+import { resolveRuntimeExecutionState } from "@/lib/bitget/runtime-observability-core";
 
 // MOOX_V72010_1000U_AUTO_CRON: authoritative minute runner; never places orders directly.
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const requestStartedAtMs = Date.now();
   const now = new Date(requestStartedAtMs);
-  const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch(() => ({
+  const unifiedGate = await evaluateUnifiedLiveNewEntryGateFast("official").catch(() => ({
     allowed: false,
     reasons: ["UNIFIED_LIVE_GATE_UNAVAILABLE"],
     mode: "MANAGE_ONLY" as const,
@@ -44,6 +45,11 @@ export async function GET(request: NextRequest) {
     forceManageOnly: !autoEntryAllowed,
     forceManageOnlyReason: !autoEntryAllowed ? effectiveGate.reasons.join(",") : undefined,
   });
+  const runtimeExecution = resolveRuntimeExecutionState({
+    autoEntryAllowed,
+    paused: report.paused,
+    locked: report.locked,
+  });
 
   // Production-safe summary for diagnosing the live runner without logging
   // account values, credentials, order ids, quantities or strategy payloads.
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
     ok: report.ok,
     locked: report.locked,
     paused: report.paused,
-    execution: autoEntryAllowed ? "LIVE" : "MANAGE_ONLY",
+    execution: runtimeExecution,
     marketOk: report.market.ok,
     accountConnected: report.reconcile.connected,
     scannedStrategies: reportCount(report.threeHorizon, "scannedStrategies"),
@@ -63,7 +69,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: report.ok,
-    execution: autoEntryAllowed ? "THREE_HORIZON_LIVE_ENABLED" : "MANAGE_ONLY",
+    execution: runtimeExecution === "LIVE" ? "THREE_HORIZON_LIVE_ENABLED" : runtimeExecution,
     unifiedGate: effectiveGate,
     report,
   });

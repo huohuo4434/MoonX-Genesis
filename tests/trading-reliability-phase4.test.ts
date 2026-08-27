@@ -32,7 +32,11 @@ import {
 import type { AiTradePlan } from "../types/ai-trade-plan";
 import { selectOpportunityAwareScanBatch } from "../lib/trading-signals/live-scan-rotation-core";
 import { resolveLiveCapacityV4 } from "../lib/bitget/live-capacity-core";
-import { composeRuntimePauseMessage } from "../lib/bitget/runtime-observability-core";
+import {
+  composeRuntimePauseMessage,
+  resolveLockedCustodyGateCode,
+  resolveRuntimeExecutionState,
+} from "../lib/bitget/runtime-observability-core";
 import {
   applyUnifiedLiveModeChange,
   type UnifiedLiveRestoreReadiness,
@@ -967,6 +971,8 @@ test("registered general X sources remain outside the trading overlay", () => {
 test("live runtime startup uses one fail-closed execution-control read instead of a broad dashboard", () => {
   const runtime = read("lib/bitget/demo-runtime.ts");
   const cron = read("app/api/cron/prediction-auto-trader/route.ts");
+  const unifiedGate = read("lib/trading-signals/unified-live-entry-gate.ts");
+  const unifiedStore = read("lib/trading-signals/unified-live-store.ts");
   const startup = runtime.slice(
     runtime.indexOf("export async function runBitgetDemoServerRuntime"),
     runtime.indexOf("export async function getBitgetLiveAdminDashboard")
@@ -980,10 +986,84 @@ test("live runtime startup uses one fail-closed execution-control read instead o
   assert.match(cron, /forceManageOnly: !autoEntryAllowed/);
   assert.match(cron, /forceManageOnlyReason: !autoEntryAllowed \? effectiveGate\.reasons\.join\(","\) : undefined/);
   assert.match(cron, /reasons: \["UNIFIED_LIVE_GATE_UNAVAILABLE"\]/);
+  assert.match(cron, /evaluateUnifiedLiveNewEntryGateFast\("official"\)/);
+  assert.doesNotMatch(cron, /evaluateUnifiedLiveNewEntryGate\("official"\)/);
+  assert.match(unifiedGate, /evaluateUnifiedLiveNewEntryGateFast[\s\S]*getUnifiedLiveExecutionControl\(ownerKey\)/);
+  assert.match(unifiedStore, /getUnifiedLiveExecutionControl[\s\S]*select: \{[\s\S]*mode: true[\s\S]*newEntriesEnabled: true[\s\S]*positionManagementEnabled: true/);
+  const fastGateStart = unifiedGate.indexOf("export async function evaluateUnifiedLiveNewEntryGateFast");
+  const fastGateEnd = unifiedGate.indexOf("export async function evaluateUnifiedLiveNewEntryGateReadOnly", fastGateStart);
+  const fastGateSource = unifiedGate.slice(fastGateStart, fastGateEnd);
+  assert.doesNotMatch(fastGateSource, /getUnifiedLiveRuntimeStatus|inspectUnifiedLiveCustody|runUnifiedLiveCustodyCycle/);
   assert.doesNotMatch(cron, /error instanceof Error \? error\.message/);
   assert.match(startup, /runRuntimeStartupSafetySequence/);
   assert.match(startup, /engineFailure = true[\s\S]*RUNTIME_CONTROL_ERROR/);
   assert.match(startup, /startup\.policy\.allowManageOnly && !engineFailure/);
+  const lockAcquiredAt = startup.indexOf('logStage("LOCK_ACQUIRED")');
+  const lockedSkipAt = startup.indexOf('logStage("LOCKED_SKIP")');
+  const custodyAt = startup.indexOf('inspectUnifiedLiveCustody("official")');
+  const startupSafetyAt = startup.indexOf('logStage("STARTUP_SAFETY_START")');
+  const firstEntryEngineAt = startup.indexOf("runThreeHorizonStrategyEngine(");
+  assert.ok(lockedSkipAt >= 0 && lockedSkipAt < lockAcquiredAt);
+  assert.ok(lockAcquiredAt >= 0 && lockAcquiredAt < custodyAt);
+  assert.ok(custodyAt >= 0 && custodyAt < startupSafetyAt);
+  assert.ok(custodyAt < firstEntryEngineAt);
+  const beforeLockAcquisition = startup.slice(0, lockAcquiredAt);
+  assert.doesNotMatch(beforeLockAcquisition, /inspectUnifiedLiveCustody|runUnifiedLiveCustodyCycle/);
+  assert.match(startup, /readWithinLiveScanDeadline\([\s\S]*inspectUnifiedLiveCustody\("official"\)/);
+  assert.match(startup, /LOCKED_CUSTODY_AUDIT_BUDGET_MS/);
+  assert.match(startup, /resolveLockedCustodyGateCode\([\s\S]*forceCurrentRoundManageOnly\(custodyGateCode\)/);
+  assert.match(startup, /catch \{[\s\S]*CUSTODY_GATE_UNAVAILABLE/);
+  assert.match(startup, /allowStart: syncOptions\.allowStart && !forcedManageOnly/);
+  assert.doesNotMatch(startup, /setUnifiedLiveMode/);
+});
+
+test("locked custody audit permits only a complete safe snapshot and otherwise blocks new exposure", () => {
+  assert.equal(resolveLockedCustodyGateCode({
+    migrationRequired: false,
+    accountAvailable: true,
+    audit: { snapshotAvailable: true, freezeNewEntries: false },
+  }), null);
+  assert.equal(resolveLockedCustodyGateCode({
+    migrationRequired: true,
+    accountAvailable: false,
+    audit: null,
+  }), "UNIFIED_LIVE_MIGRATION_REQUIRED");
+  assert.equal(resolveLockedCustodyGateCode({
+    migrationRequired: false,
+    accountAvailable: false,
+    audit: null,
+  }), "UNIFIED_LIVE_ACCOUNT_UNAVAILABLE");
+  assert.equal(resolveLockedCustodyGateCode({
+    migrationRequired: false,
+    accountAvailable: true,
+    audit: { snapshotAvailable: false, freezeNewEntries: true },
+  }), "CUSTODY_SNAPSHOT_UNAVAILABLE");
+  assert.equal(resolveLockedCustodyGateCode({
+    migrationRequired: false,
+    accountAvailable: true,
+    audit: { snapshotAvailable: true, freezeNewEntries: true },
+  }), "CUSTODY_BLOCKER_PRESENT");
+});
+
+test("a lease skip is reported as LOCKED_SKIP even when the lightweight gate permits live entry", () => {
+  assert.equal(resolveRuntimeExecutionState({
+    autoEntryAllowed: true,
+    paused: false,
+    locked: true,
+  }), "LOCKED_SKIP");
+  assert.equal(resolveRuntimeExecutionState({
+    autoEntryAllowed: true,
+    paused: false,
+    locked: false,
+  }), "LIVE");
+  assert.equal(resolveRuntimeExecutionState({
+    autoEntryAllowed: true,
+    paused: true,
+    locked: false,
+  }), "MANAGE_ONLY");
+  const cron = read("app/api/cron/prediction-auto-trader/route.ts");
+  assert.match(cron, /execution: runtimeExecution/);
+  assert.match(cron, /runtimeExecution === "LIVE" \? "THREE_HORIZON_LIVE_ENABLED" : runtimeExecution/);
 });
 
 test("Chan member console remains research-only and disconnected from order execution", () => {
