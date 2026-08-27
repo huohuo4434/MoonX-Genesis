@@ -441,7 +441,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div>
               <Heading size="h3">实盘实验运行状态</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
-                30天实验由Vercel服务器定时运行；关闭电脑不会停止。{dashboard.environment.liveAllowedSymbols.length}个正式允许品种全部扫描，动态Top10进入候选排序；逐仓杠杆不超过2倍。每天最多新开10笔、最多同时持有10个仓位，但不会强行凑单。
+                30天实验由Vercel服务器定时运行；关闭电脑不会停止。{dashboard.environment.liveAllowedSymbols.length}个正式允许品种全部扫描，动态Top10进入候选排序；逐仓杠杆不超过2倍。每日开单数量不设机械配额，超短、短线、中线和长线独立寻找机会；最多同时持有10个仓位，但不会强行凑单。
               </Text>
             </div>
             <Badge variant={experiment?.status === "ACTIVE" ? "success" : experiment?.status === "STOPPED" ? "danger" : "warning"}>{statusLabel}</Badge>

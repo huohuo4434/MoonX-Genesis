@@ -4,6 +4,8 @@ import fs from "node:fs";
 
 const strategy = fs.readFileSync("lib/trading-signals/three-horizon-strategy.ts", "utf8");
 const client = fs.readFileSync("lib/bitget/demo-client.ts", "utf8");
+const adminPage = fs.readFileSync("app/admin/bitget-demo/page.tsx", "utf8");
+const adminClient = fs.readFileSync("components/admin/BitgetDemoClient.tsx", "utf8");
 const packageJson = fs.readFileSync("package.json", "utf8");
 
 test("mechanical trade-count quotas are removed without touching position or portfolio risk limits", () => {
@@ -27,6 +29,13 @@ test("mechanical trade-count quotas are removed without touching position or por
   assert.doesNotMatch(client, /attempts >= environment\.liveMaxTradesPerDay/);
   assert.match(client, /positions\.length >= environment\.liveMaxConcurrentPositions/);
   assert.match(client, /currentGross \+ notional > grossLimit/);
+});
+
+test("admin console describes quota-free activity without removing concurrent-position safety", () => {
+  const adminCopy = `${adminPage}\n${adminClient}`;
+  assert.doesNotMatch(adminCopy, /每天最多(?:新开)?10笔/);
+  assert.match(adminCopy, /每日开单数量不设机械配额/);
+  assert.match(adminCopy, /最多同时持有10个仓位/);
 });
 
 test("same-symbol exposure is limited to a protected, same-direction staged add-on", () => {
