@@ -1052,6 +1052,46 @@ test("live runtime startup uses one fail-closed execution-control read instead o
   assert.doesNotMatch(startup, /setUnifiedLiveMode/);
 });
 
+test("live forecast authority read has a bounded sub-deadline and remains fail-closed", () => {
+  const threeHorizon = read("lib/trading-signals/three-horizon-strategy.ts");
+  assert.match(
+    threeHorizon,
+    /const LIVE_FORECAST_AUTHORITY_READ_BUDGET_MS = 12_000;/,
+  );
+  assert.match(
+    threeHorizon,
+    /readWithinLiveScanDeadline\([\s\S]*?resolvePredictionStrategyPlans\(settings, now, forecastSymbols\)[\s\S]*?Math\.min\(deadlineMs, Date\.now\(\) \+ LIVE_FORECAST_AUTHORITY_READ_BUDGET_MS\)/,
+  );
+  assert.match(
+    threeHorizon,
+    /forecastAuthorityReadsOk = false;[\s\S]*?return \[\];/,
+  );
+  const forecastFailureGate = threeHorizon.indexOf("if (!forecastAuthorityReadsOk)");
+  const cutoffGate = threeHorizon.indexOf("if (newEntryDeadlineReached())", forecastFailureGate);
+  const riskRead = threeHorizon.indexOf("const risk = await buildRiskSnapshot(now)", forecastFailureGate);
+  const commissioning = threeHorizon.indexOf("const commissioning = await runLiveCommissioning", forecastFailureGate);
+  assert.ok(forecastFailureGate > 0);
+  assert.ok(cutoffGate > forecastFailureGate);
+  assert.ok(riskRead > cutoffGate);
+  assert.ok(commissioning > riskRead);
+  assert.match(
+    threeHorizon.slice(forecastFailureGate, riskRead),
+    /forecastAuthorityError instanceof LiveScanReadDeadlineError[\s\S]*?return finishAfterDeadline[\s\S]*?FORECAST_AUTHORITY_READ_TIMEOUT/,
+  );
+  assert.match(
+    threeHorizon.slice(forecastFailureGate, riskRead),
+    /FORECAST_AUTHORITY_UNAVAILABLE[\s\S]*?ok: false/,
+  );
+  assert.match(
+    threeHorizon.slice(forecastFailureGate, riskRead),
+    /NEW_ENTRY_DEADLINE_REACHED/,
+  );
+  assert.match(
+    threeHorizon,
+    /liveExperimentMode[\s\S]*?Math\.min\(deadlineMs, Date\.now\(\) \+ LIVE_FORECAST_AUTHORITY_READ_BUDGET_MS\)[\s\S]*?: deadlineMs/,
+  );
+});
+
 test("locked custody audit permits only a complete safe snapshot and otherwise blocks new exposure", () => {
   assert.equal(resolveLockedCustodyGateCode({
     migrationRequired: false,

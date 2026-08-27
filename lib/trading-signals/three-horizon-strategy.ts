@@ -186,6 +186,11 @@ const LIVE_SYMBOL_TRADE_CAP = Math.floor(envNumber(
 // be abandoned with Promise.race. Do not start it near the new-entry cutoff;
 // finish the current owner round and let the next minute retry safely.
 const LIVE_PLAN_MAINTENANCE_MIN_REMAINING_MS = 35_000;
+// Formal forecast authority is read-only and must not be allowed to strand the
+// lease-owning serverless round until Vercel kills it. A timeout is not treated
+// as an empty/neutral forecast: forecastAuthorityReadsOk stays false, so every
+// new-entry path fails closed while existing-position management remains done.
+const LIVE_FORECAST_AUTHORITY_READ_BUDGET_MS = 12_000;
 
 // MOOX_ACTIVE_EXECUTION_V64
 // Demo execution remains separately controllable and cannot affect live credentials.
@@ -4110,11 +4115,44 @@ export async function runThreeHorizonStrategyEngine(
     ? liveSymbolsForThisRun.map((symbol) => symbol.replace(/USDT$/, ""))
     : undefined;
   let forecastAuthorityReadsOk = true;
-  const forecastPlans = await resolvePredictionStrategyPlans(settings, now, forecastSymbols).catch(() => {
+  let forecastAuthorityError: unknown = null;
+  const forecastPlans = await readWithinLiveScanDeadline(
+    () => resolvePredictionStrategyPlans(settings, now, forecastSymbols),
+    liveExperimentMode
+      ? Math.min(deadlineMs, Date.now() + LIVE_FORECAST_AUTHORITY_READ_BUDGET_MS)
+      : deadlineMs,
+  ).catch((error) => {
     forecastAuthorityReadsOk = false;
+    forecastAuthorityError = error;
     return [];
   });
-  await reportProgress("FORECAST_COMPLETE", { forecastPlans: forecastPlans.length });
+  await reportProgress("FORECAST_COMPLETE", {
+    forecastPlans: forecastPlans.length,
+    authorityReadsOk: forecastAuthorityReadsOk,
+    rejectionCode: forecastAuthorityReadsOk
+      ? null
+      : forecastAuthorityError instanceof LiveScanReadDeadlineError
+        ? "FORECAST_AUTHORITY_READ_TIMEOUT"
+        : "FORECAST_AUTHORITY_UNAVAILABLE",
+  });
+  if (!forecastAuthorityReadsOk) {
+    if (forecastAuthorityError instanceof LiveScanReadDeadlineError) {
+      return finishAfterDeadline(
+        "FORECAST_AUTHORITY_READ_TIMEOUT：正式预测权威读取超过本轮安全预算；已有仓位管理已完成，本轮不再启动风险账户、commissioning、候选扫描或任何新开仓。"
+      );
+    }
+    return {
+      ...finishAfterDeadline(
+        `FORECAST_AUTHORITY_UNAVAILABLE：正式预测权威读取失败；已有仓位管理已完成，本轮禁止继续扫描和开新仓。${forecastAuthorityError instanceof Error ? ` ${forecastAuthorityError.message}` : ""}`
+      ),
+      ok: false,
+    };
+  }
+  if (newEntryDeadlineReached()) {
+    return finishAfterDeadline(
+      "NEW_ENTRY_DEADLINE_REACHED：正式预测权威读取完成时已进入收尾窗口；已有仓位管理已完成，本轮不再启动风险账户、commissioning、候选扫描或任何新开仓。"
+    );
+  }
   const canonicalForecastBySymbol = new Map<string, PredictionStrategyPlan>();
   for (const plan of forecastPlans) {
     const symbol = String(plan.symbol).toUpperCase();
