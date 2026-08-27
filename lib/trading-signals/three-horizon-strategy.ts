@@ -2185,11 +2185,10 @@ async function updateDecision(
   }
 ): Promise<ThreeHorizonStrategyDecision> {
   if (!prisma) throw new Error("三周期策略数据库未连接");
-  const currentRows = await prisma.$queryRawUnsafe<DecisionRow[]>(
+  const current = (await prisma.$queryRawUnsafe<DecisionRow[]>(
     `SELECT * FROM trade_three_horizon_decisions WHERE id = $1 LIMIT 1`,
     id
-  );
-  const current = currentRows[0];
+  ))[0];
   if (!current) throw new Error("三周期策略决策不存在");
   const transition = protectExecutionLifecycleStatus({
     currentStatus: current.status,
@@ -2197,7 +2196,7 @@ async function updateDecision(
     bitgetOrderId: current.bitget_order_id,
     closedAt: current.closed_at,
   });
-  await prisma.$executeRaw`
+  const rows = await prisma.$queryRaw<DecisionRow[]>`
     UPDATE trade_three_horizon_decisions SET
       status = ${transition.status},
       rejection_code = ${transition.preserveExecutionMetadata ? current.rejection_code : fields.rejectionCode ?? current.rejection_code},
@@ -2223,13 +2222,56 @@ async function updateDecision(
       max_holding_until = ${fields.maxHoldingUntil === undefined ? current.max_holding_until : fields.maxHoldingUntil},
       updated_at = NOW()
     WHERE id = ${id}
+    RETURNING *
   `;
-  const rows = await prisma.$queryRawUnsafe<DecisionRow[]>(
-    `SELECT * FROM trade_three_horizon_decisions WHERE id = $1 LIMIT 1`,
-    id
-  );
   if (!rows[0]) throw new Error("三周期策略决策更新失败");
   return mapDecision(rows[0]);
+}
+
+async function syncManagedDecisionFromAuthority(input: {
+  id: string;
+  position: BitgetDemoPosition | null;
+  now: Date;
+  closedNetProfit?: number | null;
+  closedReason?: string;
+}): Promise<ThreeHorizonStrategyDecision> {
+  if (!prisma) throw new Error("三周期策略数据库未连接");
+  const rows = input.position
+    ? await prisma.$queryRaw<DecisionRow[]>`
+        UPDATE trade_three_horizon_decisions SET
+          status = CASE
+            WHEN status = 'CLOSING' THEN 'CLOSING'
+            WHEN status = 'PARTIAL' OR tp1_done = TRUE THEN 'PARTIAL'
+            ELSE 'OPEN'
+          END,
+          current_price = ${input.position.markPrice},
+          entry_price = COALESCE(NULLIF(${input.position.avgPrice}, 0), entry_price),
+          quantity = ${input.position.total},
+          opened_at = COALESCE(opened_at, ${input.now}),
+          updated_at = NOW()
+        WHERE id = ${input.id}
+          AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+        RETURNING *
+      `
+    : await prisma.$queryRaw<DecisionRow[]>`
+        UPDATE trade_three_horizon_decisions SET
+          status = 'CLOSED',
+          closed_at = ${input.now},
+          realized_pnl_usdt = COALESCE(${input.closedNetProfit ?? null}, realized_pnl_usdt),
+          rejection_code = '',
+          rejection_reason = ${input.closedReason ?? "Bitget Demo已无对应持仓，决策已归档。"},
+          updated_at = NOW()
+        WHERE id = ${input.id}
+          AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+        RETURNING *
+      `;
+  if (rows[0]) return mapDecision(rows[0]);
+  const latest = (await prisma.$queryRawUnsafe<DecisionRow[]>(
+    `SELECT * FROM trade_three_horizon_decisions WHERE id = $1 LIMIT 1`,
+    input.id
+  ))[0];
+  if (!latest) throw new Error("三周期策略决策不存在");
+  throw new Error(`三周期策略决策${input.id}在持仓同步期间已由其他托管任务推进为${latest.status}；本轮禁止新开仓并等待下一次权威对账。`);
 }
 
 async function todayTradeCount(profile: ThreeHorizonStrategyProfile, now: Date): Promise<number> {
@@ -2828,11 +2870,18 @@ async function manageActiveDecisions(now: Date): Promise<{
   // protections remain authoritative, so a history outage must never suppress
   // 60/90-minute exits, TP1 handling or protection repair.
   const closedHistory = getBitgetDemoClosedPositions(100).catch(() => []);
+  const environment = getBitgetDemoEnvironment();
+  // LIVE never performs the Demo-only confirmation scale-in below. Avoid a
+  // cross-region profile read on every minute pass when those rows cannot
+  // affect live position custody.
+  const profilesRead = environment.mode === "DEMO"
+    ? getThreeHorizonProfiles()
+    : Promise.resolve([] as ThreeHorizonStrategyProfile[]);
   const [positions, protections, closed, profiles] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoPendingStrategyOrders(),
     closedHistory,
-    getThreeHorizonProfiles(),
+    profilesRead,
   ]);
   const managementLedgerConsistent = isExposureLedgerConsistent({
     positions: positions.filter((row) => row.total > 0).map((row) => ({ symbol: row.symbol, side: row.posSide })),
@@ -2845,7 +2894,6 @@ async function manageActiveDecisions(now: Date): Promise<{
     })),
   });
   const profileByType = new Map(profiles.map((profile) => [profile.strategyType, profile] as const));
-  const environment = getBitgetDemoEnvironment();
   let projectedOpenRiskPct = decisions.reduce((sum, row) => sum + Number(row.riskPct ?? 0), 0);
   let projectedCryptoRiskPct = decisions
     .filter((row) => CRYPTO_RISK_GROUP_SYMBOLS.has(row.symbol))
@@ -2859,24 +2907,21 @@ async function manageActiveDecisions(now: Date): Promise<{
       const ageMs = now.getTime() - Date.parse(decision.createdAt);
       if (decision.status === "ORDER_SUBMITTED" && ageMs < 2 * 60_000) continue;
       const closedMatch = recentClosedMatch(closed, decision);
-      await updateDecision(decision.id, {
-        status: "CLOSED",
-        closedAt: now,
-        realizedPnlUsdt: closedMatch?.netProfit ?? decision.realizedPnlUsdt,
-        rejectionCode: "",
-        rejectionReason: closedMatch
+      await syncManagedDecisionFromAuthority({
+        id: decision.id,
+        position: null,
+        now,
+        closedNetProfit: closedMatch?.netProfit,
+        closedReason: closedMatch
           ? `Bitget Demo仓位已结束，净收益${round(closedMatch.netProfit, 2)} USDT。`
           : "Bitget Demo已无对应持仓，决策已归档。",
       });
       continue;
     }
-    const openedAt = decision.openedAt ? new Date(decision.openedAt) : now;
-    let current = await updateDecision(decision.id, {
-      status: decision.status === "PARTIAL" ? "PARTIAL" : "OPEN",
-      currentPrice: position.markPrice,
-      entryPrice: position.avgPrice || decision.entryPrice,
-      quantity: position.total,
-      openedAt,
+    let current = await syncManagedDecisionFromAuthority({
+      id: decision.id,
+      position,
+      now,
     });
     let protection = matchingProtection(protections, current);
     if (!protection && current.stopLoss && current.target2) {

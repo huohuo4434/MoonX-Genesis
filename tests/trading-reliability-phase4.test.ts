@@ -744,6 +744,45 @@ test("三周期新开仓进入可靠性闸门", () => {
   all(strategy, ["getTradingReliabilityOpeningGate", "reliabilityGate.allowed", "reliabilityGate.code", "reliabilityGate.reason"]);
 });
 
+test("实盘持仓同步以原子局部更新返回结果且不覆盖并发托管字段", () => {
+  const updateStart = strategy.indexOf("async function updateDecision");
+  const updateEnd = strategy.indexOf("async function syncManagedDecisionFromAuthority", updateStart);
+  const updateSource = strategy.slice(updateStart, updateEnd);
+  const authorityStart = updateEnd;
+  const authorityEnd = strategy.indexOf("async function todayTradeCount", authorityStart);
+  const authoritySource = strategy.slice(authorityStart, authorityEnd);
+  const manageStart = strategy.indexOf("async function manageActiveDecisions");
+  const manageEnd = strategy.indexOf("function unifiedHorizonForStrategy", manageStart);
+  const manageSource = strategy.slice(manageStart, manageEnd);
+  all(updateSource, [
+    "RETURNING *",
+  ]);
+  assert.equal((updateSource.match(/SELECT \* FROM trade_three_horizon_decisions WHERE id/g) ?? []).length, 1);
+  all(authoritySource, [
+    "status = CASE",
+    "WHEN status = 'CLOSING' THEN 'CLOSING'",
+    "WHEN status = 'PARTIAL' OR tp1_done = TRUE THEN 'PARTIAL'",
+    "COALESCE(NULLIF(${input.position.avgPrice}, 0), entry_price)",
+    "AND status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')",
+    "RETURNING *",
+    "本轮禁止新开仓并等待下一次权威对账",
+  ]);
+  for (const protectedColumn of [
+    "client_oid =",
+    "bitget_order_id =",
+    "protection_order_id =",
+    "entry_stage =",
+    "scale_in_order_id =",
+  ]) {
+    assert.doesNotMatch(authoritySource, new RegExp(protectedColumn));
+  }
+  all(manageSource, [
+    "environment.mode === \"DEMO\"",
+    "Promise.resolve([] as ThreeHorizonStrategyProfile[])",
+    "syncManagedDecisionFromAuthority",
+  ]);
+});
+
 test("live cron keeps a bounded rotating batch and finalization reserve", () => {
   all(runtime, [
     "LIVE_STRATEGY_SYMBOLS_PER_RUN = 1",
