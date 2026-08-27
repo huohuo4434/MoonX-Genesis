@@ -7,6 +7,7 @@ import {
   type SectorWeekSummary,
 } from "@/lib/data/conviction/sector-resonance-board";
 import type { MemberLiuyaoDetail } from "@/lib/research/member-liuyao-detail";
+import type { QimenWeeklyCrossCheck, QimenWeeklyRelation } from "@/lib/data/qimen-weekly-crosscheck-20260831";
 
 function directionTone(value: string): string {
   if (/上涨|先跌后涨/u.test(value)) return "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-100";
@@ -20,6 +21,42 @@ function summaryTone(status: SectorWeekSummary["status"]): string {
   if (status === "MEDIUM") return "border-cyan-300/25 bg-cyan-300/[.07] text-cyan-100";
   if (status === "DIVERGENT") return "border-amber-300/25 bg-amber-300/[.07] text-amber-100";
   return "border-white/10 bg-white/[.025] text-white/40";
+}
+
+function qimenRelationTone(relation: QimenWeeklyRelation): string {
+  if (relation === "共振") return "border-emerald-300/25 bg-emerald-300/[.075] text-emerald-100";
+  if (relation === "分歧") return "border-rose-300/25 bg-rose-300/[.075] text-rose-100";
+  if (relation === "部分一致") return "border-amber-300/25 bg-amber-300/[.07] text-amber-100";
+  return "border-white/10 bg-white/[.025] text-white/42";
+}
+
+function QimenWeeklyCrossCheckPanel({
+  rows,
+  periodStart,
+  periodEnd,
+  summary,
+}: {
+  rows: readonly QimenWeeklyCrossCheck[];
+  periodStart: string;
+  periodEnd: string;
+  summary: string;
+}) {
+  return <section className="overflow-hidden rounded-2xl border border-violet-300/15 bg-violet-300/[.03]">
+    <header className="border-b border-white/[.06] p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-violet-100/50">WEEKLY CROSS-CHECK</p><h2 className="mt-1.5 text-lg font-semibold text-white">下周奇门复核｜共振与分歧</h2><p className="mt-2 max-w-4xl text-xs leading-6 text-white/45">{summary}</p></div>
+        <span className="rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-white/40">{periodStart}—{periodEnd}</span>
+      </div>
+    </header>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] text-left text-xs">
+        <thead className="bg-white/[.02] text-[10px] text-white/35"><tr><th className="px-4 py-3">市场</th><th className="px-3 py-3">网站现有方向</th><th className="px-3 py-3">奇门周盘</th><th className="px-3 py-3">关系</th><th className="min-w-[420px] px-3 py-3">合并后怎么读</th></tr></thead>
+        <tbody className="divide-y divide-white/[.05]">
+          {rows.map((row) => <tr key={row.assetId} className="align-top hover:bg-white/[.015]"><td className="px-4 py-3.5"><b className="block text-white/75">{row.assetName}</b><span className="mt-1 block font-mono text-[10px] text-white/28">{row.symbol}</span></td><td className="px-3 py-3.5 text-white/50">{row.siteDirection}</td><td className="px-3 py-3.5 text-white/50">{row.qimenDirection}</td><td className="px-3 py-3.5"><span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${qimenRelationTone(row.relation)}`}>{row.relation}</span></td><td className="px-3 py-3.5 leading-6 text-white/48">{row.conclusion}{row.timingNote ? <p className="mt-1 text-violet-100/55">时间提示：{row.timingNote}</p> : null}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+  </section>;
 }
 
 function groupDescription(group: SectorResonanceGroup): string {
@@ -220,11 +257,15 @@ export function SectorResonanceBoard({
   weeks,
   rows,
   summaries,
+  qimenWeeklyCrossCheck,
+  qimenWeeklySourceBoundary,
 }: {
   asOf: string;
   weeks: SectorResonanceWeek[];
   rows: SectorResonanceRow[];
   summaries: SectorWeekSummary[];
+  qimenWeeklyCrossCheck: readonly QimenWeeklyCrossCheck[];
+  qimenWeeklySourceBoundary: { periodStart: string; periodEnd: string; memberSummary: string };
 }) {
   const currentSummaries = summaries.filter((item) => item.weekStart === weeks[0]!.start);
   const nextSummaries = summaries.filter((item) => item.weekStart === weeks[1]!.start);
@@ -266,6 +307,13 @@ export function SectorResonanceBoard({
           六爻详解顺序：先看财爻旺衰，再看子孙能否生财、兄弟是否克财、官鬼与父母形成的风险或消息作用，最后结合世应、动变、伏神、空破墓绝及目标月令／日辰判断兑现时间；不凭卦名直接判涨跌。
         </div>
       </section>
+
+      <QimenWeeklyCrossCheckPanel
+        rows={qimenWeeklyCrossCheck}
+        periodStart={qimenWeeklySourceBoundary.periodStart}
+        periodEnd={qimenWeeklySourceBoundary.periodEnd}
+        summary={qimenWeeklySourceBoundary.memberSummary}
+      />
 
       {SECTOR_RESONANCE_GROUP_ORDER.map((group) => (
         <GroupTable

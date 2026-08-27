@@ -8,6 +8,10 @@ import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roa
 import { getDayGanzhi, relateGanzhiToWeeklyDirection } from "@/lib/calendar/ganzhi";
 import { isFocusTradingDay } from "@/lib/data/conviction/focus-market-session";
 import {
+  QIMEN_WEEKLY_CROSSCHECK_20260831,
+  QIMEN_WEEKLY_SOURCE_BOUNDARY_20260831,
+} from "@/lib/data/qimen-weekly-crosscheck-20260831";
+import {
   buildAnnualLiuyaoDetail,
   buildForecastLiuyaoDetail,
   selectCurrentMonthlyForecast,
@@ -458,6 +462,8 @@ export function buildSectorResonanceBoard(): {
   weeks: SectorResonanceWeek[];
   rows: SectorResonanceRow[];
   summaries: SectorWeekSummary[];
+  qimenWeeklyCrossCheck: typeof QIMEN_WEEKLY_CROSSCHECK_20260831;
+  qimenWeeklySourceBoundary: typeof QIMEN_WEEKLY_SOURCE_BOUNDARY_20260831;
 } {
   const rows = SECTOR_RESONANCE_ASSETS_20260825.map((definition) => {
     const forecasts = forecastsFor(definition);
@@ -500,5 +506,12 @@ export function buildSectorResonanceBoard(): {
     })
   );
 
-  return { asOf: "2026-08-25", weeks: SECTOR_RESONANCE_WEEKS_20260825, rows, summaries };
+  return {
+    asOf: "2026-08-28",
+    weeks: SECTOR_RESONANCE_WEEKS_20260825,
+    rows,
+    summaries,
+    qimenWeeklyCrossCheck: QIMEN_WEEKLY_CROSSCHECK_20260831,
+    qimenWeeklySourceBoundary: QIMEN_WEEKLY_SOURCE_BOUNDARY_20260831,
+  };
 }
