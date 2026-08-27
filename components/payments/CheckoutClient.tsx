@@ -341,8 +341,8 @@ export function CheckoutClient({
               </Text>
               <Text variant="caption" color="secondary" className="mt-1 block">
                 {en
-                  ? "Send the exact amount and MOOX will scan confirmed TRC20 arrivals every minute and activate membership automatically. No transaction hash is required."
-                  : "按页面精确金额转账后，MOOX 每分钟自动扫描已确认的 TRC20 到账并开通会员，无需再粘贴交易哈希。"}
+                  ? "Send the exact amount and MOOX will scan confirmed TRC20 arrivals every five minutes and activate membership automatically. No transaction hash is required."
+                  : "按页面精确金额转账后，MOOX 每 5 分钟自动扫描已确认的 TRC20 到账并开通会员，无需再粘贴交易哈希。"}
               </Text>
             </div>
           ) : null}
@@ -358,7 +358,7 @@ export function CheckoutClient({
             />
             <Text variant="caption" color="tertiary">
               {en
-                ? (network === "TRC20" ? "The hash field below is optional. Use it only to accelerate verification if automatic discovery is delayed." : "After submission, the chain is checked immediately and then every minute. Correct confirmed payments activate membership automatically; no manual review is required.")
+                ? (network === "TRC20" ? "The hash field below is optional. Use it only to accelerate verification if automatic discovery is delayed." : "After submission, the chain is checked immediately and then every five minutes. Correct confirmed payments activate membership automatically; no manual review is required.")
                 : (network === "TRC20" ? "下方交易哈希为可选项；只有自动识别延迟时，才需要粘贴哈希手动加速核验。" : "提交后系统会立即核验，并系统会自动重试发送。正确且已确认的付款会自动开通会员，无需人工审核。")}
             </Text>
             <Button type="submit" disabled={loading || remaining <= 0 || !txHash.trim()}>

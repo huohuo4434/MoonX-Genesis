@@ -20,6 +20,10 @@ import {
   runRequiredGoodwillAuditFinalization,
 } from "@/lib/payments/manual-goodwill-core";
 import { hasMembershipEventForSource } from "@/lib/auth/membership-events";
+import {
+  isWithinPaymentDiscoveryGrace,
+  paymentDiscoveryCutoff,
+} from "@/lib/payments/auto-payment-timing-core";
 
 export type AutoPaymentOrderStatus =
   | "pending"
@@ -265,13 +269,13 @@ async function ensureProfileAndPlan(user: AuthUserView, plan: MembershipPlan): P
 async function reserveExactAmount(chain: PaymentChain, baseAmount: number): Promise<{ amount: number; suffix: number }> {
   const admin = getAdminClient();
   if (!admin) throw new Error("自动支付服务未配置");
-  const now = new Date().toISOString();
+  const discoveryCutoff = paymentDiscoveryCutoff().toISOString();
   const { data } = await admin
     .from("payment_orders")
     .select("expected_amount")
     .eq("chain", chain)
     .in("status", ACTIVE_STATUSES)
-    .gt("expires_at", now)
+    .gt("expires_at", discoveryCutoff)
     .gte("expected_amount", baseAmount)
     .lt("expected_amount", baseAmount + 0.01);
   const occupied = new Set((data ?? []).map((row) => Number(row.expected_amount).toFixed(5)));
@@ -307,7 +311,7 @@ export async function createAutoPaymentOrder(input: {
     .eq("plan_id", planId)
     .eq("chain", chain)
     .in("status", ACTIVE_STATUSES)
-    .gt("expires_at", new Date().toISOString())
+    .gt("expires_at", paymentDiscoveryCutoff().toISOString())
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -390,7 +394,7 @@ export async function attachTransactionHash(input: {
   const order = await getAutoPaymentOrderById(input.orderId);
   if (!order || order.userId !== input.userId) throw new Error("订单不存在");
   if (!["pending", "verifying"].includes(order.status)) throw new Error("该订单已处理");
-  if (new Date(order.expiresAt).getTime() < Date.now() && !order.txHash) {
+  if (!isWithinPaymentDiscoveryGrace(order.expiresAt) && !order.txHash) {
     await admin.from("payment_orders").update({ status: "expired" }).eq("id", order.id).eq("status", "pending");
     throw new Error("订单已过期，请重新生成付款订单");
   }
@@ -564,7 +568,7 @@ export async function expireUnpaidOrders(): Promise<number> {
     .update({ status: "expired", verification_error: "Order expired before a transaction hash was submitted" })
     .eq("status", "pending")
     .is("tx_hash", null)
-    .lt("expires_at", new Date().toISOString())
+    .lt("expires_at", paymentDiscoveryCutoff().toISOString())
     .select("id");
   if (error) return 0;
   return data?.length ?? 0;

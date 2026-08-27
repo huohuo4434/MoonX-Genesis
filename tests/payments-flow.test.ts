@@ -4,6 +4,11 @@ import { getAdminEmails, isAdminEmail } from "../lib/auth/admin-emails.ts";
 import { computeMembershipExpiresAt } from "../lib/payments/membership-dates.ts";
 import { OFFICIAL_PLAN_PRICES } from "../lib/payments/plan-display.ts";
 import { validateTxHash } from "../lib/payments/verify-chain.ts";
+import {
+  isWithinPaymentDiscoveryGrace,
+  PAYMENT_RECONCILIATION_GRACE_MINUTES,
+  paymentDiscoveryCutoff,
+} from "../lib/payments/auto-payment-timing-core.ts";
 
 describe("auth signup policy", () => {
   test("admin email list includes bootstrap admin", () => {
@@ -54,6 +59,25 @@ describe("payment verify guards", () => {
   test("rejects TRX-looking BSC hash without 0x", () => {
     assert.equal(validateTxHash("BSC", "a".repeat(64)), false);
     assert.equal(validateTxHash("BSC", "0x" + "a".repeat(64)), true);
+  });
+});
+
+describe("payment reconciliation grace", () => {
+  const expiresAtMs = Date.parse("2026-08-27T00:45:00.000Z");
+
+  test("keeps a transfer discoverable when the five-minute cron arrives after checkout expiry", () => {
+    const transferAtMs = expiresAtMs - 1_000;
+    const cronAtMs = expiresAtMs + 4 * 60_000 + 59_000;
+    assert.equal(transferAtMs < expiresAtMs, true);
+    assert.equal(PAYMENT_RECONCILIATION_GRACE_MINUTES, 10);
+    assert.equal(isWithinPaymentDiscoveryGrace(new Date(expiresAtMs), cronAtMs), true);
+    assert.equal(paymentDiscoveryCutoff(cronAtMs).getTime() < expiresAtMs, true);
+  });
+
+  test("allows a genuinely unpaid order to expire after the discovery grace", () => {
+    const afterGraceMs = expiresAtMs + 10 * 60_000 + 1;
+    assert.equal(isWithinPaymentDiscoveryGrace(new Date(expiresAtMs), afterGraceMs), false);
+    assert.equal(paymentDiscoveryCutoff(afterGraceMs).getTime() > expiresAtMs, true);
   });
 });
 

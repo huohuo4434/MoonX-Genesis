@@ -131,7 +131,7 @@ export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaym
         ...window,
       }, cfg.tronGridApiKey);
       if (!discovered) {
-        return { orderId, status: "pending", activated: false, message: "等待链上自动识别到账，系统会每分钟继续扫描" };
+        return { orderId, status: "pending", activated: false, message: "等待链上自动识别到账，系统会每5分钟继续扫描" };
       }
       current = await attachTransactionHash({ orderId: current.id, userId: current.userId, txHash: discovered.txHash });
     } catch (err) {

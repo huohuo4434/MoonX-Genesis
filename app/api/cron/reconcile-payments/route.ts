@@ -19,8 +19,11 @@ export async function GET(request: NextRequest) {
 
   // One-time/self-healing recovery for orders rejected by the old exact-suffix rule.
   const recovered = await recoverLegacyAmountMismatchOrders(50);
-  const expired = await expireUnpaidOrders();
   const result = await reconcileAutoPayments(30);
+  // Reconciliation runs before expiry, and expiry itself has a ten-minute
+  // discovery grace. A transfer made before the UI deadline therefore remains
+  // claimable when the five-minute cron arrives after that deadline.
+  const expired = await expireUnpaidOrders();
   const adminEmailsRetried = await retryFailedAdminPaymentNotifications(10);
   return NextResponse.json({ ok: true, recovered, expired, adminEmailsRetried, ...result });
 }

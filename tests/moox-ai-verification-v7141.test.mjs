@@ -66,13 +66,23 @@ test('terminal same-day verification may be published while future records stay 
 test('future TRC20 payments keep autonomous hash discovery and membership activation', () => {
   const cron = read('app/api/cron/reconcile-payments/route.ts');
   const process = read('lib/payments/process-auto-payment.ts');
+  const orders = read('lib/payments/auto-payment-orders.ts');
+  const timing = read('lib/payments/auto-payment-timing-core.ts');
+  const checkout = read('components/payments/CheckoutClient.tsx');
   const vercel = JSON.parse(read('vercel.json'));
   const reconcile = vercel.crons.find((row) => row.path === '/api/cron/reconcile-payments');
-  assert.deepEqual(reconcile, { path: '/api/cron/reconcile-payments', schedule: '* * * * *' });
+  assert.deepEqual(reconcile, { path: '/api/cron/reconcile-payments', schedule: '*/5 * * * *' });
   assert.match(process, /discoverTronTransferCandidate/);
-  assert.match(process, /每分钟继续扫描/);
+  assert.match(process, /每5分钟继续扫描/);
   assert.match(process, /finalizeAutoPaymentMembership/);
   assert.match(cron, /reconcileAutoPayments/);
+  assert.ok(cron.indexOf('reconcileAutoPayments(30)') < cron.indexOf('expireUnpaidOrders()'));
+  assert.match(timing, /PAYMENT_RECONCILIATION_GRACE_MINUTES = 10/);
+  assert.equal((orders.match(/paymentDiscoveryCutoff\(\)/g) ?? []).length >= 3, true);
+  assert.match(orders, /isWithinPaymentDiscoveryGrace\(order\.expiresAt\)/);
+  assert.match(checkout, /every five minutes/);
+  assert.match(checkout, /每 5 分钟自动扫描/);
+  assert.doesNotMatch(checkout, /every minute|每分钟自动扫描/);
 });
 
 
