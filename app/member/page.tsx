@@ -35,7 +35,7 @@ const FORECASTS: ChannelCard[] = [
   { href: "/member/monthly", title: "会员月走势预测", eyebrow: "中期结构", description: "月度主方向、关键周与月内高低窗口。" },
   { href: "/member/sector-resonance", title: "板块共振分析", eyebrow: "一眼看同向", description: "把全部重点资产按板块和自然周对齐，直接看共振与分化。" },
   { href: "/member/weekly-report", title: "会员周报", eyebrow: "本周重点", description: "把本周最值得关注的机会、风险和行动清单集中到一页。" },
-  { href: "/member/daily-review", title: "每日预测复盘", eyebrow: "预测对照实际", description: "逐日查看原周卦预测、真实走势、偏差原因、改进与最新补充。" },
+  { href: "/member/weekly-review", title: "周预测复盘", eyebrow: "周卦对照实际", description: "以周卦为最小正式样本，查看整周方向、路径偏差、卦象解读定位和下一周改进。" },
 ];
 
 const PICKS: ChannelCard[] = [

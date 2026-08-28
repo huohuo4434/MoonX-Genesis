@@ -173,12 +173,13 @@ test("member-only focus verification never leaks into the public verification ce
   assert.deepEqual(visible.map((item) => item.symbol), ["NDX"]);
 });
 
-test("daily review is discoverable from the member menu and footer", () => {
+test("weekly review replaces daily review in the member menu and footer", () => {
   assert.ok(
     MEMBER_RESEARCH_NAV.some(
-      (item) => item.href === "/member/daily-review" && item.labelZh === "每日预测复盘" && item.groupKey === "forecast"
+      (item) => item.href === "/member/weekly-review" && item.labelZh === "周预测复盘" && item.groupKey === "forecast"
     )
   );
   const memberFooter = buildPublicFooterColumns().find((column) => column.titleZh === "会员频道");
-  assert.ok(memberFooter?.links.some((item) => item.href === "/member/daily-review" && item.labelZh === "每日预测复盘"));
+  assert.ok(memberFooter?.links.some((item) => item.href === "/member/weekly-review" && item.labelZh === "周预测复盘"));
+  assert.ok(!MEMBER_RESEARCH_NAV.some((item) => item.href === "/member/daily-review"));
 });
