@@ -111,3 +111,41 @@ test("daily evidence is nested under its source week and remains auxiliary", () 
   const payload = buildMemberWeeklyReviewPayload({ history: { items: [item], stats: { ...stats, sampleSize: 1, full: 1, partial: 0, miss: 0 } }, analyses: [], sources: [], dailyReports });
   assert.deepEqual(payload.reports[0]!.items[0]!.dailyEvidence, [{ date: "2026-08-18", forecast: "上涨", actual: "震荡上涨", status: "部分命中" }]);
 });
+
+test("source performance scores only independently frozen opinions and never awards a source id alone", () => {
+  const item = history({ id: "gold", assetId: "gold", symbol: "GOLD", predictedPattern: "上涨", actualPattern: "下跌", result: "MISS" });
+  const row = analysis({
+    id: "a-gold", assetId: "gold", assetName: "黄金", symbol: "GOLD", overallDirection: "上涨",
+    sourceIds: ["T01-GOLD-WEEK", "T02-GOLD-WEEK", "WU-QIMEN-GOLD"],
+    sourceOpinions: [
+      { sourceKey: "BINGWU_LIUYAO", sourceRecordId: "T01-GOLD-WEEK", role: "DIRECTION", direction: "下跌", lockedAt: "2026-08-16T01:00:00.000Z" },
+      { sourceKey: "QIMEN_TIMING", sourceRecordId: "WU-QIMEN-GOLD", role: "TIMING", keyDates: ["2026-08-20"], lockedAt: "2026-08-16T01:00:00.000Z" },
+    ],
+  });
+  const payload = buildMemberWeeklyReviewPayload({ history: { items: [item], stats }, analyses: [row], sources: [], dailyReports: [] });
+  const core = payload.sourcePerformance.find((source) => source.sourceKey === "BINGWU_LIUYAO")!;
+  const wolf = payload.sourcePerformance.find((source) => source.sourceKey === "WOLF_LIUYAO")!;
+  const qimen = payload.sourcePerformance.find((source) => source.sourceKey === "QIMEN_TIMING")!;
+  assert.equal(core.full, 1);
+  assert.equal(core.attributableSamples, 1);
+  assert.equal(core.confidenceAdjustmentPct, 0, "small samples must not change weights");
+  assert.equal(wolf.attributableSamples, 0);
+  assert.equal(wolf.linkedOnlySamples, 1, "a bare source id is not a scored opinion");
+  assert.equal(qimen.attributableSamples, 0, "Qimen timing is not scored as weekly direction");
+  assert.equal(qimen.state, "TIMING_ONLY");
+});
+
+test("post-window or mismatched source snapshots are rejected from attribution", () => {
+  const item = history({ id: "btc", assetId: "btc", symbol: "BTC", predictedPattern: "上涨", actualPattern: "上涨", result: "FULL_HIT" });
+  const row = analysis({
+    id: "a-btc", assetId: "btc", assetName: "比特币", symbol: "BTC", overallDirection: "上涨",
+    sourceIds: ["MOOX-USER-BTC"],
+    sourceOpinions: [
+      { sourceKey: "USER_LIUYAO", sourceRecordId: "MOOX-USER-BTC", role: "DIRECTION", direction: "上涨", lockedAt: "2026-08-18T01:00:00.000Z" },
+      { sourceKey: "WOLF_LIUYAO", sourceRecordId: "NOT-IN-PROVENANCE", role: "DIRECTION", direction: "上涨", lockedAt: "2026-08-16T01:00:00.000Z" },
+    ],
+  });
+  const payload = buildMemberWeeklyReviewPayload({ history: { items: [item], stats }, analyses: [row], sources: [], dailyReports: [] });
+  assert.equal(payload.sourcePerformance.find((source) => source.sourceKey === "USER_LIUYAO")!.attributableSamples, 0);
+  assert.equal(payload.sourcePerformance.find((source) => source.sourceKey === "WOLF_LIUYAO")!.attributableSamples, 0);
+});

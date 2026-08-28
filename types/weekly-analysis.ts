@@ -64,6 +64,29 @@ export type WeeklyKeyDate = {
   note?: string;
 };
 
+export type WeeklySourceOpinionKey =
+  | "BINGWU_LIUYAO"
+  | "WOLF_LIUYAO"
+  | "USER_LIUYAO"
+  | "QIMEN_TIMING";
+
+/**
+ * Immutable, pre-window source snapshot used only for forward attribution.
+ *
+ * A source id by itself is not enough to award a hit: the independent
+ * direction/path must be captured before the target week. Qimen is timing-only
+ * under the MOOX governance policy and therefore must not carry a direction.
+ */
+export type WeeklySourceOpinion = {
+  sourceKey: WeeklySourceOpinionKey;
+  sourceRecordId: string;
+  role: "DIRECTION" | "TIMING";
+  direction?: WeeklyOverallDirection;
+  path?: string;
+  keyDates?: string[];
+  lockedAt: string;
+};
+
 export type WeeklyAnalysisRecord = {
   id: string;
   assetId: string;
@@ -100,6 +123,8 @@ export type WeeklyAnalysisRecord = {
   visibility: WeeklyVisibility;
   /** Admin-only provenance. Never send to non-admin clients. */
   sourceIds?: string[];
+  /** Admin-only forward snapshots. Never infer these after the target week starts. */
+  sourceOpinions?: WeeklySourceOpinion[];
   version: number;
   originalLocked?: boolean;
   revisions?: WeeklyAnalysisRevision[];
@@ -123,7 +148,7 @@ export type WeeklyAnalysisTeaser = {
 };
 
 /** Member-facing fields (no sourceIds). */
-export type WeeklyAnalysisMemberView = Omit<WeeklyAnalysisRecord, "sourceIds" | "revisions">;
+export type WeeklyAnalysisMemberView = Omit<WeeklyAnalysisRecord, "sourceIds" | "sourceOpinions" | "revisions">;
 
 export type WeeklyAnalysisPublicSummary = {
   /** Saturday/Sunday automatically switch to the next Monday-Sunday window. */

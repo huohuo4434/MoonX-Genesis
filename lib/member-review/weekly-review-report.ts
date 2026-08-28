@@ -3,6 +3,7 @@ import type { MemberDailyReviewReport } from "@/lib/member-review/daily-review-r
 import { weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
+import { buildWeeklySourcePerformance, type WeeklySourcePerformanceRow } from "./weekly-source-performance";
 
 export type WeeklyReviewStatus = "FULL_HIT" | "PARTIAL_HIT" | "MISS" | "UNVERIFIABLE" | "PENDING";
 
@@ -45,6 +46,7 @@ export type MemberWeeklyReviewReport = {
 export type MemberWeeklyReviewPayload = {
   reports: MemberWeeklyReviewReport[];
   stats: WeeklyAccuracyPublicStats;
+  sourcePerformance: WeeklySourcePerformanceRow[];
 };
 
 const MARKET_CODES: Readonly<Record<string, string>> = Object.freeze({
@@ -188,5 +190,9 @@ export function buildMemberWeeklyReviewPayload(input: {
       items,
     };
   });
-  return { reports, stats: input.history.stats };
+  return {
+    reports,
+    stats: input.history.stats,
+    sourcePerformance: buildWeeklySourcePerformance({ history: input.history.items, analyses: input.analyses }),
+  };
 }
