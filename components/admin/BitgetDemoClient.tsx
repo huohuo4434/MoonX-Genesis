@@ -8,6 +8,7 @@ import type {
   BitgetRuntimeState,
   BitgetSmokeTestReport,
 } from "@/types/bitget-demo-runtime";
+import { isUnifiedNewEntryBlockedForDisplay } from "@/lib/presentation/bitget-live-status";
 
 const inputClass =
   "min-h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-primary/60";
@@ -415,8 +416,9 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
   if (live) {
     const experiment = dashboard.runtime.liveExperiment;
+    const unifiedNewEntryBlocked = isUnifiedNewEntryBlockedForDisplay(dashboard.runtime);
     const statusLabel = experiment?.status === "ACTIVE"
-      ? (dashboard.runtime.paused ? "实验进行中 · 新开仓安全暂停" : "实验进行中 · 新开仓可执行")
+      ? (unifiedNewEntryBlocked ? "实验进行中 · 仅管理已有仓" : "实验进行中 · 新开仓可执行")
       : experiment?.status === "COMPLETED"
         ? "已结束"
         : experiment?.status === "STOPPED"
@@ -466,6 +468,12 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
               ) : null}
             </div>
           ) : null}
+          {!dashboard.runtime.paused && unifiedNewEntryBlocked ? (
+            <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.05] p-4 space-y-1">
+              <Text variant="body-sm" className="text-amber-100">统一实盘账户当前禁止新开仓；服务器仍会刷新行情、候选和已有仓保护。</Text>
+              <Text variant="caption" className="block text-amber-100/70">这里显示的是统一托管闸门的最终结果，不再把旧实验ACTIVE状态误报为可下新单。</Text>
+            </div>
+          ) : null}
           {experiment?.stopReason ? <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.04] p-4"><Text variant="body-sm" className="text-amber-200">{experiment.stopReason}</Text></div> : null}
           {dashboard.runtime.lastError ? (
             <div className="rounded-lg border border-red-400/20 bg-red-400/[0.035] p-4 space-y-1">
@@ -513,7 +521,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">CRON心跳状态</Text><Text variant="body-sm" className={`mt-1 block ${cronFresh ? "text-emerald-300" : "text-amber-300"}`}>{cronFresh ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{time(dashboard.runtime.lastHeartbeatAt)} · 距今 {seconds(dashboard.runtime.heartbeatAgeSeconds)}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">行情新鲜度</Text><Text variant="body-sm" className={`mt-1 block ${quotesFresh ? "text-emerald-300" : "text-amber-300"}`}>{quotesFresh ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{dashboard.runtime.freshQuotesCount ?? 0}/{dashboard.runtime.totalSymbols ?? 0} · {seconds(dashboard.runtime.quoteAgeSeconds)}</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">账户对账状态</Text><Text variant="body-sm" className={`mt-1 block ${dashboard.runtime.account.connected ? "text-emerald-300" : "text-amber-300"}`}>{dashboard.runtime.account.connected ? "正常" : "需检查"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">持仓 {dashboard.runtime.account.positionsCount} · 策略单 {dashboard.runtime.account.pendingStrategyOrdersCount}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">新开仓执行状态</Text><Text variant="body-sm" className={`mt-1 block ${dashboard.runtime.paused ? "text-red-300" : "text-emerald-300"}`}>{dashboard.runtime.paused ? "安全暂停" : "可按风控扫描"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{dashboard.runtime.paused ? dashboard.runtime.pauseSource || "PAUSED" : "CRON正常扫描，不自动RUN_NOW"}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">新开仓执行状态</Text><Text variant="body-sm" className={`mt-1 block ${unifiedNewEntryBlocked ? "text-red-300" : "text-emerald-300"}`}>{unifiedNewEntryBlocked ? "统一闸门暂停" : "可按风控扫描"}</Text><Text variant="caption" color="tertiary" className="mt-1 block">{dashboard.runtime.paused ? dashboard.runtime.pauseSource || "PAUSED" : unifiedNewEntryBlocked ? "MANAGE_ONLY" : "CRON正常扫描，不自动RUN_NOW"}</Text></div>
           </div>
 
           <div className="flex flex-wrap gap-2">
