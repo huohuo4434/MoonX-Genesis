@@ -3,6 +3,7 @@ import "server-only";
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
 import { resolveAllowedSymbolUniverse } from "@/lib/bitget/live-symbol-universe-core";
 import { parseBitgetPositionSide, requireBitgetPositionSide } from "@/lib/bitget/bitget-side-parser-core";
+import { classifyProtectionOutboxPreflight } from "@/lib/bitget/protection-outbox-preflight-core";
 
 import { normalizeLiveOrderSizeUp, normalizeLiveTriggerPrice } from "@/lib/trading-signals/live-order-preflight-core";
 import {
@@ -1740,6 +1741,15 @@ async function getOutboxById(id: string): Promise<ExecutionOutboxRow | null> {
   return rows[0] ?? null;
 }
 
+async function getOutboxDecisionStatus(decisionId: string | null): Promise<string | null> {
+  if (!prisma || !decisionId) return null;
+  const rows = await prisma.$queryRawUnsafe<Array<{ status: string }>>(
+    `SELECT status FROM trade_three_horizon_decisions WHERE id=$1 LIMIT 1`,
+    decisionId
+  );
+  return rows[0]?.status ?? null;
+}
+
 async function createOutboxIntent(input: {
   idempotencyKey: string;
   decisionId: string | null;
@@ -2106,6 +2116,32 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
   try {
     if (acquired.action_type === "PLACE_PROTECTION") {
       const payload = parsePayload<ProtectionExecutionPayload>(acquired.payload);
+      const decisionStatus = await getOutboxDecisionStatus(acquired.decision_id);
+      if (!["ORDER_SUBMITTED", "OPEN", "PARTIAL", "CLOSING"].includes(String(decisionStatus ?? "").toUpperCase())) {
+        const positions = await getBitgetDemoCurrentPositions();
+        const matchingExchangePosition = positions.some((position) =>
+          position.symbol === payload.symbol && position.posSide === payload.posSide && position.total > 0
+        );
+        const preflight = classifyProtectionOutboxPreflight({ decisionStatus, matchingExchangePosition });
+        if (preflight === "RECONCILE_NO_POSITION") {
+          await updateOutbox({
+            id,
+            status: "RECONCILED",
+            lastError: "关联决策不是明确活动状态且交易所无对应持仓；旧保护任务已安全核销，未提交交易所。",
+          });
+          return (await getOutboxById(id)) ?? acquired;
+        }
+        if (preflight === "BLOCK_TERMINAL_DECISION_WITH_POSITION") {
+          await updateOutbox({
+            id,
+            status: "FAILED",
+            lastError: "关联决策不是明确活动状态但交易所仍有同向持仓；拒绝把旧止盈止损挂到未知仓位，需先完成托管对账。",
+            retrySeconds: 3600,
+            terminal: true,
+          });
+          return (await getOutboxById(id)) ?? acquired;
+        }
+      }
       const oid = acquired.client_oid || clientOid(`${payload.paperOrderId}:protection`);
       const previous = await getStrategyOrderRecord({ clientOid: oid });
       const response = previous?.orderId

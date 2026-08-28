@@ -18,7 +18,7 @@
     "ensure:admin": "node --import tsx scripts/ensure-admin-role.ts",
     "postinstall": "prisma generate",
     "start": "next start",
-    "pretest": "npm run test:live-market-session && node --import tsx --test tests/daily-champion-core.test.ts tests/ultra-short-execution-core.test.ts tests/trading-outbox-failure-relevance-core.test.ts tests/unified-live-orphan-protection.test.ts tests/bazi-divergence-integration-v720101.test.mjs tests/perf-trading-cadence-v720113.test.ts",
+    "pretest": "npm run test:live-market-session && node --import tsx --test tests/daily-champion-core.test.ts tests/ultra-short-execution-core.test.ts tests/trading-outbox-failure-relevance-core.test.ts tests/bitget-protection-outbox-preflight.test.ts tests/unified-live-orphan-protection.test.ts tests/bazi-divergence-integration-v720101.test.mjs tests/perf-trading-cadence-v720113.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:september-rotation": "node --import tsx --test tests/september-rotation-report-20260826.test.ts",
