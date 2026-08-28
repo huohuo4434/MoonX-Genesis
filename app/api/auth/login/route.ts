@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { normalizeSupabaseUrl } from "@/lib/supabase/normalize-url";
 import { isActiveMember, isAdmin, toAuthUserView } from "@/lib/auth/permissions";
+import { classifyLoginAuthError, safeLoginAuthErrorMeta } from "@/lib/auth/login-error";
 import {
   generateDeviceToken,
   MEMBER_DEVICE_COOKIE,
@@ -49,9 +50,22 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  let authResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+  try {
+    authResult = await supabase.auth.signInWithPassword({ email, password });
+  } catch (error) {
+    console.error("[auth/login] provider request failed", safeLoginAuthErrorMeta(error));
+    const failure = classifyLoginAuthError(error);
+    return NextResponse.json({ error: failure.error, code: failure.code }, { status: failure.status });
+  }
+
+  const { data, error } = authResult;
   if (error || !data.user) {
-    return NextResponse.json({ error: error?.message ?? "Invalid login credentials" }, { status: 401 });
+    const failure = classifyLoginAuthError(error ?? "Invalid login credentials");
+    if (failure.status >= 500) {
+      console.error("[auth/login] provider rejected request", safeLoginAuthErrorMeta(error));
+    }
+    return NextResponse.json({ error: failure.error, code: failure.code }, { status: failure.status });
   }
 
   const currentDeviceToken = request.cookies.get(MEMBER_DEVICE_COOKIE)?.value;

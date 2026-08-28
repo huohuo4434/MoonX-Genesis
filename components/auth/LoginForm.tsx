@@ -12,6 +12,9 @@ function translateAuthError(message: string, english = false): string {
   if (/Invalid login credentials/i.test(message)) return english ? "Incorrect email or password." : "邮箱或密码不正确";
   if (/User not found|No user found/i.test(message)) return english ? "Account not found." : "账户不存在";
   if (/rate|too many|frequent/i.test(message)) return english ? "Too many requests. Please try again later." : "请求过于频繁，请稍后再试";
+  if (/登录服务繁忙|auth.*provider.*unavailable|authentication service.*unavailable/i.test(message)) {
+    return english ? "The sign-in service is busy. Please try again shortly." : "登录服务繁忙，请稍后再试。";
+  }
   if (/already registered|already been registered/i.test(message)) return english ? "This email is already registered. Please sign in." : "该邮箱已注册，请直接登录。";
   if (/password/i.test(message) && /6|8|least/i.test(message)) return english ? "The password must be at least 8 characters." : "密码至少需要 8 位。";
   if (/invalid.*email|email.*invalid/i.test(message)) return english ? "Invalid email address." : "邮箱格式不正确。";

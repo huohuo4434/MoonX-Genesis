@@ -70,7 +70,9 @@ for (const file of categories.apiRoutes) {
   const full = resolve(root, file);
   if (!existsSync(full)) continue;
   const text = readFileSync(full, "utf8");
-  const isPublic = /app\/api\/(public|health|cron)\//i.test(file);
+  const isPublic =
+    /app\/api\/(public|health|cron)\//i.test(file) ||
+    /app\/api\/auth\/(login|register|ensure-confirmed)\/route\.ts$/i.test(file);
   const protectedRoute = /requireAdmin|requireActiveMember|requireMember|authorization|CRON_SECRET|verifyCron/i.test(text);
   if (!isPublic && !protectedRoute) add("BLOCKER", "api-auth", "API路由未发现明确的鉴权或Cron验证。", file);
 }
