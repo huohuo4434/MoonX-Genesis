@@ -109,8 +109,10 @@ export default async function MemberDailyReviewPage() {
   if (gate.status === "MEMBERSHIP_REQUIRED") redirect("/pricing");
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
-  const reports = await getMemberDailyReviewReports();
+  const { reports, coverage } = await getMemberDailyReviewReports();
   const latest = reports[0] ?? null;
+  const coverageExceptions = coverage.filter((item) => item.status !== "AUTO");
+  const coverageAuto = coverage.filter((item) => item.status === "AUTO").length;
   return (
     <>
       <MemberDeviceHeartbeat />
@@ -124,6 +126,11 @@ export default async function MemberDailyReviewPage() {
               {latest ? <p className="mt-4 text-lg font-semibold text-foreground">{latest.date}｜{latest.headline}</p> : <p className="mt-4 text-body-sm text-foreground-secondary">验证样本正在生成，空白不会被填成命中。</p>}
               {latest ? <div className="mt-4 flex flex-wrap gap-2 text-caption"><Badge variant="success">完全 {latest.summary.full}</Badge><Badge variant="warning">部分 {latest.summary.partial}</Badge><Badge variant="danger">未中 {latest.summary.miss}</Badge><Badge variant="outline">待验证 {latest.summary.waiting}</Badge>{latest.summary.supplementsNeeded ? <Badge variant="warning">待补 {latest.summary.supplementsNeeded}</Badge> : null}{latest.summary.updates ? <Badge variant="info">新补充 {latest.summary.updates}</Badge> : null}</div> : null}
             </header>
+
+            <section className="rounded-2xl border border-border/[0.09] bg-card/35 p-5">
+              <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">复盘覆盖状态</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">已接通 {coverageAuto}/{coverage.length} 个重点标的；未接通项不会从报告里静默消失。</Text></div>{coverageExceptions.length ? <Badge variant="warning">待处理 {coverageExceptions.length}</Badge> : <Badge variant="success">全部接通</Badge>}</div>
+              {coverageExceptions.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{coverageExceptions.map((item) => <div key={item.assetId} className="rounded-xl border border-amber-300/12 bg-amber-300/[.035] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.assetName} <span className="font-mono text-caption text-foreground-tertiary">{item.symbol}</span></p><Badge variant={item.status === "NEEDS_SOURCE" ? "warning" : item.status === "MANUAL_ACTUAL" ? "neutral" : "info"}>{item.label}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.detail}</p></div>)}</div> : null}
+            </section>
 
             {reports.length ? reports.map((report, reportIndex) => (
               <section key={report.date} className="space-y-4">
