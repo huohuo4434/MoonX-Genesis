@@ -63,6 +63,19 @@ function ItemCard({ item }: { item: MemberDailyReviewItem }) {
         <Badge variant={badgeVariant(item.status)}>{item.statusLabel}</Badge>
       </div>
 
+      <div className={`mt-4 rounded-xl border p-4 ${item.finding.issueType === "NONE" ? "border-emerald-300/15 bg-emerald-300/[.04]" : item.finding.issueType === "PENDING" || item.finding.issueType === "DATA" ? "border-border/[0.09] bg-background/25" : "border-amber-300/20 bg-amber-300/[.055]"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-caption text-foreground-tertiary">复盘结论</p>
+          <Badge variant={item.finding.issueType === "NONE" ? "success" : item.finding.issueType === "PENDING" || item.finding.issueType === "DATA" ? "outline" : "warning"}>{item.finding.issueLabel}</Badge>
+        </div>
+        <div className="mt-3 grid gap-3 text-body-sm leading-6 md:grid-cols-2">
+          <div><p className="font-semibold text-foreground">已确认的问题</p><p className="mt-1 text-foreground-secondary">{item.finding.confirmedProblem}</p></div>
+          <div><p className="font-semibold text-foreground">卦象／解读定位</p><p className="mt-1 text-foreground-secondary">{item.finding.interpretationFinding}</p></div>
+          <div><p className="font-semibold text-foreground">已经记录的改进</p><p className="mt-1 text-foreground-secondary">{item.finding.correctionAction}</p></div>
+          <div><p className="font-semibold text-foreground">下一次执行规则</p><p className="mt-1 text-foreground-secondary">{item.futureCaution}</p></div>
+        </div>
+      </div>
+
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-border/[0.08] bg-background/30 p-4">
           <p className="text-caption text-foreground-tertiary">锁定预测</p>
@@ -82,15 +95,6 @@ function ItemCard({ item }: { item: MemberDailyReviewItem }) {
         <p className="mt-1 text-body-sm text-violet-100/60">{sourceWindow}{item.weeklySource.weeklyDirection ? ` · 周方向 ${item.weeklySource.weeklyDirection}` : ""}</p>
         {item.weeklySource.interpretation ? <p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.weeklySource.interpretation}</p> : null}
       </div>
-
-      <details className="mt-4 rounded-xl border border-border/[0.08] px-4 py-3 open:bg-background/20">
-        <summary className="cursor-pointer text-body-sm font-semibold text-foreground">查看偏差原因与改进</summary>
-        <div className="mt-4 space-y-4 text-body-sm leading-6 text-foreground-secondary">
-          <div><p className="text-caption text-foreground-tertiary">为什么有偏差</p><p>{item.diagnosis}</p></div>
-          <div><p className="text-caption text-foreground-tertiary">以后怎么改进</p><p>{item.improvement}</p></div>
-          <div><p className="text-caption text-foreground-tertiary">下一次提醒</p><p>{item.futureCaution}</p></div>
-        </div>
-      </details>
 
       {item.supplementLabel ? (
         <div className={`mt-4 rounded-xl border px-4 py-3 text-body-sm ${item.supplementStatus === "UPDATED" ? "border-cyan-300/15 bg-cyan-300/[.04] text-cyan-100/75" : "border-amber-300/15 bg-amber-300/[.04] text-amber-100/75"}`}>
@@ -121,21 +125,28 @@ export default async function MemberDailyReviewPage() {
           <div className="mx-auto w-full max-w-6xl space-y-8">
             <header className="rounded-3xl border border-cyan-300/15 bg-[radial-gradient(circle_at_90%_0%,rgba(34,211,238,.12),transparent_35%),linear-gradient(145deg,#0d1518,#090a0e)] p-6 sm:p-8">
               <Badge variant="info">会员每日复盘</Badge>
-              <Heading as="h1" size="h2" className="mt-4">先看预测有没有兑现</Heading>
-              <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">原预测锁定不改；市场收盘后自动核对真实走势，再解释偏差、记录改进和需要补充的下一周期材料。</Text>
-              {latest ? <p className="mt-4 text-lg font-semibold text-foreground">{latest.date}｜{latest.headline}</p> : <p className="mt-4 text-body-sm text-foreground-secondary">验证样本正在生成，空白不会被填成命中。</p>}
+              <Heading as="h1" size="h2" className="mt-4">哪里判断错了，我们怎么改</Heading>
+              <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">先公开问题，再说明卦象还是解读环节需要复核，最后把改进写成下一次可执行的规则。原预测和错误样本永久保留。</Text>
+              {latest ? <><p className="mt-4 text-xl font-semibold text-foreground">{latest.date}｜{latest.problemHeadline}</p><p className="mt-2 text-body-sm text-foreground-secondary">{latest.headline}</p></> : <p className="mt-4 text-body-sm text-foreground-secondary">验证样本正在生成，空白不会被填成命中。</p>}
               {latest ? <div className="mt-4 flex flex-wrap gap-2 text-caption"><Badge variant="success">完全 {latest.summary.full}</Badge><Badge variant="warning">部分 {latest.summary.partial}</Badge><Badge variant="danger">未中 {latest.summary.miss}</Badge><Badge variant="outline">待验证 {latest.summary.waiting}</Badge>{latest.summary.supplementsNeeded ? <Badge variant="warning">待补 {latest.summary.supplementsNeeded}</Badge> : null}{latest.summary.updates ? <Badge variant="info">新补充 {latest.summary.updates}</Badge> : null}</div> : null}
             </header>
 
-            <section className="rounded-2xl border border-border/[0.09] bg-card/35 p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">复盘覆盖状态</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">已接通 {coverageAuto}/{coverage.length} 个重点标的；未接通项不会从报告里静默消失。</Text></div>{coverageExceptions.length ? <Badge variant="warning">待处理 {coverageExceptions.length}</Badge> : <Badge variant="success">全部接通</Badge>}</div>
-              {coverageExceptions.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{coverageExceptions.map((item) => <div key={item.assetId} className="rounded-xl border border-amber-300/12 bg-amber-300/[.035] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.assetName} <span className="font-mono text-caption text-foreground-tertiary">{item.symbol}</span></p><Badge variant={item.status === "NEEDS_SOURCE" ? "warning" : item.status === "MANUAL_ACTUAL" ? "neutral" : "info"}>{item.label}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.detail}</p></div>)}</div> : null}
-            </section>
+            {latest && latest.summary.problemsFound > 0 ? (
+              <section className="rounded-2xl border border-amber-300/18 bg-amber-300/[.04] p-5">
+                <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">本日已识别的问题</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">只写已经由实际走势确认的问题；无法证明的卦理原因明确标为继续复核。</Text></div><Badge variant="warning">问题 {latest.summary.problemsFound} · 已记录改进 {latest.summary.correctionsRecorded}</Badge></div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">{latest.items.filter((item) => ["DIRECTION", "PATH_TIMING", "EVIDENCE_GAP"].includes(item.finding.issueType)).map((item) => <div key={`problem-${item.forecastId}`} className="rounded-xl border border-border/[0.09] bg-background/25 px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.assetName} <span className="font-mono text-caption text-foreground-tertiary">{item.symbol}</span></p><Badge variant={item.status === "MISS" ? "danger" : "warning"}>{item.finding.issueLabel}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.finding.confirmedProblem}</p><p className="mt-2 text-body-sm leading-6 text-foreground"><span className="font-semibold">改进：</span>{item.finding.correctionAction}</p></div>)}</div>
+              </section>
+            ) : null}
+
+            <details className="rounded-2xl border border-border/[0.09] bg-card/35 p-5">
+              <summary className="cursor-pointer text-body-sm font-semibold">复盘覆盖 {coverageAuto}/{coverage.length}{coverageExceptions.length ? ` · 待处理 ${coverageExceptions.length}` : " · 全部接通"}</summary>
+              {coverageExceptions.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{coverageExceptions.map((item) => <div key={item.assetId} className="rounded-xl border border-amber-300/12 bg-amber-300/[.035] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.assetName} <span className="font-mono text-caption text-foreground-tertiary">{item.symbol}</span></p><Badge variant={item.status === "NEEDS_SOURCE" ? "warning" : item.status === "MANUAL_ACTUAL" ? "neutral" : "info"}>{item.label}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.detail}</p></div>)}</div> : <p className="mt-3 text-body-sm text-foreground-secondary">全部重点标的均已接通自动复盘。</p>}
+            </details>
 
             {reports.length ? reports.map((report, reportIndex) => (
               <section key={report.date} className="space-y-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div><Heading as="h2" size="h3">{report.date} 复盘报告</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">{report.headline}</Text></div>
+                  <div><Heading as="h2" size="h3">{report.date} 复盘报告</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">{report.problemHeadline} {report.headline}</Text></div>
                   {report.summary.weightedMatchPct != null ? <Badge variant={report.summary.weightedMatchPct >= 70 ? "success" : report.summary.weightedMatchPct >= 50 ? "warning" : "danger"}>加权匹配 {report.summary.weightedMatchPct.toFixed(0)}%</Badge> : null}
                 </div>
                 {reportIndex > 0 ? (

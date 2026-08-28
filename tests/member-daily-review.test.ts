@@ -112,6 +112,13 @@ test("member daily review groups indices, equities, crypto and commodities with 
   assert.equal(reports[0]!.summary.miss, 1);
   assert.equal(reports[0]!.summary.waiting, 1);
   assert.equal(Math.round(reports[0]!.summary.weightedMatchPct!), 50);
+  assert.equal(reports[0]!.summary.problemsFound, 2);
+  assert.equal(reports[0]!.summary.correctionsRecorded, 2);
+  assert.match(reports[0]!.problemHeadline, /已识别 2 项预测问题/);
+  const miss = reports[0]!.items.find((item) => item.symbol === "HYPE")!;
+  assert.equal(miss.finding.issueType, "DIRECTION");
+  assert.match(miss.finding.confirmedProblem, /方向结论已经确认没有兑现/);
+  assert.match(miss.finding.interpretationFinding, /不能据此直接断言卦象本身错误/);
 });
 
 test("misses request future evidence without rewriting the original result", () => {
@@ -122,6 +129,25 @@ test("misses request future evidence without rewriting the original result", () 
   assert.equal(item.supplementStatus, "NEEDED");
   assert.match(item.supplementRequest!, /下一周期完整周卦/);
   assert.match(item.supplementRequest!, /不回写本日结果/);
+  assert.equal(item.finding.issueType, "EVIDENCE_GAP");
+  assert.match(item.finding.interpretationFinding, /不能准确归因到哪一条六爻关系/);
+});
+
+test("a partial hit is presented as a path interpretation issue rather than a failed hexagram", () => {
+  const row = forecast({ id: "sndk-partial", symbol: "SNDK", assetName: "闪迪", market: "US", predictedPattern: "UP_THEN_DOWN", predictedPatternLabel: "先涨后跌" });
+  const actual = result({ forecastId: row.id, symbol: row.symbol, assetName: row.assetName, verdict: "PARTIAL_HIT", actualPattern: "UP", actualPatternLabel: "上涨" });
+  const report = buildMemberDailyReviewReports({ forecasts: [row], results: [actual], reviews: [review(row, actual)], now: new Date("2026-08-28T04:00:00.000Z") })[0]!;
+  assert.equal(report.items[0]!.finding.issueType, "PATH_TIMING");
+  assert.match(report.items[0]!.finding.issueLabel, /路径或转折时点/);
+  assert.match(report.items[0]!.finding.interpretationFinding, /周卦主方向暂不推翻/);
+});
+
+test("waiting samples do not pretend that a prediction problem has been identified", () => {
+  const row = forecast({ id: "waiting", symbol: "SILVER", assetName: "白银", market: "US_FUTURES" });
+  const report = buildMemberDailyReviewReports({ forecasts: [row], results: [], reviews: [], now: new Date("2026-08-28T04:00:00.000Z") })[0]!;
+  assert.equal(report.items[0]!.finding.issueType, "PENDING");
+  assert.equal(report.summary.problemsFound, 0);
+  assert.match(report.problemHeadline, /暂不事后修改预测/);
 });
 
 test("a newer supplement is visible while the verified historical version remains selected", () => {
