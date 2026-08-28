@@ -26,3 +26,51 @@ test("healthy report without a unified block may display executable scanning", (
   }), false);
 });
 
+test("a scan-only candidate message alone is not presented as the authoritative account gate", () => {
+  assert.equal(isUnifiedNewEntryBlockedForDisplay({
+    paused: false,
+    lastReport: { message: "影子扫描（禁止新开仓）：候选与事前计划继续刷新。" },
+    recentEvents: [{ action: "THREE_HORIZON_SHADOW_SCAN", message: "本轮禁止新开仓" }],
+  }), false);
+});
+
+test("a disconnected reconciled account remains blocked even when the persistent pause flag is false", () => {
+  assert.equal(isUnifiedNewEntryBlockedForDisplay({
+    paused: false,
+    lastReport: {
+      ok: false,
+      paused: true,
+      market: { ok: true },
+      reconcile: { connected: false },
+      message: "服务器行情正常，但账户对账未通过，本轮禁止新开仓。",
+    },
+    recentEvents: [],
+  }), true);
+});
+
+test("stale market data blocks the display without relying on a unified permission code", () => {
+  assert.equal(isUnifiedNewEntryBlockedForDisplay({
+    paused: false,
+    lastReport: {
+      ok: false,
+      market: { ok: false },
+      reconcile: { connected: true },
+      message: "行情未通过3分钟新鲜度检查，本轮禁止生成新入场与提交订单。",
+    },
+    recentEvents: [],
+  }), true);
+});
+
+test("a structured healthy report is not blocked by unrelated strategy text", () => {
+  assert.equal(isUnifiedNewEntryBlockedForDisplay({
+    paused: false,
+    lastReport: {
+      ok: true,
+      paused: false,
+      market: { ok: true },
+      reconcile: { connected: true },
+      message: "影子扫描候选刷新完成。",
+    },
+    recentEvents: [{ action: "THREE_HORIZON_SHADOW_SCAN", message: "本轮禁止新开仓" }],
+  }), false);
+});

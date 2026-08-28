@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildUltraShortPriceGeometry,
+  diagnoseUltraShortPriceGeometry,
   conservativeNetRewardRisk,
   costAdjustedRiskPerUnit,
   evaluateUltraShortTimedExit,
@@ -21,6 +22,10 @@ test("超短线用5分钟ATR生成紧凑止损，并给手续费后盈亏比留�
 test("5分钟结构需要超过1.5%止损时拒绝，而不是把止损夹在结构内", () => {
   assert.equal(buildUltraShortPriceGeometry({ direction: "LONG", entry: 100, atr5m: 2, swingLow5m: 98, swingHigh5m: 102 }), null);
   assert.equal(buildUltraShortPriceGeometry({ direction: "SHORT", entry: 100, atr5m: 0.5, swingLow5m: 98, swingHigh5m: 102 }), null);
+  assert.deepEqual(
+    diagnoseUltraShortPriceGeometry({ direction: "LONG", entry: 100, atr5m: 2, swingLow5m: 98, swingHigh5m: 102 }),
+    { valid: false, requiredDistancePct: 2.7, maximumDistancePct: 1.5, reason: "5分钟结构要求止损约2.7%，超过超短线1.5%硬上限" },
+  );
 });
 
 test("候选盈亏比扣除双边手续费与滑点", () => {

@@ -129,12 +129,14 @@ import {
   buildUltraShortPriceGeometry,
   conservativeNetRewardRisk,
   costAdjustedRiskPerUnit,
+  diagnoseUltraShortPriceGeometry,
   evaluateUltraShortTimedExit,
   MIN_NET_REWARD_RISK,
   normalizeExecutionPriceGeometry,
   TRADING_ROUND_TRIP_COST_PCT,
   ULTRA_SHORT_MAX_HOLDING_MINUTES,
 } from "@/lib/trading-signals/ultra-short-execution-core";
+import { resolveForecastAuthorityContext } from "@/lib/trading-signals/forecast-authority-context-core";
 
 // MOOX_V720101_BAZI_DIVERGENCE_GUARD: asset-Bazi regime prior + BTC/ETH independent execution guard.
 // MOOX_V72010_1000U_LIVE_EXECUTION: formal direction + three-horizon execution with hard live risk caps.
@@ -542,13 +544,15 @@ function resolveOfficialMooxDirection(input: {
   strategyType: ThreeHorizonStrategyType;
   focusDirection?: ThreeHorizonDirection;
 }): { direction: ThreeHorizonDirection; strength: number; label: string } {
-  const planDirection = forecastDirectionForStrategy(input.plan, input.strategyType);
+  const authority = resolveForecastAuthorityContext(input.plan, input.strategyType);
+  const planDirection = authority.direction;
   if (planDirection !== "NEUTRAL") {
-    const confidence = clamp(input.plan?.confidence ?? 55, 35, 85);
+    const confidence = clamp(authority.confidence, 35, 85);
+    const horizonLabel = authority.sourceHorizon === "MONTH" ? "正式月预测锁定长线方向" : "正式周预测锁定方向";
     return {
       direction: planDirection,
       strength: confidence * directionValue(planDirection),
-      label: `${planDirection === "LONG" ? "看涨" : "看跌"}；正式周预测锁定方向，日线与技术只负责路径和位置`,
+      label: `${planDirection === "LONG" ? "看涨" : "看跌"}；${horizonLabel}，日线与技术只负责路径和位置`,
     };
   }
   const candidates: Array<{ source: string; direction: ThreeHorizonDirection; confidence: number }> = [];
@@ -696,13 +700,7 @@ function forecastDirectionForStrategy(
   plan: PredictionStrategyPlan | undefined,
   strategyType: ThreeHorizonStrategyType
 ): ThreeHorizonDirection {
-  if (!plan) return "NEUTRAL";
-  // Formal weekly research owns trade direction across execution horizons.
-  // Daily is path/timing only; position may fall back to monthly when no weekly side exists.
-  return resolveAuthoritativeForecastDirection({
-    weeklyDirection: plan.weeklyDirection,
-    fallbackDirection: strategyType === "POSITION" ? plan.monthlyDirection : "NEUTRAL",
-  });
+  return resolveForecastAuthorityContext(plan, strategyType).direction;
 }
 
 function lockedLiuyaoDirection(
@@ -736,7 +734,8 @@ function forecastCompatibility(
   strategyType: ThreeHorizonStrategyType
 ): { score: number; label: string; compatible: boolean } {
   const forecast = forecastDirectionForStrategy(plan, strategyType);
-  const confidence = clamp(plan?.confidence ?? 50, 0, 100);
+  const authority = resolveForecastAuthorityContext(plan, strategyType);
+  const confidence = clamp(authority.confidence, 0, 100);
   if (forecast === "NEUTRAL") {
     return { score: 50, label: "预测暂未形成明确方向，仅作中性权重", compatible: true };
   }
@@ -1299,6 +1298,16 @@ function finalizeEvaluation(
         swingHigh,
       })
     : null;
+  const ultraShortGeometryDiagnostic = profile.strategyType === "INTRADAY" && currentPrice && direction !== "NEUTRAL"
+    ? diagnoseUltraShortPriceGeometry({
+        direction,
+        entry: currentPrice,
+        atr5m: atrValue,
+        swingLow5m: swingLow,
+        swingHigh5m: swingHigh,
+      })
+    : null;
+  const forecastAuthority = resolveForecastAuthorityContext(plan, profile.strategyType);
   const riskMet = conditions.find((row) => row.key === "risk")?.met === true;
   const entryMet = conditions.find((row) => row.key === "entry")?.met === true;
   const directionEvidenceKeys = profile.strategyType === "INTRADAY"
@@ -1366,7 +1375,7 @@ function finalizeEvaluation(
     rejectionReason = "行情数据、波动或成交过滤未通过。";
   } else if (!prices) {
     rejectionCode = "RISK_PLAN_INVALID";
-    rejectionReason = "无法根据对应周期结构和ATR生成有效保护价。";
+    rejectionReason = ultraShortGeometryDiagnostic?.reason ?? "无法根据对应周期结构和ATR生成有效保护价。";
   } else if (context.currentEntryInvalidated) {
     rejectionCode = "ENTRY_STRUCTURE_INVALID";
     rejectionReason = "价格已连续有效越过当前入场边沿；仅取消本次入场并等待新位置，不自动反手。";
@@ -1403,14 +1412,16 @@ function finalizeEvaluation(
     riskScale,
     directionStrength: context.directionStrength,
     raw: {
-      forecastSetup: plan?.setup ?? "MISSING",
-      forecastConfidence: plan?.confidence ?? null,
+      forecastSetup: forecastAuthority.setup,
+      forecastConfidence: forecastAuthority.confidence,
+      forecastSourceHorizon: forecastAuthority.sourceHorizon,
       executionTier,
       riskScale,
       directionStrength: context.directionStrength,
       atr: atrValue,
       swingLow,
       swingHigh,
+      ultraShortGeometryDiagnostic,
       hexagramPrior: context.prior,
       phaseShiftToleranceDays: context.prior?.phaseShiftToleranceDays ?? 0,
     },

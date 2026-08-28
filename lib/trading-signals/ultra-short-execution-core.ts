@@ -7,11 +7,61 @@ export const ULTRA_SHORT_STALE_EXIT_MINUTES = 60;
 export const ULTRA_SHORT_MAX_HOLDING_MINUTES = 90;
 export const TRADING_ROUND_TRIP_COST_PCT = 0.16;
 export const MIN_NET_REWARD_RISK = 1.05;
+export const ULTRA_SHORT_MAX_STOP_DISTANCE_PCT = 1.5;
 
 const round = (value: number, digits = 8) => {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
 };
+
+export type UltraShortPriceGeometryDiagnostic = {
+  valid: boolean;
+  requiredDistancePct: number;
+  maximumDistancePct: number;
+  reason: string;
+};
+
+export function diagnoseUltraShortPriceGeometry(input: {
+  direction: "LONG" | "SHORT";
+  entry: number;
+  atr5m: number;
+  swingLow5m: number;
+  swingHigh5m: number;
+}): UltraShortPriceGeometryDiagnostic {
+  if (!(input.entry > 0) || !(input.atr5m > 0)) {
+    return {
+      valid: false,
+      requiredDistancePct: 0,
+      maximumDistancePct: ULTRA_SHORT_MAX_STOP_DISTANCE_PCT,
+      reason: "入场价或5分钟ATR无效，无法计算保护价",
+    };
+  }
+  let requiredDistance = input.atr5m * 1.35;
+  if (input.direction === "LONG" && input.swingLow5m > 0 && input.swingLow5m < input.entry) {
+    requiredDistance = Math.max(requiredDistance, input.entry - input.swingLow5m);
+  }
+  if (input.direction === "SHORT" && input.swingHigh5m > input.entry) {
+    requiredDistance = Math.max(requiredDistance, input.swingHigh5m - input.entry);
+  }
+  const maximumDistance = input.entry * ULTRA_SHORT_MAX_STOP_DISTANCE_PCT / 100;
+  const requiredDistancePct = requiredDistance / input.entry * 100;
+  // A stop inside the actual 5m structure is not a valid stop. If the
+  // structure needs more than the ultra-short risk envelope, skip the setup.
+  if (requiredDistance > maximumDistance + Number.EPSILON) {
+    return {
+      valid: false,
+      requiredDistancePct: round(requiredDistancePct, 4),
+      maximumDistancePct: ULTRA_SHORT_MAX_STOP_DISTANCE_PCT,
+      reason: `5分钟结构要求止损约${round(requiredDistancePct, 2)}%，超过超短线${ULTRA_SHORT_MAX_STOP_DISTANCE_PCT}%硬上限`,
+    };
+  }
+  return {
+    valid: true,
+    requiredDistancePct: round(requiredDistancePct, 4),
+    maximumDistancePct: ULTRA_SHORT_MAX_STOP_DISTANCE_PCT,
+    reason: `5分钟结构止损约${round(requiredDistancePct, 2)}%，位于${ULTRA_SHORT_MAX_STOP_DISTANCE_PCT}%硬上限内`,
+  };
+}
 
 export function buildUltraShortPriceGeometry(input: {
   direction: "LONG" | "SHORT";
@@ -20,7 +70,8 @@ export function buildUltraShortPriceGeometry(input: {
   swingLow5m: number;
   swingHigh5m: number;
 }): { stopLoss: number; target1: number; target2: number; stopDistancePct: number } | null {
-  if (!(input.entry > 0) || !(input.atr5m > 0)) return null;
+  const diagnostic = diagnoseUltraShortPriceGeometry(input);
+  if (!diagnostic.valid) return null;
   let requiredDistance = input.atr5m * 1.35;
   if (input.direction === "LONG" && input.swingLow5m > 0 && input.swingLow5m < input.entry) {
     requiredDistance = Math.max(requiredDistance, input.entry - input.swingLow5m);
@@ -28,10 +79,6 @@ export function buildUltraShortPriceGeometry(input: {
   if (input.direction === "SHORT" && input.swingHigh5m > input.entry) {
     requiredDistance = Math.max(requiredDistance, input.swingHigh5m - input.entry);
   }
-  const maximumDistance = input.entry * 0.015;
-  // A stop inside the actual 5m structure is not a valid stop. If the
-  // structure needs more than the ultra-short risk envelope, skip the setup.
-  if (requiredDistance > maximumDistance + Number.EPSILON) return null;
   const distance = Math.max(requiredDistance, input.entry * 0.0035);
   const stopDistancePct = distance / input.entry * 100;
   if (input.direction === "LONG") {
