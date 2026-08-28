@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  evaluateClosedPlanReentry,
   forecastHorizonForStrategy,
   forecastPlanGroupIdentity,
   prioritizeAllowedCommissioningSymbols,
@@ -219,6 +220,146 @@ test("one forecast version cannot bind a second order", async () => {
   assert.equal(result.action, "ORDER_ALREADY_BOUND");
   assert.equal(result.code, "FORECAST_VERSION_ORDER_ALREADY_BOUND");
   assert.equal(repo.plans.length, 1);
+});
+
+test("closed intraday plan requires cooldown and a false-to-true technical reset before same-forecast reentry", async () => {
+  const closedAt = "2026-08-10T01:50:00.000Z";
+  const closed: MemoryPlan = {
+    id: "closed-v2",
+    planGroupId: "g-reentry",
+    version: 2,
+    status: "CLOSED",
+    forecastVersion: "v2",
+    forecastHorizon: "WEEK",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "closed-client",
+    bitgetOrderId: "closed-order",
+    submittedAt: "2026-08-10T01:00:00.000Z",
+    firstFillAt: "2026-08-10T01:00:05.000Z",
+    closedAt,
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const repo = repository([closed]);
+
+  const continuousTrigger = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: active,
+    triggerable: true,
+    strategyType: "INTRADAY",
+    repository: repo.api,
+  });
+  assert.equal(continuousTrigger.action, "FAIL_CLOSED");
+  assert.equal(continuousTrigger.code, "REENTRY_TRIGGER_RESET_REQUIRED");
+  assert.equal(repo.plans.length, 1);
+
+  const reset = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: active,
+    triggerable: false,
+    strategyType: "INTRADAY",
+    repository: repo.api,
+  });
+  assert.equal(reset.action, "REARMED");
+  assert.equal(reset.readiness, "WAITING");
+  assert.equal(reset.plan?.version, 3);
+  assert.equal(repo.plans.length, 2);
+
+  const retriggered = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: new Date(active.getTime() + 60_000),
+    triggerable: true,
+    strategyType: "INTRADAY",
+    repository: repo.api,
+  });
+  assert.equal(retriggered.action, "REFRESHED");
+  assert.equal(retriggered.readiness, "TRIGGERABLE");
+  assert.equal(retriggered.plan?.id, reset.plan?.id);
+  assert.equal(repo.plans.length, 2);
+});
+
+test("closed-plan reentry uses execution-timeframe cooldowns and fails closed without a close timestamp", () => {
+  const now = new Date("2026-08-10T02:00:00.000Z");
+  assert.deepEqual(evaluateClosedPlanReentry({
+    strategyType: "INTRADAY",
+    closedAt: "2026-08-10T01:57:00.000Z",
+    now,
+    triggerable: false,
+  }), {
+    allowed: false,
+    code: "REENTRY_COOLDOWN_ACTIVE",
+    reason: "旧订单已结束，但INTRADAY再入场冷却5分钟尚未完成。",
+  });
+  assert.equal(evaluateClosedPlanReentry({
+    strategyType: "SWING",
+    closedAt: "2026-08-10T01:00:00.000Z",
+    now,
+    triggerable: false,
+  }).allowed, true);
+  assert.equal(evaluateClosedPlanReentry({
+    strategyType: "POSITION",
+    closedAt: "2026-08-09T22:00:00.000Z",
+    now,
+    triggerable: false,
+  }).allowed, true);
+  assert.equal(evaluateClosedPlanReentry({
+    strategyType: "INTRADAY",
+    closedAt: null,
+    now,
+    triggerable: false,
+  }).allowed, false);
+});
+
+test("concurrent same-forecast rearm loses safely and cannot submit from the losing invocation", async () => {
+  const closed: MemoryPlan = {
+    id: "closed-concurrent",
+    planGroupId: "g-concurrent-reentry",
+    version: 4,
+    status: "CLOSED",
+    forecastVersion: "v2",
+    forecastHorizon: "WEEK",
+    forecastPublishedAt: "2026-08-09T01:00:00.000Z",
+    forecastLockedAt: "2026-08-09T01:01:00.000Z",
+    clientOid: "closed-client",
+    bitgetOrderId: "closed-order",
+    submittedAt: "2026-08-10T00:30:00.000Z",
+    firstFillAt: "2026-08-10T00:30:05.000Z",
+    closedAt: "2026-08-10T01:00:00.000Z",
+    binding: binding("v2"),
+    readiness: "TRIGGERABLE",
+  };
+  const authoritative: MemoryPlan = {
+    ...closed,
+    id: "rearmed-by-other-run",
+    version: 5,
+    status: "WATCHING",
+    clientOid: null,
+    bitgetOrderId: null,
+    submittedAt: null,
+    firstFillAt: null,
+    closedAt: null,
+    readiness: "WAITING",
+  };
+  let reads = 0;
+  const result = await reconcileForecastBoundPlan({
+    binding: binding("v2"),
+    now: active,
+    triggerable: false,
+    strategyType: "INTRADAY",
+    repository: {
+      findByForecastVersion: async () => (++reads === 1 ? closed : authoritative),
+      findLatest: async () => closed,
+      create: async () => { throw new Error("unique active forecast plan"); },
+      refresh: async ({ plan }) => plan,
+      supersede: async () => undefined,
+      isCreateConflict: () => true,
+    },
+  });
+  assert.equal(result.action, "FAIL_CLOSED");
+  assert.equal(result.code, "CONCURRENT_REENTRY_CREATE_RECONCILED");
+  assert.equal(result.plan?.id, authoritative.id);
+  assert.equal(reads, 2);
 });
 
 test("execution error stays bound when authoritative recovery is unavailable", async () => {

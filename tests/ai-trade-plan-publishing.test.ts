@@ -403,6 +403,7 @@ test("计划采用不可覆盖版本和内容哈希", () => {
   assert.match(plans, /hashContent/);
   assert.match(plans, /PLAN_SUPERSEDED/);
   assert.match(plans, /reconcileForecastBoundPlan/);
+  assert.match(plans, /closedAt: iso\(row\.closed_at\)/);
 });
 
 test("计划与事件账本是追加式结构", () => {

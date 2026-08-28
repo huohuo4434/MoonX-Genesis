@@ -40,6 +40,7 @@ export type ForecastBoundStoredPlan = {
   bitgetOrderId: string | null;
   submittedAt: string | null;
   firstFillAt: string | null;
+  closedAt?: string | null;
 };
 
 
@@ -56,7 +57,7 @@ export function forecastHorizonForStrategy(
 
 export type ForecastPlanReconcileResult<TPlan extends ForecastBoundStoredPlan> = {
   plan: TPlan | null;
-  action: "CREATED" | "REFRESHED" | "RECOVERED" | "FAIL_CLOSED" | "ORDER_ALREADY_BOUND";
+  action: "CREATED" | "REFRESHED" | "REARMED" | "RECOVERED" | "FAIL_CLOSED" | "ORDER_ALREADY_BOUND";
   readiness: ForecastPlanReadiness;
   code: string;
   reason: string;
@@ -111,9 +112,48 @@ const ORDER_BOUND = new Set<ForecastBoundPlanStatus>([
   "CLOSED",
 ]);
 
+const REENTRY_COOLDOWN_MINUTES: Record<"INTRADAY" | "SWING" | "POSITION", number> = {
+  INTRADAY: 5,
+  SWING: 60,
+  POSITION: 4 * 60,
+};
+
 function timestamp(value: string): number | null {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function evaluateClosedPlanReentry(input: {
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  closedAt: string | null | undefined;
+  now: Date;
+  triggerable: boolean;
+}): { allowed: true; cooldownMinutes: number } | { allowed: false; code: string; reason: string } {
+  const cooldownMinutes = REENTRY_COOLDOWN_MINUTES[input.strategyType];
+  const closedAt = input.closedAt ? timestamp(input.closedAt) : null;
+  if (closedAt == null) {
+    return {
+      allowed: false,
+      code: "REENTRY_CLOSE_TIME_UNVERIFIED",
+      reason: "旧订单生命周期虽已结束，但缺少可验证平仓时间；禁止用同一预测版本再次开仓。",
+    };
+  }
+  const elapsedMs = input.now.getTime() - closedAt;
+  if (elapsedMs < cooldownMinutes * 60_000) {
+    return {
+      allowed: false,
+      code: "REENTRY_COOLDOWN_ACTIVE",
+      reason: `旧订单已结束，但${input.strategyType}再入场冷却${cooldownMinutes}分钟尚未完成。`,
+    };
+  }
+  if (input.triggerable) {
+    return {
+      allowed: false,
+      code: "REENTRY_TRIGGER_RESET_REQUIRED",
+      reason: "平仓后技术条件仍连续处于触发态；必须先出现一次不满足，再等待新的闭合K线触发，禁止追单。",
+    };
+  }
+  return { allowed: true, cooldownMinutes };
 }
 
 export function validateLockedForecastBinding(
@@ -202,6 +242,50 @@ export async function reconcileForecastBoundPlan<TPlan extends ForecastBoundStor
     : "WAITING";
   const sameVersion = await input.repository.findByForecastVersion(binding.forecastVersion);
   if (sameVersion) {
+    if (sameVersion.status === "CLOSED") {
+      const reentry = evaluateClosedPlanReentry({
+        strategyType: input.strategyType,
+        closedAt: sameVersion.closedAt,
+        now: input.now,
+        triggerable: input.triggerable,
+      });
+      if (!reentry.allowed) {
+        return {
+          plan: sameVersion,
+          action: "FAIL_CLOSED",
+          readiness: "WAITING",
+          code: reentry.code,
+          reason: reentry.reason,
+        };
+      }
+      try {
+        const rearmed = await input.repository.create({
+          binding,
+          planGroupId: sameVersion.planGroupId,
+          version: sameVersion.version + 1,
+          readiness: "WAITING",
+        });
+        return {
+          plan: rearmed,
+          action: "REARMED",
+          readiness: "WAITING",
+          code: "FORECAST_VERSION_REENTRY_REARMED",
+          reason: `旧订单已确认平仓并完成${reentry.cooldownMinutes}分钟冷却；技术条件已复位，建立新观察计划，只有后续再次触发并重过全部风控才可下单。`,
+        };
+      } catch (error) {
+        if (!input.repository.isCreateConflict(error)) throw error;
+        const authoritative = await input.repository.findByForecastVersion(binding.forecastVersion);
+        return {
+          plan: authoritative,
+          action: "FAIL_CLOSED",
+          readiness: "WAITING",
+          code: authoritative ? "CONCURRENT_REENTRY_CREATE_RECONCILED" : "REENTRY_CREATE_CONFLICT_UNRESOLVED",
+          reason: authoritative
+            ? "并发任务已建立同一预测版本的新观察计划；本轮只做权威重读并停止执行，禁止重复下单。"
+            : "再入场观察计划发生唯一键冲突，但权威重读未找到计划；本轮fail-closed，禁止下单。",
+        };
+      }
+    }
     if (orderAlreadyBound(sameVersion)) {
       if (sameVersion.status === "EXECUTION_ERROR" && input.repository.recoverExecutionError) {
         const recovered = await input.repository.recoverExecutionError({

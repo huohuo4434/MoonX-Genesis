@@ -1078,6 +1078,7 @@ export async function prepareAiTradePlanBeforeExecution(input: {
     bitgetOrderId: row.bitget_order_id,
     submittedAt: iso(row.submitted_at),
     firstFillAt: iso(row.first_fill_at),
+    closedAt: iso(row.closed_at),
     row,
   });
   const triggerable = input.decision.confidence >= input.profile.planningMinConfidence && (
