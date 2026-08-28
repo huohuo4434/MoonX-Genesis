@@ -5,6 +5,10 @@ import {
   reliabilityDecisionModeForEnvironment,
   shouldRepairConfirmedMissingProtection,
 } from "@/lib/trading-signals/reliability-position-classification-core";
+import {
+  RELIABILITY_OUTBOX_FAILURE_COOLDOWN_MS,
+  isOutboxFailureCurrent,
+} from "@/lib/trading-signals/outbox-failure-relevance-core";
 
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -92,6 +96,7 @@ interface OutboxRow {
   last_error: string;
   created_at: Date | string;
   updated_at: Date | string;
+  decision_status?: string | null;
 }
 
 interface IncidentRow {
@@ -694,11 +699,20 @@ export async function runTradingReliabilityWatchdog(input: {
     });
   }
   const failedRows = await prisma.$queryRawUnsafe<OutboxRow[]>(
-    `SELECT * FROM trade_execution_outbox
-     WHERE status='FAILED' AND attempt_count>=max_attempts
-     ORDER BY updated_at DESC LIMIT 50`
+    `SELECT outbox.*, decision.status AS decision_status
+     FROM trade_execution_outbox outbox
+     LEFT JOIN trade_three_horizon_decisions decision ON decision.id=outbox.decision_id
+     WHERE outbox.status='FAILED' AND outbox.attempt_count>=outbox.max_attempts
+       AND (
+         decision.status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING')
+         OR outbox.updated_at >= NOW()-INTERVAL '${Math.ceil(RELIABILITY_OUTBOX_FAILURE_COOLDOWN_MS / 1_000)} seconds'
+       )
+     ORDER BY outbox.updated_at DESC LIMIT 50`
   );
-  for (const row of failedRows) {
+  for (const row of failedRows.filter((item) => isOutboxFailureCurrent({
+    failedAt: item.updated_at,
+    decisionStatus: item.decision_status,
+  }))) {
     issues.push({
       severity: "CRITICAL",
       code: "OUTBOX_FAILED",
