@@ -25,7 +25,7 @@ export default async function AdminWeeklyPage() {
         周度行情管理
       </Heading>
       <Text variant="body-sm" color="secondary" className="mb-6">
-        周一至周五展示本周；周六、周日自动切换到下周。只发布有真实研究依据的市场，缺失项目不会复制旧预测。
+        周一至周五展示本周；周六、周日自动切换到下周。系统会把已锁定周卦、阶段卦与复盘规则自动整理为正式周报告，无需管理员逐条点击。
       </Text>
 
       <div className="mb-8 grid gap-3 sm:grid-cols-4">
@@ -86,7 +86,7 @@ export default async function AdminWeeklyPage() {
                 </>
               ) : (
                 <Text variant="body-sm" color="secondary">
-                  当前窗口没有完成研究。会员页会显示“待发布”，不会沿用上一周方向。
+                  当前窗口尚无可追溯的锁定依据；系统会继续自动检查资料库，不会沿用上一周方向或要求管理员手动发布。
                 </Text>
               )}
             </Card>
