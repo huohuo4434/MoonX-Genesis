@@ -4,6 +4,7 @@ import { buildMemberDailyReviewReports } from "@/lib/member-review/daily-review-
 import { filterPublicAccuracyHistory } from "@/lib/accuracy/public-history-filter";
 import type { DailyForecastRecord, DailyVerificationResult } from "@/types/daily-accuracy";
 import type { DailyReviewRecord } from "@/types/automation";
+import { buildPublicFooterColumns, MEMBER_RESEARCH_NAV } from "@/config/member-channel-navigation";
 
 function forecast(input: Partial<DailyForecastRecord> & Pick<DailyForecastRecord, "id" | "symbol" | "assetName" | "market">): DailyForecastRecord {
   return {
@@ -144,4 +145,14 @@ test("member-only focus verification never leaks into the public verification ce
   ];
   const visible = filterPublicAccuracyHistory({ forecasts: [publicForecast, memberForecast], results, now: new Date("2026-08-28T04:00:00.000Z") });
   assert.deepEqual(visible.map((item) => item.symbol), ["NDX"]);
+});
+
+test("daily review is discoverable from the member menu and footer", () => {
+  assert.ok(
+    MEMBER_RESEARCH_NAV.some(
+      (item) => item.href === "/member/daily-review" && item.labelZh === "每日预测复盘" && item.groupKey === "forecast"
+    )
+  );
+  const memberFooter = buildPublicFooterColumns().find((column) => column.titleZh === "会员频道");
+  assert.ok(memberFooter?.links.some((item) => item.href === "/member/daily-review" && item.labelZh === "每日预测复盘"));
 });
