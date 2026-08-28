@@ -4,14 +4,9 @@ import { getSexagenaryDay, listDatesByBranches } from "@/lib/calendar/sexagenary
 import { getChinaDateKey } from "@/lib/date/china-date";
 import { listDailyForecasts } from "@/lib/data/daily-forecasts";
 import { listAllWeeklyAnalyses } from "@/lib/data/weekly-analysis";
-import { listLongxinPeriodForecasts } from "@/lib/data/conviction/longxin-forecasts";
-import { listAsteroidPeriodForecasts } from "@/lib/data/conviction/asteroid-forecasts";
-import { listMuHypePeriodForecasts } from "@/lib/data/conviction/mu-hype-forecasts";
-import { listHypePeriodForecasts20260809, listSolPeriodForecasts20260809 } from "@/lib/data/conviction/hype-sol-20260809";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
-import { listGooglePeriodForecasts } from "@/lib/data/conviction/google-forecasts";
-import { listMsftPeriodForecasts } from "@/lib/data/conviction/msft-forecasts";
-import { listSandiskPeriodForecasts } from "@/lib/data/conviction/sandisk-forecasts";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
+import { canonicalConvictionForecastHorizon } from "@/lib/forecasts/canonical-forecast-adapter-core";
 import { CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-20260801";
 import { US_INDEX_CYCLE_ADMIN_ROWS_20260809 } from "@/lib/data/us-index-liuyao-20260809";
 import { REMAINING_CORE_MARKET_CYCLE_ADMIN_ROWS_20260801 } from "@/lib/data/core-market-liuyao-remaining-20260801";
@@ -177,24 +172,14 @@ function staticForecastRows(now = new Date()): AdminCycleForecastRow[] {
     rows.push({ ...item });
   }
 
-  const focusGroups = [
-    ...listLongxinPeriodForecasts(),
-    ...listAsteroidPeriodForecasts(),
-    ...listMuHypePeriodForecasts("mu"),
-    ...listHypePeriodForecasts20260809(),
-    ...listSolPeriodForecasts20260809(),
-    ...listStaticFocusForecasts("eth"),
-    ...listStaticFocusForecasts("btc"),
-    ...listGooglePeriodForecasts(),
-    ...listMsftPeriodForecasts(),
-    ...listSandiskPeriodForecasts(),
-  ];
+  // Keep the bounded live-trading forecast reader on the same complete focus
+  // registry used by member pages.  A hand-maintained subset silently dropped
+  // valid locked weekly rows for newly enabled exact Bitget instruments.
+  const focusGroups = ACTIVE_STATIC_FOCUS_ASSET_IDS.flatMap((assetId) =>
+    listStaticFocusForecasts(assetId)
+  );
   for (const item of focusGroups) {
-    const horizon = item.forecastType.startsWith("WEEK")
-      ? "WEEK"
-      : item.forecastType.startsWith("YEAR")
-        ? "YEAR"
-        : "MONTH";
+    const horizon = canonicalConvictionForecastHorizon(item);
     if (horizon === "WEEK" && item.periodStart > monthEnd) continue;
     if (horizon === "MONTH" && item.periodStart > yearEnd) continue;
     rows.push({

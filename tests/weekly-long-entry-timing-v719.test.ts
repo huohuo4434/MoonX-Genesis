@@ -84,6 +84,18 @@ test("forecast selection uses captured now and cannot mature against a later wal
   assert.equal(selected?.id, "captured-v1");
 });
 
+test("forecast selection never activates a pre-locked future period", () => {
+  const selected = selectFormallyLockedForecast({
+    today: "2026-08-28",
+    nowMs: Date.parse("2026-08-28T12:00:00+08:00"),
+    score: (row) => row.version ?? 0,
+    rows: [
+      { id: "future-week", status: "LOCKED", publishedAt: "2026-08-24T09:00:00+08:00", lockedAt: "2026-08-24T09:00:00+08:00", periodStart: "2026-08-31", periodEnd: "2026-09-06", version: 9 },
+    ],
+  });
+  assert.equal(selected, null);
+});
+
 test("production forecast selection threads one captured now without Date.now drift", () => {
   const source = readFileSync(resolve(process.cwd(), "lib/trading-signals/prediction-auto-trader.ts"), "utf8");
   const formalStart = source.indexOf("function rowIsFormallyLocked(");

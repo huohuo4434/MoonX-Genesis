@@ -17,6 +17,7 @@ export function selectFormallyLockedForecast<T extends {
   score: (row: T) => number;
 }): T | null {
   const eligible = input.rows.filter((row) =>
+    row.periodStart <= input.today &&
     row.periodEnd >= input.today &&
     isFormallyLockedForecast({
       status: row.status,

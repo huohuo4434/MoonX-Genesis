@@ -53,6 +53,7 @@ import type {
 } from "@/types/prediction-auto-trader";
 import { loadForecastSourcesForScope } from "@/lib/trading-signals/forecast-read-scope-core";
 import { resolveWeeklyAuthoritySetup } from "@/lib/trading-signals/authoritative-market-structure-core";
+import { canonicalPredictionAssetId } from "@/lib/forecasts/canonical-forecast-adapter-core";
 
 type DbSettings = {
   enabled: boolean;
@@ -103,32 +104,38 @@ type PathPattern =
   | "DOWN"
   | "NEUTRAL";
 
-type SymbolMeta = {
-  assetId: string;
+type SymbolCatalogEntry = {
   assetName: string;
   tradeSymbol: string;
 };
 
-const SYMBOL_CATALOG: Record<string, SymbolMeta> = {
-  BTC: { assetId: "bitcoin", assetName: "比特币", tradeSymbol: "BTC" },
-  ETH: { assetId: "eth", assetName: "以太坊", tradeSymbol: "ETH" },
-  SOL: { assetId: "solana", assetName: "Solana", tradeSymbol: "SOL" },
-  BNB: { assetId: "bnb", assetName: "BNB", tradeSymbol: "BNB" },
-  XRP: { assetId: "xrp", assetName: "XRP", tradeSymbol: "XRP" },
-  DOGE: { assetId: "dogecoin", assetName: "狗狗币", tradeSymbol: "DOGE" },
-  ADA: { assetId: "cardano", assetName: "Cardano", tradeSymbol: "ADA" },
-  AVAX: { assetId: "avalanche", assetName: "Avalanche", tradeSymbol: "AVAX" },
-  LINK: { assetId: "chainlink", assetName: "Chainlink", tradeSymbol: "LINK" },
-  HYPE: { assetId: "hype", assetName: "Hyperliquid", tradeSymbol: "HYPE" },
-  MU: { assetId: "mu", assetName: "美光科技", tradeSymbol: "MU" },
-  QQQ: { assetId: "nasdaq-100", assetName: "纳斯达克100", tradeSymbol: "QQQ" },
-  XAUT: { assetId: "gold", assetName: "黄金", tradeSymbol: "XAUT" },
-  XAG: { assetId: "silver", assetName: "白银", tradeSymbol: "XAG" },
-  GOOGL: { assetId: "googl", assetName: "Alphabet", tradeSymbol: "GOOGL" },
-  CL: { assetId: "wti-crude", assetName: "WTI原油", tradeSymbol: "CL" },
-  SPY: { assetId: "sp500", assetName: "标普500", tradeSymbol: "SPY" },
-  SNDK: { assetId: "sandisk", assetName: "SanDisk", tradeSymbol: "SNDK" },
-  MSFT: { assetId: "msft", assetName: "微软", tradeSymbol: "MSFT" },
+type SymbolMeta = SymbolCatalogEntry & { assetId: string };
+
+const SYMBOL_CATALOG: Record<string, SymbolCatalogEntry> = {
+  BTC: { assetName: "比特币", tradeSymbol: "BTC" },
+  ETH: { assetName: "以太坊", tradeSymbol: "ETH" },
+  SOL: { assetName: "Solana", tradeSymbol: "SOL" },
+  BNB: { assetName: "BNB", tradeSymbol: "BNB" },
+  XRP: { assetName: "XRP", tradeSymbol: "XRP" },
+  DOGE: { assetName: "狗狗币", tradeSymbol: "DOGE" },
+  ADA: { assetName: "Cardano", tradeSymbol: "ADA" },
+  AVAX: { assetName: "Avalanche", tradeSymbol: "AVAX" },
+  LINK: { assetName: "Chainlink", tradeSymbol: "LINK" },
+  HYPE: { assetName: "Hyperliquid", tradeSymbol: "HYPE" },
+  MU: { assetName: "美光科技", tradeSymbol: "MU" },
+  QQQ: { assetName: "纳斯达克100", tradeSymbol: "QQQ" },
+  XAUT: { assetName: "黄金", tradeSymbol: "XAUT" },
+  XAG: { assetName: "白银", tradeSymbol: "XAG" },
+  GOOGL: { assetName: "Alphabet", tradeSymbol: "GOOGL" },
+  CL: { assetName: "WTI原油", tradeSymbol: "CL" },
+  SPY: { assetName: "标普500", tradeSymbol: "SPY" },
+  SNDK: { assetName: "SanDisk", tradeSymbol: "SNDK" },
+  MSFT: { assetName: "微软", tradeSymbol: "MSFT" },
+  INTC: { assetName: "英特尔", tradeSymbol: "INTC" },
+  LITE: { assetName: "Lumentum", tradeSymbol: "LITE" },
+  NBIS: { assetName: "Nebius", tradeSymbol: "NBIS" },
+  TENCENT: { assetName: "腾讯", tradeSymbol: "TENCENT" },
+  TSLA: { assetName: "特斯拉", tradeSymbol: "TSLA" },
 };
 
 const DEFAULT_WATCH_SYMBOLS = ["BTC", "ETH"];
@@ -159,13 +166,8 @@ function normalizeWatchSymbols(value: unknown, fallback = DEFAULT_WATCH_SYMBOLS)
 
 function symbolMeta(symbol: PredictionAutoSymbol): SymbolMeta {
   const normalized = normalizeSymbol(symbol);
-  return (
-    SYMBOL_CATALOG[normalized] ?? {
-      assetId: normalized.toLowerCase(),
-      assetName: normalized,
-      tradeSymbol: normalized,
-    }
-  );
+  const catalog = SYMBOL_CATALOG[normalized] ?? { assetName: normalized, tradeSymbol: normalized };
+  return { ...catalog, assetId: canonicalPredictionAssetId(normalized) };
 }
 
 const DEFAULT_SETTINGS: PredictionAutoTraderSettings = {
