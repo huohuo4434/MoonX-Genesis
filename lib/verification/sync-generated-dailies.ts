@@ -34,6 +34,7 @@ type GeneratedDailyLike = {
   id: string;
   marketCode: string;
   forecastDate: string;
+  sourceWeeklyForecastId?: string | null;
   direction: string;
   upProbability?: number | null;
   sidewaysProbability?: number | null;
@@ -202,6 +203,9 @@ export function generatedDailyToVerificationRecord(
     resistanceLevels,
     confirmation: row.confirmationLevel ?? undefined,
     invalidation: row.invalidationLevel ?? undefined,
+    visibility: "PUBLIC",
+    sourceForecastId: row.sourceWeeklyForecastId ?? null,
+    revisionReason: row.revisionReason ?? null,
   };
 }
 
@@ -244,6 +248,7 @@ async function queryGeneratedDailyRows(
         id: true,
         marketCode: true,
         forecastDate: true,
+        sourceWeeklyForecastId: true,
         direction: true,
         upProbability: true,
         sidewaysProbability: true,
@@ -278,6 +283,7 @@ async function queryGeneratedDailyRows(
         id: true,
         marketCode: true,
         forecastDate: true,
+        sourceWeeklyForecastId: true,
         direction: true,
         upProbability: true,
         sidewaysProbability: true,
@@ -302,6 +308,7 @@ async function queryGeneratedDailyRows(
       id: true,
       marketCode: true,
       forecastDate: true,
+      sourceWeeklyForecastId: true,
       direction: true,
       status: true,
       createdAt: true,

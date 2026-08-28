@@ -3,7 +3,7 @@ import "server-only";
 import { unstable_noStore as noStore } from "next/cache";
 import { getChinaDateKey } from "@/lib/date/china-date";
 import { listDailyForecastRecords, listDailyVerificationResults } from "@/lib/data/moonx-data-store";
-import { isTerminalVerificationVerdict, OFFICIAL_DAILY_VERIFICATION_START, selectCanonicalDailyForecasts } from "@/lib/accuracy/public-history-filter";
+import { isPublicVerificationForecast, isTerminalVerificationVerdict, OFFICIAL_DAILY_VERIFICATION_START, selectCanonicalDailyForecasts } from "@/lib/accuracy/public-history-filter";
 
 export type PendingVerificationItem = {
   forecastId: string;
@@ -36,6 +36,7 @@ export async function getPendingVerificationRecords(
 
   return selectCanonicalDailyForecasts(forecasts)
     .filter((forecast) => {
+      if (!isPublicVerificationForecast(forecast)) return false;
       if (forecast.forecastDate < OFFICIAL_DAILY_VERIFICATION_START) return false;
       if (forecast.forecastDate < earliest || forecast.forecastDate > todayKey) return false;
       return !finalized.has(forecast.id);

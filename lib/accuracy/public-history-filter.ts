@@ -96,6 +96,12 @@ export function isPublicFinalVerdict(v: DailyVerdict | string | null | undefined
   return Boolean(v && PUBLIC_FINAL_VERDICTS.has(v as DailyVerdict));
 }
 
+export function isPublicVerificationForecast(
+  forecast: DailyForecastRecord | null | undefined
+): boolean {
+  return Boolean(forecast && forecast.visibility !== "MEMBER");
+}
+
 export function isPublicCountableVerdict(v: DailyVerdict | string | null | undefined): boolean {
   return Boolean(v && PUBLIC_COUNTABLE_VERDICTS.has(v as DailyVerdict));
 }
@@ -170,6 +176,7 @@ export function filterPublicAccuracyHistory(input: {
 
     const f = forecastById.get(r.forecastId);
     if (f) {
+      if (!isPublicVerificationForecast(f)) continue;
       if (!canonicalForecastIds.has(f.id)) continue;
     }
 

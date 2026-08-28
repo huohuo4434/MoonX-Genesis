@@ -68,6 +68,17 @@ export async function generateReviewsForVerified(now = new Date()): Promise<{ cr
             confidence: forecast.probability,
           })
         : [];
+    if (
+      isMiss &&
+      !forecast.sourcePrimaryHexagram &&
+      !biases.some((bias) => bias.code === "insufficient_evidence")
+    ) {
+      biases.push({
+        code: "insufficient_evidence",
+        severity: 2,
+        evidence: "锁定记录缺少可直接展示的本周卦象结构，偏差归因只能停留在方向和路径层。",
+      });
+    }
 
     let whatWasCorrect =
       isFullHit
@@ -134,12 +145,27 @@ export async function generateReviewsForVerified(now = new Date()): Promise<{ cr
         directionLabel: forecast.directionLabel,
         confidence: forecast.probability,
         summary: forecast.summary,
+        expectedPath: forecast.expectedPath,
+        sourceForecastId: forecast.sourceForecastId,
+        sourcePeriodStart: forecast.sourcePeriodStart,
+        sourcePeriodEnd: forecast.sourcePeriodEnd,
+        primaryHexagram: forecast.sourcePrimaryHexagram,
+        changedHexagram: forecast.sourceChangedHexagram,
+        sourceInterpretation: forecast.sourceInterpretation,
+        weeklyDirection: forecast.sourceWeeklyDirection,
+        version: forecast.originalVersion,
       },
       actualResult: {
         returnPct: result.actualReturnPct,
         actualDirection: result.actualDirection,
         close: result.actualClose,
         previousClose: result.previousClose,
+        open: result.actualOpen,
+        high: result.actualHigh,
+        low: result.actualLow,
+        actualPattern: result.actualPatternLabel ?? result.actualPattern ?? null,
+        mainHighTime: result.mainHighTime,
+        mainLowTime: result.mainLowTime,
       },
       directionVerdict: result.verdict,
       pathVerdict,

@@ -73,12 +73,26 @@ export type DailyReviewRecord = {
     confidence?: number;
     summary?: string;
     expectedPath?: string[];
+    sourceForecastId?: string | null;
+    sourcePeriodStart?: string | null;
+    sourcePeriodEnd?: string | null;
+    primaryHexagram?: string | null;
+    changedHexagram?: string | null;
+    sourceInterpretation?: string | null;
+    weeklyDirection?: string | null;
+    version?: number;
   };
   actualResult: {
     returnPct: number;
     actualDirection: DailyAccuracyDirection;
     close: number;
     previousClose: number;
+    open?: number | null;
+    high?: number | null;
+    low?: number | null;
+    actualPattern?: string | null;
+    mainHighTime?: string | null;
+    mainLowTime?: string | null;
   };
   directionVerdict: DailyVerdict;
   pathVerdict: PathVerdict;

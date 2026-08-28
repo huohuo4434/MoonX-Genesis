@@ -27,6 +27,7 @@ import {
 } from "@/lib/verification/daily-rules";
 import type { DailyForecastRecord, DailyVerificationResult } from "@/types/daily-accuracy";
 import { syncGeneratedDailyForecastsToVerificationStore } from "@/lib/verification/sync-generated-dailies";
+import { selectCanonicalDailyForecasts } from "@/lib/accuracy/public-history-filter";
 
 export type RunDailyVerificationOptions = {
   forceRefetchForecastIds?: string[];
@@ -39,6 +40,10 @@ export type RunDailyVerificationReport = {
   syncUnsupported: number;
   syncLatePublished: number;
   syncErrors: string[];
+  focusSyncedPublished: number;
+  focusSyncExisting: number;
+  focusSyncUnsupported: number;
+  focusSyncErrors: string[];
   scanned: number;
   verified: number;
   skippedExisting: number;
@@ -48,6 +53,8 @@ export type RunDailyVerificationReport = {
   reopenedLegacyVoid: number;
   notReady: number;
   errors: string[];
+  reviewsCreated: number;
+  focusDeferred: number;
 };
 
 const AUTO_UNVERIFIABLE_AFTER_MS = 72 * 60 * 60 * 1000;
@@ -100,6 +107,8 @@ export async function runDailyVerification(
   // public verification store before each scan. This makes every locked/published
   // forecast auditable without relying on an administrator to duplicate it.
   const sync = await syncGeneratedDailyForecastsToVerificationStore({ now });
+  const { syncFocusGeneratedDailiesToVerificationStore } = await import("@/lib/verification/sync-focus-generated-dailies");
+  const focusSync = await syncFocusGeneratedDailiesToVerificationStore(now);
   const forecasts = await listDailyForecastRecords();
   const existing = await listDailyVerificationResults();
   const existingById = new Map(existing.map((r) => [r.forecastId, r]));
@@ -110,6 +119,10 @@ export async function runDailyVerification(
     syncUnsupported: sync.unsupported,
     syncLatePublished: sync.latePublished,
     syncErrors: sync.errors,
+    focusSyncedPublished: focusSync.created,
+    focusSyncExisting: focusSync.existing,
+    focusSyncUnsupported: focusSync.unsupported,
+    focusSyncErrors: focusSync.errors,
     scanned: 0,
     verified: 0,
     skippedExisting: 0,
@@ -118,20 +131,52 @@ export async function runDailyVerification(
     finalizedUnverifiable: 0,
     reopenedLegacyVoid: 0,
     notReady: 0,
-    errors: sync.errors.map((message) => `sync:${message}`),
+    errors: [
+      ...sync.errors.map((message) => `sync:${message}`),
+      ...focusSync.errors.map((message) => `focus-sync:${message}`),
+    ],
+    reviewsCreated: 0,
+    focusDeferred: 0,
   };
 
+  const canonicalMemberIds = new Set(
+    selectCanonicalDailyForecasts(forecasts.filter((forecast) => forecast.visibility === "MEMBER"))
+      .map((forecast) => forecast.id)
+  );
   const candidates = forecasts.filter(
     (f) =>
-      f.status === "published" ||
-      f.status === "verifying" ||
-      f.status === "verified" ||
-      f.status === "invalid"
+      (f.status === "published" ||
+        f.status === "verifying" ||
+        f.status === "verified" ||
+        f.status === "invalid") &&
+      (f.visibility !== "MEMBER" || canonicalMemberIds.has(f.id))
+  );
+  const readyMemberIds = new Set(
+    candidates
+      .filter((forecast) => forecast.visibility === "MEMBER")
+      .filter((forecast) => {
+        const prior = existingById.get(forecast.id);
+        return !prior || !["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS", "UNVERIFIABLE", "VOID"].includes(prior.verdict);
+      })
+      .filter((forecast) => force.has(forecast.id) || isSessionReadyToVerify(forecast.market, forecast.forecastDate, now))
+      .sort((a, b) => a.forecastDate.localeCompare(b.forecastDate) || a.symbol.localeCompare(b.symbol))
+      .slice(0, 6)
+      .map((forecast) => forecast.id)
   );
 
   for (let forecast of candidates) {
     report.scanned += 1;
     try {
+
+    if (
+      forecast.visibility === "MEMBER" &&
+      isSessionReadyToVerify(forecast.market, forecast.forecastDate, now) &&
+      !readyMemberIds.has(forecast.id) &&
+      !force.has(forecast.id)
+    ) {
+      report.focusDeferred += 1;
+      continue;
+    }
 
     const prior = existingById.get(forecast.id);
     const reopenLegacyVoid = shouldReopenLegacyVoid(forecast, prior);
@@ -346,6 +391,13 @@ export async function runDailyVerification(
         // Keep the batch alive even when the fallback/status write also fails.
       }
     }
+  }
+
+  try {
+    const { generateReviewsForVerified } = await import("@/lib/automation/generate-reviews");
+    report.reviewsCreated = (await generateReviewsForVerified(now)).created;
+  } catch (error) {
+    report.errors.push(`review-generation:${error instanceof Error ? error.message : String(error)}`);
   }
 
   return report;

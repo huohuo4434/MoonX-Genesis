@@ -2,7 +2,7 @@ import "server-only";
 
 import { hasPrisma } from "@/lib/prisma";
 import type { DailyVerificationResult } from "@/types/daily-accuracy";
-import { isPublicFinalVerdict, isTerminalVerificationVerdict } from "@/lib/accuracy/public-history-filter";
+import { isPublicFinalVerdict, isPublicVerificationForecast, isTerminalVerificationVerdict } from "@/lib/accuracy/public-history-filter";
 import {
   listDailyForecastRecords,
   listDailyVerificationResults,
@@ -90,6 +90,7 @@ export async function getVerificationPipelineStatus(now = new Date()): Promise<V
   const formalRecords = records.filter(
     (record) =>
       !record.isSystemTest &&
+      isPublicVerificationForecast(record) &&
       record.forecastDate >= OFFICIAL_GENERATED_DAILY_SYNC_START &&
       record.status !== "draft"
   );

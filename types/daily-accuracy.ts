@@ -95,6 +95,17 @@ export type DailyForecastRecord = {
   priceDataSourceLabel?: string;
   priceSnapshotAtLabel?: string;
   priceSnapshot?: import("@/lib/market-data/price-levels").ForecastPriceSnapshot | null;
+  /** Member research stays out of the public verification centre. Legacy rows default to PUBLIC. */
+  visibility?: "PUBLIC" | "MEMBER";
+  /** Traceable higher-horizon source used to derive this daily view. */
+  sourceForecastId?: string | null;
+  sourcePeriodStart?: string | null;
+  sourcePeriodEnd?: string | null;
+  sourcePrimaryHexagram?: string | null;
+  sourceChangedHexagram?: string | null;
+  sourceInterpretation?: string | null;
+  sourceWeeklyDirection?: string | null;
+  revisionReason?: string | null;
 };
 
 export type DailyVerificationResult = {
