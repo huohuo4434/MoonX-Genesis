@@ -52,7 +52,7 @@ test("runtime cannot start live experiment or new exposure while unified gate fo
   assert.match(runtime, /LIVE_STRATEGY_SYMBOLS_PER_RUN/);
   assert.match(strategy, /scanOnly\?: boolean/);
   assert.match(strategy, /options\.scanOnly[\s\S]*?"SHADOW_READY"/);
-  assert.match(strategy, /!options\.scanOnly && Date\.now\(\) < newEntryCutoffMs/);
+  assert.match(strategy, /!options\.scanOnly &&[\s\S]{0,300}Date\.now\(\) < newEntryCutoffMs/);
 });
 
 test("1000U experiment has hard capital and loss caps independent of stale larger env aliases", () => {

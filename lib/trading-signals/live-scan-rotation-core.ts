@@ -11,6 +11,19 @@ export function selectRotatingScanBatch<T>(
   return values.slice(rotationSlot * batchSize, rotationSlot * batchSize + batchSize);
 }
 
+export function formatLiveScanCoverage(input: {
+  scannedSymbols: readonly string[];
+  scheduledSymbols: readonly string[];
+  freshSymbols: readonly string[];
+  allowedSymbols: readonly string[];
+}): string {
+  const scanned = Array.from(new Set(input.scannedSymbols.map((symbol) => symbol.toUpperCase())));
+  const scheduled = new Set(input.scheduledSymbols.map((symbol) => symbol.toUpperCase())).size;
+  const fresh = new Set(input.freshSymbols.map((symbol) => symbol.toUpperCase())).size;
+  const allowed = new Set(input.allowedSymbols.map((symbol) => symbol.toUpperCase())).size;
+  return `本轮实际评估${scanned.length}个标的（轮转计划${scheduled}个；本轮行情可用池${fresh}个；正式允许池${allowed}个；${scanned.join("、") || "无"}）`;
+}
+
 export type LiveScanOpportunityHint = {
   id: string;
   symbol: string;

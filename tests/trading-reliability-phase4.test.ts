@@ -745,10 +745,15 @@ test("三周期新开仓进入可靠性闸门", () => {
 test("live cron keeps a bounded rotating batch and finalization reserve", () => {
   all(runtime, [
     "Math.max(1, Math.min(4",
-    "MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2",
+    "MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 4",
     "LIVE_STRATEGY_BUDGET_MS = 55_000",
     'maxNewSymbols: environment.mode === "LIVE_EXPERIMENT" ? LIVE_STRATEGY_SYMBOLS_PER_RUN : undefined',
   ]);
+  all(strategy, [
+    "freshSymbols: eligibleLiveSymbols",
+    "allowedSymbols: environment.liveAllowedSymbols",
+  ]);
+  assert.doesNotMatch(strategy, /allowedSymbols:\s*eligibleLiveSymbols/);
   assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader")?.schedule, "* * * * *");
   assert.match(strategy, /const maxNewSymbols = options\.maxNewSymbols != null && Number\.isFinite\(options\.maxNewSymbols\)/);
   assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);

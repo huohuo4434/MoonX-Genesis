@@ -9,6 +9,7 @@ import {
 } from "../lib/bitget/runtime-lease-core";
 import {
   beginLiveScanRound,
+  formatLiveScanCoverage,
   LiveScanReadDeadlineError,
   readWithinLiveScanDeadline,
   runLiveScanSymbolStep,
@@ -353,6 +354,17 @@ test("rotation safely handles empty, singleton and partial final batches", () =>
   assert.deepEqual(selectRotatingScanBatch([], 1, 0), []);
   assert.deepEqual(selectRotatingScanBatch(["BTC"], 1, 99 * 60_000), ["BTC"]);
   assert.deepEqual(selectRotatingScanBatch(["A", "B", "C", "D", "E"], 2, 2 * 60_000), ["E"]);
+});
+
+test("live scan coverage reports actual, scheduled and full allowlist counts separately", () => {
+  const allowedSymbols = Array.from({ length: 18 }, (_, index) => `ASSET${index + 1}`);
+  const freshSymbols = allowedSymbols.slice(0, 16);
+  assert.equal(formatLiveScanCoverage({
+    scannedSymbols: ["ASSET1", "ASSET2", "ASSET3", "ASSET1"],
+    scheduledSymbols: ["ASSET1", "ASSET2", "ASSET3", "ASSET4"],
+    freshSymbols,
+    allowedSymbols,
+  }), "本轮实际评估3个标的（轮转计划4个；本轮行情可用池16个；正式允许池18个；ASSET1、ASSET2、ASSET3）");
 });
 
 test("a long read fails closed at the shared deadline while the round can finish", async () => {

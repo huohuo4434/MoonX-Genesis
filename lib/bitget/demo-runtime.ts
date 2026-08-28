@@ -83,8 +83,8 @@ const EVENT_RETENTION_DAYS = 14;
 // Keep every live pass bounded so the one-minute cron can rotate through the
 // universe instead of timing out after repeatedly evaluating only its first symbol.
 const LIVE_STRATEGY_SYMBOLS_PER_RUN = Math.max(1, Math.min(4, Math.floor(Number(
-  process.env.MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 2
-) || 2)));
+  process.env.MOOX_LIVE_STRATEGY_SYMBOLS_PER_RUN_V72010 ?? 4
+) || 4)));
 const LIVE_STRATEGY_BUDGET_MS = 55_000;
 
 interface RuntimeStateRow {
