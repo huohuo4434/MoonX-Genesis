@@ -2,6 +2,13 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
+import {
+  buildLiveTradingDiagnostics,
+  type LiveDiagnosticActivityRow,
+  type LiveDiagnosticBlockerRow,
+  type LiveDiagnosticDecisionRow,
+  type LiveDiagnosticPlanRow,
+} from "@/lib/bitget/live-admin-diagnostics-core";
 import type {
   BitgetRuntimeAccountSnapshot,
   BitgetRuntimeDecisionStats,
@@ -93,6 +100,10 @@ type SnapshotEnvelope = {
   daily_history: DailyRow[] | null;
   recent_events: EventRow[] | null;
   recent_execution_failures: ExecutionFailureRow[] | null;
+  latest_live_decisions: LiveDiagnosticDecisionRow[] | null;
+  latest_live_plans: LiveDiagnosticPlanRow[] | null;
+  live_activity_24h: LiveDiagnosticActivityRow[] | null;
+  live_blockers_24h: LiveDiagnosticBlockerRow[] | null;
 };
 
 type LiveAdminDashboard = {
@@ -321,6 +332,14 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
       updatedAt: iso(row.updated_at) ?? now.toISOString(),
     };
   });
+  const tradingDiagnostics = buildLiveTradingDiagnostics({
+    allowedSymbols: environment.liveAllowedSymbols,
+    plans: envelope.latest_live_plans ?? [],
+    decisions: envelope.latest_live_decisions ?? [],
+    activity: envelope.live_activity_24h ?? [],
+    blockers: envelope.live_blockers_24h ?? [],
+    now,
+  });
 
   return {
     environment,
@@ -356,6 +375,7 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
       lastAccountError: String(row.last_account_error ?? ""),
       account,
       decisionStatsToday: emptyStats(),
+      tradingDiagnostics,
       consecutiveApiErrors: Number(row.consecutive_api_errors ?? 0),
       consecutiveOrderErrors: Number(row.consecutive_order_errors ?? 0),
       lastError: String(row.last_error ?? ""),
@@ -386,6 +406,34 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
 async function querySnapshot(): Promise<SnapshotEnvelope> {
   if (!prisma) throw new Error("Prisma数据库客户端未配置");
   const rows = await prisma.$queryRawUnsafe<SnapshotEnvelope[]>(`
+    WITH recent_live_decisions AS (
+      SELECT strategy_type, symbol, run_id, status, direction, rejection_code,
+             rejection_reason, client_oid, bitget_order_id, created_at, updated_at
+      FROM trade_three_horizon_decisions
+      WHERE mode = 'LIVE'
+        AND strategy_type IN ('INTRADAY','SWING','POSITION')
+        AND created_at >= NOW() - INTERVAL '24 hours'
+    ),
+    latest_live_decisions AS (
+      SELECT DISTINCT ON (strategy_type, symbol)
+             strategy_type, symbol, status, direction, rejection_code,
+             rejection_reason, client_oid, bitget_order_id, created_at, updated_at
+      FROM recent_live_decisions
+      ORDER BY strategy_type, symbol, updated_at DESC, created_at DESC
+    ),
+    latest_live_plans AS (
+      SELECT DISTINCT ON (strategy_type, symbol)
+             strategy_type, symbol, direction, plan_tier, status,
+             forecast_version, forecast_published_at, forecast_locked_at,
+             forecast_valid_from, forecast_valid_until,
+             last_checked_at, updated_at
+      FROM trade_ai_plans
+      WHERE execution_mode = 'BITGET_LIVE'
+        AND strategy_type IN ('INTRADAY','SWING','POSITION')
+        AND plan_tier = 'FORMAL'
+        AND forecast_version IS NOT NULL
+      ORDER BY strategy_type, symbol, updated_at DESC, version DESC
+    )
     SELECT
       (SELECT row_to_json(state_row) FROM (
         SELECT paused, pause_reason, pause_source, run_lock_until,
@@ -427,7 +475,61 @@ async function querySnapshot(): Promise<SnapshotEnvelope> {
           AND (status='FAILED' OR last_error<>'' OR COALESCE(payload->'executionFailure'->>'stage','')<>'')
         ORDER BY updated_at DESC
         LIMIT 20
-      ) failure_row), '[]'::json) AS recent_execution_failures
+      ) failure_row), '[]'::json) AS recent_execution_failures,
+      COALESCE((SELECT json_agg(decision_row) FROM (
+        SELECT strategy_type, symbol, status, direction, rejection_code,
+               rejection_reason, client_oid, bitget_order_id, created_at, updated_at
+        FROM latest_live_decisions
+        ORDER BY symbol ASC, strategy_type ASC
+      ) decision_row), '[]'::json) AS latest_live_decisions,
+      COALESCE((SELECT json_agg(plan_row) FROM (
+        SELECT strategy_type, symbol, direction, plan_tier, status,
+               forecast_version, forecast_published_at, forecast_locked_at,
+               forecast_valid_from, forecast_valid_until,
+               last_checked_at, updated_at
+        FROM latest_live_plans
+        ORDER BY symbol ASC, strategy_type ASC
+      ) plan_row), '[]'::json) AS latest_live_plans,
+      COALESCE((SELECT json_agg(activity_row) FROM (
+        SELECT 'ALL'::TEXT AS strategy_type,
+               COUNT(DISTINCT run_id)::INTEGER AS scan_runs,
+               COUNT(*)::INTEGER AS decisions,
+               COUNT(DISTINCT symbol)::INTEGER AS symbols_evaluated,
+               COUNT(*) FILTER (
+                 WHERE client_oid IS NOT NULL
+                    OR bitget_order_id IS NOT NULL
+                    OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED')
+               )::INTEGER AS order_decisions
+        FROM recent_live_decisions
+        UNION ALL
+        SELECT strategy_type,
+               COUNT(DISTINCT run_id)::INTEGER AS scan_runs,
+               COUNT(*)::INTEGER AS decisions,
+               COUNT(DISTINCT symbol)::INTEGER AS symbols_evaluated,
+               COUNT(*) FILTER (
+                 WHERE client_oid IS NOT NULL
+                    OR bitget_order_id IS NOT NULL
+                    OR status IN ('ORDER_SUBMITTED','OPEN','PARTIAL','CLOSING','CLOSED')
+               )::INTEGER AS order_decisions
+        FROM recent_live_decisions
+        GROUP BY strategy_type
+        ORDER BY strategy_type ASC
+      ) activity_row), '[]'::json) AS live_activity_24h,
+      COALESCE((SELECT json_agg(blocker_row) FROM (
+        SELECT rejection_code,
+               COUNT(*)::INTEGER AS occurrences,
+               ARRAY_AGG(DISTINCT symbol ORDER BY symbol) AS symbols,
+               MAX(updated_at) AS latest_at
+        FROM recent_live_decisions
+        WHERE rejection_code <> ''
+          AND rejection_code NOT IN (
+            'PROBE_ENTRY','DAILY_ACTIVITY_PROBE','DAILY_MINIMUM_EXECUTION',
+            'LIVE_COMMISSIONING','SCALE_IN_RECOVERED','TIME_EXIT','TP1_PROTECTION_TRANSITION'
+          )
+        GROUP BY rejection_code
+        ORDER BY occurrences DESC, rejection_code ASC
+        LIMIT 20
+      ) blocker_row), '[]'::json) AS live_blockers_24h
   `);
   if (!rows[0]) throw new Error("数据库没有返回实盘状态快照");
   return rows[0];

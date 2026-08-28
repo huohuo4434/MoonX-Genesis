@@ -26,7 +26,34 @@ const LIVE_ASSET_LABELS: Record<string, string> = {
   SPYUSDT: "标普",
   SNDKUSDT: "闪迪",
   MSFTUSDT: "微软",
+  SOLUSDT: "SOL",
+  NBISUSDT: "NBIS",
+  TENCENTUSDT: "腾讯",
+  LITEUSDT: "LITE",
+  TSLAUSDT: "特斯拉",
+  INTCUSDT: "英特尔",
 };
+
+const LIVE_HORIZON_LABELS = {
+  INTRADAY: "超短/短线",
+  SWING: "波段/中线",
+  POSITION: "长线",
+} as const;
+
+function coverageText(state: "LONG" | "SHORT" | "MISSING" | "PENDING" | "EXPIRED"): string {
+  if (state === "LONG") return "↑ 多";
+  if (state === "SHORT") return "↓ 空";
+  if (state === "PENDING") return "待生效";
+  if (state === "EXPIRED") return "已过期";
+  return "待补方向";
+}
+
+function coverageClass(state: "LONG" | "SHORT" | "MISSING" | "PENDING" | "EXPIRED"): string {
+  if (state === "LONG") return "border-emerald-400/20 bg-emerald-400/[0.05] text-emerald-200";
+  if (state === "SHORT") return "border-red-400/20 bg-red-400/[0.05] text-red-200";
+  if (state === "EXPIRED" || state === "PENDING") return "border-amber-400/20 bg-amber-400/[0.05] text-amber-200";
+  return "border-white/10 bg-white/[0.025] text-white/55";
+}
 
 function signed(value: number | null | undefined, suffix = ""): string {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -416,6 +443,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
   if (live) {
     const experiment = dashboard.runtime.liveExperiment;
+    const tradingDiagnostics = dashboard.runtime.tradingDiagnostics;
     const unifiedNewEntryBlocked = isUnifiedNewEntryBlockedForDisplay(dashboard.runtime);
     const statusLabel = experiment?.status === "ACTIVE"
       ? (unifiedNewEntryBlocked ? "实验进行中 · 仅管理已有仓" : "实验进行中 · 新开仓可执行")
@@ -578,6 +606,89 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             </div>
           ) : null}
         </Card>
+
+        {tradingDiagnostics ? (
+          <Card padding="lg" className="space-y-5 border-cyan-300/15 bg-cyan-300/[0.018]">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Heading size="h3">近24小时交易机会诊断</Heading>
+                <Text variant="body-sm" color="secondary" className="mt-1 block">
+                  先看扫描是否覆盖，再看正式方向和已武装计划；已武装仍须通过账户、持仓、风险、保护单、幂等与托管门禁，阻断次数也不等于错过的订单。
+                </Text>
+              </div>
+              <Badge variant="outline">只读 · {time(tradingDiagnostics.generatedAt)}</Badge>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">扫描轮次</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.scanRuns}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">判断记录</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.decisions}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">已扫描品种</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.symbolsEvaluated}/{tradingDiagnostics.allowedSymbols}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">有正式方向</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.symbolsWithFormalDirection}/{tradingDiagnostics.allowedSymbols}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">已武装周期</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.armedPlanSlots}/{tradingDiagnostics.allowedSymbols * 3}</Text></div>
+              <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">含订单决策</Text><Text variant="body" weight="semibold" className="mt-1 block">{tradingDiagnostics.orderDecisions}</Text></div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {tradingDiagnostics.strategyActivity.map((row) => (
+                <div key={row.strategyType} className="rounded-lg border border-white/10 p-3">
+                  <Text variant="body-sm" weight="semibold">{LIVE_HORIZON_LABELS[row.strategyType]}</Text>
+                  <Text variant="caption" className="mt-2 block text-white/60">扫描 {row.scanRuns}轮 · 判断 {row.decisions}条 · 品种 {row.symbolsEvaluated}</Text>
+                  <Text variant="caption" className="mt-1 block text-white/60">正式方向 {row.formalDirections}/{tradingDiagnostics.allowedSymbols} · 已武装 {row.armedPlans} · 含订单决策 {row.orderDecisions}</Text>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <Text variant="body-sm" weight="semibold">主要阻断原因</Text>
+              {tradingDiagnostics.blockers.length ? (
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {tradingDiagnostics.blockers.slice(0, 9).map((blocker) => (
+                    <div key={blocker.code} className="rounded-lg border border-amber-300/15 bg-amber-300/[0.025] p-3">
+                      <div className="flex items-center justify-between gap-2"><Text variant="body-sm">{blocker.label}</Text><Badge variant="warning">{blocker.occurrences}</Badge></div>
+                      <Text variant="caption" className="mt-1 block break-words text-white/45">{blocker.code} · {blocker.symbols.join("、") || "—"}</Text>
+                    </div>
+                  ))}
+                </div>
+              ) : <Text variant="body-sm" color="secondary">近24小时没有记录到阻断原因。</Text>}
+            </div>
+
+            <div className="space-y-2">
+              <Text variant="body-sm" weight="semibold">18品种 × 3周期正式方向覆盖</Text>
+              <div className="overflow-x-auto rounded-lg border border-white/10">
+                <table className="min-w-[860px] w-full text-left text-sm">
+                  <thead className="bg-white/[0.035] text-white/55">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">品种</th>
+                      <th className="px-3 py-2 font-medium">超短/短线</th>
+                      <th className="px-3 py-2 font-medium">波段/中线</th>
+                      <th className="px-3 py-2 font-medium">长线</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tradingDiagnostics.coverage.map((item) => (
+                      <tr key={item.symbol} className="border-t border-white/10">
+                        <td className="px-3 py-2"><span className="font-medium text-white">{LIVE_ASSET_LABELS[item.symbol] ?? item.symbol}</span><span className="ml-2 text-xs text-white/35">{item.symbol}</span></td>
+                        {(["INTRADAY", "SWING", "POSITION"] as const).map((strategyType) => {
+                          const horizon = item.horizons.find((row) => row.strategyType === strategyType);
+                          if (!horizon) return <td key={strategyType} className="px-3 py-2 text-white/35">—</td>;
+                          return (
+                            <td key={strategyType} className="px-3 py-2">
+                              <div className={`rounded-md border px-2 py-1.5 ${coverageClass(horizon.coverageState)}`}>
+                                <span className="font-medium">{coverageText(horizon.coverageState)}</span>
+                                <span className="ml-2 text-xs opacity-70">{horizon.armed ? "已武装" : horizon.planStatus || horizon.rejectionCode || "无计划"}</span>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Text variant="caption" className="block text-white/45">绿色/红色只表示已发布、已锁定且在有效期内的正式方向；“已武装”仅指 ARMED 入场状态。“含订单决策”只统计近24小时新建决策中带订单标识或订单状态的记录。缺方向不会被技术面或最近一次AI判断代填。</Text>
+            </div>
+          </Card>
+        ) : null}
 
         <Card padding="lg" className="space-y-4">
           <Heading size="h3">启动前安全检查</Heading>

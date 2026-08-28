@@ -31,6 +31,65 @@ export interface BitgetRuntimeDecisionStats {
   executed: number;
 }
 
+export type BitgetLiveCoverageState = "LONG" | "SHORT" | "MISSING" | "PENDING" | "EXPIRED";
+
+export interface BitgetLiveHorizonCoverage {
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  direction: "LONG" | "SHORT" | null;
+  coverageState: BitgetLiveCoverageState;
+  forecastVersion: string | null;
+  forecastPublishedAt: string | null;
+  forecastValidFrom: string | null;
+  forecastValidUntil: string | null;
+  planStatus: string | null;
+  armed: boolean;
+  latestDecisionStatus: string | null;
+  latestDecisionAt: string | null;
+  rejectionCode: string | null;
+  rejectionReason: string | null;
+}
+
+export interface BitgetLiveSymbolCoverage {
+  symbol: string;
+  horizons: BitgetLiveHorizonCoverage[];
+  hasFormalDirection: boolean;
+  hasArmedPlan: boolean;
+}
+
+export interface BitgetLiveBlockerSummary {
+  code: string;
+  label: string;
+  occurrences: number;
+  symbols: string[];
+  latestAt: string | null;
+}
+
+export interface BitgetLiveStrategyActivity {
+  strategyType: "INTRADAY" | "SWING" | "POSITION";
+  scanRuns: number;
+  decisions: number;
+  symbolsEvaluated: number;
+  formalDirections: number;
+  armedPlans: number;
+  orderDecisions: number;
+}
+
+export interface BitgetLiveTradingDiagnostics {
+  generatedAt: string;
+  windowHours: 24;
+  allowedSymbols: number;
+  symbolsWithFormalDirection: number;
+  formalDirectionSlots: number;
+  armedPlanSlots: number;
+  scanRuns: number;
+  decisions: number;
+  symbolsEvaluated: number;
+  orderDecisions: number;
+  strategyActivity: BitgetLiveStrategyActivity[];
+  blockers: BitgetLiveBlockerSummary[];
+  coverage: BitgetLiveSymbolCoverage[];
+}
+
 export interface BitgetRuntimeAccountSnapshot {
   connected: boolean;
   availableUsdt: number | null;
@@ -102,6 +161,7 @@ export interface BitgetRuntimeState {
   lastAccountError?: string;
   account: BitgetRuntimeAccountSnapshot;
   decisionStatsToday: BitgetRuntimeDecisionStats;
+  tradingDiagnostics?: BitgetLiveTradingDiagnostics;
   consecutiveApiErrors: number;
   consecutiveOrderErrors: number;
   lastError: string;

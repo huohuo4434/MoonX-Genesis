@@ -53,8 +53,8 @@ test("no code default silently flips unified runtime to LIVE", () => {
 test("official live switch always preserves position management and MANAGE_ONLY is risk-reducing", () => {
   const route = read("app/api/admin/live-trading/route.ts");
   const reliability = read("lib/trading-signals/trading-reliability.ts");
-  assert.match(route, /newEntriesEnabled: mode === "LIVE"/);
-  assert.match(route, /positionManagementEnabled: mode !== "PAUSED"/);
+  assert.match(route, /newEntriesEnabled: nextMode === "LIVE"/);
+  assert.match(route, /positionManagementEnabled: nextMode !== "PAUSED"/);
   assert.match(route, /isUnifiedLiveActiveExecutionEnabled/);
   assert.match(reliability, /readUnifiedLiveRuntimeConfig\(\)\.positionManagementEnabled/);
 });
