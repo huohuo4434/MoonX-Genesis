@@ -1,5 +1,6 @@
 export type KeyDateAction = "BOTTOM_WATCH" | "TOP_EXIT_WATCH" | "TURNING_RISK";
-export type KeyDateEvidence = "MONTH_EXPLICIT" | "MONTH_PATH_DERIVED" | "WEEK_EXPLICIT";
+export type KeyDateLevel = "MONTH" | "WEEK";
+export type KeyDateEvidence = "EXPLICIT" | "DERIVED";
 export type KeyDateStatus = "UPCOMING" | "ACTIVE" | "REVIEW";
 
 export type KeyDateRadarItem = {
@@ -9,8 +10,9 @@ export type KeyDateRadarItem = {
   symbol: string;
   startDate: string;
   endDate: string;
-  /** Exact calendar day explicitly named by the source. Never infer this from a broad path window. */
-  focusDate?: string;
+  focusDate: string;
+  ganzhi: string;
+  level: KeyDateLevel;
   action: KeyDateAction;
   title: string;
   primaryView: string;
@@ -19,6 +21,7 @@ export type KeyDateRadarItem = {
   invalidation: string;
   confidence: number;
   evidence: KeyDateEvidence;
+  derivation: string;
   sourceIds: string[];
 };
 
@@ -52,18 +55,18 @@ export function summarizeKeyDateRadar(items: KeyDateRadarViewItem[]) {
     bottomCount: live.filter((item) => item.action === "BOTTOM_WATCH").length,
     topCount: live.filter((item) => item.action === "TOP_EXIT_WATCH").length,
     riskCount: live.filter((item) => item.action === "TURNING_RISK").length,
-    monthlyExactCount: live.filter((item) => item.evidence === "MONTH_EXPLICIT").length,
-    monthlyPathCount: live.filter((item) => item.evidence === "MONTH_PATH_DERIVED").length,
-    weeklyCount: live.filter((item) => item.evidence === "WEEK_EXPLICIT").length,
+    monthlyCount: live.filter((item) => item.level === "MONTH").length,
+    weeklyCount: live.filter((item) => item.level === "WEEK").length,
+    explicitCount: live.filter((item) => item.evidence === "EXPLICIT").length,
+    derivedCount: live.filter((item) => item.evidence === "DERIVED").length,
   };
 }
 
 export function splitCurrentKeyDateRadar(items: KeyDateRadarViewItem[]) {
   const live = items.filter((item) => item.status !== "REVIEW");
   return {
-    monthlyExact: live.filter((item) => item.evidence === "MONTH_EXPLICIT"),
-    monthlyPath: live.filter((item) => item.evidence === "MONTH_PATH_DERIVED"),
-    weekly: live.filter((item) => item.evidence === "WEEK_EXPLICIT"),
+    monthly: live.filter((item) => item.level === "MONTH"),
+    weekly: live.filter((item) => item.level === "WEEK"),
     review: items.filter((item) => item.status === "REVIEW"),
   };
 }

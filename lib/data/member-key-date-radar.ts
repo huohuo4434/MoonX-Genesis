@@ -1,161 +1,235 @@
-import type { KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
+import { getSexagenaryDay } from "@/lib/calendar/sexagenary-calendar";
+import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import {
+  STATIC_FOCUS_ASSET_IDS,
+  STATIC_MEMBER_AUTOMATION_FOCUS,
+  type StaticFocusAssetId,
+} from "@/lib/data/conviction/focus-registry-core";
+import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
+import type { KeyDateAction, KeyDateLevel, KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
 
-/**
- * Member key-date catalogue.
- *
- * MONTH_EXPLICIT is a date/window explicitly present in a locked month/stage record.
- * MONTH_PATH_DERIVED is a bounded watch window derived from a locked month path and
- * a matching weekly segment. It must never be presented as a teacher-supplied exact day.
- * WEEK_EXPLICIT is retained mainly for near-term assistance and historical review.
- */
-export const MEMBER_KEY_DATE_RADAR_ITEMS: KeyDateRadarItem[] = [
-  {
-    id: "btc-bottom-transition-20260906",
-    assetId: "bitcoin", assetName: "比特币", symbol: "BTC",
-    startDate: "2026-09-05", endDate: "2026-09-08", action: "BOTTOM_WATCH",
-    title: "偏弱周向修复周切换，观察阶段低点",
-    primaryView: "9月月卦主路径是上旬修复冲高、9月9日至11日进入高点窗口；因此窗口前的回踩属于潜在低吸观察段。",
-    weeklyAssist: "8月31日至9月6日震荡偏弱，9月7日至14日转为震荡上涨；周界切换支持先找低点、后看修复。",
-    confirmation: "4H停止破低，30分钟形成底部结构，5分钟出现右侧二买/三买或同级别止跌确认。",
-    invalidation: "9月7日后仍连续破低，或月度上旬修复路径失效；未确认前不提前抄底。",
-    confidence: 64, evidence: "MONTH_PATH_DERIVED",
-    sourceIds: ["BTC-SEP-20260823-V3", "BTC-LY-AUX-20260831-0906-V1", "BTC-LY-AUX-20260907-0914-V1"],
-  },
-  {
-    id: "btc-top-20260909-11",
-    assetId: "bitcoin", assetName: "比特币", symbol: "BTC",
-    startDate: "2026-09-09", endDate: "2026-09-11", action: "TOP_EXIT_WATCH",
-    focusDate: "2026-09-10",
-    title: "9月第一重点高点/变盘窗口",
-    primaryView: "月卦与年度层共同把9月列为高点候选，原记录明确以9月10日为窗口中心并保留前后1天容差。",
-    weeklyAssist: "9月7日至14日虽偏修复上涨，但财爻旬空、强度有限，冲高后仍需防回吐。",
-    confirmation: "冲高量价背离、30分钟顶分型/一卖或二卖、跌回启动区时分批止盈；没有顶结构不机械做空。",
-    invalidation: "持续放量突破、回踩不破且窗口后仍保持高位承接。",
-    confidence: 58, evidence: "MONTH_EXPLICIT",
-    sourceIds: ["BTC-SEP-20260823-V3", "BTC-LY-AUX-20260907-0914-V1"],
-  },
-  {
-    id: "eth-bottom-20260831-0906",
-    assetId: "eth", assetName: "以太坊", symbol: "ETH",
-    startDate: "2026-08-31", endDate: "2026-09-06", action: "BOTTOM_WATCH",
-    title: "先难后修复，寻找上旬低点",
-    primaryView: "酉月月卦主路径为前期延续、随后过度修正；阶段卦仍把8月底至9月列为相对偏强区。",
-    weeklyAssist: "9月第一周为蹇化渐：前段受阻，后段逐步修复，适合等回踩确认而非追涨。",
-    confirmation: "下探后收回30分钟关键结构，ETH自身5分钟买点确认，且未出现连续破低。",
-    invalidation: "整周持续破低、风险释放后仍无承接，或BTC风险共振导致4H结构失守。",
-    confidence: 60, evidence: "MONTH_PATH_DERIVED",
-    sourceIds: ["ETH-YOU-20260823-V2", "ETH-PHASE-20260828-1031-V1"],
-  },
-  {
-    id: "eth-top-20260909-11",
-    assetId: "eth", assetName: "以太坊", symbol: "ETH",
-    startDate: "2026-09-09", endDate: "2026-09-11", action: "TOP_EXIT_WATCH",
-    focusDate: "2026-09-10",
-    title: "冲高受阻/退守候选窗口",
-    primaryView: "酉月恒化小过定为先涨后跌，锁定记录明确把9月10日作为高点窗口中心。",
-    weeklyAssist: "9月7日至13日否化遁，是五周分段中冲高后退守风险最强的一段。",
-    confirmation: "高位换手放大、30分钟背驰或卖点出现后减仓；只到日期但结构强势时继续观察。",
-    invalidation: "窗口内持续放量上行且回踩不破，否化遁的退守结构未兑现。",
-    confidence: 55, evidence: "MONTH_EXPLICIT",
-    sourceIds: ["ETH-YOU-20260823-V2"],
-  },
-  {
-    id: "hype-top-20260909-11",
-    assetId: "hype", assetName: "Hyperliquid", symbol: "HYPE",
-    startDate: "2026-09-09", endDate: "2026-09-11", action: "TOP_EXIT_WATCH",
-    focusDate: "2026-09-10",
-    title: "反弹转弱候选窗口",
-    primaryView: "9月月卦有推进背景，但完整月内路径是上旬推进、中旬转弱、下旬寻底，不是整月单边上涨。",
-    weeklyAssist: "9月7日至13日复化明夷，支持反弹后转弱；随后9月14日至20日承压。",
-    confirmation: "冲高不能延续、30分钟出现卖点或跌破回踩中枢后分批锁定利润。",
-    invalidation: "9月7日至20日持续强势突破并稳定回踩不破。",
-    confidence: 54, evidence: "MONTH_EXPLICIT",
-    sourceIds: ["HYPE-AUTUMN-20260823-V7"],
-  },
-  {
-    id: "hype-bottom-20260921-27",
-    assetId: "hype", assetName: "Hyperliquid", symbol: "HYPE",
-    startDate: "2026-09-21", endDate: "2026-09-27", action: "BOTTOM_WATCH",
-    title: "下跌寻底后的修复观察",
-    primaryView: "9月月内路径明确把下旬定义为寻底修复段，但月底仍有虚拉后再回落风险。",
-    weeklyAssist: "坤化复提供下跌后修复种子，只能等实际底部结构，不能按卦名直接抄底。",
-    confirmation: "急跌后不再创新低、30分钟底分型和二买完成，并有成交量承接。",
-    invalidation: "底部结构未完成即再度破低，或月底反抽快速失败。",
-    confidence: 51, evidence: "MONTH_PATH_DERIVED",
-    sourceIds: ["HYPE-AUTUMN-20260823-V7"],
-  },
-  {
-    id: "gold-bottom-20260901-07",
-    assetId: "gold", assetName: "国际黄金", symbol: "GC",
-    startDate: "2026-09-01", endDate: "2026-09-07", action: "BOTTOM_WATCH",
-    title: "九月先压段，等待第一轮修复起点",
-    primaryView: "9月月卦为震荡下跌、先压后修复；本窗口只是从月路径拆出的前段压力观察，不是老师给出的精确低点日。",
-    weeklyAssist: "8月24日至30日是月末最弱段，若压力延续到9月初，先观察风险释放是否完成。",
-    confirmation: "日线停止扩张下跌，4H/1H完成底部结构并收回关键支撑后才考虑分批布局。",
-    invalidation: "反弹无承接且持续创新低；月度偏弱背景下不因单根阳线确认反转。",
-    confidence: 52, evidence: "MONTH_PATH_DERIVED",
-    sourceIds: ["GOLD-MONTH-202609-V1", "WEEKLY-GOLD-20260824-V2"],
-  },
-  {
-    id: "silver-exit-20260829-30",
-    assetId: "silver", assetName: "国际白银", symbol: "SI",
-    startDate: "2026-08-29", endDate: "2026-08-30", action: "TOP_EXIT_WATCH",
-    title: "周后段冲高回落风险",
-    primaryView: "白银本期没有新的精确月关键日，本条只保留已锁定周卦窗口，不升级为月度权威。",
-    weeklyAssist: "8月24日至30日路径为前段修复、后段分歧与回撤，六冲意味着上涨和回落都可能很快。",
-    confirmation: "冲高滞涨、短周期背驰或跌破盘中中枢时优先保护利润；休市日期仅作跨周风险提醒。",
-    invalidation: "下一交易时段稳定加速上行且结构没有转弱。",
-    confidence: 62, evidence: "WEEK_EXPLICIT",
-    sourceIds: ["WEEKLY-SILVER-20260824-V1"],
-  },
-  {
-    id: "ndx-exit-20260831",
-    assetId: "nasdaq-100", assetName: "纳斯达克100", symbol: "NDX",
-    startDate: "2026-08-31", endDate: "2026-08-31", action: "TOP_EXIT_WATCH",
-    focusDate: "2026-08-31",
-    title: "反弹高点窗口",
-    primaryView: "高周期仅支持风险释放后的修复，本条日期来自前瞻周期图，不改变正式周/月方向。",
-    weeklyAssist: "来源图明确标注8月31日为反弹高点窗口，适合作为已有多仓的减仓观察日。",
-    confirmation: "指数反弹遇阻、市场宽度恶化或30分钟卖点出现时减仓；不凭日期裸空。",
-    invalidation: "放量突破且市场宽度同步改善，回踩仍能站稳。",
-    confidence: 52, evidence: "WEEK_EXPLICIT",
-    sourceIds: ["CYCLE-RESEARCH-NDX-20260824", "WEEKLY-NDX-20260824-V2"],
-  },
-  {
-    id: "shcomp-turn-20260907",
-    assetId: "shanghai-composite", assetName: "上证指数", symbol: "SHCOMP",
-    startDate: "2026-09-07", endDate: "2026-09-07", action: "TURNING_RISK",
-    focusDate: "2026-09-07",
-    title: "中期阶段验证日",
-    primaryView: "旧中期卦把9月7日锁定为阶段验证节点；新9月月卦偏震荡下跌，因此重点验证八月修复是否结束。",
-    weeklyAssist: "若接近压力位而成交量与市场宽度不再扩张，风险向下；若放量站稳则旧偏弱路径需降级。",
-    confirmation: "结合日线趋势、量能、政策催化与科技板块强度判断是继续修复还是阶段转弱。",
-    invalidation: "仅到日期、没有任何结构变化时，不生成交易动作。",
-    confidence: 60, evidence: "MONTH_EXPLICIT",
-    sourceIds: ["A-SH-2026-0727-ORACLE-001", "SHCOMP-MONTH-202609-V1"],
-  },
-  {
-    id: "tsla-turn-20260907-13",
-    assetId: "tsla", assetName: "特斯拉", symbol: "TSLA",
-    startDate: "2026-09-07", endDate: "2026-09-13", action: "TURNING_RISK",
-    title: "独立周段变盘观察",
-    primaryView: "特斯拉七周阶段研究把9月上旬视为独立周段；没有原始精确单日，因此以整段观察，不强造日期。",
-    weeklyAssist: "周卦只提供该段方向与风险背景，实际高低点必须由美股交易日K线和缠论结构确认。",
-    confirmation: "日线与4H方向一致，30分钟完成中枢离开或背驰确认后再定抄底/逃顶类别。",
-    invalidation: "结构不完整或周段内部信号互相冲突时维持等待。",
-    confidence: 50, evidence: "MONTH_PATH_DERIVED",
-    sourceIds: ["TSLA-W4-20260907-V1", "TSLA-7W-20260817-V1"],
-  },
-  {
-    id: "sndk-bottom-review-20260828",
-    assetId: "sandisk", assetName: "闪迪", symbol: "SNDK",
-    startDate: "2026-08-28", endDate: "2026-08-28", action: "BOTTOM_WATCH",
-    title: "急跌后止跌反抽观察（待复盘）",
-    primaryView: "8月月卦路径明确给出26日至27日回撤、28日至31日止跌整理。",
-    weeklyAssist: "8月24日至31日周卦把28日标为阶段低点观察，但只确认反抽，不确认新主升。",
-    confirmation: "缩量止跌并收回盘中跌幅；当前已过日期，转入历史复盘，不再提示新入场。",
-    invalidation: "当日未止跌或后续继续破低，则该低点窗口未兑现。",
-    confidence: 70, evidence: "WEEK_EXPLICIT",
-    sourceIds: ["SNDK-W3-20260824-V1", "SNDK-M1-20260807-V1"],
-  },
-];
+const DAY_MS = 86_400_000;
+const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
+
+function utc(date: string) {
+  return Date.parse(`${date}T00:00:00.000Z`);
+}
+
+function dateKey(time: number) {
+  return new Date(time).toISOString().slice(0, 10);
+}
+
+function addDays(date: string, days: number) {
+  return dateKey(utc(date) + days * DAY_MS);
+}
+
+function durationDays(row: ConvictionPeriodForecast) {
+  return Math.round((utc(row.periodEnd) - utc(row.periodStart)) / DAY_MS) + 1;
+}
+
+function hasUsableTradingDate(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string) {
+  if (STATIC_MEMBER_AUTOMATION_FOCUS[assetId].assetClass === "CRYPTO") return true;
+  for (let time = utc(row.periodStart > asOfDate ? row.periodStart : asOfDate); time <= utc(row.periodEnd); time += DAY_MS) {
+    if (!isWeekend(dateKey(time))) return true;
+  }
+  return false;
+}
+
+function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asOfDate: string, assetId: StaticFocusAssetId) {
+  const target = addDays(asOfDate, level === "MONTH" ? 7 : 2);
+  let valid = rows.filter((row) => {
+    const duration = durationDays(row);
+    return row.status === "published"
+      && Date.parse(row.lockedAt) <= Date.parse(`${asOfDate}T23:59:59.999+08:00`)
+      && row.periodEnd >= asOfDate
+      && (level === "MONTH"
+        ? row.forecastType.startsWith("MONTH") && duration >= 20
+        : row.forecastType.startsWith("WEEK") && duration <= 14 && hasUsableTradingDate(row, assetId, asOfDate));
+  });
+  if (level === "MONTH" && valid.length === 0) {
+    valid = rows.filter((row) =>
+      row.status === "published"
+      && Date.parse(row.lockedAt) <= Date.parse(`${asOfDate}T23:59:59.999+08:00`)
+      && row.periodEnd >= asOfDate
+      && (row.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate)
+      && /月卦/.test(`${row.summary}${row.expectedPath}${row.ichingEvidence.notes}${row.methodViews?.map((item) => item.label).join("") ?? ""}`)
+    );
+  }
+  return valid.sort((left, right) => {
+    const leftCovers = left.periodStart <= target && left.periodEnd >= target ? 1 : 0;
+    const rightCovers = right.periodStart <= target && right.periodEnd >= target ? 1 : 0;
+    const ideal = level === "MONTH" ? 30 : 7;
+    const leftExplicit = (left.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
+    const rightExplicit = (right.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
+    return rightExplicit - leftExplicit
+      || rightCovers - leftCovers
+      || Math.abs(durationDays(left) - ideal) - Math.abs(durationDays(right) - ideal)
+      || right.version - left.version
+      || right.publishedAt.localeCompare(left.publishedAt)
+      || right.id.localeCompare(left.id);
+  })[0] ?? null;
+}
+
+function actionForDirection(direction: string): KeyDateAction {
+  if (/先涨后跌|冲高回落/.test(direction)) return "TOP_EXIT_WATCH";
+  if (/先跌后涨|探底回升/.test(direction)) return "BOTTOM_WATCH";
+  if (/下跌/.test(direction)) return "BOTTOM_WATCH";
+  if (/上涨/.test(direction)) return "TOP_EXIT_WATCH";
+  return "TURNING_RISK";
+}
+
+function actionForExplicitType(type: NonNullable<ConvictionPeriodForecast["keyDates"]>[number]["type"]): KeyDateAction {
+  if (type === "阶段高点" || type === "下跌风险") return "TOP_EXIT_WATCH";
+  if (type === "阶段低点" || type === "上涨候选") return "BOTTOM_WATCH";
+  return "TURNING_RISK";
+}
+
+function turnRatio(direction: string) {
+  if (/先涨后跌|冲高回落/.test(direction)) return 0.55;
+  if (/先跌后涨|探底回升/.test(direction)) return 0.4;
+  if (/上涨|下跌/.test(direction)) return 0.65;
+  return 0.5;
+}
+
+function referencedBranches(row: ConvictionPeriodForecast) {
+  const evidence = `${row.summary}；${row.expectedPath}；${row.ichingEvidence.notes}`;
+  const branches = new Set<string>();
+  for (const match of evidence.matchAll(BRANCH_PATTERN)) if (match[1]) branches.add(match[1]);
+  return branches;
+}
+
+function isWeekend(date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string) {
+  if (STATIC_MEMBER_AUTOMATION_FOCUS[assetId].assetClass === "CRYPTO") return date;
+  let candidate = date;
+  for (let index = 0; index < 3 && isWeekend(candidate); index += 1) {
+    const previous = addDays(candidate, -1);
+    candidate = previous >= row.periodStart && previous >= asOfDate ? previous : addDays(candidate, 1);
+  }
+  return candidate <= row.periodEnd ? candidate : row.periodEnd;
+}
+
+function derivedFocus(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string, level: KeyDateLevel) {
+  const monthlyWeekFallback = level === "WEEK" && row.forecastType.startsWith("MONTH");
+  const requestedStart = monthlyWeekFallback ? addDays(asOfDate, 2) : asOfDate;
+  const usableStart = row.periodStart > requestedStart ? row.periodStart : requestedStart;
+  const fullSpan = Math.max(0, Math.round((utc(row.periodEnd) - utc(usableStart)) / DAY_MS));
+  const span = level === "MONTH" ? Math.min(fullSpan, 29) : monthlyWeekFallback ? Math.min(fullSpan, 6) : fullSpan;
+  const sliceEnd = addDays(usableStart, span);
+  const raw = addDays(usableStart, Math.round(span * turnRatio(row.direction)));
+  const branches = referencedBranches(row);
+  let selected = raw;
+  let matchedBranch: string | null = null;
+  if (branches.size) {
+    const candidates = Array.from({ length: 9 }, (_, index) => addDays(raw, index - 4))
+      .filter((date) => date >= usableStart && date <= sliceEnd && date <= row.periodEnd)
+      .sort((left, right) => Math.abs(utc(left) - utc(raw)) - Math.abs(utc(right) - utc(raw)));
+    const branchDate = candidates.find((date) => branches.has(getSexagenaryDay(date).branch));
+    if (branchDate) {
+      selected = branchDate;
+      matchedBranch = getSexagenaryDay(branchDate).branch;
+    }
+  }
+  selected = normalizeTradingDate(selected, row, assetId, asOfDate);
+  if (matchedBranch && getSexagenaryDay(selected).branch !== matchedBranch) matchedBranch = null;
+  return {
+    date: selected,
+    derivation: matchedBranch
+      ? `按${row.direction}的结构转折位置取中心，并在前后4日内用原记录提及的${matchedBranch}支日校准。`
+      : `按${row.direction}的结构转折位置取中心；${getSexagenaryDay(selected).label}只作历法标记，不冒充原卦明确点名。`,
+  };
+}
+
+function buildItem(input: {
+  assetId: StaticFocusAssetId;
+  level: KeyDateLevel;
+  row: ConvictionPeriodForecast;
+  date: string;
+  action: KeyDateAction;
+  title: string;
+  evidence: "EXPLICIT" | "DERIVED";
+  derivation: string;
+}): KeyDateRadarItem {
+  const asset = STATIC_MEMBER_AUTOMATION_FOCUS[input.assetId];
+  const sourceLabel = input.level === "MONTH" ? "月卦" : "周卦";
+  return {
+    id: `${input.assetId}-${input.level.toLowerCase()}-${input.date}-${input.evidence.toLowerCase()}`,
+    assetId: input.assetId,
+    assetName: asset.displayName,
+    symbol: asset.canonicalSymbol?.replace(/USDT$/, "") ?? input.assetId.toUpperCase(),
+    startDate: input.date,
+    endDate: input.date,
+    focusDate: input.date,
+    ganzhi: getSexagenaryDay(input.date).label,
+    level: input.level,
+    action: input.action,
+    title: input.title,
+    primaryView: `${sourceLabel}正式方向：${input.row.direction}。${input.row.summary}`,
+    weeklyAssist: input.row.expectedPath,
+    confirmation: (input.row.confirmationLevel?.trim().length ?? 0) >= 15
+      ? input.row.confirmationLevel!.trim()
+      : "到日后等待日线或4H停止原方向扩张，并由30分钟结构和量价关系确认转折。",
+    invalidation: (input.row.invalidationLevel?.trim().length ?? 0) >= 15
+      ? input.row.invalidationLevel!.trim()
+      : "日期到达但价格结构没有转折，或仍沿原方向放量扩张时，本次关键日失效，不机械交易。",
+    confidence: input.evidence === "EXPLICIT" ? 68 : 52,
+    evidence: input.evidence,
+    derivation: input.derivation,
+    sourceIds: [input.row.id],
+  };
+}
+
+function itemsForPeriod(assetId: StaticFocusAssetId, level: KeyDateLevel, asOfDate: string) {
+  const forecasts = listStaticFocusForecasts(assetId);
+  const row = selectPeriod(forecasts, level, asOfDate, assetId)
+    ?? (level === "WEEK" ? selectPeriod(forecasts, "MONTH", asOfDate, assetId) : null);
+  if (!row) return [];
+  const explicit = (row.keyDates ?? []).filter((item) =>
+    Boolean(item.date) && item.date! >= asOfDate && item.date! >= row.periodStart && item.date! <= row.periodEnd
+  );
+  if (explicit.length) {
+    return explicit.map((item) => buildItem({
+      assetId,
+      level,
+      row,
+      date: item.date!,
+      action: actionForExplicitType(item.type),
+      title: item.label,
+      evidence: "EXPLICIT",
+      derivation: `${level === "MONTH" ? "月卦" : "周卦"}锁定记录明确点名${item.date}；${item.note ?? "仍须由真实K线确认。"}`,
+    }));
+  }
+  const derived = derivedFocus(row, assetId, asOfDate, level);
+  return [buildItem({
+    assetId,
+    level,
+    row,
+    date: derived.date,
+    action: actionForDirection(row.direction),
+    title: `${row.direction}的转折确认日`,
+    evidence: "DERIVED",
+    derivation: level === "WEEK" && row.forecastType.startsWith("MONTH")
+      ? `下一独立周卦尚未覆盖，先按已锁定月卦的当周段推演；${derived.derivation}`
+      : derived.derivation,
+  })];
+}
+
+export function buildMemberKeyDateRadar(asOfDate: string): KeyDateRadarItem[] {
+  return STATIC_FOCUS_ASSET_IDS.flatMap((assetId) => [
+    ...itemsForPeriod(assetId, "MONTH", asOfDate),
+    ...itemsForPeriod(assetId, "WEEK", asOfDate),
+  ]);
+}
+
+export function memberKeyDateCoverage(asOfDate: string) {
+  const rows = buildMemberKeyDateRadar(asOfDate);
+  return STATIC_FOCUS_ASSET_IDS.map((assetId) => ({
+    assetId,
+    month: rows.some((row) => row.assetId === assetId && row.level === "MONTH"),
+    week: rows.some((row) => row.assetId === assetId && row.level === "WEEK"),
+  }));
+}
