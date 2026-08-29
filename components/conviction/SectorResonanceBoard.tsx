@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   SECTOR_RESONANCE_GROUP_ORDER,
   type SectorResonanceCell,
@@ -175,14 +176,20 @@ function GroupTable({
   rows,
   weeks,
   summaries,
+  selectedAssetId,
+  selectedWeekStart,
 }: {
   group: SectorResonanceGroup;
   rows: SectorResonanceRow[];
   weeks: SectorResonanceWeek[];
   summaries: SectorWeekSummary[];
+  selectedAssetId?: string;
+  selectedWeekStart?: string;
 }) {
   const current = summaries.find((item) => item.weekStart === weeks[0]!.start)!;
   const next = summaries.find((item) => item.weekStart === weeks[1]!.start)!;
+  const selectedRow = rows.find((row) => row.assetId === selectedAssetId);
+  const detailAnchor = `weekly-sector-details-${SECTOR_RESONANCE_GROUP_ORDER.indexOf(group)}`;
   return (
     <section className="overflow-hidden rounded-2xl border border-white/[.075] bg-black/20">
       <header className="border-b border-white/[.06] p-4 sm:p-5">
@@ -237,9 +244,21 @@ function GroupTable({
           </tbody>
         </table>
       </div>
-      <div className="space-y-2 border-t border-white/[.055] bg-black/15 p-3 sm:p-4">
+      <div id={detailAnchor} className="space-y-3 border-t border-white/[.055] bg-black/15 p-3 sm:p-4">
         <div className="mb-3 px-1"><h3 className="text-sm font-semibold text-white">卦象完整解读</h3><p className="mt-1 text-[11px] leading-5 text-white/35">按标的展开查看年卦、月卦、逐周卦象、六亲旺衰、生克关系和关键时间。</p></div>
-        {rows.map((row) => <AssetLiuyaoDossier key={`${row.assetId}-dossier`} row={row} weeks={weeks} />)}
+        <div className="flex flex-wrap gap-2">
+          {rows.map((row) => <Link
+            key={`${row.assetId}-detail-link`}
+            href={`/member/sector-resonance?${selectedWeekStart ? `week=${encodeURIComponent(selectedWeekStart)}&` : ""}detail=${encodeURIComponent(row.assetId)}#${detailAnchor}`}
+            prefetch={false}
+            className={`rounded-full border px-3 py-1.5 text-[11px] transition ${selectedAssetId === row.assetId ? "border-violet-300/35 bg-violet-300/[.1] text-violet-100" : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/70"}`}
+          >{row.name}</Link>)}
+        </div>
+        {selectedRow
+          ? <AssetLiuyaoDossier row={selectedRow} weeks={weeks} />
+          : !selectedAssetId
+            ? <p className="rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs text-white/38">点击上方标的后才加载完整卦象，首屏不再一次传输全部详情。</p>
+            : null}
       </div>
       <footer className="grid gap-2 border-t border-white/[.05] bg-white/[.015] px-4 py-3 text-[10px] text-white/35 sm:grid-cols-3">
         {weeks.map((week, index) => {
@@ -259,6 +278,8 @@ export function SectorResonanceBoard({
   summaries,
   qimenWeeklyCrossCheck,
   qimenWeeklySourceBoundary,
+  selectedAssetId,
+  selectedWeekStart,
 }: {
   asOf: string;
   weeks: SectorResonanceWeek[];
@@ -266,6 +287,8 @@ export function SectorResonanceBoard({
   summaries: SectorWeekSummary[];
   qimenWeeklyCrossCheck: readonly QimenWeeklyCrossCheck[];
   qimenWeeklySourceBoundary: { periodStart: string; periodEnd: string; memberSummary: string };
+  selectedAssetId?: string;
+  selectedWeekStart?: string;
 }) {
   const currentSummaries = summaries.filter((item) => item.weekStart === weeks[0]!.start);
   const nextSummaries = summaries.filter((item) => item.weekStart === weeks[1]!.start);
@@ -322,6 +345,8 @@ export function SectorResonanceBoard({
           rows={rows.filter((row) => row.group === group)}
           weeks={weeks}
           summaries={summaries.filter((item) => item.group === group)}
+          selectedAssetId={selectedAssetId}
+          selectedWeekStart={selectedWeekStart}
         />
       ))}
 

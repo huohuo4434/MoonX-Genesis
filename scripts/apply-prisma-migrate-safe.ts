@@ -12,6 +12,7 @@ import { bootstrapDeviceSecurity } from "./bootstrap-device-security";
 loadProductionEnv();
 
 async function main(): Promise<void> {
+  const strict = process.argv.includes("--strict");
   const runtimeUrl = (process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL)?.trim();
   const migrationUrl = (
     process.env.DIRECT_URL ?? process.env.MIGRATION_DATABASE_URL
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
           note: "Migration failed or timed out; build continues without resetting data.",
         })
       );
+      if (strict) throw error;
     }
   }
 
@@ -67,6 +69,7 @@ async function main(): Promise<void> {
         },
       })
     );
+    if (strict) throw error;
   }
 }
 
@@ -80,7 +83,5 @@ main()
         error: error instanceof Error ? error.message : String(error),
       })
     );
-  })
-  .finally(() => {
-    process.exitCode = 0;
+    process.exitCode = 1;
   });

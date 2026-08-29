@@ -42,6 +42,9 @@ export default async function AdminHomePage() {
     focusTotal: convictionFreshness.total,
     focusAffectedAssets: convictionFreshness.affectedAssets,
     cycleGapCount: cycleGaps.taskCount,
+    cycleGapBlockingCount: cycleGaps.blockingTaskCount,
+    cycleGapActionCount: cycleGaps.actionTaskCount,
+    cycleGapPreparationCount: cycleGaps.preparationTaskCount,
     consultationAvailable: consultationQueue.available,
     pendingConsultations: consultationQueue.available ? consultationQueue.summary.total : 0,
     failedConsultations: consultationQueue.available ? consultationQueue.summary.failed : 0,
@@ -103,14 +106,22 @@ export default async function AdminHomePage() {
         <Card
           padding="md"
           className={`mt-4 border ${
-            cycleGaps.taskCount > 0
+            cycleGaps.urgency === "BLOCKER"
               ? "border-red-500/40 bg-red-500/10"
+              : cycleGaps.urgency === "ACTION"
+                ? "border-amber-300/35 bg-amber-300/[0.08]"
+                : cycleGaps.urgency === "PREPARATION"
+                  ? "border-cyan-300/25 bg-cyan-300/[0.05]"
               : "border-emerald-400/30 bg-emerald-400/[0.06]"
           }`}
         >
           <Text variant="body-sm" weight="semibold">
             {cycleGaps.taskCount > 0
-              ? `卦象缺口：${cycleGaps.taskCount}项待补`
+              ? cycleGaps.urgency === "BLOCKER"
+                ? `卦象阻断：${cycleGaps.blockingTaskCount}项临近生效`
+                : cycleGaps.urgency === "ACTION"
+                  ? `卦象待办：${cycleGaps.actionTaskCount}项进入准备期`
+                  : `卦象准备：${cycleGaps.preparationTaskCount}项尚有提前量`
               : "周期卦覆盖：已齐"}
           </Text>
           <Text variant="caption" color="secondary" className="mt-1 block">
@@ -125,7 +136,7 @@ export default async function AdminHomePage() {
                   item.monthlyState === "INCOMPLETE" ? `${cycleGaps.monthlyLabel} 独立月卦证据不完整` : null,
                 ].filter(Boolean);
                 return (
-                  <div key={item.assetId} className="rounded-md border border-red-500/20 bg-black/10 p-3">
+                  <div key={item.assetId} className="rounded-md border border-white/10 bg-black/10 p-3">
                     <Text variant="body-sm" weight="semibold">{item.assetName}</Text>
                     <Text variant="caption" color="secondary" className="mt-1 block">
                       {gaps.join("；")}

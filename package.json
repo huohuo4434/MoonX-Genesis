@@ -8,7 +8,10 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && node --import tsx scripts/apply-prisma-migrate-safe.ts && next build && node --import tsx scripts/run-postbuild-safe.ts",
+    "vercel-build": "prisma generate && next build",
+    "release:migrate": "node --import tsx scripts/apply-prisma-migrate-safe.ts --strict",
+    "release:seed:weekly": "node --import tsx scripts/seed-weekly-liuyao-sources.ts",
+    "release:validate": "node --import tsx scripts/validate-upgrade-readonly.ts",
     "bootstrap:admin": "node --import tsx scripts/bootstrap-admin.ts",
     "db:migrate": "node --import tsx scripts/apply-migrations.ts",
     "prisma:generate": "prisma generate",

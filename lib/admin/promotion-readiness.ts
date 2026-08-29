@@ -25,6 +25,9 @@ export type PromotionReadinessInput = {
   focusTotal: number;
   focusAffectedAssets: string[];
   cycleGapCount: number;
+  cycleGapBlockingCount: number;
+  cycleGapActionCount: number;
+  cycleGapPreparationCount: number;
   consultationAvailable: boolean;
   pendingConsultations: number;
   failedConsultations: number;
@@ -66,13 +69,29 @@ export function buildPromotionReadinessSummary(
       severity: "BLOCKER",
     });
   }
-  if (input.cycleGapCount > 0) {
+  if (input.cycleGapBlockingCount > 0) {
     actions.push({
       key: "cycle",
-      label: `未来周期卦缺${input.cycleGapCount}项`,
-      detail: "缺少的周卦或月卦会让未来预测只能停在待确认状态。",
+      label: `临近周期卦缺${input.cycleGapBlockingCount}项`,
+      detail: "距离生效不足4天，缺失项将阻断下一周期正式交付。",
       href: "/admin/weekly",
       severity: "BLOCKER",
+    });
+  } else if (input.cycleGapActionCount > 0) {
+    actions.push({
+      key: "cycle",
+      label: `未来周期卦待处理${input.cycleGapActionCount}项`,
+      detail: "距离生效4—7天，已进入本周内容准备队列。",
+      href: "/admin/weekly",
+      severity: "ACTION",
+    });
+  } else if (input.cycleGapPreparationCount > 0) {
+    actions.push({
+      key: "cycle",
+      label: `未来周期卦准备${input.cycleGapPreparationCount}项`,
+      detail: "距离生效超过7天，先保留为蓝色准备提示，不影响当前推广状态。",
+      href: "/admin/weekly",
+      severity: "NOTICE",
     });
   }
   if (input.focusCurrent < input.focusTotal) {

@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import Link from "next/link";
 import {
   SECTOR_RESONANCE_GROUP_ORDER,
   type SectorResonanceGroup,
@@ -102,15 +100,18 @@ export function DailySectorResonanceBoard({
   weeks,
   rows,
   summaries,
+  selectedWeekStart,
 }: {
   asOf: string;
   weeks: DailySectorWeek[];
   rows: DailySectorRow[];
   summaries: DailySectorSummary[];
+  selectedWeekStart?: string;
 }) {
   const initialWeek = Math.max(0, weeks.findIndex((week) => asOf >= week.start && asOf <= week.end));
-  const [selectedWeek, setSelectedWeek] = useState(initialWeek);
-  const week = weeks[selectedWeek] ?? weeks[0]!;
+  const selectedWeek = weeks.findIndex((week) => week.start === selectedWeekStart);
+  const selectedWeekIndex = selectedWeek >= 0 ? selectedWeek : initialWeek;
+  const week = weeks[selectedWeekIndex] ?? weeks[0]!;
   const dates = new Set(week.days.map((day) => day.date));
   return <div id="daily-sector" className="scroll-mt-6 space-y-4">
     <section className="overflow-hidden rounded-[26px] border border-violet-300/15 bg-[radial-gradient(circle_at_15%_0%,rgba(139,92,246,.14),transparent_35%),radial-gradient(circle_at_90%_20%,rgba(34,211,238,.09),transparent_30%),#090b0f] p-5 sm:p-7">
@@ -123,15 +124,15 @@ export function DailySectorResonanceBoard({
         <a href="#weekly-sector" className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:border-white/20 hover:text-white/70">查看周度矩阵 ↓</a>
       </div>
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-        {weeks.map((item, index) => <button
+        {weeks.map((item, index) => <Link
           key={item.start}
-          type="button"
-          onClick={() => setSelectedWeek(index)}
-          className={`shrink-0 rounded-xl border px-3.5 py-2.5 text-left transition ${selectedWeek === index ? "border-violet-300/35 bg-violet-300/[.12] text-violet-50" : "border-white/[.08] bg-black/20 text-white/42 hover:border-white/15 hover:text-white/65"}`}
+          href={`/member/sector-resonance?week=${encodeURIComponent(item.start)}#daily-sector`}
+          prefetch={false}
+          className={`shrink-0 rounded-xl border px-3.5 py-2.5 text-left transition ${selectedWeekIndex === index ? "border-violet-300/35 bg-violet-300/[.12] text-violet-50" : "border-white/[.08] bg-black/20 text-white/42 hover:border-white/15 hover:text-white/65"}`}
         >
           {item.badge ? <span className="mr-2 text-[9px] font-semibold text-cyan-200/75">{item.badge}</span> : null}
           <span className="text-xs font-semibold">{item.label}</span>
-        </button>)}
+        </Link>)}
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {SECTOR_RESONANCE_GROUP_ORDER.map((group) => {

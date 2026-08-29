@@ -39,8 +39,14 @@ export type AdminCycleGapSummary = {
   monthlyId: string;
   monthlyLabel: string;
   taskCount: number;
+  blockingTaskCount: number;
+  actionTaskCount: number;
+  preparationTaskCount: number;
+  urgency: AdminCycleGapUrgency | null;
   items: AdminCycleGapItem[];
 };
+
+export type AdminCycleGapUrgency = "PREPARATION" | "ACTION" | "BLOCKER";
 
 const AWAITING_DRAFT = new Set<ConsultationStatus>(["SUBMITTED", "AI_DRAFTING"]);
 const AWAITING_REVIEW = new Set<ConsultationStatus>(["DRAFT_READY", "HUMAN_REVIEW"]);
@@ -49,6 +55,20 @@ function addUtcDays(iso: string, days: number): string {
   const date = new Date(`${iso}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function utcDayNumber(iso: string): number {
+  return Date.parse(`${iso}T12:00:00Z`) / 86_400_000;
+}
+
+export function classifyCycleGapUrgency(input: {
+  today: string;
+  periodStart: string;
+}): AdminCycleGapUrgency {
+  const daysUntilStart = Math.round(utcDayNumber(input.periodStart) - utcDayNumber(input.today));
+  if (daysUntilStart <= 3) return "BLOCKER";
+  if (daysUntilStart <= 7) return "ACTION";
+  return "PREPARATION";
 }
 
 function nextMonthId(now: Date): string {
@@ -82,6 +102,7 @@ export function summarizeConsultationQueue(rows: ConsultationQueueRow[]): Consul
  * of lead time without treating old forecasts as current content.
  */
 export function buildAdminCycleGapSummary(now = new Date()): AdminCycleGapSummary {
+  const today = getBeijingTodayKey(now);
   const memberWindow = resolveWeeklyDisplayWindow(now);
   const weeklyStart = addUtcDays(memberWindow.weekStart, 7);
   const weeklyEnd = addUtcDays(weeklyStart, 6);
@@ -117,6 +138,24 @@ export function buildAdminCycleGapSummary(now = new Date()): AdminCycleGapSummar
   }).filter((item) => item.weeklyMissing || item.monthlyState !== null);
 
   const [monthlyYear, monthlyMonth] = monthlyId.split("-");
+  const weeklyUrgency = classifyCycleGapUrgency({ today, periodStart: weeklyStart });
+  const monthlyStart = `${monthlyId}-01`;
+  const monthlyUrgency = classifyCycleGapUrgency({ today, periodStart: monthlyStart });
+  const urgencyCounts = items.reduce(
+    (counts, item) => {
+      if (item.weeklyMissing) counts[weeklyUrgency] += 1;
+      if (item.monthlyState !== null) counts[monthlyUrgency] += 1;
+      return counts;
+    },
+    { PREPARATION: 0, ACTION: 0, BLOCKER: 0 } as Record<AdminCycleGapUrgency, number>,
+  );
+  const urgency: AdminCycleGapUrgency | null = urgencyCounts.BLOCKER > 0
+    ? "BLOCKER"
+    : urgencyCounts.ACTION > 0
+      ? "ACTION"
+      : urgencyCounts.PREPARATION > 0
+        ? "PREPARATION"
+        : null;
   return {
     weeklyStart,
     weeklyEnd,
@@ -126,6 +165,10 @@ export function buildAdminCycleGapSummary(now = new Date()): AdminCycleGapSummar
       (total, item) => total + Number(item.weeklyMissing) + Number(item.monthlyState !== null),
       0
     ),
+    blockingTaskCount: urgencyCounts.BLOCKER,
+    actionTaskCount: urgencyCounts.ACTION,
+    preparationTaskCount: urgencyCounts.PREPARATION,
+    urgency,
     items,
   };
 }

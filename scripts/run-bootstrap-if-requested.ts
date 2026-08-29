@@ -1,11 +1,12 @@
 /**
- * Runs safe bootstrap / seed during Vercel build.
- * NEVER runs destructive payment/membership wipes on production deploys.
+ * Explicit maintenance runner. It is never enabled merely because Vercel is
+ * building the application. Every state-changing operation must be requested
+ * by its own environment flag.
  */
 import { execSync } from "child_process";
 
 const onVercel = process.env.VERCEL === "1";
-const shouldRun = process.env.RUN_ADMIN_BOOTSTRAP === "true" || onVercel;
+const shouldRun = process.env.RUN_ADMIN_BOOTSTRAP === "true";
 const allowDestructive =
   process.env.ALLOW_DESTRUCTIVE_PAYMENT_CLEANUP === "true" &&
   process.env.VERCEL_ENV !== "production" &&
@@ -47,7 +48,11 @@ if (shouldRun) {
   if (process.env.RUN_ADMIN_BOOTSTRAP === "true" && process.env.RUN_SMOKE_AUTH === "true" && allowDestructive) {
     runStep("smoke-auth", "npx tsx scripts/smoke-auth.ts", false);
   }
-  runStep("payment-email-test", "npx tsx scripts/send-payment-test-email.ts", false);
+  if (process.env.RUN_PAYMENT_EMAIL_TEST === "true") {
+    runStep("payment-email-test", "npx tsx scripts/send-payment-test-email.ts", false);
+  } else {
+    console.log("[bootstrap] skipped payment-email-test (requires RUN_PAYMENT_EMAIL_TEST=true)");
+  }
 } else {
   console.log("[bootstrap] skipped");
 }

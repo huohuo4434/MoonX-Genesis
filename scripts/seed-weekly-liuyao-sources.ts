@@ -2,6 +2,7 @@
  * Seed / upsert the 6 canonical weekly Liu Yao sources (non-destructive).
  * Usage: npx tsx scripts/seed-weekly-liuyao-sources.ts
  */
+import "./register-server-only-shim";
 import { loadProductionEnv } from "./load-env";
 loadProductionEnv();
 

@@ -29,8 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function MemberSectorResonancePage() {
+export default async function MemberSectorResonancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ week?: string; detail?: string }>;
+}) {
   noStore();
+  const params = searchParams ? await searchParams : {};
   const gate = await getMemberDevicePageAccess();
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
     const en = (await getRequestLocale()) === "en";
@@ -51,7 +56,10 @@ export default async function MemberSectorResonancePage() {
   }
   const board = buildSectorResonanceBoard();
   const dailyBoard = buildDailySectorResonanceBoard(board);
-  const currentWeek = board.weeks.find((week) => board.asOf >= week.start && board.asOf <= week.end) ?? board.weeks[0];
+  const selectedDailyWeek = dailyBoard.weeks.find((week) => week.start === params.week)
+    ?? dailyBoard.weeks.find((week) => board.asOf >= week.start && board.asOf <= week.end)
+    ?? dailyBoard.weeks[0];
+  const currentWeek = board.weeks.find((week) => week.start === selectedDailyWeek?.start) ?? board.weeks[0];
   const currentSummaries = currentWeek ? board.summaries.filter((item) => item.weekStart === currentWeek.start) : [];
   const currentFacts: ConclusionFirstFact[] = currentSummaries.map((item) => ({
     label: item.group,
@@ -77,8 +85,8 @@ export default async function MemberSectorResonancePage() {
               <a href="#daily-sector" className="rounded-full border border-violet-300/20 bg-violet-300/[.06] px-3 py-1.5 text-violet-100/70">逐日板块共振</a>
               <a href="#weekly-sector" className="rounded-full border border-cyan-300/20 bg-cyan-300/[.06] px-3 py-1.5 text-cyan-100/65">周度板块共振</a>
             </div>
-            <DailySectorResonanceBoard {...dailyBoard} />
-            <div id="weekly-sector" className="mt-10 scroll-mt-6"><SectorResonanceBoard {...board} /></div>
+            <DailySectorResonanceBoard {...dailyBoard} selectedWeekStart={selectedDailyWeek?.start} />
+            <div id="weekly-sector" className="mt-10 scroll-mt-6"><SectorResonanceBoard {...board} selectedAssetId={params.detail} selectedWeekStart={selectedDailyWeek?.start} /></div>
           </div>
         </Section>
       </main>

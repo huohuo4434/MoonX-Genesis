@@ -11,6 +11,9 @@ const healthy = {
   focusTotal: 19,
   focusAffectedAssets: [],
   cycleGapCount: 0,
+  cycleGapBlockingCount: 0,
+  cycleGapActionCount: 0,
+  cycleGapPreparationCount: 0,
   consultationAvailable: true,
   pendingConsultations: 0,
   failedConsultations: 0,
@@ -20,10 +23,34 @@ test("promotion readiness never calls a blocked site ready", () => {
   const summary = buildPromotionReadinessSummary({
     ...healthy,
     cycleGapCount: 3,
+    cycleGapBlockingCount: 3,
   });
   assert.equal(summary.status, "HOLD");
   assert.equal(summary.blockerCount, 1);
   assert.ok(summary.actions.some((item) => item.key === "cycle"));
+});
+
+test("future cycle gaps more than seven days away stay a notice instead of a red blocker", () => {
+  const summary = buildPromotionReadinessSummary({
+    ...healthy,
+    cycleGapCount: 3,
+    cycleGapPreparationCount: 3,
+  });
+  assert.equal(summary.status, "READY");
+  assert.equal(summary.blockerCount, 0);
+  assert.equal(summary.actionCount, 0);
+  assert.equal(summary.actions.find((item) => item.key === "cycle")?.severity, "NOTICE");
+});
+
+test("future cycle gaps become an operating action four to seven days before start", () => {
+  const summary = buildPromotionReadinessSummary({
+    ...healthy,
+    cycleGapCount: 3,
+    cycleGapActionCount: 3,
+  });
+  assert.equal(summary.status, "PILOT");
+  assert.equal(summary.blockerCount, 0);
+  assert.equal(summary.actionCount, 1);
 });
 
 test("operational backlog remains pilot-only instead of a false blocker", () => {
