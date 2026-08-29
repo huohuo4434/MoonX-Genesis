@@ -10,7 +10,7 @@ Release order:
 2. If the release contains a database migration, load production environment variables and run `npm run release:migrate`. A migration failure exits non-zero.
 3. Deploy the verified commit to Vercel.
 4. Load production environment variables and run `npm run release:validate -- --site https://mooxintel.com`.
-5. Accept the release only when the command prints `UPGRADE VALIDATION PASSED`. The validator performs public GET checks and updates only `moonx_mvp/acceptance-latest.json`; it never creates users, submits payments, sends email, publishes forecasts or touches trading state.
+5. Accept the release only when the command prints `UPGRADE VALIDATION PASSED`. The validator performs public GET checks and, when a local service-role credential is available, updates only `moonx_mvp/acceptance-latest.json`. Vercel intentionally withholds Secret values from local pulls; in that case the timestamped console report is the authoritative fresh acceptance. The validator never creates users, submits payments, sends email, publishes forecasts or touches trading state.
 
 Canonical weekly Liuyao sources are an explicit maintenance action:
 

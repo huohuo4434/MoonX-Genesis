@@ -26,6 +26,7 @@ test("release acceptance cannot mutate users, payments, forecasts or trading sta
   assert.match(source, /mode:\s*"READ_ONLY_POST_DEPLOY"/);
   assert.match(source, /UPGRADE VALIDATION PASSED/);
   assert.match(source, /acceptance-latest\.json/);
+  assert.match(source, /timestamped console report remains authoritative/);
 });
 
 test("weekly source seed registers the CLI server-only shim before dynamic app imports", () => {
