@@ -2,7 +2,11 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, Heading, Text, Badge } from "@/components/ui";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
+import { EXTERNAL_ANALYST_VIEWPOINTS_20260828 } from "@/lib/data/external-analyst-viewpoints-20260828";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
+import { ANALYST_FUSION_SHADOW_VARIANTS } from "@/lib/research/analyst-fusion-shadow-core";
+import { EXTERNAL_ANALYST_ROLE_REGISTRY } from "@/lib/research/external-analyst-role-registry";
+import { assessExternalViewpointCard } from "@/lib/research/external-viewpoint-card-core";
 import { listResearchRecords } from "@/lib/data/research-records";
 import { policyForTags } from "@/lib/research/external-source-policy";
 import {
@@ -26,6 +30,13 @@ function alignmentText(value: "aligned" | "partial" | "conflict") {
   return "部分一致";
 }
 
+function roleText(role: string) {
+  if (role === "MACRO_REGIME") return "宏观环境";
+  if (role === "TECHNICAL_LEVELS") return "结构与点位";
+  if (role === "CONTRARIAN_REVIEW") return "反方复核";
+  return "叙事与情绪";
+}
+
 export default async function AdminExternalViewpointsPage() {
   const allRecords = await listResearchRecords();
   const verification = summarizeTeacher02Verification(allRecords);
@@ -38,6 +49,10 @@ export default async function AdminExternalViewpointsPage() {
     }),
   }));
   const archivedViewpoints = [...teacher02Liuyao20260802Records, ...externalViewpoints20260801, ...externalViewpointsFollowup20260801];
+  const analystCards = EXTERNAL_ANALYST_VIEWPOINTS_20260828.map((card) => ({
+    card,
+    assessment: assessExternalViewpointCard(card),
+  }));
 
   return (
     <main className="mx-auto w-full max-w-container px-4 py-8 sm:px-6 lg:px-8">
@@ -113,6 +128,102 @@ export default async function AdminExternalViewpointsPage() {
         <Text variant="caption" className="block text-amber-200/80">
           权重保护：老师02不能单独开仓；已发布版本不倒改；至少累计10个黄金正式样本后，才允许按真实命中率重新评估黄金35%的专项权重。
         </Text>
+      </Card>
+
+      <Card padding="lg" className="mb-6 space-y-5 border-violet-400/20">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Heading as="h2" size="h3">博主职责与权限边界</Heading>
+            <Text variant="body-sm" color="secondary" className="mt-1 max-w-4xl">
+              博主不是第二套正式方向。不同来源只承担固定职责：宏观判断环境，技术来源提供确认与失效点，反方来源检查过度解读，叙事来源整理事件。所有材料先进入影子验证。
+            </Text>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">内部研究</Badge>
+            <Badge variant="outline">不单独下单</Badge>
+            <Badge variant="outline">不改锁定方向</Badge>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {EXTERNAL_ANALYST_ROLE_REGISTRY.map((source) => (
+            <div key={source.id} className="rounded-xl border border-white/10 bg-black/15 p-4">
+              <Text variant="body-sm" weight="semibold">{source.internalName}</Text>
+              <Text variant="caption" className="mt-1 block text-violet-200">{roleText(source.role)}</Text>
+              <Text variant="caption" color="tertiary" className="mt-3 block leading-relaxed">{source.strengths}</Text>
+              <Text variant="caption" className="mt-2 block text-amber-100/65">边界：{source.limits}</Text>
+              <Text variant="caption" className="mt-3 block text-white/40">可影响：{source.allowedEffects.join(" / ")}</Text>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card padding="lg" className="mb-6 space-y-5 border-emerald-400/20">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Heading as="h2" size="h3">2026-08-28 前瞻观点卡</Heading>
+            <Text variant="body-sm" color="secondary" className="mt-1 max-w-4xl">
+              8月27日至28日材料只从8月31日之后开始记前瞻样本，不拿已经发生的行情倒填命中。点位必须同时保留确认与失效条件；缺条件的内容只做笔记。
+            </Text>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">共 {analystCards.length} 张</Badge>
+            <Badge variant="outline">可前瞻计分 {analystCards.filter(({ assessment }) => assessment.forwardScoreEligible).length}</Badge>
+            <Badge variant="outline">笔记 {analystCards.filter(({ card }) => card.status === "NOTE_ONLY").length}</Badge>
+          </div>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {analystCards.map(({ card, assessment }) => (
+            <div key={card.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <Text variant="body-sm" weight="semibold">{card.asset} · {card.symbol}</Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">
+                    {roleText(card.role)} · {card.applicableStart} 至 {card.applicableEnd}
+                  </Text>
+                </div>
+                <div className="flex gap-2">
+                  <Badge variant="outline">{card.bias}</Badge>
+                  <Badge variant="outline">{assessment.forwardScoreEligible ? "前瞻锁定" : card.status === "NOTE_ONLY" ? "仅笔记" : "待处理"}</Badge>
+                </div>
+              </div>
+              <Text variant="body-sm" className="mt-3 block leading-relaxed text-white/75">{card.thesis}</Text>
+              <Text variant="caption" color="tertiary" className="mt-2 block">路径：{card.path}</Text>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <div className="rounded-lg border border-emerald-400/15 bg-emerald-400/[0.03] p-3">
+                  <Text variant="caption" weight="semibold" className="text-emerald-200">确认</Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">{card.confirmation}</Text>
+                </div>
+                <div className="rounded-lg border border-rose-400/15 bg-rose-400/[0.03] p-3">
+                  <Text variant="caption" weight="semibold" className="text-rose-200">失效</Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">{card.invalidation}</Text>
+                </div>
+              </div>
+              {(card.supports.length || card.resistances.length || card.targets.length) ? (
+                <Text variant="caption" className="mt-3 block text-white/45">
+                  支撑 {card.supports.join(" / ") || "—"} · 压力 {card.resistances.join(" / ") || "—"} · 目标 {card.targets.join(" / ") || "—"}
+                </Text>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card padding="lg" className="mb-6 space-y-5 border-sky-400/20">
+        <div>
+          <Heading as="h2" size="h3">四组影子对照</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1 max-w-4xl">
+            同一资产、周期和市场环境同时冻结四份版本，周期结束后统一复盘。少于10个样本只观察；10至19个只能影响风险；至少20个且比基准提高8个百分点、同时不扩大不利波动，才可申请进入确认层；至少30个并覆盖两种市场环境后才讨论权重。
+          </Text>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {ANALYST_FUSION_SHADOW_VARIANTS.map((variant) => (
+            <div key={variant.id} className="rounded-xl border border-white/10 bg-black/15 p-4">
+              <Text variant="body-sm" weight="semibold">{variant.label}</Text>
+              <Text variant="caption" color="tertiary" className="mt-2 block leading-relaxed">{variant.description}</Text>
+              <Text variant="caption" className="mt-3 block text-sky-200/70">RESEARCH_ONLY · 不触发交易</Text>
+            </div>
+          ))}
+        </div>
       </Card>
 
 
