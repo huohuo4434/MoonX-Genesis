@@ -11,6 +11,45 @@ import type { KeyDateAction, KeyDateLevel, KeyDateRadarItem } from "@/lib/data/k
 const DAY_MS = 86_400_000;
 const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
 
+type LockedPathDateHint = {
+  date: string;
+  action: KeyDateAction;
+  title: string;
+  note: string;
+};
+
+// These dates are not new daily hexagrams. They are explicit boundaries already
+// written into the locked path text and are normalized here for the radar.
+const LOCKED_PATH_DATE_HINTS: Partial<Record<string, LockedPathDateHint[]>> = {
+  "CXMT-M1-20260901-V4": [
+    { date: "2026-09-14", action: "TURNING_RISK", title: "波动放大阶段开始", note: "锁定路径写明9月14日起进入两次先压后修、波动放大阶段。" },
+    { date: "2026-09-28", action: "TOP_EXIT_WATCH", title: "月底阶段兑现观察", note: "锁定路径写明9月28日起反抽受阻并进入阶段兑现。" },
+  ],
+  "LITE-YOU-20260823-V2": [
+    { date: "2026-09-14", action: "TOP_EXIT_WATCH", title: "阶段退守起点观察", note: "锁定路径把9月14日至20日列为阶段退守窗口。" },
+    { date: "2026-09-21", action: "BOTTOM_WATCH", title: "受限修复起点观察", note: "锁定路径把9月21日至27日列为受限修复窗口。" },
+  ],
+  "SPCX-YOU-20260823-V3": [
+    { date: "2026-09-21", action: "TOP_EXIT_WATCH", title: "冲高分化起点观察", note: "锁定路径写明9月21日起边冲高边分化，随后进入筑顶/回吐阶段。" },
+  ],
+  "INTC-SEP-20260824-V2": [
+    { date: "2026-09-07", action: "BOTTOM_WATCH", title: "回踩后修复窗口开启", note: "锁定路径把9月7日至20日列为震荡抬高窗口。" },
+    { date: "2026-09-21", action: "TOP_EXIT_WATCH", title: "下旬转弱起点观察", note: "锁定路径明确写明9月21日起转弱。" },
+  ],
+  "FOCUS-MONTHLY-GOLD-202609-V2": [
+    { date: "2026-09-07", action: "TOP_EXIT_WATCH", title: "高位试高转温和回调", note: "锁定路径明确以9月7日作为高位试高向温和回调的切换点。" },
+  ],
+  "FOCUS-MONTHLY-SILVER-202609-V1": [
+    { date: "2026-09-14", action: "TURNING_RISK", title: "突破转分歧交接观察", note: "锁定路径把9月14日至20日列为突破转分歧的交接阶段。" },
+    { date: "2026-09-21", action: "TOP_EXIT_WATCH", title: "回吐风险升高起点", note: "锁定路径明确写明9月21日以后重心转弱并重点防回吐。" },
+  ],
+  "FOCUS-MONTHLY-WTI-CRUDE-202609-V2": [
+    { date: "2026-09-07", action: "BOTTOM_WATCH", title: "承压转强反弹观察", note: "锁定路径写明9月1日至6日先承压，9月7日起进入主要反弹窗口。" },
+    { date: "2026-09-13", action: "TOP_EXIT_WATCH", title: "上冲过热窗口末端", note: "锁定路径把9月7日至13日列为主要上冲与过热窗口。" },
+    { date: "2026-09-21", action: "TOP_EXIT_WATCH", title: "回落风险重新升高", note: "锁定路径明确写明9月21日后重心重新转弱或收敛。" },
+  ],
+};
+
 function utc(date: string) {
   return Date.parse(`${date}T00:00:00.000Z`);
 }
@@ -56,12 +95,16 @@ function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asO
     );
   }
   return valid.sort((left, right) => {
+    const targetMonth = target.slice(0, 7);
+    const leftStartsInTargetMonth = left.periodStart.slice(0, 7) === targetMonth ? 1 : 0;
+    const rightStartsInTargetMonth = right.periodStart.slice(0, 7) === targetMonth ? 1 : 0;
     const leftCovers = left.periodStart <= target && left.periodEnd >= target ? 1 : 0;
     const rightCovers = right.periodStart <= target && right.periodEnd >= target ? 1 : 0;
     const ideal = level === "MONTH" ? 30 : 7;
     const leftExplicit = (left.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
     const rightExplicit = (right.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
     return rightExplicit - leftExplicit
+      || rightStartsInTargetMonth - leftStartsInTargetMonth
       || rightCovers - leftCovers
       || Math.abs(durationDays(left) - ideal) - Math.abs(durationDays(right) - ideal)
       || right.version - left.version
@@ -70,12 +113,27 @@ function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asO
   })[0] ?? null;
 }
 
-function actionForDirection(direction: string): KeyDateAction {
+function actionForDirection(row: ConvictionPeriodForecast, level: KeyDateLevel, focusDate: string, structuralTurnPending: boolean): KeyDateAction {
+  if (!structuralTurnPending) return "TURNING_RISK";
+  if (durationDays(row) > 45) return "TURNING_RISK";
+  if (level === "MONTH" && row.periodStart.slice(0, 7) !== focusDate.slice(0, 7)) return "TURNING_RISK";
+  if (level === "WEEK" && row.forecastType.startsWith("MONTH")) return "TURNING_RISK";
+  const direction = row.direction;
   if (/先涨后跌|冲高回落/.test(direction)) return "TOP_EXIT_WATCH";
   if (/先跌后涨|探底回升/.test(direction)) return "BOTTOM_WATCH";
-  if (/下跌/.test(direction)) return "BOTTOM_WATCH";
-  if (/上涨/.test(direction)) return "TOP_EXIT_WATCH";
   return "TURNING_RISK";
+}
+
+function derivedTitle(direction: string, action: KeyDateAction, structuralTurnPending: boolean) {
+  if (!structuralTurnPending) return "周期收尾与新周期切换观察日";
+  if (action === "TURNING_RISK" && /先涨后跌|冲高回落|先跌后涨|探底回升/.test(direction)) {
+    return `${direction}的阶段节奏观察日`;
+  }
+  if (/先涨后跌|冲高回落/.test(direction)) return `${direction}的高位转折观察日`;
+  if (/先跌后涨|探底回升/.test(direction)) return `${direction}的低位转折观察日`;
+  if (/上涨/.test(direction)) return `${direction}延续与转折观察日`;
+  if (/下跌/.test(direction)) return `${direction}延续与转折观察日`;
+  return `${direction}的变盘观察日`;
 }
 
 function actionForExplicitType(type: NonNullable<ConvictionPeriodForecast["keyDates"]>[number]["type"]): KeyDateAction {
@@ -115,18 +173,25 @@ function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, asset
 
 function derivedFocus(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string, level: KeyDateLevel) {
   const monthlyWeekFallback = level === "WEEK" && row.forecastType.startsWith("MONTH");
-  const requestedStart = monthlyWeekFallback ? addDays(asOfDate, 2) : asOfDate;
-  const usableStart = row.periodStart > requestedStart ? row.periodStart : requestedStart;
-  const fullSpan = Math.max(0, Math.round((utc(row.periodEnd) - utc(usableStart)) / DAY_MS));
-  const span = level === "MONTH" ? Math.min(fullSpan, 29) : monthlyWeekFallback ? Math.min(fullSpan, 6) : fullSpan;
-  const sliceEnd = addDays(usableStart, span);
-  const raw = addDays(usableStart, Math.round(span * turnRatio(row.direction)));
+  const target = addDays(asOfDate, level === "MONTH" ? 7 : 2);
+  const targetMonthStart = `${target.slice(0, 7)}-01`;
+  const nextMonthStart = addDays(`${target.slice(0, 7)}-28`, 4).slice(0, 7) + "-01";
+  const targetMonthEnd = addDays(nextMonthStart, -1);
+  const requestedStart = monthlyWeekFallback ? addDays(asOfDate, 2) : row.periodStart;
+  const sliceStart = level === "MONTH"
+    ? (row.periodStart > targetMonthStart ? row.periodStart : targetMonthStart)
+    : requestedStart;
+  const naturalEnd = level === "MONTH" ? targetMonthEnd : monthlyWeekFallback ? addDays(sliceStart, 6) : row.periodEnd;
+  const sliceEnd = row.periodEnd < naturalEnd ? row.periodEnd : naturalEnd;
+  const span = Math.max(0, Math.round((utc(sliceEnd) - utc(sliceStart)) / DAY_MS));
+  const raw = addDays(sliceStart, Math.round(span * turnRatio(row.direction)));
+  const structuralTurnPending = raw >= asOfDate;
   const branches = referencedBranches(row);
-  let selected = raw;
+  let selected = structuralTurnPending ? raw : sliceEnd;
   let matchedBranch: string | null = null;
   if (branches.size) {
     const candidates = Array.from({ length: 9 }, (_, index) => addDays(raw, index - 4))
-      .filter((date) => date >= usableStart && date <= sliceEnd && date <= row.periodEnd)
+      .filter((date) => date >= sliceStart && date >= asOfDate && date <= sliceEnd && date <= row.periodEnd)
       .sort((left, right) => Math.abs(utc(left) - utc(raw)) - Math.abs(utc(right) - utc(raw)));
     const branchDate = candidates.find((date) => branches.has(getSexagenaryDay(date).branch));
     if (branchDate) {
@@ -138,6 +203,7 @@ function derivedFocus(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId
   if (matchedBranch && getSexagenaryDay(selected).branch !== matchedBranch) matchedBranch = null;
   return {
     date: selected,
+    structuralTurnPending,
     derivation: matchedBranch
       ? `按${row.direction}的结构转折位置取中心，并在前后4日内用原记录提及的${matchedBranch}支日校准。`
       : `按${row.direction}的结构转折位置取中心；${getSexagenaryDay(selected).label}只作历法标记，不冒充原卦明确点名。`,
@@ -155,7 +221,16 @@ function buildItem(input: {
   derivation: string;
 }): KeyDateRadarItem {
   const asset = STATIC_MEMBER_AUTOMATION_FOCUS[input.assetId];
-  const sourceLabel = input.level === "MONTH" ? "月卦" : "周卦";
+  const duration = durationDays(input.row);
+  const sourceLabel = input.level === "WEEK" && input.row.forecastType.startsWith("MONTH")
+    ? "月卦当周推演方向"
+    : input.level === "MONTH" && duration > 45
+      ? "多月卦阶段方向"
+      : input.level === "MONTH" && input.row.forecastType.startsWith("WEEK")
+        ? "专项跨月记录方向"
+        : input.level === "MONTH"
+          ? "月卦正式方向"
+          : "周卦正式方向";
   return {
     id: `${input.assetId}-${input.level.toLowerCase()}-${input.date}-${input.evidence.toLowerCase()}`,
     assetId: input.assetId,
@@ -168,7 +243,7 @@ function buildItem(input: {
     level: input.level,
     action: input.action,
     title: input.title,
-    primaryView: `${sourceLabel}正式方向：${input.row.direction}。${input.row.summary}`,
+    primaryView: `${sourceLabel}（${input.row.periodStart}至${input.row.periodEnd}）：${input.row.direction}。${input.row.summary}`,
     weeklyAssist: input.row.expectedPath,
     confirmation: (input.row.confirmationLevel?.trim().length ?? 0) >= 15
       ? input.row.confirmationLevel!.trim()
@@ -203,18 +278,37 @@ function itemsForPeriod(assetId: StaticFocusAssetId, level: KeyDateLevel, asOfDa
       derivation: `${level === "MONTH" ? "月卦" : "周卦"}锁定记录明确点名${item.date}；${item.note ?? "仍须由真实K线确认。"}`,
     }));
   }
+  const pathHints = level === "MONTH"
+    ? (LOCKED_PATH_DATE_HINTS[row.id] ?? []).filter((item) => item.date >= asOfDate && item.date >= row.periodStart && item.date <= row.periodEnd)
+    : [];
+  if (pathHints.length) {
+    return pathHints.map((hint) => buildItem({
+      assetId,
+      level,
+      row,
+      date: hint.date,
+      action: hint.action,
+      title: hint.title,
+      evidence: "DERIVED",
+      derivation: `${hint.note} 该日期直接整理自已锁定路径文字，不是新增日卦，仍须由真实K线确认。`,
+    }));
+  }
   const derived = derivedFocus(row, assetId, asOfDate, level);
+  const action = actionForDirection(row, level, derived.date, derived.structuralTurnPending);
+  const crossMonthResidual = level === "MONTH" && row.periodStart.slice(0, 7) !== derived.date.slice(0, 7);
   return [buildItem({
     assetId,
     level,
     row,
     date: derived.date,
-    action: actionForDirection(row.direction),
-    title: `${row.direction}的转折确认日`,
+    action,
+    title: derivedTitle(row.direction, action, derived.structuralTurnPending),
     evidence: "DERIVED",
     derivation: level === "WEEK" && row.forecastType.startsWith("MONTH")
       ? `下一独立周卦尚未覆盖，先按已锁定月卦的当周段推演；${derived.derivation}`
-      : derived.derivation,
+      : crossMonthResidual
+        ? `当前目标月没有独立整月记录，只展示既有跨月锁定记录的剩余有效窗；${derived.derivation}`
+        : derived.derivation,
   })];
 }
 

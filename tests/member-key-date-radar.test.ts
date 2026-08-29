@@ -54,9 +54,80 @@ test("derived dates disclose inference and do not fabricate teacher-supplied exa
   const explicit = rows.filter((item) => item.evidence === "EXPLICIT");
   assert.ok(derived.length > 0);
   assert.ok(explicit.length > 0);
-  assert.ok(derived.every((item) => /结构转折|当周段推演/.test(item.derivation)));
+  assert.ok(derived.every((item) => /结构转折|当周段推演|锁定路径/.test(item.derivation)));
   assert.ok(derived.some((item) => /不冒充原卦明确点名/.test(item.derivation)));
   assert.ok(explicit.every((item) => /锁定记录明确点名/.test(item.derivation)));
+});
+
+test("Google September radar does not reuse the August bullish month or invent a top exit", () => {
+  const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.assetId === "googl");
+  const monthly = rows.find((item) => item.level === "MONTH");
+  const weekly = rows.find((item) => item.level === "WEEK");
+
+  assert.ok(monthly);
+  assert.equal(monthly.sourceIds.includes("GOOGL-M3-20260901-V1"), true);
+  assert.match(monthly.primaryView, /多月卦阶段方向（2026-09-01至2026-11-30）：震荡/);
+  assert.equal(monthly.action, "TURNING_RISK");
+  assert.notEqual(monthly.focusDate, "2026-09-03");
+
+  assert.ok(weekly);
+  assert.equal(weekly.sourceIds.includes("GOOGL-W4-20260831-V2"), true);
+  assert.match(weekly.primaryView, /周卦正式方向（2026-08-31至2026-09-06）：震荡/);
+  assert.equal(weekly.action, "TURNING_RISK");
+});
+
+test("plain bullish or bearish directions never become invented exit or bottom calls", () => {
+  const derived = buildMemberKeyDateRadar(AS_OF).filter((item) => item.evidence === "DERIVED");
+  for (const item of derived) {
+    const direction = item.primaryView.match(/）：([^。]+)/)?.[1] ?? "";
+    if (/^(上涨|震荡上涨|下跌|震荡下跌)$/.test(direction) && !/锁定路径/.test(item.derivation)) {
+      assert.equal(item.action, "TURNING_RISK", item.id);
+    }
+  }
+});
+
+test("locked path date boundaries outrank generic ratio dates", () => {
+  const rows = buildMemberKeyDateRadar(AS_OF);
+  const expected = [
+    ["cxmt", "2026-09-28", "TOP_EXIT_WATCH"],
+    ["lite", "2026-09-14", "TOP_EXIT_WATCH"],
+    ["spcx", "2026-09-21", "TOP_EXIT_WATCH"],
+    ["intel", "2026-09-21", "TOP_EXIT_WATCH"],
+    ["gold", "2026-09-07", "TOP_EXIT_WATCH"],
+    ["silver", "2026-09-21", "TOP_EXIT_WATCH"],
+    ["wti-crude", "2026-09-07", "BOTTOM_WATCH"],
+    ["wti-crude", "2026-09-13", "TOP_EXIT_WATCH"],
+    ["wti-crude", "2026-09-21", "TOP_EXIT_WATCH"],
+  ] as const;
+  for (const [assetId, date, action] of expected) {
+    const item = rows.find((row) => row.level === "MONTH" && row.assetId === assetId && row.focusDate === date);
+    assert.ok(item, `${assetId}:${date}`);
+    assert.equal(item.action, action, `${assetId}:${date}`);
+    assert.match(item.derivation, /锁定路径|锁定路径文字/, `${assetId}:${date}`);
+  }
+});
+
+test("cross-month residual and multi-month rows do not invent a top or bottom", () => {
+  const rows = buildMemberKeyDateRadar(AS_OF);
+  const kingsoft = rows.find((item) => item.assetId === "kingsoft-office" && item.level === "MONTH");
+  const asteroid = rows.find((item) => item.assetId === "asteroid" && item.level === "MONTH");
+  assert.ok(kingsoft);
+  assert.equal(kingsoft.action, "TURNING_RISK");
+  assert.match(kingsoft.derivation, /没有独立整月记录/);
+  assert.ok(asteroid);
+  assert.equal(asteroid.action, "TURNING_RISK");
+  assert.match(asteroid.primaryView, /多月卦阶段方向/);
+});
+
+test("month-derived weekly rows identify their source instead of claiming a weekly hexagram", () => {
+  const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.level === "WEEK");
+  for (const item of rows) {
+    const source = item.sourceIds[0] ?? "";
+    if (["GANFENG-202609-M2-V1", "LIAN-202609-M2-V1", "LEXIN-202609-M2-V1", "TENCENT-MONTH-20260901-V1", "KINGSOFT-OFFICE-M1-20260803-V1"].includes(source)) {
+      assert.match(item.primaryView, /月卦当周推演方向/);
+      assert.doesNotMatch(item.primaryView, /周卦正式方向/);
+    }
+  }
 });
 
 test("known locked monthly key dates remain present while the rest gain full coverage", () => {
@@ -70,7 +141,9 @@ test("known locked monthly key dates remain present while the rest gain full cov
 
 test("non-crypto derived key dates do not land on a weekend", () => {
   const rows = buildMemberKeyDateRadar(AS_OF).filter((item) =>
-    item.evidence === "DERIVED" && STATIC_MEMBER_AUTOMATION_FOCUS[item.assetId as keyof typeof STATIC_MEMBER_AUTOMATION_FOCUS]?.assetClass !== "CRYPTO"
+    item.evidence === "DERIVED"
+      && !/锁定路径/.test(item.derivation)
+      && STATIC_MEMBER_AUTOMATION_FOCUS[item.assetId as keyof typeof STATIC_MEMBER_AUTOMATION_FOCUS]?.assetClass !== "CRYPTO"
   );
   for (const item of rows) {
     const day = new Date(`${item.focusDate}T00:00:00.000Z`).getUTCDay();
@@ -96,6 +169,8 @@ test("member route is gated, discoverable and no longer renders a monthly path-w
   assert.match(page, /DEVICE_REQUIRED/);
   assert.match(page, />月关键日</);
   assert.match(page, />周关键日</);
+  assert.match(page, /锁定路径日期/);
+  assert.match(page, /固定周期位置/);
   assert.match(page, /不再单列“月路径窗口”/);
   assert.doesNotMatch(page, /MONTH_PATH|agenda\.monthlyPath/);
   assert.equal(NAV_ROUTES.memberKeyDates, "/member/key-dates");

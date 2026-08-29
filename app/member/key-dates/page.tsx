@@ -49,6 +49,11 @@ function statusLabel(item: KeyDateRadarViewItem) {
 function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
   const action = ACTION_META[item.action];
   const isMonth = item.level === "MONTH";
+  const evidenceLabel = item.evidence === "EXPLICIT"
+    ? "原记录明确"
+    : /锁定路径/.test(item.derivation)
+      ? "锁定路径日期"
+      : "卦象结构推演";
   return (
     <Card padding="lg" className={isMonth ? "border-amber-300/25 bg-amber-300/[0.055]" : "border-sky-300/15 bg-sky-300/[0.035]"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -58,7 +63,7 @@ function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant={item.status === "ACTIVE" ? "warning" : "outline"}>{statusLabel(item)}</Badge>
-          <Badge variant="outline">{item.evidence === "EXPLICIT" ? "原记录明确" : "卦象结构推演"}</Badge>
+          <Badge variant="outline">{evidenceLabel}</Badge>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -101,7 +106,7 @@ export default async function MemberKeyDatesPage() {
         <Badge variant="warning">会员关键日雷达</Badge>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
-          覆盖网站全部重点关注标的。月关键日由月卦主判，周关键日细化当周转折；原记录明确点名的日期优先，其余日期按已锁定卦象的先后结构、周期位置和记录中已有地支线索推演。所有日期都必须再由真实K线确认。
+          覆盖网站全部重点关注标的。月关键日由月卦主判，周关键日细化当周转折；原记录明确点名或锁定路径已经写明的日期边界优先，其余日期才按已锁定卦象的先后结构、固定周期位置和记录中已有地支线索推演。所有日期都必须再由真实K线确认。
         </Text>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
           ["覆盖标的", summary.assetCount],
