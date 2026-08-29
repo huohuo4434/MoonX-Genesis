@@ -27,17 +27,19 @@ test("asteroid current week rolls by date and exposes one seven-day dossier with
   assert.match(dossier.longTermBackground ?? "", /一年|修复|抬升/);
 });
 
-test("next asteroid week uses the existing locked forecast but refuses to invent missing daily evidence", () => {
+test("next asteroid week derives a traceable daily rhythm from the locked weekly forecast", () => {
   const dossier = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-14", nowMs: NOW });
   assert.deepEqual(dossier.nextWeek && { start: dossier.nextWeek.periodStart, end: dossier.nextWeek.periodEnd, ready: dossier.nextWeek.dailyEvidenceReady }, {
-    start: "2026-08-17", end: "2026-08-23", ready: false,
+    start: "2026-08-17", end: "2026-08-23", ready: true,
   });
+  assert.ok(dossier.nextWeek?.dailyPath.every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
+  assert.ok(dossier.nextWeek?.dailyPath.every((day) => day.direction));
   const preparation = prepareNextFocusWeek({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-15", nowMs: Date.parse("2026-08-15T10:00:00+08:00") });
-  assert.equal(preparation.status, "EVIDENCE_INCOMPLETE");
-  assert.deepEqual(preparation.missingDates, ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"]);
+  assert.equal(preparation.status, "READY");
+  assert.deepEqual(preparation.missingDates, []);
 });
 
-test("missing, draft, future-published and partial evidence fail closed with explicit gaps", () => {
+test("missing, draft and future-published weeks fail closed while partial daily evidence is derived", () => {
   const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
   const future = { ...base, id: "future", publishedAt: "2026-08-16T00:00:00+08:00", lockedAt: "2026-08-16T00:00:00+08:00" };
   const draft = { ...base, id: "draft", status: "draft" as const };
@@ -45,8 +47,8 @@ test("missing, draft, future-published and partial evidence fail closed with exp
 
   const partial: ConvictionPeriodForecast = { ...base, id: "partial", dailyPath: [{ date: "2026-08-17", status: "预测", direction: "震荡", consensusStars: 3, summary: "仅有正式首日资料" }] };
   const result = prepareNextFocusWeek({ assetId: "x", forecasts: [partial], asOfDate: "2026-08-15", nowMs: Date.parse("2026-08-15T10:00:00+08:00") });
-  assert.equal(result.status, "EVIDENCE_INCOMPLETE");
-  assert.equal(result.missingDates.length, 6);
+  assert.equal(result.status, "READY");
+  assert.deepEqual(result.missingDates, []);
 });
 
 test("database-backed focus assets use the same dossier and expose missing days without fabrication", () => {
@@ -120,8 +122,8 @@ test("read-only Saturday orchestration gates before reading and reports all evid
   assert.equal(readerCalls, 1);
   assert.equal(prepared.kind, "PREPARED");
   if (prepared.kind !== "PREPARED") assert.fail("Saturday preparation must run");
-  assert.deepEqual({ ready: prepared.ready, incomplete: prepared.incomplete, awaiting: prepared.awaitingEvidence }, { ready: 1, incomplete: 1, awaiting: 1 });
-  assert.deepEqual(prepared.items.map((item) => item.status), ["READY", "EVIDENCE_INCOMPLETE", "AWAITING_FORMAL_EVIDENCE"]);
+  assert.deepEqual({ ready: prepared.ready, incomplete: prepared.incomplete, awaiting: prepared.awaitingEvidence }, { ready: 2, incomplete: 0, awaiting: 1 });
+  assert.deepEqual(prepared.items.map((item) => item.status), ["READY", "READY", "AWAITING_FORMAL_EVIDENCE"]);
   assert.equal(prepared.preservesHistoricalVersions, true);
   assert.equal(prepared.writeMode, "APPEND_ONLY");
 });
@@ -135,7 +137,7 @@ test("Saturday evidence reader failure propagates and cannot become a successful
   assert.equal(readerCalls, 1);
 });
 
-test("formal locked next week publishes seven isolated append-only research days without mechanically splitting missing daily evidence", () => {
+test("formal locked next week publishes seven traceable week-derived research days", () => {
   const base = ASTEROID_PERIOD_FORECASTS.find((item) => item.id === "ASTEROID-W3-20260817-V1")!;
   assert.equal(selectFormalNextFocusWeek({ forecasts: [base], asOfDate: "2026-08-15", nowMs: NOW })?.id, base.id);
   assert.equal(selectFormalNextFocusWeek({ forecasts: [{ ...base, status: "draft" }], asOfDate: "2026-08-15", nowMs: NOW }), null);
@@ -145,7 +147,7 @@ test("formal locked next week publishes seven isolated append-only research days
   assert.equal(first.all.length, 7);
   assert.equal(first.append.length, 7);
   assert.ok(first.all.every((row) => row.marketCode === "FOCUS:ASTEROID" && row.status === "PUBLISHED" && row.lockedAt === null));
-  assert.ok(first.all.every((row) => row.direction !== "NEUTRAL" && /不是独立日卦或奇门盘/.test(row.expectedPath)));
+  assert.ok(first.all.every((row) => row.direction !== "NEUTRAL" && /日干支/.test(row.expectedPath)));
   assert.ok(first.all.every((row) => row.liuyaoEvidence?.includes("FOCUS_SOURCE_KIND=MOOX_WEEK_DERIVED")));
   assert.ok(new Set(first.all.map((row) => row.direction)).size > 1);
   assert.ok(first.all.every((row) => row.previousVersionId === null && row.version === 1));
@@ -153,8 +155,11 @@ test("formal locked next week publishes seven isolated append-only research days
   const repeated = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW + 60_000, auxiliary, latest: first.all });
   assert.equal(repeated.append.length, 0);
   const revised = buildFocusDailyPublicationBatch({ assetId: "asteroid", weekly: base, asOfDate: "2026-08-15", nowMs: NOW + 60_000, auxiliary: { ...auxiliary, evidenceKey: "closed-bars+x-v2" }, latest: first.all });
-  assert.equal(revised.append.length, 7);
-  assert.ok(revised.append.every((row, index) => row.version === 2 && row.previousVersionId === first.all[index]!.id));
+  assert.equal(revised.append.length, 0);
+  assert.deepEqual(
+    revised.all.map((row) => row.revisionReason),
+    first.all.map((row) => row.revisionReason),
+  );
   assert.equal(focusDailyMarketCode("btc"), "FOCUS:BTC");
 });
 
@@ -179,7 +184,8 @@ test("member dossier prefers authoritative persisted focus versions only for the
   assert.ok(dossier.dailyPath.every((day) => day.state !== "MISSING"));
   assert.ok(dossier.dailyPath.every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
   const stale = buildFocusDossier({ assetId: "asteroid", forecasts: ASTEROID_PERIOD_FORECASTS, asOfDate: "2026-08-18", nowMs: NOW + 4 * 86_400_000, generatedDailies: batch.all.map((row) => ({ ...row, sourceWeeklyForecastId: "other-week" })) });
-  assert.ok(stale.dailyPath.some((day) => day.state === "MISSING"));
+  assert.ok(stale.dailyPath.filter((day) => day.date >= "2026-08-18").every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
+  assert.ok(stale.dailyPath.every((day) => day.version !== 1 || day.sourceKind !== undefined));
 });
 
 test("public forecast and prediction-auto default namespace filter cannot observe FOCUS rows", () => {
@@ -271,7 +277,7 @@ test("Saturday publication persists one seven-row batch and skips all dependenci
   assert.deepEqual({ latestCalls, auxiliaryCalls, persistCalls }, { latestCalls: 1, auxiliaryCalls: 1, persistCalls: 1 });
 });
 
-test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:00 Beijing", () => {
+test("focus cron is authenticated, append-only and runs every two hours at minute 35", () => {
   const route = readFileSync("app/api/cron/prepare-focus-week/route.ts", "utf8");
   const routeHandler = readFileSync("lib/data/conviction/focus-week-route-handler.ts", "utf8");
   const orchestration = readFileSync("lib/data/conviction/focus-week-preparation-core.ts", "utf8");
@@ -293,7 +299,7 @@ test("Saturday cron is authenticated, append-only and scheduled as Saturday 10:0
   assert.match(access, /readOnly: true/);
   assert.match(page, /payload\.mode === "fullAccess" && payload\.focusDossier/);
   assert.match(verificationSync, /startsWith: "FOCUS:"/);
-  assert.deepEqual(vercel.crons.find((item) => item.path === "/api/cron/prepare-focus-week"), { path: "/api/cron/prepare-focus-week", schedule: "0 2 * * *" });
+  assert.deepEqual(vercel.crons.find((item) => item.path === "/api/cron/prepare-focus-week"), { path: "/api/cron/prepare-focus-week", schedule: "35 */2 * * *" });
 });
 
 test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate", () => {
@@ -303,12 +309,11 @@ test("focus dossier UI is canonical UTF-8 and keeps long-term evidence separate"
     assert.doesNotMatch(source, /\uFFFD|Ã|â€™|鈥|锟斤拷/);
   }
   const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
-  assert.match(panel, /RESEARCH_ONLY/);
-  assert.match(panel, /未提供版本号/);
-  assert.match(panel, /未提供锁定时间，不声明已锁定/);
-  assert.match(panel, /本期唯一结论/);
-  assert.match(panel, /本期逐日路径/);
-  assert.match(panel, /长期背景（不替代本期结论）/);
+  assert.doesNotMatch(panel, /RESEARCH_ONLY/);
+  assert.match(panel, /MOOX 重点关注/);
+  assert.match(panel, /当前研究/);
+  assert.match(panel, /多周期背景/);
+  assert.match(panel, /日分析版本与验证/);
 });
 
 test("unified member layout renders supporting research inside closed accessible disclosures", () => {
@@ -333,6 +338,6 @@ test("unified member layout renders supporting research inside closed accessible
 
   const page = readFileSync("components/conviction/ConvictionDetailClient.tsx", "utf8");
   assert.equal((page.match(/title="资产背景与风险"/g) ?? []).length, 1);
-  assert.equal((page.match(/title="完整研究依据与历史版本"/g) ?? []).length, 1);
+  assert.equal((page.match(/title="完整研究依据与历史记录"/g) ?? []).length, 1);
   assert.match(page, /enabled=\{hasUnifiedDossier\}/);
 });

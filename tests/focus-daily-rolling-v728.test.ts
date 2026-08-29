@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ASTEROID_PERIOD_FORECASTS, type ConvictionPeriodForecast } from "../lib/data/conviction/asteroid-forecasts";
-import { buildFocusDailyPublicationBatch, focusDailyQuoteCapability } from "../lib/data/conviction/focus-daily-generation-core";
+import { buildFocusDailyPublicationBatch, focusDailyQuoteCapability, selectFormalNextFocusWeek } from "../lib/data/conviction/focus-daily-generation-core";
 import { resolveFocusDailyAuxiliaryEvidence } from "../lib/data/conviction/focus-daily-evidence-core";
 import { buildFocusDailyCoverageReport, runFocusWeekPreparation } from "../lib/data/conviction/focus-week-preparation-core";
 import { buildFocusDossier, loadFocusDossierDailyAudit } from "../lib/data/conviction/focus-dossier-core";
@@ -12,6 +12,7 @@ import type { GeneratedDailyForecastRecord } from "../lib/weekly-source/types";
 import { GET } from "../app/api/cron/prepare-focus-week/route";
 import { runFocusWeekRouteHandler, type FocusRouteModuleLoader } from "../lib/data/conviction/focus-week-route-handler";
 import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "../lib/data/conviction/focus-registry-core";
+import { listStaticFocusForecasts } from "../lib/data/conviction/focus-static-forecast-registry";
 
 const NOW = Date.parse("2026-08-15T02:00:00.000Z");
 const next = ASTEROID_PERIOD_FORECASTS.find((row) => row.id === "ASTEROID-W3-20260817-V1")!;
@@ -88,7 +89,7 @@ test("NBIS weekly authority still publishes today and future paths when market a
   assert.deepEqual({ xCalls, marketCalls }, { xCalls: 1, marketCalls: 1 });
   assert.equal(fallback.marketDataStatus, "UNAVAILABLE");
   assert.equal(fallback.chanStatus, "UNAVAILABLE");
-  assert.match(fallback.technicalEvidence ?? "", /正式锁定周方向仍可用于今日及未来日节奏推演/);
+  assert.equal(fallback.technicalEvidence ?? "", "");
 
   let persisted: GeneratedDailyForecastRecord[] = [];
   const run = await runFocusWeekPreparation({
@@ -107,14 +108,14 @@ test("NBIS weekly authority still publishes today and future paths when market a
   assert.equal(run.kind, "PREPARED");
   if (run.kind === "PREPARED") {
     assert.equal(run.failedAssets, 0);
-    assert.equal(run.publishedRows, 9);
+    assert.equal(run.publishedRows, 5);
   }
   assert.deepEqual(persisted.map((row) => row.forecastDate), [
-    "2026-08-15", "2026-08-16",
-    "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23",
+    "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21",
   ]);
   assert.ok(persisted.every((row) => row.sourceWeeklyForecastId.startsWith("NBIS-") && row.status === "PUBLISHED"));
-  assert.ok(persisted.every((row) => row.liuyaoEvidence?.includes("正式周方向=震荡上涨")));
+  assert.ok(persisted.every((row) => decodeURIComponent(row.liuyaoEvidence ?? "").includes("FOCUS_LIUYAO_DIRECTION=")));
+  assert.ok(persisted.every((row) => (row.liuyaoEvidence ?? "").includes("AUTHORITY=NBIS-")));
   assert.ok(persisted.every((row) => row.supportLevels.length === 0 && row.resistanceLevels.length === 0));
 
   const dossierBeforeGeneration = buildFocusDossier({
@@ -125,21 +126,22 @@ test("NBIS weekly authority still publishes today and future paths when market a
     generatedDailies: [],
   });
   assert.equal(dossierBeforeGeneration.weeklyAuthority?.direction, "震荡上涨");
-  assert.ok(dossierBeforeGeneration.dailyPath.every((day) => day.direction == null));
+  assert.equal(dossierBeforeGeneration.displayScope, "NEXT_PERIOD_READY");
+  assert.ok(dossierBeforeGeneration.nextWeek?.dailyPath.filter((day) => day.direction).every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
   const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
-  assert.match(panel, /正式周方向：\$\{dossier\.weeklyAuthority\.direction\} · 日节奏待生成/);
-  assert.doesNotMatch(panel, /day\.direction \?\? "无正式方向"/);
+  assert.match(panel, /下一期研究/);
+  assert.doesNotMatch(panel, /无正式方向/);
 });
 
 test("formal short weeks are accepted while implausible weekly horizons fail closed", () => {
   const sixDay = listNbisPeriodForecasts().find((row) => row.periodStart === "2026-08-11" && row.periodEnd === "2026-08-16")!;
   const generated = buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: sixDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" });
-  assert.deepEqual(generated.all.map((row) => row.forecastDate), ["2026-08-15", "2026-08-16"]);
+  assert.deepEqual(generated.all.map((row) => row.forecastDate), []);
 
   const fourteenDay = { ...sixDay, id: "FOURTEEN-DAY-WEEK", periodStart: "2026-08-03", periodEnd: "2026-08-16" };
-  assert.equal(buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fourteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }).all.length, 2);
+  assert.equal(buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fourteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }).all.length, 0);
   const fifteenDay = { ...sixDay, id: "FIFTEEN-DAY-WEEK", periodStart: "2026-08-02", periodEnd: "2026-08-16" };
-  assert.throws(() => buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fifteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }), /focus-week-period-out-of-range/);
+  assert.throws(() => buildFocusDailyPublicationBatch({ assetId: "nbis", weekly: fifteenDay, asOfDate: "2026-08-15", nowMs: NOW, auxiliary, latest: [], mode: "CURRENT" }), /focus-period-out-of-range/);
 });
 
 test("production-shared coverage classifies every reader asset and route exposes the report", () => {
@@ -165,11 +167,33 @@ test("coverage enumerates every active focus registry entry without a hand-maint
   assert.match(readFileSync("lib/data/conviction/access.ts", "utf8"), /new Set<StaticPeriodAssetId>\(ACTIVE_STATIC_FOCUS_ASSET_IDS\)/);
 });
 
+test("every active asset with a formal next-week forecast exposes a ready derived daily report on the production weekend", () => {
+  const asOfDate = "2026-08-29";
+  const nowMs = Date.parse("2026-08-29T12:00:00+08:00");
+  const covered = ACTIVE_STATIC_FOCUS_ASSET_IDS.flatMap((assetId) => {
+    const forecasts = listStaticFocusForecasts(assetId);
+    const formalNext = selectFormalNextFocusWeek({ forecasts, asOfDate, nowMs });
+    if (!formalNext) return [];
+    const dossier = buildFocusDossier({ assetId, forecasts, asOfDate, nowMs });
+    return [{ assetId, formalNext, dossier }];
+  });
+
+  assert.ok(covered.length >= 10, "the regression must cover the real production focus set, not one example");
+  for (const { assetId, formalNext, dossier } of covered) {
+    assert.equal(dossier.displayScope, "NEXT_PERIOD_READY", `${assetId} should open on the prepared next period`);
+    assert.equal(dossier.nextWeek?.dailyEvidenceReady, true, `${assetId} trading-day path should be complete`);
+    assert.equal(dossier.nextWeek?.periodStart, formalNext.periodStart);
+    assert.ok(dossier.nextWeek?.dailyPath.filter((day) => day.direction).every((day) => day.sourceKind === "MOOX_WEEK_DERIVED"));
+    assert.equal(dossier.executionAuthority, "RESEARCH_ONLY");
+    assert.equal(dossier.tradingEligible, false);
+  }
+});
+
 test("Focus rolling stays isolated from trading and preserves weekly primary verification UI", () => {
   const combined = ["lib/data/conviction/focus-daily-generation-core.ts", "lib/data/conviction/focus-week-preparation-core.ts", "components/conviction/FocusDossierPanel.tsx"].map((file) => readFileSync(file, "utf8")).join("\n");
   assert.doesNotMatch(combined, /submitOrder|executeReadyDecision|@\/lib\/bitget/);
-  assert.match(combined, /周验证（核心 \/ 首要）/);
-  assert.match(combined, /完整日度审计/);
+  assert.match(combined, /日分析版本与验证/);
+  assert.match(combined, /FOCUS_SOURCE_KIND/);
 });
 
 test("FOCUS all-version audit preserves FAILED, PARTIAL and unverified rows while latest summary remains V3", () => {
@@ -180,7 +204,7 @@ test("FOCUS all-version audit preserves FAILED, PARTIAL and unverified rows whil
   assert.equal(dossier.dailyPath.find((day) => day.date === "2026-08-13")?.version, 3);
   assert.deepEqual(dossier.dailyAuditRows.map((row) => [row.version, row.validationStatus]), [[3, null], [2, "PARTIAL"], [1, "FAILED"]]);
   const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
-  assert.match(panel, /row\.validationStatus \?\? "UNVERIFIED"/);
+  assert.match(panel, /row\.validationStatus \?\? "待验证"/);
   assert.match(panel, /dossier\.dailyAuditRows\.map/);
 });
 

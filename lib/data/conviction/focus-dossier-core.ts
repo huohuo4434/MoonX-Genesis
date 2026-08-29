@@ -258,6 +258,7 @@ function generatedDailyView(
 
 function nextForecastView(
   forecast: ConvictionPeriodForecast | null,
+  assetId: string,
   asOfDate: string,
   generatedDailies: readonly GeneratedDailyForecastRecord[] = [],
   nowMs = Number.POSITIVE_INFINITY,
@@ -265,18 +266,60 @@ function nextForecastView(
   if (!forecast) return null;
   const sourceDays = new Map((forecast.dailyPath ?? []).map((day) => [day.date, day]));
   const dailyPath = focusDossierPeriodDates(forecast.periodStart, forecast.periodEnd).map((date) => {
+    if (!isFocusTradingDay(assetId, date)) {
+      const summary = focusClosedSessionSummary(assetId);
+      return {
+        date,
+        state: date === asOfDate ? "TODAY" as const : "PENDING" as const,
+        direction: null,
+        summary,
+        rhythmDirection: null,
+        rhythmSummary: summary,
+        confirmation: null,
+        invalidation: null,
+        sourceKind: "MOOX_WEEK_DERIVED" as const,
+        version: forecast.version,
+        asOfDate,
+        rollingReason: null,
+        keyDayEvidence: forecastKeyDayEvidence(forecast, date),
+        auxiliaryEvidence: null,
+      };
+    }
     const sourceDay = sourceDays.get(date);
     if (sourceDay?.status !== "已验证") {
       const generated = generatedDailyView(forecast, date, asOfDate, generatedDailies, nowMs);
       if (generated) return generated;
     }
-    return { ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) };
+    if (sourceDay) return { ...sourceDayToView(date, asOfDate, sourceDays), keyDayEvidence: forecastKeyDayEvidence(forecast, date) };
+
+    // A locked weekly forecast is the period authority. Missing teacher daily
+    // rows do not block the member report: derive the daily rhythm from that
+    // immutable weekly path plus the target day's Ganzhi. This is explicitly a
+    // MOOX week-derived rhythm, never a fabricated independent daily hexagram.
+    const derived = focusAuthorityDerivedStep(forecast, date, forecast.periodStart);
+    return {
+      date,
+      state: date === asOfDate ? "TODAY" as const : "PENDING" as const,
+      direction: derived.direction,
+      summary: derived.summary,
+      rhythmDirection: derived.direction,
+      rhythmSummary: derived.summary,
+      confirmation: forecast.confirmationLevel ?? null,
+      invalidation: forecast.invalidationLevel ?? null,
+      sourceKind: "MOOX_WEEK_DERIVED" as const,
+      version: forecast.version,
+      asOfDate,
+      rollingReason: null,
+      keyDayEvidence: forecastKeyDayEvidence(forecast, date),
+      auxiliaryEvidence: null,
+    };
   });
+  const tradingDays = dailyPath.filter((day) => isFocusTradingDay(assetId, day.date));
   return {
     periodStart: forecast.periodStart,
     periodEnd: forecast.periodEnd,
     conclusion: forecast.summary,
-    dailyEvidenceReady: dailyPath.length > 0 && dailyPath.every((day) => day.state !== "MISSING"),
+    dailyEvidenceReady: tradingDays.length > 0 && tradingDays.every((day) => Boolean(day.direction) && day.state !== "MISSING"),
     dailyPath,
     supportLevels: [...forecast.supportLevels],
     resistanceLevels: [...forecast.resistanceLevels],
@@ -299,7 +342,7 @@ function emptyDossier(input: {
   generatedDailies: readonly GeneratedDailyForecastRecord[];
   nowMs: number;
 }): Omit<FocusDossierView, "qimenParallel"> {
-  const nextWeek = nextForecastView(input.next, input.asOfDate, input.generatedDailies, input.nowMs);
+  const nextWeek = nextForecastView(input.next, input.assetId, input.asOfDate, input.generatedDailies, input.nowMs);
   const nextReady = Boolean(nextWeek?.dailyEvidenceReady);
   const monthlyEvidence = input.monthly ? {
     periodStart: input.monthly.periodStart,
@@ -475,8 +518,10 @@ export function buildFocusDossier(input: {
       auxiliaryEvidence: null,
     };
   });
-  const activeDaily = dailyPath.filter((day) => day.date >= input.asOfDate && isFocusTradingDay(input.assetId, day.date));
-  const complete = activeDaily.length > 0 && activeDaily.every((day) => day.direction && day.state !== "MISSING");
+  const tradingDaily = dailyPath.filter((day) => isFocusTradingDay(input.assetId, day.date));
+  const activeDaily = tradingDaily.filter((day) => day.date >= input.asOfDate);
+  const evidenceDays = activeDaily.length ? activeDaily : tradingDaily;
+  const complete = evidenceDays.length > 0 && evidenceDays.every((day) => day.direction && day.state !== "MISSING");
   const dailyAuditRows = (input.generatedDailyAudit ?? []).map((row) => ({
     forecastDate: row.forecastDate,
     version: row.version,
@@ -489,10 +534,10 @@ export function buildFocusDossier(input: {
     revisionReason: row.revisionReason,
     qimenEvidence: row.qimenEvidence,
   }));
-  const nextWeek = nextForecastView(next, input.asOfDate, input.generatedDailies ?? [], input.nowMs);
+  const nextWeek = nextForecastView(next, input.assetId, input.asOfDate, input.generatedDailies ?? [], input.nowMs);
   const asOfMs = parseDateKey(input.asOfDate);
   const weekend = asOfMs != null && [0, 6].includes(new Date(asOfMs).getUTCDay());
-  const highlightPreparedNext = Boolean(current.forecastType.startsWith("WEEK") && weekend && nextWeek?.dailyEvidenceReady);
+  const highlightPreparedNext = Boolean(weekend && nextWeek?.dailyEvidenceReady);
   const hasRollingRevision = dailyPath.some((day) => day.sourceKind === "MOOX_ROLLING_REVISION");
   const isPeriodDerived = !current.forecastType.startsWith("WEEK") && !(current.dailyPath?.length);
 

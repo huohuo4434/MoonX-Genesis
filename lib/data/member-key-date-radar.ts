@@ -162,7 +162,7 @@ function derivedTitle(direction: string, action: KeyDateAction, structuralTurnPe
   if (/先跌后涨|探底回升/.test(direction)) return `${direction}的低位转折观察日`;
   if (/上涨/.test(direction)) return `${direction}延续与转折观察日`;
   if (/下跌/.test(direction)) return `${direction}延续与转折观察日`;
-  return `${direction}的变盘观察日`;
+  return `${direction}的结构确认观察日`;
 }
 
 function actionForExplicitType(type: NonNullable<ConvictionPeriodForecast["keyDates"]>[number]["type"]): KeyDateAction {

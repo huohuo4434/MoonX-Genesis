@@ -220,9 +220,12 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /锁定路径日期/);
   assert.match(page, /半导体 \/ AI基础设施/);
   assert.match(page, /同一品种的月关键日与周关键日放在一起/);
-  assert.match(page, /偏抄底确认/);
-  assert.match(page, /偏逃顶确认/);
-  assert.match(page, /双向等待/);
+  assert.match(page, /月关键日行动总览/);
+  assert.match(page, /周关键日行动总览/);
+  assert.match(page, /抄底观察/);
+  assert.match(page, /逃顶 \/ 减仓观察/);
+  assert.match(page, /只观察 \/ 不操作/);
+  assert.doesNotMatch(page, /变盘确认/);
   assert.match(page, /9月7日至10月7日相对转强/);
   assert.match(page, /8月29日新补的9月整月卦已发布为V3/);
   assert.match(page, /查看四种流派方法对比/);

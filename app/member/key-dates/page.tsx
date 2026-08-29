@@ -35,7 +35,7 @@ type ActionDisplay = { short: string; tone: string; explanation?: string };
 
 const ACTION_META: Record<Exclude<KeyDateAction, "TURNING_RISK">, ActionDisplay> = {
   BOTTOM_WATCH: { short: "抄底观察", tone: "text-emerald-200" },
-  TOP_EXIT_WATCH: { short: "逃顶 / 减仓", tone: "text-rose-200" },
+  TOP_EXIT_WATCH: { short: "逃顶 / 减仓观察", tone: "text-rose-200" },
 };
 
 const SECTOR_GROUPS = [
@@ -69,21 +69,48 @@ function statusLabel(item: KeyDateRadarViewItem) {
 
 function turningMeta(item: KeyDateRadarViewItem): ActionDisplay {
   if (/周期收尾|跨月周期/.test(`${item.title}${item.derivation}`) || /多月卦阶段方向/.test(item.primaryView)) {
-    return { short: "双向等待", tone: "text-amber-200", explanation: "目前既不是抄底信号，也不是逃顶信号；等待新周期或价格结构给出方向。" };
+    return { short: "只观察 / 不操作", tone: "text-amber-200", explanation: "目前既不是抄底信号，也不是逃顶信号；等待新周期或价格结构给出方向。" };
   }
   if (/先跌后涨|探底回升/.test(item.primaryView)) {
-    return { short: "偏抄底确认", tone: "text-emerald-200", explanation: "当前偏向寻找低点，但只有出现止跌和承接确认后才进入抄底观察。" };
+    return { short: "只观察 / 等低点确认", tone: "text-amber-200", explanation: "周期结构偏向寻找低点，但本条证据尚不足以正式标成抄底日；等止跌与承接确认。" };
   }
   if (/先涨后跌|冲高回落/.test(item.primaryView)) {
-    return { short: "偏逃顶确认", tone: "text-rose-200", explanation: "当前偏向寻找高点，但只有出现冲高受阻或转弱确认后才进入减仓观察。" };
+    return { short: "只观察 / 等高点确认", tone: "text-amber-200", explanation: "周期结构偏向寻找高点，但本条证据尚不足以正式标成逃顶日；等冲高受阻与转弱确认。" };
   }
   if (/震荡上涨|：上涨/.test(item.primaryView)) {
-    return { short: "偏多确认", tone: "text-emerald-200", explanation: "方向偏多，但这不是直接抄底；等待回踩止跌或延续结构确认。" };
+    return { short: "趋势确认 / 不追单", tone: "text-amber-200", explanation: "方向偏多，但该日期没有明确高低点证据；它不是抄底日，也不是逃顶日。" };
   }
   if (/震荡下跌|：下跌/.test(item.primaryView)) {
-    return { short: "偏空确认", tone: "text-rose-200", explanation: "方向偏空，但这不是直接逃顶；等待反弹受阻或下跌延续结构确认。" };
+    return { short: "趋势确认 / 不抢反弹", tone: "text-amber-200", explanation: "方向偏空，但该日期没有明确高低点证据；它不是抄底日，也不是逃顶日。" };
   }
-  return { short: "双向等待", tone: "text-amber-200", explanation: "方向尚未形成，既不抄底也不逃顶，等待K线完成定向。" };
+  return { short: "只观察 / 不操作", tone: "text-amber-200", explanation: "方向尚未形成，既不抄底也不逃顶，等待K线完成定向。" };
+}
+
+function KeyDateActionOverview({ title, note, rows }: { title: string; note: string; rows: KeyDateRadarViewItem[] }) {
+  const groups: Array<{ action: KeyDateAction; label: string; tone: string; empty: string }> = [
+    { action: "BOTTOM_WATCH", label: "抄底观察", tone: "border-emerald-300/20 bg-emerald-300/[0.045] text-emerald-100", empty: "本期没有证据充分的抄底日" },
+    { action: "TOP_EXIT_WATCH", label: "逃顶 / 减仓观察", tone: "border-rose-300/20 bg-rose-300/[0.045] text-rose-100", empty: "本期没有证据充分的逃顶日" },
+    { action: "TURNING_RISK", label: "只观察 / 不操作", tone: "border-amber-300/20 bg-amber-300/[0.045] text-amber-100", empty: "本期没有仅观察日期" },
+  ];
+  return <section className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+    <Heading as="h2" size="h3">{title}</Heading>
+    <Text variant="body-sm" color="secondary" className="mt-2 block">{note}</Text>
+    <div className="mt-5 grid gap-4 xl:grid-cols-3">
+      {groups.map((group) => {
+        const items = rows.filter((item) => item.action === group.action)
+          .sort((left, right) => left.focusDate.localeCompare(right.focusDate) || left.assetName.localeCompare(right.assetName, "zh-CN"));
+        return <div key={group.action} className={`rounded-2xl border p-4 ${group.tone}`}>
+          <div className="flex items-center justify-between gap-3"><p className="font-semibold">{group.label}</p><Badge variant="outline">{items.length}</Badge></div>
+          <div className="mt-3 space-y-2">
+            {items.length ? items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">
+              <span className="font-semibold text-foreground">{item.assetName}</span>
+              <span className="shrink-0 font-mono text-foreground-secondary">{chineseDate(item.focusDate)}</span>
+            </div>) : <p className="text-caption leading-5 opacity-65">{group.empty}</p>}
+          </div>
+        </div>;
+      })}
+    </div>
+  </section>;
 }
 
 function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
@@ -177,7 +204,7 @@ export default async function MemberKeyDatesPage() {
         <Badge variant="warning">会员关键日雷达</Badge>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
-          先按板块，再按品种查看；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；“偏抄底／偏逃顶确认”表示等待价格确认，不等于已经发出交易指令。
+          先看行动总览，再按板块和品种查看依据；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；证据不能确认高点或低点时明确写“只观察／不操作”，不再使用含糊标签。
         </Text>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
           ["覆盖标的", summary.assetCount],
@@ -186,6 +213,9 @@ export default async function MemberKeyDatesPage() {
           ["原记录明确 / 推演", `${summary.explicitCount} / ${summary.derivedCount}`],
         ].map(([label, value], index) => <div key={String(label)} className={`rounded-2xl border px-4 py-3 ${index === 1 ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-white/10 bg-black/20"}`}><p className="text-caption text-foreground-tertiary">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</div>
       </header>
+
+      <KeyDateActionOverview title="月关键日行动总览" note="月卦优先。这里只把证据能够区分高点或低点的日期列为抄底、逃顶观察；其余日期明确保持不操作。" rows={agenda.monthly} />
+      <KeyDateActionOverview title="周关键日行动总览" note="周卦用于细化本周节奏，不覆盖月度方向；缺少独立周卦时会明确标记为月卦当周推演。" rows={agenda.weekly} />
 
       {SECTOR_GROUPS.map((sector) => {
         const sectorItems = currentItems.filter((item) => (sector.assetIds as readonly string[]).includes(item.assetId));

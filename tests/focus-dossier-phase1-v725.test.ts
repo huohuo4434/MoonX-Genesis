@@ -84,7 +84,7 @@ function generatedDay(forecastDate: string, sourceWeeklyForecastId: string): Gen
 
 test("a formal period longer than seven days is ready when every calendar date is covered", () => {
   const eightDays = forecast({ periodStart: "2026-08-09", periodEnd: "2026-08-16", dailyPath: dailyPath(9, 8) });
-  const dossier = buildFocusDossier({ assetId: "asset", forecasts: [eightDays], asOfDate: "2026-08-15", nowMs: NOW });
+  const dossier = buildFocusDossier({ assetId: "btc", forecasts: [eightDays], asOfDate: "2026-08-15", nowMs: NOW });
   assert.equal(dossier.dailyPath.length, 8);
   assert.equal(dossier.evidenceStatus, "READY");
   assert.equal(dossier.dailyEvidenceStatus, "READY");
@@ -97,8 +97,8 @@ test("production-shared persisted-daily reader loads all eight dates and the eig
     periodEnd: "2026-08-16",
     dailyPath: dailyPath(9, 7),
   });
-  const base = buildFocusDossier({ assetId: "asset", forecasts: [partial], asOfDate: "2026-08-15", nowMs: NOW });
-  assert.equal(base.evidenceStatus, "INCOMPLETE");
+  const base = buildFocusDossier({ assetId: "btc", forecasts: [partial], asOfDate: "2026-08-15", nowMs: NOW });
+  assert.equal(base.evidenceStatus, "READY");
   let readerCalls = 0;
   const generated = await loadFocusDossierGeneratedDailies({
     dossier: base,
@@ -143,7 +143,7 @@ test("production-shared persisted-daily reader loads all eight dates and the eig
     },
   });
   assert.equal(readerCalls, 1);
-  const completed = buildFocusDossier({ assetId: "asset", forecasts: [partial], asOfDate: "2026-08-15", nowMs: NOW, generatedDailies: generated });
+  const completed = buildFocusDossier({ assetId: "btc", forecasts: [partial], asOfDate: "2026-08-15", nowMs: NOW, generatedDailies: generated });
   assert.equal(completed.dailyPath.length, 8);
   assert.equal(completed.dailyPath.at(-1)?.summary, "第八日权威追加研究");
   assert.equal(completed.evidenceStatus, "READY");
@@ -175,9 +175,8 @@ test("weekend view highlights a fully prepared future week without presenting it
   assert.equal(dossier.nextWeek?.dailyPath.length, 7);
   assert.equal(dossier.nextWeek?.conclusion, "下周正式结论");
   const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
-  assert.match(panel, /下周已准备（未来期）/);
-  assert.match(panel, /本期资料仍按原周期保留/);
-  assert.match(panel, /下一期逐日路径（未来期）/);
+  assert.match(panel, /下一期研究/);
+  assert.match(panel, /WEEK · 下一期/);
 });
 
 test("persisted next-week rows are loaded and overlaid only onto their exact weekly source", async () => {
@@ -206,7 +205,7 @@ test("persisted next-week rows are loaded and overlaid only onto their exact wee
   assert.equal(dossier.displayScope, "NEXT_PERIOD_READY");
   assert.equal(focusPrimaryDailyEvidenceStatus(dossier), "READY");
   const panel = readFileSync("components/conviction/FocusDossierPanel.tsx", "utf8");
-  assert.match(panel, /focusPrimaryDailyEvidenceStatus\(dossier\)/);
+  assert.match(panel, /dossier\.nextWeek\?\.dailyEvidenceReady/);
 });
 
 test("a formal forecast for the week after next is not labeled or promoted as next week", () => {
@@ -217,15 +216,16 @@ test("a formal forecast for the week after next is not labeled or promoted as ne
   assert.doesNotMatch(dossier.statusLabel, /下周已准备/);
 });
 
-test("monthly-only focus assets show the monthly conclusion and explicit weekly and daily gaps", () => {
+test("monthly-only focus assets expose a seven-day period-derived rhythm without claiming a weekly hexagram", () => {
   for (const assetId of ["kingsoft-office", "espressif", "united-imaging", "ganfeng-lithium"]) {
     const monthly = forecast({ id: `${assetId}-month-v1`, assetId, forecastType: "MONTH_1", periodStart: "2026-08-01", periodEnd: "2026-08-31", summary: `${assetId} 月度正式结论`, dailyPath: undefined });
     const dossier = buildFocusDossier({ assetId, forecasts: [monthly], asOfDate: "2026-08-15", nowMs: NOW });
-    assert.equal(dossier.displayScope, "MONTH_ONLY");
+    assert.equal(dossier.displayScope, "CURRENT_PERIOD");
     assert.equal(dossier.weeklyEvidenceStatus, "MISSING");
-    assert.equal(dossier.dailyEvidenceStatus, "MISSING");
+    assert.equal(dossier.dailyEvidenceStatus, "READY");
     assert.equal(dossier.monthlyEvidence?.conclusion, `${assetId} 月度正式结论`);
-    assert.match(dossier.statusLabel, /月度结论已发布；周证据缺失；日证据缺失/);
+    assert.match(dossier.statusLabel, /周期卦派生 · 不是独立日卦/);
+    assert.ok(dossier.dailyPath.some((day) => day.sourceKind === "MOOX_PERIOD_DERIVED"));
   }
 });
 
@@ -257,10 +257,10 @@ test("SPCX keeps its existing unified list entry and independent member-depth ro
   const list = readFileSync("components/conviction/ConvictionListClient.tsx", "utf8");
   const teaser = readFileSync("lib/data/conviction/watchlist-teasers.ts", "utf8");
   const page = readFileSync("app/featured-stocks/spcx/page.tsx", "utf8");
-  assert.match(list, /teaser\.slug === "spcx" \|\| cardBySlug\.has\(teaser\.slug\)/);
+  assert.match(list, /\.filter\(\(teaser\) => cardBySlug\.has\(teaser\.slug\)\)/);
   assert.match(teaser, /slug:\s*"spcx"/);
   assert.match(teaser, /detailHref:\s*"\/featured-stocks\/spcx"/);
-  assert.match(page, /SpcxResearchPage/);
+  assert.match(page, /getConvictionDetailPayload\("spcx"\)/);
 });
 
 test("focus phase one remains display-only and imports no trading or Bitget execution modules", () => {
