@@ -22,13 +22,14 @@ import { listSpcxLiteLiuyaoRevisions20260823 } from "@/lib/data/conviction/spcx-
 import { listSeptemberWeeklyRevisions20260824 } from "@/lib/data/conviction/september-weekly-revisions-20260824";
 import { listMetalsEnergyFocusForecasts } from "@/lib/data/conviction/metals-energy-focus-forecasts";
 import { listPriorityAssetCycleCompletions20260825 } from "@/lib/data/conviction/priority-asset-cycle-completions-20260825";
+import { listMonthlyLiuyaoForecasts20260829 } from "@/lib/data/conviction/us-megacap-liuyao-20260829";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
   switch (assetId) {
     case "cxmt": return [...listLongxinPeriodForecasts(), ...listSeptemberWeeklyRevisions20260824("cxmt")];
     case "asteroid": return [...listAsteroidPeriodForecasts(), ...listSeptemberWeeklyRevisions20260824("asteroid")];
-    case "sandisk": return listSandiskPeriodForecasts();
+    case "sandisk": return [...listSandiskPeriodForecasts(), ...listMonthlyLiuyaoForecasts20260829("sandisk")];
     case "nbis": return listNbisPeriodForecasts();
     case "hype": return [...listHypePeriodForecasts20260809(), ...listCryptoSeptemberForecastRevisions20260823("hype")];
     case "sol": return listSolPeriodForecasts20260809();

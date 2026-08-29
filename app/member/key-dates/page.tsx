@@ -42,10 +42,10 @@ const SECTOR_GROUPS = [
   {
     id: "semiconductor",
     title: "半导体 / AI基础设施",
-    assetIds: ["cxmt", "intel", "sandisk", "lite", "mu", "nbis"],
+    assetIds: ["cxmt", "intel", "sandisk", "lite", "mu", "nbis", "nvda"],
     context: "板块周期背景：9月7日至10月7日相对转强，9月中下旬至10月初是高位候选区。板块背景不覆盖单股卦；单股与板块分歧时，同时展示并以单股对应周卦判断自身节奏。",
   },
-  { id: "large-tech", title: "大型科技", assetIds: ["googl", "msft", "tsla", "tencent"] },
+  { id: "large-tech", title: "大型科技", assetIds: ["googl", "msft", "tsla", "meta", "tencent"] },
   { id: "space-growth", title: "太空与高波动成长", assetIds: ["asteroid", "spcx"] },
   { id: "crypto", title: "加密资产", assetIds: ["btc", "eth", "sol", "hype"] },
   { id: "china-focus", title: "A股重点关注", assetIds: ["ganfeng-lithium", "lian-tech", "lexin-medical", "kingsoft-office"] },
@@ -53,7 +53,9 @@ const SECTOR_GROUPS = [
 ] as const;
 
 const ASSET_CONTEXT: Partial<Record<string, string>> = {
-  sandisk: "闪迪个股与半导体板块存在真实分歧：9月1—6日先涨后跌，7—13日偏弱，14—20日先跌后修复，21—27日再偏弱，28日起重新出现修复。不能写成整月一路下跌，也不能用板块转强覆盖闪迪个股周卦。",
+  sandisk: "8月29日新补的9月整月卦已发布为V3：水风井→雷泽归妹，主判先涨后跌；月初承接冲高后分歧，中段保留修复，19日后重新防承压，月底只观察止跌。旧V2和此前逐周拆分全部保留用于复盘，不覆盖历史。",
+  meta: "目前只收到META的9月月卦，没有独立周卦。页面中的周关键日明确由已锁定月卦拆分当周节奏，不冒充老师另起周卦。",
+  nvda: "目前只收到英伟达的9月月卦，没有独立周卦。页面中的周关键日明确由已锁定月卦拆分当周节奏，不冒充老师另起周卦。",
 };
 
 function chineseDate(value: string) {
@@ -120,6 +122,20 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
           <p><span className="font-semibold text-rose-200">失效：</span><span className="text-foreground-secondary">{item.invalidation}</span></p>
         </div>
       </details>
+      {isMonth && (item.methodViews?.length ?? 0) >= 4 ? <details className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.025] px-3 py-2 text-body-sm">
+        <summary className="cursor-pointer font-semibold text-amber-100">查看四位老师方法对比</summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {item.methodViews!.map((view) => <div key={view.id} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-foreground">{view.label}</p>
+              <Badge variant="outline">{view.direction}</Badge>
+            </div>
+            <p className="mt-2 leading-6 text-foreground-secondary">{view.summary}</p>
+          </div>)}
+        </div>
+        {item.finalSynthesis ? <div className="mt-3 rounded-xl border border-violet-300/15 bg-violet-300/[0.04] px-3 py-2 leading-6"><span className="font-semibold text-violet-200">最终取舍：</span><span className="text-foreground-secondary">{item.finalSynthesis}</span></div> : null}
+        <p className="mt-2 text-caption leading-5 text-foreground-tertiary">丙午老师法负责主判；狼叔、万里、秋六爻只作独立交叉复核。最终以易老师综合结论和后续K线确认条件为准。</p>
+      </details> : null}
     </article>
   );
 }

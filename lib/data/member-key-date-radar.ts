@@ -3,13 +3,42 @@ import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-fo
 import {
   STATIC_FOCUS_ASSET_IDS,
   STATIC_MEMBER_AUTOMATION_FOCUS,
-  type StaticFocusAssetId,
 } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
+import {
+  SUPPLEMENTAL_KEY_DATE_ASSETS,
+  SUPPLEMENTAL_KEY_DATE_ASSET_IDS,
+  listMonthlyLiuyaoForecasts20260829,
+  type SupplementalKeyDateAssetId,
+} from "@/lib/data/conviction/us-megacap-liuyao-20260829";
 import type { KeyDateAction, KeyDateLevel, KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
 
 const DAY_MS = 86_400_000;
 const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
+
+export const MEMBER_KEY_DATE_ASSET_IDS = Object.freeze([
+  ...STATIC_FOCUS_ASSET_IDS,
+  ...SUPPLEMENTAL_KEY_DATE_ASSET_IDS,
+] as const);
+export type MemberKeyDateAssetId = (typeof MEMBER_KEY_DATE_ASSET_IDS)[number];
+
+const SUPPLEMENTAL_KEY_DATE_ASSET_SET = new Set<string>(SUPPLEMENTAL_KEY_DATE_ASSET_IDS);
+
+function isSupplementalKeyDateAssetId(assetId: MemberKeyDateAssetId): assetId is SupplementalKeyDateAssetId {
+  return SUPPLEMENTAL_KEY_DATE_ASSET_SET.has(assetId);
+}
+
+function keyDateAsset(assetId: MemberKeyDateAssetId) {
+  return isSupplementalKeyDateAssetId(assetId)
+    ? SUPPLEMENTAL_KEY_DATE_ASSETS[assetId]
+    : STATIC_MEMBER_AUTOMATION_FOCUS[assetId];
+}
+
+function listKeyDateForecasts(assetId: MemberKeyDateAssetId) {
+  return isSupplementalKeyDateAssetId(assetId)
+    ? listMonthlyLiuyaoForecasts20260829(assetId)
+    : listStaticFocusForecasts(assetId);
+}
 
 type LockedPathDateHint = {
   date: string;
@@ -66,15 +95,15 @@ function durationDays(row: ConvictionPeriodForecast) {
   return Math.round((utc(row.periodEnd) - utc(row.periodStart)) / DAY_MS) + 1;
 }
 
-function hasUsableTradingDate(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string) {
-  if (STATIC_MEMBER_AUTOMATION_FOCUS[assetId].assetClass === "CRYPTO") return true;
+function hasUsableTradingDate(row: ConvictionPeriodForecast, assetId: MemberKeyDateAssetId, asOfDate: string) {
+  if (keyDateAsset(assetId).assetClass === "CRYPTO") return true;
   for (let time = utc(row.periodStart > asOfDate ? row.periodStart : asOfDate); time <= utc(row.periodEnd); time += DAY_MS) {
     if (!isWeekend(dateKey(time))) return true;
   }
   return false;
 }
 
-function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asOfDate: string, assetId: StaticFocusAssetId) {
+function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asOfDate: string, assetId: MemberKeyDateAssetId) {
   const target = addDays(asOfDate, level === "MONTH" ? 7 : 2);
   let valid = rows.filter((row) => {
     const duration = durationDays(row);
@@ -103,9 +132,9 @@ function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asO
     const ideal = level === "MONTH" ? 30 : 7;
     const leftExplicit = (left.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
     const rightExplicit = (right.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate) ? 1 : 0;
-    return rightExplicit - leftExplicit
-      || rightStartsInTargetMonth - leftStartsInTargetMonth
+    return rightStartsInTargetMonth - leftStartsInTargetMonth
       || rightCovers - leftCovers
+      || rightExplicit - leftExplicit
       || Math.abs(durationDays(left) - ideal) - Math.abs(durationDays(right) - ideal)
       || right.version - left.version
       || right.publishedAt.localeCompare(left.publishedAt)
@@ -161,8 +190,8 @@ function isWeekend(date: string) {
   return day === 0 || day === 6;
 }
 
-function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string) {
-  if (STATIC_MEMBER_AUTOMATION_FOCUS[assetId].assetClass === "CRYPTO") return date;
+function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, assetId: MemberKeyDateAssetId, asOfDate: string) {
+  if (keyDateAsset(assetId).assetClass === "CRYPTO") return date;
   let candidate = date;
   for (let index = 0; index < 3 && isWeekend(candidate); index += 1) {
     const previous = addDays(candidate, -1);
@@ -171,7 +200,7 @@ function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, asset
   return candidate <= row.periodEnd ? candidate : row.periodEnd;
 }
 
-function derivedFocus(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId, asOfDate: string, level: KeyDateLevel) {
+function derivedFocus(row: ConvictionPeriodForecast, assetId: MemberKeyDateAssetId, asOfDate: string, level: KeyDateLevel) {
   const monthlyWeekFallback = level === "WEEK" && row.forecastType.startsWith("MONTH");
   const target = addDays(asOfDate, level === "MONTH" ? 7 : 2);
   const targetMonthStart = `${target.slice(0, 7)}-01`;
@@ -211,7 +240,7 @@ function derivedFocus(row: ConvictionPeriodForecast, assetId: StaticFocusAssetId
 }
 
 function buildItem(input: {
-  assetId: StaticFocusAssetId;
+  assetId: MemberKeyDateAssetId;
   level: KeyDateLevel;
   row: ConvictionPeriodForecast;
   date: string;
@@ -220,7 +249,7 @@ function buildItem(input: {
   evidence: "EXPLICIT" | "DERIVED";
   derivation: string;
 }): KeyDateRadarItem {
-  const asset = STATIC_MEMBER_AUTOMATION_FOCUS[input.assetId];
+  const asset = keyDateAsset(input.assetId);
   const duration = durationDays(input.row);
   const sourceLabel = input.level === "WEEK" && input.row.forecastType.startsWith("MONTH")
     ? "月卦当周推演方向"
@@ -255,11 +284,18 @@ function buildItem(input: {
     evidence: input.evidence,
     derivation: input.derivation,
     sourceIds: [input.row.id],
+    methodViews: input.row.methodViews?.map((view) => ({
+      id: view.id,
+      label: view.label,
+      direction: view.direction,
+      summary: view.summary,
+    })),
+    finalSynthesis: input.row.consensusLabel ?? undefined,
   };
 }
 
-function itemsForPeriod(assetId: StaticFocusAssetId, level: KeyDateLevel, asOfDate: string) {
-  const forecasts = listStaticFocusForecasts(assetId);
+function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOfDate: string) {
+  const forecasts = listKeyDateForecasts(assetId);
   const row = selectPeriod(forecasts, level, asOfDate, assetId)
     ?? (level === "WEEK" ? selectPeriod(forecasts, "MONTH", asOfDate, assetId) : null);
   if (!row) return [];
@@ -313,7 +349,7 @@ function itemsForPeriod(assetId: StaticFocusAssetId, level: KeyDateLevel, asOfDa
 }
 
 export function buildMemberKeyDateRadar(asOfDate: string): KeyDateRadarItem[] {
-  return STATIC_FOCUS_ASSET_IDS.flatMap((assetId) => [
+  return MEMBER_KEY_DATE_ASSET_IDS.flatMap((assetId) => [
     ...itemsForPeriod(assetId, "MONTH", asOfDate),
     ...itemsForPeriod(assetId, "WEEK", asOfDate),
   ]);
@@ -321,7 +357,7 @@ export function buildMemberKeyDateRadar(asOfDate: string): KeyDateRadarItem[] {
 
 export function memberKeyDateCoverage(asOfDate: string) {
   const rows = buildMemberKeyDateRadar(asOfDate);
-  return STATIC_FOCUS_ASSET_IDS.map((assetId) => ({
+  return MEMBER_KEY_DATE_ASSET_IDS.map((assetId) => ({
     assetId,
     month: rows.some((row) => row.assetId === assetId && row.level === "MONTH"),
     week: rows.some((row) => row.assetId === assetId && row.level === "WEEK"),

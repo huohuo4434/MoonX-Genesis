@@ -3,8 +3,13 @@ import fs from "node:fs";
 import test from "node:test";
 import { getSexagenaryDay } from "../lib/calendar/sexagenary-calendar.ts";
 import { STATIC_FOCUS_ASSET_IDS, STATIC_MEMBER_AUTOMATION_FOCUS } from "../lib/data/conviction/focus-registry-core.ts";
+import {
+  MONTHLY_LIUYAO_FORECASTS_20260829,
+  MONTHLY_LIUYAO_SOURCE_META_20260829,
+  SUPPLEMENTAL_KEY_DATE_ASSET_IDS,
+} from "../lib/data/conviction/us-megacap-liuyao-20260829.ts";
 import { buildKeyDateRadar, keyDateStatus, splitCurrentKeyDateRadar, summarizeKeyDateRadar } from "../lib/data/key-date-radar-core.ts";
-import { buildMemberKeyDateRadar, memberKeyDateCoverage } from "../lib/data/member-key-date-radar.ts";
+import { MEMBER_KEY_DATE_ASSET_IDS, buildMemberKeyDateRadar, memberKeyDateCoverage } from "../lib/data/member-key-date-radar.ts";
 import { MEMBER_RESEARCH_NAV, NAV_ROUTES } from "../config/member-channel-navigation.ts";
 
 const AS_OF = "2026-08-29";
@@ -17,22 +22,23 @@ test("key-date status distinguishes upcoming, active and review exact days", () 
   assert.equal(keyDateStatus(base, "2026-12-31"), "REVIEW");
 });
 
-test("all website focus assets have at least one month and one week key date", () => {
+test("all key-date assets have at least one month and one week key date", () => {
   const coverage = memberKeyDateCoverage(AS_OF);
-  assert.equal(coverage.length, STATIC_FOCUS_ASSET_IDS.length);
+  assert.equal(coverage.length, MEMBER_KEY_DATE_ASSET_IDS.length);
   assert.equal(STATIC_FOCUS_ASSET_IDS.length, 23);
+  assert.equal(MEMBER_KEY_DATE_ASSET_IDS.length, 25);
   assert.deepEqual(coverage.filter((row) => !row.month || !row.week), []);
 
   const rows = buildMemberKeyDateRadar(AS_OF);
   const monthlyAssets = new Set(rows.filter((row) => row.level === "MONTH").map((row) => row.assetId));
   const weeklyAssets = new Set(rows.filter((row) => row.level === "WEEK").map((row) => row.assetId));
-  assert.deepEqual([...monthlyAssets].sort(), [...STATIC_FOCUS_ASSET_IDS].sort());
-  assert.deepEqual([...weeklyAssets].sort(), [...STATIC_FOCUS_ASSET_IDS].sort());
+  assert.deepEqual([...monthlyAssets].sort(), [...MEMBER_KEY_DATE_ASSET_IDS].sort());
+  assert.deepEqual([...weeklyAssets].sort(), [...MEMBER_KEY_DATE_ASSET_IDS].sort());
 });
 
 test("radar contains only exact month or week dates and preserves traceability", () => {
   const rows = buildMemberKeyDateRadar(AS_OF);
-  assert.ok(rows.length >= STATIC_FOCUS_ASSET_IDS.length * 2);
+  assert.ok(rows.length >= MEMBER_KEY_DATE_ASSET_IDS.length * 2);
   for (const item of rows) {
     assert.match(item.focusDate, /^2026-\d{2}-\d{2}$/, item.id);
     assert.equal(item.startDate, item.focusDate, item.id);
@@ -123,7 +129,7 @@ test("month-derived weekly rows identify their source instead of claiming a week
   const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.level === "WEEK");
   for (const item of rows) {
     const source = item.sourceIds[0] ?? "";
-    if (["GANFENG-202609-M2-V1", "LIAN-202609-M2-V1", "LEXIN-202609-M2-V1", "TENCENT-MONTH-20260901-V1", "KINGSOFT-OFFICE-M1-20260803-V1"].includes(source)) {
+    if (["GANFENG-202609-M2-V1", "LIAN-202609-M2-V1", "LEXIN-202609-M2-V1", "TENCENT-MONTH-20260901-V1", "KINGSOFT-OFFICE-M1-20260803-V1", "META-M1-20260901-V1", "NVDA-M1-20260901-V1"].includes(source)) {
       assert.match(item.primaryView, /月卦当周推演方向/);
       assert.doesNotMatch(item.primaryView, /周卦正式方向/);
     }
@@ -156,10 +162,51 @@ test("summary and split expose exactly two current modules", () => {
   const rows = buildKeyDateRadar(buildMemberKeyDateRadar(AS_OF), AS_OF);
   const summary = summarizeKeyDateRadar(rows);
   const split = splitCurrentKeyDateRadar(rows);
-  assert.equal(summary.assetCount, 23);
+  assert.equal(summary.assetCount, 25);
   assert.equal(summary.monthlyCount, split.monthly.length);
   assert.equal(summary.weeklyCount, split.weekly.length);
   assert.equal("monthlyPath" in split, false);
+});
+
+test("new SNDK September chart becomes the forward month authority without deleting old history", () => {
+  const monthly = buildMemberKeyDateRadar(AS_OF).find((item) => item.assetId === "sandisk" && item.level === "MONTH");
+  assert.ok(monthly);
+  assert.deepEqual(monthly.sourceIds, ["SNDK-M1-20260901-V3"]);
+  assert.match(monthly.primaryView, /月卦正式方向.*先涨后跌/);
+  assert.equal(monthly.evidence, "DERIVED");
+  assert.equal(monthly.methodViews?.length, 4);
+  assert.match(monthly.finalSynthesis ?? "", /易老师综合取舍/);
+});
+
+test("META and NVDA are key-date-only additions with four grounded teacher comparisons", () => {
+  assert.deepEqual(SUPPLEMENTAL_KEY_DATE_ASSET_IDS, ["meta", "nvda"]);
+  for (const assetId of SUPPLEMENTAL_KEY_DATE_ASSET_IDS) {
+    assert.equal(STATIC_FOCUS_ASSET_IDS.includes(assetId as never), false, `${assetId} must not expand the trading focus registry`);
+    assert.equal(assetId in STATIC_MEMBER_AUTOMATION_FOCUS, false, `${assetId} must remain outside member trading automation`);
+    const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.assetId === assetId);
+    const monthly = rows.find((item) => item.level === "MONTH");
+    const weekly = rows.find((item) => item.level === "WEEK");
+    assert.ok(monthly, assetId);
+    assert.ok(weekly, assetId);
+    assert.equal(monthly.methodViews?.length, 4, assetId);
+    assert.deepEqual(monthly.methodViews?.map((view) => view.label), [
+      "丙午老师法（主判）",
+      "狼叔法（节奏复核）",
+      "万里法（用神复核）",
+      "秋六爻法（卦象复核）",
+    ]);
+    assert.match(weekly.primaryView, /月卦当周推演方向/, assetId);
+    assert.doesNotMatch(weekly.primaryView, /周卦正式方向/, assetId);
+  }
+});
+
+test("supplied charts remain source-traceable and do not invent exact chart dates", () => {
+  assert.equal(MONTHLY_LIUYAO_SOURCE_META_20260829.sandisk.sourceFile, "ea25d744b26c438a5e104597231c4c18.jpg");
+  assert.equal(MONTHLY_LIUYAO_SOURCE_META_20260829.sandisk.lineInputFile, "66a53fb089d93e11cc3a9ab10602db5c.jpg");
+  assert.equal(MONTHLY_LIUYAO_SOURCE_META_20260829.meta.sourceFile, "2474b076f6d3b5e944b2124e9309f1ed.jpg");
+  assert.equal(MONTHLY_LIUYAO_SOURCE_META_20260829.nvda.sourceFile, "a0f01ea1ce96545857ccea6a9b5ab987.jpg");
+  assert.deepEqual(MONTHLY_LIUYAO_FORECASTS_20260829.map((row) => row.ichingEvidence.primaryHexagram), ["水风井", "水山蹇", "艮为山（六冲）"]);
+  assert.ok(MONTHLY_LIUYAO_FORECASTS_20260829.every((row) => !row.keyDates?.length));
 });
 
 test("member route is gated, discoverable and groups monthly and weekly dates by sector and asset", () => {
@@ -176,7 +223,11 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /偏逃顶确认/);
   assert.match(page, /双向等待/);
   assert.match(page, /9月7日至10月7日相对转强/);
-  assert.match(page, /闪迪个股与半导体板块存在真实分歧/);
+  assert.match(page, /8月29日新补的9月整月卦已发布为V3/);
+  assert.match(page, /查看四位老师方法对比/);
+  assert.match(page, /丙午老师法负责主判/);
+  assert.match(page, /"nvda"/);
+  assert.match(page, /"meta"/);
   assert.match(page, /AssetKeyDateGroup/);
   assert.doesNotMatch(page, /KeyDateCard/);
   assert.doesNotMatch(page, /MONTH_PATH|agenda\.monthlyPath/);

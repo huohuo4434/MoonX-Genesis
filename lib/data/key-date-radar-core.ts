@@ -23,6 +23,13 @@ export type KeyDateRadarItem = {
   evidence: KeyDateEvidence;
   derivation: string;
   sourceIds: string[];
+  methodViews?: Array<{
+    id: string;
+    label: string;
+    direction: string;
+    summary: string;
+  }>;
+  finalSynthesis?: string;
 };
 
 export type KeyDateRadarViewItem = KeyDateRadarItem & { status: KeyDateStatus };
