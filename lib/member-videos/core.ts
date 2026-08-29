@@ -2,6 +2,7 @@ export const MEMBER_VIDEO_SLUGS = [
   "nasdaq-100-historic-drop-window-2026",
   "soxl-two-month-cycle-2026",
 ] as const;
+export const MEMBER_VIDEO_FILE_SIZE_LIMIT = 32 * 1024 * 1024;
 
 export type MemberVideoSlug = (typeof MEMBER_VIDEO_SLUGS)[number];
 export type MemberVideoAsset = "video" | "subtitle";

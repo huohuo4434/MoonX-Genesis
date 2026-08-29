@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MEMBER_VIDEO_CATALOG } from "@/lib/member-videos/catalog";
+import { MEMBER_VIDEO_FILE_SIZE_LIMIT } from "@/lib/member-videos/core";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Asset = "video" | "subtitle";
@@ -12,35 +14,51 @@ type PrepareResponse = {
 };
 type RemoteFile = { size: number; updatedAt: string | null };
 
-const SLUG = "nasdaq-100-historic-drop-window-2026";
-
 function formatBytes(value: number) {
   if (!value) return "未上传";
   return `${(value / 1024 / 1024).toFixed(value > 1024 * 1024 ? 1 : 3)} MB`;
 }
 
 export function MemberVideoUploadClient() {
+  const [slug, setSlug] = useState(MEMBER_VIDEO_CATALOG[0]?.slug ?? "");
   const [video, setVideo] = useState<File | null>(null);
   const [subtitle, setSubtitle] = useState<File | null>(null);
   const [files, setFiles] = useState<Record<string, RemoteFile>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("正在检查私有存储…");
+  const refreshSequence = useRef(0);
 
-  async function refresh() {
-    const response = await fetch("/api/admin/member-videos/upload-url", { cache: "no-store" });
-    const body = (await response.json()) as {
-      files?: Record<string, RemoteFile>;
-      error?: string;
-    };
-    if (!response.ok) throw new Error(body.error || "无法读取上传状态");
-    setFiles(body.files ?? {});
-  }
+  const refresh = useCallback(async (selectedSlug: string) => {
+    const sequence = ++refreshSequence.current;
+    try {
+      const response = await fetch(
+        `/api/admin/member-videos/upload-url?slug=${encodeURIComponent(selectedSlug)}`,
+        { cache: "no-store" },
+      );
+      const body = (await response.json()) as {
+        files?: Record<string, RemoteFile>;
+        error?: string;
+      };
+      if (sequence !== refreshSequence.current) return false;
+      if (!response.ok) throw new Error(body.error || "无法读取上传状态");
+      setFiles(body.files ?? {});
+      return true;
+    } catch (error) {
+      if (sequence !== refreshSequence.current) return false;
+      throw error;
+    }
+  }, []);
 
   useEffect(() => {
-    refresh()
-      .then(() => setMessage("私有存储已就绪"))
+    setVideo(null);
+    setSubtitle(null);
+    setFiles({});
+    refresh(slug)
+      .then((current) => {
+        if (current) setMessage("私有存储已就绪");
+      })
       .catch((error) => setMessage(error instanceof Error ? error.message : "状态读取失败"));
-  }, []);
+  }, [refresh, slug]);
 
   async function uploadOne(asset: Asset, ticket: UploadTicket, file: File) {
     const supabase = createSupabaseBrowserClient();
@@ -65,8 +83,8 @@ export function MemberVideoUploadClient() {
       setMessage("视频必须是 MP4，字幕必须是 VTT");
       return;
     }
-    if (video.size > 100 * 1024 * 1024) {
-      setMessage("视频不能超过100MB");
+    if (video.size > MEMBER_VIDEO_FILE_SIZE_LIMIT) {
+      setMessage("视频不能超过32MB");
       return;
     }
     setBusy(true);
@@ -74,7 +92,7 @@ export function MemberVideoUploadClient() {
       const prepareResponse = await fetch("/api/admin/member-videos/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: SLUG, action: "prepare" }),
+        body: JSON.stringify({ slug, action: "prepare" }),
       });
       const prepared = (await prepareResponse.json()) as PrepareResponse;
       if (!prepareResponse.ok || !prepared.releaseId || !prepared.assets) {
@@ -89,14 +107,14 @@ export function MemberVideoUploadClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug: SLUG,
+          slug,
           action: "publish",
           releaseId: prepared.releaseId,
         }),
       });
       const published = (await publishResponse.json()) as { error?: string };
       if (!publishResponse.ok) throw new Error(published.error || "正式版本切换失败");
-      await refresh();
+      await refresh(slug);
       setMessage("上传并复核完成，会员播放入口已就绪");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "上传失败");
@@ -107,6 +125,24 @@ export function MemberVideoUploadClient() {
 
   return (
     <div className="space-y-5">
+      <label className="block rounded-xl border border-white/10 bg-black/20 p-4">
+        <span className="text-sm font-medium text-white">选择要发布的视频</span>
+        <select
+          value={slug}
+          disabled={busy}
+          onChange={(event) => {
+            refreshSequence.current += 1;
+            setSlug(event.target.value);
+          }}
+          className="mt-3 block min-h-11 w-full rounded-lg border border-white/15 bg-[#11121a] px-3 text-sm text-white"
+        >
+          {MEMBER_VIDEO_CATALOG.map((item) => (
+            <option key={item.slug} value={item.slug}>
+              {item.title} · {item.durationLabel}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
         <div>
           <p className="text-sm font-medium text-white">视频文件</p>

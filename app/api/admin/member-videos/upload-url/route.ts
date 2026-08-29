@@ -4,19 +4,17 @@ import { requireAdmin } from "@/lib/auth/permissions";
 import {
   ensureMemberVideoBucket,
   isMemberVideoReleaseId,
+  isMemberVideoSlug,
   MEMBER_VIDEO_BUCKET,
   MEMBER_VIDEO_STORAGE,
   memberVideoReleaseObjectPath,
   type MemberVideoAsset,
-  type MemberVideoSlug,
 } from "@/lib/member-videos/storage.server";
 import { validateMemberVideoReleaseFiles } from "@/lib/member-videos/core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const runtime = "nodejs";
-
-const SLUG: MemberVideoSlug = "nasdaq-100-historic-drop-window-2026";
 
 function noStore(body: object, status = 200) {
   return NextResponse.json(body, {
@@ -25,10 +23,13 @@ function noStore(body: object, status = 200) {
   });
 }
 
-async function activeRelease(admin: Awaited<ReturnType<typeof ensureMemberVideoBucket>>) {
+async function activeRelease(
+  admin: Awaited<ReturnType<typeof ensureMemberVideoBucket>>,
+  slug: keyof typeof MEMBER_VIDEO_STORAGE,
+) {
   const { data, error } = await admin.storage
     .from(MEMBER_VIDEO_BUCKET)
-    .download(MEMBER_VIDEO_STORAGE[SLUG].manifest);
+    .download(MEMBER_VIDEO_STORAGE[slug].manifest);
   if (error || !data) return null;
   try {
     const manifest = JSON.parse(await data.text()) as { releaseId?: string; publishedAt?: string };
@@ -39,13 +40,15 @@ async function activeRelease(admin: Awaited<ReturnType<typeof ensureMemberVideoB
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!(await requireAdmin())) return noStore({ error: "无权限" }, 403);
+  const slug = request.nextUrl.searchParams.get("slug") ?? "";
+  if (!isMemberVideoSlug(slug)) return noStore({ error: "不支持的会员视频" }, 400);
   try {
     const admin = await ensureMemberVideoBucket();
-    const active = await activeRelease(admin);
+    const active = await activeRelease(admin, slug);
     if (!active) return noStore({ ok: true, bucketPublic: false, active: null, files: {} });
-    const folder = `${SLUG}/releases/${active.releaseId}`;
+    const folder = `${slug}/releases/${active.releaseId}`;
     const { data, error } = await admin.storage.from(MEMBER_VIDEO_BUCKET).list(folder, {
       limit: 10,
       sortBy: { column: "name", order: "asc" },
@@ -70,9 +73,10 @@ export async function POST(request: NextRequest) {
     releaseId?: string;
     slug?: string;
   } | null;
-  if (body?.slug !== SLUG || (body.action !== "prepare" && body.action !== "publish")) {
+  if (!body?.slug || !isMemberVideoSlug(body.slug) || (body.action !== "prepare" && body.action !== "publish")) {
     return noStore({ error: "不支持的会员视频操作" }, 400);
   }
+  const slug = body.slug;
 
   try {
     const admin = await ensureMemberVideoBucket();
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
         { bucket: string; path: string; token: string }
       >;
       for (const asset of ["video", "subtitle"] as const) {
-        const objectPath = memberVideoReleaseObjectPath({ slug: SLUG, releaseId, asset });
+        const objectPath = memberVideoReleaseObjectPath({ slug, releaseId, asset });
         const { data, error } = await admin.storage
           .from(MEMBER_VIDEO_BUCKET)
           .createSignedUploadUrl(objectPath, { upsert: false });
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     const releaseId = String(body.releaseId ?? "");
     if (!isMemberVideoReleaseId(releaseId)) return noStore({ error: "无效的视频版本" }, 400);
-    const folder = `${SLUG}/releases/${releaseId}`;
+    const folder = `${slug}/releases/${releaseId}`;
     const { data: releaseFiles, error: listError } = await admin.storage
       .from(MEMBER_VIDEO_BUCKET)
       .list(folder, { limit: 10 });
@@ -110,13 +114,13 @@ export async function POST(request: NextRequest) {
 
     const manifest = {
       schemaVersion: 1,
-      slug: SLUG,
+      slug,
       releaseId,
       publishedAt: new Date().toISOString(),
     };
     const { error: publishError } = await admin.storage
       .from(MEMBER_VIDEO_BUCKET)
-      .upload(MEMBER_VIDEO_STORAGE[SLUG].manifest, JSON.stringify(manifest), {
+      .upload(MEMBER_VIDEO_STORAGE[slug].manifest, JSON.stringify(manifest), {
         contentType: "application/json",
         cacheControl: "0",
         upsert: true,
