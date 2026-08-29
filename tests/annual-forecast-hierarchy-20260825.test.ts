@@ -3,7 +3,7 @@ import test from "node:test";
 import { resolveForecastHorizonHierarchy } from "../lib/forecasts/forecast-horizon-hierarchy";
 import { getAnnualForecastRoadmap2026, listAnnualForecastRoadmaps2026 } from "../lib/research/annual-forecast-roadmap-2026";
 import { annualTrendWindowRange, buildAnnualTrendWindows } from "../lib/research/annual-key-months";
-import { MEMBER_RESEARCH_NAV } from "../config/member-channel-navigation";
+import { NAV_ROUTES } from "../config/member-channel-navigation";
 
 test("年度正式层覆盖22个资产且8月25日前不参与历史统计", () => {
   const rows = listAnnualForecastRoadmaps2026();
@@ -19,7 +19,7 @@ test("年度正式层覆盖22个资产且8月25日前不参与历史统计", () 
   assert.equal(getAnnualForecastRoadmap2026("INTC")?.revisionHistory?.[0]?.version, 1);
   assert.equal(getAnnualForecastRoadmap2026("CXMT")?.assetId, "cxmt");
   assert.match(getAnnualForecastRoadmap2026("CXMT")?.sourceHexagram ?? "", /明夷.*震为雷/u);
-  assert.ok(MEMBER_RESEARCH_NAV.some((item) => item.href === "/member/annual-outlook" && item.groupKey === "forecast"));
+  assert.equal(NAV_ROUTES.memberAnnualOutlook, "/member/annual-outlook");
 });
 
 test("年度关键月按连续方向分段且不跨越相反月份合并", () => {

@@ -15,8 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/member",
     titleZh: "会员频道 | MOOX Intelligence",
     titleEn: "Member Channel | MOOX Intelligence",
-    descriptionZh: "会员日报、周月走势、股票与加密研究、缠论数据、量化交易、会员卜卦和实验功能的统一入口。",
-    descriptionEn: "One clean entrance for daily and weekly research, stock and crypto picks, Chan data, quant trading, member divination and experimental tools.",
+    descriptionZh: "从今日决策、周期预测、重点关注到AI交易和复盘验证的统一会员决策台。",
+    descriptionEn: "A focused member decision desk for today's plan, multi-horizon forecasts, priority assets, AI trading and reviews.",
   });
 }
 
@@ -25,55 +25,109 @@ type ChannelCard = {
   title: string;
   description: string;
   eyebrow: string;
-  experimental?: boolean;
+  action: string;
+  links: Array<{ href: string; label: string }>;
 };
 
-const FORECASTS: ChannelCard[] = [
-  { href: "/member/annual-outlook", title: "2026年度路线", eyebrow: "全年先定调", description: "重点资产9—12月候选、高低点候选月和跨周期校准规则。" },
-  { href: "/member/daily", title: "会员日报", eyebrow: "今天先看", description: "九大市场当日与下一交易日结论、关键位和失效条件。" },
-  { href: "/member/key-dates", title: "关键日雷达", eyebrow: "抄底 / 逃顶", description: "月卦主判、周卦辅助，一页查看各品种的关键观察窗口。" },
-  { href: "/member/weekly", title: "会员周走势预测", eyebrow: "逐个市场", description: "本周方向、周内路径、关键日期与支撑压力。" },
-  { href: "/member/monthly", title: "会员月走势预测", eyebrow: "中期结构", description: "月度主方向、关键周与月内高低窗口。" },
-  { href: "/member/sector-resonance", title: "板块共振分析", eyebrow: "一眼看同向", description: "把全部重点资产按板块和自然周对齐，直接看共振与分化。" },
-  { href: "/member/weekly-report", title: "会员周报", eyebrow: "本周重点", description: "把本周最值得关注的机会、风险和行动清单集中到一页。" },
-  { href: "/member/weekly-review", title: "周预测复盘", eyebrow: "周卦对照实际", description: "以周卦为最小正式样本，查看整周方向、路径偏差、卦象解读定位和下一周改进。" },
+const PRIMARY_TASKS: ChannelCard[] = [
+  {
+    href: "/member/daily",
+    title: "今日决策",
+    eyebrow: "第一步 · 今天做什么",
+    description: "先看今日与下一交易日方向、关键位置、风险窗口和最值得关注的市场。",
+    action: "进入今日决策",
+    links: [
+      { href: "/member/tomorrow", label: "下一交易日" },
+      { href: "/member/key-dates", label: "关键日" },
+    ],
+  },
+  {
+    href: "/member/weekly-report",
+    title: "周期预测",
+    eyebrow: "第二步 · 看清大方向",
+    description: "把年度、月度和本周路线放在一条主线上，先看结论，需要时再展开依据。",
+    action: "查看周期预测",
+    links: [
+      { href: "/member/annual-outlook", label: "年度" },
+      { href: "/member/monthly", label: "月度" },
+      { href: "/member/weekly", label: "周度" },
+    ],
+  },
+  {
+    href: "/member/sector-resonance",
+    title: "重点关注",
+    eyebrow: "第三步 · 找值得看的标的",
+    description: "先按板块判断共振与分化，再进入股票或加密标的查看完整多周期研究。",
+    action: "打开重点关注",
+    links: [
+      { href: "/member/stock-picks", label: "股票" },
+      { href: "/member/crypto-picks", label: "加密" },
+      { href: "/member/early-altcoin-radar", label: "早期线索" },
+    ],
+  },
+  {
+    href: "/member/ai-trading",
+    title: "AI交易",
+    eyebrow: "第四步 · 确认位置与执行",
+    description: "统一查看正式方向、缠论阶段、入场条件、止损止盈、量化计划和风险状态。",
+    action: "进入AI交易台",
+    links: [
+      { href: "/member/technical-methods", label: "缠论位置" },
+      { href: "/member/strategy", label: "策略" },
+      { href: "/member/market-structure", label: "多源K线" },
+    ],
+  },
+  {
+    href: "/member/weekly-review",
+    title: "复盘验证",
+    eyebrow: "第五步 · 检查预测表现",
+    description: "以周预测为核心，对照真实走势、路径偏差和后续规则改进，不隐藏失败样本。",
+    action: "查看复盘验证",
+    links: [
+      { href: "/verification", label: "公开验证" },
+      { href: "/member/alpha-feed", label: "辅助观点" },
+    ],
+  },
+  {
+    href: "/member/consultations",
+    title: "会员服务",
+    eyebrow: "需要时再使用",
+    description: "集中进入会员卜卦、视频内容、账户与设备管理，不打断日常市场阅读。",
+    action: "打开会员服务",
+    links: [
+      { href: "/member/videos", label: "会员视频" },
+      { href: "/account", label: "账户与设备" },
+    ],
+  },
 ];
 
-const PICKS: ChannelCard[] = [
-  { href: "/member/stock-picks", title: "会员股票研究", eyebrow: "个股研究", description: "多周期方向、当前阶段、模拟K线、关键位置和历史验证。" },
-  { href: "/member/crypto-picks", title: "会员专享加密货币推荐", eyebrow: "加密精选", description: "主流币与重点山寨币的多周期研究和执行位置。" },
-];
-
-const TOOLS: ChannelCard[] = [
-  { href: "/member/technical-methods", title: "会员缠论数据", eyebrow: "执行位置", description: "分型、笔、线段、中枢、背驰与关键支撑压力。" },
-  { href: "/member/ai-trading", title: "会员量化交易系统", eyebrow: "规则执行", description: "查看量化计划、持仓管理、保护单与风险状态。" },
-  { href: "/member/consultations", title: "会员卜卦系统", eyebrow: "老师解答", description: "静心起卦、六次钱币录入、老师复核并发送到邮箱。" },
-];
-
-const EXPERIMENTS: ChannelCard[] = [
-  { href: "/member/early-altcoin-radar", title: "山寨币雷达", eyebrow: "早期线索", description: "观察候选资产、热点与资金异动；暂不直接触发实盘。", experimental: true },
-  { href: "/member/market-structure", title: "多源K线", eyebrow: "行情实验室", description: "多交易所K线与市场微观结构，用于技术确认和风险过滤。", experimental: true },
-  { href: "/member/alpha-feed", title: "多方观点", eyebrow: "匿名观点", description: "匿名汇总关注博主的核心观点、方向、周期、关键点位与理论方法；随现有X情报自动更新。", experimental: true },
-];
-
-function CardGrid({ title, subtitle, cards }: { title: string; subtitle: string; cards: ChannelCard[] }) {
+function TaskGrid({ cards }: { cards: ChannelCard[] }) {
   return (
-    <section>
-      <div className="mb-4">
-        <Heading as="h2" size="h3">{title}</Heading>
-        <Text variant="body-sm" color="secondary" className="mt-1 block">{subtitle}</Text>
+    <section aria-labelledby="member-main-tasks">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Heading id="member-main-tasks" as="h2" size="h3">六个入口，按顺序看</Heading>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">旧功能没有删除，全部收进对应入口的二级链接。</Text>
+        </div>
+        <Text variant="caption" color="tertiary">今天 → 周期 → 关注 → 交易 → 复盘</Text>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
-          <Link key={card.href} href={card.href} className="group rounded-2xl border border-border/[0.09] bg-card/55 p-5 transition hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-caption font-semibold uppercase tracking-[0.16em] text-primary/75">{card.eyebrow}</span>
-              {card.experimental ? <Badge variant="warning">实验</Badge> : null}
+          <article key={card.href} className="group rounded-3xl border border-border/[0.09] bg-card/55 p-5 transition hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card sm:p-6">
+            <span className="text-caption font-semibold uppercase tracking-[0.14em] text-primary/75">{card.eyebrow}</span>
+            <h3 className="mt-3 text-2xl font-semibold text-foreground">{card.title}</h3>
+            <p className="mt-2 min-h-12 text-body-sm leading-6 text-foreground-secondary">{card.description}</p>
+            <Link href={card.href} className="mt-5 inline-flex rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-primary-foreground transition hover:opacity-90">
+              {card.action} →
+            </Link>
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-border/[0.08] pt-4">
+              {card.links.map((item) => (
+                <Link key={item.href} href={item.href} className="text-caption text-foreground-tertiary underline decoration-border underline-offset-4 transition hover:text-primary">
+                  {item.label}
+                </Link>
+              ))}
             </div>
-            <h3 className="mt-3 text-xl font-semibold text-foreground">{card.title}</h3>
-            <p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{card.description}</p>
-            <span className="mt-4 inline-flex text-body-sm text-primary">进入 →</span>
-          </Link>
+          </article>
         ))}
       </div>
     </section>
@@ -91,9 +145,10 @@ export default async function MemberChannelPage() {
           <div className="mx-auto w-full max-w-6xl space-y-10">
             <header className="overflow-hidden rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_85%_0%,rgba(124,92,255,.18),transparent_34%),linear-gradient(145deg,#0f1220,#090a0e)] p-6 sm:p-8">
               <Badge variant={active ? "success" : "outline"}>{active ? "会员频道已解锁" : "会员频道"}</Badge>
-              <Heading as="h1" size="h2" className="mt-4">今天先看最重要的内容</Heading>
+              <Text variant="caption" className="mt-5 block uppercase tracking-[0.2em] text-violet-200/65">MOOX MEMBER DECISION DESK</Text>
+              <Heading as="h1" size="h2" className="mt-2">打开就知道今天看什么</Heading>
               <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">
-                日报看今天，周报抓重点，股票与加密研究看具体机会；深度依据进入标的详情后再展开。
+                先看今日决策，再看周期方向和重点标的，最后确认技术位置与AI执行；卦象、缠论和辅助证据需要时再展开。
               </Text>
               {!active ? (
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -102,16 +157,14 @@ export default async function MemberChannelPage() {
                 </div>
               ) : (
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <Button asChild><Link href="/member/daily">打开会员日报</Link></Button>
-                  <Button asChild variant="outline"><Link href="/member/weekly-report">查看本周重点</Link></Button>
+                  <Button asChild><Link href="/member/daily">打开今日决策</Link></Button>
+                  <Button asChild variant="outline"><Link href="/member/key-dates">查看最近关键日</Link></Button>
+                  <Button asChild variant="ghost"><Link href="/member/ai-trading">查看AI交易状态</Link></Button>
                 </div>
               )}
             </header>
 
-            <CardGrid title="市场预测" subtitle="不同周期各司其职，不重复堆同一段说明。" cards={FORECASTS} />
-            <CardGrid title="专享推荐" subtitle="列表先给结论，完整多周期研究在标的详情页。" cards={PICKS} />
-            <CardGrid title="交易与服务" subtitle="技术找位置，量化执行规则，卜卦由老师最终复核。" cards={TOOLS} />
-            <CardGrid title="实验室" subtitle="保留有价值的早期功能，先积累样本，再决定是否升级为正式能力。" cards={EXPERIMENTS} />
+            <TaskGrid cards={PRIMARY_TASKS} />
           </div>
         </Section>
       </main>

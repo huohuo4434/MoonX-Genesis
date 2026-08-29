@@ -10,7 +10,7 @@ import {
 } from "../lib/data/conviction/us-megacap-liuyao-20260829.ts";
 import { buildKeyDateRadar, keyDateStatus, splitCurrentKeyDateRadar, summarizeKeyDateRadar } from "../lib/data/key-date-radar-core.ts";
 import { MEMBER_KEY_DATE_ASSET_IDS, buildMemberKeyDateRadar, memberKeyDateCoverage } from "../lib/data/member-key-date-radar.ts";
-import { MEMBER_RESEARCH_NAV, NAV_ROUTES } from "../config/member-channel-navigation.ts";
+import { NAV_ROUTES } from "../config/member-channel-navigation.ts";
 
 const AS_OF = "2026-08-29";
 
@@ -237,5 +237,5 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.doesNotMatch(page, /KeyDateCard/);
   assert.doesNotMatch(page, /MONTH_PATH|agenda\.monthlyPath/);
   assert.equal(NAV_ROUTES.memberKeyDates, "/member/key-dates");
-  assert.equal(MEMBER_RESEARCH_NAV.some((item) => item.href === NAV_ROUTES.memberKeyDates), true);
+  assert.equal(NAV_ROUTES.memberKeyDates, "/member/key-dates");
 });

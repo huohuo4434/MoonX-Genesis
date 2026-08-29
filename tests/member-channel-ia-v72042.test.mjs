@@ -9,9 +9,10 @@ const exists = (file) => fs.existsSync(path.join(root, file));
 const nav = read("config/member-channel-navigation.ts");
 const preservedNav = read("config/navigation.ts");
 for (const label of ["首页", "新手指南", "历史验证", "会员价格"]) assert.match(nav, new RegExp(`labelZh: \\"${label}\\"`));
-assert.match(nav, /会员频道首页/);
-for (const label of ["会员日报", "会员周走势预测", "会员月走势预测", "会员周报", "会员专享股票推荐", "会员专享加密货币推荐", "会员缠论数据", "会员量化交易系统", "会员卜卦系统", "山寨币雷达", "多源K线"]) assert.ok(nav.includes(label), label);
-assert.match(nav, /experimental: true/);
+assert.match(nav, /memberChannel: "\/member"/);
+for (const label of ["今日决策", "周期预测", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.ok(nav.includes(label), label);
+assert.equal((nav.match(/groupKey:/g) ?? []).length, 6, "member dropdown must expose exactly six primary tasks");
+assert.doesNotMatch(nav.slice(nav.indexOf("MEMBER_RESEARCH_NAV"), nav.indexOf("MEMBER_CHANNEL_NAV")), /experimental: true/);
 assert.doesNotMatch(nav.slice(nav.indexOf("PUBLIC_PRIMARY_NAV"), nav.indexOf("PUBLIC_MORE_NAV")), /今日|本周|重点关注|更多/);
 
 for (const route of [
@@ -24,8 +25,8 @@ for (const route of [
 ]) assert.ok(exists(route), route);
 
 const home = read("components/home/HomeLandingBoard.tsx");
-assert.match(home, /看清方向，等待位置，严格执行/);
-assert.match(home, /进入会员频道/);
+assert.match(home, /看方向，等确认，守失效/);
+assert.match(home, /从会员频道开始/);
 assert.doesNotMatch(home, /getTomorrowForecastAccessPayload|今日看点|明日看点|奇门主判<\/span>/);
 
 const weekly = read("components/member/MemberWeeklyPage.tsx");
@@ -64,12 +65,13 @@ assert.doesNotMatch(nav, /labelZh: "创始人|labelZh: "关键人物/);
 
 const altcoin = read("app/member/early-altcoin-radar/page.tsx");
 assert.match(altcoin, /实验性功能/);
-assert.match(altcoin, /不直接触发AI实盘/);
+assert.match(altcoin, /已经过热的不追/);
 assert.ok(exists("app/member/technical-methods/page.tsx"), "current technical-methods page must be preserved");
 assert.ok(exists("app/member/market-structure/page.tsx"), "current or fallback market-structure route must exist");
 const memberHub = read("app/member/page.tsx");
-assert.match(memberHub, /多源K线/);
-assert.match(memberHub, /experimental: true/);
+for (const label of ["今日决策", "周期预测", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.match(memberHub, new RegExp(label));
+for (const deepLink of ["/member/annual-outlook", "/member/key-dates", "/member/stock-picks", "/member/crypto-picks", "/member/technical-methods", "/member/strategy", "/member/market-structure", "/member/alpha-feed", "/member/videos"]) assert.ok(memberHub.includes(deepLink), deepLink);
+assert.match(memberHub, /旧功能没有删除/);
 
 assert.ok(preservedNav.length > 0, "existing config/navigation.ts must remain present");
 console.log("MOOX V7.20.4.2 MEMBER CHANNEL IA STATIC REGRESSION PASSED");
