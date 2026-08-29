@@ -9,6 +9,8 @@ export type KeyDateRadarItem = {
   symbol: string;
   startDate: string;
   endDate: string;
+  /** Exact calendar day explicitly named by the source. Never infer this from a broad path window. */
+  focusDate?: string;
   action: KeyDateAction;
   title: string;
   primaryView: string;
@@ -50,6 +52,19 @@ export function summarizeKeyDateRadar(items: KeyDateRadarViewItem[]) {
     bottomCount: live.filter((item) => item.action === "BOTTOM_WATCH").length,
     topCount: live.filter((item) => item.action === "TOP_EXIT_WATCH").length,
     riskCount: live.filter((item) => item.action === "TURNING_RISK").length,
+    monthlyExactCount: live.filter((item) => item.evidence === "MONTH_EXPLICIT").length,
+    monthlyPathCount: live.filter((item) => item.evidence === "MONTH_PATH_DERIVED").length,
+    weeklyCount: live.filter((item) => item.evidence === "WEEK_EXPLICIT").length,
+  };
+}
+
+export function splitCurrentKeyDateRadar(items: KeyDateRadarViewItem[]) {
+  const live = items.filter((item) => item.status !== "REVIEW");
+  return {
+    monthlyExact: live.filter((item) => item.evidence === "MONTH_EXPLICIT"),
+    monthlyPath: live.filter((item) => item.evidence === "MONTH_PATH_DERIVED"),
+    weekly: live.filter((item) => item.evidence === "WEEK_EXPLICIT"),
+    review: items.filter((item) => item.status === "REVIEW"),
   };
 }
 

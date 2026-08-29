@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { MEMBER_RESEARCH_NAV, NAV_ROUTES } from "../config/member-channel-navigation.ts";
-import { buildKeyDateRadar, keyDateStatus, summarizeKeyDateRadar } from "../lib/data/key-date-radar-core.ts";
+import { buildKeyDateRadar, keyDateStatus, splitCurrentKeyDateRadar, summarizeKeyDateRadar } from "../lib/data/key-date-radar-core.ts";
 import { MEMBER_KEY_DATE_RADAR_ITEMS } from "../lib/data/member-key-date-radar.ts";
 
 test("key-date status distinguishes upcoming, active and review windows", () => {
@@ -39,6 +39,22 @@ test("derived dates are explicitly separated from exact monthly evidence", () =>
   assert.ok(derived.length > 0);
   assert.ok(explicit.length > 0);
   assert.ok(derived.some((item) => /推演|不是老师给出的精确|不强造/.test(`${item.title}${item.primaryView}`)));
+  assert.ok(derived.every((item) => item.focusDate === undefined));
+});
+
+test("every explicit monthly key date names one exact source-locked focus day", () => {
+  const rows = buildKeyDateRadar(MEMBER_KEY_DATE_RADAR_ITEMS, "2026-08-29");
+  const agenda = splitCurrentKeyDateRadar(rows);
+  assert.ok(agenda.monthlyExact.length >= 4);
+  assert.ok(agenda.weekly.length >= 2);
+  for (const item of agenda.monthlyExact) {
+    assert.match(item.focusDate ?? "", /^2026-\d{2}-\d{2}$/, item.id);
+    assert.ok(item.focusDate! >= item.startDate && item.focusDate! <= item.endDate, item.id);
+  }
+  assert.deepEqual(
+    agenda.monthlyExact.map((item) => item.focusDate),
+    ["2026-09-07", "2026-09-10", "2026-09-10", "2026-09-10"],
+  );
 });
 
 test("member route is gated and discoverable from the member navigation", () => {
@@ -46,6 +62,8 @@ test("member route is gated and discoverable from the member navigation", () => 
   assert.match(page, /getMemberDevicePageAccess/);
   assert.match(page, /MEMBERSHIP_REQUIRED/);
   assert.match(page, /DEVICE_REQUIRED/);
+  assert.match(page, /月关键日 · 第一优先级/);
+  assert.match(page, /周关键日 · 辅助/);
   assert.equal(NAV_ROUTES.memberKeyDates, "/member/key-dates");
   assert.equal(MEMBER_RESEARCH_NAV.some((item) => item.href === NAV_ROUTES.memberKeyDates), true);
 });
