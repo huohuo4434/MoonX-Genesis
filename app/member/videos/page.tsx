@@ -3,20 +3,24 @@ import { unstable_noStore as noStore } from "next/cache";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
-import { MEMBER_VIDEO_CATALOG } from "@/lib/member-videos/catalog";
+import {
+  getMemberVideoRecord,
+  MEMBER_VIDEO_CATALOG,
+  type MemberVideoRecord,
+} from "@/lib/member-videos/catalog";
 import { getMemberVideoMemberSummary } from "@/lib/member-videos/member-content.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function HexagramCover() {
+function HexagramCover({ video }: { video: MemberVideoRecord }) {
   return (
     <div className="relative aspect-video overflow-hidden rounded-2xl border border-violet-300/20 bg-[radial-gradient(circle_at_20%_20%,rgba(139,92,246,0.28),transparent_35%),linear-gradient(145deg,#100b1f,#030407_70%)]">
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:32px_32px]" />
       <div className="absolute left-[8%] top-1/2 w-28 -translate-y-1/2 space-y-2 opacity-70 sm:w-40 sm:space-y-3">
         {[0, 1, 2, 3, 4, 5].map((line) => (
           <div key={line} className="flex h-2 gap-2 sm:h-3">
-            {line === 1 || line === 3 || line === 4 ? (
+            {line === 2 || line === 5 ? (
               <>
                 <span className="w-[44%] rounded-full bg-amber-200" />
                 <span className="w-[44%] rounded-full bg-amber-200" />
@@ -32,19 +36,24 @@ function HexagramCover() {
           MOOX 会员深度视频
         </p>
         <h2 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-4xl">
-          纳指100
-          <span className="mt-1 block text-violet-200">十年周期风险窗口</span>
+          {video.title}
         </h2>
-        <p className="mt-4 text-xs text-white/55 sm:text-sm">4分51秒 · 中文字幕</p>
+        <p className="mt-4 text-xs text-white/55 sm:text-sm">{video.durationLabel} · 中文字幕</p>
       </div>
     </div>
   );
 }
 
-export default async function MemberVideosPage() {
+type PageProps = {
+  searchParams?: Promise<{ video?: string | string[] }>;
+};
+
+export default async function MemberVideosPage({ searchParams }: PageProps) {
   noStore();
+  const params = await searchParams;
+  const requestedSlug = Array.isArray(params?.video) ? params.video[0] : params?.video;
+  const video = getMemberVideoRecord(requestedSlug ?? "") ?? MEMBER_VIDEO_CATALOG[0]!;
   const gate = await getMemberDevicePageAccess({ failClosed: true });
-  const video = MEMBER_VIDEO_CATALOG[0]!;
   const memberSummary = getMemberVideoMemberSummary(video.slug);
   const allowed = gate.status === "ALLOWED";
 
@@ -59,6 +68,7 @@ export default async function MemberVideosPage() {
         <div className="mt-7">
           {allowed ? (
             <video
+              key={video.slug}
               className="aspect-video w-full rounded-2xl border border-white/10 bg-black shadow-2xl shadow-violet-950/30"
               controls
               controlsList="nodownload noremoteplayback"
@@ -77,7 +87,7 @@ export default async function MemberVideosPage() {
               当前浏览器不支持视频播放。
             </video>
           ) : (
-            <HexagramCover />
+            <HexagramCover video={video} />
           )}
         </div>
 
@@ -89,7 +99,7 @@ export default async function MemberVideosPage() {
           </section>
         ) : gate.status === "DEVICE_REQUIRED" ? (
           <div className="mt-6">
-            <MemberDeviceGate decision={gate.device} nextPath="/member/videos" />
+            <MemberDeviceGate decision={gate.device} nextPath={`/member/videos?video=${video.slug}`} />
           </div>
         ) : (
           <section className="mt-6 flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -98,13 +108,45 @@ export default async function MemberVideosPage() {
               <p className="mt-1 text-sm text-white/55">普通访客可查看标题，会员登录后播放完整视频。</p>
             </div>
             <Link
-              href={gate.status === "LOGIN_REQUIRED" ? "/login?next=/member/videos" : "/pricing"}
+              href={gate.status === "LOGIN_REQUIRED" ? `/login?next=/member/videos?video=${video.slug}` : "/pricing"}
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-violet-500 px-5 text-sm font-semibold text-white"
             >
               {gate.status === "LOGIN_REQUIRED" ? "会员登录" : "查看会员方案"}
             </Link>
           </section>
         )}
+
+        <section className="mt-10">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium tracking-[0.18em] text-violet-300">全部视频</p>
+              <h2 className="mt-2 text-2xl font-semibold">选择一期观看</h2>
+            </div>
+            <p className="text-xs text-white/40">共 {MEMBER_VIDEO_CATALOG.length} 期</p>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {MEMBER_VIDEO_CATALOG.map((item) => {
+              const active = item.slug === video.slug;
+              return (
+                <Link
+                  key={item.slug}
+                  href={`/member/videos?video=${item.slug}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-xl border p-4 transition ${
+                    active
+                      ? "border-violet-300/45 bg-violet-400/10"
+                      : "border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <p className="font-semibold text-white">{item.title}</p>
+                  <p className="mt-2 text-xs text-white/45">
+                    {item.publishedAt} · {item.durationLabel}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </main>
   );

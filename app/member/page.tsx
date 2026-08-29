@@ -95,7 +95,7 @@ const PRIMARY_TASKS: ChannelCard[] = [
     description: "集中进入会员卜卦、视频内容、账户与设备管理，不打断日常市场阅读。",
     action: "打开会员服务",
     links: [
-      { href: "/member/videos", label: "会员视频" },
+      { href: "/member/videos", label: "会员视频（2期）" },
       { href: "/account", label: "账户与设备" },
     ],
   },

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { MEMBER_VIDEO_CATALOG } from "../lib/member-videos/catalog";
 import {
+  isMemberVideoSlug,
   isMemberVideoReleaseId,
   memberVideoReleaseObjectPath,
   parseMemberVideoManifest,
@@ -20,6 +21,12 @@ test("public member-video catalogue exposes title metadata but not the member re
       title: "纳指100 · 十年周期风险窗口",
       durationLabel: "4分51秒",
       publishedAt: "2026-08-26",
+    },
+    {
+      slug: "soxl-two-month-cycle-2026",
+      title: "SOXL · 两个月走势与风险窗口",
+      durationLabel: "4分47秒",
+      publishedAt: "2026-08-27",
     },
   ]);
   const catalogue = source("lib/member-videos/catalog.ts");
@@ -43,6 +50,9 @@ test("member-only copy and storage coordinates stay in server-only modules", () 
 
 test("release core rejects path injection, wrong manifests and incomplete bundles", () => {
   const releaseId = "123e4567-e89b-42d3-a456-426614174000";
+  assert.equal(isMemberVideoSlug("nasdaq-100-historic-drop-window-2026"), true);
+  assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026"), true);
+  assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026/../manifest.json"), false);
   assert.equal(isMemberVideoReleaseId(releaseId), true);
   assert.equal(isMemberVideoReleaseId("../../public"), false);
   assert.throws(() =>
@@ -144,4 +154,9 @@ test("member page shows a locked cover to visitors and playback only in allowed 
   assert.match(page, /普通访客可查看标题，会员登录后播放完整视频/);
   assert.match(page, /\/api\/member\/videos\/\$\{video\.slug\}/);
   assert.match(page, /asset=subtitle/);
+  assert.match(page, /MEMBER_VIDEO_CATALOG\.map/);
+  assert.match(page, /共 \{MEMBER_VIDEO_CATALOG\.length\} 期/);
+  const services = source("app/member/consultations/page.tsx");
+  assert.match(services, /会员视频 · \{MEMBER_VIDEO_CATALOG\.length\}期/);
+  assert.match(services, /href="\/member\/videos"/);
 });

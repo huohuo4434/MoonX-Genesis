@@ -1,4 +1,7 @@
-export const MEMBER_VIDEO_SLUGS = ["nasdaq-100-historic-drop-window-2026"] as const;
+export const MEMBER_VIDEO_SLUGS = [
+  "nasdaq-100-historic-drop-window-2026",
+  "soxl-two-month-cycle-2026",
+] as const;
 
 export type MemberVideoSlug = (typeof MEMBER_VIDEO_SLUGS)[number];
 export type MemberVideoAsset = "video" | "subtitle";
