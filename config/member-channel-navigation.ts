@@ -82,6 +82,15 @@ export const MEMBER_RESEARCH_NAV: NavItem[] = [
     groupEn: "Research",
   },
   {
+    key: "memberNav.keyDates",
+    href: NAV_ROUTES.memberKeyDates,
+    labelZh: "关键日",
+    labelEn: "Key Dates",
+    groupKey: "forecast",
+    groupZh: "研究中心",
+    groupEn: "Research",
+  },
+  {
     key: "memberNav.focusResearch",
     href: NAV_ROUTES.memberSectorResonance,
     labelZh: "重点关注",
@@ -147,6 +156,7 @@ export function buildPublicFooterColumns(_options?: {
   const member: NavItem[] = [
     { key: "footer.memberToday", href: NAV_ROUTES.memberDaily, labelZh: "今日决策", labelEn: "Today" },
     { key: "footer.memberForecast", href: NAV_ROUTES.memberWeeklyReport, labelZh: "周期预测", labelEn: "Forecasts" },
+    { key: "footer.memberKeyDates", href: NAV_ROUTES.memberKeyDates, labelZh: "关键日", labelEn: "Key Dates" },
     { key: "footer.memberFocus", href: NAV_ROUTES.memberSectorResonance, labelZh: "重点关注", labelEn: "Focus" },
     { key: "footer.memberTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易", labelEn: "AI Trading" },
     { key: "footer.memberReview", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘验证", labelEn: "Review" },

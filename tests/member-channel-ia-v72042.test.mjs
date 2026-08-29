@@ -10,8 +10,8 @@ const nav = read("config/member-channel-navigation.ts");
 const preservedNav = read("config/navigation.ts");
 for (const label of ["首页", "新手指南", "历史验证", "会员价格"]) assert.match(nav, new RegExp(`labelZh: \\"${label}\\"`));
 assert.match(nav, /memberChannel: "\/member"/);
-for (const label of ["今日决策", "周期预测", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.ok(nav.includes(label), label);
-assert.equal((nav.match(/groupKey:/g) ?? []).length, 6, "member dropdown must expose exactly six primary tasks");
+for (const label of ["今日决策", "周期预测", "关键日", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.ok(nav.includes(label), label);
+assert.equal((nav.match(/groupKey:/g) ?? []).length, 7, "member dropdown must expose the seven current primary tasks including key dates");
 assert.doesNotMatch(nav.slice(nav.indexOf("MEMBER_RESEARCH_NAV"), nav.indexOf("MEMBER_CHANNEL_NAV")), /experimental: true/);
 assert.doesNotMatch(nav.slice(nav.indexOf("PUBLIC_PRIMARY_NAV"), nav.indexOf("PUBLIC_MORE_NAV")), /今日|本周|重点关注|更多/);
 
