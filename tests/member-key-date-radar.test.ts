@@ -162,7 +162,7 @@ test("summary and split expose exactly two current modules", () => {
   assert.equal("monthlyPath" in split, false);
 });
 
-test("member route is gated, discoverable and no longer renders a monthly path-window module", () => {
+test("member route is gated, discoverable and groups monthly and weekly dates by sector and asset", () => {
   const page = fs.readFileSync("app/member/key-dates/page.tsx", "utf8");
   assert.match(page, /getMemberDevicePageAccess/);
   assert.match(page, /MEMBERSHIP_REQUIRED/);
@@ -170,8 +170,15 @@ test("member route is gated, discoverable and no longer renders a monthly path-w
   assert.match(page, />月关键日</);
   assert.match(page, />周关键日</);
   assert.match(page, /锁定路径日期/);
-  assert.match(page, /固定周期位置/);
-  assert.match(page, /不再单列“月路径窗口”/);
+  assert.match(page, /半导体 \/ AI基础设施/);
+  assert.match(page, /同一品种的月关键日与周关键日放在一起/);
+  assert.match(page, /偏抄底确认/);
+  assert.match(page, /偏逃顶确认/);
+  assert.match(page, /双向等待/);
+  assert.match(page, /9月7日至10月7日相对转强/);
+  assert.match(page, /闪迪个股与半导体板块存在真实分歧/);
+  assert.match(page, /AssetKeyDateGroup/);
+  assert.doesNotMatch(page, /KeyDateCard/);
   assert.doesNotMatch(page, /MONTH_PATH|agenda\.monthlyPath/);
   assert.equal(NAV_ROUTES.memberKeyDates, "/member/key-dates");
   assert.equal(MEMBER_RESEARCH_NAV.some((item) => item.href === NAV_ROUTES.memberKeyDates), true);

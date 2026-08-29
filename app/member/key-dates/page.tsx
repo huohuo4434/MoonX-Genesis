@@ -31,10 +31,29 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const ACTION_META: Record<KeyDateAction, { short: string; tone: string }> = {
+type ActionDisplay = { short: string; tone: string; explanation?: string };
+
+const ACTION_META: Record<Exclude<KeyDateAction, "TURNING_RISK">, ActionDisplay> = {
   BOTTOM_WATCH: { short: "抄底观察", tone: "text-emerald-200" },
   TOP_EXIT_WATCH: { short: "逃顶 / 减仓", tone: "text-rose-200" },
-  TURNING_RISK: { short: "变盘确认", tone: "text-amber-200" },
+};
+
+const SECTOR_GROUPS = [
+  {
+    id: "semiconductor",
+    title: "半导体 / AI基础设施",
+    assetIds: ["cxmt", "intel", "sandisk", "lite", "mu", "nbis"],
+    context: "板块周期背景：9月7日至10月7日相对转强，9月中下旬至10月初是高位候选区。板块背景不覆盖单股卦；单股与板块分歧时，同时展示并以单股对应周卦判断自身节奏。",
+  },
+  { id: "large-tech", title: "大型科技", assetIds: ["googl", "msft", "tsla", "tencent"] },
+  { id: "space-growth", title: "太空与高波动成长", assetIds: ["asteroid", "spcx"] },
+  { id: "crypto", title: "加密资产", assetIds: ["btc", "eth", "sol", "hype"] },
+  { id: "china-focus", title: "A股重点关注", assetIds: ["ganfeng-lithium", "lian-tech", "lexin-medical", "kingsoft-office"] },
+  { id: "metals-energy", title: "贵金属与能源", assetIds: ["gold", "silver", "wti-crude"] },
+] as const;
+
+const ASSET_CONTEXT: Partial<Record<string, string>> = {
+  sandisk: "闪迪个股与半导体板块存在真实分歧：9月1—6日先涨后跌，7—13日偏弱，14—20日先跌后修复，21—27日再偏弱，28日起重新出现修复。不能写成整月一路下跌，也不能用板块转强覆盖闪迪个股周卦。",
 };
 
 function chineseDate(value: string) {
@@ -46,8 +65,27 @@ function statusLabel(item: KeyDateRadarViewItem) {
   return item.status === "ACTIVE" ? "今日" : item.status === "UPCOMING" ? "待观察" : "待复盘";
 }
 
-function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
-  const action = ACTION_META[item.action];
+function turningMeta(item: KeyDateRadarViewItem): ActionDisplay {
+  if (/周期收尾|跨月周期/.test(`${item.title}${item.derivation}`) || /多月卦阶段方向/.test(item.primaryView)) {
+    return { short: "双向等待", tone: "text-amber-200", explanation: "目前既不是抄底信号，也不是逃顶信号；等待新周期或价格结构给出方向。" };
+  }
+  if (/先跌后涨|探底回升/.test(item.primaryView)) {
+    return { short: "偏抄底确认", tone: "text-emerald-200", explanation: "当前偏向寻找低点，但只有出现止跌和承接确认后才进入抄底观察。" };
+  }
+  if (/先涨后跌|冲高回落/.test(item.primaryView)) {
+    return { short: "偏逃顶确认", tone: "text-rose-200", explanation: "当前偏向寻找高点，但只有出现冲高受阻或转弱确认后才进入减仓观察。" };
+  }
+  if (/震荡上涨|：上涨/.test(item.primaryView)) {
+    return { short: "偏多确认", tone: "text-emerald-200", explanation: "方向偏多，但这不是直接抄底；等待回踩止跌或延续结构确认。" };
+  }
+  if (/震荡下跌|：下跌/.test(item.primaryView)) {
+    return { short: "偏空确认", tone: "text-rose-200", explanation: "方向偏空，但这不是直接逃顶；等待反弹受阻或下跌延续结构确认。" };
+  }
+  return { short: "双向等待", tone: "text-amber-200", explanation: "方向尚未形成，既不抄底也不逃顶，等待K线完成定向。" };
+}
+
+function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
+  const action = item.action === "TURNING_RISK" ? turningMeta(item) : ACTION_META[item.action];
   const isMonth = item.level === "MONTH";
   const evidenceLabel = item.evidence === "EXPLICIT"
     ? "原记录明确"
@@ -55,7 +93,7 @@ function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
       ? "锁定路径日期"
       : "卦象结构推演";
   return (
-    <Card padding="lg" className={isMonth ? "border-amber-300/25 bg-amber-300/[0.055]" : "border-sky-300/15 bg-sky-300/[0.035]"}>
+    <article className={`rounded-2xl border p-4 ${isMonth ? "border-amber-300/25 bg-amber-300/[0.055]" : "border-sky-300/15 bg-sky-300/[0.035]"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className={`font-mono text-3xl font-semibold ${isMonth ? "text-amber-100" : "text-sky-100"}`}>{chineseDate(item.focusDate)}</p>
@@ -66,10 +104,8 @@ function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
           <Badge variant="outline">{evidenceLabel}</Badge>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <Heading as="h3" size="h3">{item.assetName} <span className="font-mono text-body-sm font-normal text-foreground-tertiary">{item.symbol}</span></Heading>
-        <span className={action.tone}>{action.short}</span>
-      </div>
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className={`font-semibold ${action.tone}`}>{action.short}</span></div>
+      {item.action === "TURNING_RISK" ? <p className="mt-1 text-caption leading-5 text-foreground-tertiary">{action.explanation}</p> : null}
       <p className="mt-2 font-semibold text-foreground">{item.title}</p>
       <p className="mt-3 text-body-sm leading-6 text-foreground-secondary">{item.primaryView}</p>
       <div className="mt-4 rounded-xl border border-violet-300/10 bg-violet-300/[0.035] px-3 py-2 text-body-sm">
@@ -84,8 +120,26 @@ function KeyDateCard({ item }: { item: KeyDateRadarViewItem }) {
           <p><span className="font-semibold text-rose-200">失效：</span><span className="text-foreground-secondary">{item.invalidation}</span></p>
         </div>
       </details>
-    </Card>
+    </article>
   );
+}
+
+function AssetKeyDateGroup({ assetId, rows }: { assetId: string; rows: KeyDateRadarViewItem[] }) {
+  const first = rows[0];
+  if (!first) return null;
+  const monthly = rows.filter((item) => item.level === "MONTH");
+  const weekly = rows.filter((item) => item.level === "WEEK");
+  return <Card padding="lg" className="border-white/10 bg-black/20">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div><Heading as="h3" size="h3">{first.assetName}</Heading><p className="mt-1 font-mono text-body-sm text-foreground-tertiary">{first.symbol}</p></div>
+      <Badge variant="outline">月 {monthly.length} · 周 {weekly.length}</Badge>
+    </div>
+    {ASSET_CONTEXT[assetId] ? <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3 text-body-sm leading-6 text-amber-50">{ASSET_CONTEXT[assetId]}</div> : null}
+    <div className="mt-5 grid gap-5 xl:grid-cols-2">
+      <div><div className="mb-3 flex items-center gap-2"><Badge variant="warning">月关键日</Badge><span className="text-caption text-foreground-tertiary">第一优先级</span></div><div className="space-y-3">{monthly.map((item) => <KeyDateEntry key={item.id} item={item} />)}</div></div>
+      <div><div className="mb-3 flex items-center gap-2"><Badge variant="outline">周关键日</Badge><span className="text-caption text-foreground-tertiary">节奏确认</span></div><div className="space-y-3">{weekly.map((item) => <KeyDateEntry key={item.id} item={item} />)}</div></div>
+    </div>
+  </Card>;
 }
 
 export default async function MemberKeyDatesPage() {
@@ -99,6 +153,7 @@ export default async function MemberKeyDatesPage() {
   const items = buildKeyDateRadar(buildMemberKeyDateRadar(asOfDate), asOfDate);
   const summary = summarizeKeyDateRadar(items);
   const agenda = splitCurrentKeyDateRadar(items);
+  const currentItems = [...agenda.monthly, ...agenda.weekly];
 
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
@@ -106,7 +161,7 @@ export default async function MemberKeyDatesPage() {
         <Badge variant="warning">会员关键日雷达</Badge>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
-          覆盖网站全部重点关注标的。月关键日由月卦主判，周关键日细化当周转折；原记录明确点名或锁定路径已经写明的日期边界优先，其余日期才按已锁定卦象的先后结构、固定周期位置和记录中已有地支线索推演。所有日期都必须再由真实K线确认。
+          先按板块，再按品种查看；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；“偏抄底／偏逃顶确认”表示等待价格确认，不等于已经发出交易指令。
         </Text>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
           ["覆盖标的", summary.assetCount],
@@ -116,23 +171,20 @@ export default async function MemberKeyDatesPage() {
         ].map(([label, value], index) => <div key={String(label)} className={`rounded-2xl border px-4 py-3 ${index === 1 ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-white/10 bg-black/20"}`}><p className="text-caption text-foreground-tertiary">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</div>
       </header>
 
-      <section>
-        <div className="mb-4">
-          <Badge variant="warning">第一优先级</Badge>
-          <Heading as="h2" size="h2" className="mt-3 text-amber-100">月关键日</Heading>
-          <Text variant="body" color="secondary" className="mt-2 block">每个重点关注标的都有具体日期；不再单列“月路径窗口”。</Text>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">{agenda.monthly.map((item) => <KeyDateCard key={item.id} item={item} />)}</div>
-      </section>
-
-      <section>
-        <div className="mb-4">
-          <Badge variant="outline">第二优先级</Badge>
-          <Heading as="h2" size="h2" className="mt-3 text-sky-100">周关键日</Heading>
-          <Text variant="body" color="secondary" className="mt-2 block">周卦用于确认本周抄底、减仓或变盘节奏，不覆盖月卦主判。</Text>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">{agenda.weekly.map((item) => <KeyDateCard key={item.id} item={item} />)}</div>
-      </section>
+      {SECTOR_GROUPS.map((sector) => {
+        const sectorItems = currentItems.filter((item) => (sector.assetIds as readonly string[]).includes(item.assetId));
+        if (!sectorItems.length) return null;
+        return <section key={sector.id}>
+          <div className="mb-5">
+            <Badge variant="outline">板块</Badge>
+            <Heading as="h2" size="h2" className="mt-3">{sector.title}</Heading>
+            {"context" in sector && sector.context ? <Text variant="body-sm" color="secondary" className="mt-2 block max-w-5xl">{sector.context}</Text> : null}
+          </div>
+          <div className="space-y-5">
+            {sector.assetIds.map((assetId) => <AssetKeyDateGroup key={assetId} assetId={assetId} rows={sectorItems.filter((item) => item.assetId === assetId)} />)}
+          </div>
+        </section>;
+      })}
     </div></Section></main></>
   );
 }
