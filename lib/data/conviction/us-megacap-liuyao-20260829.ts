@@ -42,10 +42,10 @@ type TeacherComparisonInput = {
 
 function teacherComparisons(input: TeacherComparisonInput): NonNullable<ConvictionPeriodForecast["methodViews"]> {
   return [
-    { id: "bingwu-primary", label: "丙午老师法（主判）", direction: input.direction, weight: 40, summary: input.bingwu },
-    { id: "wolf-cross-check", label: "狼叔法（节奏复核）", direction: input.direction, weight: 25, summary: input.wolf },
-    { id: "wanli-cross-check", label: "万里法（用神复核）", direction: input.direction, weight: 20, summary: input.wanli },
-    { id: "qiu-cross-check", label: "秋六爻法（卦象复核）", direction: input.direction, weight: 15, summary: input.qiu },
+    { id: "bingwu-primary", label: "月令六亲流派（主判）", direction: input.direction, weight: 40, summary: input.bingwu },
+    { id: "wolf-cross-check", label: "动爻节奏流派（复核）", direction: input.direction, weight: 25, summary: input.wolf },
+    { id: "wanli-cross-check", label: "用神强弱流派（复核）", direction: input.direction, weight: 20, summary: input.wanli },
+    { id: "qiu-cross-check", label: "卦象取形流派（复核）", direction: input.direction, weight: 15, summary: input.qiu },
   ];
 }
 
@@ -78,7 +78,7 @@ export const MONTHLY_LIUYAO_FORECASTS_20260829: readonly ConvictionPeriodForecas
     catalysts: ["NAND与SSD周期", "半导体板块9月轮动", "鬼化财与鬼化子孙的中段修复"],
     risks: ["财爻持世化官鬼", "申酉风险线进入酉月", "归妹归魂反复", "四爻齐动高波动"],
     consensusStars: 4,
-    consensusLabel: "易老师综合取舍：四法都不支持整月直线下跌；以丙午老师法主判先涨后跌，中段保留修复，后段防再次承压。",
+    consensusLabel: "易老师综合取舍：四个流派都不支持整月直线下跌；以月令六亲流派主判先涨后跌，中段保留修复，后段防再次承压。",
     methodViews: teacherComparisons({
       direction: "先涨后跌",
       bingwu: "以财爻为价格主线：妻财戌土持世发动化官鬼申金，价格与资金最终转入风险线；三、四爻官鬼分别化财、化子孙，使中段仍有修复，所以不是直线下跌。",
@@ -120,7 +120,7 @@ export const MONTHLY_LIUYAO_FORECASTS_20260829: readonly ConvictionPeriodForecas
     catalysts: ["初上爻双化妻财", "家人卦秩序修复", "大型科技资金回流"],
     risks: ["蹇卦前段受阻", "兄弟申金持世", "酉月冲妻财卯木", "修复不等于新主升"],
     consensusStars: 4,
-    consensusLabel: "易老师综合取舍：四法一致偏向先受阻、后修复；以丙午老师法主判先跌后涨，但酉月冲财，后段先按受限反弹看待。",
+    consensusLabel: "易老师综合取舍：四个流派一致偏向先受阻、后修复；以月令六亲流派主判先跌后涨，但酉月冲财，后段先按受限反弹看待。",
     methodViews: teacherComparisons({
       direction: "先跌后涨",
       bingwu: "兄弟申金持世，秋金阶段资金分流和竞争先占上风；初爻父母辰土、上爻子孙子水均发动化妻财卯木，说明压力释放后价格条件重新出现。",
@@ -162,7 +162,7 @@ export const MONTHLY_LIUYAO_FORECASTS_20260829: readonly ConvictionPeriodForecas
     catalysts: ["父母午火化妻财亥水", "变卦子孙酉金持世", "恒卦持续性", "AI与半导体板块轮动"],
     risks: ["艮为山六冲", "上爻官鬼寅木化兄弟戌土", "月初停滞反复", "确认前追涨风险"],
     consensusStars: 4,
-    consensusLabel: "易老师综合取舍：四法一致认为先停、先洗、后稳；以丙午老师法主判先跌后涨，恒卦的持续性必须等月中以后结构确认。",
+    consensusLabel: "易老师综合取舍：四个流派一致认为先停、先洗、后稳；以月令六亲流派主判先跌后涨，恒卦的持续性必须等月中以后结构确认。",
     methodViews: teacherComparisons({
       direction: "先跌后涨",
       bingwu: "父母午火发动化妻财亥水，变卦子孙酉金持世，秋金环境能生财水并缓和官鬼；但官鬼寅木持世动化兄弟戌土，前段仍要先完成压力与分流。",

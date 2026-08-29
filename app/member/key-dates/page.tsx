@@ -123,7 +123,7 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
         </div>
       </details>
       {isMonth && (item.methodViews?.length ?? 0) >= 4 ? <details className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.025] px-3 py-2 text-body-sm">
-        <summary className="cursor-pointer font-semibold text-amber-100">查看四位老师方法对比</summary>
+        <summary className="cursor-pointer font-semibold text-amber-100">查看四种流派方法对比</summary>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {item.methodViews!.map((view) => <div key={view.id} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -134,7 +134,7 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
           </div>)}
         </div>
         {item.finalSynthesis ? <div className="mt-3 rounded-xl border border-violet-300/15 bg-violet-300/[0.04] px-3 py-2 leading-6"><span className="font-semibold text-violet-200">最终取舍：</span><span className="text-foreground-secondary">{item.finalSynthesis}</span></div> : null}
-        <p className="mt-2 text-caption leading-5 text-foreground-tertiary">丙午老师法负责主判；狼叔、万里、秋六爻只作独立交叉复核。最终以易老师综合结论和后续K线确认条件为准。</p>
+        <p className="mt-2 text-caption leading-5 text-foreground-tertiary">月令六亲流派负责主判；动爻节奏、用神强弱、卦象取形三个流派作独立交叉复核。最终以易老师综合结论和后续K线确认条件为准。</p>
       </details> : null}
     </article>
   );

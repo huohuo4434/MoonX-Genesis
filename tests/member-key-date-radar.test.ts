@@ -190,11 +190,12 @@ test("META and NVDA are key-date-only additions with four grounded teacher compa
     assert.ok(weekly, assetId);
     assert.equal(monthly.methodViews?.length, 4, assetId);
     assert.deepEqual(monthly.methodViews?.map((view) => view.label), [
-      "丙午老师法（主判）",
-      "狼叔法（节奏复核）",
-      "万里法（用神复核）",
-      "秋六爻法（卦象复核）",
+      "月令六亲流派（主判）",
+      "动爻节奏流派（复核）",
+      "用神强弱流派（复核）",
+      "卦象取形流派（复核）",
     ]);
+    assert.doesNotMatch(monthly.methodViews?.map((view) => view.label).join(" ") ?? "", /丙午|狼叔|万里|秋六爻/);
     assert.match(weekly.primaryView, /月卦当周推演方向/, assetId);
     assert.doesNotMatch(weekly.primaryView, /周卦正式方向/, assetId);
   }
@@ -224,8 +225,9 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /双向等待/);
   assert.match(page, /9月7日至10月7日相对转强/);
   assert.match(page, /8月29日新补的9月整月卦已发布为V3/);
-  assert.match(page, /查看四位老师方法对比/);
-  assert.match(page, /丙午老师法负责主判/);
+  assert.match(page, /查看四种流派方法对比/);
+  assert.match(page, /月令六亲流派负责主判/);
+  assert.doesNotMatch(page, /丙午老师法|狼叔法|万里法|秋六爻法/);
   assert.match(page, /"nvda"/);
   assert.match(page, /"meta"/);
   assert.match(page, /AssetKeyDateGroup/);
