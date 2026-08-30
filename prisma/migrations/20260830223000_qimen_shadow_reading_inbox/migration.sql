@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS "QimenShadowReading" (
   CONSTRAINT "QimenShadowReading_pkey" PRIMARY KEY ("id")
 );
 
+-- Structured method readings contain internal evidence and remain server-only.
+ALTER TABLE "QimenShadowReading" ENABLE ROW LEVEL SECURITY;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "QimenShadowReading_contentSha256_key" ON "QimenShadowReading"("contentSha256");
 CREATE INDEX IF NOT EXISTS "QimenShadowReading_studyKey_schoolId_idx" ON "QimenShadowReading"("studyKey", "schoolId");
 CREATE INDEX IF NOT EXISTS "QimenShadowReading_decisionAt_idx" ON "QimenShadowReading"("decisionAt");

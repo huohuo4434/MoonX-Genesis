@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS "QimenShadowAutomationRun" (
   CONSTRAINT "QimenShadowAutomationRun_pkey" PRIMARY KEY ("id")
 );
 
+-- These diagnostics are visible only through authenticated server/admin
+-- routes. No client-role RLS policy is intentionally created.
+ALTER TABLE "QimenShadowCandidate" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "QimenShadowAutomationRun" ENABLE ROW LEVEL SECURITY;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "QimenShadowCandidate_contentSha256_key" ON "QimenShadowCandidate"("contentSha256");
 CREATE INDEX IF NOT EXISTS "QimenShadowCandidate_decisionAt_idx" ON "QimenShadowCandidate"("decisionAt");
 CREATE INDEX IF NOT EXISTS "QimenShadowCandidate_symbol_horizon_decisionAt_idx" ON "QimenShadowCandidate"("symbol", "horizon", "decisionAt");

@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS "QimenShadowExperiment" (
   CONSTRAINT "QimenShadowExperiment_observationId_fkey" FOREIGN KEY ("observationId") REFERENCES "QimenShadowObservation"("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
+-- Internal research ledgers are server-only. Keep anonymous/authenticated
+-- PostgREST clients denied by default; the application accesses them through
+-- the trusted server database connection.
+ALTER TABLE "QimenShadowObservation" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "QimenShadowExperiment" ENABLE ROW LEVEL SECURITY;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "QimenShadowObservation_contentSha256_key" ON "QimenShadowObservation"("contentSha256");
 CREATE INDEX IF NOT EXISTS "QimenShadowObservation_decisionAt_idx" ON "QimenShadowObservation"("decisionAt");
 CREATE INDEX IF NOT EXISTS "QimenShadowObservation_symbol_horizon_decisionAt_idx" ON "QimenShadowObservation"("symbol", "horizon", "decisionAt");

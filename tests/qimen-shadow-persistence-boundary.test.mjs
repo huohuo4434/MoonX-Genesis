@@ -4,6 +4,28 @@ import test from "node:test";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
+function assertOnlyExpectedRlsEnables(migration, expectedTables) {
+  const allowedStatement = /ALTER\s+TABLE\s+"([^"]+)"\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY\s*;/gi;
+  const actualTables = [...migration.matchAll(allowedStatement)].map((match) => match[1]).sort();
+  assert.deepEqual(actualTables, [...expectedTables].sort());
+
+  const withoutAllowedStatements = migration.replace(allowedStatement, "");
+  assert.doesNotMatch(withoutAllowedStatements, /ALTER\s+TABLE/i);
+  assert.doesNotMatch(
+    migration,
+    /(?:CREATE|ALTER|DROP)\s+POLICY|\bGRANT\b|\bREVOKE\b|DROP\s+TABLE|DELETE\s+FROM|trade_|Bitget|MooxUnifiedLive/i,
+  );
+}
+
+test("RLS migration allowlist rejects duplicate, non-RLS and policy changes", () => {
+  const allowed = 'ALTER TABLE "QimenShadowReading" ENABLE ROW LEVEL SECURITY;';
+  assert.doesNotThrow(() => assertOnlyExpectedRlsEnables(allowed, ["QimenShadowReading"]));
+  assert.throws(() => assertOnlyExpectedRlsEnables(`${allowed}\n${allowed}`, ["QimenShadowReading"]));
+  assert.throws(() => assertOnlyExpectedRlsEnables(`${allowed}\nALTER TABLE "QimenShadowReading" OWNER TO anon;`, ["QimenShadowReading"]));
+  assert.throws(() => assertOnlyExpectedRlsEnables(`${allowed}\nCREATE POLICY public_read ON "QimenShadowReading" FOR SELECT USING (true);`, ["QimenShadowReading"]));
+  assert.throws(() => assertOnlyExpectedRlsEnables(`${allowed}\nGRANT SELECT ON "QimenShadowReading" TO anon;`, ["QimenShadowReading"]));
+});
+
 test("ledger schema is append-only and isolated from trading tables", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260830180000_qimen_shadow_research/migration.sql");
@@ -17,16 +39,21 @@ test("ledger schema is append-only and isolated from trading tables", () => {
   assert.doesNotMatch(model, /updatedAt|MooxUnifiedLive|Bitget|Trade/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS "QimenShadowObservation"/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS "QimenShadowExperiment"/);
-  assert.doesNotMatch(migration, /ALTER TABLE|DROP TABLE|DELETE FROM|trade_|Bitget|MooxUnifiedLive/);
+  assert.match(migration, /ALTER TABLE "QimenShadowObservation" ENABLE ROW LEVEL SECURITY/);
+  assert.match(migration, /ALTER TABLE "QimenShadowExperiment" ENABLE ROW LEVEL SECURITY/);
+  assertOnlyExpectedRlsEnables(migration, ["QimenShadowObservation", "QimenShadowExperiment"]);
   assert.match(model, /model QimenShadowCandidate/);
   assert.match(model, /model QimenShadowAutomationRun/);
   assert.match(automationMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowCandidate"/);
   assert.match(automationMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowAutomationRun"/);
-  assert.doesNotMatch(automationMigration, /ALTER TABLE|DROP TABLE|DELETE FROM|trade_|Bitget|MooxUnifiedLive/);
+  assert.match(automationMigration, /ALTER TABLE "QimenShadowCandidate" ENABLE ROW LEVEL SECURITY/);
+  assert.match(automationMigration, /ALTER TABLE "QimenShadowAutomationRun" ENABLE ROW LEVEL SECURITY/);
+  assertOnlyExpectedRlsEnables(automationMigration, ["QimenShadowCandidate", "QimenShadowAutomationRun"]);
   assert.match(model, /model QimenShadowReading/);
   assert.match(readingMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowReading"/);
   assert.match(readingMigration, /QimenShadowReading_studyKey_schoolId_idx/);
-  assert.doesNotMatch(readingMigration, /ALTER TABLE|DROP TABLE|DELETE FROM|trade_|Bitget|MooxUnifiedLive/);
+  assert.match(readingMigration, /ALTER TABLE "QimenShadowReading" ENABLE ROW LEVEL SECURITY/);
+  assertOnlyExpectedRlsEnables(readingMigration, ["QimenShadowReading"]);
 });
 
 test("admin API authenticates, validates strictly and has no trading dependency", () => {
