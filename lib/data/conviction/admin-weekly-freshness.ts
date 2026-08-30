@@ -25,6 +25,8 @@ const STATIC_ASSET_LABELS: Record<StaticFocusAssetId, string> = {
   nbis: "Nebius",
   mu: "美光",
   nvda: "英伟达",
+  aapl: "苹果",
+  amzn: "亚马逊",
   hype: "HYPE",
   sol: "SOL",
   eth: "ETH",

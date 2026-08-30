@@ -12,6 +12,8 @@ const FOCUS_SESSION_MARKET: Readonly<Record<StaticFocusAssetId, DailyForecastMar
   nbis: "us",
   mu: "us",
   nvda: "us",
+  aapl: "us",
+  amzn: "us",
   hype: "crypto",
   sol: "crypto",
   eth: "crypto",

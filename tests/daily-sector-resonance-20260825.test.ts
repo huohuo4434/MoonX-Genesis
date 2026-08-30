@@ -15,11 +15,11 @@ function weeklyCell(direction: string, markerDate = "2026-08-27"): SectorResonan
   };
 }
 
-test("逐日板块共振覆盖六周42天和全部22个重点品种", () => {
+test("逐日板块共振覆盖六周42天和全部24个重点品种", () => {
   const board = buildDailySectorResonanceBoard();
   assert.equal(board.weeks.length, 6);
   assert.equal(board.weeks.flatMap((week) => week.days).length, 42);
-  assert.equal(board.rows.length, 22);
+  assert.equal(board.rows.length, 24);
   assert.ok(board.rows.every((row) => row.cells.length === 42));
   assert.ok(board.summaries.some((item) => item.group === "加密资产" && item.date === "2026-08-29" && item.covered > 0));
 });

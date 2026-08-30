@@ -24,13 +24,13 @@ test("key-date status distinguishes upcoming, active and review exact days", () 
 });
 
 test("all key-date assets have at least one month and one week key date", () => {
-  const coverage = memberKeyDateCoverage(AS_OF);
+  const coverage = memberKeyDateCoverage("2026-08-31");
   assert.equal(coverage.length, MEMBER_KEY_DATE_ASSET_IDS.length);
-  assert.equal(STATIC_FOCUS_ASSET_IDS.length, 24);
-  assert.equal(MEMBER_KEY_DATE_ASSET_IDS.length, 25);
+  assert.equal(STATIC_FOCUS_ASSET_IDS.length, 26);
+  assert.equal(MEMBER_KEY_DATE_ASSET_IDS.length, 27);
   assert.deepEqual(coverage.filter((row) => !row.month || !row.week), []);
 
-  const rows = buildMemberKeyDateRadar(AS_OF);
+  const rows = buildMemberKeyDateRadar("2026-08-31");
   const monthlyAssets = new Set(rows.filter((row) => row.level === "MONTH").map((row) => row.assetId));
   const weeklyAssets = new Set(rows.filter((row) => row.level === "WEEK").map((row) => row.assetId));
   assert.deepEqual([...monthlyAssets].sort(), [...MEMBER_KEY_DATE_ASSET_IDS].sort());
@@ -181,7 +181,7 @@ test("month-derived weekly rows identify their source instead of claiming a week
   const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.level === "WEEK");
   for (const item of rows) {
     const source = item.sourceIds[0] ?? "";
-    if (["GANFENG-202609-M2-V1", "LIAN-202609-M2-V1", "LEXIN-202609-M2-V1", "TENCENT-MONTH-20260901-V1", "KINGSOFT-OFFICE-M1-20260803-V1", "META-M1-20260901-V1", "NVDA-M1-20260901-V1"].includes(source)) {
+    if (["GANFENG-202609-M2-V1", "LIAN-202609-M2-V1", "LEXIN-202609-M2-V1", "TENCENT-MONTH-20260901-V1", "KINGSOFT-OFFICE-M1-20260803-V1", "META-M1-20260901-V1", "NVDA-M1-20260901-V1", "AAPL-M1-20260901-V1", "AMZN-M1-20260901-V1"].includes(source)) {
       assert.match(item.primaryView, /月卦当周推演方向/);
       assert.doesNotMatch(item.primaryView, /周卦正式方向/);
     }
@@ -211,10 +211,10 @@ test("non-crypto derived key dates do not land on a weekend", () => {
 });
 
 test("summary and split expose exactly two current modules", () => {
-  const rows = buildKeyDateRadar(buildMemberKeyDateRadar(AS_OF), AS_OF);
+  const rows = buildKeyDateRadar(buildMemberKeyDateRadar("2026-08-31"), "2026-08-31");
   const summary = summarizeKeyDateRadar(rows);
   const split = splitCurrentKeyDateRadar(rows);
-  assert.equal(summary.assetCount, 25);
+  assert.equal(summary.assetCount, 27);
   assert.equal(summary.monthlyCount, split.monthly.length);
   assert.equal(summary.weeklyCount, split.weekly.length);
   assert.equal("monthlyPath" in split, false);

@@ -4,6 +4,7 @@ import { mooxDirectionAtDate, mooxPrimaryDirection } from "@/lib/forecasts/moox-
 import { evaluateResonanceVotes, targetWeekMidpoint, targetWeekWindow, type ResonanceVote } from "@/lib/data/conviction/resonance-core";
 import type { WatchlistResonanceSignal } from "@/lib/data/conviction/resonance-types";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
 
 const HORIZON_WEIGHT: Record<string, number> = {
   WEEK: 50,
@@ -86,9 +87,7 @@ function regularSignal(slug: string, periods: ConvictionPeriodForecast[], asOfDa
 }
 
 export function buildWatchlistResonanceRanking(asOfDate: string): WatchlistResonanceSignal[] {
-  const signals = [
-    ...(["tsla", "lite", "spcx", "asteroid", "googl", "sandisk", "nbis", "msft", "cxmt", "mu", "hype", "sol", "eth", "btc", "tencent", "gold", "silver", "wti-crude"] as const)
-      .map((assetId) => regularSignal(assetId, listStaticFocusForecasts(assetId), asOfDate)),
-  ];
+  const signals = ACTIVE_STATIC_FOCUS_ASSET_IDS
+    .map((assetId) => regularSignal(assetId, listStaticFocusForecasts(assetId), asOfDate));
   return signals.sort((a, b) => b.score - a.score || b.sameDirectionPeriods - a.sameDirectionPeriods || Number(b.hasWeeklyVote) - Number(a.hasWeeklyVote) || a.slug.localeCompare(b.slug));
 }

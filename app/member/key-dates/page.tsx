@@ -50,7 +50,7 @@ const SECTOR_GROUPS = [
     assetIds: ["cxmt", "intel", "sandisk", "lite", "mu", "nbis", "nvda"],
     context: "板块周期背景：9月7日至10月7日相对转强，9月中下旬至10月初是高位候选区。板块背景不覆盖单股卦；单股与板块分歧时，同时展示并以单股对应周卦判断自身节奏。",
   },
-  { id: "large-tech", title: "大型科技", assetIds: ["googl", "msft", "tsla", "meta", "tencent"] },
+  { id: "large-tech", title: "大型科技", assetIds: ["googl", "msft", "tsla", "meta", "tencent", "aapl", "amzn"] },
   { id: "space-growth", title: "太空与高波动成长", assetIds: ["asteroid", "spcx"] },
   { id: "crypto", title: "加密资产", assetIds: ["btc", "eth", "sol", "hype"] },
   { id: "china-focus", title: "A股重点关注", assetIds: ["ganfeng-lithium", "lian-tech", "lexin-medical", "kingsoft-office"] },
@@ -60,7 +60,8 @@ const SECTOR_GROUPS = [
 const ASSET_CONTEXT: Partial<Record<string, string>> = {
   sandisk: "8月29日新补的9月整月卦已发布为V3：水风井→雷泽归妹，主判先涨后跌；月初承接冲高后分歧，中段保留修复，19日后重新防承压，月底只观察止跌。旧V2和此前逐周拆分全部保留用于复盘，不覆盖历史。",
   meta: "目前只收到META的9月月卦，没有独立周卦。页面中的周关键日明确由已锁定月卦拆分当周节奏，不冒充老师另起周卦。",
-  nvda: "目前只收到英伟达的9月月卦，没有独立周卦。页面中的周关键日明确由已锁定月卦拆分当周节奏，不冒充老师另起周卦。",
+  aapl: "目前已录入苹果9月月卦与2026剩余年度卦，没有独立周卦。周关键日只按已锁定月卦拆分当周节奏，不冒充独立周卦。",
+  amzn: "目前已录入亚马逊9月月卦与2026剩余年度卦，没有独立周卦。周关键日只按已锁定月卦拆分当周节奏，不冒充独立周卦。",
 };
 
 const RESEARCH_ALIGNMENT_META: Record<ResearchAlignment, { label: string; tone: string }> = {

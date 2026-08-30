@@ -44,6 +44,7 @@ export type FocusDailyChanCapability = {
 const CHAN_FOCUS_INSTRUMENTS: Readonly<Record<string, string>> = Object.freeze({
   BTC: "BTCUSDT", ETH: "ETHUSDT", SOL: "SOLUSDT", HYPE: "HYPEUSDT", ASTEROID: "ASTEROID-DEX",
   SNDK: "SNDK", MU: "MU", NBIS: "NBIS", GOOGL: "GOOGL", GOOG: "GOOGL", MSFT: "MSFT",
+  NVDA: "NVDA", AAPL: "AAPL", AMZN: "AMZN",
   TSLA: "TSLA", LITE: "LITE", SPCX: "SPCX", INTC: "INTC",
   GOLD: "GOLD", SILVER: "SILVER", WTI: "WTI",
   "002460": "002460.SZ", "300784": "300784.SZ", "300562": "300562.SZ", "688825": "688825.SS",

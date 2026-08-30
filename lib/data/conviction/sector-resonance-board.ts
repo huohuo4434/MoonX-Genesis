@@ -115,6 +115,8 @@ export const SECTOR_RESONANCE_ASSETS_20260825: AssetDefinition[] = [
   { assetId: "googl", focusId: "googl", name: "谷歌", symbol: "GOOGL", group: "大型科技", longCycle: "9月至11月区间轮动" },
   { assetId: "tsla", focusId: "tsla", name: "特斯拉", symbol: "TSLA", group: "大型科技", longCycle: "前段洗盘、9月下旬偏强" },
   { assetId: "tencent", focusId: "tencent", name: "腾讯", symbol: "0700.HK", group: "大型科技", longCycle: "中期震荡修复" },
+  { assetId: "aapl", focusId: "aapl", name: "苹果", symbol: "AAPL", group: "大型科技", longCycle: "剩余年度先扬后收，9月先压后修复" },
+  { assetId: "amzn", focusId: "amzn", name: "亚马逊", symbol: "AMZN", group: "大型科技", longCycle: "剩余年度丰后防回吐，9月先压后修复" },
   { assetId: "btc", focusId: "btc", name: "比特币", symbol: "BTC", group: "加密资产", longCycle: "9月高点候选后转弱" },
   { assetId: "eth", focusId: "eth", name: "以太坊", symbol: "ETH", group: "加密资产", longCycle: "上旬见高后转弱" },
   { assetId: "sol", focusId: "sol", name: "Solana", symbol: "SOL", group: "加密资产", longCycle: "9月及秋冬偏弱" },
@@ -263,7 +265,8 @@ function calendarPathCell(assetId: string, forecasts: ConvictionPeriodForecast[]
       return start === week.start && end === week.end;
     });
     if (!path) continue;
-    const isIndependentWeekly = /独立周卦|完整周卦/u.test(path.sourceNote ?? "");
+    const sourceNote = path.sourceNote ?? "";
+    const isIndependentWeekly = !/不是独立周卦/u.test(sourceNote) && /独立周卦|完整周卦/u.test(sourceNote);
     return {
       direction: normalizeDirection(path.direction),
       sourceKind: isIndependentWeekly ? "WEEKLY" : "MONTHLY_CONTEXT",

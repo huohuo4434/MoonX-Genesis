@@ -5,16 +5,16 @@ import { listNbisPeriodForecasts } from "../lib/data/conviction/nbis-liuyao-2026
 import { listSandiskPeriodForecasts } from "../lib/data/conviction/sandisk-forecasts";
 import { extractMemberLiuyaoRelations } from "../lib/research/member-liuyao-detail";
 
-test("板块共振独立模块覆盖全部22个重点品种和本周至10月初六周", () => {
+test("板块共振独立模块覆盖全部24个重点品种和本周至10月初六周", () => {
   const board = buildSectorResonanceBoard();
-  assert.equal(board.rows.length, 22);
+  assert.equal(board.rows.length, 24);
   assert.equal(board.weeks.length, 6);
   assert.equal(board.weeks[0]?.start, "2026-08-24");
   assert.equal(board.weeks[0]?.badge, "本周");
   assert.equal(board.weeks[1]?.badge, "下周");
   assert.deepEqual([...new Set(board.rows.map((row) => row.group))], SECTOR_RESONANCE_GROUP_ORDER);
 
-  const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NVDA", "NBIS", "MSFT", "TSLA", "ASTEROID", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
+  const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NVDA", "NBIS", "MSFT", "TSLA", "AAPL", "AMZN", "ASTEROID", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
   for (const symbol of required) assert.ok(board.rows.some((row) => row.symbol === symbol), `missing ${symbol}`);
   assert.ok(board.rows.every((row) => row.cells.length === board.weeks.length));
   assert.ok(board.rows.every((row) => Array.isArray(row.monthKeyWeeks)));

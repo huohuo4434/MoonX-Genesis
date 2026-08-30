@@ -12,11 +12,11 @@ import { WATCHLIST_TEASERS } from "../lib/data/conviction/watchlist-teasers.ts";
 import { listAiTradingFocusRegistry } from "../lib/trading-signals/ai-trading-focus.ts";
 
 const EXPECTED_ACTIVE = [
-  "cxmt", "asteroid", "sandisk", "nbis", "mu", "hype", "sol", "eth", "btc", "googl",
+  "cxmt", "asteroid", "sandisk", "nbis", "mu", "nvda", "aapl", "amzn", "hype", "sol", "eth", "btc", "googl",
   "msft", "tencent", "tsla", "lite", "spcx", "intel", "gold", "silver", "wti-crude",
 ] as const;
 
-test("the production focus registry contains the requested 19 assets", () => {
+test("the production focus registry contains all 22 active assets", () => {
   assert.deepEqual(ACTIVE_STATIC_FOCUS_ASSET_IDS, EXPECTED_ACTIVE);
   const publishedSlugs = new Set(CONVICTION_ASSET_SEED.filter((asset) => asset.isPublished).map((asset) => asset.slug));
   const teaserSlugs = new Set(WATCHLIST_TEASERS.map((teaser) => teaser.slug));
@@ -24,6 +24,8 @@ test("the production focus registry contains the requested 19 assets", () => {
     assert.equal(publishedSlugs.has(assetId), true, `missing seed: ${assetId}`);
     assert.equal(teaserSlugs.has(assetId), true, `missing teaser: ${assetId}`);
   }
+  assert.equal(STATIC_MEMBER_AUTOMATION_FOCUS.aapl.canonicalSymbol, null);
+  assert.equal(STATIC_MEMBER_AUTOMATION_FOCUS.amzn.canonicalSymbol, null);
 });
 
 test("gold, silver and WTI expose locked current, forward and monthly research", () => {

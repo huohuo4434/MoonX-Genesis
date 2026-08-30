@@ -252,6 +252,7 @@ const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(ACTIVE_STATIC_FOCUS
 const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1"];
 const SPCX_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_5"];
 const NVDA_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "WEEK_5", "MONTH_1", "YEAR_1"];
+const APPLE_AMAZON_PERIOD_ORDER: ConvictionForecastType[] = ["MONTH_1", "YEAR_1"];
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
@@ -286,6 +287,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
   if (assetId === "nbis") return NBIS_PERIOD_ORDER;
   if (assetId === "nvda") return NVDA_PERIOD_ORDER;
+  if (assetId === "aapl" || assetId === "amzn") return APPLE_AMAZON_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_PERIOD_ORDER;
   if (assetId === "sol") return SOL_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
@@ -309,10 +311,11 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "nbis") return NBIS_VISIBLE_PERIOD_ORDER;
   if (assetId === "nvda") return NVDA_PERIOD_ORDER;
+  if (assetId === "aapl" || assetId === "amzn") return APPLE_AMAZON_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_VISIBLE_PERIOD_ORDER;
   if (assetId === "sol") return SOL_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
-  if (assetId === "btc") return ["WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
+  if (assetId === "btc") return ["WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
   if (assetId === "googl") return GOOGLE_VISIBLE_PERIOD_ORDER;
   if (assetId === "msft") return MSFT_VISIBLE_PERIOD_ORDER;
   if (assetId === "tencent") return TENCENT_VISIBLE_PERIOD_ORDER;
@@ -333,6 +336,13 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
       WEEK_4: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
       WEEK_5: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
       MONTH_1: { zh: "9月", en: "September", emptyZh: "9月研究尚未发布" },
+      YEAR_1: { zh: "2026剩余年度", en: "Rest of 2026", emptyZh: "剩余年度研究尚未发布" },
+    };
+    if (labels[type]) return labels[type]!;
+  }
+  if (assetId === "aapl" || assetId === "amzn") {
+    const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      MONTH_1: { zh: "2026年9月", en: "September 2026", emptyZh: "9月研究尚未发布" },
       YEAR_1: { zh: "2026剩余年度", en: "Rest of 2026", emptyZh: "剩余年度研究尚未发布" },
     };
     if (labels[type]) return labels[type]!;
@@ -394,6 +404,10 @@ function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForec
       WEEK_2: { zh: "8/10–16", en: "Aug 10–16", emptyZh: "该周期预测尚未发布" },
       WEEK_3: { zh: "8/17–23", en: "Aug 17–23", emptyZh: "该周期预测尚未发布" },
       WEEK_4: { zh: "8/24–30", en: "Aug 24–30", emptyZh: "该周期预测尚未发布" },
+      WEEK_5: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "该周期预测尚未发布" },
+      WEEK_6: { zh: "9/7–14", en: "Sep 7–14", emptyZh: "该周期预测尚未发布" },
+      WEEK_7: { zh: "9/15–21", en: "Sep 15–21", emptyZh: "该周期预测尚未发布" },
+      WEEK_8: { zh: "9/22–29", en: "Sep 22–29", emptyZh: "该周期预测尚未发布" },
       MONTH_1: { zh: "1个月", en: "1M", emptyZh: "该周期预测尚未发布" },
       MONTH_3: { zh: "3个月", en: "3M", emptyZh: "该周期预测尚未发布" },
       YEAR_1: { zh: "1年", en: "1Y", emptyZh: "该周期预测尚未发布" },

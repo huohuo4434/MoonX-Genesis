@@ -25,6 +25,8 @@ import { listPriorityAssetCycleCompletions20260825 } from "@/lib/data/conviction
 import { listMonthlyLiuyaoForecasts20260829 } from "@/lib/data/conviction/us-megacap-liuyao-20260829";
 import { listMegacapWeeklySupplements20260831 } from "@/lib/data/conviction/megacap-weekly-supplements-20260831";
 import { listAsteroidCycleSupplements20260831 } from "@/lib/data/conviction/asteroid-cycle-supplements-20260831";
+import { listAppleAmazonLiuyaoForecasts20260831 } from "@/lib/data/conviction/apple-amazon-liuyao-20260831";
+import { listBtcSeptemberWeeklyForecasts20260831 } from "@/lib/data/conviction/btc-september-weekly-20260831";
 
 export function listStaticFocusForecasts(assetId: StaticFocusAssetId): ConvictionPeriodForecast[] {
   if (isAShareResearchAssetId(assetId)) return listASharePeriodForecasts20260810(assetId);
@@ -34,10 +36,12 @@ export function listStaticFocusForecasts(assetId: StaticFocusAssetId): Convictio
     case "sandisk": return [...listSandiskPeriodForecasts(), ...listMonthlyLiuyaoForecasts20260829("sandisk")];
     case "nbis": return listNbisPeriodForecasts();
     case "nvda": return [...listMonthlyLiuyaoForecasts20260829("nvda"), ...listMegacapWeeklySupplements20260831("nvda")];
+    case "aapl": return listAppleAmazonLiuyaoForecasts20260831("aapl");
+    case "amzn": return listAppleAmazonLiuyaoForecasts20260831("amzn");
     case "hype": return [...listHypePeriodForecasts20260809(), ...listCryptoSeptemberForecastRevisions20260823("hype")];
     case "sol": return listSolPeriodForecasts20260809();
     case "eth": return [...listEthPeriodForecasts(), ...listCryptoSeptemberForecastRevisions20260823("eth")];
-    case "btc": return [...listBtcPeriodForecasts20260801(), ...listCryptoSeptemberForecastRevisions20260823("btc")];
+    case "btc": return [...listBtcPeriodForecasts20260801(), ...listCryptoSeptemberForecastRevisions20260823("btc"), ...listBtcSeptemberWeeklyForecasts20260831()];
     case "googl": return [...listGooglePeriodForecasts(), ...listSeptemberWeeklyRevisions20260824("googl")];
     case "msft": return [...listMsftPeriodForecasts(), ...listPriorityAssetCycleCompletions20260825("msft")];
     case "tencent": return [...listTencentPeriodForecasts(), ...listPriorityAssetCycleCompletions20260825("tencent"), ...listMegacapWeeklySupplements20260831("tencent")];
