@@ -43,6 +43,9 @@ test("admin API authenticates, validates strictly and has no trading dependency"
   assert.match(store, /qimenShadowExperiment\.create/);
   assert.match(store, /qimenShadowCandidate\.create/);
   assert.match(store, /qimenShadowReading\.create/);
+  assert.match(store, /assertQimenFormalForecastAvailableNow\(formal, serverNow\)/);
+  assert.match(store, /assertQimenWriteBeforeDecision\(prepared\.decisionAt, serverNow\)/);
+  assert.match(store, /createdAt: serverNow/);
   assert.match(store, /lockedAt: serverNow/);
   assert.match(store, /row\.lockedAt\.getTime\(\) > row\.decisionAt\.getTime\(\)/);
   assert.ok(store.indexOf("const existing = await db.qimenShadowObservation.findUnique") < store.indexOf("观察单必须在决策时间之前"));
@@ -70,8 +73,16 @@ test("cron automation is header-authenticated, bounded, append-only and isolated
   assert.match(automation, /qimenShadowAutomationRun\.create/);
   assert.match(automation, /qimenShadowCandidate\.findMany/);
   assert.match(automation, /qimenShadowObservation\.findMany/);
-  assert.match(automation, /pairFutureQimenShadowReadings\(startedAt\)/);
+  assert.match(automation, /pairFutureQimenShadowReadings\(\{/);
+  assert.match(automation, /const PAIR_BUDGET_MS = 10_000/);
+  assert.match(automation, /deadlineMs: Math\.min\(Date\.now\(\) \+ PAIR_BUDGET_MS, deadlineMs - 2_000\)/);
+  assert.ok(automation.indexOf("for (const row of dueRows)") < automation.indexOf("pairFutureQimenShadowReadings({"));
   assert.match(pairer, /qimenShadowReading\.findMany/);
+  assert.match(pairer, /const PAIR_SCAN_LIMIT = 32/);
+  assert.match(pairer, /const PAIR_GROUP_LIMIT = 8/);
+  assert.match(pairer, /clock\(\)\.getTime\(\) >= options\.deadlineMs/);
+  assert.ok(pairer.indexOf("clock().getTime() >= options.deadlineMs") < pairer.indexOf("registerQimenShadowCandidate(plan.candidate"));
+  assert.match(pairer, /registerQimenShadowCandidate\(plan\.candidate, "AUTOMATION:qimen-reading-pairer", \{ clock \}\)/);
   assert.match(pairer, /planQimenShadowReadingPair/);
   assert.match(pairer, /registerQimenShadowCandidate/);
   assert.match(pairCore, /MISMATCHED_FORECAST_OR_WINDOW/);

@@ -11,6 +11,8 @@ import {
   type QimenShadowTrial,
 } from "@/lib/research/qimen-shadow-ab-core";
 import {
+  assertQimenFormalForecastAvailableNow,
+  assertQimenWriteBeforeDecision,
   prepareQimenShadowEvaluation,
   prepareQimenShadowCandidate,
   prepareQimenShadowObservation,
@@ -299,7 +301,7 @@ export async function getQimenShadowDashboard(limit = 300) {
 export async function registerQimenShadowReading(
   input: QimenShadowReadingInput,
   createdBy: string | null,
-  serverNow = new Date(),
+  options: { clock?: () => Date } = {},
 ) {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
@@ -321,13 +323,26 @@ export async function registerQimenShadowReading(
     throw new QimenShadowConflictError("奇门读数编号已存在且内容不同；禁止覆盖。需要修订时必须使用新的研究编号。");
   }
   const formal = await loadQimenFormalForecast(input);
+  const clock = options.clock ?? (() => new Date());
+  let serverNow = clock();
+  try {
+    assertQimenFormalForecastAvailableNow(formal, serverNow);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "正式预测当前不可用。");
+  }
   let prepared: PreparedQimenShadowReading;
   try {
     prepared = prepareQimenShadowReading(input, formal);
   } catch (error) {
     throw new QimenShadowValidationError(error instanceof Error ? error.message : "奇门读数不符合前瞻规则。");
   }
-  if (serverNow.getTime() >= Date.parse(prepared.decisionAt)) throw new QimenShadowValidationError("奇门读数必须在决策时间之前由服务器接收。");
+  serverNow = clock();
+  try {
+    assertQimenFormalForecastAvailableNow(formal, serverNow);
+    assertQimenWriteBeforeDecision(prepared.decisionAt, serverNow);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "奇门读数不满足当前前瞻时间。");
+  }
   if (Date.parse(prepared.reading.recordedAt) > serverNow.getTime()) throw new QimenShadowValidationError("奇门读数记录时间不能晚于服务器接收时间。");
   const immutablePayload = { schemaVersion: QIMEN_SHADOW_READING_SCHEMA, reading: prepared };
   const sha256 = qimenShadowContentHash(immutablePayload);
@@ -404,7 +419,7 @@ export function verifyQimenShadowReadingRow(row: {
 export async function registerQimenShadowCandidate(
   input: QimenShadowCandidateInput,
   createdBy: string | null,
-  serverNow = new Date(),
+  options: { clock?: () => Date } = {},
 ) {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
@@ -433,6 +448,13 @@ export async function registerQimenShadowCandidate(
     throw new QimenShadowConflictError("候选编号已存在且内容不同；禁止覆盖。");
   }
   const formal = await loadQimenFormalForecast(input);
+  const clock = options.clock ?? (() => new Date());
+  let serverNow = clock();
+  try {
+    assertQimenFormalForecastAvailableNow(formal, serverNow);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "正式预测当前不可用。");
+  }
   let prepared: PreparedQimenShadowCandidate;
   try {
     prepared = prepareQimenShadowCandidate(input, formal);
@@ -441,7 +463,13 @@ export async function registerQimenShadowCandidate(
   }
   const immutablePayload = { schemaVersion: CANDIDATE_SCHEMA, candidate: prepared };
   const sha256 = qimenShadowContentHash(immutablePayload);
-  if (serverNow.getTime() >= Date.parse(prepared.decisionAt)) throw new QimenShadowValidationError("候选必须在决策时间之前锁定。");
+  serverNow = clock();
+  try {
+    assertQimenFormalForecastAvailableNow(formal, serverNow);
+    assertQimenWriteBeforeDecision(prepared.decisionAt, serverNow);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "候选不满足当前前瞻时间。");
+  }
   try {
     const candidate = await db.qimenShadowCandidate.create({
       data: {

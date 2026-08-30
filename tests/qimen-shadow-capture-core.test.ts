@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertQimenFormalForecastAvailableNow,
+  assertQimenWriteBeforeDecision,
   prepareQimenShadowEvaluation,
   prepareQimenShadowCandidate,
   prepareQimenShadowObservation,
@@ -120,6 +122,23 @@ test("automatic observation refuses a changed formal version before any write", 
     observation({ expectedFormalForecastVersion: "V1" }),
     formal({ version: 2 }),
   ), /版本已变化/);
+});
+
+test("server-time gates reject future formal locks and processing that crosses decision time", () => {
+  const now = new Date("2026-08-30T12:30:00.000Z");
+  assert.throws(() => assertQimenFormalForecastAvailableNow(formal({
+    publishedAt: new Date("2026-08-30T13:00:00.000Z"),
+    lockedAt: new Date("2026-08-30T13:01:00.000Z"),
+  }), now), /当前时间尚未完成发布并锁定/);
+  assert.doesNotThrow(() => assertQimenWriteBeforeDecision("2026-08-30T12:30:01.000Z", now));
+  assert.throws(
+    () => assertQimenWriteBeforeDecision("2026-08-30T12:30:01.000Z", new Date("2026-08-30T12:30:02.000Z")),
+    /真实决策时间之前写入/,
+  );
+  assert.throws(
+    () => assertQimenWriteBeforeDecision("2026-08-30T12:30:01.000Z", new Date("2026-08-30T12:30:01.000Z")),
+    /真实决策时间之前写入/,
+  );
 });
 
 test("unlocked, future-locked, mismatched, neutral and late technical evidence fail closed", () => {

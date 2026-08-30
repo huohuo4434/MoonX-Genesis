@@ -114,6 +114,29 @@ export type QimenFormalForecastSnapshot = {
   lockedAt: Date | null;
 };
 
+export function assertQimenFormalForecastAvailableNow(
+  formal: QimenFormalForecastSnapshot,
+  serverNow: Date,
+): void {
+  if (!Number.isFinite(serverNow.getTime())) throw new Error("服务器当前时间无效。");
+  if (
+    formal.status !== "LOCKED"
+    || !formal.publishedAt
+    || !formal.lockedAt
+    || formal.publishedAt.getTime() > serverNow.getTime()
+    || formal.lockedAt.getTime() > serverNow.getTime()
+  ) {
+    throw new Error("正式预测在服务器当前时间尚未完成发布并锁定。");
+  }
+}
+
+export function assertQimenWriteBeforeDecision(decisionAt: string, serverNow: Date): void {
+  if (!Number.isFinite(serverNow.getTime()) || !Number.isFinite(Date.parse(decisionAt))) throw new Error("前瞻写入时间无效。");
+  if (serverNow.getTime() >= Date.parse(decisionAt)) {
+    throw new Error("研究记录必须在真实决策时间之前写入，禁止使用本轮开始时间回填。");
+  }
+}
+
 export type PreparedQimenShadowEvaluation = {
   setup: QimenShadowSetup;
   candles: QimenShadowCandle[];

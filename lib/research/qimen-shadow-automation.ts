@@ -32,6 +32,7 @@ import {
 const ACTOR = "AUTOMATION:qimen-shadow";
 const BATCH_SIZE = 4;
 const RUN_BUDGET_MS = 55_000;
+const PAIR_BUDGET_MS = 10_000;
 
 type ItemResult = { id: string; symbol: string; status: "CREATED" | "UNCHANGED" | "SKIPPED" | "FAILED"; reason?: string };
 
@@ -69,12 +70,6 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
 
   const lockResults: ItemResult[] = [];
   const evaluationResults: ItemResult[] = [];
-  let pairings: QimenShadowPairingResult[];
-  try {
-    pairings = await pairFutureQimenShadowReadings(startedAt);
-  } catch (error) {
-    pairings = [{ studyKey: "PAIRER", status: "FAILED", reason: safeReason(error) }];
-  }
   const candidatePool = await db.qimenShadowCandidate.findMany({
     where: {
       decisionAt: {
@@ -158,6 +153,20 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
       evaluationResults.push({ id: row.id, symbol: row.symbol, status: result.created ? "CREATED" : "UNCHANGED" });
     } catch (error) {
       evaluationResults.push({ id: row.id, symbol: row.symbol, status: "FAILED", reason: safeReason(error) });
+    }
+  }
+
+  let pairings: QimenShadowPairingResult[];
+  if (Date.now() >= deadlineMs - 2_000) {
+    pairings = [{ studyKey: "PAIRER", status: "SKIPPED", reason: "RUN_BUDGET_EXHAUSTED" }];
+  } else {
+    try {
+      pairings = await pairFutureQimenShadowReadings({
+        scanStartedAt: startedAt,
+        deadlineMs: Math.min(Date.now() + PAIR_BUDGET_MS, deadlineMs - 2_000),
+      });
+    } catch (error) {
+      pairings = [{ studyKey: "PAIRER", status: "FAILED", reason: safeReason(error) }];
     }
   }
 
