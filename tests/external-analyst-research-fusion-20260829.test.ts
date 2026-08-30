@@ -17,7 +17,7 @@ import {
 } from "../lib/research/external-viewpoint-card-core";
 
 test("external analyst roles never own formal direction or standalone trading authority", () => {
-  assert.equal(EXTERNAL_ANALYST_ROLE_REGISTRY.length, 4);
+  assert.equal(EXTERNAL_ANALYST_ROLE_REGISTRY.length, 8);
   for (const source of EXTERNAL_ANALYST_ROLE_REGISTRY) {
     assert.equal(source.ownsFormalDirection, false);
     assert.equal(source.canTriggerTradeAlone, false);

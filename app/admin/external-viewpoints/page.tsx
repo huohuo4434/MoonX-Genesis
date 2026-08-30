@@ -3,6 +3,7 @@ import { Card, Heading, Text, Badge } from "@/components/ui";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { EXTERNAL_ANALYST_VIEWPOINTS_20260828 } from "@/lib/data/external-analyst-viewpoints-20260828";
+import { EXTERNAL_ANALYST_VIEWPOINTS_20260830 } from "@/lib/data/external-analyst-viewpoints-20260830";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
 import { ANALYST_FUSION_SHADOW_VARIANTS } from "@/lib/research/analyst-fusion-shadow-core";
 import { EXTERNAL_ANALYST_ROLE_REGISTRY } from "@/lib/research/external-analyst-role-registry";
@@ -49,7 +50,7 @@ export default async function AdminExternalViewpointsPage() {
     }),
   }));
   const archivedViewpoints = [...teacher02Liuyao20260802Records, ...externalViewpoints20260801, ...externalViewpointsFollowup20260801];
-  const analystCards = EXTERNAL_ANALYST_VIEWPOINTS_20260828.map((card) => ({
+  const analystCards = [...EXTERNAL_ANALYST_VIEWPOINTS_20260828, ...EXTERNAL_ANALYST_VIEWPOINTS_20260830].map((card) => ({
     card,
     assessment: assessExternalViewpointCard(card),
   }));
@@ -160,9 +161,9 @@ export default async function AdminExternalViewpointsPage() {
       <Card padding="lg" className="mb-6 space-y-5 border-emerald-400/20">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Heading as="h2" size="h3">2026-08-28 前瞻观点卡</Heading>
+            <Heading as="h2" size="h3">2026-08-28至30日观点卡</Heading>
             <Text variant="body-sm" color="secondary" className="mt-1 max-w-4xl">
-              8月27日至28日材料只从8月31日之后开始记前瞻样本，不拿已经发生的行情倒填命中。点位必须同时保留确认与失效条件；缺条件的内容只做笔记。
+              所有材料只从系统实际摄入后的未来窗口开始计分，不拿已经发生的行情倒填命中。点位必须同时保留确认与失效条件；发布时间未核验、只有方法或只有风险叙事的内容只做笔记。
             </Text>
           </div>
           <div className="flex flex-wrap gap-2">
