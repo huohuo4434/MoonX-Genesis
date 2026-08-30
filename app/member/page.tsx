@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Heading, Section, Text } from "@/components/ui";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
+import { MemberUpdateNotice } from "@/components/member/MemberUpdateNotice";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { LATEST_MEMBER_UPDATE } from "@/lib/member-updates/catalog";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -96,6 +98,7 @@ const PRIMARY_TASKS: ChannelCard[] = [
     action: "打开会员服务",
     links: [
       { href: "/member/videos", label: "会员视频（2期）" },
+      { href: "/member/updates", label: "版本公告" },
       { href: "/account", label: "账户与设备" },
     ],
   },
@@ -163,6 +166,8 @@ export default async function MemberChannelPage() {
                 </div>
               )}
             </header>
+
+            <MemberUpdateNotice note={LATEST_MEMBER_UPDATE} />
 
             <TaskGrid cards={PRIMARY_TASKS} />
           </div>

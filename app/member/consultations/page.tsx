@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { MemberConsultationClient } from "@/components/member/MemberConsultationClient";
+import { MemberUpdateNotice } from "@/components/member/MemberUpdateNotice";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { MEMBER_VIDEO_CATALOG } from "@/lib/member-videos/catalog";
+import { LATEST_MEMBER_UPDATE } from "@/lib/member-updates/catalog";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +53,9 @@ export default async function MemberConsultationsPage() {
               查看全部视频 →
             </Link>
           </section>
+          <div className="mb-6">
+            <MemberUpdateNotice note={LATEST_MEMBER_UPDATE} compact />
+          </div>
           <MemberConsultationClient />
         </Section>
       </main>

@@ -25,6 +25,7 @@ export const NAV_ROUTES = {
   guide: "/guide",
   memberChannel: "/member",
   memberVideos: "/member/videos",
+  memberUpdates: "/member/updates",
   memberAnnualOutlook: "/member/annual-outlook",
   memberDaily: "/member/daily",
   memberKeyDates: "/member/key-dates",
@@ -160,6 +161,7 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.memberFocus", href: NAV_ROUTES.memberSectorResonance, labelZh: "重点关注", labelEn: "Focus" },
     { key: "footer.memberTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易", labelEn: "AI Trading" },
     { key: "footer.memberReview", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘验证", labelEn: "Review" },
+    { key: "footer.memberUpdates", href: NAV_ROUTES.memberUpdates, labelZh: "版本公告", labelEn: "Updates" },
     { key: "footer.memberServices", href: NAV_ROUTES.consultations, labelZh: "会员服务", labelEn: "Services" },
   ];
   const accountLegal: NavItem[] = [

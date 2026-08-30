@@ -70,8 +70,10 @@ assert.ok(exists("app/member/technical-methods/page.tsx"), "current technical-me
 assert.ok(exists("app/member/market-structure/page.tsx"), "current or fallback market-structure route must exist");
 const memberHub = read("app/member/page.tsx");
 for (const label of ["今日决策", "周期预测", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.match(memberHub, new RegExp(label));
-for (const deepLink of ["/member/annual-outlook", "/member/key-dates", "/member/stock-picks", "/member/crypto-picks", "/member/technical-methods", "/member/strategy", "/member/market-structure", "/member/alpha-feed", "/member/videos"]) assert.ok(memberHub.includes(deepLink), deepLink);
+for (const deepLink of ["/member/annual-outlook", "/member/key-dates", "/member/stock-picks", "/member/crypto-picks", "/member/technical-methods", "/member/strategy", "/member/market-structure", "/member/alpha-feed", "/member/videos", "/member/updates"]) assert.ok(memberHub.includes(deepLink), deepLink);
 assert.match(memberHub, /旧功能没有删除/);
+assert.match(nav, /memberUpdates: "\/member\/updates"/);
+assert.match(nav, /labelZh: "版本公告"/);
 
 assert.ok(preservedNav.length > 0, "existing config/navigation.ts must remain present");
 console.log("MOOX V7.20.4.2 MEMBER CHANNEL IA STATIC REGRESSION PASSED");
