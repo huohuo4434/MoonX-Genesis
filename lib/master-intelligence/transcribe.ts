@@ -8,6 +8,7 @@ export async function transcribeMediaBuffer(input: {
   buffer: ArrayBuffer;
   fileName: string;
   mime?: string | null;
+  timeoutMs?: number;
 }): Promise<string | null> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) return null;
@@ -20,6 +21,7 @@ export async function transcribeMediaBuffer(input: {
 
   const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
+    signal: AbortSignal.timeout(Math.max(1, Math.min(20_000, Math.trunc(input.timeoutMs ?? 20_000)))),
     headers: { Authorization: `Bearer ${key}` },
     body: form,
   });

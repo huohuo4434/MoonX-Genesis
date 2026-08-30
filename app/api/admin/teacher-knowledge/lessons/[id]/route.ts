@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin, getCurrentUser } from "@/lib/auth/permissions";
-import { extractTeacherKnowledge } from "@/lib/teacher-knowledge/extract";
+import { analyzeTeacherKnowledgeLesson } from "@/lib/teacher-knowledge/pipeline";
 import {
   getLesson,
   listCases,
@@ -9,7 +9,6 @@ import {
   listMethods,
   listQuotes,
   listRules,
-  saveDraftExtraction,
   updateLessonWithVersion,
 } from "@/lib/teacher-knowledge/store";
 
@@ -73,17 +72,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!lesson) return NextResponse.json({ error: "不存在" }, { status: 404 });
 
     if (parsed.data.action === "extract") {
-      const extracted = await extractTeacherKnowledge(lesson.rawTranscript);
-      await saveDraftExtraction(id, {
-        summary: extracted.summary,
-        cleanedTranscript: extracted.cleanedTranscript,
-        rules: extracted.rules,
-        cases: extracted.cases,
-        concepts: extracted.concepts,
-        quotes: extracted.quotes,
-        methods: extracted.methods,
-      });
-      await updateLessonWithVersion(id, { status: "REVIEWING", changeReason: "进入审核" });
+      const { extracted, qimenShadowExtraction } = await analyzeTeacherKnowledgeLesson(id, user?.email || null);
       return NextResponse.json({
         ok: true,
         extracted: {
@@ -97,6 +86,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
             concepts: extracted.concepts.length,
             quotes: extracted.quotes.length,
             methods: extracted.methods.length,
+          },
+          qimenShadow: {
+            modelStatus: qimenShadowExtraction.modelStatus,
+            accepted: qimenShadowExtraction.accepted.length,
+            rejected: qimenShadowExtraction.rejected.length,
           },
         },
       });

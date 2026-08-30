@@ -18,6 +18,20 @@ import type {
   TeacherQuoteRecord,
   TeacherRuleRecord,
 } from "@/lib/teacher-knowledge/types";
+import {
+  applyTeacherQimenOnlyBackfill,
+  preferStableQimenReport,
+  qimenReportAttemptSummary,
+  qimenReportOutcomeSha256,
+  selectQimenOnlyBackfillRows,
+  selectValidExtractedQimenRows,
+} from "@/lib/research/qimen-shadow-lesson-backfill-core";
+import { qimenLessonTranscriptSha256 } from "@/lib/research/qimen-shadow-lesson-ingestion-core";
+import {
+  acquireQimenStoreWriteLease,
+  renewQimenStoreWriteLease,
+  releaseQimenStoreWriteLease,
+} from "@/lib/research/qimen-lesson-automation-lease";
 
 type StoreFile = {
   version: 1;
@@ -30,6 +44,7 @@ type StoreFile = {
     rawTranscript: string;
     cleanedTranscript: string;
     summary: string;
+    qimenShadowExtraction: unknown | null;
     changeReason: string | null;
     changedBy: string | null;
     createdAt: string;
@@ -72,7 +87,13 @@ function normalizeStore(input: Partial<StoreFile> | null | undefined): StoreFile
     ...base,
     ...parsed,
     version: 1,
-    lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
+    lessons: Array.isArray(parsed.lessons)
+      ? parsed.lessons.map((lesson) => ({
+          ...lesson,
+          qimenShadowExtraction: lesson.qimenShadowExtraction ?? null,
+          qimenShadowAttemptMeta: lesson.qimenShadowAttemptMeta ?? null,
+        }))
+      : [],
     versions: Array.isArray(parsed.versions) ? parsed.versions : [],
     rules: Array.isArray(parsed.rules) ? parsed.rules : [],
     cases: Array.isArray(parsed.cases) ? parsed.cases : [],
@@ -127,64 +148,69 @@ function readLocal(): StoreFile {
 
 function writeLocal(store: StoreFile) {
   mkdirSync(resolve(process.cwd(), "data"), { recursive: true });
-  writeFileSync(LOCAL, JSON.stringify({ ...store, updatedAt: new Date().toISOString() }, null, 2), "utf8");
+  writeFileSync(LOCAL, JSON.stringify(store, null, 2), "utf8");
 }
 
 async function loadStore(): Promise<StoreFile> {
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
   try {
     const { getAdminClient } = await import("@/lib/supabase/admin");
     const admin = getAdminClient();
+    if (isProd && !admin) throw new Error("老师知识库读取失败：生产环境缺少 Supabase 服务端配置");
     if (admin) {
-      const { data } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
+      const { data, error } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
       if (data) {
         const parsed = JSON.parse(await data.text()) as Partial<StoreFile>;
-        return mergeSeed(normalizeStore(parsed));
+        if (typeof parsed.updatedAt === "string" && Array.isArray(parsed.lessons)) return mergeSeed(normalizeStore(parsed));
       }
+      if (isProd) throw new Error(`老师知识库读取失败：${error?.message ?? "远端文件缺失或结构无效"}`);
     }
-  } catch {
-    /* fallthrough */
+  } catch (error) {
+    if (isProd) throw error;
   }
   return readLocal();
 }
 
 async function persistStore(store: StoreFile): Promise<void> {
-  const next = { ...store, updatedAt: new Date().toISOString(), version: 1 as const };
+  const baseUpdatedAt = store.updatedAt;
+  const nextUpdatedAt = new Date(Math.max(Date.now(), Date.parse(baseUpdatedAt) + 1)).toISOString();
+  const next = { ...store, updatedAt: nextUpdatedAt, version: 1 as const };
   const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  const owner = `teacher-${randomBytes(12).toString("hex")}`;
+  const acquired = await acquireQimenStoreWriteLease({ storeId: "teacher-knowledge", owner });
+  if (isProd && !acquired) throw new Error("老师知识库正在被另一任务更新，请重试。");
 
-  const { getAdminClient } = await import("@/lib/supabase/admin");
-  const admin = getAdminClient();
-
-  if (isProd) {
-    if (!admin) {
-      throw new Error("老师知识库保存失败：生产环境缺少 Supabase 服务端配置");
-    }
-    const blob = new Blob([JSON.stringify(next, null, 2)], { type: "application/json" });
-    const { error } = await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
-      upsert: true,
-      contentType: "application/json",
-    });
-    if (error) {
-      throw new Error(`老师知识库保存失败：${error.message}`);
-    }
-    // Best-effort local mirror for debugging; remote is source of truth in production.
-    try {
-      writeLocal(next);
-    } catch {
-      /* ignore ephemeral filesystem */
-    }
-    return;
-  }
-
-  writeLocal(next);
-  if (!admin) return;
   try {
-    const blob = new Blob([JSON.stringify(next, null, 2)], { type: "application/json" });
-    await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
-      upsert: true,
-      contentType: "application/json",
-    });
-  } catch (err) {
-    console.warn("[teacher-knowledge] remote persist skipped", err);
+    const { getAdminClient } = await import("@/lib/supabase/admin");
+    const admin = getAdminClient();
+    if (isProd && !admin) throw new Error("老师知识库保存失败：生产环境缺少 Supabase 服务端配置");
+    if (admin) {
+      const { data: currentData, error: currentError } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
+      if (currentError || !currentData) throw new Error(`老师知识库写前校验失败：${currentError?.message ?? "远端文件缺失"}`);
+      const currentRaw = JSON.parse(await currentData.text()) as Partial<StoreFile>;
+      if (typeof currentRaw.updatedAt !== "string" || !Array.isArray(currentRaw.lessons)) throw new Error("老师知识库写前校验失败：远端版本或课程字段缺失。");
+      const current = normalizeStore(currentRaw);
+      if (current.updatedAt !== baseUpdatedAt) throw new Error("老师知识库版本已变化，拒绝覆盖并请重试。");
+      if (acquired && !await renewQimenStoreWriteLease({ storeId: "teacher-knowledge", owner })) {
+        throw new Error("老师知识库写锁已失效，拒绝覆盖并请重试。");
+      }
+      const blob = new Blob([JSON.stringify(next, null, 2)], { type: "application/json" });
+      const { error } = await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
+        upsert: true,
+        contentType: "application/json",
+      });
+      if (error) throw new Error(`老师知识库保存失败：${error.message}`);
+      try { writeLocal(next); } catch { /* best-effort mirror */ }
+      return;
+    }
+    const local = readLocal();
+    if (local.updatedAt !== baseUpdatedAt) throw new Error("老师知识库本地版本已变化，拒绝覆盖并请重试。");
+    if (acquired && !await renewQimenStoreWriteLease({ storeId: "teacher-knowledge", owner })) {
+      throw new Error("老师知识库写锁已失效，拒绝覆盖并请重试。");
+    }
+    writeLocal(next);
+  } finally {
+    if (acquired) await releaseQimenStoreWriteLease("teacher-knowledge", owner).catch(() => undefined);
   }
 }
 
@@ -244,6 +270,8 @@ export async function createLesson(input: {
     cleanedTranscript: "",
     summary: "",
     adminNotes: input.adminNotes || "",
+    qimenShadowExtraction: null,
+    qimenShadowAttemptMeta: null,
     status: "DRAFT",
     version: 1,
     createdBy: input.createdBy || null,
@@ -270,7 +298,9 @@ export async function updateLessonWithVersion(
   patch: Partial<TeacherLessonRecord> & { changeReason?: string; changedBy?: string | null },
   options?: { allowRawChange?: boolean }
 ): Promise<TeacherLessonRecord> {
-  const existing = await getLesson(id);
+  const store = await loadStore();
+  const idx = store.lessons.findIndex((lesson) => lesson.id === id || lesson.lessonCode === id);
+  const existing = idx >= 0 ? store.lessons[idx]! : null;
   if (!existing) throw new Error("课程不存在");
 
   const rawChanging =
@@ -283,11 +313,12 @@ export async function updateLessonWithVersion(
   const nextVersion = existing.version + (bump ? 1 : 0);
   const versionRow = {
     id: newId("tkv"),
-    lessonId: id,
+    lessonId: existing.id,
     version: existing.version,
     rawTranscript: existing.rawTranscript,
     cleanedTranscript: existing.cleanedTranscript,
     summary: existing.summary,
+    qimenShadowExtraction: existing.qimenShadowExtraction,
     changeReason: patch.changeReason || "编辑前备份",
     changedBy: patch.changedBy || null,
     createdAt: new Date().toISOString(),
@@ -296,18 +327,26 @@ export async function updateLessonWithVersion(
   const next: TeacherLessonRecord = {
     ...existing,
     ...patch,
-    id,
+    id: existing.id,
     lessonCode: existing.lessonCode,
     rawTranscript: rawChanging ? String(patch.rawTranscript) : existing.rawTranscript,
     version: nextVersion || existing.version,
     updatedAt: new Date().toISOString(),
   };
+  if (rawChanging) {
+    next.qimenShadowExtraction = null;
+    next.qimenShadowAttemptMeta = null;
+  }
   delete (next as { changeReason?: string }).changeReason;
   delete (next as { changedBy?: string | null }).changedBy;
 
-  const store = await loadStore();
+  if (idx >= 0 && !rawChanging && patch.qimenShadowExtraction !== undefined) {
+    next.qimenShadowExtraction = preferStableQimenReport(
+      store.lessons[idx]!.qimenShadowExtraction,
+      next.qimenShadowExtraction,
+    );
+  }
   store.versions.unshift(versionRow);
-  const idx = store.lessons.findIndex((l) => l.id === id);
   if (idx >= 0) store.lessons[idx] = next;
   await persistStore(store);
   return next;
@@ -336,6 +375,120 @@ export async function listQuotes(filter?: { status?: string }): Promise<TeacherQ
 export async function listMethods(filter?: { status?: string }): Promise<TeacherMethodRecord[]> {
   const store = await loadStore();
   return store.methods.filter((m) => (filter?.status ? m.status === filter.status : true));
+}
+
+export async function listTeacherKnowledgeQimenPacks(limit = 20, options: { serverNow?: Date } = {}): Promise<Array<{
+  lesson: Pick<TeacherLessonRecord, "id" | "status" | "updatedAt">;
+  qimenShadowExtraction: unknown;
+  sourceVersion: string;
+  transcriptSha256: string;
+  reportSha256: string;
+}>> {
+  const store = await loadStore();
+  const take = Math.max(1, Math.min(100, Math.trunc(limit)));
+  return selectValidExtractedQimenRows({
+    rows: [...store.lessons]
+      .filter((lesson) => ["ANALYZED", "REVIEWING", "APPROVED"].includes(lesson.status))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    reportOf: (lesson) => lesson.qimenShadowExtraction,
+    limit: take,
+    serverNow: options.serverNow,
+  })
+    .map((lesson) => ({
+      lesson: { id: lesson.id, status: lesson.status, updatedAt: lesson.updatedAt },
+      qimenShadowExtraction: lesson.qimenShadowExtraction,
+      sourceVersion: `${lesson.version}|${lesson.updatedAt}`,
+      transcriptSha256: qimenLessonTranscriptSha256(lesson.rawTranscript),
+      reportSha256: qimenLessonTranscriptSha256(JSON.stringify(lesson.qimenShadowExtraction)),
+    }));
+}
+
+export async function listTeacherKnowledgeQimenBackfillCandidates(limit = 1): Promise<Array<{
+  id: string;
+  status: TeacherLessonRecord["status"];
+  rawTranscript: string;
+  transcriptSha256: string;
+}>> {
+  const store = await loadStore();
+  return selectQimenOnlyBackfillRows(
+    [...store.lessons].sort((left, right) => left.updatedAt.localeCompare(right.updatedAt)),
+    ["ANALYZED", "REVIEWING", "APPROVED"],
+    limit,
+  ).map((lesson) => ({
+    id: lesson.id,
+    status: lesson.status,
+    rawTranscript: lesson.rawTranscript,
+    transcriptSha256: qimenLessonTranscriptSha256(lesson.rawTranscript),
+  }));
+}
+
+export async function saveTeacherKnowledgeQimenBackfill(input: {
+  lessonId: string;
+  expectedTranscriptSha256: string;
+  report: unknown;
+}): Promise<boolean> {
+  const store = await loadStore();
+  const index = store.lessons.findIndex((lesson) => lesson.id === input.lessonId);
+  if (index < 0) return false;
+  const current = store.lessons[index]!;
+  const now = new Date().toISOString();
+  const next = applyTeacherQimenOnlyBackfill({
+    current,
+    allowedStatuses: ["ANALYZED", "REVIEWING", "APPROVED"],
+    expectedTranscriptSha256: input.expectedTranscriptSha256,
+    report: input.report,
+    updatedAt: now,
+  });
+  if (!next) return false;
+  const outcomeChanged = qimenReportOutcomeSha256(current.qimenShadowExtraction) !== qimenReportOutcomeSha256(input.report);
+  const summary = qimenReportAttemptSummary(input.report);
+  const attemptMeta = {
+    count: Math.max(0, current.qimenShadowAttemptMeta?.count ?? 0) + 1,
+    lastAttemptAt: now,
+    lastOutcomeSha256: summary?.outcomeSha256 ?? null,
+    lastModelStatus: summary?.modelStatus ?? "INVALID_REPORT",
+  };
+  if (outcomeChanged) {
+    store.versions.unshift({
+      id: newId("tkv"),
+      lessonId: current.id,
+      version: current.version,
+      rawTranscript: current.rawTranscript,
+      cleanedTranscript: current.cleanedTranscript,
+      summary: current.summary,
+      qimenShadowExtraction: current.qimenShadowExtraction,
+      changeReason: "自动奇门补抽前备份",
+      changedBy: "AUTOMATION:process-lessons:qimen-backfill",
+      createdAt: now,
+    });
+  }
+  store.lessons[index] = outcomeChanged
+    ? { ...next, qimenShadowAttemptMeta: attemptMeta, version: current.version + 1 }
+    : { ...current, qimenShadowAttemptMeta: attemptMeta, updatedAt: now };
+  await persistStore(store);
+  return true;
+}
+
+export async function isTeacherKnowledgeQimenPackCurrent(snapshot: {
+  lessonId: string;
+  sourceVersion: string;
+  transcriptSha256: string;
+  reportSha256: string;
+  reportGeneratedAt: string;
+}): Promise<boolean> {
+  const store = await loadStore();
+  const lesson = store.lessons.find((item) => item.id === snapshot.lessonId);
+  const report = lesson?.qimenShadowExtraction && typeof lesson.qimenShadowExtraction === "object"
+    ? lesson.qimenShadowExtraction as { generatedAt?: unknown; transcriptSha256?: unknown }
+    : null;
+  return Boolean(
+    lesson
+    && `${lesson.version}|${lesson.updatedAt}` === snapshot.sourceVersion
+    && qimenLessonTranscriptSha256(lesson.rawTranscript) === snapshot.transcriptSha256
+    && report?.transcriptSha256 === snapshot.transcriptSha256
+    && report?.generatedAt === snapshot.reportGeneratedAt
+    && qimenLessonTranscriptSha256(JSON.stringify(lesson.qimenShadowExtraction)) === snapshot.reportSha256
+  );
 }
 
 export async function listConflicts(): Promise<ConflictRecordRow[]> {
@@ -383,15 +536,20 @@ export async function saveDraftExtraction(
     rules?: unknown[];
     cases?: unknown[];
     concepts?: unknown[];
-    quotes?: unknown[];
-    methods?: unknown[];
+      quotes?: unknown[];
+      methods?: unknown[];
+      qimenShadowExtraction?: unknown;
+      changedBy?: string | null;
   }
 ): Promise<void> {
   await updateLessonWithVersion(lessonId, {
-    summary: payload.summary,
-    cleanedTranscript: payload.cleanedTranscript,
-    status: "REVIEWING",
-    changeReason: "AI整理",
+      summary: payload.summary,
+      cleanedTranscript: payload.cleanedTranscript,
+      qimenShadowExtraction: payload.qimenShadowExtraction ?? null,
+      qimenShadowAttemptMeta: null,
+      status: "REVIEWING",
+      changeReason: "AI整理并生成奇门影子证据",
+      changedBy: payload.changedBy ?? null,
   });
   // Draft entity materialization is optional; lesson text + summary are the minimum persistence.
   void payload.rules;

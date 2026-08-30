@@ -5,11 +5,39 @@ import {
   qimenShadowReadingGroupKey,
   type PreparedQimenShadowReading,
 } from "@/lib/research/qimen-shadow-reading-core";
+import { rotateQimenLessonCandidates } from "@/lib/research/qimen-shadow-lesson-ingestion-core";
 
 export type QimenShadowReadingPairPlan =
   | { status: "WAITING"; studyKey: string; reason: "WAITING_FOR_SECOND_SCHOOL" | "METHOD_READING_UNAVAILABLE" }
   | { status: "SKIPPED"; studyKey: string; reason: "AMBIGUOUS_DUPLICATE_SCHOOL" | "MISMATCHED_FORECAST_OR_WINDOW" }
   | { status: "READY"; studyKey: string; candidateId: string; candidate: QimenShadowCandidateInput };
+
+export function selectCompleteQimenStudyKeys(
+  readings: readonly PreparedQimenShadowReading[],
+  limit: number,
+  serverNow?: Date,
+  existingCandidateStudyKeys: ReadonlySet<string> = new Set(),
+): string[] {
+  const grouped = new Map<string, PreparedQimenShadowReading[]>();
+  for (const reading of readings) grouped.set(reading.studyKey, [...(grouped.get(reading.studyKey) ?? []), reading]);
+  const complete = [...grouped.entries()]
+    .filter(([, group]) => {
+      const schools = new Set(group.map((item) => item.reading.schoolId));
+      return schools.has("OBJECT_YONGSHEN") && schools.has("DIRECTIONAL_PALACE");
+    })
+    .filter(([studyKey]) => !existingCandidateStudyKeys.has(studyKey))
+    .sort((left, right) => {
+      const leftDecision = left[1][0]?.decisionAt ?? "";
+      const rightDecision = right[1][0]?.decisionAt ?? "";
+      return leftDecision.localeCompare(rightDecision) || left[0].localeCompare(right[0]);
+    })
+    .map(([studyKey]) => studyKey);
+  const take = Math.max(0, Math.trunc(limit));
+  return (serverNow
+    ? rotateQimenLessonCandidates({ candidates: complete, serverNow, batchSize: Math.max(1, take) })
+    : complete
+  ).slice(0, take);
+}
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -59,6 +87,7 @@ export function planQimenShadowReadingPair(
     candidateId,
     candidate: {
       candidateId,
+      studyKey,
       formalForecastKind: first.formalForecastKind,
       formalForecastId: first.formalForecastId,
       expectedFormalForecastVersion: first.formalForecastVersion,

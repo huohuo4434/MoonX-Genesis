@@ -92,13 +92,14 @@ function heuristicExtract(raw: string): AiExtractResult {
 }
 
 /** AI extract drafts only — never invent hexagram fields not in text; never mutate raw. */
-export async function extractTeacherKnowledge(rawTranscript: string): Promise<AiExtractResult> {
+export async function extractTeacherKnowledge(rawTranscript: string, options: { timeoutMs?: number } = {}): Promise<AiExtractResult> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key || rawTranscript.trim().length < 40) return heuristicExtract(rawTranscript);
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(Math.max(1, Math.min(20_000, Math.trunc(options.timeoutMs ?? 20_000)))),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",

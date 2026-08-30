@@ -42,6 +42,7 @@ function observation(overrides: Partial<QimenShadowObservationInput> = {}): Qime
 function candidate(overrides: Partial<QimenShadowCandidateInput> = {}): QimenShadowCandidateInput {
   return {
     candidateId: "qimen-btc-20260830-auto-01",
+    studyKey: "btc-week-20260830-study-1",
     formalForecastKind: "WEEKLY",
     formalForecastId: "week-btc-20260829-v2",
     horizon: "SWING",

@@ -319,6 +319,7 @@ model QimenShadowExperiment {
 /// the automation may capture a technical setup and create an observation.
 model QimenShadowCandidate {
   id                    String   @id
+  studyKey              String?  @unique
   schemaVersion         String
   symbol                String
   horizon               String
@@ -364,6 +365,8 @@ model QimenShadowReading {
   createdAt             DateTime @default(now())
 
   @@index([studyKey, schoolId])
+  @@unique([studyKey, schoolId])
+  @@index([sourceId, schoolId, horizon, evidenceSha256])
   @@index([decisionAt])
   @@index([formalForecastId, formalForecastVersion, horizon, decisionAt])
 }
@@ -410,6 +413,17 @@ model MasterRule {
 
   @@index([lessonId])
   @@index([status])
+}
+
+/// Short-lived database lease used only to serialize lesson extraction writes.
+/// It grants no forecast or trading authority.
+model QimenLessonAutomationLease {
+  id        String   @id
+  owner     String
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 model MasterCase {

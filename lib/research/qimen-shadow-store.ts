@@ -33,7 +33,9 @@ import {
 } from "@/lib/research/qimen-shadow-reading-core";
 
 const OBSERVATION_SCHEMA = "moox.qimen-shadow-observation.v1" as const;
-const CANDIDATE_SCHEMA = "moox.qimen-shadow-candidate.v1" as const;
+const CANDIDATE_SCHEMA_V1 = "moox.qimen-shadow-candidate.v1" as const;
+const CANDIDATE_SCHEMA_V2 = "moox.qimen-shadow-candidate.v2" as const;
+const CANDIDATE_SCHEMA = CANDIDATE_SCHEMA_V2;
 
 export class QimenShadowConflictError extends Error {}
 export class QimenShadowValidationError extends Error {}
@@ -314,15 +316,20 @@ export async function registerQimenShadowReading(
       studyKey: locked.studyKey,
       formalForecastKind: locked.formalForecastKind,
       formalForecastId: locked.formalForecastId,
+      ...(locked.expectedFormalForecastVersion ? { expectedFormalForecastVersion: locked.expectedFormalForecastVersion } : {}),
       horizon: locked.horizon,
       decisionAt: locked.decisionAt,
       evaluationDueAt: locked.evaluationDueAt,
       reading: locked.reading,
+      ...(locked.sourceEvidence ? { sourceEvidence: locked.sourceEvidence } : {}),
     };
     if (canonicalJson(submitted) === canonicalJson(stored)) return { created: false, reading: existing };
     throw new QimenShadowConflictError("奇门读数编号已存在且内容不同；禁止覆盖。需要修订时必须使用新的研究编号。");
   }
   const formal = await loadQimenFormalForecast(input);
+  if (createdBy === "AUTOMATION:qimen-lesson-ingestion" && (!input.sourceEvidence || !input.expectedFormalForecastVersion)) {
+    throw new QimenShadowValidationError("自动课程读数必须保存不可变逐字证据快照并锁定预期正式版本。");
+  }
   const clock = options.clock ?? (() => new Date());
   let serverNow = clock();
   try {
@@ -377,6 +384,12 @@ export async function registerQimenShadowReading(
     if (!isUniqueConflict(error)) throw error;
     const concurrent = await db.qimenShadowReading.findUnique({ where: { id: input.readingId } });
     if (concurrent?.contentSha256 === sha256) return { created: false, reading: concurrent };
+    const competingSchool = await db.qimenShadowReading.findUnique({
+      where: { studyKey_schoolId: { studyKey: prepared.studyKey, schoolId: prepared.reading.schoolId } },
+    });
+    if (competingSchool) {
+      throw new QimenShadowConflictError("同一研究窗口已经锁定该流派读数；禁止重复计票或用新课程覆盖。 ".trim());
+    }
     throw new QimenShadowConflictError("奇门读数发生并发冲突，未覆盖任何内容。");
   }
 }
@@ -396,10 +409,12 @@ export function verifyQimenShadowReadingRow(row: {
     studyKey: prepared.studyKey,
     formalForecastKind: prepared.formalForecastKind,
     formalForecastId: prepared.formalForecastId,
+    ...(prepared.expectedFormalForecastVersion ? { expectedFormalForecastVersion: prepared.expectedFormalForecastVersion } : {}),
     horizon: prepared.horizon,
     decisionAt: prepared.decisionAt,
     evaluationDueAt: prepared.evaluationDueAt,
     reading: prepared.reading,
+    ...(prepared.sourceEvidence ? { sourceEvidence: prepared.sourceEvidence } : {}),
   });
   const expectedHash = qimenShadowContentHash({ schemaVersion: row.schemaVersion, reading: row.readingSnapshot });
   if (!parsed.success || expectedHash !== row.contentSha256) throw new Error("奇门读数快照结构或哈希无效。");
@@ -428,6 +443,7 @@ export async function registerQimenShadowCandidate(
     const locked = verifyQimenShadowCandidateRow(existing);
     const submitted = {
       candidateId: input.candidateId,
+      studyKey: input.studyKey,
       formalForecastKind: input.formalForecastKind,
       formalForecastId: input.formalForecastId,
       horizon: input.horizon,
@@ -437,6 +453,7 @@ export async function registerQimenShadowCandidate(
     };
     const stored = {
       candidateId: locked.candidateId,
+      studyKey: locked.studyKey,
       formalForecastKind: locked.formalForecastKind,
       formalForecastId: locked.formalForecastId,
       horizon: locked.horizon,
@@ -474,6 +491,7 @@ export async function registerQimenShadowCandidate(
     const candidate = await db.qimenShadowCandidate.create({
       data: {
         id: prepared.candidateId,
+        studyKey: prepared.studyKey,
         schemaVersion: CANDIDATE_SCHEMA,
         symbol: prepared.symbol,
         horizon: prepared.horizon,
@@ -500,6 +518,7 @@ export async function registerQimenShadowCandidate(
 
 export function verifyQimenShadowCandidateRow(row: {
   id: string;
+  studyKey: string | null;
   schemaVersion: string;
   symbol: string;
   horizon: string;
@@ -513,10 +532,15 @@ export function verifyQimenShadowCandidateRow(row: {
   contentSha256: string;
   createdAt: Date;
 }): PreparedQimenShadowCandidate {
-  if (row.schemaVersion !== CANDIDATE_SCHEMA) throw new Error("候选版本不受支持。");
-  const prepared = row.methodSnapshot as unknown as PreparedQimenShadowCandidate;
+  if (row.schemaVersion !== CANDIDATE_SCHEMA_V1 && row.schemaVersion !== CANDIDATE_SCHEMA_V2) throw new Error("候选版本不受支持。");
+  const snapshot = row.methodSnapshot as unknown as Omit<PreparedQimenShadowCandidate, "studyKey"> & { studyKey?: unknown };
+  const studyKey = row.schemaVersion === CANDIDATE_SCHEMA_V2
+    ? snapshot.studyKey
+    : row.studyKey ?? `legacy:${row.id}`;
+  const prepared = { ...snapshot, studyKey } as PreparedQimenShadowCandidate;
   const parsedSource = qimenShadowCandidateSchema.safeParse({
     candidateId: prepared.candidateId,
+    studyKey: prepared.studyKey,
     formalForecastKind: prepared.formalForecastKind,
     formalForecastId: prepared.formalForecastId,
     expectedFormalForecastVersion: prepared.formalForecastVersion,
@@ -531,7 +555,10 @@ export function verifyQimenShadowCandidateRow(row: {
   const expectedHash = qimenShadowContentHash({ schemaVersion: row.schemaVersion, candidate: row.methodSnapshot });
   if (expectedHash !== row.contentSha256) throw new Error("候选快照哈希校验失败。");
   if (
-    prepared.candidateId !== row.id || prepared.symbol !== row.symbol || prepared.horizon !== row.horizon
+    prepared.candidateId !== row.id
+    || (row.schemaVersion === CANDIDATE_SCHEMA_V2 && (!row.studyKey || prepared.studyKey !== row.studyKey))
+    || (row.schemaVersion === CANDIDATE_SCHEMA_V1 && row.studyKey !== null && prepared.studyKey !== row.studyKey)
+    || prepared.symbol !== row.symbol || prepared.horizon !== row.horizon
     || prepared.formalForecastKind !== row.formalForecastKind || prepared.formalForecastId !== row.formalForecastId
     || prepared.formalForecastVersion !== row.formalForecastVersion || Date.parse(prepared.decisionAt) !== row.decisionAt.getTime()
     || Date.parse(prepared.evaluationDueAt) !== row.evaluationDueAt.getTime()

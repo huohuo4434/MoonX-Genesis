@@ -10,6 +10,18 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
+import {
+  applyMasterQimenOnlyBackfill,
+  preferStableQimenReport,
+  selectQimenOnlyBackfillRows,
+  selectValidExtractedQimenRows,
+} from "@/lib/research/qimen-shadow-lesson-backfill-core";
+import { qimenLessonTranscriptSha256 } from "@/lib/research/qimen-shadow-lesson-ingestion-core";
+import {
+  acquireQimenStoreWriteLease,
+  renewQimenStoreWriteLease,
+  releaseQimenStoreWriteLease,
+} from "@/lib/research/qimen-lesson-automation-lease";
 import type {
   CaseHitStatus,
   KnowledgeKind,
@@ -224,39 +236,61 @@ function writeLocal(store: Store): void {
 }
 
 async function readStore(): Promise<Store> {
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
   try {
     const admin = getAdminClient();
+    if (isProd && !admin) throw new Error("课程中心读取失败：生产环境缺少 Supabase 服务端配置");
     if (admin) {
       const { data, error } = await admin.storage.from(BUCKET).download(FILE);
       if (!error && data) {
         const parsed = JSON.parse(await data.text()) as Store;
-        if (parsed?.lessons) return { ...emptyStore(), ...parsed, version: 1 };
+        if (parsed?.lessons && typeof parsed.updatedAt === "string") return { ...emptyStore(), ...parsed, version: 1 };
       }
+      if (isProd) throw new Error(`课程中心读取失败：${error?.message ?? "远端文件缺失或结构无效"}`);
     }
-  } catch {
-    /* fall through */
+  } catch (error) {
+    if (isProd) throw error;
   }
   return readLocal() ?? emptyStore();
 }
 
 async function writeStore(store: Store): Promise<void> {
-  const payload: Store = { ...store, version: 1, updatedAt: new Date().toISOString() };
-  let wroteRemote = false;
+  const baseUpdatedAt = store.updatedAt;
+  const nextUpdatedAt = new Date(Math.max(Date.now(), Date.parse(baseUpdatedAt) + 1)).toISOString();
+  const payload: Store = { ...store, version: 1, updatedAt: nextUpdatedAt };
+  const owner = `master-${randomBytes(12).toString("hex")}`;
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  const acquired = await acquireQimenStoreWriteLease({ storeId: "master-intelligence", owner });
+  if (isProd && !acquired) throw new Error("课程中心正在被另一任务更新，请重试。");
   try {
     const admin = getAdminClient();
     if (admin) {
+      const { data: currentData, error: currentError } = await admin.storage.from(BUCKET).download(FILE);
+      if (currentError || !currentData) throw new Error(`课程中心写前校验失败：${currentError?.message ?? "远端文件缺失"}`);
+      const current = JSON.parse(await currentData.text()) as Partial<Store>;
+      if (typeof current.updatedAt !== "string") throw new Error("课程中心写前校验失败：远端版本字段缺失。");
+      if (current.updatedAt !== baseUpdatedAt) throw new Error("课程中心版本已变化，拒绝覆盖并请重试。");
+      if (acquired && !await renewQimenStoreWriteLease({ storeId: "master-intelligence", owner })) {
+        throw new Error("课程中心写锁已失效，拒绝覆盖并请重试。");
+      }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const { error } = await admin.storage.from(BUCKET).upload(FILE, blob, {
         upsert: true,
         contentType: "application/json",
       });
-      if (!error) wroteRemote = true;
+      if (error) throw new Error(`课程中心保存失败：${error.message}`);
+      if (!process.env.VERCEL) writeLocal(payload);
+      return;
     }
-  } catch {
-    /* ignore */
+    const local = readLocal();
+    if (local?.updatedAt && local.updatedAt !== baseUpdatedAt) throw new Error("课程中心本地版本已变化，拒绝覆盖并请重试。");
+    if (acquired && !await renewQimenStoreWriteLease({ storeId: "master-intelligence", owner })) {
+      throw new Error("课程中心写锁已失效，拒绝覆盖并请重试。");
+    }
+    writeLocal(payload);
+  } finally {
+    if (acquired) await releaseQimenStoreWriteLease("master-intelligence", owner).catch(() => undefined);
   }
-  if (!process.env.VERCEL) writeLocal(payload);
-  else if (!wroteRemote) writeLocal(payload);
 }
 
 export async function listLessons(): Promise<LessonRecord[]> {
@@ -279,6 +313,130 @@ export async function getLesson(id: string): Promise<{
     extraction: store.extractions.find((e) => e.lessonId === id) ?? null,
     candidates: store.candidates.filter((c) => c.lessonId === id),
   };
+}
+
+/** Read-only, single-snapshot view for the Qimen shadow collector. */
+export async function listLessonExtractionPacks(limit = 20, options: { serverNow?: Date } = {}): Promise<Array<{
+  lesson: Pick<LessonRecord, "id" | "status" | "updatedAt">;
+  lessonOutputJson: unknown;
+  sourceVersion: string;
+  transcriptSha256: string;
+  reportSha256: string;
+}>> {
+  const store = await readStore();
+  const take = Math.max(1, Math.min(100, Math.trunc(limit)));
+  return selectValidExtractedQimenRows({
+    rows: [...store.lessons]
+      .filter((lesson) => lesson.status === "REVIEWING" || lesson.status === "PUBLISHED")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    reportOf: (lesson) => {
+      const extraction = store.extractions.find((item) => item.lessonId === lesson.id);
+      return extraction?.lessonOutputJson && typeof extraction.lessonOutputJson === "object" && "qimenShadow" in extraction.lessonOutputJson
+        ? (extraction.lessonOutputJson as { qimenShadow?: unknown }).qimenShadow
+        : null;
+    },
+    limit: take,
+    serverNow: options.serverNow,
+  })
+    .map((lesson) => {
+      const transcript = store.transcripts.find((item) => item.lessonId === lesson.id);
+      const extraction = store.extractions.find((item) => item.lessonId === lesson.id);
+      return {
+        lesson: { id: lesson.id, status: lesson.status, updatedAt: lesson.updatedAt },
+        lessonOutputJson: extraction?.lessonOutputJson ?? null,
+        sourceVersion: `${lesson.updatedAt}|${transcript?.updatedAt ?? "NO_TRANSCRIPT"}|${extraction?.updatedAt ?? "NO_EXTRACTION"}`,
+        transcriptSha256: qimenLessonTranscriptSha256(transcript?.rawText ?? ""),
+        reportSha256: qimenLessonTranscriptSha256(JSON.stringify(
+          extraction?.lessonOutputJson && typeof extraction.lessonOutputJson === "object" && "qimenShadow" in extraction.lessonOutputJson
+            ? (extraction.lessonOutputJson as { qimenShadow?: unknown }).qimenShadow ?? null
+            : null,
+        )),
+      };
+    });
+}
+
+export async function listLessonQimenBackfillCandidates(limit = 1): Promise<Array<{
+  id: string;
+  status: LessonRecord["status"];
+  rawTranscript: string;
+  transcriptSha256: string;
+}>> {
+  const store = await readStore();
+  const rows = [...store.lessons]
+    .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
+    .map((lesson) => {
+      const transcript = store.transcripts.find((item) => item.lessonId === lesson.id);
+      const extraction = store.extractions.find((item) => item.lessonId === lesson.id);
+      const output = extraction?.lessonOutputJson && typeof extraction.lessonOutputJson === "object" && "qimenShadow" in extraction.lessonOutputJson
+        ? (extraction.lessonOutputJson as { qimenShadow?: unknown }).qimenShadow
+        : null;
+      return {
+        id: lesson.id,
+        status: lesson.status,
+        rawTranscript: transcript?.rawText ?? "",
+        qimenShadowExtraction: output,
+        updatedAt: extraction?.updatedAt ?? lesson.updatedAt,
+        hasExtraction: Boolean(extraction),
+      };
+    })
+    .filter((row) => row.hasExtraction);
+  return selectQimenOnlyBackfillRows(rows, ["REVIEWING", "PUBLISHED"], limit).map((row) => ({
+    id: row.id,
+    status: row.status,
+    rawTranscript: row.rawTranscript,
+    transcriptSha256: qimenLessonTranscriptSha256(row.rawTranscript),
+  }));
+}
+
+export async function saveLessonQimenBackfill(input: {
+  lessonId: string;
+  expectedTranscriptSha256: string;
+  report: unknown;
+}): Promise<boolean> {
+  const store = await readStore();
+  const lesson = store.lessons.find((item) => item.id === input.lessonId);
+  const transcript = store.transcripts.find((item) => item.lessonId === input.lessonId);
+  const extractionIndex = store.extractions.findIndex((item) => item.lessonId === input.lessonId);
+  if (!lesson || !transcript || extractionIndex < 0) return false;
+  const next = applyMasterQimenOnlyBackfill({
+    current: store.extractions[extractionIndex]!,
+    lessonStatus: lesson.status,
+    allowedStatuses: ["REVIEWING", "PUBLISHED"],
+    rawTranscript: transcript.rawText,
+    expectedTranscriptSha256: input.expectedTranscriptSha256,
+    report: input.report,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!next) return false;
+  store.extractions[extractionIndex] = next;
+  await writeStore(store);
+  return true;
+}
+
+export async function isLessonExtractionPackCurrent(snapshot: {
+  lessonId: string;
+  sourceVersion: string;
+  transcriptSha256: string;
+  reportSha256: string;
+  reportGeneratedAt: string;
+}): Promise<boolean> {
+  const store = await readStore();
+  const lesson = store.lessons.find((item) => item.id === snapshot.lessonId);
+  const transcript = store.transcripts.find((item) => item.lessonId === snapshot.lessonId);
+  const extraction = store.extractions.find((item) => item.lessonId === snapshot.lessonId);
+  const output = extraction?.lessonOutputJson && typeof extraction.lessonOutputJson === "object" && "qimenShadow" in extraction.lessonOutputJson
+    ? (extraction.lessonOutputJson as { qimenShadow?: unknown }).qimenShadow
+    : null;
+  const report = output && typeof output === "object" ? output as { generatedAt?: unknown; transcriptSha256?: unknown } : null;
+  const currentVersion = lesson && `${lesson.updatedAt}|${transcript?.updatedAt ?? "NO_TRANSCRIPT"}|${extraction?.updatedAt ?? "NO_EXTRACTION"}`;
+  return Boolean(
+    lesson && transcript && extraction
+    && currentVersion === snapshot.sourceVersion
+    && qimenLessonTranscriptSha256(transcript.rawText) === snapshot.transcriptSha256
+    && report?.transcriptSha256 === snapshot.transcriptSha256
+    && report?.generatedAt === snapshot.reportGeneratedAt
+    && qimenLessonTranscriptSha256(JSON.stringify(output)) === snapshot.reportSha256
+  );
 }
 
 export async function createLesson(input: {
@@ -436,7 +594,21 @@ export async function upsertExtraction(
     };
     store.extractions.push(ex);
   }
-  Object.assign(ex, data, { updatedAt: now });
+  const nextData = { ...data };
+  if (
+    nextData.lessonOutputJson && typeof nextData.lessonOutputJson === "object" && !Array.isArray(nextData.lessonOutputJson)
+    && "qimenShadow" in nextData.lessonOutputJson
+  ) {
+    const incoming = nextData.lessonOutputJson as Record<string, unknown>;
+    const current = ex.lessonOutputJson && typeof ex.lessonOutputJson === "object" && !Array.isArray(ex.lessonOutputJson)
+      ? ex.lessonOutputJson as Record<string, unknown>
+      : {};
+    nextData.lessonOutputJson = {
+      ...incoming,
+      qimenShadow: preferStableQimenReport(current.qimenShadow, incoming.qimenShadow),
+    };
+  }
+  Object.assign(ex, nextData, { updatedAt: now });
   await writeStore(store);
   return ex;
 }

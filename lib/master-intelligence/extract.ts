@@ -75,7 +75,7 @@ export function extractKnowledgeHeuristic(cleanText: string): ExtractionBundle {
 }
 
 /** Optional OpenAI extraction when key present; falls back to heuristic. */
-export async function extractKnowledge(cleanText: string): Promise<ExtractionBundle> {
+export async function extractKnowledge(cleanText: string, options: { timeoutMs?: number } = {}): Promise<ExtractionBundle> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key || cleanText.length < 40) {
     return extractKnowledgeHeuristic(cleanText);
@@ -84,6 +84,7 @@ export async function extractKnowledge(cleanText: string): Promise<ExtractionBun
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(Math.max(1, Math.min(20_000, Math.trunc(options.timeoutMs ?? 20_000)))),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",

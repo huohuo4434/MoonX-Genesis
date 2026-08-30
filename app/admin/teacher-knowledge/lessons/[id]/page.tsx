@@ -15,7 +15,30 @@ type Lesson = {
   summary: string;
   status: string;
   version: number;
+  qimenShadowExtraction: unknown | null;
 };
+
+type QimenShadowReport = {
+  generatedAt: string;
+  modelStatus: string;
+  accepted: Array<{
+    schoolId: string;
+    marketCode: string;
+    horizon: string;
+    direction: string;
+    confidence: number;
+    evidence?: { sourceBlockQuote?: string };
+  }>;
+  rejected: Array<{ schoolId: string; reason: string }>;
+};
+
+function asQimenShadowReport(value: unknown): QimenShadowReport | null {
+  if (!value || typeof value !== "object") return null;
+  const report = value as Partial<QimenShadowReport>;
+  return typeof report.modelStatus === "string" && Array.isArray(report.accepted) && Array.isArray(report.rejected)
+    ? report as QimenShadowReport
+    : null;
+}
 
 export default function TeacherLessonDetailPage() {
   const params = useParams();
@@ -52,7 +75,7 @@ export default function TeacherLessonDetailPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "失败");
       setMsg(
-        `已生成草稿：规则 ${json.extracted?.counts?.rules ?? 0} · 案例 ${json.extracted?.counts?.cases ?? 0}（未入库正式库）`
+        `已生成草稿：规则 ${json.extracted?.counts?.rules ?? 0} · 案例 ${json.extracted?.counts?.cases ?? 0}；奇门 ${json.extracted?.qimenShadow?.modelStatus ?? "UNKNOWN"}，接受 ${json.extracted?.qimenShadow?.accepted ?? 0}，拒绝 ${json.extracted?.qimenShadow?.rejected ?? 0}（均未进入正式预测）`
       );
       const refreshed = await fetch(`/api/admin/teacher-knowledge/lessons/${id}`, { cache: "no-store" });
       if (refreshed.ok) {
@@ -77,6 +100,7 @@ export default function TeacherLessonDetailPage() {
       </main>
     );
   }
+  const qimenReport = asQimenShadowReport(lesson.qimenShadowExtraction);
 
   return (
     <main>
@@ -148,6 +172,42 @@ export default function TeacherLessonDetailPage() {
             <pre className="max-h-96 overflow-auto text-caption">{JSON.stringify(drafts, null, 2)}</pre>
           </Card>
         </div>
+        <Card padding="md" className="mt-4 space-y-3">
+          <Text variant="body" weight="semibold">
+            奇门自动提取审计（仅管理员可见 · RESEARCH_ONLY）
+          </Text>
+          {qimenReport ? (
+            <>
+              <Text variant="body-sm" color="secondary">
+                模型状态 {qimenReport.modelStatus} · 接受 {qimenReport.accepted.length} · 拒绝 {qimenReport.rejected.length}
+                {qimenReport.generatedAt ? ` · 完成于 ${qimenReport.generatedAt}` : ""}
+              </Text>
+              {qimenReport.rejected.length ? (
+                <div className="space-y-2">
+                  {qimenReport.rejected.map((item, index) => (
+                    <div key={`${item.schoolId}-${index}`} className="rounded-lg border border-rose-400/20 bg-rose-400/5 p-3 text-caption">
+                      <strong>{item.schoolId}</strong>：{item.reason}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {qimenReport.accepted.map((item, index) => (
+                <details key={`${item.schoolId}-${item.marketCode}-${index}`} className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-3">
+                  <summary className="cursor-pointer text-body-sm">
+                    {item.schoolId} · {item.marketCode} · {item.horizon} · {item.direction} · 置信度 {item.confidence}
+                  </summary>
+                  <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap text-caption">
+                    {item.evidence?.sourceBlockQuote || "未保存连续逐字证据块"}
+                  </pre>
+                </details>
+              ))}
+            </>
+          ) : (
+            <Text variant="body-sm" color="secondary">
+              尚无奇门提取报告；定时补抽只会写研究证据，不会改变课程发布状态或正式预测。
+            </Text>
+          )}
+        </Card>
       </Section>
     </main>
   );

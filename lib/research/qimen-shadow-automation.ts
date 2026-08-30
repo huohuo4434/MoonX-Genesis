@@ -28,11 +28,13 @@ import {
   pairFutureQimenShadowReadings,
   type QimenShadowPairingResult,
 } from "@/lib/research/qimen-shadow-reading-pairer";
+import { runQimenShadowLessonIngestion } from "@/lib/research/qimen-shadow-lesson-ingestion";
 
 const ACTOR = "AUTOMATION:qimen-shadow";
 const BATCH_SIZE = 4;
 const RUN_BUDGET_MS = 55_000;
 const PAIR_BUDGET_MS = 10_000;
+const LESSON_INGESTION_BUDGET_MS = 8_000;
 
 type ItemResult = { id: string; symbol: string; status: "CREATED" | "UNCHANGED" | "SKIPPED" | "FAILED"; reason?: string };
 
@@ -156,6 +158,20 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
     }
   }
 
+  let lessonIngestion: Awaited<ReturnType<typeof runQimenShadowLessonIngestion>>;
+  if (Date.now() >= deadlineMs - 10_000) {
+    lessonIngestion = [{ id: "LESSON_INGESTION", status: "SKIPPED", reason: "RUN_BUDGET_EXHAUSTED" }];
+  } else {
+    try {
+      lessonIngestion = await runQimenShadowLessonIngestion({
+        serverNow: startedAt,
+        deadlineMs: Math.min(Date.now() + LESSON_INGESTION_BUDGET_MS, deadlineMs - 2_000),
+      });
+    } catch (error) {
+      lessonIngestion = [{ id: "LESSON_INGESTION", status: "FAILED", reason: safeReason(error) }];
+    }
+  }
+
   let pairings: QimenShadowPairingResult[];
   if (Date.now() >= deadlineMs - 2_000) {
     pairings = [{ studyKey: "PAIRER", status: "SKIPPED", reason: "RUN_BUDGET_EXHAUSTED" }];
@@ -188,9 +204,12 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
     locks: lockResults,
     evaluations: evaluationResults,
     pairings,
+    lessonIngestion,
   };
-  const hasFailure = all.some((item) => item.status === "FAILED") || pairings.some((item) => item.status === "FAILED");
-  const status = all.length === 0 && pairings.length === 0 ? "IDLE" : hasFailure ? "PARTIAL" : "OK";
+  const hasFailure = all.some((item) => item.status === "FAILED")
+    || pairings.some((item) => item.status === "FAILED")
+    || lessonIngestion.some((item) => item.status === "FAILED");
+  const status = all.length === 0 && pairings.length === 0 && lessonIngestion.length === 0 ? "IDLE" : hasFailure ? "PARTIAL" : "OK";
   const contentSha256 = qimenShadowContentHash(report);
   const run = await db.qimenShadowAutomationRun.create({
     data: {

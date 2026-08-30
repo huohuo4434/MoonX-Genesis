@@ -12,6 +12,7 @@ import type { ChanStage } from "@/types/chan-execution";
 
 const candidate: PreparedQimenShadowCandidate = {
   candidateId: "qimen-btc-auto-1",
+  studyKey: "btc-week-20260830-study-1",
   symbol: "BTC",
   horizon: "SWING",
   officialDirection: "LONG",

@@ -2,14 +2,17 @@ import "server-only";
 
 import { detectRuleConflicts } from "@/lib/master-intelligence/conflict";
 import { extractKnowledge } from "@/lib/master-intelligence/extract";
+import { extractQimenLessonReadings } from "@/lib/research/qimen-shadow-lesson-extract";
 import {
   addConflicts,
   getLesson,
+  listLessonQimenBackfillCandidates,
   listLessons,
   newId,
   replaceCandidatesForLesson,
   setCleanTranscript,
   setRawTranscript,
+  saveLessonQimenBackfill,
   updateLesson,
   upsertExtraction,
   upsertGraphEdge,
@@ -99,7 +102,12 @@ async function applyGraphFromBundle(lessonId: string, bundle: ExtractionBundle) 
   }
 }
 
-export async function processLessonOnce(lessonId: string): Promise<{
+function boundedModelTimeout(deadlineMs?: number): number {
+  if (!deadlineMs) return 20_000;
+  return Math.max(1, Math.min(20_000, deadlineMs - Date.now() - 1_500));
+}
+
+export async function processLessonOnce(lessonId: string, options: { deadlineMs?: number } = {}): Promise<{
   status: LessonStatus;
   message: string;
 }> {
@@ -109,8 +117,11 @@ export async function processLessonOnce(lessonId: string): Promise<{
 
   try {
     if (lesson.status === "UPLOADED" || lesson.status === "FAILED") {
-      await updateLesson(lessonId, { status: "TRANSCRIBING", errorMessage: null });
       let raw = transcript?.rawText?.trim() || "";
+      if (!raw && lesson.mediaPath && options.deadlineMs) {
+        return { status: "UPLOADED", message: "Scheduled run skips unbounded media download; waiting for transcript" };
+      }
+      await updateLesson(lessonId, { status: "TRANSCRIBING", errorMessage: null });
       if (!raw && lesson.mediaPath) {
         const buf = await downloadLessonMedia(lesson.mediaPath);
         if (buf) {
@@ -118,6 +129,7 @@ export async function processLessonOnce(lessonId: string): Promise<{
             buffer: buf,
             fileName: lesson.mediaFileName || "lesson.mp3",
             mime: lesson.mediaMime,
+            timeoutMs: boundedModelTimeout(options.deadlineMs),
           });
           if (text) {
             await setRawTranscript(lessonId, text);
@@ -142,7 +154,11 @@ export async function processLessonOnce(lessonId: string): Promise<{
       await updateLesson(lessonId, { status: "ANALYZING" });
       const fresh = await getLesson(lessonId);
       const clean = fresh?.transcript?.cleanText || "";
-      const bundle = await extractKnowledge(clean);
+      const raw = fresh?.transcript?.rawText || "";
+      const [bundle, qimenShadow] = await Promise.all([
+        extractKnowledge(clean, { timeoutMs: boundedModelTimeout(options.deadlineMs) }),
+        extractQimenLessonReadings({ transcript: raw, timeoutMs: boundedModelTimeout(options.deadlineMs) }),
+      ]);
       const voice = detectVoiceSignals(clean);
       await upsertExtraction(lessonId, {
         status: "DRAFT",
@@ -162,6 +178,7 @@ export async function processLessonOnce(lessonId: string): Promise<{
           newExceptions: bundle.exceptions.length,
           newPredictions: bundle.predictions.length,
           voice,
+          qimenShadow,
         },
       });
       const cands = bundleToCandidates(bundle);
@@ -211,16 +228,50 @@ export async function processLessonOnce(lessonId: string): Promise<{
   }
 }
 
-export async function processPendingLessons(limit = 5): Promise<Array<{ id: string; status: LessonStatus; message: string }>> {
+export async function processPendingLessons(limit = 5, options: { deadlineMs?: number } = {}): Promise<Array<{ id: string; status: LessonStatus; message: string }>> {
   const lessons = await listLessons();
   const pending = lessons
     .filter((l) => l.status === "UPLOADED" || l.status === "TRANSCRIBED" || l.status === "ANALYZING")
     .slice(0, limit);
   const out: Array<{ id: string; status: LessonStatus; message: string }> = [];
   for (const l of pending) {
-    out.push({ id: l.id, ...(await processLessonOnce(l.id)) });
+    if (options.deadlineMs && Date.now() >= options.deadlineMs - 2_000) {
+      out.push({ id: l.id, status: l.status, message: "RUN_BUDGET_EXHAUSTED_BEFORE_START" });
+      continue;
+    }
+    out.push({ id: l.id, ...(await processLessonOnce(l.id, options)) });
   }
   return out;
+}
+
+export async function backfillMasterIntelligenceQimenLessons(limit = 1, options: { deadlineMs?: number } = {}) {
+  const candidates = await listLessonQimenBackfillCandidates(limit);
+  const results: Array<{ id: string; status: "QIMEN_BACKFILLED" | "UNCHANGED" | "FAILED"; message: string }> = [];
+  for (const lesson of candidates) {
+    if (options.deadlineMs && Date.now() >= options.deadlineMs - 2_000) {
+      results.push({ id: lesson.id, status: "FAILED", message: "RUN_BUDGET_EXHAUSTED_BEFORE_QIMEN_BACKFILL" });
+      continue;
+    }
+    try {
+      const report = await extractQimenLessonReadings({
+        transcript: lesson.rawTranscript,
+        timeoutMs: boundedModelTimeout(options.deadlineMs),
+      });
+      const saved = await saveLessonQimenBackfill({
+        lessonId: lesson.id,
+        expectedTranscriptSha256: lesson.transcriptSha256,
+        report,
+      });
+      results.push({
+        id: lesson.id,
+        status: saved ? "QIMEN_BACKFILLED" : "UNCHANGED",
+        message: saved ? `只补奇门证据；合格读数 ${report.accepted.length} 条；原状态 ${lesson.status} 保持不变` : "课程已变化或已有奇门报告，未覆盖",
+      });
+    } catch (error) {
+      results.push({ id: lesson.id, status: "FAILED", message: error instanceof Error ? error.message : "奇门补抽失败" });
+    }
+  }
+  return results;
 }
 
 export async function approveCandidateToPublished(candidate: CandidateRecord): Promise<string> {

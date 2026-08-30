@@ -17,6 +17,7 @@ function input(overrides: Partial<QimenShadowReadingInput> = {}): QimenShadowRea
     studyKey: "btc-week-20260830-study-1",
     formalForecastKind: "WEEKLY",
     formalForecastId: "week-btc-v2",
+    expectedFormalForecastVersion: "V2",
     horizon: "SWING",
     decisionAt: "2026-08-30T14:00:00.000Z",
     evaluationDueAt: "2026-08-30T18:00:00.000Z",
@@ -65,6 +66,7 @@ test("reading fails closed for unlocked forecast, future lock, post-decision evi
   assert.throws(() => prepareQimenShadowReading(input({ reading: { ...input().reading, recordedAt: "2026-08-30T14:01:00.000Z" } }), formal()), /决策前形成/);
   assert.throws(() => prepareQimenShadowReading(input({ decisionAt: "2026-08-30T14:30:00.000Z" }), formal()), /整点1小时窗口/);
   assert.throws(() => prepareQimenShadowReading(input({ evaluationDueAt: "2026-09-06T18:00:00.000Z" }), formal()), /正式预测有效期/);
+  assert.throws(() => prepareQimenShadowReading(input(), formal({ version: 3 })), /版本已变化/);
 });
 
 test("directional-palace inbox stays research-only and malformed actions are rejected", () => {

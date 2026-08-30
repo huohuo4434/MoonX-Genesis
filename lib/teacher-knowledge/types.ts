@@ -46,6 +46,13 @@ export type TeacherLessonRecord = {
   cleanedTranscript: string;
   summary: string;
   adminNotes: string;
+  qimenShadowExtraction: unknown | null;
+  qimenShadowAttemptMeta: {
+    count: number;
+    lastAttemptAt: string;
+    lastOutcomeSha256: string | null;
+    lastModelStatus: string;
+  } | null;
   status: LessonStatus;
   version: number;
   createdBy: string | null;

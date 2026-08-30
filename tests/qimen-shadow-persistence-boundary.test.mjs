@@ -31,6 +31,7 @@ test("ledger schema is append-only and isolated from trading tables", () => {
   const migration = read("prisma/migrations/20260830180000_qimen_shadow_research/migration.sql");
   const automationMigration = read("prisma/migrations/20260830213000_qimen_shadow_automation/migration.sql");
   const readingMigration = read("prisma/migrations/20260830223000_qimen_shadow_reading_inbox/migration.sql");
+  const lessonUniqueMigration = read("prisma/migrations/20260830233000_qimen_lesson_ingestion_unique_school/migration.sql");
   const model = schema.slice(schema.indexOf("model QimenShadowObservation"), schema.indexOf("model MasterRule"));
   assert.match(model, /model QimenShadowObservation/);
   assert.match(model, /evaluationDueAt\s+DateTime/);
@@ -52,6 +53,15 @@ test("ledger schema is append-only and isolated from trading tables", () => {
   assert.match(model, /model QimenShadowReading/);
   assert.match(readingMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowReading"/);
   assert.match(readingMigration, /QimenShadowReading_studyKey_schoolId_idx/);
+  assert.match(lessonUniqueMigration, /HAVING COUNT\(\*\) > 1/);
+  assert.match(lessonUniqueMigration, /QimenShadowReading_studyKey_schoolId_key/);
+  assert.match(lessonUniqueMigration, /QimenShadowCandidate_studyKey_key/);
+  assert.match(lessonUniqueMigration, /candidate_study_matches/);
+  assert.match(lessonUniqueMigration, /HAVING COUNT\(DISTINCT "studyKey"\) = 1/);
+  assert.match(lessonUniqueMigration, /UPDATE "QimenShadowCandidate"/);
+  assert.match(lessonUniqueMigration, /CREATE TABLE IF NOT EXISTS "QimenLessonAutomationLease"/);
+  assert.match(lessonUniqueMigration, /ALTER TABLE "QimenLessonAutomationLease" ENABLE ROW LEVEL SECURITY/);
+  assert.doesNotMatch(lessonUniqueMigration, /DELETE\s+FROM|GRANT|CREATE POLICY|DISABLE ROW LEVEL SECURITY/i);
   assert.match(readingMigration, /ALTER TABLE "QimenShadowReading" ENABLE ROW LEVEL SECURITY/);
   assertOnlyExpectedRlsEnables(readingMigration, ["QimenShadowReading"]);
 });
@@ -105,8 +115,9 @@ test("cron automation is header-authenticated, bounded, append-only and isolated
   assert.match(automation, /deadlineMs: Math\.min\(Date\.now\(\) \+ PAIR_BUDGET_MS, deadlineMs - 2_000\)/);
   assert.ok(automation.indexOf("for (const row of dueRows)") < automation.indexOf("pairFutureQimenShadowReadings({"));
   assert.match(pairer, /qimenShadowReading\.findMany/);
-  assert.match(pairer, /const PAIR_SCAN_LIMIT = 32/);
   assert.match(pairer, /const PAIR_GROUP_LIMIT = 8/);
+  assert.match(pairer, /NOT EXISTS/);
+  assert.match(pairer, /c\."studyKey" = r\."studyKey"/);
   assert.match(pairer, /clock\(\)\.getTime\(\) >= options\.deadlineMs/);
   assert.ok(pairer.indexOf("clock().getTime() >= options.deadlineMs") < pairer.indexOf("registerQimenShadowCandidate(plan.candidate"));
   assert.match(pairer, /registerQimenShadowCandidate\(plan\.candidate, "AUTOMATION:qimen-reading-pairer", \{ clock \}\)/);

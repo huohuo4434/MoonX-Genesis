@@ -12,11 +12,13 @@ export type PreparedQimenShadowReading = {
   formalForecastKind: "WEEKLY" | "DAILY";
   formalForecastId: string;
   formalForecastVersion: string;
+  expectedFormalForecastVersion?: string;
   symbol: string;
   horizon: "INTRADAY" | "SWING" | "POSITION";
   decisionAt: string;
   evaluationDueAt: string;
   reading: QimenShadowReadingInput["reading"];
+  sourceEvidence?: QimenShadowReadingInput["sourceEvidence"];
 };
 
 function marketBoundary(date: string, end: boolean): number {
@@ -34,6 +36,9 @@ export function prepareQimenShadowReading(
   if (formal.kind !== input.formalForecastKind || formal.id !== input.formalForecastId) throw new Error("奇门读数与正式预测绑定不匹配。");
   if (formal.status !== "LOCKED" || !formal.publishedAt || !formal.lockedAt) throw new Error("奇门读数只能绑定已经发布并锁定的正式预测。");
   if (!Number.isInteger(formal.version) || formal.version < 1) throw new Error("正式预测版本无效。");
+  if (input.expectedFormalForecastVersion && input.expectedFormalForecastVersion !== `V${formal.version}`) {
+    throw new Error("正式预测版本已变化，奇门读数拒绝把旧证据绑定到新版本。");
+  }
   const decisionAt = Date.parse(input.decisionAt);
   const evaluationDueAt = Date.parse(input.evaluationDueAt);
   const validFrom = marketBoundary(formal.periodStart, false);
@@ -53,11 +58,13 @@ export function prepareQimenShadowReading(
     formalForecastKind: input.formalForecastKind,
     formalForecastId: input.formalForecastId,
     formalForecastVersion: `V${formal.version}`,
+    ...(input.expectedFormalForecastVersion ? { expectedFormalForecastVersion: input.expectedFormalForecastVersion } : {}),
     symbol: formal.marketCode.trim().toUpperCase(),
     horizon: input.horizon,
     decisionAt: input.decisionAt,
     evaluationDueAt: input.evaluationDueAt,
     reading: input.reading,
+    ...(input.sourceEvidence ? { sourceEvidence: input.sourceEvidence } : {}),
   };
 }
 

@@ -58,6 +58,7 @@ export const qimenShadowObservationSchema = z.object({
 
 export const qimenShadowCandidateSchema = z.object({
   candidateId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
+  studyKey: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
   formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
   formalForecastId: boundedText,
   expectedFormalForecastVersion: z.string().regex(/^V[1-9]\d*$/).optional(),
@@ -77,10 +78,18 @@ export const qimenShadowReadingSchema = z.object({
   studyKey: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
   formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
   formalForecastId: boundedText,
+  expectedFormalForecastVersion: z.string().regex(/^V[1-9]\d*$/).optional(),
   horizon: z.enum(["INTRADAY", "SWING", "POSITION"]),
   decisionAt: isoTime,
   evaluationDueAt: isoTime,
   reading: qimenShadowMethodReadingSchema,
+  sourceEvidence: z.object({
+    sourceVersion: boundedText,
+    transcriptSha256: sha256,
+    reportSha256: sha256,
+    reportGeneratedAt: isoTime,
+    exactQuotes: z.array(z.string().min(4).max(6_000)).min(1).max(24),
+  }).strict().optional(),
 }).strict();
 
 export const qimenShadowEvaluationSchema = z.object({
@@ -150,6 +159,7 @@ export type PreparedQimenShadowObservation = {
 
 export type PreparedQimenShadowCandidate = {
   candidateId: string;
+  studyKey: string;
   symbol: string;
   horizon: QimenShadowSetup["horizon"];
   officialDirection: QimenShadowSetup["officialDirection"];
@@ -209,6 +219,7 @@ export function prepareQimenShadowCandidate(
   if (input.methodReadings.some((item) => Date.parse(item.recordedAt) > decisionAt)) throw new Error("两种奇门读数必须在决策前记录。");
   return {
     candidateId: input.candidateId,
+    studyKey: input.studyKey,
     symbol: formal.marketCode.trim().toUpperCase(),
     horizon: input.horizon,
     officialDirection: direction,
