@@ -56,15 +56,22 @@ export function getConvictionWeeklyFreshnessOverview(
   const affectedAssets: string[] = [];
 
   for (const assetId of ACTIVE_STATIC_FOCUS_ASSET_IDS) {
-    const weeklyRecords = listStaticFocusForecasts(assetId)
+    const forecasts = listStaticFocusForecasts(assetId);
+    const weeklyRecords = forecasts
       .filter((item) => item.forecastType.startsWith("WEEK"));
     const hasCurrentPublication = weeklyRecords.some((item) => {
       const status = forecastFreshnessStatus(item.periodStart, item.periodEnd, asOfDate);
       return status === "CURRENT" || status === "UPCOMING";
     });
+    const hasStructuredWeeklyPath = forecasts.some((item) => item.status === "published" && item.calendarMonthPath?.some((path) => {
+      const [periodStart, periodEnd] = path.period.split("/");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(periodStart ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd ?? "")) return false;
+      const status = forecastFreshnessStatus(periodStart, periodEnd, asOfDate);
+      return status === "CURRENT" || status === "UPCOMING";
+    }));
     const hasVerifiedSource = hasVerifiedCurrentOrUpcomingWeeklyCycleEvidence(assetId, asOfDate);
 
-    if (hasCurrentPublication || hasVerifiedSource) {
+    if (hasCurrentPublication || hasStructuredWeeklyPath || hasVerifiedSource) {
       current += 1;
     } else if (weeklyRecords.length > 0) {
       expired += 1;

@@ -128,6 +128,17 @@ test("美光与微软完整周卦已接入，腾讯月卦拆分仍不冒充独�
   assert.equal(semiconductorNext.exact, 6, "美光独立周卦应成为半导体板块第六张完整周卦");
 });
 
+test("HYPE五张已录入周卦进入板块与逐日路径，不再显示待补", () => {
+  const board = buildSectorResonanceBoard();
+  const hype = board.rows.find((row) => row.symbol === "HYPE");
+  assert.deepEqual(hype?.cells.slice(1).map((cell) => cell.sourceKind), Array(5).fill("WEEKLY"));
+  assert.deepEqual(
+    hype?.cells.slice(1).map((cell) => cell.direction),
+    ["先跌后涨", "先涨后跌", "下跌", "先跌后涨", "先涨后跌"],
+  );
+  assert.ok(hype?.cells.slice(1).every((cell) => /独立周卦/u.test(cell.sourceLabel)));
+});
+
 test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指数新周卦均已接入", () => {
   const board = buildSectorResonanceBoard();
   const sandisk = board.rows.find((row) => row.symbol === "SNDK");

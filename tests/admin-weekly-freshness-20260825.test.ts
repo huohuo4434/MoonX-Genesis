@@ -12,3 +12,14 @@ test("admin weekly freshness recognizes every weekly subtype and verified source
   assert.equal(summary.missing, 0);
   assert.deepEqual(summary.affectedAssets, []);
 });
+
+test("admin freshness counts an explicit monthly-derived weekly path but keeps a real weekly gap", () => {
+  const summary = getConvictionWeeklyFreshnessOverview(
+    new Date("2026-08-31T12:00:00+08:00"),
+  );
+
+  assert.equal(summary.current, summary.total - 1);
+  assert.equal(summary.expired, 1);
+  assert.equal(summary.missing, 0);
+  assert.deepEqual(summary.affectedAssets, ["BTC"]);
+});

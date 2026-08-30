@@ -35,13 +35,20 @@ test("先涨后跌按转折窗拆成转折前、关键日和转折后，不制�
   assert.doesNotMatch(JSON.stringify([before, turn, after]), /日卦/u);
 });
 
-test("休市和缺少完整周卦都不计入逐日共振", () => {
+test("休市、月卦路径和缺少数据都不计入逐日共振，但月卦路径不再误报待补", () => {
   const closed = buildDailySectorCell({ assetId: "intel", date: "2026-08-29", weeklyCell: weeklyCell("上涨") });
   assert.equal(closed.state, "CLOSED");
   assert.equal(closed.counted, false);
 
   const context: SectorResonanceCell = { ...weeklyCell("上涨"), sourceKind: "MONTHLY_CONTEXT", sourceLabel: "月度背景" };
-  const missing = buildDailySectorCell({ assetId: "btc", date: "2026-08-29", weeklyCell: context });
+  const monthly = buildDailySectorCell({ assetId: "btc", date: "2026-08-29", weeklyCell: context });
+  assert.equal(monthly.state, "NEUTRAL");
+  assert.equal(monthly.counted, false);
+  assert.equal(monthly.label, "月卦上涨");
+  assert.doesNotMatch(monthly.summary, /待补/u);
+
+  const missingContext: SectorResonanceCell = { ...weeklyCell("待补"), sourceKind: "MISSING", sourceLabel: "待补完整周卦" };
+  const missing = buildDailySectorCell({ assetId: "btc", date: "2026-08-29", weeklyCell: missingContext });
   assert.equal(missing.state, "MISSING");
   assert.equal(missing.counted, false);
   assert.match(missing.summary, /不从年卦或月卦硬拆/u);

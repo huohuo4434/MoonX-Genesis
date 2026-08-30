@@ -118,7 +118,21 @@ export function buildDailySectorCell(input: {
     };
   }
 
-  if (weeklyCell.sourceKind !== "WEEKLY") {
+  if (weeklyCell.sourceKind === "MONTHLY_CONTEXT") {
+    return {
+      date,
+      state: "NEUTRAL",
+      side: null,
+      label: `月卦${weeklyCell.direction}`,
+      sourceLabel: weeklyCell.sourceLabel,
+      summary: `${weeklyCell.summary} 仅作月卦路径观察，不计入正式周卦共振。`,
+      weeklyDirection: weeklyCell.direction,
+      marker: null,
+      counted: false,
+    };
+  }
+
+  if (weeklyCell.sourceKind === "MISSING") {
     return {
       date,
       state: "MISSING",
