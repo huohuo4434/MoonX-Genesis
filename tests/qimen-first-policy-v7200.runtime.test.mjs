@@ -7,22 +7,20 @@ import { createRequire } from "node:module";
 
 const root = process.cwd();
 const require = createRequire(path.join(root, "package.json"));
-const ts = require("typescript");
+const esbuild = require("esbuild");
 const policyPath = path.join(root, "lib", "forecasts", "qimen-first-policy.ts");
-const source = fs.readFileSync(policyPath, "utf8")
-  .replace('import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regime";', 'const getDailyMarketBaziRegime = () => null;')
-  .replace('import { getWuWeeklyCalibration, getWuWeeklyEventWindow } from "../data/qimen-wu-weekly-20260824";', 'const getWuWeeklyCalibration = () => null; const getWuWeeklyEventWindow = () => null;');
-const transpiled = ts.transpileModule(source, {
-  compilerOptions: {
-    target: ts.ScriptTarget.ES2020,
-    module: ts.ModuleKind.CommonJS,
-    esModuleInterop: true,
-  },
-  fileName: policyPath,
-});
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "moox-qimen-runtime-"));
 const compiledPath = path.join(tempDir, "qimen-first-policy.cjs");
-fs.writeFileSync(compiledPath, transpiled.outputText, "utf8");
+esbuild.buildSync({
+  entryPoints: [policyPath],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node20",
+  outfile: compiledPath,
+  tsconfig: path.join(root, "tsconfig.json"),
+  logLevel: "silent",
+});
 const qimen = require(compiledPath);
 
 function sampleRecord(input = {}) {

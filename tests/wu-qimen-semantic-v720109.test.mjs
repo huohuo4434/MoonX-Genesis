@@ -12,6 +12,7 @@ const registry = JSON.parse(read("data/qimen-financial-method-v7200.json"));
 const teacher = JSON.parse(read("data/teacher-knowledge-seed.json"));
 
 assert(qimen.includes("LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE_V6"), "Parallel Liuyao-Qimen policy version missing");
+assert(qimen.includes("getQimenSchoolRegistry"), "School-separated Qimen registry wiring missing");
 assert(qimen.includes('const MOOX_QIMEN_CAST_SEED_VERSION = "QIMEN_PRIMARY_TEACHER_YONGSHEN_LIUYAO_AUX_V2"'), "Daily master-chart seed must stay stable");
 assert(qimen.includes("getWuWeeklyCalibration"), "Wu weekly calibration is not wired into Qimen daily policy");
 assert(qimen.includes("getDailyMarketBaziRegime"), "Existing market-Bazi regime layer was lost");

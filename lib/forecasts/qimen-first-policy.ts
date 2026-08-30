@@ -25,6 +25,7 @@ import { getDailyMarketBaziRegime } from "@/lib/trading-signals/market-bazi-regi
  */
 
 import { getWuWeeklyCalibration, getWuWeeklyEventWindow } from "../data/qimen-wu-weekly-20260824";
+import { getQimenSchoolRegistry } from "@/lib/forecasts/qimen-school-separation-core";
 
 export const MOOX_QIMEN_ENGINE_VERSION = "MOOX_QIMEN_TIME_ROTATING_V3_20260818";
 export const MOOX_QIMEN_POLICY_VERSION = "LIUYAO_QIMEN_PARALLEL_FORECAST_RESONANCE_V6";
@@ -313,6 +314,13 @@ const FINANCIAL_YONGSHEN = {
   },
   baziBoundary: "个人八字只用于私人适配度与风险叠加，不参与公共市场方向投票",
   teacherAssetAnchors: TEACHER_ASSET_ANCHORS,
+  schoolBoundary: {
+    mode: "SEPARATE_FIRST_COMBINE_LATER",
+    objectYongshen: "产品用神独立建模；无来源的通用回退不冒充老师规则",
+    directionalPalace: "上涨/下跌/震荡三宫必须显式给出；当前不进入自动数字评分",
+    operatorStem: "已有明确结果宫时，日干时干只解释求测人与操作状态",
+    consensus: "同向仅为方法多样性共振，不冒充两个独立来源投票",
+  },
 } as const;
 
 function mod(value: number, divisor: number): number {
@@ -1311,7 +1319,20 @@ function overlayForecast(record: JsonRecord, options: QimenDailyApplyOptions = {
     evidence: signal.evidence,
     chart,
     sourceBoundary: {
-      teacherEvidence: "吴老师产品用神锚点 + 2026-08-24周度语义校准 + 金兔子日/时干、值符值使、门星神与旺衰象意",
+      schoolMode: "SEPARATE_FIRST_COMBINE_LATER",
+      objectYongshenSchool: {
+        publicLabel: getQimenSchoolRegistry().OBJECT_YONGSHEN.publicLabel,
+        internalSourceFamily: getQimenSchoolRegistry().OBJECT_YONGSHEN.internalSourceFamily,
+        status: "ACTIVE_WITH_TRACEABLE_ASSET_ANCHOR",
+      },
+      directionalPalaceSchool: {
+        publicLabel: getQimenSchoolRegistry().DIRECTIONAL_PALACE.publicLabel,
+        internalSourceFamily: getQimenSchoolRegistry().DIRECTIONAL_PALACE.internalSourceFamily,
+        status: "RESEARCH_ONLY_REQUIRES_EXPLICIT_THREE_PALACES",
+        autoScored: false,
+      },
+      methodConsensusBoundary: "METHOD_DIVERSITY_ONLY_NOT_SOURCE_CONSENSUS",
+      schoolCommitteeAuthority: "RESEARCH_ONLY_TIMING_AND_RISK_NO_NEW_DIRECTION_AUTHORITY",
       mooxDigitalProtocol: "数字评分仅作可复现底层；遇老师已明确示范的同结构时先走语义校准，仍不冒充老师未公开的人工取宫法",
     },
   };
