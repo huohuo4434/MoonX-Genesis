@@ -5,23 +5,23 @@ import { listNbisPeriodForecasts } from "../lib/data/conviction/nbis-liuyao-2026
 import { listSandiskPeriodForecasts } from "../lib/data/conviction/sandisk-forecasts";
 import { extractMemberLiuyaoRelations } from "../lib/research/member-liuyao-detail";
 
-test("板块共振独立模块覆盖全部21个重点品种和本周至10月初六周", () => {
+test("板块共振独立模块覆盖全部22个重点品种和本周至10月初六周", () => {
   const board = buildSectorResonanceBoard();
-  assert.equal(board.rows.length, 21);
+  assert.equal(board.rows.length, 22);
   assert.equal(board.weeks.length, 6);
   assert.equal(board.weeks[0]?.start, "2026-08-24");
   assert.equal(board.weeks[0]?.badge, "本周");
   assert.equal(board.weeks[1]?.badge, "下周");
   assert.deepEqual([...new Set(board.rows.map((row) => row.group))], SECTOR_RESONANCE_GROUP_ORDER);
 
-  const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NBIS", "MSFT", "TSLA", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
+  const required = ["CXMT", "INTC", "SNDK", "LITE", "MU", "NVDA", "NBIS", "MSFT", "TSLA", "ASTEROID", "SPX", "NDX", "GOLD", "SILVER", "WTI"];
   for (const symbol of required) assert.ok(board.rows.some((row) => row.symbol === symbol), `missing ${symbol}`);
   assert.ok(board.rows.every((row) => row.cells.length === board.weeks.length));
   assert.ok(board.rows.every((row) => Array.isArray(row.monthKeyWeeks)));
   assert.ok(board.rows.every((row) => "annualLiuyaoDetail" in row && "monthlyLiuyaoDetail" in row));
   assert.ok(board.rows.every((row) => row.cells.every((cell) => "liuyaoDetail" in cell)));
   assert.ok(board.rows.every((row) => row.annualDirection));
-  assert.equal(board.asOf, "2026-08-28");
+  assert.equal(board.asOf, "2026-08-31");
 });
 
 test("8月31日至9月5日奇门周盘按资产并列展示共振、分歧和未覆盖", () => {
@@ -105,7 +105,7 @@ test("周格优先显示明确关键日，没有明确日时只生成有来源�
   assert.match(derived[0]?.label ?? "", /转强观察/u);
 });
 
-test("美光与微软完整周卦已接入，腾讯月卦拆分仍不冒充独立周卦", () => {
+test("美光、英伟达、微软和腾讯完整周卦均已接入", () => {
   const board = buildSectorResonanceBoard();
   const mu = board.rows.find((row) => row.symbol === "MU");
   assert.ok(mu);
@@ -118,14 +118,21 @@ test("美光与微软完整周卦已接入，腾讯月卦拆分仍不冒充独�
 
   const tencent = board.rows.find((row) => row.symbol === "0700.HK");
   assert.equal(tencent?.cells[0]?.sourceKind, "WEEKLY");
-  assert.ok(tencent?.cells.slice(1).every((cell) => cell.sourceKind === "MONTHLY_CONTEXT"));
-  assert.ok(tencent?.cells.slice(1).every((cell) => /月卦拆分/u.test(cell.sourceLabel)));
+  assert.ok(tencent?.cells.slice(1).every((cell) => cell.sourceKind === "WEEKLY"));
+  assert.deepEqual(tencent?.cells.slice(1).map((cell) => cell.direction), ["震荡上涨", "震荡", "先跌后涨", "震荡上涨", "震荡上涨"]);
   assert.match(tencent?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /火风鼎/u);
   assert.match(tencent?.monthlyLiuyaoDetail?.changingHexagram ?? "", /山天大畜/u);
 
+  const nvda = board.rows.find((row) => row.symbol === "NVDA");
+  assert.ok(nvda);
+  assert.equal(nvda.cells[0]?.sourceKind, "MISSING");
+  assert.deepEqual(nvda.cells.slice(1).map((cell) => cell.sourceKind), Array(5).fill("WEEKLY"));
+  assert.deepEqual(nvda.cells.slice(1).map((cell) => cell.direction), ["先跌后涨", "震荡下跌", "先跌后涨", "震荡", "震荡"]);
+  assert.match(nvda.monthlyLiuyaoDetail?.primaryHexagram ?? "", /艮为山/u);
+
   const semiconductorNext = board.summaries.find((item) => item.group === "半导体 / AI基础设施" && item.weekStart === "2026-08-31");
   assert.ok(semiconductorNext);
-  assert.equal(semiconductorNext.exact, 6, "美光独立周卦应成为半导体板块第六张完整周卦");
+  assert.equal(semiconductorNext.exact, 7, "英伟达接入后半导体板块应有七张完整周卦");
 });
 
 test("HYPE五张已录入周卦进入板块与逐日路径，不再显示待补", () => {

@@ -251,6 +251,7 @@ type StaticPeriodAssetId = StaticFocusAssetId;
 const STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>(ACTIVE_STATIC_FOCUS_ASSET_IDS);
 const LITE_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1"];
 const SPCX_REVISED_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "MONTH_1", "MONTH_3", "YEAR_1", "YEAR_5"];
+const NVDA_PERIOD_ORDER: ConvictionForecastType[] = ["WEEK", "WEEK_2", "WEEK_3", "WEEK_4", "WEEK_5", "MONTH_1", "YEAR_1"];
 
 function isStaticPeriodAsset(value: string): value is StaticPeriodAssetId {
   return STATIC_PERIOD_ASSET_IDS.has(value as StaticPeriodAssetId);
@@ -284,6 +285,7 @@ function fullOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ASTEROID_PERIOD_ORDER;
   if (assetId === "sandisk") return SANDISK_PERIOD_ORDER;
   if (assetId === "nbis") return NBIS_PERIOD_ORDER;
+  if (assetId === "nvda") return NVDA_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_PERIOD_ORDER;
   if (assetId === "sol") return SOL_PERIOD_ORDER;
   if (assetId === "eth") return ETH_PERIOD_ORDER;
@@ -306,6 +308,7 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
   if (assetId === "asteroid") return ["WEEK_4", "WEEK_5", "WEEK_6", "WEEK_7", "WEEK_8", "WEEK_9", "MONTH_1", "MONTH_3"] as ConvictionForecastType[];
   if (assetId === "sandisk") return SANDISK_VISIBLE_PERIOD_ORDER;
   if (assetId === "nbis") return NBIS_VISIBLE_PERIOD_ORDER;
+  if (assetId === "nvda") return NVDA_PERIOD_ORDER;
   if (assetId === "hype") return HYPE_UPDATED_VISIBLE_PERIOD_ORDER;
   if (assetId === "sol") return SOL_VISIBLE_PERIOD_ORDER;
   if (assetId === "eth") return ETH_VISIBLE_PERIOD_ORDER;
@@ -322,6 +325,18 @@ function visibleOrder(assetId: StaticPeriodAssetId) {
 
 function periodLabelForAsset(assetId: StaticPeriodAssetId, type: ConvictionForecastType) {
   if (assetId === "tsla") return tslaPeriodLabel20260816(type);
+  if (assetId === "nvda") {
+    const labels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
+      WEEK: { zh: "8/31–9/6", en: "Aug 31–Sep 6", emptyZh: "8/31–9/6研究尚未发布" },
+      WEEK_2: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },
+      WEEK_3: { zh: "9/14–20", en: "Sep 14–20", emptyZh: "9/14–20研究尚未发布" },
+      WEEK_4: { zh: "9/21–27", en: "Sep 21–27", emptyZh: "9/21–27研究尚未发布" },
+      WEEK_5: { zh: "9/28–10/4", en: "Sep 28–Oct 4", emptyZh: "9/28–10/4研究尚未发布" },
+      MONTH_1: { zh: "9月", en: "September", emptyZh: "9月研究尚未发布" },
+      YEAR_1: { zh: "2026剩余年度", en: "Rest of 2026", emptyZh: "剩余年度研究尚未发布" },
+    };
+    if (labels[type]) return labels[type]!;
+  }
   if (assetId === "lite") {
     const liteLabels: Partial<Record<ConvictionForecastType, { zh: string; en: string; emptyZh: string }>> = {
       WEEK: { zh: "9/7–13", en: "Sep 7–13", emptyZh: "9/7–13研究尚未发布" },

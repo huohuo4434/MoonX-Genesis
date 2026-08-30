@@ -17,13 +17,17 @@ import { applyResearchConsensusOverlays20260830 } from "@/lib/data/research-cons
 const DAY_MS = 86_400_000;
 const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
 
+const ACTIVE_SUPPLEMENTAL_KEY_DATE_ASSET_IDS = SUPPLEMENTAL_KEY_DATE_ASSET_IDS.filter(
+  (assetId) => !STATIC_FOCUS_ASSET_IDS.includes(assetId as (typeof STATIC_FOCUS_ASSET_IDS)[number]),
+);
+
 export const MEMBER_KEY_DATE_ASSET_IDS = Object.freeze([
   ...STATIC_FOCUS_ASSET_IDS,
-  ...SUPPLEMENTAL_KEY_DATE_ASSET_IDS,
+  ...ACTIVE_SUPPLEMENTAL_KEY_DATE_ASSET_IDS,
 ] as const);
 export type MemberKeyDateAssetId = (typeof MEMBER_KEY_DATE_ASSET_IDS)[number];
 
-const SUPPLEMENTAL_KEY_DATE_ASSET_SET = new Set<string>(SUPPLEMENTAL_KEY_DATE_ASSET_IDS);
+const SUPPLEMENTAL_KEY_DATE_ASSET_SET = new Set<string>(ACTIVE_SUPPLEMENTAL_KEY_DATE_ASSET_IDS);
 
 function isSupplementalKeyDateAssetId(assetId: MemberKeyDateAssetId): assetId is SupplementalKeyDateAssetId {
   return SUPPLEMENTAL_KEY_DATE_ASSET_SET.has(assetId);

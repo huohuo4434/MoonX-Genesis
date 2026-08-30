@@ -107,9 +107,10 @@ export const SECTOR_RESONANCE_ASSETS_20260825: AssetDefinition[] = [
   { assetId: "sandisk", focusId: "sandisk", name: "闪迪", symbol: "SNDK", group: "半导体 / AI基础设施", longCycle: "双峰后整理，月底再观察修复" },
   { assetId: "lite", focusId: "lite", name: "Lumentum", symbol: "LITE", group: "半导体 / AI基础设施", longCycle: "到年底震荡偏上" },
   { assetId: "mu", focusId: "mu", name: "美光", symbol: "MU", group: "半导体 / AI基础设施", longCycle: "中期先整理后修复" },
+  { assetId: "nvda", focusId: "nvda", name: "英伟达", symbol: "NVDA", group: "半导体 / AI基础设施", longCycle: "剩余年度先蓄势、后段防高波动回吐" },
   { assetId: "nbis", focusId: "nbis", name: "Nebius", symbol: "NBIS", group: "半导体 / AI基础设施", longCycle: "三个月先压后强" },
   { assetId: "spcx", focusId: "spcx", name: "SpaceX / SPCX", symbol: "SPCX", group: "太空与高波动成长", longCycle: "酉月高点窗口后防回吐" },
-  { assetId: "asteroid", focusId: "asteroid", name: "太空狗", symbol: "ASTS", group: "太空与高波动成长", longCycle: "三个月先跌后涨" },
+  { assetId: "asteroid", focusId: "asteroid", name: "太空狗", symbol: "ASTEROID", group: "太空与高波动成长", longCycle: "三个月先跌后涨" },
   { assetId: "msft", focusId: "msft", name: "微软", symbol: "MSFT", group: "大型科技", longCycle: "9月至10月高位压力增加" },
   { assetId: "googl", focusId: "googl", name: "谷歌", symbol: "GOOGL", group: "大型科技", longCycle: "9月至11月区间轮动" },
   { assetId: "tsla", focusId: "tsla", name: "特斯拉", symbol: "TSLA", group: "大型科技", longCycle: "前段洗盘、9月下旬偏强" },
@@ -468,22 +469,29 @@ export function buildSectorResonanceBoard(): {
   const rows = SECTOR_RESONANCE_ASSETS_20260825.map((definition) => {
     const forecasts = forecastsFor(definition);
     const annual = getAnnualForecastRoadmap2026(definition.assetId);
+    const annualForecast = forecasts
+      .filter((item) => item.status === "published" && item.forecastType === "YEAR_1")
+      .sort(latestFirst)[0];
     const monthly = selectCurrentMonthlyForecast(forecasts);
     return {
       assetId: definition.assetId,
       name: definition.name,
       symbol: definition.symbol,
       group: definition.group,
-      annualDirection: annual?.annualDirection ?? null,
-      annualMonthPath: annual?.months.map((item) => `${Number(item.month.slice(5))}月${item.direction}`).join(" → ") ?? "独立年卦待补",
+      annualDirection: annual?.annualDirection ?? annualForecast?.direction ?? null,
+      annualMonthPath: annual?.months.map((item) => `${Number(item.month.slice(5))}月${item.direction}`).join(" → ") ?? annualForecast?.expectedPath ?? "独立年卦待补",
       annualHighMonths: annual?.highMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
       annualLowMonths: annual?.lowMonthCandidates.map((item) => `${Number(item.slice(5))}月`) ?? [],
       monthKeyWeeks: [],
-      annualLiuyaoDetail: annual ? buildAnnualLiuyaoDetail(annual) : null,
+      annualLiuyaoDetail: annual
+        ? buildAnnualLiuyaoDetail(annual)
+        : annualForecast
+          ? buildForecastLiuyaoDetail(annualForecast, { horizon: "YEAR", periodLabel: `${annualForecast.periodStart}—${annualForecast.periodEnd}年卦` })
+          : null,
       monthlyLiuyaoDetail: monthly
         ? buildForecastLiuyaoDetail(monthly, { horizon: "MONTH", periodLabel: `${monthly.periodStart}—${monthly.periodEnd}月卦` })
         : null,
-      longCycle: annual?.remainingYearPath ?? definition.longCycle,
+      longCycle: annual?.remainingYearPath ?? annualForecast?.expectedPath ?? definition.longCycle,
       cells: SECTOR_RESONANCE_WEEKS_20260825.map((week) => cellFor(definition.assetId, forecasts, week)),
     } satisfies SectorResonanceRow;
   }).map((row) => ({ ...row, monthKeyWeeks: buildSectorMonthKeyWeeks(row.cells, SECTOR_RESONANCE_WEEKS_20260825) }));
@@ -507,7 +515,7 @@ export function buildSectorResonanceBoard(): {
   );
 
   return {
-    asOf: "2026-08-28",
+    asOf: "2026-08-31",
     weeks: SECTOR_RESONANCE_WEEKS_20260825,
     rows,
     summaries,

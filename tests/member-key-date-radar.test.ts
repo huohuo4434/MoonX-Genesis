@@ -26,7 +26,7 @@ test("key-date status distinguishes upcoming, active and review exact days", () 
 test("all key-date assets have at least one month and one week key date", () => {
   const coverage = memberKeyDateCoverage(AS_OF);
   assert.equal(coverage.length, MEMBER_KEY_DATE_ASSET_IDS.length);
-  assert.equal(STATIC_FOCUS_ASSET_IDS.length, 23);
+  assert.equal(STATIC_FOCUS_ASSET_IDS.length, 24);
   assert.equal(MEMBER_KEY_DATE_ASSET_IDS.length, 25);
   assert.deepEqual(coverage.filter((row) => !row.month || !row.week), []);
 
@@ -230,11 +230,14 @@ test("new SNDK September chart becomes the forward month authority without delet
   assert.match(monthly.finalSynthesis ?? "", /易老师综合取舍/);
 });
 
-test("META and NVDA are key-date-only additions with four grounded teacher comparisons", () => {
+test("META stays key-date-only while NVDA becomes a non-trading focus asset", () => {
   assert.deepEqual(SUPPLEMENTAL_KEY_DATE_ASSET_IDS, ["meta", "nvda"]);
+  assert.equal(STATIC_FOCUS_ASSET_IDS.includes("meta" as never), false);
+  assert.equal("meta" in STATIC_MEMBER_AUTOMATION_FOCUS, false);
+  assert.equal(STATIC_FOCUS_ASSET_IDS.includes("nvda"), true);
+  assert.equal(STATIC_MEMBER_AUTOMATION_FOCUS.nvda.canonicalSymbol, null, "NVDA research coverage must not grant execution authority");
+
   for (const assetId of SUPPLEMENTAL_KEY_DATE_ASSET_IDS) {
-    assert.equal(STATIC_FOCUS_ASSET_IDS.includes(assetId as never), false, `${assetId} must not expand the trading focus registry`);
-    assert.equal(assetId in STATIC_MEMBER_AUTOMATION_FOCUS, false, `${assetId} must remain outside member trading automation`);
     const rows = buildMemberKeyDateRadar(AS_OF).filter((item) => item.assetId === assetId);
     const monthly = rows.find((item) => item.level === "MONTH");
     const weekly = rows.find((item) => item.level === "WEEK");
@@ -251,6 +254,10 @@ test("META and NVDA are key-date-only additions with four grounded teacher compa
     assert.match(weekly.primaryView, /月卦当周推演方向/, assetId);
     assert.doesNotMatch(weekly.primaryView, /周卦正式方向/, assetId);
   }
+
+  const currentNvdaWeek = buildMemberKeyDateRadar("2026-08-31")
+    .find((item) => item.assetId === "nvda" && item.level === "WEEK");
+  assert.match(currentNvdaWeek?.primaryView ?? "", /周卦正式方向/);
 });
 
 test("supplied charts remain source-traceable and do not invent exact chart dates", () => {
