@@ -41,6 +41,7 @@ export type QimenShadowCandle = {
 
 export type QimenShadowMethodReading = QimenSchoolReading & {
   recordedAt: string;
+  evidenceSha256: string;
 };
 
 export type QimenShadowSetup = {
@@ -55,7 +56,11 @@ export type QimenShadowSetup = {
   forecastValidFrom: string;
   forecastValidUntil: string;
   decisionAt: string;
+  evaluationDueAt: string;
   evaluatedAt: string;
+  candleIntervalMinutes: number;
+  technicalSourceId: string;
+  technicalRecordedAt: string;
   baseTriggered: boolean;
   entryPrice: number;
   stopPrice: number;
@@ -151,16 +156,30 @@ function validateSetup(setup: QimenShadowSetup): void {
   const validFrom = timestamp(setup.forecastValidFrom, "正式预测有效起点");
   const validUntil = timestamp(setup.forecastValidUntil, "正式预测有效终点");
   const decisionAt = timestamp(setup.decisionAt, "决策时间");
+  const evaluationDueAt = timestamp(setup.evaluationDueAt, "预定评估时间");
   const evaluatedAt = timestamp(setup.evaluatedAt, "评估时间");
   if (publishedAt > decisionAt || lockedAt > decisionAt || validFrom > decisionAt || validUntil < decisionAt) {
     throw new Error("决策时不存在有效、已发布且已锁定的正式预测。 ".trim());
   }
   if (evaluatedAt < decisionAt) throw new Error("评估时间不能早于决策时间。 ".trim());
+  if (evaluationDueAt <= decisionAt || evaluationDueAt > validUntil) {
+    throw new Error("预定评估时间必须位于正式预测有效期内且晚于决策时间。 ".trim());
+  }
+  if (!Number.isInteger(setup.candleIntervalMinutes) || setup.candleIntervalMinutes < 1 || setup.candleIntervalMinutes > 1_440) {
+    throw new Error("K线周期必须是1至1440分钟的整数。 ".trim());
+  }
+  if (!setup.technicalSourceId.trim()) throw new Error("缺少决策前技术结构来源。 ".trim());
+  if (timestamp(setup.technicalRecordedAt, "技术结构记录时间") > decisionAt) {
+    throw new Error("技术结构在决策后补录，不得进入前瞻影子账本。 ".trim());
+  }
   if (setup.methodReadings.some((item) => timestamp(item.recordedAt, "方法记录时间") > decisionAt)) {
     throw new Error("包含决策后补录的方法结论，不得进入前瞻影子账本。 ".trim());
   }
   if (setup.methodReadings.some((item) => !item.sourceId.trim() || !item.chartId.trim())) {
     throw new Error("奇门方法读数缺少可追溯来源或盘面标识。 ".trim());
+  }
+  if (setup.methodReadings.some((item) => !/^[a-f0-9]{64}$/i.test(item.evidenceSha256))) {
+    throw new Error("奇门方法读数缺少有效证据哈希。 ".trim());
   }
   if (setup.methodReadings.some((item) => !Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 100)) {
     throw new Error("奇门方法置信度必须在0到100之间。 ".trim());
@@ -176,9 +195,10 @@ function validateCandles(
   candles: readonly QimenShadowCandle[],
 ): QimenShadowCandle[] {
   const decisionAt = timestamp(setup.decisionAt, "决策时间");
+  const evaluationDueAt = timestamp(setup.evaluationDueAt, "预定评估时间");
   const evaluatedAt = timestamp(setup.evaluatedAt, "评估时间");
   const seen = new Set<string>();
-  return candles
+  const normalized = candles
     .map((item) => {
       const openTime = timestamp(item.openTime, "K线开始时间");
       const closeTime = timestamp(item.closeTime, "K线结束时间");
@@ -192,9 +212,23 @@ function validateCandles(
       seen.add(identity);
       return { item, openTime, closeTime };
     })
-    .filter(({ openTime, closeTime }) => closeTime > decisionAt && openTime <= evaluatedAt)
     .sort((a, b) => a.openTime - b.openTime)
-    .map(({ item }) => item);
+  if (evaluatedAt === decisionAt && normalized.length === 0) return [];
+  if (evaluatedAt < evaluationDueAt) throw new Error("尚未到预先锁定的评估时间。 ".trim());
+  const intervalMs = setup.candleIntervalMinutes * 60_000;
+  const durationMs = evaluationDueAt - decisionAt;
+  if (durationMs % intervalMs !== 0) throw new Error("决策至评估窗口不能被锁定K线周期完整覆盖。 ".trim());
+  const expectedCount = durationMs / intervalMs;
+  if (expectedCount < 1 || expectedCount > 1_000 || normalized.length !== expectedCount) {
+    throw new Error("评估K线数量与事前锁定窗口不一致。 ".trim());
+  }
+  normalized.forEach(({ openTime, closeTime }, index) => {
+    const expectedOpen = decisionAt + index * intervalMs;
+    if (openTime !== expectedOpen || closeTime !== expectedOpen + intervalMs) {
+      throw new Error("评估K线必须从决策时点起连续覆盖至预定截止时间，不能缺根、重叠或混入决策前数据。 ".trim());
+    }
+  });
+  return normalized.map(({ item }) => item);
 }
 
 function committeeFor(setup: QimenShadowSetup): QimenSchoolCommitteeResult {

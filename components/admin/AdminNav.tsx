@@ -40,6 +40,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/external-viewpoints", label: "外部观点库" },
       { href: "/admin/asset-research", label: "资产材料导入" },
       { href: "/admin/ai-committee", label: "AI研究委员会" },
+      { href: "/admin/qimen-shadow", label: "奇门影子A/B" },
       { href: "/admin/vibe-evidence", label: "Vibe客观证据" },
       { href: "/admin/iching/library", label: "六爻研究库" },
       { href: "/admin/teacher-knowledge", label: "老师知识库" },

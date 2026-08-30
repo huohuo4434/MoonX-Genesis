@@ -266,6 +266,55 @@ model IChingResearchVersion {
   @@index([researchId])
 }
 
+/// Append-only, admin-only forward shadow research. It is deliberately
+/// separate from formal forecasts and every live/paper trading table.
+model QimenShadowObservation {
+  id                    String   @id
+  schemaVersion         String
+  symbol                String
+  horizon               String
+  officialDirection     String
+  formalForecastKind    String
+  formalForecastId      String
+  formalForecastVersion String
+  decisionAt            DateTime
+  evaluationDueAt       DateTime
+  setupSnapshot         Json
+  contentSha256         String   @unique
+  lockedBy              String?
+  lockedAt              DateTime @default(now())
+  experiment            QimenShadowExperiment?
+
+  @@index([decisionAt])
+  @@index([symbol, horizon, decisionAt])
+  @@index([formalForecastId, formalForecastVersion])
+}
+
+model QimenShadowExperiment {
+  id                    String   @id
+  observationId         String   @unique
+  schemaVersion         String
+  symbol                String
+  horizon               String
+  officialDirection     String
+  formalForecastKind    String
+  formalForecastId      String
+  formalForecastVersion String
+  decisionAt            DateTime
+  evaluatedAt           DateTime
+  setupSnapshot         Json
+  candleSnapshot        Json
+  trialSnapshot         Json
+  contentSha256         String   @unique
+  createdBy             String?
+  createdAt             DateTime @default(now())
+  observation           QimenShadowObservation @relation(fields: [observationId], references: [id], onDelete: Restrict)
+
+  @@index([decisionAt])
+  @@index([symbol, horizon, decisionAt])
+  @@index([formalForecastId, formalForecastVersion])
+}
+
 model MasterRule {
   id                   String   @id
   ruleCode             String   @unique
