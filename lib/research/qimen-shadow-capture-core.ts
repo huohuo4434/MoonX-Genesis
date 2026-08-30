@@ -60,6 +60,7 @@ export const qimenShadowCandidateSchema = z.object({
   candidateId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
   formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
   formalForecastId: boundedText,
+  expectedFormalForecastVersion: z.string().regex(/^V[1-9]\d*$/).optional(),
   horizon: z.enum(["INTRADAY", "SWING", "POSITION"]),
   decisionAt: isoTime,
   evaluationDueAt: isoTime,
@@ -71,6 +72,17 @@ export const qimenShadowCandidateSchema = z.object({
   }
 });
 
+export const qimenShadowReadingSchema = z.object({
+  readingId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
+  studyKey: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
+  formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
+  formalForecastId: boundedText,
+  horizon: z.enum(["INTRADAY", "SWING", "POSITION"]),
+  decisionAt: isoTime,
+  evaluationDueAt: isoTime,
+  reading: qimenShadowMethodReadingSchema,
+}).strict();
+
 export const qimenShadowEvaluationSchema = z.object({
   observationId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
   evaluatedAt: isoTime,
@@ -78,6 +90,7 @@ export const qimenShadowEvaluationSchema = z.object({
 }).strict();
 
 export const qimenShadowAdminRequestSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("REGISTER_READING"), reading: qimenShadowReadingSchema }).strict(),
   z.object({ action: z.literal("REGISTER_CANDIDATE"), candidate: qimenShadowCandidateSchema }).strict(),
   z.object({ action: z.literal("LOCK_OBSERVATION"), observation: qimenShadowObservationSchema }).strict(),
   z.object({ action: z.literal("EVALUATE"), evaluation: qimenShadowEvaluationSchema }).strict(),
@@ -86,6 +99,7 @@ export const qimenShadowAdminRequestSchema = z.discriminatedUnion("action", [
 export type QimenShadowObservationInput = z.infer<typeof qimenShadowObservationSchema>;
 export type QimenShadowEvaluationInput = z.infer<typeof qimenShadowEvaluationSchema>;
 export type QimenShadowCandidateInput = z.infer<typeof qimenShadowCandidateSchema>;
+export type QimenShadowReadingInput = z.infer<typeof qimenShadowReadingSchema>;
 
 export type QimenFormalForecastSnapshot = {
   kind: "WEEKLY" | "DAILY";
@@ -154,6 +168,9 @@ export function prepareQimenShadowCandidate(
   if (formal.id !== input.formalForecastId || formal.kind !== input.formalForecastKind) throw new Error("正式预测绑定不匹配。");
   if (formal.status !== "LOCKED" || !formal.publishedAt || !formal.lockedAt) throw new Error("只有已经发布并锁定的正式预测可以进入候选池。");
   if (!Number.isInteger(formal.version) || formal.version < 1) throw new Error("正式预测版本无效。");
+  if (input.expectedFormalForecastVersion && input.expectedFormalForecastVersion !== `V${formal.version}`) {
+    throw new Error("正式预测版本已变化，自动候选拒绝把旧读数绑定到新版本。");
+  }
   const direction = officialDirection(formal.direction);
   const decisionAt = Date.parse(input.decisionAt);
   const evaluationDueAt = Date.parse(input.evaluationDueAt);

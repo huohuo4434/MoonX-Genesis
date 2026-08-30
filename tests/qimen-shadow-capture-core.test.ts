@@ -109,6 +109,10 @@ test("future candidate requires both named method structures and derives authori
   assert.throws(() => prepareQimenShadowCandidate(candidate({ decisionAt: "2026-08-30T02:30:00.000Z" }), formal()), /整点1小时窗口/);
   assert.throws(() => prepareQimenShadowCandidate(candidate({ methodReadings: observation().methodReadings.map((item) => ({ ...item, recordedAt: "2026-08-30T02:01:00.000Z" })) }), formal()), /决策前记录/);
   assert.throws(() => prepareQimenShadowCandidate(candidate(), formal({ status: "PUBLISHED" })), /已经发布并锁定/);
+  assert.throws(() => prepareQimenShadowCandidate(
+    candidate({ expectedFormalForecastVersion: "V1" }),
+    formal({ version: 2 }),
+  ), /旧读数绑定到新版本/);
 });
 
 test("automatic observation refuses a changed formal version before any write", () => {

@@ -8,6 +8,7 @@ test("ledger schema is append-only and isolated from trading tables", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260830180000_qimen_shadow_research/migration.sql");
   const automationMigration = read("prisma/migrations/20260830213000_qimen_shadow_automation/migration.sql");
+  const readingMigration = read("prisma/migrations/20260830223000_qimen_shadow_reading_inbox/migration.sql");
   const model = schema.slice(schema.indexOf("model QimenShadowObservation"), schema.indexOf("model MasterRule"));
   assert.match(model, /model QimenShadowObservation/);
   assert.match(model, /evaluationDueAt\s+DateTime/);
@@ -22,6 +23,10 @@ test("ledger schema is append-only and isolated from trading tables", () => {
   assert.match(automationMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowCandidate"/);
   assert.match(automationMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowAutomationRun"/);
   assert.doesNotMatch(automationMigration, /ALTER TABLE|DROP TABLE|DELETE FROM|trade_|Bitget|MooxUnifiedLive/);
+  assert.match(model, /model QimenShadowReading/);
+  assert.match(readingMigration, /CREATE TABLE IF NOT EXISTS "QimenShadowReading"/);
+  assert.match(readingMigration, /QimenShadowReading_studyKey_schoolId_idx/);
+  assert.doesNotMatch(readingMigration, /ALTER TABLE|DROP TABLE|DELETE FROM|trade_|Bitget|MooxUnifiedLive/);
 });
 
 test("admin API authenticates, validates strictly and has no trading dependency", () => {
@@ -37,13 +42,14 @@ test("admin API authenticates, validates strictly and has no trading dependency"
   assert.match(store, /qimenShadowObservation\.create/);
   assert.match(store, /qimenShadowExperiment\.create/);
   assert.match(store, /qimenShadowCandidate\.create/);
+  assert.match(store, /qimenShadowReading\.create/);
   assert.match(store, /lockedAt: serverNow/);
   assert.match(store, /row\.lockedAt\.getTime\(\) > row\.decisionAt\.getTime\(\)/);
   assert.ok(store.indexOf("const existing = await db.qimenShadowObservation.findUnique") < store.indexOf("观察单必须在决策时间之前"));
   assert.match(store, /evaluatedAt\) > serverNow\.getTime\(\)/);
   assert.match(store, /contentSha256 !== sha256/);
   assert.match(route, /validation \? 422 : 500/);
-  assert.doesNotMatch(store, /qimenShadow(Observation|Experiment|Candidate|AutomationRun)\.(update|delete|upsert)/);
+  assert.doesNotMatch(store, /qimenShadow(Reading|Observation|Experiment|Candidate|AutomationRun)\.(update|delete|upsert)/);
   assert.doesNotMatch(`${route}\n${capture}\n${store}`, /lib\/bitget|lib\/trading-signals|placeOrder|submitOrder|newEntriesEnabled/);
 });
 
@@ -51,6 +57,8 @@ test("cron automation is header-authenticated, bounded, append-only and isolated
   const route = read("app/api/cron/qimen-shadow/route.ts");
   const automation = read("lib/research/qimen-shadow-automation.ts");
   const core = read("lib/research/qimen-shadow-automation-core.ts");
+  const pairer = read("lib/research/qimen-shadow-reading-pairer.ts");
+  const pairCore = read("lib/research/qimen-shadow-reading-pair-core.ts");
   const vercel = read("vercel.json");
   assert.match(route, /process\.env\.CRON_SECRET/);
   assert.match(route, /CRON_SECRET_NOT_CONFIGURED/);
@@ -62,8 +70,14 @@ test("cron automation is header-authenticated, bounded, append-only and isolated
   assert.match(automation, /qimenShadowAutomationRun\.create/);
   assert.match(automation, /qimenShadowCandidate\.findMany/);
   assert.match(automation, /qimenShadowObservation\.findMany/);
+  assert.match(automation, /pairFutureQimenShadowReadings\(startedAt\)/);
+  assert.match(pairer, /qimenShadowReading\.findMany/);
+  assert.match(pairer, /planQimenShadowReadingPair/);
+  assert.match(pairer, /registerQimenShadowCandidate/);
+  assert.match(pairCore, /MISMATCHED_FORECAST_OR_WINDOW/);
+  assert.match(pairCore, /AMBIGUOUS_DUPLICATE_SCHOOL/);
   assert.doesNotMatch(automation, /qimenShadow(Observation|Experiment|Candidate|AutomationRun)\.(update|delete|upsert)/);
-  assert.doesNotMatch(`${route}\n${automation}\n${core}`, /lib\/bitget|placeOrder|submitOrder|newEntriesEnabled|liveExecution|paptrading/);
+  assert.doesNotMatch(`${route}\n${automation}\n${core}\n${pairer}\n${pairCore}`, /lib\/bitget|placeOrder|submitOrder|newEntriesEnabled|liveExecution|paptrading/);
   assert.match(automation, /mayTrade: false/);
   assert.match(automation, /mayChangeForecast: false/);
   assert.match(vercel, /"path": "\/api\/cron\/qimen-shadow"/);

@@ -49,7 +49,8 @@ export default async function AdminQimenShadowPage() {
 
       {dashboard ? (
         <>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Card padding="md"><Text variant="caption" color="tertiary">结构化读数</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.totalReadings}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">前瞻候选</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.totalCandidates}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">实验总数</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.totalExperiments}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">已锁定待评估</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.pendingObservations}</Heading></Card>
@@ -74,6 +75,19 @@ export default async function AdminQimenShadowPage() {
                 ))}</tbody>
               </table>
             ) : <Text variant="body-sm" color="secondary" className="mt-4">定时任务尚未产生运行记录；部署和迁移完成前不会假装已经启用。</Text>}
+          </Card>
+
+          <Card padding="lg" className="mt-6 overflow-x-auto">
+            <Heading as="h2" size="h3">双流派结构化读数收件箱</Heading>
+            <Text variant="caption" color="tertiary" className="mt-1 block">同一研究键只有对象用神与定向取宫各一条、且预测版本和时间窗完全一致时，系统才自动配成候选；重复同流派记录会因歧义跳过。</Text>
+            {dashboard.readings.length ? (
+              <table className="mt-4 min-w-full text-left text-sm">
+                <thead className="text-white/50"><tr><th className="px-2 py-2">研究键</th><th className="px-2 py-2">流派</th><th className="px-2 py-2">标的</th><th className="px-2 py-2">方向</th><th className="px-2 py-2">记录时间</th><th className="px-2 py-2">决策时间</th><th className="px-2 py-2">证据哈希</th></tr></thead>
+                <tbody>{dashboard.readings.slice(0, 50).map((item) => (
+                  <tr key={item.id} className="border-t border-white/10"><td className="px-2 py-3 font-mono text-xs">{item.studyKey}</td><td className="px-2 py-3">{item.schoolId}</td><td className="px-2 py-3">{item.formalForecastId}</td><td className="px-2 py-3">{item.direction}</td><td className="px-2 py-3">{item.recordedAt.toISOString()}</td><td className="px-2 py-3">{item.decisionAt.toISOString()}</td><td className="px-2 py-3 font-mono text-xs text-white/50">{item.evidenceSha256.slice(0, 16)}…</td></tr>
+                ))}</tbody>
+              </table>
+            ) : <Text variant="body-sm" color="secondary" className="mt-4">尚无未来结构化双流派读数。视频摘要不会被自动猜成盘；只有完整字段进入收件箱后才会配对。</Text>}
           </Card>
 
           <Card padding="lg" className="mt-6 overflow-x-auto">

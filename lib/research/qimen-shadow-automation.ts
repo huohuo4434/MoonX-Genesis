@@ -24,6 +24,10 @@ import {
 import { analyzeChanStructure } from "@/lib/trading-signals/chan-structure-core";
 import { deriveChanStage } from "@/lib/trading-signals/chan-stage-core";
 import { prisma } from "@/lib/prisma";
+import {
+  pairFutureQimenShadowReadings,
+  type QimenShadowPairingResult,
+} from "@/lib/research/qimen-shadow-reading-pairer";
 
 const ACTOR = "AUTOMATION:qimen-shadow";
 const BATCH_SIZE = 4;
@@ -65,6 +69,12 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
 
   const lockResults: ItemResult[] = [];
   const evaluationResults: ItemResult[] = [];
+  let pairings: QimenShadowPairingResult[];
+  try {
+    pairings = await pairFutureQimenShadowReadings(startedAt);
+  } catch (error) {
+    pairings = [{ studyKey: "PAIRER", status: "FAILED", reason: safeReason(error) }];
+  }
   const candidatePool = await db.qimenShadowCandidate.findMany({
     where: {
       decisionAt: {
@@ -168,8 +178,10 @@ export async function runQimenShadowAutomation(serverNow = new Date()) {
     },
     locks: lockResults,
     evaluations: evaluationResults,
+    pairings,
   };
-  const status = all.length === 0 ? "IDLE" : all.some((item) => item.status === "FAILED") ? "PARTIAL" : "OK";
+  const hasFailure = all.some((item) => item.status === "FAILED") || pairings.some((item) => item.status === "FAILED");
+  const status = all.length === 0 && pairings.length === 0 ? "IDLE" : hasFailure ? "PARTIAL" : "OK";
   const contentSha256 = qimenShadowContentHash(report);
   const run = await db.qimenShadowAutomationRun.create({
     data: {

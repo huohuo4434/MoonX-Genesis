@@ -15,13 +15,20 @@ import {
   prepareQimenShadowCandidate,
   prepareQimenShadowObservation,
   qimenShadowCandidateSchema,
+  qimenShadowReadingSchema,
   type PreparedQimenShadowCandidate,
   type PreparedQimenShadowObservation,
   type QimenFormalForecastSnapshot,
   type QimenShadowEvaluationInput,
   type QimenShadowCandidateInput,
   type QimenShadowObservationInput,
+  type QimenShadowReadingInput,
 } from "@/lib/research/qimen-shadow-capture-core";
+import {
+  prepareQimenShadowReading,
+  QIMEN_SHADOW_READING_SCHEMA,
+  type PreparedQimenShadowReading,
+} from "@/lib/research/qimen-shadow-reading-core";
 
 const OBSERVATION_SCHEMA = "moox.qimen-shadow-observation.v1" as const;
 const CANDIDATE_SCHEMA = "moox.qimen-shadow-candidate.v1" as const;
@@ -44,7 +51,7 @@ export function qimenShadowContentHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
-async function loadFormalForecast(input: {
+export async function loadQimenFormalForecast(input: {
   formalForecastKind: "WEEKLY" | "DAILY";
   formalForecastId: string;
 }): Promise<QimenFormalForecastSnapshot> {
@@ -80,7 +87,7 @@ export async function lockQimenShadowObservation(
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
   const existing = await db.qimenShadowObservation.findUnique({ where: { id: input.observationId } });
-  const formal = await loadFormalForecast(input);
+  const formal = await loadQimenFormalForecast(input);
   let prepared: PreparedQimenShadowObservation;
   try {
     prepared = prepareQimenShadowObservation(input, formal);
@@ -256,10 +263,12 @@ export async function getQimenShadowDashboard(limit = 300) {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
   const take = Math.max(1, Math.min(1000, limit));
-  const [totalCandidates, totalObservations, totalExperiments, candidates, automationRuns, observations, rows] = await Promise.all([
+  const [totalReadings, totalCandidates, totalObservations, totalExperiments, readings, candidates, automationRuns, observations, rows] = await Promise.all([
+    db.qimenShadowReading.count(),
     db.qimenShadowCandidate.count(),
     db.qimenShadowObservation.count(),
     db.qimenShadowExperiment.count(),
+    db.qimenShadowReading.findMany({ orderBy: { decisionAt: "desc" }, take: Math.min(take, 100) }),
     db.qimenShadowCandidate.findMany({ orderBy: { decisionAt: "desc" }, take: Math.min(take, 100) }),
     db.qimenShadowAutomationRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
     db.qimenShadowObservation.findMany({ orderBy: { decisionAt: "desc" }, take, include: { experiment: { select: { id: true } } } }),
@@ -272,10 +281,12 @@ export async function getQimenShadowDashboard(limit = 300) {
   }
   return {
     generatedAt: new Date().toISOString(),
+    totalReadings,
     totalCandidates,
     totalObservations,
     totalExperiments,
     observations,
+    readings,
     candidates,
     automationRuns,
     pendingObservations: Math.max(0, totalObservations - totalExperiments),
@@ -283,6 +294,111 @@ export async function getQimenShadowDashboard(limit = 300) {
     summaries: summarizeQimenShadowTrials(trials),
     corruptExperiments,
   };
+}
+
+export async function registerQimenShadowReading(
+  input: QimenShadowReadingInput,
+  createdBy: string | null,
+  serverNow = new Date(),
+) {
+  const db = prisma;
+  if (!db) throw new Error("未配置数据库。");
+  const existing = await db.qimenShadowReading.findUnique({ where: { id: input.readingId } });
+  if (existing) {
+    const locked = verifyQimenShadowReadingRow(existing);
+    const submitted = { ...input, reading: { ...input.reading } };
+    const stored = {
+      readingId: locked.readingId,
+      studyKey: locked.studyKey,
+      formalForecastKind: locked.formalForecastKind,
+      formalForecastId: locked.formalForecastId,
+      horizon: locked.horizon,
+      decisionAt: locked.decisionAt,
+      evaluationDueAt: locked.evaluationDueAt,
+      reading: locked.reading,
+    };
+    if (canonicalJson(submitted) === canonicalJson(stored)) return { created: false, reading: existing };
+    throw new QimenShadowConflictError("奇门读数编号已存在且内容不同；禁止覆盖。需要修订时必须使用新的研究编号。");
+  }
+  const formal = await loadQimenFormalForecast(input);
+  let prepared: PreparedQimenShadowReading;
+  try {
+    prepared = prepareQimenShadowReading(input, formal);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "奇门读数不符合前瞻规则。");
+  }
+  if (serverNow.getTime() >= Date.parse(prepared.decisionAt)) throw new QimenShadowValidationError("奇门读数必须在决策时间之前由服务器接收。");
+  if (Date.parse(prepared.reading.recordedAt) > serverNow.getTime()) throw new QimenShadowValidationError("奇门读数记录时间不能晚于服务器接收时间。");
+  const immutablePayload = { schemaVersion: QIMEN_SHADOW_READING_SCHEMA, reading: prepared };
+  const sha256 = qimenShadowContentHash(immutablePayload);
+  try {
+    const reading = await db.qimenShadowReading.create({
+      data: {
+        id: prepared.readingId,
+        schemaVersion: QIMEN_SHADOW_READING_SCHEMA,
+        studyKey: prepared.studyKey,
+        schoolId: prepared.reading.schoolId,
+        formalForecastKind: prepared.formalForecastKind,
+        formalForecastId: prepared.formalForecastId,
+        formalForecastVersion: prepared.formalForecastVersion,
+        horizon: prepared.horizon,
+        decisionAt: new Date(prepared.decisionAt),
+        evaluationDueAt: new Date(prepared.evaluationDueAt),
+        direction: prepared.reading.direction,
+        confidence: prepared.reading.confidence,
+        readiness: prepared.reading.readiness,
+        sourceId: prepared.reading.sourceId,
+        chartId: prepared.reading.chartId,
+        recordedAt: new Date(prepared.reading.recordedAt),
+        evidenceSha256: prepared.reading.evidenceSha256,
+        readingSnapshot: asJson(prepared),
+        contentSha256: sha256,
+        createdBy,
+        createdAt: serverNow,
+      },
+    });
+    return { created: true, reading };
+  } catch (error) {
+    if (!isUniqueConflict(error)) throw error;
+    const concurrent = await db.qimenShadowReading.findUnique({ where: { id: input.readingId } });
+    if (concurrent?.contentSha256 === sha256) return { created: false, reading: concurrent };
+    throw new QimenShadowConflictError("奇门读数发生并发冲突，未覆盖任何内容。");
+  }
+}
+
+export function verifyQimenShadowReadingRow(row: {
+  id: string; schemaVersion: string; studyKey: string; schoolId: string;
+  formalForecastKind: string; formalForecastId: string; formalForecastVersion: string;
+  horizon: string; decisionAt: Date; evaluationDueAt: Date; direction: string;
+  confidence: number; readiness: string; sourceId: string; chartId: string;
+  recordedAt: Date; evidenceSha256: string; readingSnapshot: Prisma.JsonValue;
+  contentSha256: string; createdAt: Date;
+}): PreparedQimenShadowReading {
+  if (row.schemaVersion !== QIMEN_SHADOW_READING_SCHEMA) throw new Error("奇门读数版本不受支持。");
+  const prepared = row.readingSnapshot as unknown as PreparedQimenShadowReading;
+  const parsed = qimenShadowReadingSchema.safeParse({
+    readingId: prepared.readingId,
+    studyKey: prepared.studyKey,
+    formalForecastKind: prepared.formalForecastKind,
+    formalForecastId: prepared.formalForecastId,
+    horizon: prepared.horizon,
+    decisionAt: prepared.decisionAt,
+    evaluationDueAt: prepared.evaluationDueAt,
+    reading: prepared.reading,
+  });
+  const expectedHash = qimenShadowContentHash({ schemaVersion: row.schemaVersion, reading: row.readingSnapshot });
+  if (!parsed.success || expectedHash !== row.contentSha256) throw new Error("奇门读数快照结构或哈希无效。");
+  if (
+    prepared.readingId !== row.id || prepared.studyKey !== row.studyKey || prepared.reading.schoolId !== row.schoolId
+    || prepared.formalForecastKind !== row.formalForecastKind || prepared.formalForecastId !== row.formalForecastId
+    || prepared.formalForecastVersion !== row.formalForecastVersion || prepared.horizon !== row.horizon
+    || Date.parse(prepared.decisionAt) !== row.decisionAt.getTime() || Date.parse(prepared.evaluationDueAt) !== row.evaluationDueAt.getTime()
+    || prepared.reading.direction !== row.direction || prepared.reading.confidence !== row.confidence
+    || prepared.reading.readiness !== row.readiness || prepared.reading.sourceId !== row.sourceId
+    || prepared.reading.chartId !== row.chartId || Date.parse(prepared.reading.recordedAt) !== row.recordedAt.getTime()
+    || prepared.reading.evidenceSha256 !== row.evidenceSha256 || row.createdAt.getTime() >= row.decisionAt.getTime()
+  ) throw new Error("奇门读数元数据与不可变快照不一致。");
+  return prepared;
 }
 
 export async function registerQimenShadowCandidate(
@@ -316,7 +432,7 @@ export async function registerQimenShadowCandidate(
     if (canonicalJson(submitted) === canonicalJson(stored)) return { created: false, candidate: existing };
     throw new QimenShadowConflictError("候选编号已存在且内容不同；禁止覆盖。");
   }
-  const formal = await loadFormalForecast(input);
+  const formal = await loadQimenFormalForecast(input);
   let prepared: PreparedQimenShadowCandidate;
   try {
     prepared = prepareQimenShadowCandidate(input, formal);
@@ -375,6 +491,7 @@ export function verifyQimenShadowCandidateRow(row: {
     candidateId: prepared.candidateId,
     formalForecastKind: prepared.formalForecastKind,
     formalForecastId: prepared.formalForecastId,
+    expectedFormalForecastVersion: prepared.formalForecastVersion,
     horizon: prepared.horizon,
     decisionAt: prepared.decisionAt,
     evaluationDueAt: prepared.evaluationDueAt,
