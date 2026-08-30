@@ -11,7 +11,7 @@ const isoTime = z.string().min(20).max(40).refine((value) => Number.isFinite(Dat
 const boundedText = z.string().trim().min(1).max(200);
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/i, "证据哈希必须是SHA-256");
 
-const methodReadingSchema = z.object({
+export const qimenShadowMethodReadingSchema = z.object({
   schoolId: z.enum(["OBJECT_YONGSHEN", "DIRECTIONAL_PALACE"]),
   direction: z.enum(["UP", "DOWN", "SIDEWAYS"]),
   confidence: z.number().finite().min(0).max(100),
@@ -40,6 +40,7 @@ export const qimenShadowObservationSchema = z.object({
   observationId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
   formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
   formalForecastId: boundedText,
+  expectedFormalForecastVersion: z.string().regex(/^V[1-9]\d*$/).optional(),
   horizon: z.enum(["INTRADAY", "SWING", "POSITION"]),
   decisionAt: isoTime,
   evaluationDueAt: isoTime,
@@ -52,8 +53,23 @@ export const qimenShadowObservationSchema = z.object({
   target1: z.number().finite().positive(),
   target2: z.number().finite().positive(),
   target3: z.number().finite().positive(),
-  methodReadings: z.array(methodReadingSchema).max(2),
+  methodReadings: z.array(qimenShadowMethodReadingSchema).max(2),
 }).strict();
+
+export const qimenShadowCandidateSchema = z.object({
+  candidateId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
+  formalForecastKind: z.enum(["WEEKLY", "DAILY"]),
+  formalForecastId: boundedText,
+  horizon: z.enum(["INTRADAY", "SWING", "POSITION"]),
+  decisionAt: isoTime,
+  evaluationDueAt: isoTime,
+  methodReadings: z.array(qimenShadowMethodReadingSchema).length(2),
+}).strict().superRefine((value, context) => {
+  const schools = new Set(value.methodReadings.map((item) => item.schoolId));
+  if (schools.size !== 2 || !schools.has("OBJECT_YONGSHEN") || !schools.has("DIRECTIONAL_PALACE")) {
+    context.addIssue({ code: "custom", path: ["methodReadings"], message: "候选必须各包含一条对象用神与定向取宫读数" });
+  }
+});
 
 export const qimenShadowEvaluationSchema = z.object({
   observationId: z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9._:-]+$/),
@@ -62,12 +78,14 @@ export const qimenShadowEvaluationSchema = z.object({
 }).strict();
 
 export const qimenShadowAdminRequestSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("REGISTER_CANDIDATE"), candidate: qimenShadowCandidateSchema }).strict(),
   z.object({ action: z.literal("LOCK_OBSERVATION"), observation: qimenShadowObservationSchema }).strict(),
   z.object({ action: z.literal("EVALUATE"), evaluation: qimenShadowEvaluationSchema }).strict(),
 ]);
 
 export type QimenShadowObservationInput = z.infer<typeof qimenShadowObservationSchema>;
 export type QimenShadowEvaluationInput = z.infer<typeof qimenShadowEvaluationSchema>;
+export type QimenShadowCandidateInput = z.infer<typeof qimenShadowCandidateSchema>;
 
 export type QimenFormalForecastSnapshot = {
   kind: "WEEKLY" | "DAILY";
@@ -93,6 +111,24 @@ export type PreparedQimenShadowObservation = {
   evaluationDueAt: string;
 };
 
+export type PreparedQimenShadowCandidate = {
+  candidateId: string;
+  symbol: string;
+  horizon: QimenShadowSetup["horizon"];
+  officialDirection: QimenShadowSetup["officialDirection"];
+  formalForecastKind: "WEEKLY" | "DAILY";
+  formalForecastId: string;
+  formalForecastVersion: string;
+  forecastPublishedAt: string;
+  forecastLockedAt: string;
+  forecastValidFrom: string;
+  forecastValidUntil: string;
+  decisionAt: string;
+  evaluationDueAt: string;
+  candleIntervalMinutes: 60;
+  methodReadings: QimenShadowSetup["methodReadings"];
+};
+
 const LONG_DIRECTIONS = new Set(["上涨", "震荡上涨", "先跌后涨", "UP", "BULL", "LONG"]);
 const SHORT_DIRECTIONS = new Set(["下跌", "震荡下跌", "先涨后跌", "DOWN", "BEAR", "SHORT"]);
 
@@ -111,10 +147,50 @@ function marketBoundary(date: string, end: boolean): string {
   return parsed.toISOString();
 }
 
+export function prepareQimenShadowCandidate(
+  input: QimenShadowCandidateInput,
+  formal: QimenFormalForecastSnapshot,
+): PreparedQimenShadowCandidate {
+  if (formal.id !== input.formalForecastId || formal.kind !== input.formalForecastKind) throw new Error("正式预测绑定不匹配。");
+  if (formal.status !== "LOCKED" || !formal.publishedAt || !formal.lockedAt) throw new Error("只有已经发布并锁定的正式预测可以进入候选池。");
+  if (!Number.isInteger(formal.version) || formal.version < 1) throw new Error("正式预测版本无效。");
+  const direction = officialDirection(formal.direction);
+  const decisionAt = Date.parse(input.decisionAt);
+  const evaluationDueAt = Date.parse(input.evaluationDueAt);
+  const validFrom = Date.parse(marketBoundary(formal.periodStart, false));
+  const validUntil = Date.parse(marketBoundary(formal.periodEnd, true));
+  if (formal.publishedAt.getTime() > decisionAt || formal.lockedAt.getTime() > decisionAt || validFrom > decisionAt) {
+    throw new Error("候选决策时不存在有效、已发布且已锁定的正式预测。");
+  }
+  if (evaluationDueAt <= decisionAt || evaluationDueAt > validUntil) throw new Error("候选评估窗口超出正式预测有效期。");
+  if (decisionAt % 3_600_000 !== 0 || evaluationDueAt % 3_600_000 !== 0) throw new Error("自动采集第一版要求整点1小时窗口。");
+  const candleCount = (evaluationDueAt - decisionAt) / 3_600_000;
+  if (!Number.isInteger(candleCount) || candleCount < 1 || candleCount > 120) throw new Error("自动评价窗口必须包含1至120根1小时K线。");
+  if (input.methodReadings.some((item) => Date.parse(item.recordedAt) > decisionAt)) throw new Error("两种奇门读数必须在决策前记录。");
+  return {
+    candidateId: input.candidateId,
+    symbol: formal.marketCode.trim().toUpperCase(),
+    horizon: input.horizon,
+    officialDirection: direction,
+    formalForecastKind: input.formalForecastKind,
+    formalForecastId: formal.id,
+    formalForecastVersion: `V${formal.version}`,
+    forecastPublishedAt: formal.publishedAt.toISOString(),
+    forecastLockedAt: formal.lockedAt.toISOString(),
+    forecastValidFrom: new Date(validFrom).toISOString(),
+    forecastValidUntil: new Date(validUntil).toISOString(),
+    decisionAt: input.decisionAt,
+    evaluationDueAt: input.evaluationDueAt,
+    candleIntervalMinutes: 60,
+    methodReadings: [...input.methodReadings].sort((a, b) => a.schoolId.localeCompare(b.schoolId)),
+  };
+}
+
 export function prepareQimenShadowObservation(input: QimenShadowObservationInput, formal: QimenFormalForecastSnapshot): PreparedQimenShadowObservation {
   if (formal.id !== input.formalForecastId || formal.kind !== input.formalForecastKind) throw new Error("正式预测绑定不匹配。");
   if (formal.status !== "LOCKED" || !formal.publishedAt || !formal.lockedAt) throw new Error("只有已经发布并锁定的正式预测可以进入影子研究。");
   if (!Number.isInteger(formal.version) || formal.version < 1) throw new Error("正式预测版本无效。");
+  if (input.expectedFormalForecastVersion && input.expectedFormalForecastVersion !== `V${formal.version}`) throw new Error("正式预测版本已变化，自动观察拒绝绑定新版本。");
   if (Date.parse(input.evaluationDueAt) <= Date.parse(input.decisionAt)) throw new Error("评估到期时间必须晚于决策时间。");
   const setup: QimenShadowSetup = {
     experimentId: input.observationId,

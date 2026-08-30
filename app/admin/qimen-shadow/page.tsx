@@ -49,13 +49,44 @@ export default async function AdminQimenShadowPage() {
 
       {dashboard ? (
         <>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Card padding="md"><Text variant="caption" color="tertiary">前瞻候选</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.totalCandidates}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">实验总数</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.totalExperiments}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">已锁定待评估</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.pendingObservations}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">最近样本覆盖标的</Text><Heading as="h2" size="h3" className="mt-1">{new Set(dashboard.experiments.map((item) => item.symbol)).size}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">损坏快照</Text><Heading as="h2" size="h3" className="mt-1">{dashboard.corruptExperiments}</Heading></Card>
             <Card padding="md"><Text variant="caption" color="tertiary">LIVE权限</Text><Heading as="h2" size="h3" className="mt-1">永不授予</Heading></Card>
           </div>
+
+          <Card padding="lg" className="mt-6 overflow-x-auto">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Heading as="h2" size="h3">自动采集状态</Heading>
+                <Text variant="caption" color="tertiary" className="mt-1 block">第一版只处理 BTC、ETH、SOL、HYPE 的24小时市场；美股等待交易日历适配，不能拿隔夜缺口冒充连续1小时K线。</Text>
+              </div>
+              <Badge variant="outline">{dashboard.automationRuns[0]?.status ?? "尚未运行"}</Badge>
+            </div>
+            {dashboard.automationRuns.length ? (
+              <table className="mt-4 min-w-full text-left text-sm">
+                <thead className="text-white/50"><tr><th className="px-2 py-2">开始</th><th className="px-2 py-2">结束</th><th className="px-2 py-2">状态</th><th className="px-2 py-2">报告哈希</th></tr></thead>
+                <tbody>{dashboard.automationRuns.slice(0, 10).map((item) => (
+                  <tr key={item.id} className="border-t border-white/10"><td className="px-2 py-3">{item.startedAt.toISOString()}</td><td className="px-2 py-3">{item.finishedAt.toISOString()}</td><td className="px-2 py-3">{item.status}</td><td className="px-2 py-3 font-mono text-xs text-white/50">{item.contentSha256.slice(0, 16)}…</td></tr>
+                ))}</tbody>
+              </table>
+            ) : <Text variant="body-sm" color="secondary" className="mt-4">定时任务尚未产生运行记录；部署和迁移完成前不会假装已经启用。</Text>}
+          </Card>
+
+          <Card padding="lg" className="mt-6 overflow-x-auto">
+            <Heading as="h2" size="h3">未来双流派候选池</Heading>
+            {dashboard.candidates.length ? (
+              <table className="mt-4 min-w-full text-left text-sm">
+                <thead className="text-white/50"><tr><th className="px-2 py-2">候选编号</th><th className="px-2 py-2">标的</th><th className="px-2 py-2">决策时间</th><th className="px-2 py-2">预定评估</th><th className="px-2 py-2">正式预测绑定</th></tr></thead>
+                <tbody>{dashboard.candidates.slice(0, 50).map((item) => (
+                  <tr key={item.id} className="border-t border-white/10"><td className="px-2 py-3 font-mono text-xs">{item.id}</td><td className="px-2 py-3">{item.symbol}</td><td className="px-2 py-3">{item.decisionAt.toISOString()}</td><td className="px-2 py-3">{item.evaluationDueAt.toISOString()}</td><td className="px-2 py-3">{item.formalForecastId} · {item.formalForecastVersion}</td></tr>
+                ))}</tbody>
+              </table>
+            ) : <Text variant="body-sm" color="secondary" className="mt-4">尚无同时具备正式预测、对象用神读数和定向取宫读数的未来候选。缺一项就跳过，不由系统猜盘。</Text>}
+          </Card>
 
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {dashboard.summaries.map((item) => (

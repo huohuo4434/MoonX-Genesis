@@ -315,6 +315,44 @@ model QimenShadowExperiment {
   @@index([formalForecastId, formalForecastVersion])
 }
 
+/// Append-only future candidate. Both method readings must be present before
+/// the automation may capture a technical setup and create an observation.
+model QimenShadowCandidate {
+  id                    String   @id
+  schemaVersion         String
+  symbol                String
+  horizon               String
+  formalForecastKind    String
+  formalForecastId      String
+  formalForecastVersion String
+  decisionAt            DateTime
+  evaluationDueAt       DateTime
+  candleIntervalMinutes Int      @default(60)
+  methodSnapshot        Json
+  contentSha256         String   @unique
+  createdBy             String?
+  createdAt             DateTime @default(now())
+
+  @@index([decisionAt])
+  @@index([symbol, horizon, decisionAt])
+  @@index([formalForecastId, formalForecastVersion])
+}
+
+/// Append-only automation diagnostics. Runs never grant forecast or trading authority.
+model QimenShadowAutomationRun {
+  id             String   @id
+  schemaVersion  String
+  startedAt      DateTime
+  finishedAt     DateTime
+  status         String
+  reportSnapshot Json
+  contentSha256  String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+}
+
 model MasterRule {
   id                   String   @id
   ruleCode             String   @unique

@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   prepareQimenShadowEvaluation,
+  prepareQimenShadowCandidate,
   prepareQimenShadowObservation,
   qimenShadowAdminRequestSchema,
   type QimenFormalForecastSnapshot,
   type QimenShadowEvaluationInput,
+  type QimenShadowCandidateInput,
   type QimenShadowObservationInput,
 } from "@/lib/research/qimen-shadow-capture-core";
 
@@ -31,6 +33,19 @@ function observation(overrides: Partial<QimenShadowObservationInput> = {}): Qime
       { schoolId: "DIRECTIONAL_PALACE", direction: "UP", confidence: 57, readiness: "RESEARCH_ONLY", sourceId: "rabbit-0830", chartId: "chart-1", recordedAt: "2026-08-30T01:20:00.000Z", evidenceSha256: "b".repeat(64) },
       { schoolId: "OBJECT_YONGSHEN", direction: "UP", confidence: 66, readiness: "FORWARD_READY", sourceId: "wu-0830", chartId: "chart-1", recordedAt: "2026-08-30T01:10:00.000Z", evidenceSha256: "a".repeat(64) },
     ],
+    ...overrides,
+  };
+}
+
+function candidate(overrides: Partial<QimenShadowCandidateInput> = {}): QimenShadowCandidateInput {
+  return {
+    candidateId: "qimen-btc-20260830-auto-01",
+    formalForecastKind: "WEEKLY",
+    formalForecastId: "week-btc-20260829-v2",
+    horizon: "SWING",
+    decisionAt: "2026-08-30T02:00:00.000Z",
+    evaluationDueAt: "2026-08-30T04:00:00.000Z",
+    methodReadings: observation().methodReadings,
     ...overrides,
   };
 }
@@ -69,6 +84,7 @@ test("observation derives authority from formal storage and evaluation only repl
 });
 
 test("API schema separates pre-decision lock from post-decision evaluation", () => {
+  assert.equal(qimenShadowAdminRequestSchema.safeParse({ action: "REGISTER_CANDIDATE", candidate: candidate() }).success, true);
   assert.equal(qimenShadowAdminRequestSchema.safeParse({ action: "LOCK_OBSERVATION", observation: observation() }).success, true);
   assert.equal(qimenShadowAdminRequestSchema.safeParse({ action: "EVALUATE", evaluation: evaluation() }).success, true);
   assert.equal(qimenShadowAdminRequestSchema.safeParse({
@@ -77,6 +93,29 @@ test("API schema separates pre-decision lock from post-decision evaluation", () 
   assert.equal(qimenShadowAdminRequestSchema.safeParse({
     action: "EVALUATE", evaluation: { ...evaluation(), entryPrice: 1 },
   }).success, false);
+});
+
+test("future candidate requires both named method structures and derives authority only from locked formal storage", () => {
+  const prepared = prepareQimenShadowCandidate(candidate(), formal());
+  assert.equal(prepared.symbol, "BTC");
+  assert.equal(prepared.officialDirection, "LONG");
+  assert.equal(prepared.formalForecastVersion, "V2");
+  assert.equal(prepared.candleIntervalMinutes, 60);
+  assert.deepEqual(prepared.methodReadings.map((item) => item.schoolId), ["DIRECTIONAL_PALACE", "OBJECT_YONGSHEN"]);
+  assert.equal(qimenShadowAdminRequestSchema.safeParse({
+    action: "REGISTER_CANDIDATE",
+    candidate: candidate({ methodReadings: [observation().methodReadings[0]!] }),
+  }).success, false);
+  assert.throws(() => prepareQimenShadowCandidate(candidate({ decisionAt: "2026-08-30T02:30:00.000Z" }), formal()), /整点1小时窗口/);
+  assert.throws(() => prepareQimenShadowCandidate(candidate({ methodReadings: observation().methodReadings.map((item) => ({ ...item, recordedAt: "2026-08-30T02:01:00.000Z" })) }), formal()), /决策前记录/);
+  assert.throws(() => prepareQimenShadowCandidate(candidate(), formal({ status: "PUBLISHED" })), /已经发布并锁定/);
+});
+
+test("automatic observation refuses a changed formal version before any write", () => {
+  assert.throws(() => prepareQimenShadowObservation(
+    observation({ expectedFormalForecastVersion: "V1" }),
+    formal({ version: 2 }),
+  ), /版本已变化/);
 });
 
 test("unlocked, future-locked, mismatched, neutral and late technical evidence fail closed", () => {

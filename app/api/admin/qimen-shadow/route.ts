@@ -6,6 +6,7 @@ import {
   evaluateQimenShadowObservation,
   getQimenShadowDashboard,
   lockQimenShadowObservation,
+  registerQimenShadowCandidate,
   QimenShadowConflictError,
   QimenShadowValidationError,
 } from "@/lib/research/qimen-shadow-store";
@@ -37,10 +38,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "参数不完整", detail: parsed.error.flatten() }, { status: 400 });
   }
   try {
-    const result = parsed.data.action === "LOCK_OBSERVATION"
-      ? await lockQimenShadowObservation(parsed.data.observation, admin.id)
-      : await evaluateQimenShadowObservation(parsed.data.evaluation, admin.id);
-    const id = "observation" in result ? result.observation.id : result.experiment.id;
+    const result = parsed.data.action === "REGISTER_CANDIDATE"
+      ? await registerQimenShadowCandidate(parsed.data.candidate, admin.id)
+      : parsed.data.action === "LOCK_OBSERVATION"
+        ? await lockQimenShadowObservation(parsed.data.observation, admin.id)
+        : await evaluateQimenShadowObservation(parsed.data.evaluation, admin.id);
+    const id = "candidate" in result
+      ? result.candidate.id
+      : "observation" in result
+        ? result.observation.id
+        : result.experiment.id;
     return NextResponse.json(
       { ok: true, action: parsed.data.action, created: result.created, id },
       { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } },

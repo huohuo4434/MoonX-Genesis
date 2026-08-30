@@ -12,14 +12,19 @@ import {
 } from "@/lib/research/qimen-shadow-ab-core";
 import {
   prepareQimenShadowEvaluation,
+  prepareQimenShadowCandidate,
   prepareQimenShadowObservation,
+  qimenShadowCandidateSchema,
+  type PreparedQimenShadowCandidate,
   type PreparedQimenShadowObservation,
   type QimenFormalForecastSnapshot,
   type QimenShadowEvaluationInput,
+  type QimenShadowCandidateInput,
   type QimenShadowObservationInput,
 } from "@/lib/research/qimen-shadow-capture-core";
 
 const OBSERVATION_SCHEMA = "moox.qimen-shadow-observation.v1" as const;
+const CANDIDATE_SCHEMA = "moox.qimen-shadow-candidate.v1" as const;
 
 export class QimenShadowConflictError extends Error {}
 export class QimenShadowValidationError extends Error {}
@@ -35,11 +40,14 @@ function canonicalJson(value: unknown): string {
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
 }
 
-function contentHash(value: unknown): string {
+export function qimenShadowContentHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
-async function loadFormalForecast(input: QimenShadowObservationInput): Promise<QimenFormalForecastSnapshot> {
+async function loadFormalForecast(input: {
+  formalForecastKind: "WEEKLY" | "DAILY";
+  formalForecastId: string;
+}): Promise<QimenFormalForecastSnapshot> {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
   if (input.formalForecastKind === "WEEKLY") {
@@ -80,7 +88,7 @@ export async function lockQimenShadowObservation(
     throw new QimenShadowValidationError(error instanceof Error ? error.message : "观察单不符合前瞻规则。");
   }
   const immutablePayload = { schemaVersion: OBSERVATION_SCHEMA, ...prepared };
-  const sha256 = contentHash(immutablePayload);
+  const sha256 = qimenShadowContentHash(immutablePayload);
   if (existing) {
     if (existing.contentSha256 !== sha256) throw new QimenShadowConflictError("观察编号已存在且内容不同；前瞻观察禁止覆盖。");
     return { created: false, observation: existing };
@@ -116,7 +124,7 @@ export async function lockQimenShadowObservation(
   }
 }
 
-function verifiedObservation(row: {
+export function verifyQimenShadowObservationRow(row: {
   id: string;
   schemaVersion: string;
   symbol: string;
@@ -131,7 +139,7 @@ function verifiedObservation(row: {
   lockedAt: Date;
 }): PreparedQimenShadowObservation {
   if (row.schemaVersion !== OBSERVATION_SCHEMA) throw new Error("观察单版本不受支持。");
-  const expectedHash = contentHash({ schemaVersion: row.schemaVersion, ...(row.setupSnapshot as object) });
+  const expectedHash = qimenShadowContentHash({ schemaVersion: row.schemaVersion, ...(row.setupSnapshot as object) });
   if (expectedHash !== row.contentSha256) throw new Error("观察单快照校验失败。");
   const prepared = row.setupSnapshot as unknown as PreparedQimenShadowObservation;
   const setup = prepared.setup;
@@ -156,7 +164,7 @@ export async function evaluateQimenShadowObservation(
   if (!observation) throw new QimenShadowValidationError("找不到已锁定的前瞻观察单。");
   let locked: PreparedQimenShadowObservation;
   try {
-    locked = verifiedObservation(observation);
+    locked = verifyQimenShadowObservationRow(observation);
   } catch (error) {
     throw new QimenShadowValidationError(error instanceof Error ? error.message : "前瞻观察单校验失败。");
   }
@@ -173,7 +181,7 @@ export async function evaluateQimenShadowObservation(
     candles: prepared.candles,
     trials: prepared.trials,
   };
-  const sha256 = contentHash(immutablePayload);
+  const sha256 = qimenShadowContentHash(immutablePayload);
   const existing = await db.qimenShadowExperiment.findUnique({ where: { observationId: observation.id } });
   if (existing) {
     if (existing.contentSha256 !== sha256) throw new QimenShadowConflictError("该观察单已有不同评估；历史结果禁止覆盖。");
@@ -224,9 +232,9 @@ function verifiedTrials(row: {
     setupSnapshot: Prisma.JsonValue; contentSha256: string; lockedAt: Date;
   };
 }): QimenShadowTrial[] {
-  const observation = verifiedObservation(row.observation);
+  const observation = verifyQimenShadowObservationRow(row.observation);
   if (row.schemaVersion !== QIMEN_SHADOW_LEDGER_SCHEMA || row.observationId !== observation.setup.experimentId) throw new Error("实验版本或观察绑定无效。");
-  const expectedHash = contentHash({
+  const expectedHash = qimenShadowContentHash({
     schemaVersion: row.schemaVersion, observationSha256: row.observation.contentSha256,
     setup: row.setupSnapshot, candles: row.candleSnapshot, trials: row.trialSnapshot,
   });
@@ -248,9 +256,12 @@ export async function getQimenShadowDashboard(limit = 300) {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
   const take = Math.max(1, Math.min(1000, limit));
-  const [totalObservations, totalExperiments, observations, rows] = await Promise.all([
+  const [totalCandidates, totalObservations, totalExperiments, candidates, automationRuns, observations, rows] = await Promise.all([
+    db.qimenShadowCandidate.count(),
     db.qimenShadowObservation.count(),
     db.qimenShadowExperiment.count(),
+    db.qimenShadowCandidate.findMany({ orderBy: { decisionAt: "desc" }, take: Math.min(take, 100) }),
+    db.qimenShadowAutomationRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
     db.qimenShadowObservation.findMany({ orderBy: { decisionAt: "desc" }, take, include: { experiment: { select: { id: true } } } }),
     db.qimenShadowExperiment.findMany({ orderBy: { decisionAt: "desc" }, take, include: { observation: true } }),
   ]);
@@ -261,12 +272,125 @@ export async function getQimenShadowDashboard(limit = 300) {
   }
   return {
     generatedAt: new Date().toISOString(),
+    totalCandidates,
     totalObservations,
     totalExperiments,
     observations,
+    candidates,
+    automationRuns,
     pendingObservations: Math.max(0, totalObservations - totalExperiments),
     experiments: rows,
     summaries: summarizeQimenShadowTrials(trials),
     corruptExperiments,
   };
+}
+
+export async function registerQimenShadowCandidate(
+  input: QimenShadowCandidateInput,
+  createdBy: string | null,
+  serverNow = new Date(),
+) {
+  const db = prisma;
+  if (!db) throw new Error("未配置数据库。");
+  const existing = await db.qimenShadowCandidate.findUnique({ where: { id: input.candidateId } });
+  if (existing) {
+    const locked = verifyQimenShadowCandidateRow(existing);
+    const submitted = {
+      candidateId: input.candidateId,
+      formalForecastKind: input.formalForecastKind,
+      formalForecastId: input.formalForecastId,
+      horizon: input.horizon,
+      decisionAt: input.decisionAt,
+      evaluationDueAt: input.evaluationDueAt,
+      methodReadings: [...input.methodReadings].sort((a, b) => a.schoolId.localeCompare(b.schoolId)),
+    };
+    const stored = {
+      candidateId: locked.candidateId,
+      formalForecastKind: locked.formalForecastKind,
+      formalForecastId: locked.formalForecastId,
+      horizon: locked.horizon,
+      decisionAt: locked.decisionAt,
+      evaluationDueAt: locked.evaluationDueAt,
+      methodReadings: [...locked.methodReadings],
+    };
+    if (canonicalJson(submitted) === canonicalJson(stored)) return { created: false, candidate: existing };
+    throw new QimenShadowConflictError("候选编号已存在且内容不同；禁止覆盖。");
+  }
+  const formal = await loadFormalForecast(input);
+  let prepared: PreparedQimenShadowCandidate;
+  try {
+    prepared = prepareQimenShadowCandidate(input, formal);
+  } catch (error) {
+    throw new QimenShadowValidationError(error instanceof Error ? error.message : "候选不符合前瞻规则。");
+  }
+  const immutablePayload = { schemaVersion: CANDIDATE_SCHEMA, candidate: prepared };
+  const sha256 = qimenShadowContentHash(immutablePayload);
+  if (serverNow.getTime() >= Date.parse(prepared.decisionAt)) throw new QimenShadowValidationError("候选必须在决策时间之前锁定。");
+  try {
+    const candidate = await db.qimenShadowCandidate.create({
+      data: {
+        id: prepared.candidateId,
+        schemaVersion: CANDIDATE_SCHEMA,
+        symbol: prepared.symbol,
+        horizon: prepared.horizon,
+        formalForecastKind: prepared.formalForecastKind,
+        formalForecastId: prepared.formalForecastId,
+        formalForecastVersion: prepared.formalForecastVersion,
+        decisionAt: new Date(prepared.decisionAt),
+        evaluationDueAt: new Date(prepared.evaluationDueAt),
+        candleIntervalMinutes: prepared.candleIntervalMinutes,
+        methodSnapshot: asJson(prepared),
+        contentSha256: sha256,
+        createdBy,
+        createdAt: serverNow,
+      },
+    });
+    return { created: true, candidate };
+  } catch (error) {
+    if (!isUniqueConflict(error)) throw error;
+    const concurrent = await db.qimenShadowCandidate.findUnique({ where: { id: input.candidateId } });
+    if (concurrent?.contentSha256 === sha256) return { created: false, candidate: concurrent };
+    throw new QimenShadowConflictError("候选发生并发冲突，未覆盖任何内容。");
+  }
+}
+
+export function verifyQimenShadowCandidateRow(row: {
+  id: string;
+  schemaVersion: string;
+  symbol: string;
+  horizon: string;
+  formalForecastKind: string;
+  formalForecastId: string;
+  formalForecastVersion: string;
+  decisionAt: Date;
+  evaluationDueAt: Date;
+  candleIntervalMinutes: number;
+  methodSnapshot: Prisma.JsonValue;
+  contentSha256: string;
+  createdAt: Date;
+}): PreparedQimenShadowCandidate {
+  if (row.schemaVersion !== CANDIDATE_SCHEMA) throw new Error("候选版本不受支持。");
+  const prepared = row.methodSnapshot as unknown as PreparedQimenShadowCandidate;
+  const parsedSource = qimenShadowCandidateSchema.safeParse({
+    candidateId: prepared.candidateId,
+    formalForecastKind: prepared.formalForecastKind,
+    formalForecastId: prepared.formalForecastId,
+    horizon: prepared.horizon,
+    decisionAt: prepared.decisionAt,
+    evaluationDueAt: prepared.evaluationDueAt,
+    methodReadings: prepared.methodReadings,
+  });
+  if (!parsedSource.success || !["LONG", "SHORT"].includes(prepared.officialDirection) || prepared.candleIntervalMinutes !== 60) {
+    throw new Error("候选不可变快照结构无效。");
+  }
+  const expectedHash = qimenShadowContentHash({ schemaVersion: row.schemaVersion, candidate: row.methodSnapshot });
+  if (expectedHash !== row.contentSha256) throw new Error("候选快照哈希校验失败。");
+  if (
+    prepared.candidateId !== row.id || prepared.symbol !== row.symbol || prepared.horizon !== row.horizon
+    || prepared.formalForecastKind !== row.formalForecastKind || prepared.formalForecastId !== row.formalForecastId
+    || prepared.formalForecastVersion !== row.formalForecastVersion || Date.parse(prepared.decisionAt) !== row.decisionAt.getTime()
+    || Date.parse(prepared.evaluationDueAt) !== row.evaluationDueAt.getTime()
+    || prepared.candleIntervalMinutes !== row.candleIntervalMinutes || row.createdAt.getTime() >= row.decisionAt.getTime()
+  ) throw new Error("候选元数据与不可变快照不一致。");
+  return prepared;
 }

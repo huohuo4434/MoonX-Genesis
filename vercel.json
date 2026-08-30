@@ -79,6 +79,10 @@
     {
       "path": "/api/cron/strategy-ensemble",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/qimen-shadow",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
