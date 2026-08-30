@@ -15,6 +15,9 @@ import { listVibeEvidence } from "@/lib/data/vibe/store";
 import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
 import { LIUYAO_2026_ANNUAL_COVERAGE_SUMMARY } from "@/lib/research/liuyao-annual-coverage-2026";
 import { listSocialCardsForDate } from "@/lib/social-cards/store";
+import { getMasterIntelligenceStoreHealth } from "@/lib/master-intelligence/store";
+import { getTeacherKnowledgeStoreHealth } from "@/lib/teacher-knowledge/store";
+import type { ResearchStoreHealth } from "@/lib/research/research-store-health-core";
 
 export type SiteHealthSection = {
   key: string;
@@ -29,6 +32,7 @@ export type SiteHealthReport = {
   beijingDate: string;
   status: "OK" | "ATTENTION";
   sections: SiteHealthSection[];
+  researchStores: ResearchStoreHealth[];
   automation: {
     cronSecretConfigured: boolean;
     bitgetConfigured: boolean;
@@ -67,10 +71,12 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
   const todayExpected = CORE_TOMORROW_ASSETS.filter((item) => isTradingDay(item.market, todayKey));
   const weeklySlots = buildWeeklyMarketSlots(now);
   const monthly = listCurrentMonthlyMarketOutlooks();
-  const [focusCards, vibeRows, socialCardsToday] = await Promise.all([
+  const [focusCards, vibeRows, socialCardsToday, teacherStore, masterStore] = await Promise.all([
     listPublicConvictionCards(),
     listVibeEvidence(),
     listSocialCardsForDate(todayKey),
+    getTeacherKnowledgeStoreHealth(),
+    getMasterIntelligenceStoreHealth(),
   ]);
   const focusIds = new Set(focusCards.map((item) => item.id));
   const vibeIds = new Set(
@@ -176,12 +182,15 @@ export async function buildSiteHealthReport(now = new Date()): Promise<SiteHealt
     },
   ];
 
-  const hasMissing = sections.some((section) => section.missing.length > 0);
+  const hasMissing = sections.some((section) => section.missing.length > 0)
+    || teacherStore.state !== "READY"
+    || masterStore.state !== "READY";
   return {
     generatedAt: now.toISOString(),
     beijingDate: todayKey,
     status: hasMissing ? "ATTENTION" : "OK",
     sections,
+    researchStores: [teacherStore, masterStore],
     automation: {
       cronSecretConfigured: Boolean(process.env.CRON_SECRET),
       bitgetConfigured: Boolean(

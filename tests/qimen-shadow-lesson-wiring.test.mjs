@@ -103,7 +103,8 @@ test("课程定时路由维持CRON_SECRET鉴权并给双模型调用足够但有
   assert.match(route, /process\.env\.CRON_SECRET/);
   assert.match(route, /authorization/);
   assert.match(route, /export const maxDuration = 60/);
-  assert.match(route, /const deadlineMs = Date\.now\(\) \+ 55_000/);
+  assert.match(route, /const requestStartedMs = Date\.now\(\)/);
+  assert.match(route, /const deadlineMs = requestStartedMs \+ 55_000/);
   assert.match(route, /\{ deadlineMs \}/);
   assert.match(route, /status: 401/);
   assert.match(route, /processPendingTeacherKnowledgeLessons/);
@@ -130,7 +131,7 @@ test("课程定时路由维持CRON_SECRET鉴权并给双模型调用足够但有
   }
   const teacherStore = read("lib/teacher-knowledge/store.ts");
   const updateStart = teacherStore.indexOf("export async function updateLessonWithVersion");
-  const updateEnd = teacherStore.indexOf("export async function listRules", updateStart);
+  const updateEnd = teacherStore.indexOf("export async function touchTeacherKnowledgeLessonProcessingAttempt", updateStart);
   const updateBody = teacherStore.slice(updateStart, updateEnd);
   assert.equal((updateBody.match(/await loadStore\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(updateBody, /await getLesson\(/);
@@ -142,5 +143,7 @@ test("课程定时路由维持CRON_SECRET鉴权并给双模型调用足够但有
   ]) assert.match(read(path), /AbortSignal\.timeout/);
   assert.match(read("lib/teacher-knowledge/pipeline.ts"), /RUN_BUDGET_EXHAUSTED_BEFORE_START/);
   assert.match(read("lib/master-intelligence/pipeline.ts"), /RUN_BUDGET_EXHAUSTED_BEFORE_START/);
-  assert.match(read("lib/master-intelligence/pipeline.ts"), /Scheduled run skips unbounded media download/);
+  assert.doesNotMatch(read("lib/master-intelligence/pipeline.ts"), /Scheduled run skips unbounded media download/);
+  assert.match(read("lib/master-intelligence/pipeline.ts"), /downloadLessonMedia\(lesson\.mediaPath/);
+  assert.match(read("lib/master-intelligence/storage.ts"), /AbortSignal\.timeout/);
 });

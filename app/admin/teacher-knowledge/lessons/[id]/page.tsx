@@ -16,6 +16,9 @@ type Lesson = {
   status: string;
   version: number;
   qimenShadowExtraction: unknown | null;
+  automationAttemptCount?: number;
+  automationNextRetryAt?: string | null;
+  automationLastError?: string | null;
 };
 
 type QimenShadowReport = {
@@ -112,6 +115,14 @@ export default function TeacherLessonDetailPage() {
         <Text variant="body-sm" color="secondary" className="mt-2 mb-4">
           状态 {lesson.status} · 版本 v{lesson.version}
         </Text>
+        {(lesson.automationAttemptCount ?? 0) > 0 ? (
+          <Text variant="body-sm" color="secondary" className="mb-4">
+            {(lesson.automationAttemptCount ?? 0) >= 3
+              ? "自动补偿已停止，点击“AI整理课程”可人工重试"
+              : `自动补偿重试 ${lesson.automationAttemptCount}/3 · 下次 ${lesson.automationNextRetryAt || "待调度"}`}
+            {lesson.automationLastError ? ` · 最近失败：${lesson.automationLastError}` : ""}
+          </Text>
+        ) : null}
         <div className="mb-4 flex flex-wrap gap-2">
           <Link href="/admin/teacher-knowledge" className="text-body-sm underline">
             ← 知识库

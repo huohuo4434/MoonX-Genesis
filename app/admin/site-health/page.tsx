@@ -3,6 +3,7 @@ import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { buildSiteHealthReport } from "@/lib/admin/site-health";
 import { countPendingPaymentOrders } from "@/lib/payments/payment-orders-store";
 import { requireAdminOrRedirect } from "@/lib/auth/permissions";
+import { ResearchStoreHealthClient } from "@/components/admin/ResearchStoreHealthClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,6 +47,7 @@ export default async function AdminSiteHealthPage() {
           <Text variant="body-sm">今日社交卡：{report.automation.socialCardsToday} 张</Text>
           <Text variant="caption" color="tertiary">{report.automation.note}</Text>
         </Card>
+        <ResearchStoreHealthClient initialStores={report.researchStores} />
       </Section>
     </main>
   );

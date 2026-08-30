@@ -53,6 +53,9 @@ export type TeacherLessonRecord = {
     lastOutcomeSha256: string | null;
     lastModelStatus: string;
   } | null;
+  automationAttemptCount?: number;
+  automationNextRetryAt?: string | null;
+  automationLastError?: string | null;
   status: LessonStatus;
   version: number;
   createdBy: string | null;

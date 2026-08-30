@@ -2,6 +2,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { requireAdminOrNotFound } from "@/lib/auth/require-admin-or-404";
 import { getQimenShadowDashboard } from "@/lib/research/qimen-shadow-store";
+import { buildQimenLearningProgress, presentQimenAutomationRun } from "@/lib/research/qimen-shadow-ops-core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,6 +28,8 @@ export default async function AdminQimenShadowPage() {
   } catch (error) {
     loadError = error instanceof Error ? error.message : "读取失败";
   }
+  const automation = presentQimenAutomationRun(dashboard?.automationRuns[0]);
+  const learningProgress = buildQimenLearningProgress(dashboard?.summaries ?? []);
 
   return (
     <main className="mx-auto w-full max-w-[1500px] px-4 py-8 sm:px-6">
@@ -65,7 +68,15 @@ export default async function AdminQimenShadowPage() {
                 <Heading as="h2" size="h3">自动采集状态</Heading>
                 <Text variant="caption" color="tertiary" className="mt-1 block">第一版只处理 BTC、ETH、SOL、HYPE 的24小时市场；美股等待交易日历适配，不能拿隔夜缺口冒充连续1小时K线。</Text>
               </div>
-              <Badge variant="outline">{dashboard.automationRuns[0]?.status ?? "尚未运行"}</Badge>
+              <Badge variant={automation.failed ? "warning" : "outline"}>{automation.status}</Badge>
+            </div>
+            <div className="mt-4 rounded-lg border border-border/[0.1] p-4">
+              <Text variant="body-sm" weight="semibold">{automation.headline}</Text>
+              <Text variant="caption" color="secondary" className="mt-1 block">{automation.detail}</Text>
+              <Text variant="caption" color="tertiary" className="mt-2 block">
+                新增 {automation.created} · 跳过 {automation.skipped} · 失败 {automation.failed}
+                {automation.nextRunAt ? ` · 下次预计检查 ${automation.nextRunAt}` : ""}
+              </Text>
             </div>
             {dashboard.automationRuns.length ? (
               <table className="mt-4 min-w-full text-left text-sm">
@@ -75,6 +86,35 @@ export default async function AdminQimenShadowPage() {
                 ))}</tbody>
               </table>
             ) : <Text variant="body-sm" color="secondary" className="mt-4">定时任务尚未产生运行记录；部署和迁移完成前不会假装已经启用。</Text>}
+          </Card>
+
+          <Card padding="lg" className="mt-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Heading as="h2" size="h3">方法学习进度</Heading>
+                <Text variant="caption" color="tertiary" className="mt-1 block">
+                  对象用神读数 {dashboard.readingSchoolCounts.OBJECT_YONGSHEN ?? 0} · 定向取宫读数 {dashboard.readingSchoolCounts.DIRECTIONAL_PALACE ?? 0}。进度取“观察数、覆盖天数、有效模拟入场”三项中的最低值。
+                </Text>
+              </div>
+              <Badge variant="outline">只做前瞻研究</Badge>
+            </div>
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              {learningProgress.map((item) => (
+                <div key={item.variantId} className="rounded-lg border border-border/[0.1] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <Text variant="body-sm" weight="semibold">{variantLabels[item.variantId] ?? item.variantId}</Text>
+                    <Text variant="body-sm" weight="semibold">{item.overallPercent}%</Text>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full bg-cyan-400" style={{ width: `${item.overallPercent}%` }} />
+                  </div>
+                  <Text variant="caption" color="secondary" className="mt-3 block">
+                    观察 {item.observations}/30 · 覆盖 {item.stableDays}/30 天 · 模拟入场 {item.entered}/10
+                  </Text>
+                  <Text variant="caption" color="tertiary" className="mt-1 block">下一步：{item.nextNeed}</Text>
+                </div>
+              ))}
+            </div>
           </Card>
 
           <Card padding="lg" className="mt-6 overflow-x-auto">

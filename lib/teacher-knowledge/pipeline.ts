@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { extractQimenLessonReadings } from "@/lib/research/qimen-shadow-lesson-extract";
 import { extractTeacherKnowledge } from "@/lib/teacher-knowledge/extract";
 import {
@@ -8,7 +10,13 @@ import {
   listLessons,
   saveDraftExtraction,
   saveTeacherKnowledgeQimenBackfill,
+  touchTeacherKnowledgeLessonProcessingAttempt,
 } from "@/lib/teacher-knowledge/store";
+import {
+  acquireQimenLessonProcessingLease,
+  releaseQimenLessonProcessingLease,
+} from "@/lib/research/qimen-lesson-automation-lease";
+import { isLessonAutomationRetryDue } from "@/lib/research/lesson-processing-retry-core";
 
 function boundedModelTimeout(deadlineMs?: number): number {
   if (!deadlineMs) return 20_000;
@@ -20,29 +28,45 @@ export async function analyzeTeacherKnowledgeLesson(
   changedBy: string | null = null,
   options: { deadlineMs?: number } = {},
 ) {
-  const lesson = await getLesson(lessonId);
-  if (!lesson) throw new Error("课程不存在");
-  const [extracted, qimenShadowExtraction] = await Promise.all([
-    extractTeacherKnowledge(lesson.rawTranscript, { timeoutMs: boundedModelTimeout(options.deadlineMs) }),
-    extractQimenLessonReadings({ transcript: lesson.rawTranscript, timeoutMs: boundedModelTimeout(options.deadlineMs) }),
-  ]);
-  await saveDraftExtraction(lesson.id, {
-    summary: extracted.summary,
-    cleanedTranscript: extracted.cleanedTranscript,
-    rules: extracted.rules,
-    cases: extracted.cases,
-    concepts: extracted.concepts,
-    quotes: extracted.quotes,
-    methods: extracted.methods,
-    qimenShadowExtraction,
-    changedBy,
-  });
-  return { extracted, qimenShadowExtraction };
+  const owner = randomUUID();
+  const acquired = await acquireQimenLessonProcessingLease({ lessonId, owner, ttlMs: 70_000 });
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  if (isProd && !acquired) throw new Error("同一课程正在由另一任务处理；本轮安全跳过");
+  try {
+    const lesson = await getLesson(lessonId);
+    if (!lesson) throw new Error("课程不存在");
+    const [extracted, qimenShadowExtraction] = await Promise.all([
+      extractTeacherKnowledge(lesson.rawTranscript, { timeoutMs: boundedModelTimeout(options.deadlineMs) }),
+      extractQimenLessonReadings({ transcript: lesson.rawTranscript, timeoutMs: boundedModelTimeout(options.deadlineMs) }),
+    ]);
+    await saveDraftExtraction(lesson.id, {
+      summary: extracted.summary,
+      cleanedTranscript: extracted.cleanedTranscript,
+      rules: extracted.rules,
+      cases: extracted.cases,
+      concepts: extracted.concepts,
+      quotes: extracted.quotes,
+      methods: extracted.methods,
+      qimenShadowExtraction,
+      changedBy,
+    });
+    return { extracted, qimenShadowExtraction };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI整理失败";
+    await touchTeacherKnowledgeLessonProcessingAttempt(lessonId, message).catch(() => undefined);
+    throw error;
+  } finally {
+    if (acquired) await releaseQimenLessonProcessingLease(lessonId, owner).catch(() => undefined);
+  }
 }
 
 export async function processPendingTeacherKnowledgeLessons(limit = 5, options: { deadlineMs?: number } = {}) {
   const take = Math.max(1, Math.min(10, Math.trunc(limit)));
-  const pending = (await listLessons()).filter((lesson) => lesson.status === "DRAFT").slice(0, take);
+  const pending = (await listLessons())
+    .filter((lesson) => lesson.status === "DRAFT")
+    .filter((lesson) => isLessonAutomationRetryDue(lesson))
+    .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
+    .slice(0, take);
   const results: Array<{ id: string; status: "REVIEWING" | "FAILED"; message: string }> = [];
   for (const lesson of pending) {
     if (options.deadlineMs && Date.now() >= options.deadlineMs - 2_000) {

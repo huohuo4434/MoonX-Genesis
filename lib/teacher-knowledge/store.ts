@@ -32,6 +32,15 @@ import {
   renewQimenStoreWriteLease,
   releaseQimenStoreWriteLease,
 } from "@/lib/research/qimen-lesson-automation-lease";
+import {
+  isMissingResearchStoreObject,
+  researchStoreReady,
+  researchStoreUnavailable,
+  safeResearchStoreError,
+  type ResearchStoreHealth,
+  type ResearchStoreInitializationResult,
+} from "@/lib/research/research-store-health-core";
+import { registerLessonAutomationFailure } from "@/lib/research/lesson-processing-retry-core";
 
 type StoreFile = {
   version: 1;
@@ -106,6 +115,40 @@ function normalizeStore(input: Partial<StoreFile> | null | undefined): StoreFile
   };
 }
 
+export function isValidTeacherKnowledgeStore(value: unknown): value is StoreFile {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<StoreFile>;
+  const seq = row.seq;
+  return row.version === 1
+    && typeof row.updatedAt === "string"
+    && Array.isArray(row.lessons)
+    && Array.isArray(row.versions)
+    && Array.isArray(row.rules)
+    && Array.isArray(row.cases)
+    && Array.isArray(row.concepts)
+    && Array.isArray(row.quotes)
+    && Array.isArray(row.methods)
+    && Array.isArray(row.conflicts)
+    && Array.isArray(row.aiReaderLogs)
+    && Boolean(seq)
+    && Number.isInteger(seq?.lesson)
+    && Number.isInteger(seq?.rule)
+    && Number.isInteger(seq?.case)
+    && (seq?.lesson ?? -1) >= 0
+    && (seq?.rule ?? -1) >= 0
+    && (seq?.case ?? -1) >= 0;
+}
+
+function teacherCounts(store: StoreFile): Record<string, number> {
+  return {
+    lessons: store.lessons.length,
+    rules: store.rules.length,
+    cases: store.cases.length,
+    methods: store.methods.length,
+    conflicts: store.conflicts.length,
+  };
+}
+
 function readSeed(): StoreFile {
   return normalizeStore(seedData as unknown as Partial<StoreFile>);
 }
@@ -136,14 +179,12 @@ function mergeSeed(current: StoreFile): StoreFile {
 }
 
 function readLocal(): StoreFile {
-  try {
-    const local = existsSync(LOCAL)
-      ? normalizeStore(JSON.parse(readFileSync(LOCAL, "utf8")) as Partial<StoreFile>)
-      : empty();
-    return mergeSeed(local);
-  } catch {
-    return mergeSeed(empty());
+  if (!existsSync(LOCAL)) return mergeSeed(empty());
+  const parsed = JSON.parse(readFileSync(LOCAL, "utf8")) as unknown;
+  if (!isValidTeacherKnowledgeStore(parsed)) {
+    throw new Error("老师知识库本地对象结构无效，拒绝读取或覆盖。");
   }
+  return mergeSeed(normalizeStore(parsed));
 }
 
 function writeLocal(store: StoreFile) {
@@ -160,8 +201,8 @@ async function loadStore(): Promise<StoreFile> {
     if (admin) {
       const { data, error } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
       if (data) {
-        const parsed = JSON.parse(await data.text()) as Partial<StoreFile>;
-        if (typeof parsed.updatedAt === "string" && Array.isArray(parsed.lessons)) return mergeSeed(normalizeStore(parsed));
+        const parsed = JSON.parse(await data.text()) as unknown;
+        if (isValidTeacherKnowledgeStore(parsed)) return mergeSeed(normalizeStore(parsed));
       }
       if (isProd) throw new Error(`老师知识库读取失败：${error?.message ?? "远端文件缺失或结构无效"}`);
     }
@@ -169,6 +210,92 @@ async function loadStore(): Promise<StoreFile> {
     if (isProd) throw error;
   }
   return readLocal();
+}
+
+export async function getTeacherKnowledgeStoreHealth(): Promise<ResearchStoreHealth> {
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  try {
+    const { getAdminClient } = await import("@/lib/supabase/admin");
+    const admin = getAdminClient();
+    if (admin) {
+      const { data, error } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
+      if (error || !data) {
+        return researchStoreUnavailable({
+          id: "teacher-knowledge",
+          label: "老师原始笔记知识库",
+          backend: "SUPABASE",
+          state: isMissingResearchStoreObject(error) ? "MISSING" : "ERROR",
+          updatedAt: null,
+          counts: {},
+          detail: isMissingResearchStoreObject(error) ? "远端对象尚未初始化" : safeResearchStoreError(error),
+        });
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(await data.text()) as unknown;
+      } catch {
+        return researchStoreUnavailable({
+          id: "teacher-knowledge",
+          label: "老师原始笔记知识库",
+          backend: "SUPABASE",
+          state: "INVALID",
+          updatedAt: null,
+          counts: {},
+          detail: "远端对象不是有效 JSON；为避免覆盖，系统已停止写入",
+        });
+      }
+      if (!isValidTeacherKnowledgeStore(parsed)) {
+        return researchStoreUnavailable({
+          id: "teacher-knowledge",
+          label: "老师原始笔记知识库",
+          backend: "SUPABASE",
+          state: "INVALID",
+          updatedAt: null,
+          counts: {},
+          detail: "远端对象存在，但结构不完整；为避免覆盖，系统已停止写入",
+        });
+      }
+      const store = mergeSeed(normalizeStore(parsed));
+      return researchStoreReady({
+        id: "teacher-knowledge",
+        label: "老师原始笔记知识库",
+        backend: "SUPABASE",
+        updatedAt: store.updatedAt,
+        counts: teacherCounts(store),
+        detail: "远端对象可读且结构完整",
+      });
+    }
+  } catch (error) {
+    return researchStoreUnavailable({
+      id: "teacher-knowledge",
+      label: "老师原始笔记知识库",
+      backend: isProd ? "SUPABASE" : "LOCAL",
+      state: "ERROR",
+      updatedAt: null,
+      counts: {},
+      detail: safeResearchStoreError(error),
+    });
+  }
+  if (isProd) {
+    return researchStoreUnavailable({
+      id: "teacher-knowledge",
+      label: "老师原始笔记知识库",
+      backend: "SUPABASE",
+      state: "UNCONFIGURED",
+      updatedAt: null,
+      counts: {},
+      detail: "生产环境缺少 Supabase 服务端配置",
+    });
+  }
+  const local = readLocal();
+  return researchStoreReady({
+    id: "teacher-knowledge",
+    label: "老师原始笔记知识库",
+    backend: "LOCAL",
+    updatedAt: local.updatedAt,
+    counts: teacherCounts(local),
+    detail: existsSync(LOCAL) ? "使用本地开发存储" : "使用内置种子；尚未产生本地写入文件",
+  });
 }
 
 async function persistStore(store: StoreFile): Promise<void> {
@@ -187,8 +314,8 @@ async function persistStore(store: StoreFile): Promise<void> {
     if (admin) {
       const { data: currentData, error: currentError } = await admin.storage.from(BUCKET).download(REMOTE_FILE);
       if (currentError || !currentData) throw new Error(`老师知识库写前校验失败：${currentError?.message ?? "远端文件缺失"}`);
-      const currentRaw = JSON.parse(await currentData.text()) as Partial<StoreFile>;
-      if (typeof currentRaw.updatedAt !== "string" || !Array.isArray(currentRaw.lessons)) throw new Error("老师知识库写前校验失败：远端版本或课程字段缺失。");
+      const currentRaw = JSON.parse(await currentData.text()) as unknown;
+      if (!isValidTeacherKnowledgeStore(currentRaw)) throw new Error("老师知识库写前校验失败：远端对象结构无效。");
       const current = normalizeStore(currentRaw);
       if (current.updatedAt !== baseUpdatedAt) throw new Error("老师知识库版本已变化，拒绝覆盖并请重试。");
       if (acquired && !await renewQimenStoreWriteLease({ storeId: "teacher-knowledge", owner })) {
@@ -212,6 +339,44 @@ async function persistStore(store: StoreFile): Promise<void> {
   } finally {
     if (acquired) await releaseQimenStoreWriteLease("teacher-knowledge", owner).catch(() => undefined);
   }
+}
+
+export async function initializeTeacherKnowledgeStoreIfMissing(): Promise<ResearchStoreInitializationResult> {
+  const { getAdminClient } = await import("@/lib/supabase/admin");
+  const admin = getAdminClient();
+  if (admin) {
+    const current = await admin.storage.from(BUCKET).download(REMOTE_FILE);
+    if (current.data) {
+      const parsed = JSON.parse(await current.data.text()) as unknown;
+      if (!isValidTeacherKnowledgeStore(parsed)) throw new Error("老师知识库对象已存在但结构无效，拒绝自动覆盖。请先人工备份审计。");
+      return { id: "teacher-knowledge", outcome: "ALREADY_READY" };
+    }
+    if (current.error && !isMissingResearchStoreObject(current.error)) {
+      throw new Error(`老师知识库初始化前检查失败：${safeResearchStoreError(current.error)}`);
+    }
+    const seed = readSeed();
+    const blob = new Blob([JSON.stringify(seed, null, 2)], { type: "application/json" });
+    const { error } = await admin.storage.from(BUCKET).upload(REMOTE_FILE, blob, {
+      upsert: false,
+      contentType: "application/json",
+    });
+    if (error) {
+      const afterRace = await admin.storage.from(BUCKET).download(REMOTE_FILE);
+      if (afterRace.data) {
+        let parsed: unknown;
+        try { parsed = JSON.parse(await afterRace.data.text()) as unknown; } catch { parsed = null; }
+        if (isValidTeacherKnowledgeStore(parsed)) return { id: "teacher-knowledge", outcome: "ALREADY_READY" };
+        throw new Error("老师知识库初始化竞争对象结构无效，拒绝把存在误报为成功。");
+      }
+      throw new Error(`老师知识库初始化失败：${safeResearchStoreError(error)}`);
+    }
+    return { id: "teacher-knowledge", outcome: "CREATED" };
+  }
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  if (isProd) throw new Error("老师知识库初始化失败：生产环境缺少 Supabase 服务端配置。");
+  if (existsSync(LOCAL)) return { id: "teacher-knowledge", outcome: "ALREADY_READY" };
+  writeLocal(readSeed());
+  return { id: "teacher-knowledge", outcome: "CREATED" };
 }
 
 export function newId(prefix: string) {
@@ -272,6 +437,9 @@ export async function createLesson(input: {
     adminNotes: input.adminNotes || "",
     qimenShadowExtraction: null,
     qimenShadowAttemptMeta: null,
+    automationAttemptCount: 0,
+    automationNextRetryAt: null,
+    automationLastError: null,
     status: "DRAFT",
     version: 1,
     createdBy: input.createdBy || null,
@@ -350,6 +518,35 @@ export async function updateLessonWithVersion(
   if (idx >= 0) store.lessons[idx] = next;
   await persistStore(store);
   return next;
+}
+
+export async function touchTeacherKnowledgeLessonProcessingAttempt(id: string, errorMessage: string): Promise<void> {
+  const store = await loadStore();
+  const index = store.lessons.findIndex((lesson) => lesson.id === id || lesson.lessonCode === id);
+  if (index < 0) return;
+  const retry = registerLessonAutomationFailure(store.lessons[index]!);
+  store.lessons[index] = {
+    ...store.lessons[index]!,
+    automationAttemptCount: retry.attemptCount,
+    automationNextRetryAt: retry.nextRetryAt,
+    automationLastError: errorMessage.slice(0, 500),
+    updatedAt: new Date().toISOString(),
+  };
+  await persistStore(store);
+}
+
+export async function resetTeacherKnowledgeLessonProcessingRetry(id: string): Promise<void> {
+  const store = await loadStore();
+  const index = store.lessons.findIndex((lesson) => lesson.id === id || lesson.lessonCode === id);
+  if (index < 0) return;
+  store.lessons[index] = {
+    ...store.lessons[index]!,
+    automationAttemptCount: 0,
+    automationNextRetryAt: null,
+    automationLastError: null,
+    updatedAt: new Date().toISOString(),
+  };
+  await persistStore(store);
 }
 
 export async function listRules(filter?: { status?: string }): Promise<TeacherRuleRecord[]> {
@@ -547,6 +744,9 @@ export async function saveDraftExtraction(
       cleanedTranscript: payload.cleanedTranscript,
       qimenShadowExtraction: payload.qimenShadowExtraction ?? null,
       qimenShadowAttemptMeta: null,
+      automationAttemptCount: 0,
+      automationNextRetryAt: null,
+      automationLastError: null,
       status: "REVIEWING",
       changeReason: "AI整理并生成奇门影子证据",
       changedBy: payload.changedBy ?? null,

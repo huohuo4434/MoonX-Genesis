@@ -13,6 +13,7 @@ import {
   acquireQimenLessonAutomationLease,
   releaseQimenLessonAutomationLease,
 } from "@/lib/research/qimen-lesson-automation-lease";
+import { resolveLessonProcessingProfile } from "@/lib/research/lesson-processing-schedule-core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,6 +27,7 @@ function authorizeCron(request: NextRequest): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  const requestStartedMs = Date.now();
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -36,17 +38,21 @@ export async function GET(request: NextRequest) {
     if (!leaseAcquired) {
       return NextResponse.json({ ok: true, skipped: "QIMEN_LESSON_AUTOMATION_LEASE_HELD" });
     }
-    const deadlineMs = Date.now() + 55_000;
+    const deadlineMs = requestStartedMs + 55_000;
+    const startedAt = new Date();
+    const profile = resolveLessonProcessingProfile(startedAt);
     const [masterQimenBackfill, teacherKnowledgeQimenBackfill] = await Promise.all([
-      backfillMasterIntelligenceQimenLessons(1, { deadlineMs }),
-      backfillTeacherKnowledgeQimenLessons(1, { deadlineMs }),
+      backfillMasterIntelligenceQimenLessons(profile.masterBackfillLimit, { deadlineMs }),
+      backfillTeacherKnowledgeQimenLessons(profile.teacherBackfillLimit, { deadlineMs }),
     ]);
     const [masterResults, teacherKnowledgeResults] = await Promise.all([
-      processPendingLessons(5, { deadlineMs }),
-      processPendingTeacherKnowledgeLessons(2, { deadlineMs }),
+      processPendingLessons(profile.masterPendingLimit, { deadlineMs }),
+      processPendingTeacherKnowledgeLessons(profile.teacherPendingLimit, { deadlineMs }),
     ]);
     return NextResponse.json({
       ok: true,
+      mode: profile.mode,
+      startedAt: startedAt.toISOString(),
       masterQimenBackfill,
       teacherKnowledgeQimenBackfill,
       results: masterResults,

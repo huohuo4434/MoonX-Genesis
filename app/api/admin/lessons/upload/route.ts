@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { createLesson } from "@/lib/master-intelligence/store";
 import { isAllowedLessonMedia, uploadLessonMedia } from "@/lib/master-intelligence/storage";
-import { processLessonOnce } from "@/lib/master-intelligence/pipeline";
+import { processLessonToReview } from "@/lib/master-intelligence/pipeline";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const requestStartedMs = Date.now();
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "无权限" }, { status: 403 });
 
@@ -58,8 +60,12 @@ export async function POST(req: NextRequest) {
     mediaFileName: file.name,
   });
 
-  // Kick pipeline (best-effort)
-  const processed = await processLessonOnce(lesson.id);
+  // Advance immediately as far as the bounded request permits. Unfinished work
+  // remains durable and is picked up by the two-hour compensation cron.
+  const processed = await processLessonToReview(lesson.id, {
+    deadlineMs: requestStartedMs + 55_000,
+    maxSteps: 3,
+  });
 
   return NextResponse.json(
     { lessonId: lesson.id, status: processed.status, message: processed.message },

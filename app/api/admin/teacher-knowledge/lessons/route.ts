@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin, getCurrentUser } from "@/lib/auth/permissions";
 import { createLesson, listLessons } from "@/lib/teacher-knowledge/store";
+import { analyzeTeacherKnowledgeLesson } from "@/lib/teacher-knowledge/pipeline";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
@@ -22,6 +24,9 @@ export async function GET() {
         createdAt: l.createdAt,
         // never expose full rawTranscript in list
         rawLength: l.rawTranscript.length,
+        automationAttemptCount: l.automationAttemptCount ?? 0,
+        automationNextRetryAt: l.automationNextRetryAt ?? null,
+        automationLastError: l.automationLastError ?? null,
       })),
     },
     { headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" } }
@@ -46,6 +51,7 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const requestStartedMs = Date.now();
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
   const user = await getCurrentUser();
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
@@ -55,8 +61,20 @@ export async function POST(req: NextRequest) {
       ...parsed.data,
       createdBy: user?.email || null,
     });
+    let processingStatus: "REVIEWING" | "QUEUED_RETRY" = "REVIEWING";
+    let processingMessage = "上传后已完成第一轮方法整理";
+    try {
+      await analyzeTeacherKnowledgeLesson(
+        lesson.id,
+        `ADMIN:${user?.email || user?.id || "unknown"}`,
+        { deadlineMs: requestStartedMs + 55_000 },
+      );
+    } catch (error) {
+      processingStatus = "QUEUED_RETRY";
+      processingMessage = `即时处理未完成，已保留原文并进入两小时补偿队列：${error instanceof Error ? error.message.slice(0, 160) : "未知错误"}`;
+    }
     return NextResponse.json(
-      { lesson },
+      { lesson, processingStatus, processingMessage },
       { status: 201, headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" } }
     );
   } catch (err) {

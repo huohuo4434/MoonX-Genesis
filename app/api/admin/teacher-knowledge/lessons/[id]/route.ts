@@ -10,6 +10,7 @@ import {
   listQuotes,
   listRules,
   updateLessonWithVersion,
+  resetTeacherKnowledgeLessonProcessingRetry,
 } from "@/lib/teacher-knowledge/store";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!lesson) return NextResponse.json({ error: "不存在" }, { status: 404 });
 
     if (parsed.data.action === "extract") {
+      await resetTeacherKnowledgeLessonProcessingRetry(id);
       const { extracted, qimenShadowExtraction } = await analyzeTeacherKnowledgeLesson(id, user?.email || null);
       return NextResponse.json({
         ok: true,

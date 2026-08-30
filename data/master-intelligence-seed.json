@@ -1,0 +1,333 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-30T23:50:20.784Z",
+  "lessons": [],
+  "transcripts": [],
+  "extractions": [],
+  "candidates": [],
+  "ruleTree": [
+    {
+      "id": "rtn_ms6og25a_26221d31",
+      "ruleCode": "Rule0003",
+      "parentId": null,
+      "label": "兄弟持世",
+      "condition": "兄弟持世？",
+      "yesChildId": "rtn_ms6og25a_d14e124f",
+      "noChildId": null,
+      "outcomeText": null,
+      "sortOrder": 0
+    },
+    {
+      "id": "rtn_ms6og25a_d14e124f",
+      "ruleCode": "Rule0003",
+      "parentId": "rtn_ms6og25a_26221d31",
+      "label": "财旺？",
+      "condition": "财旺？",
+      "yesChildId": "rtn_ms6og25a_ebe4c445",
+      "noChildId": null,
+      "outcomeText": null,
+      "sortOrder": 1
+    },
+    {
+      "id": "rtn_ms6og25a_ebe4c445",
+      "ruleCode": "Rule0004",
+      "parentId": "rtn_ms6og25a_d14e124f",
+      "label": "伏神？",
+      "condition": "伏神？",
+      "yesChildId": "rtn_ms6og25a_cf501d3e",
+      "noChildId": null,
+      "outcomeText": null,
+      "sortOrder": 2
+    },
+    {
+      "id": "rtn_ms6og25a_cf501d3e",
+      "ruleCode": "Rule0004",
+      "parentId": "rtn_ms6og25a_ebe4c445",
+      "label": "飞神克伏神？",
+      "condition": "飞神克伏神？",
+      "yesChildId": null,
+      "noChildId": "rtn_ms6og25a_8915a8af",
+      "outcomeText": null,
+      "sortOrder": 3
+    },
+    {
+      "id": "rtn_ms6og25a_8915a8af",
+      "ruleCode": "Rule0003",
+      "parentId": "rtn_ms6og25a_cf501d3e",
+      "label": "月建旺？",
+      "condition": "月建旺？",
+      "yesChildId": "rtn_ms6og25a_1113ffe3",
+      "noChildId": null,
+      "outcomeText": null,
+      "sortOrder": 4
+    },
+    {
+      "id": "rtn_ms6og25a_1113ffe3",
+      "ruleCode": "Rule0003",
+      "parentId": "rtn_ms6og25a_8915a8af",
+      "label": "结论",
+      "condition": null,
+      "yesChildId": null,
+      "noChildId": null,
+      "outcomeText": "上涨概率增加。",
+      "sortOrder": 5
+    }
+  ],
+  "nodes": [
+    {
+      "id": "kn_ms6og25a_e834e70f",
+      "key": "兄弟持世",
+      "label": "兄弟持世",
+      "kind": "CONCEPT",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "kn_ms6og25a_7eadcdb8",
+      "key": "资金分流",
+      "label": "资金分流",
+      "kind": "CONCEPT",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "kn_ms6og25a_8ec1fd0d",
+      "key": "财伏藏",
+      "label": "财伏藏",
+      "kind": "CONCEPT",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "kn_ms6og25a_9a28a6f1",
+      "key": "上涨动力不足",
+      "label": "上涨动力不足",
+      "kind": "CONCEPT",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "kn_ms6og25a_5843199f",
+      "key": "震荡",
+      "label": "震荡",
+      "kind": "CONCEPT",
+      "weightStars": 5,
+      "sourceLessonId": null
+    }
+  ],
+  "edges": [
+    {
+      "id": "ke_ms6og25a_c72fcd3c",
+      "fromKey": "兄弟持世",
+      "toKey": "资金分流",
+      "relation": "IMPLIES",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "ke_ms6og25a_c59cc5e8",
+      "fromKey": "资金分流",
+      "toKey": "财伏藏",
+      "relation": "IMPLIES",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "ke_ms6og25a_718d9375",
+      "fromKey": "财伏藏",
+      "toKey": "上涨动力不足",
+      "relation": "IMPLIES",
+      "weightStars": 5,
+      "sourceLessonId": null
+    },
+    {
+      "id": "ke_ms6og25a_d359e4dc",
+      "fromKey": "上涨动力不足",
+      "toKey": "震荡",
+      "relation": "IMPLIES",
+      "weightStars": 5,
+      "sourceLessonId": null
+    }
+  ],
+  "conflicts": [],
+  "marketWeights": [
+    {
+      "id": "mrw_ms6og25a_0e605400",
+      "ruleCode": "Rule0003",
+      "assetId": "bitcoin",
+      "weightStars": 4,
+      "note": "老师市场映射种子"
+    },
+    {
+      "id": "mrw_ms6og25a_24924f93",
+      "ruleCode": "Rule0003",
+      "assetId": "gold",
+      "weightStars": 5,
+      "note": "老师市场映射种子"
+    },
+    {
+      "id": "mrw_ms6og25a_65a0d4f5",
+      "ruleCode": "Rule0003",
+      "assetId": "nasdaq100",
+      "weightStars": 4,
+      "note": "老师市场映射种子"
+    },
+    {
+      "id": "mrw_ms6og25a_44616e31",
+      "ruleCode": "Rule0003",
+      "assetId": "micron",
+      "weightStars": 5,
+      "note": "老师市场映射种子"
+    },
+    {
+      "id": "mrw_ms6og25a_ce794549",
+      "ruleCode": "Rule0003",
+      "assetId": "changxin",
+      "weightStars": 5,
+      "note": "老师市场映射种子"
+    }
+  ],
+  "publishedRules": [
+    {
+      "id": "rule_ms6og25a_31646ae3",
+      "ruleCode": "Rule0001",
+      "title": "投资预测先定用神",
+      "category": "TEACHER",
+      "ruleText": "投资预测先定用神，用神不明则判断无效。",
+      "teacherOriginalText": "投资预测先定用神，用神不明则判断无效。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_d6a643b2",
+      "ruleCode": "Rule0002",
+      "title": "妻财代表价格",
+      "category": "TEACHER",
+      "ruleText": "妻财代表价格与标的价值变动。",
+      "teacherOriginalText": "妻财代表价格与标的价值变动。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_7919abe5",
+      "ruleCode": "Rule0003",
+      "title": "兄弟持世",
+      "category": "TEACHER",
+      "ruleText": "兄弟持世需结合财旺、伏神与月建综合判断资金分流。",
+      "teacherOriginalText": "兄弟持世需结合财旺、伏神与月建综合判断资金分流。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_30409f05",
+      "ruleCode": "Rule0004",
+      "title": "财伏藏",
+      "category": "TEACHER",
+      "ruleText": "财伏藏时常提示上涨动力不足或资金被压制。",
+      "teacherOriginalText": "财伏藏时常提示上涨动力不足或资金被压制。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_379390c9",
+      "ruleCode": "Rule0005",
+      "title": "官鬼代表风险",
+      "category": "TEACHER",
+      "ruleText": "官鬼代表风险、压力与监管扰动。",
+      "teacherOriginalText": "官鬼代表风险、压力与监管扰动。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_25f6ca4f",
+      "ruleCode": "Rule0006",
+      "title": "子孙制鬼",
+      "category": "TEACHER",
+      "ruleText": "子孙制鬼可缓解风险，利于风险资产弹性。",
+      "teacherOriginalText": "子孙制鬼可缓解风险，利于风险资产弹性。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_b6553470",
+      "ruleCode": "Rule0007",
+      "title": "父母代表消息",
+      "category": "TEACHER",
+      "ruleText": "父母代表消息、政策与信息冲击。",
+      "teacherOriginalText": "父母代表消息、政策与信息冲击。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_40cd77c9",
+      "ruleCode": "Rule0008",
+      "title": "月破判断",
+      "category": "TEACHER",
+      "ruleText": "月破需降权或等待出破窗口再定方向。",
+      "teacherOriginalText": "月破需降权或等待出破窗口再定方向。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_5edb14c8",
+      "ruleCode": "Rule0009",
+      "title": "化退判断",
+      "category": "TEACHER",
+      "ruleText": "化退提示动能减弱，警惕冲高回落或震荡下跌。",
+      "teacherOriginalText": "化退提示动能减弱，警惕冲高回落或震荡下跌。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    },
+    {
+      "id": "rule_ms6og25a_1c83f902",
+      "ruleCode": "Rule0010",
+      "title": "时间窗口判断",
+      "category": "TEACHER",
+      "ruleText": "时间窗口与应期必须单独验证，不可与方向混为一谈。",
+      "teacherOriginalText": "时间窗口与应期必须单独验证，不可与方向混为一谈。",
+      "status": "PUBLISHED",
+      "lessonId": null,
+      "candidateId": null,
+      "priority": 90,
+      "createdAt": "2026-07-29T22:49:32.637Z",
+      "updatedAt": "2026-07-29T22:49:32.637Z"
+    }
+  ],
+  "publishedCases": []
+}

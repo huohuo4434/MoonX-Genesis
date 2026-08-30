@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { prisma } from "@/lib/prisma";
+import masterSeedData from "@/data/master-intelligence-seed.json";
 import {
   applyMasterQimenOnlyBackfill,
   preferStableQimenReport,
@@ -22,6 +23,14 @@ import {
   renewQimenStoreWriteLease,
   releaseQimenStoreWriteLease,
 } from "@/lib/research/qimen-lesson-automation-lease";
+import {
+  isMissingResearchStoreObject,
+  researchStoreReady,
+  researchStoreUnavailable,
+  safeResearchStoreError,
+  type ResearchStoreHealth,
+  type ResearchStoreInitializationResult,
+} from "@/lib/research/research-store-health-core";
 import type {
   CaseHitStatus,
   KnowledgeKind,
@@ -45,6 +54,9 @@ export type LessonRecord = {
   mediaSize: number | null;
   mediaFileName: string | null;
   errorMessage: string | null;
+  automationAttemptCount?: number;
+  automationNextRetryAt?: string | null;
+  automationLastError?: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
@@ -219,12 +231,46 @@ function emptyStore(): Store {
   };
 }
 
+export function isValidMasterIntelligenceStore(value: unknown): value is Store {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<Store>;
+  return row.version === 1
+    && typeof row.updatedAt === "string"
+    && Array.isArray(row.lessons)
+    && Array.isArray(row.transcripts)
+    && Array.isArray(row.extractions)
+    && Array.isArray(row.candidates)
+    && Array.isArray(row.ruleTree)
+    && Array.isArray(row.nodes)
+    && Array.isArray(row.edges)
+    && Array.isArray(row.conflicts)
+    && Array.isArray(row.marketWeights)
+    && Array.isArray(row.publishedRules)
+    && Array.isArray(row.publishedCases);
+}
+
+function masterCounts(store: Store): Record<string, number> {
+  return {
+    lessons: store.lessons.length,
+    extractions: store.extractions.length,
+    candidates: store.candidates.length,
+    rules: store.publishedRules.length,
+    cases: store.publishedCases.length,
+  };
+}
+
+function readBundledSeed(): Store {
+  const parsed = masterSeedData as unknown;
+  if (!isValidMasterIntelligenceStore(parsed)) throw new Error("内置课程知识库种子结构无效，拒绝初始化。");
+  return { ...emptyStore(), ...parsed, version: 1 };
+}
+
 function readLocal(): Store | null {
   try {
     if (!existsSync(LOCAL_FILE)) return null;
-    const parsed = JSON.parse(readFileSync(LOCAL_FILE, "utf8")) as Store;
-    if (!parsed?.lessons) return null;
-    return { ...emptyStore(), ...parsed, version: 1 };
+    const parsed = JSON.parse(readFileSync(LOCAL_FILE, "utf8")) as unknown;
+    if (!isValidMasterIntelligenceStore(parsed)) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -243,8 +289,8 @@ async function readStore(): Promise<Store> {
     if (admin) {
       const { data, error } = await admin.storage.from(BUCKET).download(FILE);
       if (!error && data) {
-        const parsed = JSON.parse(await data.text()) as Store;
-        if (parsed?.lessons && typeof parsed.updatedAt === "string") return { ...emptyStore(), ...parsed, version: 1 };
+        const parsed = JSON.parse(await data.text()) as unknown;
+        if (isValidMasterIntelligenceStore(parsed)) return parsed;
       }
       if (isProd) throw new Error(`课程中心读取失败：${error?.message ?? "远端文件缺失或结构无效"}`);
     }
@@ -252,6 +298,92 @@ async function readStore(): Promise<Store> {
     if (isProd) throw error;
   }
   return readLocal() ?? emptyStore();
+}
+
+export async function getMasterIntelligenceStoreHealth(): Promise<ResearchStoreHealth> {
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  const admin = getAdminClient();
+  if (admin) {
+    try {
+      const { data, error } = await admin.storage.from(BUCKET).download(FILE);
+      if (error || !data) {
+        return researchStoreUnavailable({
+          id: "master-intelligence",
+          label: "课程与方法知识库",
+          backend: "SUPABASE",
+          state: isMissingResearchStoreObject(error) ? "MISSING" : "ERROR",
+          updatedAt: null,
+          counts: {},
+          detail: isMissingResearchStoreObject(error) ? "远端对象尚未初始化" : safeResearchStoreError(error),
+        });
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(await data.text()) as unknown;
+      } catch {
+        return researchStoreUnavailable({
+          id: "master-intelligence",
+          label: "课程与方法知识库",
+          backend: "SUPABASE",
+          state: "INVALID",
+          updatedAt: null,
+          counts: {},
+          detail: "远端对象不是有效 JSON；为避免覆盖，系统已停止写入",
+        });
+      }
+      if (!isValidMasterIntelligenceStore(parsed)) {
+        return researchStoreUnavailable({
+          id: "master-intelligence",
+          label: "课程与方法知识库",
+          backend: "SUPABASE",
+          state: "INVALID",
+          updatedAt: null,
+          counts: {},
+          detail: "远端对象存在，但结构不完整；为避免覆盖，系统已停止写入",
+        });
+      }
+      const store = { ...emptyStore(), ...parsed, version: 1 as const };
+      return researchStoreReady({
+        id: "master-intelligence",
+        label: "课程与方法知识库",
+        backend: "SUPABASE",
+        updatedAt: store.updatedAt,
+        counts: masterCounts(store),
+        detail: "远端对象可读且结构完整",
+      });
+    } catch (error) {
+      return researchStoreUnavailable({
+        id: "master-intelligence",
+        label: "课程与方法知识库",
+        backend: "SUPABASE",
+        state: "ERROR",
+        updatedAt: null,
+        counts: {},
+        detail: safeResearchStoreError(error),
+      });
+    }
+  }
+
+  const local = readLocal();
+  if (local) {
+    return researchStoreReady({
+      id: "master-intelligence",
+      label: "课程与方法知识库",
+      backend: "LOCAL",
+      updatedAt: local.updatedAt,
+      counts: masterCounts(local),
+      detail: "使用本地开发存储",
+    });
+  }
+  return researchStoreUnavailable({
+    id: "master-intelligence",
+    label: "课程与方法知识库",
+    backend: isProd ? "SUPABASE" : "LOCAL",
+    state: isProd ? "UNCONFIGURED" : "MISSING",
+    updatedAt: null,
+    counts: {},
+    detail: isProd ? "生产环境缺少 Supabase 服务端配置" : "本地对象尚未初始化",
+  });
 }
 
 async function writeStore(store: Store): Promise<void> {
@@ -267,8 +399,8 @@ async function writeStore(store: Store): Promise<void> {
     if (admin) {
       const { data: currentData, error: currentError } = await admin.storage.from(BUCKET).download(FILE);
       if (currentError || !currentData) throw new Error(`课程中心写前校验失败：${currentError?.message ?? "远端文件缺失"}`);
-      const current = JSON.parse(await currentData.text()) as Partial<Store>;
-      if (typeof current.updatedAt !== "string") throw new Error("课程中心写前校验失败：远端版本字段缺失。");
+      const current = JSON.parse(await currentData.text()) as unknown;
+      if (!isValidMasterIntelligenceStore(current)) throw new Error("课程中心写前校验失败：远端对象结构无效。");
       if (current.updatedAt !== baseUpdatedAt) throw new Error("课程中心版本已变化，拒绝覆盖并请重试。");
       if (acquired && !await renewQimenStoreWriteLease({ storeId: "master-intelligence", owner })) {
         throw new Error("课程中心写锁已失效，拒绝覆盖并请重试。");
@@ -283,6 +415,7 @@ async function writeStore(store: Store): Promise<void> {
       return;
     }
     const local = readLocal();
+    if (existsSync(LOCAL_FILE) && !local) throw new Error("课程中心写前校验失败：本地对象结构无效。");
     if (local?.updatedAt && local.updatedAt !== baseUpdatedAt) throw new Error("课程中心本地版本已变化，拒绝覆盖并请重试。");
     if (acquired && !await renewQimenStoreWriteLease({ storeId: "master-intelligence", owner })) {
       throw new Error("课程中心写锁已失效，拒绝覆盖并请重试。");
@@ -291,6 +424,44 @@ async function writeStore(store: Store): Promise<void> {
   } finally {
     if (acquired) await releaseQimenStoreWriteLease("master-intelligence", owner).catch(() => undefined);
   }
+}
+
+export async function initializeMasterIntelligenceStoreIfMissing(): Promise<ResearchStoreInitializationResult> {
+  const admin = getAdminClient();
+  if (admin) {
+    const current = await admin.storage.from(BUCKET).download(FILE);
+    if (current.data) {
+      const parsed = JSON.parse(await current.data.text()) as unknown;
+      if (!isValidMasterIntelligenceStore(parsed)) throw new Error("课程中心对象已存在但结构无效，拒绝自动覆盖。请先人工备份审计。");
+      return { id: "master-intelligence", outcome: "ALREADY_READY" };
+    }
+    if (current.error && !isMissingResearchStoreObject(current.error)) {
+      throw new Error(`课程中心初始化前检查失败：${safeResearchStoreError(current.error)}`);
+    }
+    const seed = readLocal() ?? readBundledSeed();
+    const blob = new Blob([JSON.stringify(seed, null, 2)], { type: "application/json" });
+    const { error } = await admin.storage.from(BUCKET).upload(FILE, blob, {
+      upsert: false,
+      contentType: "application/json",
+    });
+    if (error) {
+      const afterRace = await admin.storage.from(BUCKET).download(FILE);
+      if (afterRace.data) {
+        let parsed: unknown;
+        try { parsed = JSON.parse(await afterRace.data.text()) as unknown; } catch { parsed = null; }
+        if (isValidMasterIntelligenceStore(parsed)) return { id: "master-intelligence", outcome: "ALREADY_READY" };
+        throw new Error("课程中心初始化竞争对象结构无效，拒绝把存在误报为成功。");
+      }
+      throw new Error(`课程中心初始化失败：${safeResearchStoreError(error)}`);
+    }
+    return { id: "master-intelligence", outcome: "CREATED" };
+  }
+
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  if (isProd) throw new Error("课程中心初始化失败：生产环境缺少 Supabase 服务端配置。");
+  if (readLocal()) return { id: "master-intelligence", outcome: "ALREADY_READY" };
+  writeLocal(readBundledSeed());
+  return { id: "master-intelligence", outcome: "CREATED" };
 }
 
 export async function listLessons(): Promise<LessonRecord[]> {
@@ -468,6 +639,9 @@ export async function createLesson(input: {
     mediaSize: input.mediaSize ?? null,
     mediaFileName: input.mediaFileName ?? null,
     errorMessage: null,
+    automationAttemptCount: 0,
+    automationNextRetryAt: null,
+    automationLastError: null,
     createdBy: input.createdBy ?? null,
     updatedBy: input.createdBy ?? null,
     createdAt: now,

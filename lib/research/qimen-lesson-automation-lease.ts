@@ -50,6 +50,22 @@ export async function releaseQimenLessonAutomationLease(owner: string): Promise<
   return releaseLease(AUTOMATION_LEASE_ID, owner);
 }
 
+export async function acquireQimenLessonProcessingLease(input: {
+  lessonId: string;
+  owner: string;
+  ttlMs?: number;
+}): Promise<boolean> {
+  return acquireLease({
+    leaseId: `qimen-lesson-processing:${input.lessonId}:v1`,
+    owner: input.owner,
+    ttlMs: input.ttlMs ?? 70_000,
+  });
+}
+
+export async function releaseQimenLessonProcessingLease(lessonId: string, owner: string): Promise<void> {
+  return releaseLease(`qimen-lesson-processing:${lessonId}:v1`, owner);
+}
+
 export async function acquireQimenStoreWriteLease(input: {
   storeId: "master-intelligence" | "teacher-knowledge";
   owner: string;

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/permissions";
 import { getLesson, setRawTranscript, updateLesson } from "@/lib/master-intelligence/store";
-import { processLessonOnce, markLessonPublished } from "@/lib/master-intelligence/pipeline";
+import { processLessonToReview, markLessonPublished } from "@/lib/master-intelligence/pipeline";
 import { buildCleanTranscript } from "@/lib/master-intelligence/transcript";
 import { setCleanTranscript } from "@/lib/master-intelligence/store";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -28,6 +30,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const requestStartedMs = Date.now();
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权限" }, { status: 403 });
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
@@ -56,7 +59,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   });
 
   if (parsed.data.action === "process") {
-    const result = await processLessonOnce(id);
+    await updateLesson(id, {
+      automationAttemptCount: 0,
+      automationNextRetryAt: null,
+      automationLastError: null,
+    });
+    const result = await processLessonToReview(id, {
+      deadlineMs: requestStartedMs + 55_000,
+      maxSteps: 3,
+    });
     return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
   }
   if (parsed.data.action === "publish") {

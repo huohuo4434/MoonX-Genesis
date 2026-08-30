@@ -267,11 +267,12 @@ export async function getQimenShadowDashboard(limit = 300) {
   const db = prisma;
   if (!db) throw new Error("未配置数据库。");
   const take = Math.max(1, Math.min(1000, limit));
-  const [totalReadings, totalCandidates, totalObservations, totalExperiments, readings, candidates, automationRuns, observations, rows] = await Promise.all([
+  const [totalReadings, totalCandidates, totalObservations, totalExperiments, readingSchoolCounts, readings, candidates, automationRuns, observations, rows] = await Promise.all([
     db.qimenShadowReading.count(),
     db.qimenShadowCandidate.count(),
     db.qimenShadowObservation.count(),
     db.qimenShadowExperiment.count(),
+    db.qimenShadowReading.groupBy({ by: ["schoolId"], _count: { _all: true } }),
     db.qimenShadowReading.findMany({ orderBy: { decisionAt: "desc" }, take: Math.min(take, 100) }),
     db.qimenShadowCandidate.findMany({ orderBy: { decisionAt: "desc" }, take: Math.min(take, 100) }),
     db.qimenShadowAutomationRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
@@ -289,6 +290,7 @@ export async function getQimenShadowDashboard(limit = 300) {
     totalCandidates,
     totalObservations,
     totalExperiments,
+    readingSchoolCounts: Object.fromEntries(readingSchoolCounts.map((item) => [item.schoolId, item._count._all])),
     observations,
     readings,
     candidates,

@@ -44,7 +44,10 @@ export async function uploadLessonMedia(input: {
   return { path: `local://${localPath}`, size: input.bytes.length };
 }
 
-export async function downloadLessonMedia(mediaPath: string): Promise<ArrayBuffer | null> {
+export async function downloadLessonMedia(
+  mediaPath: string,
+  options: { timeoutMs?: number } = {},
+): Promise<ArrayBuffer | null> {
   if (mediaPath.startsWith("local://")) {
     const p = mediaPath.replace(/^local:\/\//, "");
     if (!existsSync(p)) return null;
@@ -58,9 +61,14 @@ export async function downloadLessonMedia(mediaPath: string): Promise<ArrayBuffe
     const objectPath = rest.slice(slash + 1);
     const admin = getAdminClient();
     if (!admin) return null;
-    const { data, error } = await admin.storage.from(bucket).download(objectPath);
-    if (error || !data) return null;
-    return await data.arrayBuffer();
+    const { data: signed, error } = await admin.storage.from(bucket).createSignedUrl(objectPath, 60);
+    if (error || !signed?.signedUrl) return null;
+    const response = await fetch(signed.signedUrl, {
+      signal: AbortSignal.timeout(Math.max(1, Math.min(20_000, Math.trunc(options.timeoutMs ?? 20_000)))),
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return await response.arrayBuffer();
   }
   return null;
 }

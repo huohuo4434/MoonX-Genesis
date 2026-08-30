@@ -71,6 +71,13 @@ export default async function TeacherKnowledgeHomePage() {
                 <Text variant="caption" color="tertiary" className="block">
                   {l.teacherName || "—"} · {l.status} · v{l.version}
                 </Text>
+                {(l.automationAttemptCount ?? 0) > 0 ? (
+                  <Text variant="caption" color="secondary" className="mt-1 block">
+                    {(l.automationAttemptCount ?? 0) >= 3
+                      ? `自动补偿已停止，待手动重试 · ${l.automationLastError || "失败原因待查看"}`
+                      : `自动补偿重试 ${l.automationAttemptCount}/3 · 下次 ${l.automationNextRetryAt || "待调度"} · ${l.automationLastError || ""}`}
+                  </Text>
+                ) : null}
               </div>
               <Link
                 href={`/admin/teacher-knowledge/lessons/${l.id}`}

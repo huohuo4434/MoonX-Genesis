@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { detectRuleConflicts } from "@/lib/master-intelligence/conflict";
 import { extractKnowledge } from "@/lib/master-intelligence/extract";
 import { extractQimenLessonReadings } from "@/lib/research/qimen-shadow-lesson-extract";
@@ -26,6 +27,14 @@ import { transcribeMediaBuffer } from "@/lib/master-intelligence/transcribe";
 import { detectVoiceSignals } from "@/lib/master-intelligence/voice";
 import type { ExtractionBundle, KnowledgeKind, LessonStatus } from "@/lib/master-intelligence/types";
 import { KNOWLEDGE_WEIGHT_STARS } from "@/lib/master-intelligence/types";
+import {
+  acquireQimenLessonProcessingLease,
+  releaseQimenLessonProcessingLease,
+} from "@/lib/research/qimen-lesson-automation-lease";
+import {
+  isLessonAutomationRetryDue,
+  registerLessonAutomationFailure,
+} from "@/lib/research/lesson-processing-retry-core";
 
 function kindWeight(kind: KnowledgeKind): number {
   if (kind === "CASE") return KNOWLEDGE_WEIGHT_STARS.TEACHER_CASE;
@@ -107,7 +116,7 @@ function boundedModelTimeout(deadlineMs?: number): number {
   return Math.max(1, Math.min(20_000, deadlineMs - Date.now() - 1_500));
 }
 
-export async function processLessonOnce(lessonId: string, options: { deadlineMs?: number } = {}): Promise<{
+async function processLessonOnce(lessonId: string, options: { deadlineMs?: number } = {}): Promise<{
   status: LessonStatus;
   message: string;
 }> {
@@ -116,14 +125,13 @@ export async function processLessonOnce(lessonId: string, options: { deadlineMs?
   const { lesson, transcript } = pack;
 
   try {
-    if (lesson.status === "UPLOADED" || lesson.status === "FAILED") {
+    if (lesson.status === "UPLOADED" || lesson.status === "TRANSCRIBING" || lesson.status === "FAILED") {
       let raw = transcript?.rawText?.trim() || "";
-      if (!raw && lesson.mediaPath && options.deadlineMs) {
-        return { status: "UPLOADED", message: "Scheduled run skips unbounded media download; waiting for transcript" };
-      }
       await updateLesson(lessonId, { status: "TRANSCRIBING", errorMessage: null });
       if (!raw && lesson.mediaPath) {
-        const buf = await downloadLessonMedia(lesson.mediaPath);
+        const buf = await downloadLessonMedia(lesson.mediaPath, {
+          timeoutMs: boundedModelTimeout(options.deadlineMs),
+        });
         if (buf) {
           const text = await transcribeMediaBuffer({
             buffer: buf,
@@ -138,20 +146,29 @@ export async function processLessonOnce(lessonId: string, options: { deadlineMs?
         }
       }
       if (!raw) {
+        const retry = registerLessonAutomationFailure(lesson);
         await updateLesson(lessonId, {
-          status: "UPLOADED",
+          status: retry.exhausted ? "FAILED" : "UPLOADED",
           errorMessage: "等待转录：请配置 OPENAI_API_KEY 或粘贴 Raw Transcript",
+          automationAttemptCount: retry.attemptCount,
+          automationNextRetryAt: retry.nextRetryAt,
+          automationLastError: "WAITING_FOR_TRANSCRIPT",
         });
-        return { status: "UPLOADED", message: "Waiting for transcript" };
+        return {
+          status: retry.exhausted ? "FAILED" : "UPLOADED",
+          message: retry.exhausted ? "自动重试已达上限，等待管理员手动重试" : "Waiting for transcript",
+        };
       }
       const clean = buildCleanTranscript(raw);
       await setCleanTranscript(lessonId, clean);
-      await updateLesson(lessonId, { status: "TRANSCRIBED" });
+      await updateLesson(lessonId, {
+        status: "TRANSCRIBED",
+      });
       return { status: "TRANSCRIBED", message: "Transcribed" };
     }
 
-    if (lesson.status === "TRANSCRIBED") {
-      await updateLesson(lessonId, { status: "ANALYZING" });
+    if (lesson.status === "TRANSCRIBED" || lesson.status === "ANALYZING") {
+      if (lesson.status !== "ANALYZING") await updateLesson(lessonId, { status: "ANALYZING" });
       const fresh = await getLesson(lessonId);
       const clean = fresh?.transcript?.cleanText || "";
       const raw = fresh?.transcript?.rawText || "";
@@ -208,11 +225,16 @@ export async function processLessonOnce(lessonId: string, options: { deadlineMs?
       }
 
       await applyGraphFromBundle(lessonId, bundle);
-      await updateLesson(lessonId, { status: "REVIEWING" });
+      await updateLesson(lessonId, {
+        status: "REVIEWING",
+        automationAttemptCount: 0,
+        automationNextRetryAt: null,
+        automationLastError: null,
+      });
       return { status: "REVIEWING", message: "Extraction ready for review" };
     }
 
-    if (lesson.status === "REVIEWING" || lesson.status === "ANALYZING") {
+    if (lesson.status === "REVIEWING") {
       return { status: lesson.status, message: "Awaiting admin review" };
     }
 
@@ -223,15 +245,64 @@ export async function processLessonOnce(lessonId: string, options: { deadlineMs?
     return { status: lesson.status, message: "No-op" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "process failed";
-    await updateLesson(lessonId, { status: "FAILED", errorMessage: msg });
-    return { status: "FAILED", message: msg };
+    const retry = registerLessonAutomationFailure(lesson);
+    await updateLesson(lessonId, {
+      status: "FAILED",
+      errorMessage: msg,
+      automationAttemptCount: retry.attemptCount,
+      automationNextRetryAt: retry.nextRetryAt,
+      automationLastError: msg.slice(0, 500),
+    });
+    return {
+      status: "FAILED",
+      message: retry.exhausted ? `${msg}; 自动重试已达上限，等待管理员手动重试` : msg,
+    };
+  }
+}
+
+export async function processLessonToReview(
+  lessonId: string,
+  options: { deadlineMs?: number; maxSteps?: number } = {},
+): Promise<{ status: LessonStatus; message: string }> {
+  const owner = randomUUID();
+  const acquired = await acquireQimenLessonProcessingLease({ lessonId, owner, ttlMs: 70_000 });
+  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  if (isProd && !acquired) {
+    const current = await getLesson(lessonId);
+    return {
+      status: current?.lesson.status ?? "FAILED",
+      message: "同一课程正在由另一任务处理；本轮安全跳过",
+    };
+  }
+  const maxSteps = Math.max(1, Math.min(4, Math.trunc(options.maxSteps ?? 3)));
+  let last: { status: LessonStatus; message: string } = { status: "UPLOADED", message: "Queued" };
+  try {
+    for (let step = 0; step < maxSteps; step += 1) {
+      if (options.deadlineMs && Date.now() >= options.deadlineMs - 2_000) {
+        return { status: last.status, message: `${last.message}; queued for compensation run` };
+      }
+      const next = await processLessonOnce(lessonId, options);
+      last = next;
+      if (["REVIEWING", "PUBLISHED", "FAILED"].includes(next.status)) return next;
+      if (!["TRANSCRIBED", "ANALYZING"].includes(next.status)) return next;
+    }
+    return last;
+  } finally {
+    if (acquired) await releaseQimenLessonProcessingLease(lessonId, owner).catch(() => undefined);
   }
 }
 
 export async function processPendingLessons(limit = 5, options: { deadlineMs?: number } = {}): Promise<Array<{ id: string; status: LessonStatus; message: string }>> {
   const lessons = await listLessons();
+  // A newly-created upload has not necessarily finished binding its private
+  // media object. The upload request handles it immediately; compensation only
+  // takes over after this short recovery window (and the per-lesson lease).
+  const pickupBefore = new Date(Date.now() - 120_000).toISOString();
   const pending = lessons
-    .filter((l) => l.status === "UPLOADED" || l.status === "TRANSCRIBED" || l.status === "ANALYZING")
+    .filter((l) => l.status === "UPLOADED" || l.status === "TRANSCRIBING" || l.status === "TRANSCRIBED" || l.status === "ANALYZING" || l.status === "FAILED")
+    .filter((l) => l.updatedAt <= pickupBefore)
+    .filter((l) => isLessonAutomationRetryDue(l))
+    .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
     .slice(0, limit);
   const out: Array<{ id: string; status: LessonStatus; message: string }> = [];
   for (const l of pending) {
@@ -239,7 +310,7 @@ export async function processPendingLessons(limit = 5, options: { deadlineMs?: n
       out.push({ id: l.id, status: l.status, message: "RUN_BUDGET_EXHAUSTED_BEFORE_START" });
       continue;
     }
-    out.push({ id: l.id, ...(await processLessonOnce(l.id, options)) });
+    out.push({ id: l.id, ...(await processLessonToReview(l.id, { ...options, maxSteps: 3 })) });
   }
   return out;
 }
