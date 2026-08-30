@@ -13,6 +13,11 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
+import {
+  RESEARCH_CONSENSUS_REVIEWS_20260830,
+  type ResearchAlignment,
+  type ResearchConfidenceDecision,
+} from "@/lib/data/research-consensus-20260830";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +63,19 @@ const ASSET_CONTEXT: Partial<Record<string, string>> = {
   nvda: "目前只收到英伟达的9月月卦，没有独立周卦。页面中的周关键日明确由已锁定月卦拆分当周节奏，不冒充老师另起周卦。",
 };
 
+const RESEARCH_ALIGNMENT_META: Record<ResearchAlignment, { label: string; tone: string }> = {
+  MULTI_METHOD_RESONANCE: { label: "多方法共振", tone: "border-emerald-300/25 bg-emerald-300/[0.06] text-emerald-100" },
+  PARTIAL_ALIGNMENT: { label: "部分一致", tone: "border-sky-300/20 bg-sky-300/[0.05] text-sky-100" },
+  CONFLICTED: { label: "路径冲突", tone: "border-rose-300/20 bg-rose-300/[0.05] text-rose-100" },
+  SINGLE_SOURCE: { label: "单一来源", tone: "border-white/10 bg-white/[0.035] text-foreground-secondary" },
+};
+
+const CONFIDENCE_DECISION_META: Record<ResearchConfidenceDecision, string> = {
+  UP_ONE: "信心上调 1 级",
+  UNCHANGED: "信心不变",
+  DOWN_ONE: "信心下调 1 级",
+};
+
 function chineseDate(value: string) {
   const [, month, day] = value.split("-");
   return `${Number(month)}月${Number(day)}日`;
@@ -65,6 +83,38 @@ function chineseDate(value: string) {
 
 function statusLabel(item: KeyDateRadarViewItem) {
   return item.status === "ACTIVE" ? "今日" : item.status === "UPCOMING" ? "待观察" : "待复盘";
+}
+
+function LatestResearchConsensus() {
+  return <section className="rounded-3xl border border-violet-300/15 bg-violet-300/[0.035] p-5 sm:p-6">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <Badge variant="warning">8月30日新增资料</Badge>
+        <Heading as="h2" size="h3" className="mt-3">观点共振复核</Heading>
+        <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
+          同资产、同周期、独立方法方向一致时才提高研究信心；只有大方向一致但精确日期不同，只作小幅加分；路径冲突时主动降级。共振不会改写已经锁定的正式方向，也不会单独触发自动交易。
+        </Text>
+      </div>
+      <Badge variant="outline">{RESEARCH_CONSENSUS_REVIEWS_20260830.length} 个标的</Badge>
+    </div>
+    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      {RESEARCH_CONSENSUS_REVIEWS_20260830.map((review) => {
+        const meta = RESEARCH_ALIGNMENT_META[review.alignment];
+        return <article key={review.assetId} className={`rounded-2xl border p-4 ${meta.tone}`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><p className="font-semibold text-foreground">{review.assetName}</p><p className="mt-1 font-mono text-caption opacity-70">{review.symbol} · {review.horizon}</p></div>
+            <div className="flex flex-wrap gap-2"><Badge variant="outline">{meta.label}</Badge><Badge variant="outline">{CONFIDENCE_DECISION_META[review.confidenceDecision]}</Badge></div>
+          </div>
+          <p className="mt-3 text-body-sm font-semibold leading-6 text-foreground">{review.conclusion}</p>
+          <div className="mt-3 space-y-2 text-caption leading-5 text-foreground-secondary">
+            <p><span className="font-semibold text-emerald-200">一致点：</span>{review.agreement}</p>
+            <p><span className="font-semibold text-rose-200">保留项：</span>{review.disagreement}</p>
+            <p><span className="font-semibold text-violet-200">交叉方法：</span>{review.methodClasses.join("、")}</p>
+          </div>
+        </article>;
+      })}
+    </div>
+  </section>;
 }
 
 function turningMeta(item: KeyDateRadarViewItem): ActionDisplay {
@@ -141,6 +191,10 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
         <span className="font-semibold text-violet-200">日期依据：</span>
         <span className="text-foreground-secondary">{item.derivation}</span>
       </div>
+      {item.consensusLevel && item.consensusNote ? <div className={`mt-3 rounded-xl border px-3 py-2 text-body-sm leading-6 ${RESEARCH_ALIGNMENT_META[item.consensusLevel].tone}`}>
+        <span className="font-semibold">{RESEARCH_ALIGNMENT_META[item.consensusLevel].label}：</span>
+        <span>{item.consensusNote}</span>
+      </div> : null}
       <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">
         <summary className="cursor-pointer font-semibold text-foreground">查看路径、确认与失效条件</summary>
         <div className="mt-3 space-y-2 leading-6">
@@ -213,6 +267,8 @@ export default async function MemberKeyDatesPage() {
           ["原记录明确 / 推演", `${summary.explicitCount} / ${summary.derivedCount}`],
         ].map(([label, value], index) => <div key={String(label)} className={`rounded-2xl border px-4 py-3 ${index === 1 ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-white/10 bg-black/20"}`}><p className="text-caption text-foreground-tertiary">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</div>
       </header>
+
+      <LatestResearchConsensus />
 
       <KeyDateActionOverview title="月关键日行动总览" note="月卦优先。这里只把证据能够区分高点或低点的日期列为抄底、逃顶观察；其余日期明确保持不操作。" rows={agenda.monthly} />
       <KeyDateActionOverview title="周关键日行动总览" note="周卦用于细化本周节奏，不覆盖月度方向；缺少独立周卦时会明确标记为月卦当周推演。" rows={agenda.weekly} />

@@ -2,6 +2,7 @@ export type KeyDateAction = "BOTTOM_WATCH" | "TOP_EXIT_WATCH" | "TURNING_RISK";
 export type KeyDateLevel = "MONTH" | "WEEK";
 export type KeyDateEvidence = "EXPLICIT" | "DERIVED";
 export type KeyDateStatus = "UPCOMING" | "ACTIVE" | "REVIEW";
+export type KeyDateConsensusLevel = "MULTI_METHOD_RESONANCE" | "PARTIAL_ALIGNMENT" | "CONFLICTED" | "SINGLE_SOURCE";
 
 export type KeyDateRadarItem = {
   id: string;
@@ -20,6 +21,9 @@ export type KeyDateRadarItem = {
   confirmation: string;
   invalidation: string;
   confidence: number;
+  /** Independent same-asset/same-window agreement; never trading authority. */
+  consensusLevel?: KeyDateConsensusLevel;
+  consensusNote?: string;
   evidence: KeyDateEvidence;
   derivation: string;
   sourceIds: string[];

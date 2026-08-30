@@ -10,6 +10,7 @@ import {
 } from "../lib/data/conviction/us-megacap-liuyao-20260829.ts";
 import { buildKeyDateRadar, keyDateStatus, splitCurrentKeyDateRadar, summarizeKeyDateRadar } from "../lib/data/key-date-radar-core.ts";
 import { MEMBER_KEY_DATE_ASSET_IDS, buildMemberKeyDateRadar, memberKeyDateCoverage } from "../lib/data/member-key-date-radar.ts";
+import { RESEARCH_CONSENSUS_REVIEWS_20260830 } from "../lib/data/research-consensus-20260830.ts";
 import { NAV_ROUTES } from "../config/member-channel-navigation.ts";
 
 const AS_OF = "2026-08-29";
@@ -51,7 +52,58 @@ test("radar contains only exact month or week dates and preserves traceability",
     assert.ok(item.confirmation.length >= 15, item.id);
     assert.ok(item.invalidation.length >= 15, item.id);
     assert.equal(item.focusDate >= AS_OF, true, item.id);
+    if (item.consensusLevel) assert.ok(item.consensusNote && item.consensusNote.length >= 20, item.id);
   }
+});
+
+test("August 30 research raises confidence only on aligned exact windows", () => {
+  const rows = buildMemberKeyDateRadar("2026-08-30");
+  const tslaLow = rows.find((item) => item.assetId === "tsla" && item.level === "MONTH" && item.focusDate === "2026-09-01");
+  const tslaHigh = rows.find((item) => item.assetId === "tsla" && item.level === "MONTH" && item.focusDate === "2026-09-04");
+  const gold = rows.find((item) => item.assetId === "gold" && item.level === "MONTH" && item.focusDate === "2026-09-07");
+  const silver = rows.find((item) => item.assetId === "silver" && item.level === "MONTH" && item.focusDate === "2026-09-14");
+  const btc = rows.find((item) => item.assetId === "btc" && item.level === "MONTH" && item.focusDate === "2026-09-10");
+
+  assert.ok(tslaLow);
+  assert.equal(tslaLow.confidence, 78);
+  assert.equal(tslaLow.consensusLevel, "MULTI_METHOD_RESONANCE");
+  assert.ok(tslaLow.sourceIds.length >= 3);
+
+  assert.ok(tslaHigh);
+  assert.equal(tslaHigh.action, "TOP_EXIT_WATCH");
+  assert.equal(tslaHigh.confidence, 78);
+  assert.equal(tslaHigh.consensusLevel, "MULTI_METHOD_RESONANCE");
+
+  assert.ok(gold);
+  assert.equal(gold.confidence, 58);
+  assert.equal(gold.consensusLevel, "PARTIAL_ALIGNMENT");
+
+  assert.ok(silver);
+  assert.equal(silver.confidence, 52);
+  assert.equal(silver.consensusLevel, undefined);
+
+  assert.ok(btc);
+  assert.equal(btc.confidence, 68);
+  assert.equal(btc.consensusLevel, undefined);
+});
+
+test("research comparison preserves disagreement, uses anonymous method classes and stays presentation-only", () => {
+  assert.equal(RESEARCH_CONSENSUS_REVIEWS_20260830.length, 7);
+  assert.deepEqual(
+    RESEARCH_CONSENSUS_REVIEWS_20260830.filter((review) => review.alignment === "MULTI_METHOD_RESONANCE").map((review) => review.assetId),
+    ["sp500", "tsla", "silver"],
+  );
+  const btc = RESEARCH_CONSENSUS_REVIEWS_20260830.find((review) => review.assetId === "btc");
+  assert.ok(btc);
+  assert.equal(btc.alignment, "CONFLICTED");
+  assert.equal(btc.confidenceDecision, "DOWN_ONE");
+  assert.doesNotMatch(JSON.stringify(RESEARCH_CONSENSUS_REVIEWS_20260830), /丙午|狼叔|万里|秋六爻|Alpha/i);
+
+  const audit = JSON.parse(fs.readFileSync("data/imports/research-consensus-20260830.json", "utf8"));
+  assert.equal(audit.governance.rewriteLockedHistory, false);
+  assert.equal(audit.governance.reverseLockedDirection, false);
+  assert.equal(audit.governance.triggerTradingAlone, false);
+  assert.equal(audit.presentation.showPersonalSourceNames, false);
 });
 
 test("derived dates disclose inference and do not fabricate teacher-supplied exact days", () => {
@@ -222,6 +274,9 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /同一品种的月关键日与周关键日放在一起/);
   assert.match(page, /月关键日行动总览/);
   assert.match(page, /周关键日行动总览/);
+  assert.match(page, /观点共振复核/);
+  assert.match(page, /共振不会改写已经锁定的正式方向/);
+  assert.match(page, /LatestResearchConsensus/);
   assert.match(page, /抄底观察/);
   assert.match(page, /逃顶 \/ 减仓观察/);
   assert.match(page, /只观察 \/ 不操作/);

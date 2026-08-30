@@ -12,6 +12,7 @@ import {
   type SupplementalKeyDateAssetId,
 } from "@/lib/data/conviction/us-megacap-liuyao-20260829";
 import type { KeyDateAction, KeyDateLevel, KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
+import { applyResearchConsensusOverlays20260830 } from "@/lib/data/research-consensus-20260830";
 
 const DAY_MS = 86_400_000;
 const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
@@ -349,10 +350,11 @@ function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOf
 }
 
 export function buildMemberKeyDateRadar(asOfDate: string): KeyDateRadarItem[] {
-  return MEMBER_KEY_DATE_ASSET_IDS.flatMap((assetId) => [
+  const formalItems = MEMBER_KEY_DATE_ASSET_IDS.flatMap((assetId) => [
     ...itemsForPeriod(assetId, "MONTH", asOfDate),
     ...itemsForPeriod(assetId, "WEEK", asOfDate),
   ]);
+  return applyResearchConsensusOverlays20260830(formalItems);
 }
 
 export function memberKeyDateCoverage(asOfDate: string) {

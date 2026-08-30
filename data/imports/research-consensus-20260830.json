@@ -1,0 +1,90 @@
+{
+  "batchId": "RESEARCH-CONSENSUS-20260830",
+  "receivedAt": "2026-08-30",
+  "classification": "FORWARD_RESEARCH_MEMBER_PRESENTATION_ONLY",
+  "governance": {
+    "rewriteLockedHistory": false,
+    "reverseLockedDirection": false,
+    "triggerTradingAlone": false,
+    "confidenceRule": "Only independent same-asset and same-window agreement may raise confidence. Partial horizon overlap receives a smaller adjustment; disagreement is preserved and may lower confidence."
+  },
+  "sourceMaterials": [
+    {
+      "sourceId": "SRC-20260829-LIUYAO-H2",
+      "path": "C:/Users/13558/Desktop/网站相关/11-秋六爻/秋六爻0830",
+      "evidence": "Transcript, captions and 3 supplied chart screenshots",
+      "methodClass": "六爻中长期流派"
+    },
+    {
+      "sourceId": "SRC-20260829-MARKET-STRUCTURE",
+      "path": "C:/Users/13558/Desktop/网站相关/06-美股alpha姐/【美股Alpha姐】2026.08.29",
+      "evidence": "Transcript and 9 supplied market-structure charts",
+      "methodClass": "公开市场结构流派"
+    },
+    {
+      "sourceId": "SRC-20260830-W31",
+      "path": "C:/Users/13558/Desktop/网站相关/03-六爻狼叔/狼叔0830",
+      "evidence": "390-line transcript and 25 supplied screenshots",
+      "methodClass": "六爻周度节奏流派"
+    }
+  ],
+  "reviews": [
+    {
+      "assetId": "sp500",
+      "horizon": "2026-08-31/2026-09-04",
+      "alignment": "MULTI_METHOD_RESONANCE",
+      "confidenceDecision": "UP_ONE",
+      "reason": "Range background, early pressure and September 2-3 repair agree across weekly rhythm and market structure."
+    },
+    {
+      "assetId": "tsla",
+      "horizon": "2026-08-31/2026-09-04",
+      "alignment": "MULTI_METHOD_RESONANCE",
+      "confidenceDecision": "UP_ONE",
+      "reason": "September 1 low/rebound and September 4 high-pressure window agree with independent support/resistance structure."
+    },
+    {
+      "assetId": "silver",
+      "horizon": "2026-09 transition plus 2026-08-31/2026-09-04",
+      "alignment": "MULTI_METHOD_RESONANCE",
+      "confidenceDecision": "UP_ONE",
+      "reason": "Medium-term weak-to-strong transition overlaps with weekly early pressure followed by repair."
+    },
+    {
+      "assetId": "gold",
+      "horizon": "2026 autumn plus next week",
+      "alignment": "PARTIAL_ALIGNMENT",
+      "confidenceDecision": "UP_ONE",
+      "reason": "Long-term bullish and short-term digestion agree, but the sources do not identify one shared exact reversal date."
+    },
+    {
+      "assetId": "nasdaq-100",
+      "horizon": "2026-08-31/2026-09-04",
+      "alignment": "PARTIAL_ALIGNMENT",
+      "confidenceDecision": "UNCHANGED",
+      "reason": "Both see a range and require support confirmation, but one favors early rise then pressure while the other favors a support-led grind higher."
+    },
+    {
+      "assetId": "btc",
+      "horizon": "2026-08-31/2026-09-06",
+      "alignment": "CONFLICTED",
+      "confidenceDecision": "DOWN_ONE",
+      "reason": "Both reject chasing, but disagree on whether rebound or pullback occurs first."
+    },
+    {
+      "assetId": "eth",
+      "horizon": "2026-08-31/2026-09-06",
+      "alignment": "SINGLE_SOURCE",
+      "confidenceDecision": "UNCHANGED",
+      "reason": "No independent same-asset and same-window confirmation was supplied."
+    }
+  ],
+  "presentation": {
+    "showPersonalSourceNames": false,
+    "publicMethodLabels": [
+      "六爻中长期流派",
+      "六爻周度节奏流派",
+      "公开市场结构流派"
+    ]
+  }
+}
