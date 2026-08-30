@@ -1,0 +1,76 @@
+import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+
+const INGESTED_AT = "2026-08-31T07:10:00+08:00";
+
+export const ASTEROID_CYCLE_SUPPLEMENTS_20260831: readonly ConvictionPeriodForecast[] = Object.freeze([
+  {
+    id: "ASTEROID-M1-20260901-V5",
+    assetId: "asteroid",
+    forecastType: "MONTH_1",
+    periodStart: "2026-09-01",
+    periodEnd: "2026-09-30",
+    direction: "先跌后涨",
+    upProbability: 42,
+    sidewaysProbability: 38,
+    downProbability: 20,
+    summary: "火天大有归魂化雷风恒。大有保留资金重新聚集和阶段修复的条件，但归魂先回旧位、财寅木在酉月受制，月初不能直接按主升处理；变恒与后续连续周卦更支持先完成低位整理，再逐步恢复。",
+    expectedPath: "月初继续下探或反复筑底 → 9月7日以后观察解困修复 → 9月21日至月底若量价同步，进入更强反弹窗口；任何反弹都需先收复前一周结构，不把目标市值卦当成必达承诺。",
+    supportLevels: [],
+    resistanceLevels: [],
+    confirmationLevel: "周线停止创新低、重新站回前一周中枢且成交与流动性同步改善。",
+    invalidationLevel: "持续破低、反弹无法收回中枢，或流动性继续收缩。",
+    riskLevel: "极高",
+    catalysts: ["大有的资金聚集条件", "变恒的持续修复结构", "9月后段周卦共振"],
+    risks: ["归魂先回旧位", "财寅木在酉月受制", "小市值流动性与大额卖盘风险"],
+    consensusStars: 3,
+    consensusLabel: "月初仍需筑底，后段修复条件逐周增强；未确认前不把反弹当主升",
+    ichingEvidence: {
+      primaryHexagram: "火天大有（归魂）",
+      changingHexagram: "雷风恒",
+      notes: "原题为太空狗9月份整月走势，2026-08-01 09:39起卦；官鬼巳火临应、父母辰土持世，妻财寅木在二爻，青龙与朱雀爻发动。原始截图：9月.jpg。2026-08-31补录，只从补录后向前验证，不回填已发生结果。",
+    },
+    version: 5,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: INGESTED_AT,
+    lockedAt: INGESTED_AT,
+    validationStatus: "UNVERIFIED",
+  },
+  {
+    id: "ASTEROID-Y1-20260825-V3",
+    assetId: "asteroid",
+    forecastType: "YEAR_1",
+    periodStart: "2026-08-25",
+    periodEnd: "2026-12-31",
+    direction: "先跌后涨",
+    upProbability: 38,
+    sidewaysProbability: 37,
+    downProbability: 25,
+    summary: "地山谦化地水师归魂。谦先压低预期、隐藏力量，师卦再进入组织与重建；财寅木伏于官鬼午火之下，说明资金修复前仍要消化风险和卖压。它支持深跌后的重建可能，却没有给出1300万或任何精确市值底。",
+    expectedPath: "先压缩与磨底 → 通过换手和流动性恢复重新组织 → 后段才有较完整修复；若不能收回主要中枢，全年余下阶段继续按弱势震荡而非强行看多。",
+    supportLevels: [],
+    resistanceLevels: [],
+    confirmationLevel: "周线形成更高低点，并连续收复至少两个前期中枢。",
+    invalidationLevel: "新低持续、量能只在下跌时放大，且主要流动性继续流失。",
+    riskLevel: "极高",
+    catalysts: ["谦卦的低位积蓄", "师卦的重新组织", "社区与流动性恢复"],
+    risks: ["归魂反复", "财爻伏藏", "官鬼压力与小市值大额卖盘"],
+    consensusStars: 2,
+    consensusLabel: "低位重建有机会，但底部和修复都必须由真实量价确认",
+    ichingEvidence: {
+      primaryHexagram: "地山谦",
+      changingHexagram: "地水师（归魂）",
+      notes: "原题为太空狗在2026年整体走势，2026-08-25 18:51起卦；妻财寅木伏于官鬼午火，兄弟申金与妻财所在爻位发动。原始截图：2026.jpg。因起卦时全年已有部分行情，本记录只约束2026-08-25以后，不改写此前历史。",
+    },
+    version: 3,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: INGESTED_AT,
+    lockedAt: INGESTED_AT,
+    validationStatus: "UNVERIFIED",
+  },
+]);
+
+export function listAsteroidCycleSupplements20260831() {
+  return [...ASTEROID_CYCLE_SUPPLEMENTS_20260831];
+}

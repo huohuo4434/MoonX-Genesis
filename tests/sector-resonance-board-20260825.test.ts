@@ -163,3 +163,11 @@ test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指�
   assert.ok(listNbisPeriodForecasts().some((item) => item.id === "NBIS-W8-20260928-V1"));
   assert.ok(listSandiskPeriodForecasts().some((item) => item.id === "SNDK-W9-20260928-V1"));
 });
+
+test("太空狗新月卦与剩余年度卦进入当前板块背景且不回写旧周期", () => {
+  const asteroid = buildSectorResonanceBoard().rows.find((row) => row.symbol === "ASTEROID");
+  assert.equal(asteroid?.annualDirection, "先跌后涨");
+  assert.match(asteroid?.annualLiuyaoDetail?.primaryHexagram ?? "", /地山谦/u);
+  assert.equal(asteroid?.monthlyLiuyaoDetail?.direction, "先跌后涨");
+  assert.match(asteroid?.monthlyLiuyaoDetail?.primaryHexagram ?? "", /火天大有/u);
+});
