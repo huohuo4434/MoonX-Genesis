@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { projectPublicAttribution } from "@/lib/presentation/public-attribution";
+import { listCanonicalPublishedWeeklyAnalyses } from "@/lib/data/weekly-analysis";
+import { selectCanonicalWeeklyVerificationRows } from "@/lib/accuracy/weekly-history-canonical";
 import { WEEKLY_SCORE_VERSION, explainWeeklyVerification, scoreWeeklyVerification } from "@/lib/verification/weekly-verification-core";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +18,10 @@ export async function GET(request: Request) {
     );
   }
   const storedRows = await prisma.weeklyVerificationRecord.findMany({ orderBy: [{ weekEnd: "desc" }, { symbol: "asc" }] });
-  const rows = storedRows.map((row) => {
+  const rows = selectCanonicalWeeklyVerificationRows(
+    storedRows,
+    listCanonicalPublishedWeeklyAnalyses(),
+  ).map((row) => {
     if (!row.actualPattern || row.result === "PENDING") return row;
     const scored = scoreWeeklyVerification(row.predictedPattern, row.actualPattern);
     const isCurrent = row.explanation?.includes(WEEKLY_SCORE_VERSION) ?? false;

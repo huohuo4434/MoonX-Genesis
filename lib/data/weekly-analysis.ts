@@ -111,6 +111,23 @@ export function listAllPublishedWeeklyAnalyses(): WeeklyAnalysisRecord[] {
   return ALL_PUBLISHED.filter((r) => r.status === "published").map(applyWeeklyPriceOverlay);
 }
 
+/** One pre-window locked authority per asset and week; older versions remain in the full archive. */
+export function listCanonicalPublishedWeeklyAnalyses(): WeeklyAnalysisRecord[] {
+  const canonical = new Map<string, WeeklyAnalysisRecord>();
+  for (const record of listAllPublishedWeeklyAnalyses()) {
+    const weekStartsAt = Date.parse(`${record.weekStart}T00:00:00+08:00`);
+    const publishedAt = Date.parse(record.publishedAt);
+    if (!Number.isFinite(publishedAt) || publishedAt >= weekStartsAt) continue;
+    const key = `${record.assetId}|${record.weekStart}|${record.weekEnd}`;
+    const current = canonical.get(key);
+    if (!current || record.version > current.version ||
+        (record.version === current.version && record.publishedAt > current.publishedAt)) {
+      canonical.set(key, record);
+    }
+  }
+  return [...canonical.values()];
+}
+
 /** The week currently shown to members: current week on weekdays, next week from Saturday. */
 export function listPublishedWeeklyAnalyses(now = new Date()): WeeklyAnalysisRecord[] {
   const window = resolveWeeklyDisplayWindow(now);

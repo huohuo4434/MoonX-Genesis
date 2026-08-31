@@ -1,7 +1,9 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { listCanonicalPublishedWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { WEEKLY_SCORE_VERSION, explainWeeklyVerification, scoreWeeklyVerification, weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
+import { selectCanonicalWeeklyVerificationRows } from "@/lib/accuracy/weekly-history-canonical";
 
 export type WeeklyAccuracyPublicItem = {
   id: string;
@@ -55,7 +57,10 @@ export async function getWeeklyAccuracyHistory(): Promise<{
     // V3 display normalization: old database rows are never allowed to keep showing stale
     // 0/65/90 outcomes after the scoring policy changes. The background/admin reverify
     // still writes V3 back to the database; this makes the public page correct immediately.
-    const rows = storedRows.map((row) => {
+    const rows = selectCanonicalWeeklyVerificationRows(
+      storedRows,
+      listCanonicalPublishedWeeklyAnalyses(),
+    ).map((row) => {
       if (!row.actualPattern || row.result === "PENDING") return row;
       const scored = scoreWeeklyVerification(row.predictedPattern, row.actualPattern);
       const isCurrent = row.explanation?.includes(WEEKLY_SCORE_VERSION) ?? false;
