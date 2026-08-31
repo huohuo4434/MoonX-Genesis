@@ -14,9 +14,9 @@ export const MEMBER_VIDEO_CATALOG: readonly MemberVideoRecord[] = [
   },
   {
     slug: "soxl-two-month-cycle-2026",
-    title: "SOXL · 两个月走势与风险窗口",
-    durationLabel: "4分47秒",
-    publishedAt: "2026-08-27",
+    title: "半导体专题 · SOXL强势窗口与闪迪分化",
+    durationLabel: "5分24秒",
+    publishedAt: "2026-08-31",
   },
 ];
 

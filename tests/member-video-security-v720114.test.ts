@@ -24,13 +24,19 @@ test("public member-video catalogue exposes title metadata but not the member re
     },
     {
       slug: "soxl-two-month-cycle-2026",
-      title: "SOXL · 两个月走势与风险窗口",
-      durationLabel: "4分47秒",
-      publishedAt: "2026-08-27",
+      title: "半导体专题 · SOXL强势窗口与闪迪分化",
+      durationLabel: "5分24秒",
+      publishedAt: "2026-08-31",
     },
   ]);
   const catalogue = source("lib/member-videos/catalog.ts");
   assert.doesNotMatch(catalogue, /2028|2029|30%|50%|失效条件/);
+});
+
+test("SOXL member summary separates sector strength from SanDisk individual weakness", () => {
+  const memberContent = source("lib/member-videos/member-content.server.ts");
+  assert.match(memberContent, /闪迪9月个股路线先涨后跌/);
+  assert.match(memberContent, /可能弱于半导体板块/);
 });
 
 test("member-only copy and storage coordinates stay in server-only modules", () => {
