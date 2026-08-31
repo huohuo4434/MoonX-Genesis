@@ -89,15 +89,16 @@ test("4H structural levels are primary and transient failures are not cached as 
   assert.match(s, /source: "UNAVAILABLE"/);
 });
 
-test("homepage uses streamed 4H-first levels and preserves every previous completed verdict", () => {
+test("homepage uses streamed 4H-first levels and highlights only successful previous verdicts", () => {
   const s = read("components/home/HomeLandingBoard.tsx");
   assert.match(s, /HomeIntradayLevelPair/);
   assert.match(s, /item\.forecastDate < todayKey/);
   assert.match(s, /FULL_HIT/);
   assert.match(s, /PARTIAL_HIT/);
-  assert.match(s, /"MISS"/);
-  assert.match(s, /上一交易日验证 · 命中、部分命中与未命中都保留/);
-  assert.doesNotMatch(s, /只展示命中与部分命中/);
+  assert.doesNotMatch(s, /new Set\(\["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS"\]\)/);
+  assert.match(s, /上一交易日命中案例/);
+  assert.match(s, /首页只展示命中与部分命中；未命中与全部样本请查看公开验证/);
+  assert.match(s, /href="\/verification"/);
   assert.doesNotMatch(s, /近期表现较稳的3个市场/);
 });
 
