@@ -31,6 +31,9 @@ test("track-record center exposes real stats, trend, asset and star views", () =
     "月验证档案",
     "不按命中结果挑选",
     "失败记录永久保留",
+    "按发布时信心分层验证",
+    "高信心有效准确率",
+    "未评级",
   ]) assert.ok(ui.includes(marker), marker);
   assert.match(ui, /publicStarAccuracyBreakdown/);
   assert.match(ui, /result === "PARTIAL_HIT"\) return 0\.5/);

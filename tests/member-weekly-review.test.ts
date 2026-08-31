@@ -5,6 +5,7 @@ import type { WeeklyAccuracyPublicItem, WeeklyAccuracyPublicStats } from "@/lib/
 import type { MemberDailyReviewReport } from "@/lib/member-review/daily-review-report";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
+import { buildWeeklyConfidenceCalibration, weeklyConfidenceBand } from "@/lib/accuracy/weekly-confidence-calibration";
 
 const stats: WeeklyAccuracyPublicStats = {
   sampleSize: 3,
@@ -13,8 +14,10 @@ const stats: WeeklyAccuracyPublicStats = {
   miss: 1,
   unverifiable: 0,
   pending: 0,
+  exactAccuracyPct: 33.3,
   weightedAccuracyPct: 50,
   directionAccuracyPct: 66.7,
+  confidenceCalibration: buildWeeklyConfidenceCalibration([]),
 };
 
 function history(input: Partial<WeeklyAccuracyPublicItem> & Pick<WeeklyAccuracyPublicItem, "id" | "assetId" | "symbol" | "predictedPattern" | "actualPattern" | "result">): WeeklyAccuracyPublicItem {
@@ -26,6 +29,8 @@ function history(input: Partial<WeeklyAccuracyPublicItem> & Pick<WeeklyAccuracyP
     totalScore: input.result === "FULL_HIT" ? 90 : input.result === "PARTIAL_HIT" ? 65 : 0,
     explanation: null,
     verifiedAt: "2026-08-24T01:00:00.000Z",
+    confidence: 70,
+    confidenceBand: weeklyConfidenceBand(70),
     ...input,
   };
 }

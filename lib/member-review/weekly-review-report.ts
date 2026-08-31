@@ -3,6 +3,7 @@ import type { MemberDailyReviewReport } from "@/lib/member-review/daily-review-r
 import { weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
+import type { WeeklyConfidenceBand } from "@/lib/accuracy/weekly-confidence-calibration";
 import { buildWeeklySourcePerformance, type WeeklySourcePerformanceRow } from "./weekly-source-performance";
 
 export type WeeklyReviewStatus = "FULL_HIT" | "PARTIAL_HIT" | "MISS" | "UNVERIFIABLE" | "PENDING";
@@ -24,6 +25,8 @@ export type MemberWeeklyReviewItem = {
   status: WeeklyReviewStatus;
   statusLabel: string;
   score: number | null;
+  confidence: number | null;
+  confidenceBand: WeeklyConfidenceBand;
   predictedPattern: string;
   actualPattern: string | null;
   weeklyPath: string | null;
@@ -178,6 +181,7 @@ export function buildMemberWeeklyReviewPayload(input: {
           id: item.id, assetId: item.assetId,
           assetName: analysis?.assetName ?? ASSET_NAMES[normalizedSymbol(item.symbol)] ?? item.assetId,
           symbol: item.symbol, weekStart, weekEnd, status, statusLabel: statusLabel(status), score: item.totalScore,
+          confidence: item.confidence, confidenceBand: item.confidenceBand,
           predictedPattern: item.predictedPattern, actualPattern: item.actualPattern, weeklyPath: analysis?.weeklyPath ?? null,
           hexagram, ...finding({ item, source, status }), dailyEvidence: dayEvidenceFor(item, input.dailyReports),
         };

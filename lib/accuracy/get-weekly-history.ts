@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { listCanonicalPublishedWeeklyAnalyses } from "@/lib/data/weekly-analysis";
 import { WEEKLY_SCORE_VERSION, explainWeeklyVerification, scoreWeeklyVerification, weeklyDirectionMatches } from "@/lib/verification/weekly-verification-core";
 import { selectCanonicalWeeklyVerificationRows } from "@/lib/accuracy/weekly-history-canonical";
+import {
+  buildWeeklyConfidenceCalibration,
+  weeklyConfidenceBand,
+  type WeeklyConfidenceBand,
+  type WeeklyConfidenceCalibration,
+} from "@/lib/accuracy/weekly-confidence-calibration";
 
 export type WeeklyAccuracyPublicItem = {
   id: string;
@@ -19,6 +25,9 @@ export type WeeklyAccuracyPublicItem = {
   totalScore: number | null;
   explanation: string | null;
   verifiedAt: string | null;
+  /** Confidence frozen on the exact pre-window weekly authority. */
+  confidence: number | null;
+  confidenceBand: WeeklyConfidenceBand;
 };
 
 export type WeeklyAccuracyPublicStats = {
@@ -28,9 +37,13 @@ export type WeeklyAccuracyPublicStats = {
   miss: number;
   unverifiable: number;
   pending: number;
+  exactAccuracyPct: number | null;
   weightedAccuracyPct: number | null;
   directionAccuracyPct: number | null;
+  confidenceCalibration: WeeklyConfidenceCalibration;
 };
+
+const EMPTY_CONFIDENCE_CALIBRATION = buildWeeklyConfidenceCalibration([]);
 
 const EMPTY_STATS: WeeklyAccuracyPublicStats = {
   sampleSize: 0,
@@ -39,8 +52,10 @@ const EMPTY_STATS: WeeklyAccuracyPublicStats = {
   miss: 0,
   unverifiable: 0,
   pending: 0,
+  exactAccuracyPct: null,
   weightedAccuracyPct: null,
   directionAccuracyPct: null,
+  confidenceCalibration: EMPTY_CONFIDENCE_CALIBRATION,
 };
 
 export async function getWeeklyAccuracyHistory(): Promise<{
@@ -57,9 +72,11 @@ export async function getWeeklyAccuracyHistory(): Promise<{
     // V3 display normalization: old database rows are never allowed to keep showing stale
     // 0/65/90 outcomes after the scoring policy changes. The background/admin reverify
     // still writes V3 back to the database; this makes the public page correct immediately.
+    const authorities = listCanonicalPublishedWeeklyAnalyses();
+    const authorityById = new Map(authorities.map((analysis) => [analysis.id, analysis] as const));
     const rows = selectCanonicalWeeklyVerificationRows(
       storedRows,
-      listCanonicalPublishedWeeklyAnalyses(),
+      authorities,
     ).map((row) => {
       if (!row.actualPattern || row.result === "PENDING") return row;
       const scored = scoreWeeklyVerification(row.predictedPattern, row.actualPattern);
@@ -77,9 +94,9 @@ export async function getWeeklyAccuracyHistory(): Promise<{
     const partial = eligible.filter((r) => r.result === "PARTIAL_HIT").length;
     const miss = eligible.filter((r) => r.result === "MISS").length;
     const directionHits = eligible.filter((r) => r.actualPattern && weeklyDirectionMatches(r.predictedPattern, r.actualPattern)).length;
-
-    return {
-      items: rows.map((r) => ({
+    const items = rows.map((r): WeeklyAccuracyPublicItem => {
+      const confidence = authorityById.get(r.weeklyAnalysisId)?.confidence ?? null;
+      return {
         id: r.id,
         assetId: r.assetId,
         symbol: r.symbol,
@@ -93,7 +110,18 @@ export async function getWeeklyAccuracyHistory(): Promise<{
         totalScore: r.totalScore,
         explanation: r.explanation,
         verifiedAt: r.verifiedAt?.toISOString() ?? null,
-      })),
+        confidence,
+        confidenceBand: weeklyConfidenceBand(confidence),
+      };
+    });
+    const confidenceCalibration = buildWeeklyConfidenceCalibration(items.map((item) => ({
+      result: item.result,
+      confidence: item.confidence,
+      directionMatched: Boolean(item.actualPattern && weeklyDirectionMatches(item.predictedPattern, item.actualPattern)),
+    })));
+
+    return {
+      items,
       stats: {
         sampleSize: eligible.length,
         full,
@@ -101,12 +129,14 @@ export async function getWeeklyAccuracyHistory(): Promise<{
         miss,
         unverifiable: rows.filter((r) => r.result === "UNVERIFIABLE").length,
         pending: rows.filter((r) => r.result === "PENDING").length,
+        exactAccuracyPct: eligible.length ? Math.round((full / eligible.length) * 1000) / 10 : null,
         weightedAccuracyPct: eligible.length
           ? Math.round(((full + partial * 0.5) / eligible.length) * 1000) / 10
           : null,
         directionAccuracyPct: eligible.length
           ? Math.round((directionHits / eligible.length) * 1000) / 10
           : null,
+        confidenceCalibration,
       },
     };
   } catch (error) {

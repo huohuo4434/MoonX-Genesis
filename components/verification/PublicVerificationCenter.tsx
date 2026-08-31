@@ -15,6 +15,7 @@ import {
 } from "@/lib/accuracy/verification-display-policy";
 
 import { canonicalVerificationSymbol, humanizeVerificationText, verificationAssetLabel } from "@/lib/presentation/verification-display";
+import type { WeeklyConfidenceBand } from "@/lib/accuracy/weekly-confidence-calibration";
 type RangeFilter = "30D" | "90D" | "ALL";
 type PeriodFilter = PublicVerificationPeriod;
 
@@ -36,7 +37,16 @@ type UnifiedRow = {
   resistanceLevels?: string[];
   confirmation?: string;
   invalidation?: string;
+  confidence: number | null;
+  confidenceBand: WeeklyConfidenceBand | null;
 };
+
+function confidenceBandText(band: WeeklyConfidenceBand, en: boolean): string {
+  if (band === "HIGH") return en ? "High confidence" : "高信心";
+  if (band === "STANDARD") return en ? "Standard confidence" : "常规信心";
+  if (band === "LOW") return en ? "Cautious sample" : "谨慎样本";
+  return en ? "Unrated" : "未评级";
+}
 
 function normalizeDailyVerdict(verdict: DailyVerdict): UnifiedRow["result"] {
   if (verdict === "HIT" || verdict === "FULL_HIT") return "FULL_HIT";
@@ -218,6 +228,8 @@ export function PublicVerificationCenter({
         resistanceLevels: item.resistanceLevels,
         confirmation: item.confirmation,
         invalidation: item.invalidation,
+        confidence: null,
+        confidenceBand: null,
       };
     });
     const weekly: UnifiedRow[] = weeklyItems.map((item) => {
@@ -236,6 +248,8 @@ export function PublicVerificationCenter({
         verifiedAt: item.verifiedAt,
         detail: item.explanation,
         dataSource: null,
+        confidence: item.confidence,
+        confidenceBand: item.confidenceBand,
       };
     });
     return [...daily, ...weekly].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -283,6 +297,15 @@ export function PublicVerificationCenter({
 
   const dailyFull = dailyStats.fullHitCount ?? dailyStats.hitCount;
   const dailyPartial = dailyStats.partialHitCount ?? 0;
+  const confidenceCalibration = weeklyStats.confidenceCalibration;
+  const highConfidence = confidenceCalibration.bands.find((band) => band.band === "HIGH")!;
+  const calibrationText = confidenceCalibration.state === "OUTPERFORMS"
+    ? (en ? `High-confidence samples lead the comparison group by ${confidenceCalibration.highConfidenceLiftPct}%` : `高信心组暂时领先常规／谨慎组 ${confidenceCalibration.highConfidenceLiftPct}%`)
+    : confidenceCalibration.state === "UNDERPERFORMS"
+      ? (en ? `High-confidence samples trail by ${Math.abs(confidenceCalibration.highConfidenceLiftPct ?? 0)}%; calibration needs revision` : `高信心组暂时落后 ${Math.abs(confidenceCalibration.highConfidenceLiftPct ?? 0)}%，信心规则需要校准`)
+      : confidenceCalibration.state === "NO_CLEAR_EDGE"
+        ? (en ? "No clear accuracy edge yet" : "高信心组暂未形成明显优势")
+        : (en ? "Provisional: both groups need at least five samples" : "阶段观察：高信心组与对照组需各满 5 条");
   const metricCards = period === "DAILY" ? [
     [en ? "Verified daily reviews" : "已验证日复盘", String(dailyStats.verifiedCount), en ? "Supporting review only" : "仅作为周路径辅助复盘"],
     [en ? "Primary accuracy scope" : "主准确率口径", en ? "Weekly" : "周预测", en ? "Daily results do not define the headline rate" : "日度结果不作为网站主成功率"],
@@ -320,8 +343,8 @@ export function PublicVerificationCenter({
             {en ? "Headline accuracy is based on locked weekly forecasts. Hits, partial hits and misses remain permanently visible." : "公开主准确率以发布时锁定的周预测为准；命中、部分命中和未命中全部永久保留。"}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Verified weekly samples" : "已验证周样本"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{weeklyStats.sampleSize}</div></div>
-            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Weekly weighted accuracy" : "周度加权命中率"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pct(weeklyStats.weightedAccuracyPct, en)}</div></div>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "High-confidence weekly samples" : "高信心周样本"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{highConfidence.sampleSize}</div></div>
+            <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "High-confidence effective accuracy" : "高信心有效准确率"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pct(highConfidence.weightedAccuracyPct, en)}</div></div>
             <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "Pending verification" : "待验证记录"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{pendingCount}</div></div>
           </div>
           <p className="mt-4 text-xs text-foreground-tertiary">{en ? "Loading interactive filters and the complete archive…" : "正在载入筛选器与完整验证档案…"}</p>
@@ -363,6 +386,12 @@ export function PublicVerificationCenter({
         </div>
         {selectedUnverifiable > 0 ? <div className="mt-3 text-xs text-foreground-tertiary">{en ? `The weekly archive retains ${selectedUnverifiable} unverifiable records outside the weekly accuracy denominator.` : `本页周度档案另有 ${selectedUnverifiable} 条不可验证记录保留，但不进入周度命中率分母。`}</div> : null}
       </section>
+
+      {period === "WEEKLY" ? <section className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.035] p-5 sm:p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><h2 className="text-xl font-semibold text-foreground">{en ? "Accuracy by locked confidence" : "按发布时信心分层验证"}</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-foreground-tertiary">{en ? `High ≥${confidenceCalibration.highConfidenceMin}; standard ${confidenceCalibration.standardConfidenceMin}–${confidenceCalibration.highConfidenceMin - 1}; cautious <${confidenceCalibration.standardConfidenceMin}. Old unrated samples are never upgraded after the outcome.` : `高信心 ≥${confidenceCalibration.highConfidenceMin}；常规信心 ${confidenceCalibration.standardConfidenceMin}–${confidenceCalibration.highConfidenceMin - 1}；谨慎样本 <${confidenceCalibration.standardConfidenceMin}。旧样本没有发布时信心值的归入“未评级”，不事后补成高信心。`}</p></div><span className={`rounded-full border px-3 py-1 text-xs font-semibold ${confidenceCalibration.state === "OUTPERFORMS" ? "border-emerald-400/30 text-emerald-400" : confidenceCalibration.state === "UNDERPERFORMS" ? "border-rose-400/30 text-rose-400" : "border-border text-foreground-secondary"}`}>{calibrationText}</span></div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{confidenceCalibration.bands.map((band) => <div key={band.band} className={`rounded-xl border p-4 ${band.band === "HIGH" ? "border-emerald-400/25 bg-emerald-400/[.045]" : "border-border/60 bg-background/20"}`}><div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-foreground">{confidenceBandText(band.band, en)}</span><span className="text-xs text-foreground-tertiary">n={band.sampleSize}</span></div><div className="mt-3 text-2xl font-bold tabular-nums text-foreground">{pct(band.weightedAccuracyPct, en)}</div><div className="mt-1 text-xs text-foreground-tertiary">{en ? "Effective accuracy" : "有效准确率（部分命中×0.5）"}</div><div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div><span className="text-foreground-tertiary">{en ? "Exact" : "完全命中率"}</span><div className="mt-1 font-semibold text-foreground">{pct(band.exactAccuracyPct, en)}</div></div><div><span className="text-foreground-tertiary">{en ? "Direction" : "方向准确率"}</span><div className="mt-1 font-semibold text-foreground">{pct(band.directionAccuracyPct, en)}</div></div></div><div className="mt-3 text-[11px] text-foreground-tertiary">{band.full}/{band.partial}/{band.miss} · {en ? "full/partial/miss" : "完全/部分/未中"}</div></div>)}</div>
+        <p className="mt-4 text-xs leading-5 text-foreground-tertiary">{en ? `High-confidence coverage is ${pct(confidenceCalibration.highConfidenceCoveragePct, en)} of rated samples. Low-confidence, unrated and missed forecasts remain in the archive and denominator of their own band.` : `高信心样本占全部已评级样本 ${pct(confidenceCalibration.highConfidenceCoveragePct, en)}。低信心、未评级和失败样本仍完整保留，并继续进入各自分组统计。`}</p>
+      </section> : null}
 
       <section className="mt-6 rounded-2xl border border-border/70 bg-card/50 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
