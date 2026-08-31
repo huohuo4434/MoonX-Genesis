@@ -4,7 +4,9 @@ import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
 import { EXTERNAL_ANALYST_VIEWPOINTS_20260828 } from "@/lib/data/external-analyst-viewpoints-20260828";
 import { EXTERNAL_ANALYST_VIEWPOINTS_20260830 } from "@/lib/data/external-analyst-viewpoints-20260830";
+import { EXTERNAL_ANALYST_VIEWPOINTS_20260901 } from "@/lib/data/external-analyst-viewpoints-20260901";
 import { teacher02Liuyao20260802Records } from "@/lib/data/teacher02-liuyao-20260802";
+import { TEACHER02_LIUYAO_20260901 } from "@/lib/data/teacher02-liuyao-20260901";
 import { ANALYST_FUSION_SHADOW_VARIANTS } from "@/lib/research/analyst-fusion-shadow-core";
 import { EXTERNAL_ANALYST_ROLE_REGISTRY } from "@/lib/research/external-analyst-role-registry";
 import { assessExternalViewpointCard } from "@/lib/research/external-viewpoint-card-core";
@@ -49,8 +51,8 @@ export default async function AdminExternalViewpointsPage() {
       records: allRecords,
     }),
   }));
-  const archivedViewpoints = [...teacher02Liuyao20260802Records, ...externalViewpoints20260801, ...externalViewpointsFollowup20260801];
-  const analystCards = [...EXTERNAL_ANALYST_VIEWPOINTS_20260828, ...EXTERNAL_ANALYST_VIEWPOINTS_20260830].map((card) => ({
+  const archivedViewpoints = [...teacher02Liuyao20260802Records, ...TEACHER02_LIUYAO_20260901, ...externalViewpoints20260801, ...externalViewpointsFollowup20260801];
+  const analystCards = [...EXTERNAL_ANALYST_VIEWPOINTS_20260828, ...EXTERNAL_ANALYST_VIEWPOINTS_20260830, ...EXTERNAL_ANALYST_VIEWPOINTS_20260901].map((card) => ({
     card,
     assessment: assessExternalViewpointCard(card),
   }));
@@ -161,7 +163,7 @@ export default async function AdminExternalViewpointsPage() {
       <Card padding="lg" className="mb-6 space-y-5 border-emerald-400/20">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Heading as="h2" size="h3">2026-08-28至30日观点卡</Heading>
+            <Heading as="h2" size="h3">2026-08-28至9月1日观点卡</Heading>
             <Text variant="body-sm" color="secondary" className="mt-1 max-w-4xl">
               所有材料只从系统实际摄入后的未来窗口开始计分，不拿已经发生的行情倒填命中。点位必须同时保留确认与失效条件；发布时间未核验、只有方法或只有风险叙事的内容只做笔记。
             </Text>
