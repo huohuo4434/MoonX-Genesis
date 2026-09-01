@@ -2,7 +2,18 @@ export type QimenCyclePatternMaterial = {
   fileName: string;
   sha256: string;
   kind: "TRANSCRIPT" | "FRAME";
-  period: "YEAR_2026" | "JUNE_2026" | "H2_2026" | "SEPTEMBER_2026";
+  period:
+    | "DECEMBER_2025"
+    | "JANUARY_2026"
+    | "MARCH_2026"
+    | "APRIL_2026"
+    | "MAY_2026"
+    | "JUNE_2026"
+    | "JULY_2026"
+    | "YEAR_2026"
+    | "H2_2026"
+    | "SEPTEMBER_2026"
+    | "TEACHING_WORKFLOW";
 };
 
 const materials: QimenCyclePatternMaterial[] = [
@@ -29,6 +40,49 @@ const materials: QimenCyclePatternMaterial[] = [
   { fileName: "0901/cd4fe3d5165123a53781455e79bfd3b7.png", sha256: "F446520721A436DEC8FD6D620978D1BB9748736E269DFCC53DC471E8BA8B09B8", kind: "FRAME", period: "SEPTEMBER_2026" },
   { fileName: "0901/cfe8cbfcd5021d535c17ef376ec818f1.png", sha256: "8B2A28EC78BC8D8649CD5977D6FAA1D17E612E6626A7DFDCE1C159DF32E7ADE7", kind: "FRAME", period: "SEPTEMBER_2026" },
   { fileName: "0901/fcae675a165e5e46936b954894291727.png", sha256: "5883B3F5E9D54587AD98239388FB83D695898A4B559E5541E234F8D20FEDA509", kind: "FRAME", period: "SEPTEMBER_2026" },
+  { fileName: "2025年12月/12月的凶，賊自外來，殺人且誅心！2025年12月運勢全解 ｜ 奇門月運 [KuPgFQOa_dQ].zh-CN.vtt", sha256: "516738F0DAB25CFA3B523409E43A59B75E8C46287F3134910B4B6BCDE1E4B48F", kind: "TRANSCRIPT", period: "DECEMBER_2025" },
+  { fileName: "2025年12月/1ab2ac47-d187-47f8-99b8-c0c3e965f835.png", sha256: "9AA8DD9897A5224CF42399A3D38763592CC5F1B3A7967EC749E9178C1A9040D3", kind: "FRAME", period: "DECEMBER_2025" },
+  { fileName: "2025年12月/7dcfe9fb-80dd-4a8c-a42e-2864c8696276.png", sha256: "88A2C4590A20D6BB472DD941BB01ECE1240D189A7E43AFAE421D63600B79B7D5", kind: "FRAME", period: "DECEMBER_2025" },
+  { fileName: "2025年12月/91ee3424-1fea-441c-9c91-e73324fe98cc.png", sha256: "A3CBB6EB72A5AD30D432EDC7BEF6FD3F9E2D4F02DD44EAFDD50FF2303C1FDEA7", kind: "FRAME", period: "DECEMBER_2025" },
+  { fileName: "2025年12月/e5e4200e-8577-4952-a0c9-8a99a5474714.png", sha256: "DAEBF74C4082CFF0DB6D717E22F1DCB4F58D8F362BF9E93D23FE40B5D5AE042E", kind: "FRAME", period: "DECEMBER_2025" },
+  { fileName: "1月/險！己醜月，天地皆墓、混沌不堪！2026年1月運勢分析 ｜ 奇門月運 [HyUlsXTiwkA].zh-CN.vtt", sha256: "9E7588ED39D43C5DAF244CC285F0A5A59C55F65EAE423A6BF7F6A05DC93639C0", kind: "TRANSCRIPT", period: "JANUARY_2026" },
+  { fileName: "1月/14948445-c31e-41d9-bcad-a74b6e1f092c.png", sha256: "8E6B30D62462864569CD444AD712E84AC8B79B1B588F917E93927CBBAACA82F9", kind: "FRAME", period: "JANUARY_2026" },
+  { fileName: "1月/367f1f53-735c-49f2-812b-80d1d04480be.png", sha256: "3F83926B878DC46D1C6DFD0DA021364ADBDDECC37864F2536ECAB9AF8838914A", kind: "FRAME", period: "JANUARY_2026" },
+  { fileName: "1月/6f96fcf1-47fe-4bc4-9d61-017d4fd90db7.png", sha256: "5365B855000E08E8F9F47D0F27315BDFFD3F2333DB0B7F741FE3727EEC362236", kind: "FRAME", period: "JANUARY_2026" },
+  { fileName: "1月/b39991c3-1c49-44cd-9cc4-f75a1c42e15e.png", sha256: "4D2B2AB873E3EF0964FE0B5BEF02685FAB123815FAD56BA2A744F72B1127C695", kind: "FRAME", period: "JANUARY_2026" },
+  { fileName: "3月/财富大洗牌正式开启！奇门推演2026年3月走势：正财死、偏财生｜理气奇门遁甲与风水 [qNLbU6W8lZA].zh-CN.vtt", sha256: "822990749E944814ECC3772BBD85BF9D093473078D08BE1C481148FE84B839AC", kind: "TRANSCRIPT", period: "MARCH_2026" },
+  { fileName: "3月/1414d69f-ab39-4266-b918-c5be4161d086.png", sha256: "56BE8144E43B8C87BC7333C2074C5A06AE6B2A85CA324859252D368CE80AF27E", kind: "FRAME", period: "MARCH_2026" },
+  { fileName: "3月/3c8448b3-4b1e-4c38-847e-bec9b80a7a7c.png", sha256: "649520AF1B8C78FD787C29C5271492C5D7C3E9C1DC6DB43DB1BC96994FF55C67", kind: "FRAME", period: "MARCH_2026" },
+  { fileName: "3月/c3c21345-8193-4c69-bc90-c2c30b86d8f0.png", sha256: "53336CBA622A8FF0A43A6D546D657C5B7A12CF514AFB62977D17EAE5B7D293BF", kind: "FRAME", period: "MARCH_2026" },
+  { fileName: "3月/c9d98781-b4a7-4c69-8092-46696a267e77.png", sha256: "3DDA47C057030D3EA7F06BA8C4C2A31842F3E7D2E51AABD2FD99ED1A738DB61E", kind: "FRAME", period: "MARCH_2026" },
+  { fileName: "3月/d791abd3-b538-40a6-9d2e-bbe4f8143ed4.png", sha256: "58BE71602D06F75A4D299B9CDD957F76B62597976D277483AD26D4CE098DE60F", kind: "FRAME", period: "MARCH_2026" },
+  { fileName: "4月/巨变已至！壬辰月局势推演：全球衰退开启，看懂局势的人都在做这几件事 ｜  奇门运势 [3a-IycvDWpQ].zh-CN.vtt", sha256: "F7D902B28D5C07B4DA165983514796FD967C8FF2067ED84C60C9E866415B0F05", kind: "TRANSCRIPT", period: "APRIL_2026" },
+  { fileName: "4月/07f5af7f-13e0-4483-843b-57af86c7aa55.png", sha256: "5AB20E5B8B75E8602FBB14EAC59912456C95154AF57F0251340BDD4BDB5FC276", kind: "FRAME", period: "APRIL_2026" },
+  { fileName: "4月/397b7d07-e05e-4ce5-8715-034f8f776451.png", sha256: "4A3CC3E9327562DAA4A51A570F07D07DA0324A2880AD96FFA08A081CC430826D", kind: "FRAME", period: "APRIL_2026" },
+  { fileName: "4月/dd53c4d0-f4ed-412e-b753-713578c62bc9.png", sha256: "3C7F35B11A972A2EF5A29B8529F75DE17A65F0648E95921E4D2E66225D08C410", kind: "FRAME", period: "APRIL_2026" },
+  { fileName: "5月/五月癸巳月，水火剧烈冲撞！别乱动，教你寻找躲避“绞杀”的唯一生门！ [aFVOjTVCoZI].zh-CN.vtt", sha256: "EA44D45CAA1FCD96C62331213D5695BA66006DB5E6A0CCA99B529AFD9D69D0C8", kind: "TRANSCRIPT", period: "MAY_2026" },
+  { fileName: "5月/21021393-a45f-429d-941b-746db15a83cb.png", sha256: "3D501606BEAD861CF7A6505758A66DAB79F463791B9069E490433F39EE0E6FDA", kind: "FRAME", period: "MAY_2026" },
+  { fileName: "5月/34b56a31-1985-495b-8332-8fc2a02eb72d.png", sha256: "421B50D4963632D6EDBE7FC5F3D94978292852A7100BFAEFD1AF590892662B2A", kind: "FRAME", period: "MAY_2026" },
+  { fileName: "5月/7bf0c715-3d09-4f5e-a07f-4617b66c3b9e.png", sha256: "4FE75CBFB42D8B436DE47F7D009F05A4E9EC4D91C56CED9B8F7A96A403802B2C", kind: "FRAME", period: "MAY_2026" },
+  { fileName: "5月/d6a1d790-cbae-4dd7-ad5e-e28a38288d68.png", sha256: "816710E41C3265C7E5D5724AF20F61DC522BCB80C6B82EA7DF09649192639ADC", kind: "FRAME", period: "MAY_2026" },
+  { fileName: "5月/e2be5164-12ec-43ab-8953-9c87c16cd544.png", sha256: "8236BE6617AA807C499A1AB6E8DC472CC51578A5E69A04BAC432BD661E2B2859", kind: "FRAME", period: "MAY_2026" },
+  { fileName: "6月/2026年6月奇门局：出师未捷深陷泥潭？教你找对当下的“避风港” ｜ 奇门运势 [PN47WPGrCJU].zh-CN.vtt", sha256: "08F3C77DD8D6E3F70495A22DD4393F7350055FFAEA79173FBD8942DE3BA42F54", kind: "TRANSCRIPT", period: "JUNE_2026" },
+  { fileName: "6月/1039addf-5582-4a77-a0f3-5425835d86d2.png", sha256: "751973503D7E38FEC529A414301FADA7C56D288D538D0F0E97A3760D8E978464", kind: "FRAME", period: "JUNE_2026" },
+  { fileName: "6月/6e106f23-5011-4959-9ff7-da4731db5b5d.png", sha256: "EF65C9668A7F942CD732E81D507E3F2D6FD1E1C99811189E50E44B98B44241B4", kind: "FRAME", period: "JUNE_2026" },
+  { fileName: "7月/下半年开局大凶？2026年7月大忌，千万别碰！奇门教你趋避之法！ [aAijSeSKgXs].zh-CN.vtt", sha256: "4FBF73CF36691F1773FDD72BBD050E1DE75CC21F1A2793A2CA1EEA20A69B49B1", kind: "TRANSCRIPT", period: "JULY_2026" },
+  { fileName: "7月/0548b563-77d1-4281-b386-200c11a34dcd.png", sha256: "2E5C9B16B7CE09EB80D74B4A5551F3D76E1A2AC3191250EB2A56D9D63E08ACD7", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "7月/4e231348-a54e-4731-8761-3c8162b5aebc.png", sha256: "EE958464AD0E1427109E167C13EDAF0AE45B2EE810A5462A38EFF5C530407E91", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "7月/5510fd25-6810-4856-a552-1e907c9e2887.png", sha256: "78ED85AE271ACF0CE05490F56E4F9B9A16B41FBB024BCDF1F9DCC856E2900E44", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "7月/a4adf3f7-2f59-4e6a-a1a7-5c5861eb8312.png", sha256: "9550276F68FA89A136D08BB9B9A0DF65802EC11FC275BF7777BEDAC8DBE11186", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "7月/b67ad98a-a2a5-4ff9-94eb-ee89181ff5da.png", sha256: "534E5350230F5E508192848320950A5E8F6466E0AC113EFE85571E7A27F8C66A", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "7月/c73be27f-5683-4a7e-adac-c21f8e72ecbe.png", sha256: "C3D8798EB1E1C26C94DECCDCA83227D9E9EEB9DDF7B268CE11F31FECD50EC06B", kind: "FRAME", period: "JULY_2026" },
+  { fileName: "教学宣传1/把20年实战经验压缩成一套课程！学奇门何必熬十年？教你开启“上帝视角”实现断卦闭环！ [wXdxkWXnDPg].zh-CN.vtt", sha256: "5515A6E1B2C54166268DA6E62F7FBF5A1914D2FE3133B13096E0D66E75484FA1", kind: "TRANSCRIPT", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传1/c7dca269766d9b83910c3e37258e4a87.png", sha256: "2B3E7ADF8381DB41D6C844A55244FB319CC58A5968E29E63A5A6BDA8AC425800", kind: "FRAME", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传1/d351787fa2b9e575c08aa25eb0130e71.png", sha256: "F0C5F56D74067008152FF119FE844D9202EC9562C43E38AF28D60A203D928B01", kind: "FRAME", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传2/一位易学导师的“数字化教学”革命：拿着答案去断事，带着证据去复盘！ [k5ScMaJkBbQ].zh-CN.vtt", sha256: "30638C52653F6EBC3F1E71498C86004FC7246713E78B022D7B0B24D2186726A8", kind: "TRANSCRIPT", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传2/9058c3b8-2188-4d6c-a960-3dab4c62ef82.png", sha256: "A12B10D47ACC4266F10279CD55A6ABB94AF9F6D0F793DC17DF046CDCC403D0FC", kind: "FRAME", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传2/c4f5ebf7-1aa4-4cbb-91dd-a3ca384a009e.png", sha256: "9F493597ECBFDAA4F8955668C5070F29D1C484B7188874DDC71176A21706B628", kind: "FRAME", period: "TEACHING_WORKFLOW" },
+  { fileName: "教学宣传2/fd15ed83-601b-4b3d-8af2-aacc3c4e749a.png", sha256: "53309DA871D2029410C05B0BCF9FC0BBF252F577EF2686BE37D07CB4FD24BEC9", kind: "FRAME", period: "TEACHING_WORKFLOW" },
 ];
 
 export const QIMEN_CYCLE_PATTERN_SOURCE_20260901 = Object.freeze({
@@ -50,12 +104,89 @@ export const QIMEN_CYCLE_PATTERN_SOURCE_20260901 = Object.freeze({
     mayChangeAssetConfidence: false,
     mayTriggerTrade: false,
   }),
+  analysisLoop: Object.freeze([
+    { step: 1, titleZh: "先锁周期", titleEn: "Fix the horizon", detailZh: "明确年、半年、月、周或时局；高周期只定环境，低周期只细化时机。", detailEn: "Separate annual, half-year, monthly, weekly and intraday charts; higher horizons set context while lower ones refine timing." },
+    { step: 2, titleZh: "核对原盘", titleEn: "Verify the chart", detailZh: "保存起局时间、阴阳遁、局数、旬首、空亡、值符值使及九宫原始排布，不从摘要反推缺盘。", detailEn: "Preserve the chart time, dun type, ju, xun leader, voids, chief deity/gate and original palaces; never reconstruct missing facts from a summary." },
+    { step: 3, titleZh: "找周期主线", titleEn: "Find the cycle owner", detailZh: "月运先看月干与旬首，逐项记录落宫、旺衰、入墓、空亡、冲合刑害及十二长生状态。", detailEn: "For monthly work, start with the month stem and xun leader, then record palace, strength, tomb, void, clashes and the twelve growth stages." },
+    { step: 4, titleZh: "读宫与格", titleEn: "Read palace and pattern", detailZh: "再看值符、值使、门、星、神、天地盘干组合和宫位生克，不能只凭一个吉门或凶格下结论。", detailEn: "Read the chief deity/gate, doors, stars, deities, stem combinations and palace relations; no single good or bad marker decides the outcome." },
+    { step: 5, titleZh: "古籍校验", titleEn: "Check the classics", detailZh: "把盘面事实与古籍原文、白话释义逐条对应，区分原文、解释和后续推论。", detailEn: "Map chart facts to the source text and plain-language interpretation while keeping quotation, interpretation and inference separate." },
+    { step: 6, titleZh: "显隐并读", titleEn: "Read benefit and risk", detailZh: "同时保留显性利好与隐藏风险；表面和合可能只是休整或利益妥协，不自动等于趋势反转。", detailEn: "Keep visible support and hidden risk together; apparent harmony may be a tactical truce rather than a lasting reversal." },
+    { step: 7, titleZh: "先环境后品种", titleEn: "Context before asset", detailZh: "先形成流动性、风险偏好、震荡或转折等市场气候；只有出现产品专属用神或问题盘时，才下放到单一资产。", detailEn: "Define liquidity, risk appetite and regime first; move to one asset only when the chart contains an asset-specific anchor." },
+    { step: 8, titleZh: "拆开四个字段", titleEn: "Separate four fields", detailZh: "方向、节奏、风险与行动分别记录；奇门可定环境和时机，不生成价格点位，也不覆盖正式六爻方向。", detailEn: "Store direction, path, risk and action separately. Qimen may refine context and timing but cannot invent levels or override the formal Liuyao direction." },
+    { step: 9, titleZh: "前瞻锁定", titleEn: "Lock prospectively", detailZh: "在结果发生前保存结论、适用窗口、确认与失效条件；历史材料只学方法，不补写命中。", detailEn: "Save the conclusion, window, confirmation and invalidation before the outcome; historical material teaches the method only." },
+    { step: 10, titleZh: "闭合K线复盘", titleEn: "Review closed candles", detailZh: "到期后读取完整闭合K线，对照原结论、古籍依据和现实反馈，积累同周期可复现样本。", detailEn: "At expiry, evaluate complete closed candles against the original conclusion and evidence to build reproducible same-horizon samples." },
+  ]),
+  misuseGuardsZh: Object.freeze([
+    "不把生门、死门、入墓、长生或单一吉凶格机械翻译成上涨、下跌。",
+    "不把月度宏观气候复制成BTC、黄金或个股的正式方向与点位。",
+    "不把课程宣传中的命中表述当成可审计统计；历史月份统一标记为回顾样本。",
+    "不因后来走势符合叙事而改写原预测；只评价当时已明确写出的方向、窗口和条件。",
+    "不让周期格局流派提高交易权限；它只能延迟、缩小或阻断风险，不能反转锁定方向。",
+  ]),
   learnings: Object.freeze([
     "年、半年、月必须分层阅读；月盘不能覆盖年盘，只解释当前阶段。",
     "先读周期干及旬首落宫，再读值符值使；不能只因出现吉格或凶格就直接映射成涨跌。",
     "古籍显性吉象与隐性风险要并读：表面和谐可能来自利益妥协，不等同长期趋势反转。",
     "节气用于宽时间窗：立秋、寒露、小雪是阶段节点，不冒充精确交易日。",
     "具体资产仍须回到该资产正式六爻方向、对象用神或定向取宫读数及技术结构。",
+  ]),
+  historicalCasebook: Object.freeze([
+    {
+      period: "2025-12",
+      cycle: "戊子月",
+      evidenceZh: "戊入乾墓，戊己青龙入狱，景门迫宫，并读戊癸无情之合。",
+      sourceStateZh: "表面可合作，内里流通受阻并藏风险。",
+      marketUseZh: "作为流动性受阻、显性和合与隐性风险并存的历史案例。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-01",
+      cycle: "己丑月",
+      evidenceZh: "己墓于丑，己落艮又墓于丑；天心到艮取天山遁之意。",
+      sourceStateZh: "周期末端、停滞混沌，宜退守观察。",
+      marketUseZh: "作为同一干支在时间与方位双重入墓的历史风险样本。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-03",
+      cycle: "辛卯月",
+      evidenceZh: "丙辛合而卯午破；正财辛处死墓，偏财庚沿宫位得生，另见腾蛇生门。",
+      sourceStateZh: "表合内破、正财弱偏财强，市场先抑后扬且波动放大。",
+      marketUseZh: "示范年干财星角色、十二长生和宫位路径如何共同映射板块轮动。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-04",
+      cycle: "壬辰月",
+      evidenceZh: "壬入辰墓并逢庚见己，流动性受阻；正财辛由巽墓转坎长生，形成自墓传生。",
+      sourceStateZh: "大环境仍受阻，但市场存在修复与做T窗口，不宜恋战。",
+      marketUseZh: "示范宏观环境偏弱时，局部资金线仍可出现阶段修复。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-05",
+      cycle: "癸巳月",
+      evidenceZh: "水火激荡、伏吟，癸庚大格与天网并见。",
+      sourceStateZh: "震荡绞杀、上下受限，见好就收，不宜追涨或盲目抄底。",
+      marketUseZh: "作为方向不明但风险极高时，周期格局只负责降低频率和仓位的案例。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-06",
+      cycle: "甲午月",
+      evidenceZh: "甲遁于旬首甲午辛，辛落巽墓，兼见伏吟、巽之进退不果。",
+      sourceStateZh: "进退两难、热点轮动但方向未决，宜多看少动。",
+      marketUseZh: "示范旬首代甲、宫卦取象与市场状态判断，不能因无方向而强行投票。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
+    {
+      period: "2026-07",
+      cycle: "乙未月",
+      evidenceZh: "辛符加乙为猖狂之虎，乙复加己为游仪；值符到艮、值使到震。",
+      sourceStateZh: "攻击性与假消息风险上升，停滞中酝酿转折，科技有机会但获利难度高。",
+      marketUseZh: "示范凶格与解格并读，以及艮止、震动不能被简化成单向涨跌。",
+      scoreStatus: "UNSCORED_RETROSPECTIVE",
+    },
   ]),
   september2026: Object.freeze({
     periodStart: "2026-09-01",
@@ -97,7 +228,9 @@ export const QIMEN_CYCLE_PATTERN_SOURCE_20260901 = Object.freeze({
     { start: "2026-11-22", labelZh: "小雪前后高风险候选", usage: "MONTHLY_TIMING_ONLY" },
   ]),
   historyPolicy: Object.freeze({
-    juneAndAugust: "METHOD_LEARNING_ONLY",
-    reasonZh: "6月与8月资料在结果发生后才于本次录入，只用于学习方法，不补计历史命中率。",
+    retrospectivePeriods: Object.freeze(["2025-12", "2026-01", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"]),
+    historicalMonths: "METHOD_LEARNING_ONLY",
+    teachingVideos: "WORKFLOW_LEARNING_ONLY",
+    reasonZh: "2025年12月至2026年7月资料均在结果发生后才录入，只用于学习方法；课程案例用于建立证据闭环，全部不补计历史命中率。",
   }),
 } as const);

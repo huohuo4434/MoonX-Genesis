@@ -71,6 +71,12 @@ test("cycle-pattern school stays separate from object-yongshen and directional-p
   assert.equal(cyclePattern.method.maySetOfficialDirection, false);
   assert.equal(cyclePattern.method.mayChangeAssetConfidence, false);
   assert.equal(cyclePattern.method.mayTriggerTrade, false);
+  assert.equal(cyclePattern.analysisLoop.length, 10);
+  assert.match(cyclePattern.analysisLoop[0]?.detailZh ?? "", /高周期只定环境/);
+  assert.match(cyclePattern.analysisLoop[6]?.detailZh ?? "", /产品专属用神或问题盘/);
+  assert.match(cyclePattern.analysisLoop[7]?.detailZh ?? "", /不生成价格点位/);
+  assert.match(cyclePattern.analysisLoop[9]?.detailZh ?? "", /完整闭合K线/);
+  assert.ok(cyclePattern.misuseGuardsZh.some((item) => /不能反转锁定方向/.test(item)));
 });
 
 test("September cycle agreement raises only research climate confidence", () => {
@@ -85,16 +91,35 @@ test("September cycle agreement raises only research climate confidence", () => 
 });
 
 test("all supplied cycle-pattern materials are hash locked and the public card hides identities", () => {
-  assert.equal(cyclePattern.materials.length, 23);
+  assert.equal(cyclePattern.materials.length, 66);
   assert.ok(cyclePattern.materials.every((item) => /^[A-F0-9]{64}$/.test(item.sha256)));
   assert.equal(cyclePattern.materials.filter((item) => item.period === "SEPTEMBER_2026").length, 6);
+  assert.equal(cyclePattern.materials.filter((item) => item.period === "TEACHING_WORKFLOW").length, 7);
+  assert.equal(cyclePattern.materials.filter((item) => item.kind === "TRANSCRIPT" && /6月/.test(item.fileName)).length, 2, "duplicate supplied June transcript paths remain auditable");
   assert.ok(Date.parse(cyclePattern.forwardScoreFrom) > Date.parse(cyclePattern.receivedAt));
 
   const component = fs.readFileSync(path.join(process.cwd(), "components/member/MemberSeptemberRotationReport.tsx"), "utf8");
   const publicCopy = `${cyclePattern.publicLabelZh}${cyclePattern.september2026.sourceConclusionZh}${component}`;
   assert.match(component, /data-cycle-pattern-crosscheck/);
+  assert.match(component, /data-cycle-pattern-method-loop/);
   assert.doesNotMatch(publicCopy, /王老师|王子瑜|吴老师|金兔子/);
   assert.doesNotMatch(publicCopy, /可自动下单|提高交易权限/);
+});
+
+test("historical monthly lessons remain an unscored method casebook", () => {
+  assert.equal(cyclePattern.historicalCasebook.length, 7);
+  assert.deepEqual(cyclePattern.historyPolicy.retrospectivePeriods, [
+    "2025-12",
+    "2026-01",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06",
+    "2026-07",
+  ]);
+  assert.ok(cyclePattern.historicalCasebook.every((item) => item.scoreStatus === "UNSCORED_RETROSPECTIVE"));
+  assert.match(cyclePattern.historyPolicy.reasonZh, /不补计历史命中率/);
+  assert.doesNotMatch(JSON.stringify(cyclePattern.historicalCasebook), /命中率|成功率|自动下单/);
 });
 
 test("new records are wired into the research loader exactly once and remain non-executable", async () => {

@@ -115,6 +115,29 @@ export function MemberSeptemberRotationReport() {
             </p>
           </div>
         </div>
+        <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4" data-cycle-pattern-method-loop>
+          <summary className="min-h-8 cursor-pointer py-1 text-sm font-semibold text-foreground-secondary">
+            {en ? "How the cycle-pattern review is produced" : "展开：周期格局流派的研判闭环"}
+          </summary>
+          <div className="mt-3 border-t border-white/10 pt-3">
+            <ol className="grid gap-2 text-sm leading-6 text-foreground-secondary md:grid-cols-2">
+              {cyclePattern.analysisLoop.map((item) => (
+                <li key={item.step} className="flex gap-3 rounded-lg border border-white/[0.06] bg-background/20 p-3">
+                  <span className="text-xs font-semibold text-cyan-200">{String(item.step).padStart(2, "0")}</span>
+                  <span>
+                    <span className="font-semibold text-foreground">{en ? item.titleEn : item.titleZh}</span>
+                    <span className="mt-1 block text-foreground-tertiary">{en ? item.detailEn : item.detailZh}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 text-xs leading-5 text-amber-100/80">
+              {en
+                ? "Historical monthly cases teach the workflow only. They are not backfilled into accuracy statistics and cannot change an asset forecast or trading permission."
+                : cyclePattern.historyPolicy.reasonZh}
+            </p>
+          </div>
+        </details>
       </Card>
 
       <Card padding="lg" className="space-y-4">
