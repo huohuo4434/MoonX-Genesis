@@ -2,6 +2,7 @@
 
 import { Badge, Card, Heading, Text } from "@/components/ui";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as report } from "@/lib/data/member-september-rotation-report-20260826";
+import { QIMEN_CYCLE_PATTERN_SOURCE_20260901 as cyclePattern } from "@/lib/data/qimen-cycle-pattern-source-20260901";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 
 function assetTone(tone: "positive" | "neutral" | "negative") {
@@ -72,6 +73,47 @@ export function MemberSeptemberRotationReport() {
               </details>
             </div>
           ))}
+        </div>
+      </Card>
+
+      <Card padding="lg" className="border-cyan-300/20 bg-cyan-300/[0.025]" data-cycle-pattern-crosscheck>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{en ? cyclePattern.publicLabelEn : cyclePattern.publicLabelZh}</Badge>
+          <Badge variant="success">{en ? "Partial same-window resonance" : cyclePattern.september2026.relationshipZh}</Badge>
+          <Badge variant="outline">{en ? "Monthly climate: medium-high" : "月度环境信心：中高"}</Badge>
+        </div>
+        <Heading as="h3" size="h3" className="mt-4">
+          {en ? "September cross-check: a recovery window, not a lasting reversal" : "9月周期复核：修复窗口成立，但不是长期反转"}
+        </Heading>
+        <Text variant="body-sm" color="secondary" className="mt-2 block max-w-5xl leading-6">
+          {en ? cyclePattern.september2026.sourceConclusionEn : cyclePattern.september2026.sourceConclusionZh}
+        </Text>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.035] p-4">
+            <div className="text-sm font-semibold text-emerald-200">{en ? "Where it aligns" : "与现有预测一致的地方"}</div>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-foreground-secondary">
+              {(en ? cyclePattern.september2026.alignedEn : cyclePattern.september2026.alignedZh).map((item) => <li key={item}>• {item}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.035] p-4">
+            <div className="text-sm font-semibold text-amber-100">{en ? "What it cannot prove" : "不能外推的边界"}</div>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-foreground-secondary">
+              {(en ? cyclePattern.september2026.boundariesEn : cyclePattern.september2026.boundariesZh).map((item) => <li key={item}>• {item}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+            <div className="text-sm font-semibold text-foreground">{en ? "How MOOX uses it" : "系统如何采用"}</div>
+            <p className="mt-2 text-sm leading-6 text-foreground-secondary">
+              {en
+                ? "The cross-market September-to-October transition moves from medium to medium-high research confidence. Asset directions, probabilities, levels and trading permissions are unchanged."
+                : cyclePattern.september2026.confidenceScopeZh}
+            </p>
+            <p className="mt-3 text-xs leading-5 text-foreground-tertiary">
+              {en
+                ? "Older June and August material teaches the method only and is not backfilled into accuracy statistics."
+                : cyclePattern.historyPolicy.reasonZh}
+            </p>
+          </div>
         </div>
       </Card>
 

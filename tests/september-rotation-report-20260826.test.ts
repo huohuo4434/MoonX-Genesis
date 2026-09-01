@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { bingwuCrossAssetRotation20260825Records } from "../lib/data/bingwu-cross-asset-rotation-20260825";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as report } from "../lib/data/member-september-rotation-report-20260826";
+import { QIMEN_CYCLE_PATTERN_SOURCE_20260901 as cyclePattern } from "../lib/data/qimen-cycle-pattern-source-20260901";
 import { listResearchRecords } from "../lib/data/research-records";
 
 test("teacher cycle records preserve the three distinct source conclusions", () => {
@@ -60,6 +61,40 @@ test("monthly page puts the concise conclusion and trading plan before supportin
   assert.match(reportSource, /<details[\s\S]*展开确认与失效条件/);
   assert.ok(pageSource.indexOf("<MemberSeptemberRotationReport") < pageSource.indexOf("cycleResearchOverlays.length"));
   assert.equal((pageSource.match(/Expected path|运行路径/g) ?? []).length, 0, "monthly cards must not repeat the path twice");
+});
+
+test("cycle-pattern school stays separate from object-yongshen and directional-palace methods", () => {
+  assert.equal(cyclePattern.publicLabelZh, "周期格局流派");
+  assert.match(cyclePattern.method.differsFromObjectYongshenZh, /具体产品用神/);
+  assert.match(cyclePattern.method.differsFromDirectionalPalaceZh, /上涨、下跌、震荡三类结果宫/);
+  assert.equal(cyclePattern.method.authority, "MONTHLY_ENVIRONMENT_AND_TIMING_ONLY");
+  assert.equal(cyclePattern.method.maySetOfficialDirection, false);
+  assert.equal(cyclePattern.method.mayChangeAssetConfidence, false);
+  assert.equal(cyclePattern.method.mayTriggerTrade, false);
+});
+
+test("September cycle agreement raises only research climate confidence", () => {
+  assert.equal(cyclePattern.september2026.relationshipToMoox, "PARTIAL_RESONANCE");
+  assert.equal(cyclePattern.september2026.researchConfidenceBefore, "MEDIUM");
+  assert.equal(cyclePattern.september2026.researchConfidenceAfter, "MEDIUM_HIGH");
+  assert.equal(cyclePattern.september2026.assetDirectionChange, "NONE");
+  assert.equal(cyclePattern.september2026.officialForecastChange, "NONE");
+  assert.equal(cyclePattern.september2026.tradingAuthority, false);
+  assert.match(cyclePattern.september2026.confidenceScopeZh, /各品种正式方向、概率和点位不变/);
+  assert.match(cyclePattern.historyPolicy.reasonZh, /不补计历史命中率/);
+});
+
+test("all supplied cycle-pattern materials are hash locked and the public card hides identities", () => {
+  assert.equal(cyclePattern.materials.length, 23);
+  assert.ok(cyclePattern.materials.every((item) => /^[A-F0-9]{64}$/.test(item.sha256)));
+  assert.equal(cyclePattern.materials.filter((item) => item.period === "SEPTEMBER_2026").length, 6);
+  assert.ok(Date.parse(cyclePattern.forwardScoreFrom) > Date.parse(cyclePattern.receivedAt));
+
+  const component = fs.readFileSync(path.join(process.cwd(), "components/member/MemberSeptemberRotationReport.tsx"), "utf8");
+  const publicCopy = `${cyclePattern.publicLabelZh}${cyclePattern.september2026.sourceConclusionZh}${component}`;
+  assert.match(component, /data-cycle-pattern-crosscheck/);
+  assert.doesNotMatch(publicCopy, /王老师|王子瑜|吴老师|金兔子/);
+  assert.doesNotMatch(publicCopy, /可自动下单|提高交易权限/);
 });
 
 test("new records are wired into the research loader exactly once and remain non-executable", async () => {
