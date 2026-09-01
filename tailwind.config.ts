@@ -77,7 +77,7 @@ const config: Config = {
         header: "var(--header-height)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        sans: ["Arial", "Tahoma", "Verdana", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
