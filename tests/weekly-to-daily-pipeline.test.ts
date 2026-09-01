@@ -103,10 +103,10 @@ describe("weekly page + daily generation", () => {
   test("13-14) tomorrow traces to weekly source; no daily re-hexagram required", () => {
     const rows = generateCoreMarketsFromWeeklyPure("2026-07-30", "LOCKED");
     assert.ok(rows.length >= 3);
-    const spx = rows.find((r) => r.marketCode === "SPX");
-    assert.ok(spx);
-    assert.match(spx!.sourceWeeklyForecastId, /^WFS-SPX-/);
-    assert.equal(spx!.upProbability + spx!.sidewaysProbability + spx!.downProbability, 100);
+    const ndx = rows.find((r) => r.marketCode === "NDX");
+    assert.ok(ndx);
+    assert.match(ndx!.sourceWeeklyForecastId, /^WFS-NDX-/);
+    assert.equal(ndx!.upProbability + ndx!.sidewaysProbability + ndx!.downProbability, 100);
   });
 
   test("15-18) pipeline phases + idempotent ids", () => {
@@ -280,7 +280,7 @@ describe("access + empty + methodology + asteroid + referral", () => {
     assert.equal(getDayGanzhi("2026-08-22").ganzhiLabel, "戊辰");
   });
 
-  test("core daily markets list is 9", () => {
-    assert.equal(CORE_DAILY_MARKETS.length, 9);
+  test("active core daily markets list is 5", () => {
+    assert.equal(CORE_DAILY_MARKETS.length, 5);
   });
 });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { DAILY_ACCURACY_ASSETS, type DailyForecastRecord } from "@/types/daily-accuracy";
+import { isActivePredictionSymbol } from "@/lib/prediction-scope";
 
 function beijingTodayKey(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -80,7 +81,7 @@ export function AdminDailyForecastForm({ initial }: { initial?: DailyForecastRec
             onChange={(e) => setAssetKey(e.target.value as typeof assetKey)}
             className="mt-1 h-10 w-full rounded-md border border-border bg-surface px-3 text-body-sm"
           >
-            {DAILY_ACCURACY_ASSETS.map((a) => (
+            {DAILY_ACCURACY_ASSETS.filter((a) => isActivePredictionSymbol(a.key)).map((a) => (
               <option key={a.key} value={a.key}>
                 {a.assetName}
               </option>

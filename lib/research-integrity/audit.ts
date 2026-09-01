@@ -13,16 +13,12 @@ import { marketMeta } from "@/lib/forecasts/weekly-to-daily";
 export const MOOX_RESEARCH_INTEGRITY_VERSION = "RESEARCH_INTEGRITY_V2_20260819";
 
 const DAY_MS = 86_400_000;
-const CORE9 = [
+const ACTIVE_CORE_MARKETS = [
   { key: "BTC", pipelineCode: "BTC", label: "比特币", aliases: ["BTC"] },
   { key: "ETH", pipelineCode: "ETH", label: "以太坊", aliases: ["ETH"] },
-  { key: "SPX", pipelineCode: "SPX", label: "标普500", aliases: ["SPX", "^GSPC"] },
   { key: "NDX", pipelineCode: "NDX", label: "纳斯达克100", aliases: ["NDX", "^NDX"] },
-  { key: "WTI", pipelineCode: "WTI", label: "WTI原油", aliases: ["WTI", "CL", "CL=F"] },
   { key: "GOLD", pipelineCode: "GLD", label: "黄金", aliases: ["GOLD", "GLD", "GC", "XAU"] },
   { key: "SILVER", pipelineCode: "SILVER", label: "白银", aliases: ["SILVER", "SI", "XAG"] },
-  { key: "SHCOMP", pipelineCode: "SHCOMP", label: "上证指数", aliases: ["SHCOMP", "SSEC", "000001.SS"] },
-  { key: "HSTECH", pipelineCode: "HSTECH", label: "恒生科技", aliases: ["HSTECH"] },
 ] as const;
 
 type AuditState = "OK" | "ATTENTION" | "MISSING";
@@ -106,7 +102,7 @@ function coreDualView(pipelineCode: string, date: string): { liuyao: string | nu
 
 export function buildResearchIntegrityAudit(input: { asOfDate: string; nowMs: number }): ResearchIntegrityAudit {
   const nextDate = addDays(input.asOfDate, 1);
-  const core = CORE9.map((market): CoreResearchIntegrityRow => {
+  const core = ACTIVE_CORE_MARKETS.map((market): CoreResearchIntegrityRow => {
     const weekly = formalCurrentWeekly(market.key, market.aliases, input.asOfDate);
     const today = coreDualView(market.pipelineCode, input.asOfDate);
     const nextTarget = getNextForecastDate(marketMeta(market.pipelineCode).legacyMarket, input.asOfDate);

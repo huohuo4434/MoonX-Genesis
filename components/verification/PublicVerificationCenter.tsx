@@ -185,6 +185,8 @@ export function PublicVerificationCenter({
   dailyStats,
   weeklyItems,
   weeklyStats,
+  allMarketWeeklyStats,
+  scope,
   pendingCount,
   generatedAt,
   en,
@@ -193,6 +195,14 @@ export function PublicVerificationCenter({
   dailyStats: DailyAccuracyStats;
   weeklyItems: WeeklyAccuracyPublicItem[];
   weeklyStats: WeeklyAccuracyPublicStats;
+  allMarketWeeklyStats: WeeklyAccuracyPublicStats;
+  scope: {
+    effectiveDate: string;
+    activeAssetNamesZh: readonly string[];
+    activeAssetNamesEn: readonly string[];
+    retiredAssetNamesZh: readonly string[];
+    retiredAssetNamesEn: readonly string[];
+  };
   pendingCount: number;
   generatedAt: string;
   en: boolean;
@@ -315,7 +325,7 @@ export function PublicVerificationCenter({
     [en ? "Daily pending" : "日度待验证", String(Math.max(dailyStats.pendingCount, pendingCount)), en ? "Processed after the session" : "交易时段结束后处理"],
   ] : period === "WEEKLY" ? [
     [en ? "Verified weekly samples" : "已验证周样本", String(weeklyStats.sampleSize), en ? "Full + partial + miss" : "完全 + 部分 + 未命中"],
-    [en ? "Weekly weighted accuracy" : "周度加权命中率", pct(weeklyStats.weightedAccuracyPct, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
+    [en ? "Active-scope weekly accuracy" : "现役范围周度命中率", pct(weeklyStats.weightedAccuracyPct, en), en ? "Partial hit = 0.5" : "部分命中按 0.5 计分"],
     [en ? "Weekly direction accuracy" : "周度方向命中率", pct(weeklyStats.directionAccuracyPct, en), en ? "Locked weekly direction" : "核对锁定周方向"],
     [en ? "Weekly full hits" : "周度完全命中", String(weeklyStats.full), en ? "Strict full-path result" : "严格完整路径结果"],
     [en ? "Weekly misses" : "周度未命中", String(weeklyStats.miss), en ? "Never deleted" : "失败记录永久保留"],
@@ -340,7 +350,7 @@ export function PublicVerificationCenter({
           <div className="mb-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">MOOX TRACK RECORD</div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{en ? "Public verification center" : "公开历史验证"}</h1>
           <p className="mt-3 text-sm leading-6 text-foreground-secondary sm:text-base">
-            {en ? "Headline accuracy is based on locked weekly forecasts. Hits, partial hits and misses remain permanently visible." : "公开主准确率以发布时锁定的周预测为准；命中、部分命中和未命中全部永久保留。"}
+            {en ? "Headline accuracy is based on locked weekly forecasts in the active five-asset scope." : "公开主准确率以现役五个品种的锁定周预测为准。"}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-border/60 bg-background/35 p-4"><div className="text-xs text-foreground-tertiary">{en ? "High-confidence weekly samples" : "高信心周样本"}</div><div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{highConfidence.sampleSize}</div></div>
@@ -361,11 +371,11 @@ export function PublicVerificationCenter({
             <div className="mb-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">MOOX TRACK RECORD</div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{en ? "Public verification center" : "公开历史验证"}</h1>
             <p className="mt-3 text-sm leading-6 text-foreground-secondary sm:text-base">
-              {en ? "Headline accuracy is based on locked weekly forecasts. Daily records are supporting path reviews. Hits, partial hits and misses remain permanently visible." : "公开主准确率以发布时锁定的周预测为准；日度记录只作为周路径辅助复盘。命中、部分命中和未命中全部永久保留。"}
+              {en ? "Headline accuracy is based on locked weekly forecasts in the active five-asset scope. Daily records are supporting path reviews." : "公开主准确率以现役五个品种的锁定周预测为准；日度记录只作为周路径辅助复盘。"}
             </p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-foreground-tertiary">
               <span>{en ? "Version locked" : "✓ 发布版本锁定"}</span>
-              <span>{en ? "Misses retained" : "✓ 失败样本不删除"}</span>
+              <span>{en ? "Active-scope misses retained" : "✓ 现役失败样本保留"}</span>
               <span>{en ? "Real market evidence" : "✓ 真实行情验证"}</span>
               <span>{en ? "CSV / JSON export" : "✓ 原始数据可下载"}</span>
             </div>
@@ -374,6 +384,21 @@ export function PublicVerificationCenter({
             <a href="/api/public/verification?format=csv" className="rounded-xl border border-border bg-background/50 px-4 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50">{en ? "Download CSV" : "下载 CSV"}</a>
             <a href="/api/public/verification?format=json" className="rounded-xl border border-border bg-background/50 px-4 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50">{en ? "Download JSON" : "下载 JSON"}</a>
           </div>
+        </div>
+        <div className="mt-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-foreground-secondary">
+          <div className="font-semibold text-foreground">
+            {en ? "Current headline scope: 5 active assets" : "当前主统计口径：5个现役品种"}
+          </div>
+          <p className="mt-1">
+            {en
+              ? `${scope.activeAssetNamesEn.join(", ")}. Since ${scope.effectiveDate}, ${scope.retiredAssetNamesEn.join(", ")} no longer receive daily or weekly forecasts and are excluded from the headline score.`
+              : `${scope.activeAssetNamesZh.join("、")}。自 ${scope.effectiveDate} 起，${scope.retiredAssetNamesZh.join("、")}停止日/周预测，不再进入主准确率。`}
+          </p>
+          <p className="mt-1 text-xs text-foreground-tertiary">
+            {en
+              ? `The retained all-market historical baseline is ${pct(allMarketWeeklyStats.weightedAccuracyPct, true)} across ${allMarketWeeklyStats.sampleSize} countable weekly samples. Retired records remain in the audit archive.`
+              : `历史全市场基线为 ${pct(allMarketWeeklyStats.weightedAccuracyPct, false)}（${allMarketWeeklyStats.sampleSize} 条可计分周样本）；退役品种原记录仍保留在审计档案，不冒充预测能力提升。`}
+          </p>
         </div>
         <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {metricCards.map(([label, value, note]) => (

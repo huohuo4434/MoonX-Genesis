@@ -24,6 +24,7 @@ import { PUBLISHED_DAILY_FORECASTS } from "@/lib/data/published-daily-forecasts-
 import { listResearchRecords } from "@/lib/data/research-records";
 import { buildTeacherSourceBlend, teacherBlendAssetIdForDailyKey } from "@/lib/research/teacher-source-weights";
 import { computeWeightedResearchVote, isResearchRecordEligibleForDirectionVote } from "@/lib/research/weighted-research-vote";
+import { isActivePredictionSymbol } from "@/lib/prediction-scope";
 
 type AssetKey = (typeof DAILY_ACCURACY_ASSETS)[number]["key"];
 
@@ -255,7 +256,9 @@ export async function generateForecastBatch(
   let created = 0;
   let skipped = 0;
   const drafts: GeneratedForecastDraft[] = [];
-  const assets = DAILY_ACCURACY_ASSETS.filter((a) => (keys as readonly string[]).includes(a.key));
+  const assets = DAILY_ACCURACY_ASSETS.filter(
+    (a) => (keys as readonly string[]).includes(a.key) && isActivePredictionSymbol(a.key)
+  );
 
   for (const asset of assets) {
     const id = `AUTO-${asset.key}-${forecastDate.replace(/-/g, "")}-V1`;

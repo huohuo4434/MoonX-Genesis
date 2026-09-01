@@ -23,24 +23,24 @@ describe("weekly member analysis", () => {
     );
   });
 
-  test("all nine markets are published on the 2026-08-03 member list", () => {
+  test("only the five active markets are published on the member list", () => {
     const now = new Date("2026-08-02T12:00:00+08:00");
     const published = listPublishedWeeklyAnalyses(now);
-    assert.ok(published.some((r) => r.symbol === "SPX"));
+    assert.equal(published.some((r) => r.symbol === "SPX"), false);
     assert.ok(published.some((r) => r.symbol === "NDX"));
-    assert.ok(published.some((r) => r.symbol === "WTI"));
+    assert.equal(published.some((r) => r.symbol === "WTI"), false);
     assert.equal(INTERNAL_WEEKLY_ANALYSES.length, 0);
-    assert.equal(published.length, 9);
+    assert.equal(published.length, 5);
     assert.ok(published.some((r) => r.symbol === "ETH"));
     assert.ok(published.some((r) => r.symbol === "SILVER"));
-    assert.equal(buildWeeklyMarketSlots(now).length, 9);
+    assert.equal(buildWeeklyMarketSlots(now).length, 5);
   });
 
   test("public summary and teaser omit direction and levels", () => {
     const now = new Date("2026-08-02T12:00:00+08:00");
     const summary = buildWeeklyPublicSummary(now);
-    assert.equal(summary.coverageCount, 9);
-    assert.equal(summary.publishedCount, 9);
+    assert.equal(summary.coverageCount, 5);
+    assert.equal(summary.publishedCount, 5);
     assert.ok(summary.weekLabel.includes("2026"));
     const teaser = toWeeklyTeaser(PUBLISHED_WEEKLY_ANALYSES[0]!);
     assert.equal("overallDirection" in teaser, false);

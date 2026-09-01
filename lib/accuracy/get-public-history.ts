@@ -16,11 +16,14 @@ import {
   type PublicAccuracyHistoryItem,
 } from "@/lib/accuracy/public-history-filter";
 import type { DailyAccuracyStats } from "@/types/daily-accuracy";
+import { isActivePredictionSymbol, PUBLIC_PREDICTION_SCOPE } from "@/lib/prediction-scope";
 
 export type PublicAccuracyHistoryPayload = {
   todayKey: string;
   items: PublicAccuracyHistoryItem[];
   stats: DailyAccuracyStats;
+  allMarketStats: DailyAccuracyStats;
+  scope: typeof PUBLIC_PREDICTION_SCOPE;
   latestVisibleDate: string | null;
 };
 
@@ -33,12 +36,15 @@ export async function getPublicAccuracyHistory(
     listDailyForecastRecords(),
     listDailyVerificationResults(),
   ]);
-  const items = filterPublicAccuracyHistory({ forecasts, results, now });
+  const allMarketItems = filterPublicAccuracyHistory({ forecasts, results, now });
+  const items = allMarketItems.filter((item) => isActivePredictionSymbol(item.symbol));
   const stats = computePublicAccuracyStats(items, now);
   return {
     todayKey,
     items,
     stats,
+    allMarketStats: computePublicAccuracyStats(allMarketItems, now),
+    scope: PUBLIC_PREDICTION_SCOPE,
     latestVisibleDate: items[0]?.forecastDate ?? null,
   };
 }

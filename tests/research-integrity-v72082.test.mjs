@@ -152,10 +152,10 @@ test("member daily prioritizes 4H structural levels for all core forecasts", () 
   assert.match(s, /live && live\.source !== "UNAVAILABLE"/);
 });
 
-test("research integrity audit covers 9 core plus active focus and today plus next dual views", () => {
+test("research integrity audit covers active core plus active focus and today plus next dual views", () => {
   const s = read("lib/research-integrity/audit.ts");
   assert.match(s, /RESEARCH_INTEGRITY_V2_20260819/);
-  assert.match(s, /const CORE9 = \[/);
+  assert.match(s, /const ACTIVE_CORE_MARKETS = \[/);
   assert.match(s, /ACTIVE_STATIC_FOCUS_ASSET_IDS\.map/);
   assert.match(s, /nextAuthority/);
   assert.match(s, /todayLiuyao/);

@@ -1,7 +1,7 @@
 import {
   ALL_WEEKLY_ANALYSES,
   PUBLISHED_WEEKLY_ANALYSES,
-  WEEKLY_CORE_MARKETS,
+  WEEKLY_CORE_MARKETS as LEGACY_WEEKLY_CORE_MARKETS,
 } from "@/lib/data/published-weekly-analysis-20260727";
 import { PUBLISHED_WEEKLY_ANALYSES_20260803 } from "@/lib/data/published-weekly-analysis-20260803";
 import {
@@ -47,8 +47,11 @@ import type {
   WeeklyAnalysisTeaser,
   WeeklyMarketSlot,
 } from "@/types/weekly-analysis";
+import { isActivePredictionSymbol } from "@/lib/prediction-scope";
 
-export { WEEKLY_CORE_MARKETS };
+export const WEEKLY_CORE_MARKETS = LEGACY_WEEKLY_CORE_MARKETS.filter((market) =>
+  isActivePredictionSymbol(market.symbol)
+);
 
 const ALL_PUBLISHED: WeeklyAnalysisRecord[] = [
   ...PUBLISHED_WEEKLY_ANALYSES,
@@ -132,7 +135,7 @@ export function listCanonicalPublishedWeeklyAnalyses(): WeeklyAnalysisRecord[] {
 export function listPublishedWeeklyAnalyses(now = new Date()): WeeklyAnalysisRecord[] {
   const window = resolveWeeklyDisplayWindow(now);
   return listAllPublishedWeeklyAnalyses().filter(
-    (r) => r.weekStart === window.weekStart && r.weekEnd === window.weekEnd
+    (r) => r.weekStart === window.weekStart && r.weekEnd === window.weekEnd && isActivePredictionSymbol(r.symbol)
   );
 }
 

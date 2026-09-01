@@ -10,6 +10,7 @@ import {
   type WeeklyConfidenceBand,
   type WeeklyConfidenceCalibration,
 } from "@/lib/accuracy/weekly-confidence-calibration";
+import { isActivePredictionSymbol, PUBLIC_PREDICTION_SCOPE } from "@/lib/prediction-scope";
 
 export type WeeklyAccuracyPublicItem = {
   id: string;
@@ -58,11 +59,39 @@ const EMPTY_STATS: WeeklyAccuracyPublicStats = {
   confidenceCalibration: EMPTY_CONFIDENCE_CALIBRATION,
 };
 
+function calculateStats(items: WeeklyAccuracyPublicItem[]): WeeklyAccuracyPublicStats {
+  const eligible = items.filter((item) => !["PENDING", "UNVERIFIABLE"].includes(item.result));
+  const full = eligible.filter((item) => item.result === "FULL_HIT").length;
+  const partial = eligible.filter((item) => item.result === "PARTIAL_HIT").length;
+  const miss = eligible.filter((item) => item.result === "MISS").length;
+  const directionHits = eligible.filter(
+    (item) => item.actualPattern && weeklyDirectionMatches(item.predictedPattern, item.actualPattern)
+  ).length;
+  return {
+    sampleSize: eligible.length,
+    full,
+    partial,
+    miss,
+    unverifiable: items.filter((item) => item.result === "UNVERIFIABLE").length,
+    pending: items.filter((item) => item.result === "PENDING").length,
+    exactAccuracyPct: eligible.length ? Math.round((full / eligible.length) * 1000) / 10 : null,
+    weightedAccuracyPct: eligible.length ? Math.round(((full + partial * 0.5) / eligible.length) * 1000) / 10 : null,
+    directionAccuracyPct: eligible.length ? Math.round((directionHits / eligible.length) * 1000) / 10 : null,
+    confidenceCalibration: buildWeeklyConfidenceCalibration(items.map((item) => ({
+      result: item.result,
+      confidence: item.confidence,
+      directionMatched: Boolean(item.actualPattern && weeklyDirectionMatches(item.predictedPattern, item.actualPattern)),
+    }))),
+  };
+}
+
 export async function getWeeklyAccuracyHistory(): Promise<{
   items: WeeklyAccuracyPublicItem[];
   stats: WeeklyAccuracyPublicStats;
+  allMarketStats: WeeklyAccuracyPublicStats;
+  scope: typeof PUBLIC_PREDICTION_SCOPE;
 }> {
-  if (!prisma) return { items: [], stats: EMPTY_STATS };
+  if (!prisma) return { items: [], stats: EMPTY_STATS, allMarketStats: EMPTY_STATS, scope: PUBLIC_PREDICTION_SCOPE };
 
   try {
     const storedRows = await prisma.weeklyVerificationRecord.findMany({
@@ -89,12 +118,7 @@ export async function getWeeklyAccuracyHistory(): Promise<{
           : `[${WEEKLY_SCORE_VERSION}] ${explainWeeklyVerification(row.predictedPattern, row.actualPattern, scored)}`,
       };
     });
-    const eligible = rows.filter((r) => !["PENDING", "UNVERIFIABLE"].includes(r.result));
-    const full = eligible.filter((r) => r.result === "FULL_HIT").length;
-    const partial = eligible.filter((r) => r.result === "PARTIAL_HIT").length;
-    const miss = eligible.filter((r) => r.result === "MISS").length;
-    const directionHits = eligible.filter((r) => r.actualPattern && weeklyDirectionMatches(r.predictedPattern, r.actualPattern)).length;
-    const items = rows.map((r): WeeklyAccuracyPublicItem => {
+    const allMarketItems = rows.map((r): WeeklyAccuracyPublicItem => {
       const confidence = authorityById.get(r.weeklyAnalysisId)?.confidence ?? null;
       return {
         id: r.id,
@@ -114,33 +138,16 @@ export async function getWeeklyAccuracyHistory(): Promise<{
         confidenceBand: weeklyConfidenceBand(confidence),
       };
     });
-    const confidenceCalibration = buildWeeklyConfidenceCalibration(items.map((item) => ({
-      result: item.result,
-      confidence: item.confidence,
-      directionMatched: Boolean(item.actualPattern && weeklyDirectionMatches(item.predictedPattern, item.actualPattern)),
-    })));
+    const items = allMarketItems.filter((item) => isActivePredictionSymbol(item.symbol));
 
     return {
       items,
-      stats: {
-        sampleSize: eligible.length,
-        full,
-        partial,
-        miss,
-        unverifiable: rows.filter((r) => r.result === "UNVERIFIABLE").length,
-        pending: rows.filter((r) => r.result === "PENDING").length,
-        exactAccuracyPct: eligible.length ? Math.round((full / eligible.length) * 1000) / 10 : null,
-        weightedAccuracyPct: eligible.length
-          ? Math.round(((full + partial * 0.5) / eligible.length) * 1000) / 10
-          : null,
-        directionAccuracyPct: eligible.length
-          ? Math.round((directionHits / eligible.length) * 1000) / 10
-          : null,
-        confidenceCalibration,
-      },
+      stats: calculateStats(items),
+      allMarketStats: calculateStats(allMarketItems),
+      scope: PUBLIC_PREDICTION_SCOPE,
     };
   } catch (error) {
     console.warn("[weekly-accuracy] unavailable", error);
-    return { items: [], stats: EMPTY_STATS };
+    return { items: [], stats: EMPTY_STATS, allMarketStats: EMPTY_STATS, scope: PUBLIC_PREDICTION_SCOPE };
   }
 }

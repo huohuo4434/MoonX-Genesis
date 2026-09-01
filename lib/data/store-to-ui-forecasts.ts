@@ -12,6 +12,7 @@ import { normalizeDailyLanguage, normalizeDailyPath, signalStrengthFromConfidenc
 import { canonicalAssetCode, canonicalAssetId, assetDisplayName } from "@/lib/presentation/asset-catalog";
 import { normalizeForecastContract } from "@/lib/forecasts/forecast-contract";
 import type { DailyForecastRecord } from "@/types/daily-accuracy";
+import { isActivePredictionSymbol } from "@/lib/prediction-scope";
 
 function marketToLegacy(m: DailyForecastRecord["market"]): DailyForecastMarket {
   if (m === "CRYPTO") return "crypto";
@@ -146,6 +147,7 @@ function recordTime(record: DailyForecastRecord): number {
 export function selectCurrentStoreRecords(records: DailyForecastRecord[]): DailyForecastRecord[] {
   const selected = new Map<string, DailyForecastRecord>();
   for (const record of records) {
+    if (!isActivePredictionSymbol(record.symbol)) continue;
     const key = `${canonicalStoreSymbol(record.symbol)}:${record.forecastDate}`;
     const current = selected.get(key);
     if (!current) {

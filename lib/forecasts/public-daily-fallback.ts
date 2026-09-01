@@ -18,13 +18,9 @@ import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 export const PUBLIC_FALLBACK_MARKETS = [
   "BTC",
   "ETH",
-  "SPX",
   "NDX",
-  "SHCOMP",
-  "HSTECH",
   "GLD",
   "SILVER",
-  "WTI",
 ] as const;
 
 function analysisCodes(marketCode: string): string[] {

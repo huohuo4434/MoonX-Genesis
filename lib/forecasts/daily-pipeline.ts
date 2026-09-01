@@ -27,7 +27,7 @@ import { validateGeneratedDailyPublication } from "@/lib/content/publication-qua
 import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
 import { applyApprovedXOverlayToGeneratedDaily } from "@/lib/trading-signals/x-opinion-overlay-core";
 
-export const CORE_DAILY_MARKETS = ["BTC", "ETH", "SPX", "NDX", "SHCOMP", "HSTECH", "GLD", "SILVER", "WTI"] as const;
+export const CORE_DAILY_MARKETS = ["BTC", "ETH", "NDX", "GLD", "SILVER"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
 
 export type PipelinePhase = "idle" | "draft" | "revise" | "lock";

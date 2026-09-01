@@ -15,6 +15,7 @@ import {
   type DailyAccuracyPattern,
   type DailyForecastRecord,
 } from "@/types/daily-accuracy";
+import { isRetiredPredictionSymbol, PREDICTION_SCOPE_EFFECTIVE_DATE } from "@/lib/prediction-scope";
 
 export const OFFICIAL_GENERATED_DAILY_SYNC_START = "2026-08-01";
 
@@ -410,6 +411,10 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
 
   for (const row of rows) {
     report.scanned += 1;
+    if (row.forecastDate >= PREDICTION_SCOPE_EFFECTIVE_DATE && isRetiredPredictionSymbol(row.marketCode)) {
+      report.unsupported += 1;
+      continue;
+    }
     const asset = verificationAssetForMarketCode(row.marketCode);
     if (!asset) {
       report.unsupported += 1;

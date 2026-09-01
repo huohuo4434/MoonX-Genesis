@@ -24,10 +24,10 @@ const WEEK_DATES = [
   "2026-08-23",
 ] as const;
 
-test("current target week has all nine weekly-derived daily rows", () => {
+test("current target week has all five active weekly-derived daily rows", () => {
   for (const date of ["2026-08-17", "2026-08-18"] as const) {
     const rows = generateCoreMarketsFromWeeklyPure(date, "LOCKED");
-    assert.equal(rows.length, 9, `${date} should have nine core markets`);
+    assert.equal(rows.length, 5, `${date} should have five active core markets`);
     assert.deepEqual(
       rows.map((row) => row.marketCode).sort(),
       [...CORE_DAILY_MARKETS].sort()
@@ -57,7 +57,7 @@ test("fallback reads the canonical weekly loader and covers all valid sessions",
       }
     }
   }
-  assert.equal(validSessionCount, 49);
+  assert.equal(validSessionCount, 29);
 });
 
 test("today loader merges partial persistence with the complete fallback batch", () => {

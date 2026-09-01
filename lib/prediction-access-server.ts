@@ -31,6 +31,7 @@ import {
   normalizeForecastContract,
   type ForecastCandidate,
 } from "@/lib/forecasts/forecast-contract";
+import { isActivePredictionSymbol } from "@/lib/prediction-scope";
 
 export type FreshPredictionUser = {
   userId: string | null;
@@ -169,6 +170,7 @@ export async function loadTodayForecastRows(now: Date): Promise<DailyForecast[]>
   const { getStoreForecastsForToday } = await import("@/lib/data/store-to-ui-forecasts");
   const candidates: ForecastCandidate[] = [];
   const accept = (forecast: DailyForecast, source: ForecastCandidate["source"]) => {
+    if (!isActivePredictionSymbol(forecast.symbol)) return;
     if (forecast.forecastForDate !== today || !isHumanPublishedForecast(forecast)) return;
     candidates.push({ forecast, source });
   };
@@ -231,6 +233,7 @@ export async function loadTomorrowForecastRows(now: Date): Promise<DailyForecast
     forecast: DailyForecast,
     source: ForecastCandidate["source"]
   ) => {
+    if (!isActivePredictionSymbol(forecast.symbol)) return;
     const normalized = normalizeForecastContract(forecast);
     const expectedDate = getNextForecastDate(normalized.market, today);
     if (normalized.forecastForDate !== expectedDate || !isHumanPublishedForecast(normalized)) return;

@@ -51,6 +51,8 @@ async function VerificationDashboard({ en }: { en: boolean }) {
         dailyStats={daily.stats}
         weeklyItems={weekly.items}
         weeklyStats={weekly.stats}
+        allMarketWeeklyStats={weekly.allMarketStats}
+        scope={weekly.scope}
         pendingCount={pending.length}
         generatedAt={generatedAt}
         en={en}
