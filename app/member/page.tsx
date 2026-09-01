@@ -104,6 +104,66 @@ const PRIMARY_TASKS: ChannelCard[] = [
   },
 ];
 
+const SEPTEMBER_SEMICONDUCTOR_SPOTLIGHT = [
+  {
+    symbol: "SOXL",
+    name: "半导体板块",
+    direction: "9月7日后相对转强",
+    window: "9月7日—10月6日",
+    path: "9月中下旬至10月初为阶段高位候选区；先等相对强势出现并在回踩中守住。",
+    href: "/member/sector-resonance",
+  },
+  {
+    symbol: "SNDK",
+    name: "闪迪",
+    direction: "先跌后涨",
+    window: "9月7日—10月7日",
+    path: "9月1—6日先释放压力，7日后观察上行启动；日线、4H止跌且30分钟形成更高低点才确认。",
+    href: "/featured-stocks/sandisk",
+  },
+  {
+    symbol: "MU",
+    name: "美光",
+    direction: "分段轮动",
+    window: "9月7日—13日偏强",
+    path: "月初先涨后跌，7—13日震荡抬高，14—20日重新防转弱；不把局部强势外推成整月单边。",
+    href: "/featured-stocks/mu",
+  },
+] as const;
+
+function SeptemberSemiconductorSpotlight() {
+  return (
+    <section aria-labelledby="september-semiconductor-spotlight" className="overflow-hidden rounded-3xl border border-emerald-300/25 bg-[radial-gradient(circle_at_88%_0%,rgba(52,211,153,.18),transparent_35%),linear-gradient(145deg,#0c1715,#090a0e)] p-6 shadow-[0_0_60px_rgba(16,185,129,.07)] sm:p-8">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="success">9月高信心专题</Badge>
+        <Badge variant="outline">建议会员重点关注</Badge>
+        <span className="text-caption text-emerald-100/55">方向、信心与执行条件分别判断</span>
+      </div>
+      <Heading id="september-semiconductor-spotlight" as="h2" size="h2" className="mt-4">半导体与存储：9月7日后进入重点窗口</Heading>
+      <Text variant="body" color="secondary" className="mt-3 block max-w-4xl leading-7">
+        板块阶段路线与闪迪专项预测同向，属于9月目前信心较高的前瞻主题；但不同标的节奏并不相同，必须按各自确认与失效条件跟踪。
+      </Text>
+      <div className="mt-6 grid gap-3 lg:grid-cols-3">
+        {SEPTEMBER_SEMICONDUCTOR_SPOTLIGHT.map((item) => (
+          <Link key={item.symbol} href={item.href} className="group rounded-2xl border border-emerald-200/15 bg-black/20 p-5 transition hover:-translate-y-0.5 hover:border-emerald-200/35 hover:bg-emerald-300/[.05]">
+            <div className="flex items-start justify-between gap-3">
+              <div><span className="font-mono text-caption text-emerald-200/65">{item.symbol}</span><h3 className="mt-1 text-xl font-semibold text-foreground">{item.name}</h3></div>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-300/[.08] px-3 py-1 text-caption font-semibold text-emerald-100">{item.direction}</span>
+            </div>
+            <p className="mt-4 text-sm font-semibold text-emerald-100/85">重点窗口：{item.window}</p>
+            <p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{item.path}</p>
+            <span className="mt-4 inline-flex text-caption font-semibold text-emerald-200/75 group-hover:text-emerald-100">查看完整路径与关键日 →</span>
+          </Link>
+        ))}
+      </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-emerald-200/10 pt-5">
+        <p className="max-w-3xl text-caption leading-5 text-foreground-tertiary">高信心指正式周期证据的共振程度，不代表保证上涨；关键日期是观察窗口，真实执行仍需技术结构和风险回报确认。</p>
+        <Button asChild variant="outline"><Link href="/member/sector-resonance">打开半导体板块共振</Link></Button>
+      </div>
+    </section>
+  );
+}
+
 function TaskGrid({ cards }: { cards: ChannelCard[] }) {
   return (
     <section aria-labelledby="member-main-tasks">
@@ -166,6 +226,8 @@ export default async function MemberChannelPage() {
                 </div>
               )}
             </header>
+
+            {active ? <SeptemberSemiconductorSpotlight /> : null}
 
             <MemberUpdateNotice note={LATEST_MEMBER_UPDATE} />
 

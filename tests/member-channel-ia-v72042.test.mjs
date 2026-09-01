@@ -72,6 +72,9 @@ const memberHub = read("app/member/page.tsx");
 for (const label of ["今日决策", "周期预测", "重点关注", "AI交易", "复盘验证", "会员服务"]) assert.match(memberHub, new RegExp(label));
 for (const deepLink of ["/member/annual-outlook", "/member/key-dates", "/member/stock-picks", "/member/crypto-picks", "/member/technical-methods", "/member/strategy", "/member/market-structure", "/member/alpha-feed", "/member/videos", "/member/updates"]) assert.ok(memberHub.includes(deepLink), deepLink);
 assert.match(memberHub, /旧功能没有删除/);
+for (const token of ["9月高信心专题", "建议会员重点关注", "9月7日后进入重点窗口", "SOXL", "SNDK", "MU", "高信心指正式周期证据的共振程度，不代表保证上涨"]) assert.match(memberHub, new RegExp(token));
+assert.match(memberHub, /active \? <SeptemberSemiconductorSpotlight \/> : null/);
+for (const spotlightLink of ["/member/sector-resonance", "/featured-stocks/sandisk", "/featured-stocks/mu"]) assert.ok(memberHub.includes(spotlightLink), spotlightLink);
 assert.match(nav, /memberUpdates: "\/member\/updates"/);
 assert.match(nav, /labelZh: "版本公告"/);
 
