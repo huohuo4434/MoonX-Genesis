@@ -29,6 +29,7 @@ export const NAV_ROUTES = {
   memberAnnualOutlook: "/member/annual-outlook",
   memberDaily: "/member/daily",
   memberKeyDates: "/member/key-dates",
+  memberGann: "/member/gann",
   memberDailyReview: "/member/daily-review",
   memberWeeklyReview: "/member/weekly-review",
   memberWeeklyReport: "/member/weekly-report",

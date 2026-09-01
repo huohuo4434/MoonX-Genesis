@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -261,6 +262,7 @@ export default async function MemberKeyDatesPage() {
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
           先看行动总览，再按板块和品种查看依据；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；证据不能确认高点或低点时明确写“只观察／不操作”，不再使用含糊标签。
         </Text>
+        <Link href="/member/gann" className="mt-4 inline-flex rounded-full border border-amber-300/25 bg-amber-300/[.06] px-4 py-2 text-body-sm text-amber-100">查看江恩时间＋价格共振 →</Link>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
           ["覆盖标的", summary.assetCount],
           ["月关键日", summary.monthlyCount],

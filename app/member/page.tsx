@@ -53,6 +53,7 @@ const PRIMARY_TASKS: ChannelCard[] = [
       { href: "/member/annual-outlook", label: "年度" },
       { href: "/member/monthly", label: "月度" },
       { href: "/member/weekly", label: "周度" },
+      { href: "/member/gann", label: "江恩共振" },
     ],
   },
   {
