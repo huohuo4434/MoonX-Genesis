@@ -125,6 +125,9 @@ export default async function MemberSectorResonancePage({
                     <p className="mt-3 text-xs leading-6 text-white/48"><b className="text-white/68">正式结论：</b>{row.official}</p>
                     <p className="mt-2 text-xs leading-6 text-white/48"><b className="text-white/68">本轮复核：</b>{row.review}</p>
                     <p className="mt-2 text-xs leading-6 text-amber-100/65"><b>执行提示：</b>{row.action}</p>
+                    {row.levels?.length ? <div className="mt-3 flex flex-wrap gap-1.5">
+                      {row.levels.map((level) => <span key={level} className="rounded-full border border-cyan-300/15 bg-cyan-300/[.05] px-2.5 py-1 text-[10px] text-cyan-100/65">{level}</span>)}
+                    </div> : null}
                   </article>
                 ))}
               </div>

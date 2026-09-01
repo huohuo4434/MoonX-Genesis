@@ -56,6 +56,19 @@ const SUPPLEMENTS: Readonly<Record<string, readonly FocusSupplementalEvidence[]>
       gapNote: "次日录入，只作为结构复盘与后续验证样本。",
       includedInHistoricalHitRate: false,
     },
+    {
+      id: "SNDK-LIUYAO-LEVELS-SUPPLEMENT-20260901-V1",
+      periodStart: "2026-09-02",
+      periodEnd: "2026-09-11",
+      status: "FORWARD_AUXILIARY",
+      executionAuthority: "RESEARCH_ONLY",
+      sourceArtifact: "C:/Users/13558/Desktop/狼叔SNDK/SNDK 储存板块8月底可能的反弹高点窗口期，下跌低点窗口期.txt",
+      sourcePublishedAt: null,
+      lockedAt: null,
+      summary: "易老师综合复核：补充周度节奏与现有正式路径一致，9月2日午后至4日偏回落并寻找支撑，9月7—11日仍可能再找低点。技术承接依次观察1,413—1,435、1,268和1,084；日期或点位单独出现都不构成买卖信号。",
+      gapNote: "本轮只校准9月2日之后的未来窗口，不回填9月1日，也不改写已锁定周方向。",
+      includedInHistoricalHitRate: false,
+    },
   ],
   bitcoin: [
     {

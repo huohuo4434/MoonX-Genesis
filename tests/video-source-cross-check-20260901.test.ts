@@ -8,12 +8,17 @@ import { TEACHER02_LIUYAO_20260901 } from "../lib/data/teacher02-liuyao-20260901
 import { assessExternalViewpointCard, findDuplicateExternalViewpoints } from "../lib/research/external-viewpoint-card-core";
 
 test("September 1 videos stay research only and preserve traceable conditions", () => {
-  assert.equal(EXTERNAL_ANALYST_VIEWPOINTS_20260901.length, 4);
+  assert.equal(EXTERNAL_ANALYST_VIEWPOINTS_20260901.length, 9);
   assert.equal(findDuplicateExternalViewpoints(EXTERNAL_ANALYST_VIEWPOINTS_20260901).length, 0);
   const assessed = EXTERNAL_ANALYST_VIEWPOINTS_20260901.map(assessExternalViewpointCard);
   assert.ok(assessed.every((item) => item.accepted));
   assert.ok(assessed.every((item) => !item.forwardScoreEligible && item.tradingEligible === false));
   assert.ok(EXTERNAL_ANALYST_VIEWPOINTS_20260901.every((item) => item.status === "NOTE_ONLY" && item.consensusEligible === false));
+  const eth = EXTERNAL_ANALYST_VIEWPOINTS_20260901.find((item) => item.id === "qiaoqiao-eth-pullback-levels-20260901");
+  assert.deepEqual(eth?.supports, [2350, 2300, 2150, 2000]);
+  assert.deepEqual(eth?.resistances, [2500]);
+  const spx = EXTERNAL_ANALYST_VIEWPOINTS_20260901.find((item) => item.id === "rino-spx-cta-levels-20260901");
+  assert.deepEqual(spx?.supports, [7620, 7356, 6884]);
 });
 
 test("mid-window Liuyao revision only covers the remaining dates and cannot rewrite history", () => {
@@ -31,12 +36,14 @@ test("mid-window Liuyao revision only covers the remaining dates and cannot rewr
 });
 
 test("member cross-check is anonymous, conclusion-first, and never imports trading code", () => {
-  assert.deepEqual(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.map((row) => row.asset), ["黄金", "白银", "纳指", "半导体", "特斯拉", "亚马逊"]);
+  assert.deepEqual(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.map((row) => row.asset), ["黄金", "白银", "纳指", "半导体", "特斯拉", "亚马逊", "比特币", "以太坊", "标普500", "谷歌", "闪迪"]);
   assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "黄金")?.relation, "需要修正节奏");
   assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "白银")?.relation, "一致");
   const memberData = readFileSync(resolve(process.cwd(), "lib/data/member-source-cross-check-20260901.ts"), "utf8");
   const memberPage = readFileSync(resolve(process.cwd(), "app/member/sector-resonance/page.tsx"), "utf8");
-  assert.doesNotMatch(memberData, /狼叔|NaNa|NANA|博主/);
+  assert.doesNotMatch(memberData, /狼叔|乔乔|视野环球|RINO|NaNa|NANA|博主/);
   assert.doesNotMatch(`${memberData}\n${memberPage}`, /lib\/trading-signals|lib\/bitget|submitOrder|createOrder/);
   assert.match(memberPage, /MEMBER_SOURCE_CROSS_CHECK_20260901/);
+  assert.match(memberPage, /row\.levels/);
+  assert.deepEqual(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "闪迪")?.levels, ["第一承接 1,413—1,435", "第二观察 1,268", "第三观察 1,084", "再寻低窗口 9月7—11日"]);
 });
