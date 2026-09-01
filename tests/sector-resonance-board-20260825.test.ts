@@ -151,6 +151,9 @@ test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指�
   const sandisk = board.rows.find((row) => row.symbol === "SNDK");
   assert.equal(sandisk?.cells[1]?.direction, "先涨后跌");
   assert.equal(sandisk?.cells[1]?.forecastId, "SNDK-W5-20260831-V2");
+  assert.deepEqual(sandisk?.cells.slice(2).map((cell) => cell.direction), ["先跌后涨", "震荡上涨", "震荡上涨", "震荡上涨"]);
+  assert.deepEqual(sandisk?.cells.slice(2).map((cell) => cell.sourceLabel), Array(4).fill("老师阶段路线"));
+  assert.equal(sandisk?.cells[2]?.forecastId, "SNDK-W6-20260907-V2");
 
   const nbis = board.rows.find((row) => row.symbol === "NBIS");
   assert.deepEqual(nbis?.cells.slice(1).map((cell) => cell.direction), ["震荡下跌", "先跌后涨", "震荡上涨", "先涨后跌", "震荡上涨"]);
@@ -162,6 +165,7 @@ test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指�
 
   assert.ok(listNbisPeriodForecasts().some((item) => item.id === "NBIS-W8-20260928-V1"));
   assert.ok(listSandiskPeriodForecasts().some((item) => item.id === "SNDK-W9-20260928-V1"));
+  assert.ok(listSandiskPeriodForecasts().some((item) => item.id === "SNDK-W9-20260928-V2"));
 });
 
 test("太空狗新月卦与剩余年度卦进入当前板块背景且不回写旧周期", () => {

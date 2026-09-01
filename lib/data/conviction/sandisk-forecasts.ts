@@ -515,6 +515,139 @@ export const SANDISK_PERIOD_REVISIONS_20260824: ConvictionPeriodForecast[] = [
   },
 ];
 
+export const SANDISK_TEACHER_STAGE_SOURCE_20260901 = Object.freeze({
+  sourcePublishedDate: "2026-07-07",
+  ingestedAt: "2026-09-01T20:33:02+08:00",
+  periodStart: "2026-07-07",
+  periodEnd: "2026-10-07",
+  transcriptFile: "闪迪未来3个月走势如何7月7号测的.txt",
+  transcriptSha256: "50894116A93B5D0F7A7A53CD3A300DE932C9576816954FF46C2E7381445B2338",
+  frameFile: "闪迪未来3个月走势如何7月7号测的.png",
+  frameSha256: "8A6F1BF152221AAA9DB0C77BB3CDFE3E96CB8F0E5B503B0A42D4E2D4AB7EA9EF",
+  sourceBoundary: "原视频明确按未、申、酉三个月令拆分；未月偏弱，申月逐步走高，酉月自9月7日起进入大幅上涨阶段。",
+});
+
+const TEACHER_STAGE_LOCKED_AT = "2026-09-01T20:33:02+08:00";
+
+function teacherStageWeek(input: {
+  id: string;
+  forecastType: ConvictionForecastType;
+  periodStart: string;
+  periodEnd: string;
+  direction: ConvictionPeriodForecast["direction"];
+  path: string;
+  keyDates?: ConvictionPeriodForecast["keyDates"];
+}): ConvictionPeriodForecast {
+  return {
+    id: input.id,
+    assetId: "sandisk",
+    forecastType: input.forecastType,
+    periodStart: input.periodStart,
+    periodEnd: input.periodEnd,
+    direction: input.direction,
+    upProbability: 49,
+    sidewaysProbability: 31,
+    downProbability: 20,
+    summary: "7月7日已发布的闪迪专项三个月原课明确把9月7日至10月7日列为酉月上行阶段，并使用‘大幅度上涨’表述。该老师原始来源优先于后补用户月卦；后补卦与旧周卦继续作为分歧证据保留。",
+    expectedPath: input.path,
+    supportLevels: [],
+    resistanceLevels: [],
+    confirmationLevel: "9月7日以后等待日线或4H停止下跌扩张、重新站回主要结构，且30分钟形成更高低点后确认上行阶段启动。",
+    invalidationLevel: "若9月7日后仍连续放量破低、反弹不能收回前一结构中枢，则大幅上涨阶段尚未兑现，先降仓等待新版本，不机械抄底。",
+    riskLevel: "高",
+    catalysts: ["酉月子孙爻值月", "9月7日阶段切换", "半导体9月中旬相对强势窗"],
+    risks: ["后补9月月卦与原课存在分歧", "阶段上涨不等于每天上涨", "幅度与价格位置必须由真实K线确认"],
+    consensusStars: 3,
+    consensusLabel: "老师原课阶段主判转多；后补月卦与旧周卦保留为分歧，故方向上调但信心不升至满级。",
+    methodViews: [
+      { id: `${input.id}-teacher-stage`, label: "月令六亲流派（主判）", direction: "震荡上涨", weight: 65, summary: "原课按月令拆分：未月偏弱、申月慢慢走高、酉月子孙爻值月；9月7日以后明确看大幅上涨。" },
+      { id: `${input.id}-later-chart`, label: "动爻节奏流派（复核）", direction: "先涨后跌", weight: 20, summary: "8月29日后补水风井→雷泽归妹月卦提示反复和后段压力，作为反方证据保留，但不覆盖更早发布的老师专项原课。" },
+      { id: `${input.id}-useful-god`, label: "用神强弱流派（复核）", direction: "震荡上涨", weight: 15, summary: "原课以子孙持世、酉月值月并生财为核心，支持9月7日后价格条件改善；仍须由K线确认启动。" },
+    ],
+    keyDates: input.keyDates,
+    ichingEvidence: {
+      primaryHexagram: "三个月专项六爻（卦名未口述）",
+      changingHexagram: null,
+      notes: "原视频发布于2026-07-07，覆盖7月7日至10月7日；视频与转写均明确：子孙爻持世，父母爻应位克世；未月偏弱，申月慢慢走高，酉月子孙爻值月，9月7日以后看大幅上涨。原视频未口述完整卦名、动爻与变卦，系统不补造。",
+    },
+    version: 2,
+    status: "published",
+    sourceType: "ICHING_RESEARCH",
+    publishedAt: TEACHER_STAGE_LOCKED_AT,
+    lockedAt: TEACHER_STAGE_LOCKED_AT,
+    validationStatus: "UNVERIFIED",
+  };
+}
+
+/**
+ * Forward-only revisions from a teacher-original video published on 2026-07-07
+ * but first supplied to MOOX on 2026-09-01. Old V1/V3 rows remain immutable.
+ */
+export const SANDISK_TEACHER_STAGE_REVISIONS_20260901: ConvictionPeriodForecast[] = [
+  {
+    ...teacherStageWeek({
+      id: "SNDK-M1-20260901-V4",
+      forecastType: "MONTH_1",
+      periodStart: "2026-09-01",
+      periodEnd: "2026-09-30",
+      direction: "先跌后涨",
+      path: "9月1日至6日仍处申月末端分歧与压力释放 → 9月7日进入酉月上行阶段 → 9月10日前后与半导体板块强势窗交叉确认 → 9月中下旬以震荡上行为主，途中允许急跌洗盘，但不再把整月定义为震荡下跌。",
+      keyDates: [{ date: "2026-09-07", type: "上涨候选", label: "酉月大幅上行阶段开启观察", source: "LIUYAO", confidence: 84, note: "老师原课明确点名9月7日以后；仍须由闭合K线确认，不到日机械买入。" }],
+    }),
+    version: 4,
+    rollingUpdate: {
+      asOf: "2026-09-01",
+      label: "老师原课补录后的前瞻修订",
+      summary: "7月7日老师已发布的闪迪专项三个月预测现在才补录。因其明确覆盖9月7日至10月7日且来源优先，9月正式路径由V3先涨后跌修订为V4先跌后涨。",
+      originalLockedView: "V3：9月先涨后跌，中段修复，后段再次承压。V3与更早周卦完整保留，不删除、不改写。",
+      timingTolerance: "9月7日是阶段切换观察日；上涨幅度和起涨价格必须由真实K线确认。",
+    },
+  },
+  {
+    ...teacherStageWeek({
+      id: "SNDK-M3-20260707-V2",
+      forecastType: "MONTH_3",
+      periodStart: "2026-07-07",
+      periodEnd: "2026-10-07",
+      direction: "先跌后涨",
+      path: "7月7日至8月6日下跌或低位徘徊 → 8月7日至9月6日慢慢走高 → 9月7日至10月7日进入更强上涨阶段。",
+    }),
+  },
+  teacherStageWeek({
+    id: "SNDK-W6-20260907-V2",
+    forecastType: "WEEK_6",
+    periodStart: "2026-09-07",
+    periodEnd: "2026-09-13",
+    direction: "先跌后涨",
+    path: "9月7日前后先完成申月末端压力确认 → 随后观察酉月上行启动 → 周后段若结构抬高，转入震荡上涨。",
+    keyDates: [{ date: "2026-09-07", type: "上涨候选", label: "酉月转强起点观察", source: "LIUYAO", confidence: 84, note: "原课明确点名；到日仍须等待K线确认。" }],
+  }),
+  teacherStageWeek({
+    id: "SNDK-W7-20260914-V2",
+    forecastType: "WEEK_7",
+    periodStart: "2026-09-14",
+    periodEnd: "2026-09-20",
+    direction: "震荡上涨",
+    path: "酉月上行阶段延续，回踩优先观察承接；没有量价确认时不把‘大幅上涨’理解为每天直线上涨。",
+  }),
+  teacherStageWeek({
+    id: "SNDK-W8-20260921-V2",
+    forecastType: "WEEK_8",
+    periodStart: "2026-09-21",
+    periodEnd: "2026-09-27",
+    direction: "震荡上涨",
+    path: "仍处老师原课9月7日至10月7日上行窗；高波动中保留回踩再上路径，若持续破低则等待修订。",
+  }),
+  teacherStageWeek({
+    id: "SNDK-W9-20260928-V2",
+    forecastType: "WEEK_9",
+    periodStart: "2026-09-28",
+    periodEnd: "2026-10-04",
+    direction: "震荡上涨",
+    path: "酉月强势窗末段继续偏上，但越接近10月7日越需要保护利润，并等待戌月新证据。",
+  }),
+];
+
 export const SANDISK_PERIOD_ORDER: ConvictionForecastType[] = [
   "WEEK",
   "WEEK_2",
@@ -563,7 +696,7 @@ export const SANDISK_PERIOD_LABELS: Partial<
 };
 
 export function listSandiskPeriodForecasts(): ConvictionPeriodForecast[] {
-  return [...SANDISK_PERIOD_FORECASTS, ...SANDISK_PERIOD_REVISIONS_20260824, ...SANDISK_WEEKLY_REVISIONS_20260825]
+  return [...SANDISK_PERIOD_FORECASTS, ...SANDISK_PERIOD_REVISIONS_20260824, ...SANDISK_WEEKLY_REVISIONS_20260825, ...SANDISK_TEACHER_STAGE_REVISIONS_20260901]
     .filter((item) => item.status === "published");
 }
 

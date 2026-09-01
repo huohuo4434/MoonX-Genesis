@@ -177,7 +177,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
     rating: "A",
     tags: ["NAND", "SSD", "AI Storage", "Memory Cycle", "Semiconductor", "High Volatility"],
     summaryZh:
-      "闪迪是MOOX最高优先级的存储产业跟踪标的之一。2026年8月24日已按更新更晚的专项六爻月卦修订当前周与九月初路径；旧版判断继续保留用于复盘，不把当前反弹直接解释为长期主升。",
+      "闪迪是MOOX最高优先级的存储产业跟踪标的之一。9月1日补录老师7月7日已发布的三个月专项原课后，9月7日至10月7日改按偏强阶段跟踪；后补月卦与旧周卦继续保留为分歧和复盘证据。",
     summaryEn:
       "SanDisk is a core MOOX storage-cycle watch. Research focuses on NAND and SSD conditions, AI storage demand, industry supply-demand, and cycle volatility rather than treating one rebound as a permanent uptrend.",
     thesisZh: [
@@ -186,7 +186,7 @@ export const CONVICTION_ASSET_SEED: ConvictionAsset[] = [
       "行业供给纪律与价格变化是中期走势的重要变量。",
       "短期波动大，适合结合逐日窗口、周结构和长期周期一起判断。",
       "MOOX已建立逐日、月度、3个月、1年和5年多周期研究档案。",
-      "最新专项月卦把8月24日至9月初定义为第二轮上涨与冲顶阶段，9月3日至4日后转弱风险上升。",
+      "老师7月7日专项原课把9月7日至10月7日定义为明显上行阶段；9月7日是观察起点，不是机械买入日。",
       "多周期方向、阶段窗口与关键技术位仅在会员研究中展示。",
     ],
     thesisEn: [

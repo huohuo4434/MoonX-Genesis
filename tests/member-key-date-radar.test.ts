@@ -230,6 +230,17 @@ test("new SNDK September chart becomes the forward month authority without delet
   assert.match(monthly.finalSynthesis ?? "", /易老师综合取舍/);
 });
 
+test("teacher-original SNDK stage becomes V4 only after its September 1 ingestion lock", () => {
+  const before = buildMemberKeyDateRadar("2026-08-29").find((item) => item.assetId === "sandisk" && item.level === "MONTH");
+  const after = buildMemberKeyDateRadar("2026-09-01").find((item) => item.assetId === "sandisk" && item.level === "MONTH");
+  assert.deepEqual(before?.sourceIds, ["SNDK-M1-20260901-V3"]);
+  assert.deepEqual(after?.sourceIds, ["SNDK-M1-20260901-V4"]);
+  assert.equal(after?.focusDate, "2026-09-07");
+  assert.equal(after?.action, "BOTTOM_WATCH");
+  assert.match(after?.primaryView ?? "", /先跌后涨/);
+  assert.match(after?.derivation ?? "", /锁定记录明确点名2026-09-07/);
+});
+
 test("META stays key-date-only while NVDA becomes a non-trading focus asset", () => {
   assert.deepEqual(SUPPLEMENTAL_KEY_DATE_ASSET_IDS, ["meta", "nvda"]);
   assert.equal(STATIC_FOCUS_ASSET_IDS.includes("meta" as never), false);
@@ -289,7 +300,7 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /只观察 \/ 不操作/);
   assert.doesNotMatch(page, /变盘确认/);
   assert.match(page, /9月7日至10月7日相对转强/);
-  assert.match(page, /8月29日新补的9月整月卦已发布为V3/);
+  assert.match(page, /9月1日补录老师7月7日已发布的闪迪三个月专项原课/);
   assert.match(page, /查看四种流派方法对比/);
   assert.match(page, /月令六亲流派负责主判/);
   assert.doesNotMatch(page, /丙午老师法|狼叔法|万里法|秋六爻法/);

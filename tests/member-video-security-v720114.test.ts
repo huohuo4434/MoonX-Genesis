@@ -33,10 +33,11 @@ test("public member-video catalogue exposes title metadata but not the member re
   assert.doesNotMatch(catalogue, /2028|2029|30%|50%|失效条件/);
 });
 
-test("SOXL member summary separates sector strength from SanDisk individual weakness", () => {
+test("SOXL member summary reflects the teacher-priority SanDisk stage revision", () => {
   const memberContent = source("lib/member-videos/member-content.server.ts");
-  assert.match(memberContent, /闪迪9月个股路线先涨后跌/);
-  assert.match(memberContent, /可能弱于半导体板块/);
+  assert.match(memberContent, /闪迪补录7月7日专项原课/);
+  assert.match(memberContent, /9月7日至10月7日改按偏强阶段/);
+  assert.match(memberContent, /后补偏弱卦保留为分歧风险/);
 });
 
 test("member-only copy and storage coordinates stay in server-only modules", () => {

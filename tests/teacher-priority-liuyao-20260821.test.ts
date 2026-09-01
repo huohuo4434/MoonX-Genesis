@@ -31,12 +31,13 @@ test("Liuyao and Qimen are independent parallel forecasts", () => {
   assert.equal(LIUYAO_QIMEN_PARALLEL_POLICY.missingEvidence, "DO_NOT_FABRICATE");
 });
 
-test("priority course topics include the latest BTC, gold and SOXL sources without inventing missing directions", () => {
-  assert.equal(TEACHER_COURSE_COVERAGE_20260821.length, 11);
+test("priority course topics include the latest BTC, gold, SOXL and SNDK sources without inventing missing directions", () => {
+  assert.equal(TEACHER_COURSE_COVERAGE_20260821.length, 12);
   assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.asset === "WTI" && row.siteUse === "SOURCE_ARCHIVE_NO_DIRECTION_INVENTION"));
   assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-BTC-TARGET-20260825"));
   assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-GOLD-2M-20260825"));
   assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-SOXL-2M-20260825"));
+  assert.ok(TEACHER_COURSE_COVERAGE_20260821.some((row) => row.code === "BINGWU-SNDK-3M-20260707"));
 });
 
 test("BTC, NDX and SHCOMP teacher stage records are active only inside their source windows", () => {
@@ -60,4 +61,8 @@ test("latest teacher phases own BTC, gold and SOXL daily derivation inside their
   assert.equal(findTeacherPriorityLiuyaoSource("SOX", "2026-09-06")?.weeklyDirection, "震荡");
   assert.equal(findTeacherPriorityLiuyaoSource("SOXL", "2026-09-07")?.weeklyDirection, "震荡上涨");
   assert.equal(findTeacherPriorityLiuyaoSource("SOXL", "2026-10-08")?.weeklyDirection, "震荡");
+
+  assert.equal(findTeacherPriorityLiuyaoSource("SNDK", "2026-09-06"), null);
+  assert.equal(findTeacherPriorityLiuyaoSource("SNDK", "2026-09-07")?.weeklyDirection, "震荡上涨");
+  assert.match(findTeacherPriorityLiuyaoSource("SNDK", "2026-10-07")?.weeklyPath ?? "", /大幅上涨/);
 });

@@ -299,7 +299,7 @@ export function SectorResonanceBoard({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[.2em] text-cyan-100/55">SECTOR RESONANCE</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">周度板块共振</h1>
-            <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">先看年度关键月，再看月内关键周和每周关键日。绿色偏多、红色偏空、黄色震荡；只有完整周卦参与板块共振计数，年度和月度背景只补充上下文，不冒充周预测。</p>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">先看年度关键月，再看月内关键周和每周关键日。绿色偏多、红色偏空、黄色震荡；只有已正式锁定的周卦或明确覆盖该周的阶段路线参与板块共振计数，年度和月度背景只补充上下文，不冒充周预测。</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/42">资料截至 {asOf}</span>
         </div>

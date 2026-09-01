@@ -104,7 +104,7 @@ type AssetDefinition = {
 export const SECTOR_RESONANCE_ASSETS_20260825: AssetDefinition[] = [
   { assetId: "cxmt", focusId: "cxmt", name: "长鑫科技", symbol: "CXMT", group: "半导体 / AI基础设施", longCycle: "三个月先跌后涨" },
   { assetId: "intel", focusId: "intel", name: "英特尔", symbol: "INTC", group: "半导体 / AI基础设施", longCycle: "9月先强后弱" },
-  { assetId: "sandisk", focusId: "sandisk", name: "闪迪", symbol: "SNDK", group: "半导体 / AI基础设施", longCycle: "双峰后整理，月底再观察修复" },
+  { assetId: "sandisk", focusId: "sandisk", name: "闪迪", symbol: "SNDK", group: "半导体 / AI基础设施", longCycle: "9月7日后偏强，至10月7日观察上行兑现" },
   { assetId: "lite", focusId: "lite", name: "Lumentum", symbol: "LITE", group: "半导体 / AI基础设施", longCycle: "到年底震荡偏上" },
   { assetId: "mu", focusId: "mu", name: "美光", symbol: "MU", group: "半导体 / AI基础设施", longCycle: "中期先整理后修复" },
   { assetId: "nvda", focusId: "nvda", name: "英伟达", symbol: "NVDA", group: "半导体 / AI基础设施", longCycle: "剩余年度先蓄势、后段防高波动回吐" },
@@ -246,10 +246,11 @@ function weeklyCell(assetId: string, forecasts: ConvictionPeriodForecast[], week
     .sort(latestFirst);
   const selected = candidates[0];
   if (!selected) return null;
+  const teacherStage = /老师原课|老师专项|老师原始来源|三个月专项六爻|原视频发布于2026-07-07/u.test(`${selected.summary}${selected.expectedPath}${selected.ichingEvidence.notes}`);
   return {
     direction: normalizeDirection(selected.direction),
     sourceKind: "WEEKLY",
-    sourceLabel: "完整周卦",
+    sourceLabel: teacherStage ? "老师阶段路线" : "完整周卦",
     summary: selected.expectedPath || selected.summary,
     forecastId: selected.id,
     timingMarkers: buildSectorTimingMarkers({ assetId, direction: normalizeDirection(selected.direction), periodStart: week.start, periodEnd: week.end, keyDates: selected.keyDates }),

@@ -34,12 +34,34 @@ export const TEACHER_COURSE_COVERAGE_20260821 = Object.freeze([
   { code: "BINGWU-BTC-TARGET-20260825", asset: "BTC", horizon: "2026-08-24/2026-09-10", siteUse: "OFFICIAL_STAGE_DIRECTION" },
   { code: "BINGWU-GOLD-2M-20260825", asset: "GOLD", horizon: "2026-08-25/2026-10-25", siteUse: "OFFICIAL_PHASE_DIRECTION" },
   { code: "BINGWU-SOXL-2M-20260825", asset: "SOXL", horizon: "2026-08-25/2026-10-25", siteUse: "OFFICIAL_PHASE_DIRECTION" },
+  { code: "BINGWU-SNDK-3M-20260707", asset: "SNDK", horizon: "2026-07-07/2026-10-07", siteUse: "OFFICIAL_STAGE_DIRECTION" },
 ] as const);
 
 const LOCKED_AT = "2026-08-21T12:44:00.000Z";
 const LATEST_LOCKED_AT = "2026-08-26T06:30:00.000+08:00";
 
 const TEACHER_STAGE_SOURCES: readonly WeeklyForecastSourceRecord[] = [
+  {
+    id: "TL-BINGWU-SNDK-YOU-20260907-V1",
+    marketCode: "SNDK",
+    periodStart: "2026-09-07",
+    periodEnd: "2026-10-07",
+    primaryHexagram: null,
+    changedHexagram: null,
+    movingLines: [],
+    specialPatterns: ["SOURCE_AUTHORITY_TEACHER_ORIGINAL", "SNDK_SPECIFIC", "THREE_MONTH_PHASE_NOT_DAILY_HEXAGRAM", "SOURCE_PUBLISHED_DATE_20260707"],
+    weeklyDirection: "震荡上涨",
+    weeklyPath: "老师7月7日专项三个月预测明确：9月7日进入酉月后看大幅上涨；该阶段一直覆盖到10月7日，途中回撤不自动改写阶段方向。",
+    interpretation: "子孙爻持世，酉月子孙爻值月并生财；老师把未月偏弱、申月慢慢走高、酉月明显走强分开判断。",
+    riskSummary: "后补9月月卦与部分周度来源存在分歧，因此保留反方证据并等待闭合K线确认；阶段方向不等于每天上涨，也不提供机械买点。",
+    sourceType: "LIUYAO_WEEKLY",
+    version: 1,
+    status: "LOCKED",
+    publishedAt: "2026-09-01T20:33:02+08:00",
+    lockedAt: "2026-09-01T20:33:02+08:00",
+    createdAt: "2026-09-01T20:33:02+08:00",
+    updatedAt: "2026-09-01T20:33:02+08:00",
+  },
   {
     id: "TL-BINGWU-BTC-TARGET-20260824-V2",
     marketCode: "BTC",
