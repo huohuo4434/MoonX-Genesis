@@ -14,6 +14,8 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
+import { applyVerifiedGannKeyDateOverlay, VERIFIED_GANN_RESEARCH_WEIGHT_PCT } from "@/lib/research/gann-prediction-overlay-core";
+import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
 import {
   RESEARCH_CONSENSUS_REVIEWS_20260830,
   type ResearchAlignment,
@@ -197,6 +199,12 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
         <span className="font-semibold">{RESEARCH_ALIGNMENT_META[item.consensusLevel].label}：</span>
         <span>{item.consensusNote}</span>
       </div> : null}
+      {item.gann ? <div className={`mt-3 rounded-xl border px-3 py-3 text-body-sm leading-6 ${item.gann.status === "ALIGNED" ? "border-emerald-300/20 bg-emerald-300/[0.045]" : item.gann.status === "CONFLICTED" ? "border-rose-300/20 bg-rose-300/[0.045]" : "border-amber-300/20 bg-amber-300/[0.04]"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-foreground">江恩时间＋价格共振</span><Badge variant="outline">{item.gann.status === "ALIGNED" ? `同向 +${item.gann.appliedWeightPct}点` : item.gann.status === "CONFLICTED" ? `冲突 -${item.gann.appliedWeightPct}点` : item.gann.appliedWeightPct ? `时间 +${item.gann.appliedWeightPct}点` : "仅观察"}</Badge></div>
+        <p className="mt-2 text-foreground-secondary">{item.gann.note}</p>
+        <p className="mt-2 text-caption text-foreground-tertiary">时间窗：{item.gann.matchedWindows.join("、")}；支撑：{item.gann.supportLevels.join(" / ") || "未给出"}；压力/目标：{[...item.gann.resistanceLevels, ...item.gann.targetLevels].join(" / ") || "未给出"}</p>
+        <div className="mt-2 flex flex-wrap gap-3">{item.gann.sourceUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-caption text-primary">原始时间戳 {index + 1} →</a>)}</div>
+      </div> : null}
       <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">
         <summary className="cursor-pointer font-semibold text-foreground">查看路径、确认与失效条件</summary>
         <div className="mt-3 space-y-2 leading-6">
@@ -249,7 +257,8 @@ export default async function MemberKeyDatesPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const asOfDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const items = buildKeyDateRadar(buildMemberKeyDateRadar(asOfDate), asOfDate);
+  const gannSignals = await getVerifiedGannPredictionSignals();
+  const items = buildKeyDateRadar(applyVerifiedGannKeyDateOverlay(buildMemberKeyDateRadar(asOfDate), gannSignals), asOfDate);
   const summary = summarizeKeyDateRadar(items);
   const agenda = splitCurrentKeyDateRadar(items);
   const currentItems = [...agenda.monthly, ...agenda.weekly];
@@ -257,7 +266,7 @@ export default async function MemberKeyDatesPage() {
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
       <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_88%_0%,rgba(124,92,255,.2),transparent_34%),linear-gradient(145deg,#11101b,#090a0e)] p-6 sm:p-8">
-        <Badge variant="warning">会员关键日雷达</Badge>
+        <div className="flex flex-wrap gap-2"><Badge variant="warning">会员关键日雷达</Badge><Badge variant="success">江恩验证权重 {VERIFIED_GANN_RESEARCH_WEIGHT_PCT}% 已接入</Badge></div>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
           先看行动总览，再按板块和品种查看依据；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；证据不能确认高点或低点时明确写“只观察／不操作”，不再使用含糊标签。

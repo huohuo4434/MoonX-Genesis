@@ -8,6 +8,8 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { GANN_AUDIT_SAMPLES, GANN_RESEARCH_AUDIT, summarizeGannAudit, type GannAuditVerdict } from "@/lib/data/gann-research-audit-20260902";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { VERIFIED_GANN_RESEARCH_WEIGHT_PCT } from "@/lib/research/gann-prediction-overlay-core";
+import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,9 +41,10 @@ export default async function MemberGannPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const summary = summarizeGannAudit();
+  const currentSignals = await getVerifiedGannPredictionSignals();
   return <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-8">
     <header className="rounded-3xl border border-amber-300/20 bg-[radial-gradient(circle_at_88%_0%,rgba(251,191,36,.16),transparent_34%),linear-gradient(145deg,#15120b,#090a0e)] p-6 sm:p-8">
-      <Badge variant="warning">江恩时间＋价格研究</Badge>
+      <div className="flex flex-wrap gap-2"><Badge variant="warning">江恩时间＋价格研究</Badge><Badge variant="success">预测研究层 {VERIFIED_GANN_RESEARCH_WEIGHT_PCT}% 已接入</Badge></div>
       <Heading as="h1" size="h2" className="mt-4">可以采用，但只给可验证部分权重</Heading>
       <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">近6个月严格复盘后，江恩最有价值的是明确时间窗、动态支撑压力和价格目标。当前给予定量研究权重 {GANN_RESEARCH_AUDIT.recommendedResearchWeightPct}%：用于提高关键日与点位信心，不单独改写已锁定周方向，也不绕过仓位、止损和保护单门禁。</Text>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[
@@ -57,6 +60,11 @@ export default async function MemberGannPage() {
       <Card padding="lg"><Badge variant="success">保留</Badge><Heading as="h2" size="h3" className="mt-3">江恩价格结构</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">固定锚点、高低点、角度线编号、价格区间和失效条件必须随预测版本一起保存。</Text></Card>
       <Card padding="lg"><Badge variant="info">共振</Badge><Heading as="h2" size="h3" className="mt-3">玄学关键日</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">月、周关键日与江恩时间窗重叠时提高“时间信心”；二者方向冲突时只标观察，不机械抄底或逃顶。</Text></Card>
       <Card padding="lg"><Badge variant="warning">确认</Badge><Heading as="h2" size="h3" className="mt-3">闭合 K 线</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">价格到窗后等待日线、周线或缠论结构确认。没有到价、没有触发或没有闭合 K 线，不记命中、不产生交易权限。</Text></Card>
+    </section>
+
+    <section className="rounded-3xl border border-emerald-300/15 bg-emerald-300/[.035] p-5 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">近期合格江恩记录</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">只读取采集库最近45天内、单一标的且带明确时间窗或价位的合格记录；其中只有仍与未来月／周关键日重叠的记录才会最多增加3点研究信心。</Text></div><Badge variant="outline">{currentSignals.length} 条合格记录</Badge></div>
+      {currentSignals.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{currentSignals.slice(0, 8).map((signal) => <article key={signal.postId} className="rounded-2xl border border-white/[.08] bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{signal.symbol.replace(/USDT$/, "")}</p><Badge variant="outline">{signal.direction === "LONG" ? "偏多" : signal.direction === "SHORT" ? "偏空" : "条件式"}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{signal.summary}</p><p className="mt-2 text-caption text-foreground-tertiary">时间窗：{signal.timeWindows.join("、") || "未给出"}；关键价位：{Array.from(new Set([...signal.supportLevels, ...signal.resistanceLevels, ...signal.targetLevels, ...signal.invalidationLevels])).join(" / ") || "未给出"}</p><a className="mt-3 inline-flex text-caption text-primary" href={signal.postUrl} target="_blank" rel="noreferrer">查看原始时间戳 →</a></article>)}</div> : <p className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4 text-body-sm text-foreground-secondary">当前采集库没有满足条件的近期江恩记录，因此不加权；系统保持原预测，不拿历史成绩代替当前信号。</p>}
     </section>
 
     <section className="rounded-3xl border border-cyan-300/15 bg-cyan-300/[.035] p-5 sm:p-6">

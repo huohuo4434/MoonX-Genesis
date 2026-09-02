@@ -34,6 +34,19 @@ export type KeyDateRadarItem = {
     summary: string;
   }>;
   finalSynthesis?: string;
+  /** Verified Gann timing/level overlay. It never changes the locked direction or action. */
+  gann?: {
+    status: "ALIGNED" | "TIME_ONLY" | "CONFLICTED";
+    appliedWeightPct: number;
+    note: string;
+    matchedWindows: string[];
+    supportLevels: number[];
+    resistanceLevels: number[];
+    targetLevels: number[];
+    invalidationLevels: number[];
+    sourceUrls: string[];
+    newestPostedAt: string;
+  };
 };
 
 export type KeyDateRadarViewItem = KeyDateRadarItem & { status: KeyDateStatus };
