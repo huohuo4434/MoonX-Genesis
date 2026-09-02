@@ -61,6 +61,19 @@ async function handle(
       { status: 503, headers: PRIVATE_HEADERS },
     );
   }
+  if (requestedAsset !== "video") {
+    const subtitle = await fetch(signedUrl, { cache: "no-store" });
+    if (!subtitle.ok) {
+      return NextResponse.json(
+        { error: "字幕暂时不可用" },
+        { status: 503, headers: PRIVATE_HEADERS },
+      );
+    }
+    return new NextResponse(await subtitle.arrayBuffer(), {
+      status: 200,
+      headers: { ...PRIVATE_HEADERS, "Content-Type": "text/vtt; charset=utf-8" },
+    });
+  }
   return NextResponse.redirect(signedUrl, { status: 307, headers: PRIVATE_HEADERS });
 }
 

@@ -219,6 +219,16 @@ test("admin uploader is admin-only, allowlisted, private and atomically publishe
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
 });
 
+test("subtitle tracks stay same-origin while video keeps the signed redirect", () => {
+  const route = source("app/api/member/videos/[slug]/route.ts");
+  const subtitleProxy = route.indexOf('if (requestedAsset !== "video")');
+  const videoRedirect = route.indexOf("NextResponse.redirect(signedUrl");
+  assert.ok(subtitleProxy >= 0 && videoRedirect > subtitleProxy);
+  assert.match(route, /fetch\(signedUrl, \{ cache: "no-store" \}\)/);
+  assert.match(route, /"Content-Type": "text\/vtt; charset=utf-8"/);
+  assert.match(route, /字幕暂时不可用/);
+});
+
 test("member page shows a locked cover to visitors and playback only in allowed branch", () => {
   const page = source("app/member/videos/page.tsx");
   assert.match(page, /getMemberDevicePageAccess\(\{ failClosed: true \}\)/);
