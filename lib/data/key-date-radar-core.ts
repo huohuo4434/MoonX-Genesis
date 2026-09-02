@@ -37,6 +37,7 @@ export type KeyDateRadarItem = {
   /** Verified Gann timing/level overlay. It never changes the locked direction or action. */
   gann?: {
     status: "ALIGNED" | "TIME_ONLY" | "CONFLICTED";
+    turnIntent: "TOP" | "BOTTOM" | "NEUTRAL";
     appliedWeightPct: number;
     note: string;
     matchedWindows: string[];

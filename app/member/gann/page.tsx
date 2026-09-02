@@ -10,6 +10,8 @@ import { GANN_AUDIT_SAMPLES, GANN_RESEARCH_AUDIT, summarizeGannAudit, type GannA
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { VERIFIED_GANN_RESEARCH_WEIGHT_PCT } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
+import { getGannForwardVerificationSnapshot } from "@/lib/research/gann-forward-verification.server";
+import { summarizeGannForwardSnapshot } from "@/lib/research/gann-forward-verification-core";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,7 +43,8 @@ export default async function MemberGannPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const summary = summarizeGannAudit();
-  const currentSignals = await getVerifiedGannPredictionSignals();
+  const [currentSignals, forwardSnapshot] = await Promise.all([getVerifiedGannPredictionSignals(), getGannForwardVerificationSnapshot()]);
+  const forwardSummary = summarizeGannForwardSnapshot(forwardSnapshot?.samples ?? []);
   return <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-8">
     <header className="rounded-3xl border border-amber-300/20 bg-[radial-gradient(circle_at_88%_0%,rgba(251,191,36,.16),transparent_34%),linear-gradient(145deg,#15120b,#090a0e)] p-6 sm:p-8">
       <div className="flex flex-wrap gap-2"><Badge variant="warning">江恩时间＋价格研究</Badge><Badge variant="success">预测研究层 {VERIFIED_GANN_RESEARCH_WEIGHT_PCT}% 已接入</Badge></div>
@@ -65,6 +68,11 @@ export default async function MemberGannPage() {
     <section className="rounded-3xl border border-emerald-300/15 bg-emerald-300/[.035] p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">近期合格江恩记录</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">只读取采集库最近45天内、单一标的且带明确时间窗或价位的合格记录；其中只有仍与未来月／周关键日重叠的记录才会最多增加3点研究信心。</Text></div><Badge variant="outline">{currentSignals.length} 条合格记录</Badge></div>
       {currentSignals.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{currentSignals.slice(0, 8).map((signal) => <article key={signal.postId} className="rounded-2xl border border-white/[.08] bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{signal.symbol.replace(/USDT$/, "")}</p><Badge variant="outline">{signal.turnIntent === "TOP" ? "高点观察" : signal.turnIntent === "BOTTOM" ? "低点观察" : "时间/点位观察"}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{signal.summary}</p><p className="mt-2 text-caption text-foreground-tertiary">时间窗：{signal.timeWindows.join("、") || "未给出"}；关键价位：{Array.from(new Set([...signal.supportLevels, ...signal.resistanceLevels, ...signal.targetLevels, ...signal.invalidationLevels])).slice(0, 10).join(" / ") || "未给出"}</p><a className="mt-3 inline-flex text-caption text-primary" href={signal.postUrl} target="_blank" rel="noreferrer">查看原始时间戳 →</a></article>)}</div> : <p className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4 text-body-sm text-foreground-secondary">当前采集库没有满足条件的近期江恩记录，因此不加权；系统保持原预测，不拿历史成绩代替当前信号。</p>}
+    </section>
+
+    <section className="rounded-3xl border border-sky-300/15 bg-sky-300/[.035] p-5 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">自动前瞻验证队列</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">系统每15分钟只锁定原帖早于关键日、标的一致且高低点意图明确的样本。锁定后保留原条件；关键日结束并取得前后闭合日K后，自动记为完整、部分或失败。</Text></div><div className="flex flex-wrap gap-2"><Badge variant="outline">观察 {forwardSummary.watching}</Badge><Badge variant="outline">待行情 {forwardSummary.pending}</Badge><Badge variant="outline">已评分 {forwardSummary.scored}</Badge>{forwardSummary.weightedAccuracyPct !== null ? <Badge variant="warning">前瞻加权 {forwardSummary.weightedAccuracyPct}%</Badge> : null}</div></div>
+      {forwardSnapshot?.samples.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{forwardSnapshot.samples.slice(0, 8).map((sample) => <article key={sample.id} className="rounded-2xl border border-white/[.08] bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{sample.assetName} · {sample.focusDate}</p><Badge variant={sample.verdict === "FULL" ? "success" : sample.verdict === "MISS" ? "danger" : "outline"}>{sample.verdict === "WATCHING" ? "观察中" : sample.verdict === "DATA_PENDING" ? "待闭合K线" : sample.verdict === "FULL" ? "完整" : sample.verdict === "PARTIAL" ? "部分" : "失败"}</Badge></div><p className="mt-2 text-body-sm text-foreground-secondary">江恩预期：{sample.expectedIntent === "TOP" ? "高点窗口" : "低点窗口"}；与正式关键日：{sample.overlayStatus === "ALIGNED" ? "同向" : sample.overlayStatus === "CONFLICTED" ? "冲突" : "只重叠时间"}。</p><p className="mt-2 text-caption leading-5 text-foreground-tertiary">锁定：{new Date(sample.lockedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}；窗口：{sample.matchedWindows.join("、")}{sample.result ? `；结果：${sample.result}` : ""}</p></article>)}</div> : <p className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4 text-body-sm text-foreground-secondary">前瞻队列尚未产生合格样本。系统不会用历史复盘凑数；下一次内容自检发现真正的未来共振窗口后才会锁定。</p>}
     </section>
 
     <section className="rounded-3xl border border-cyan-300/15 bg-cyan-300/[.035] p-5 sm:p-6">

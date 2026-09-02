@@ -12,6 +12,7 @@ import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route
 import { buildResearchIntegrityAudit } from "@/lib/research-integrity/audit";
 import { ACTIVE_STATIC_FOCUS_ASSET_IDS } from "@/lib/data/conviction/focus-registry-core";
 import { focusDailyMarketCode } from "@/lib/data/conviction/focus-daily-generation-core";
+import { runGannForwardVerificationCycle } from "@/lib/research/gann-forward-verification.server";
 
 import type { ContentFreshnessItem, ContentFreshnessPolicy, ContentFreshnessReport } from "@/types/content-freshness";
 
@@ -223,6 +224,12 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
       } catch (error) {
         repairs.push({ key: "verification", ok: false, actionZh: "例行验证补偿检查", detailZh: error instanceof Error ? error.message : String(error) });
       }
+    }
+    try {
+      const gann = await runGannForwardVerificationCycle(now);
+      repairs.push({ key: "gann", ok: gann.stored, actionZh: "锁定并复核江恩前瞻样本", detailZh: `观察 ${gann.watching}，待行情 ${gann.pending}，已评分 ${gann.scored}` });
+    } catch (error) {
+      repairs.push({ key: "gann", ok: false, actionZh: "锁定并复核江恩前瞻样本", detailZh: error instanceof Error ? error.message : String(error) });
     }
   }
   const after = await evaluate(now);

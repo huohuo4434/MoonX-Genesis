@@ -17,6 +17,7 @@ test("Gann date parser matches exact and ranged future windows", () => {
   assert.equal(gannWindowContainsDate("2026-09-10", "2026-09-10", "2026-09-02T02:00:00.000Z"), true);
   assert.equal(gannWindowContainsDate("下周", "2026-09-10", "2026-09-02T02:00:00.000Z"), true);
   assert.equal(gannWindowContainsDate("9月12日", "2026-09-10", "2026-09-02T02:00:00.000Z"), false);
+  assert.equal(gannWindowContainsDate("9月10日", "2026-09-10", "2026-09-10T02:00:00.000Z"), false);
 });
 
 test("turn intent distinguishes a bullish move into a top window from a bullish continuation", () => {
@@ -32,6 +33,7 @@ test("verified aligned Gann adds only three confidence points and never changes 
   assert.equal(result?.action, "TOP_EXIT_WATCH");
   assert.equal(result?.primaryView, item.primaryView);
   assert.equal(result?.gann?.status, "ALIGNED");
+  assert.equal(result?.gann?.turnIntent, "TOP");
   assert.equal(result?.gann?.appliedWeightPct, 3);
   assert.deepEqual(result?.gann?.supportLevels, [78000]);
 });

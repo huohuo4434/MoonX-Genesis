@@ -45,6 +45,8 @@ function containsDate(date: string, start: string | null, end: string | null = s
 export function gannWindowContainsDate(window: string, focusDate: string, postedAt: string) {
   const postedDate = localPostedDate(postedAt);
   if (!postedDate) return false;
+  // Same-day or later commentary is not a forward sample for a daily turn window.
+  if (focusDate <= postedDate) return false;
   const year = Number(postedDate.slice(0, 4));
   const normalized = window.replace(/\s+/g, "").replace(/[～~—–]/g, "-");
 
@@ -102,13 +104,14 @@ export function inferGannTurnIntent(text: string): VerifiedGannSignal["turnInten
   return "NEUTRAL";
 }
 
-function statusFor(item: KeyDateRadarItem, intents: VerifiedGannSignal["turnIntent"][]): { status: GannStatus; delta: number; note: string } {
+function statusFor(item: KeyDateRadarItem, intents: VerifiedGannSignal["turnIntent"][]): { status: GannStatus; turnIntent: VerifiedGannSignal["turnIntent"]; delta: number; note: string } {
   const directional = Array.from(new Set(intents.filter((intent) => intent !== "NEUTRAL")));
   const expected = item.action === "BOTTOM_WATCH" ? "BOTTOM" : item.action === "TOP_EXIT_WATCH" ? "TOP" : "NEUTRAL";
-  if (directional.length > 1) return { status: "TIME_ONLY", delta: 0, note: "江恩时间窗重叠，但同一来源同时包含高点与低点分支，只保留时间观察。" };
-  if (expected === "NEUTRAL" || directional.length === 0) return { status: "TIME_ONLY", delta: 1, note: "江恩时间窗与关键日重叠，但未形成同向高低点结论，只增加1点时间信心。" };
-  if (directional[0] === expected) return { status: "ALIGNED", delta: VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: `江恩时间窗与${item.action === "BOTTOM_WATCH" ? "低点" : "高点"}观察方向一致，研究信心增加3点。` };
-  return { status: "CONFLICTED", delta: -VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: "江恩高低点意图与当前关键日动作冲突，研究信心降低3点；不改写正式方向，也不机械交易。" };
+  if (directional.length > 1) return { status: "TIME_ONLY", turnIntent: "NEUTRAL", delta: 0, note: "江恩时间窗重叠，但同一来源同时包含高点与低点分支，只保留时间观察。" };
+  if (expected === "NEUTRAL" || directional.length === 0) return { status: "TIME_ONLY", turnIntent: directional[0] ?? "NEUTRAL", delta: 1, note: "江恩时间窗与关键日重叠，但未形成同向高低点结论，只增加1点时间信心。" };
+  const intent = directional[0]!;
+  if (intent === expected) return { status: "ALIGNED", turnIntent: intent, delta: VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: `江恩时间窗与${item.action === "BOTTOM_WATCH" ? "低点" : "高点"}观察方向一致，研究信心增加3点。` };
+  return { status: "CONFLICTED", turnIntent: intent, delta: -VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: "江恩高低点意图与当前关键日动作冲突，研究信心降低3点；不改写正式方向，也不机械交易。" };
 }
 
 export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signals: readonly VerifiedGannSignal[]) {
@@ -128,6 +131,7 @@ export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signa
       sourceIds: Array.from(new Set([...item.sourceIds, ...matched.map((signal) => `GANN:${signal.postId}`)])),
       gann: {
         status: result.status,
+        turnIntent: result.turnIntent,
         appliedWeightPct: Math.abs(result.delta),
         note: result.note,
         matchedWindows: Array.from(new Set(matched.flatMap((signal) => signal.timeWindows.filter((window) => gannWindowContainsDate(window, item.focusDate, signal.postedAt))))),
