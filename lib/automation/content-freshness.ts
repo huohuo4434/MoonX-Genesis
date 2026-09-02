@@ -176,6 +176,14 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
   const repairs: ContentFreshnessReport["repairs"] = [];
   if (options.repair !== false) {
     const byKey = new Map(before.items.map((item) => [item.key, item]));
+    // Lock forward samples before slower, best-effort repair work so a long
+    // verification pass cannot prevent the immutable snapshot from being saved.
+    try {
+      const gann = await runGannForwardVerificationCycle(now);
+      repairs.push({ key: "gann", ok: gann.stored, actionZh: "锁定并复核江恩前瞻样本", detailZh: `观察 ${gann.watching}，待行情 ${gann.pending}，已评分 ${gann.scored}` });
+    } catch (error) {
+      repairs.push({ key: "gann", ok: false, actionZh: "锁定并复核江恩前瞻样本", detailZh: error instanceof Error ? error.message : String(error) });
+    }
     const x = byKey.get("x");
     if (x && x.status !== "OK") {
       try {
@@ -224,12 +232,6 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
       } catch (error) {
         repairs.push({ key: "verification", ok: false, actionZh: "例行验证补偿检查", detailZh: error instanceof Error ? error.message : String(error) });
       }
-    }
-    try {
-      const gann = await runGannForwardVerificationCycle(now);
-      repairs.push({ key: "gann", ok: gann.stored, actionZh: "锁定并复核江恩前瞻样本", detailZh: `观察 ${gann.watching}，待行情 ${gann.pending}，已评分 ${gann.scored}` });
-    } catch (error) {
-      repairs.push({ key: "gann", ok: false, actionZh: "锁定并复核江恩前瞻样本", detailZh: error instanceof Error ? error.message : String(error) });
     }
   }
   const after = await evaluate(now);

@@ -47,5 +47,6 @@ test("automation wiring stores research state only and never touches orders", ()
   const freshness = fs.readFileSync("lib/automation/content-freshness.ts", "utf8");
   assert.match(server, /trade_external_analyst_state/);
   assert.match(freshness, /runGannForwardVerificationCycle/);
+  assert.ok(freshness.indexOf("runGannForwardVerificationCycle(now)") < freshness.indexOf("runDailyVerification({ now })"));
   assert.doesNotMatch(server + freshness, /submitOrder|placeOrder|newEntriesEnabled|trade_execution_outbox/);
 });
