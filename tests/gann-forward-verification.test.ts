@@ -19,6 +19,7 @@ test("only explicit future top or bottom signals become forward samples", () => 
   assert.equal(sample?.expectedIntent, "TOP");
   assert.equal(buildGannForwardCandidates([{ ...item, focusDate: "2026-09-01" }], "2026-09-02", "2026-09-02T02:00:00.000Z").length, 0);
   assert.equal(buildGannForwardCandidates([{ ...item, gann: { ...item.gann!, turnIntent: "NEUTRAL" } }], "2026-09-02", "2026-09-02T02:00:00.000Z").length, 0);
+  assert.equal(buildGannForwardCandidates([item, { ...item, id: "btc-week-2026-09-10", level: "WEEK" }], "2026-09-02", "2026-09-02T02:00:00.000Z").length, 1);
 });
 
 test("locked snapshot stays immutable when a later candidate changes", () => {
@@ -34,7 +35,7 @@ test("closed daily bars score the locked turn without deleting failures", () => 
   const result = evaluateGannForwardSample(sample!, bars, "2026-09-16T00:00:00.000Z");
   assert.equal(result.verdict, "FULL");
   assert.match(result.result ?? "", /高点窗口覆盖/);
-  assert.deepEqual(summarizeGannForwardSnapshot([result]), { watching: 0, pending: 0, scored: 1, full: 1, partial: 0, miss: 0, weightedAccuracyPct: 100 });
+  assert.deepEqual(summarizeGannForwardSnapshot([result]), { watching: 0, pending: 0, scored: 1, full: 1, partial: 0, miss: 0, weightedAccuracyPct: 100, adjustedReliabilityPct: 60, minimumSamples: 10, eligible: false, effectiveWeightPct: 3 });
 
   const missedBars = bars.map((bar, index) => index === 6 ? { ...bar, high: 115, close: 114 } : bar);
   const miss = evaluateGannForwardSample(sample!, missedBars, "2026-09-16T00:00:00.000Z");
@@ -42,10 +43,21 @@ test("closed daily bars score the locked turn without deleting failures", () => 
   assert.equal(summarizeGannForwardSnapshot([result, miss]).miss, 1);
 });
 
+test("adaptive research weight waits for ten samples and stays within zero to five", () => {
+  const [sample] = buildGannForwardCandidates([item], "2026-09-02", "2026-09-02T02:00:00.000Z");
+  const full = evaluateGannForwardSample(sample!, bars, "2026-09-16T00:00:00.000Z");
+  const missedBars = bars.map((bar, index) => index === 6 ? { ...bar, high: 115, close: 114 } : bar);
+  const miss = evaluateGannForwardSample(sample!, missedBars, "2026-09-16T00:00:00.000Z");
+  assert.equal(summarizeGannForwardSnapshot(Array.from({ length: 9 }, (_, index) => ({ ...full, id: `full-${index}` }))).effectiveWeightPct, 3);
+  assert.equal(summarizeGannForwardSnapshot(Array.from({ length: 10 }, (_, index) => ({ ...full, id: `full-${index}` }))).effectiveWeightPct, 5);
+  assert.equal(summarizeGannForwardSnapshot(Array.from({ length: 10 }, (_, index) => ({ ...miss, id: `miss-${index}` }))).effectiveWeightPct, 0);
+});
+
 test("automation wiring stores research state only and never touches orders", () => {
   const server = fs.readFileSync("lib/research/gann-forward-verification.server.ts", "utf8");
   const freshness = fs.readFileSync("lib/automation/content-freshness.ts", "utf8");
   assert.match(server, /trade_external_analyst_state/);
+  assert.match(server, /policy\.effectiveWeightPct/);
   assert.match(freshness, /runGannForwardVerificationCycle/);
   assert.ok(freshness.indexOf("runGannForwardVerificationCycle(now)") < freshness.indexOf("runDailyVerification({ now })"));
   assert.doesNotMatch(server + freshness, /submitOrder|placeOrder|newEntriesEnabled|trade_execution_outbox/);

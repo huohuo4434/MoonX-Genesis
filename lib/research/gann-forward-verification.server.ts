@@ -49,7 +49,8 @@ export async function runGannForwardVerificationCycle(now = new Date()) {
   if (!prisma || !(await ensureExternalAnalystTables())) return { stored: false, ...summarizeGannForwardSnapshot([]) };
   const today = beijingDate(now);
   const [existing, signals] = await Promise.all([getGannForwardVerificationSnapshot(), getVerifiedGannPredictionSignals(now)]);
-  const overlaid = applyVerifiedGannKeyDateOverlay(buildMemberKeyDateRadar(today), signals);
+  const policy = summarizeGannForwardSnapshot(existing?.samples ?? []);
+  const overlaid = applyVerifiedGannKeyDateOverlay(buildMemberKeyDateRadar(today), signals, policy.effectiveWeightPct);
   const candidates = buildGannForwardCandidates(overlaid, today, now.toISOString());
   let samples = mergeGannForwardSamples(existing?.samples ?? [], candidates, today);
 

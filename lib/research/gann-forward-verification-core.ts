@@ -2,6 +2,8 @@ import type { KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
 import type { DailyMarketBar } from "@/lib/market-data/daily-prices";
 
 export type GannForwardVerdict = "WATCHING" | "DATA_PENDING" | "FULL" | "PARTIAL" | "MISS";
+export const GANN_FORWARD_MINIMUM_SAMPLES = 10;
+export const GANN_BASE_RESEARCH_WEIGHT_PCT = 3;
 
 export type GannForwardSample = {
   id: string;
@@ -27,7 +29,7 @@ export type GannForwardSnapshot = {
 };
 
 export function buildGannForwardCandidates(items: readonly KeyDateRadarItem[], asOfDate: string, lockedAt: string): GannForwardSample[] {
-  return items.flatMap((item): GannForwardSample[] => {
+  const candidates = items.flatMap((item): GannForwardSample[] => {
     const gann = item.gann;
     if (!gann || gann.turnIntent === "NEUTRAL" || item.focusDate < asOfDate) return [];
     const postIds = item.sourceIds.filter((id) => id.startsWith("GANN:")).sort();
@@ -49,6 +51,12 @@ export function buildGannForwardCandidates(items: readonly KeyDateRadarItem[], a
       result: null,
     }];
   });
+  const unique = new Map<string, GannForwardSample>();
+  for (const sample of candidates) {
+    const key = `${sample.symbol}:${sample.focusDate}:${sample.gannSourceUrls.join("+")}`;
+    if (!unique.has(key)) unique.set(key, sample);
+  }
+  return [...unique.values()];
 }
 
 export function mergeGannForwardSamples(existing: readonly GannForwardSample[], candidates: readonly GannForwardSample[], today: string) {
@@ -92,6 +100,12 @@ export function summarizeGannForwardSnapshot(samples: readonly GannForwardSample
   const full = scored.filter((sample) => sample.verdict === "FULL").length;
   const partial = scored.filter((sample) => sample.verdict === "PARTIAL").length;
   const miss = scored.filter((sample) => sample.verdict === "MISS").length;
+  const points = full + partial * 0.5;
+  const adjustedReliabilityPct = scored.length ? Math.round(((points + 2) / (scored.length + 4)) * 1_000) / 10 : null;
+  const eligible = scored.length >= GANN_FORWARD_MINIMUM_SAMPLES;
+  const confidenceAdjustmentPct = eligible && adjustedReliabilityPct != null
+    ? Math.max(-GANN_BASE_RESEARCH_WEIGHT_PCT, Math.min(2, Math.round((adjustedReliabilityPct - 50) / 5)))
+    : 0;
   return {
     watching: samples.filter((sample) => sample.verdict === "WATCHING").length,
     pending: samples.filter((sample) => sample.verdict === "DATA_PENDING").length,
@@ -99,6 +113,10 @@ export function summarizeGannForwardSnapshot(samples: readonly GannForwardSample
     full,
     partial,
     miss,
-    weightedAccuracyPct: scored.length ? Math.round(((full + partial * 0.5) / scored.length) * 1_000) / 10 : null,
+    weightedAccuracyPct: scored.length ? Math.round((points / scored.length) * 1_000) / 10 : null,
+    adjustedReliabilityPct,
+    minimumSamples: GANN_FORWARD_MINIMUM_SAMPLES,
+    eligible,
+    effectiveWeightPct: GANN_BASE_RESEARCH_WEIGHT_PCT + confidenceAdjustmentPct,
   };
 }

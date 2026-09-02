@@ -14,8 +14,10 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
-import { applyVerifiedGannKeyDateOverlay, VERIFIED_GANN_RESEARCH_WEIGHT_PCT } from "@/lib/research/gann-prediction-overlay-core";
+import { applyVerifiedGannKeyDateOverlay } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
+import { getGannForwardVerificationSnapshot } from "@/lib/research/gann-forward-verification.server";
+import { summarizeGannForwardSnapshot } from "@/lib/research/gann-forward-verification-core";
 import {
   RESEARCH_CONSENSUS_REVIEWS_20260830,
   type ResearchAlignment,
@@ -257,8 +259,9 @@ export default async function MemberKeyDatesPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const asOfDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const gannSignals = await getVerifiedGannPredictionSignals();
-  const items = buildKeyDateRadar(applyVerifiedGannKeyDateOverlay(buildMemberKeyDateRadar(asOfDate), gannSignals), asOfDate);
+  const [gannSignals, gannForwardSnapshot] = await Promise.all([getVerifiedGannPredictionSignals(), getGannForwardVerificationSnapshot()]);
+  const gannPolicy = summarizeGannForwardSnapshot(gannForwardSnapshot?.samples ?? []);
+  const items = buildKeyDateRadar(applyVerifiedGannKeyDateOverlay(buildMemberKeyDateRadar(asOfDate), gannSignals, gannPolicy.effectiveWeightPct), asOfDate);
   const summary = summarizeKeyDateRadar(items);
   const agenda = splitCurrentKeyDateRadar(items);
   const currentItems = [...agenda.monthly, ...agenda.weekly];
@@ -266,7 +269,7 @@ export default async function MemberKeyDatesPage() {
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
       <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_88%_0%,rgba(124,92,255,.2),transparent_34%),linear-gradient(145deg,#11101b,#090a0e)] p-6 sm:p-8">
-        <div className="flex flex-wrap gap-2"><Badge variant="warning">会员关键日雷达</Badge><Badge variant="success">江恩验证权重 {VERIFIED_GANN_RESEARCH_WEIGHT_PCT}% 已接入</Badge></div>
+        <div className="flex flex-wrap gap-2"><Badge variant="warning">会员关键日雷达</Badge><Badge variant="success">江恩前瞻权重 {gannPolicy.effectiveWeightPct}% · {gannPolicy.eligible ? "已达门槛" : `${gannPolicy.scored}/${gannPolicy.minimumSamples} 学习中`}</Badge></div>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
           先看行动总览，再按板块和品种查看依据；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；证据不能确认高点或低点时明确写“只观察／不操作”，不再使用含糊标签。

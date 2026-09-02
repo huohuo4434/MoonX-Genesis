@@ -26,7 +26,7 @@ test("turn intent distinguishes a bullish move into a top window from a bullish 
   assert.equal(inferGannTurnIntent("9月10日时间窗口，等待闭合K线"), "NEUTRAL");
 });
 
-test("verified aligned Gann adds only three confidence points and never changes the locked action", () => {
+test("verified aligned Gann uses the baseline weight and never changes the locked action", () => {
   const [result] = applyVerifiedGannKeyDateOverlay([item], [signal("TOP")]);
   assert.equal(VERIFIED_GANN_RESEARCH_WEIGHT_PCT, 3);
   assert.equal(result?.confidence, 71);
@@ -36,6 +36,14 @@ test("verified aligned Gann adds only three confidence points and never changes 
   assert.equal(result?.gann?.turnIntent, "TOP");
   assert.equal(result?.gann?.appliedWeightPct, 3);
   assert.deepEqual(result?.gann?.supportLevels, [78000]);
+});
+
+test("mature forward weight stays bounded and still cannot change the locked direction", () => {
+  const [result] = applyVerifiedGannKeyDateOverlay([item], [signal("TOP")], 5);
+  assert.equal(result?.confidence, 73);
+  assert.equal(result?.gann?.appliedWeightPct, 5);
+  assert.equal(result?.action, item.action);
+  assert.equal(result?.primaryView, item.primaryView);
 });
 
 test("conflicting Gann reduces confidence but cannot reverse direction or create an action", () => {
@@ -56,7 +64,7 @@ test("member wiring is read-only and trading execution remains untouched", () =>
   const page = fs.readFileSync("app/member/key-dates/page.tsx", "utf8");
   const loader = fs.readFileSync("lib/research/gann-prediction-signals.server.ts", "utf8");
   assert.match(page, /applyVerifiedGannKeyDateOverlay/);
-  assert.match(page, /江恩验证权重/);
+  assert.match(page, /江恩前瞻权重/);
   assert.match(loader, /SELECT username, post_id, post_url, posted_at, text/);
   assert.doesNotMatch(loader, /INSERT|UPDATE|DELETE|CREATE TABLE/i);
   assert.doesNotMatch(page + loader, /newEntriesEnabled|submitOrder|placeOrder|LIVE/);

@@ -104,23 +104,27 @@ export function inferGannTurnIntent(text: string): VerifiedGannSignal["turnInten
   return "NEUTRAL";
 }
 
-function statusFor(item: KeyDateRadarItem, intents: VerifiedGannSignal["turnIntent"][]): { status: GannStatus; turnIntent: VerifiedGannSignal["turnIntent"]; delta: number; note: string } {
+function statusFor(item: KeyDateRadarItem, intents: VerifiedGannSignal["turnIntent"][], weightPct: number): { status: GannStatus; turnIntent: VerifiedGannSignal["turnIntent"]; delta: number; note: string } {
   const directional = Array.from(new Set(intents.filter((intent) => intent !== "NEUTRAL")));
   const expected = item.action === "BOTTOM_WATCH" ? "BOTTOM" : item.action === "TOP_EXIT_WATCH" ? "TOP" : "NEUTRAL";
   if (directional.length > 1) return { status: "TIME_ONLY", turnIntent: "NEUTRAL", delta: 0, note: "江恩时间窗重叠，但同一来源同时包含高点与低点分支，只保留时间观察。" };
-  if (expected === "NEUTRAL" || directional.length === 0) return { status: "TIME_ONLY", turnIntent: directional[0] ?? "NEUTRAL", delta: 1, note: "江恩时间窗与关键日重叠，但未形成同向高低点结论，只增加1点时间信心。" };
+  if (expected === "NEUTRAL" || directional.length === 0) {
+    const delta = Math.min(1, weightPct);
+    return { status: "TIME_ONLY", turnIntent: directional[0] ?? "NEUTRAL", delta, note: `江恩时间窗与关键日重叠，但未形成同向高低点结论，只增加${delta}点时间信心。` };
+  }
   const intent = directional[0]!;
-  if (intent === expected) return { status: "ALIGNED", turnIntent: intent, delta: VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: `江恩时间窗与${item.action === "BOTTOM_WATCH" ? "低点" : "高点"}观察方向一致，研究信心增加3点。` };
-  return { status: "CONFLICTED", turnIntent: intent, delta: -VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: "江恩高低点意图与当前关键日动作冲突，研究信心降低3点；不改写正式方向，也不机械交易。" };
+  if (intent === expected) return { status: "ALIGNED", turnIntent: intent, delta: weightPct, note: `江恩时间窗与${item.action === "BOTTOM_WATCH" ? "低点" : "高点"}观察方向一致，研究信心增加${weightPct}点。` };
+  return { status: "CONFLICTED", turnIntent: intent, delta: -weightPct, note: `江恩高低点意图与当前关键日动作冲突，研究信心降低${weightPct}点；不改写正式方向，也不机械交易。` };
 }
 
-export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signals: readonly VerifiedGannSignal[]) {
+export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signals: readonly VerifiedGannSignal[], weightPct: number = VERIFIED_GANN_RESEARCH_WEIGHT_PCT) {
+  const boundedWeight = Math.max(0, Math.min(5, Math.round(weightPct)));
   return items.map((item) => {
     const symbol = normalizeSymbol(item.symbol);
     const matched = signals.filter((signal) => normalizeSymbol(signal.symbol) === symbol
       && signal.timeWindows.some((window) => gannWindowContainsDate(window, item.focusDate, signal.postedAt)));
     if (!matched.length) return item;
-    const result = statusFor(item, matched.map((signal) => signal.turnIntent));
+    const result = statusFor(item, matched.map((signal) => signal.turnIntent), boundedWeight);
     const sourceUrls = Array.from(new Set(matched.map((signal) => signal.postUrl))).slice(0, 3);
     const consensusNote = [item.consensusNote, result.note].filter(Boolean).join(" ");
     return {
