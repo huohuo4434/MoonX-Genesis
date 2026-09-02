@@ -9,6 +9,7 @@ import {
 } from "../lib/data/member-september-rotation-report-20260826";
 import { QIMEN_CYCLE_PATTERN_SOURCE_20260901 as cyclePattern } from "../lib/data/qimen-cycle-pattern-source-20260901";
 import { SOURCE_AUDIT_20260902 as sourceAudit } from "../lib/data/internal/source-audit-20260902";
+import { SOURCE_AUDIT_20260902_WU_QIMEN as wuQimenAudit } from "../lib/data/internal/source-audit-20260902-wu-qimen";
 import { listResearchRecords } from "../lib/data/research-records";
 
 test("teacher cycle records preserve the three distinct source conclusions", () => {
@@ -42,22 +43,58 @@ test("member report labels the idea as relative rotation rather than guaranteed 
   assert.match(report.resonanceZh, /跨周期部分共振/);
 });
 
-test("new primary and auxiliary evidence publishes V4 without rewriting V2 or V3", () => {
-  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V4");
-  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260902_V3");
+test("new Qimen cross-check publishes V5 without rewriting V2 through V4", () => {
+  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V5");
+  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260902_V4");
   assert.equal(reportHistory[0]?.version, "SEP_ROTATION_REPORT_20260826_V2");
   assert.equal(reportHistory[1]?.version, "SEP_ROTATION_REPORT_20260902_V3");
-  assert.equal(report.confidenceCalibration.sourceState, "EDITED_POST");
+  assert.equal(reportHistory[2]?.version, "SEP_ROTATION_REPORT_20260902_V4");
+  assert.equal(report.confidenceCalibration.sourceState, "FULL_TRANSCRIPT_AND_VISIBLE_CHART");
   assert.deepEqual(
     report.confidenceCalibration.items.map((item) => [item.id, item.index, item.max, item.delta]),
     [
       ["BTC-SEPTEMBER-PATH", 4, 5, 1],
-      ["TECH-SEPTEMBER-ROTATION", 5, 5, 2],
+      ["TECH-SEPTEMBER-ROTATION", 4, 5, 1],
+      ["GOLD-SEPTEMBER-PATH", 4, 5, 1],
+      ["WTI-SPECIAL-PATH", 4, 5, 1],
     ],
   );
   assert.match(report.confidenceCalibration.metricZh, /不是胜率/);
   assert.match(report.confidenceCalibration.unchangedZh, /不修改已锁定预测/);
   assert.match(report.confidenceCalibration.unchangedZh, /不产生自动交易权限/);
+});
+
+test("Sep 8-Oct 8 Qimen evidence adds a Sep 27 risk window and honest conflict weighting", () => {
+  assert.deepEqual(report.qimenMonthlyUpdate.riskWindow, {
+    start: "2026-09-21",
+    end: "2026-09-29",
+    focusDate: "2026-09-27",
+    actionZh: "保护利润 / 不追高",
+    actionEn: "Protect gains / avoid chasing",
+    noteZh: "上中旬若受政策或议息消息推动冲高，21日后转入防守；27日前后只视为风险中心候选，不是机械做空日。",
+    noteEn: "If policy or rate headlines lift markets in early/mid September, turn defensive after Sep 21. Sep 27 is a candidate risk center, not an automatic short date.",
+  });
+  const items = Object.fromEntries(report.qimenMonthlyUpdate.items.map((item) => [item.id, item]));
+  assert.equal(items["GLOBAL-RISK-20260927"]?.relationship, "ALIGNED");
+  assert.equal(items["BTC-20260908-1008-QIMEN"]?.relationship, "PARTIAL");
+  assert.match(items["BTC-20260908-1008-QIMEN"]?.conclusionZh ?? "", /多空双杀.*10月至11月/);
+  assert.equal(items["TECH-20260908-1008-QIMEN"]?.relationship, "CONFLICTED");
+  assert.match(items["TECH-20260908-1008-QIMEN"]?.usageZh ?? "", /5\/5下调到4\/5/);
+  assert.equal(items["GOLD-20260908-1008-QIMEN"]?.relationship, "ALIGNED");
+  assert.match(items["GOLD-20260908-1008-QIMEN"]?.conclusionZh ?? "", /4000—4100.*4100—4300/);
+  assert.match(items["WTI-20260908-1008-QIMEN"]?.usageZh ?? "", /不恢复原油日预测、周预测、历史验证或自动交易/);
+  assert.match(report.confidenceCalibration.unchangedZh, /奇门只调整时机与研究信心/);
+  assert.match(report.confidenceCalibration.unchangedZh, /不产生自动交易权限/);
+});
+
+test("new Qimen transcript and frames are hash locked and remain non-executable", () => {
+  assert.equal(wuQimenAudit.files.length, 3);
+  assert.ok(wuQimenAudit.files.every(([, hash]) => /^[A-F0-9]{64}$/.test(hash)));
+  assert.equal(wuQimenAudit.policy.authority, "MONTHLY_QIMEN_TIMING_AUXILIARY");
+  assert.equal(wuQimenAudit.policy.mayReverseLockedDirection, false);
+  assert.equal(wuQimenAudit.policy.mayCreateFormalLevels, false);
+  assert.equal(wuQimenAudit.policy.mayTriggerTrade, false);
+  assert.equal(wuQimenAudit.policy.retiredCoverageRemainsRetired, true);
 });
 
 test("Sep 2 source batch keeps Liu Yao primary, Qimen bounded and Bazi method-only", () => {
@@ -93,7 +130,7 @@ test("member report exposes a concrete time map and does not leak teacher identi
   assert.ok(report.phases.every((phase) => Boolean(phase.ethZh) && Boolean(phase.ethEn)));
 
   const memberFacing = JSON.stringify(report);
-  assert.doesNotMatch(memberFacing, /丙午|吴昌烨|狼叔|金兔子/);
+  assert.doesNotMatch(memberFacing, /丙午|吴昌烨|吴老师|狼叔|金兔子/);
   assert.doesNotMatch(memberFacing, /AI生成|人工智能生成/);
 });
 
@@ -103,6 +140,10 @@ test("monthly page puts the concise conclusion and trading plan before supportin
 
   assert.ok(reportSource.indexOf("data-monthly-action-summary") < reportSource.indexOf("report.assets.map"));
   assert.match(reportSource, /<details[\s\S]*展开确认与失效条件/);
+  assert.match(reportSource, /data-qimen-monthly-update-20260902/);
+  const keyDateSource = fs.readFileSync(path.join(process.cwd(), "app/member/key-dates/page.tsx"), "utf8");
+  assert.match(keyDateSource, /data-global-risk-window-20260927/);
+  assert.match(keyDateSource, /9月27日前后 · 全市场风险中心候选/);
   assert.ok(pageSource.indexOf("<MemberSeptemberRotationReport") < pageSource.indexOf("cycleResearchOverlays.length"));
   assert.equal((pageSource.match(/Expected path|运行路径/g) ?? []).length, 0, "monthly cards must not repeat the path twice");
 });

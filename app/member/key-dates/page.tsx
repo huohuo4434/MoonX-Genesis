@@ -14,6 +14,7 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
+import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as septemberReport } from "@/lib/data/member-september-rotation-report-20260826";
 import { applyVerifiedGannKeyDateOverlay } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
 import { getGannForwardVerificationSnapshot } from "@/lib/research/gann-forward-verification.server";
@@ -284,6 +285,17 @@ export default async function MemberKeyDatesPage() {
       </header>
 
       <LatestResearchConsensus />
+
+      <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2"><Badge variant="warning">月度奇门辅助时机</Badge><Badge variant="outline">不覆盖六爻主判</Badge></div>
+          <span className="font-mono text-body-sm text-rose-100">9月21日—29日</span>
+        </div>
+        <Heading as="h2" size="h3" className="mt-3">9月27日前后 · 全市场风险中心候选</Heading>
+        <Text variant="body-sm" color="secondary" className="mt-2 block max-w-5xl leading-6">
+          {septemberReport.qimenMonthlyUpdate.riskWindow.noteZh} 该窗口与网站原有“中下旬偏弱、月底高波动”框架同向，但不把所有品种机械写成同一天见顶或下跌。
+        </Text>
+      </section>
 
       <KeyDateActionOverview title="月关键日行动总览" note="月卦优先。这里只把证据能够区分高点或低点的日期列为抄底、逃顶观察；其余日期明确保持不操作。" rows={agenda.monthly} />
       <KeyDateActionOverview title="周关键日行动总览" note="周卦用于细化本周节奏，不覆盖月度方向；缺少独立周卦时会明确标记为月卦当周推演。" rows={agenda.weekly} />

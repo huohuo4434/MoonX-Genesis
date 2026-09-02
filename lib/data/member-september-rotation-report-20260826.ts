@@ -218,7 +218,7 @@ const MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3 = {
   },
 } as const;
 
-export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+const MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4 = {
   ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3,
   version: "SEP_ROTATION_REPORT_20260902_V4",
   publishedAt: "2026-09-02T18:10:00+08:00",
@@ -324,7 +324,146 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
   },
 } as const;
 
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+  ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4,
+  version: "SEP_ROTATION_REPORT_20260902_V5",
+  publishedAt: "2026-09-02T18:45:00+08:00",
+  revisionOf: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4.version,
+  revisionReason: "新增9月8日至10月8日完整奇门月度复核；同向内容加权、冲突内容降权，只发布V5并保留V2—V4历史。",
+  qimenMonthlyUpdate: {
+    publicLabelZh: "9月8日至10月8日奇门复核",
+    publicLabelEn: "Qimen cross-check · Sep 8-Oct 8",
+    summaryZh: "新增月盘把9月21日以后列为风险抬升段，9月27日前后为地缘与全球股市波动中心候选。它只调整时间和研究信心，不覆盖完整六爻主判。",
+    summaryEn: "The new monthly chart raises risk after Sep 21, with Sep 27 as a candidate center for geopolitical and global-equity volatility. It adjusts timing and research confidence only and cannot override the complete Liu Yao call.",
+    riskWindow: {
+      start: "2026-09-21",
+      end: "2026-09-29",
+      focusDate: "2026-09-27",
+      actionZh: "保护利润 / 不追高",
+      actionEn: "Protect gains / avoid chasing",
+      noteZh: "上中旬若受政策或议息消息推动冲高，21日后转入防守；27日前后只视为风险中心候选，不是机械做空日。",
+      noteEn: "If policy or rate headlines lift markets in early/mid September, turn defensive after Sep 21. Sep 27 is a candidate risk center, not an automatic short date.",
+    },
+    items: [
+      {
+        id: "GLOBAL-RISK-20260927",
+        scopeZh: "全球风险 · 9月21日以后",
+        scopeEn: "Global risk · after Sep 21",
+        relationship: "ALIGNED" as const,
+        relationshipZh: "同向",
+        relationshipEn: "Aligned",
+        conclusionZh: "上半月相对好做，下半月流动性与地缘风险抬升；9月27日前后是波动中心候选。",
+        conclusionEn: "The first half is comparatively tradable, while liquidity and geopolitical risk rise later; Sep 27 is a candidate volatility center.",
+        usageZh: "增强现有中下旬保护利润和月底高波动预案，不新增交易方向。",
+        usageEn: "Strengthens the existing late-month profit-protection and volatility plan without adding a new direction.",
+      },
+      {
+        id: "BTC-20260908-1008-QIMEN",
+        scopeZh: "BTC · 9月8日至10月8日",
+        scopeEn: "BTC · Sep 8-Oct 8",
+        relationship: "PARTIAL" as const,
+        relationshipZh: "部分一致",
+        relationshipEn: "Partially aligned",
+        conclusionZh: "月底至10月初防双向插针与多空双杀；低点可观察，但更完整的买入与反转机会偏向10月至11月。",
+        conclusionEn: "Watch for two-sided wicks and liquidation into late September and early October. A low may be observed, but the fuller buy/reversal window leans toward October-November.",
+        usageZh: "与中下旬偏弱、月底有限修复大体同向，但不支持把9月27日写成确定底部，因此BTC维持4/5。",
+        usageEn: "Broadly aligns with late-month softness and a limited repair, but does not prove Sep 27 is the bottom; BTC remains 4/5.",
+      },
+      {
+        id: "TECH-20260908-1008-QIMEN",
+        scopeZh: "科技／半导体 · 9月8日至10月8日",
+        scopeEn: "Technology / semiconductors · Sep 8-Oct 8",
+        relationship: "CONFLICTED" as const,
+        relationshipZh: "存在冲突",
+        relationshipEn: "Conflicted",
+        conclusionZh: "SOX指数内部明显分化，多数成分上行受限；更偏向少数超跌、苹果链或华为链机会，上中旬冲高后要保护利润。",
+        conclusionEn: "SOX is internally divided and most constituents face capped upside. Opportunities lean toward selected oversold, Apple-chain or Huawei-chain names, with profit protection after early/mid-month rallies.",
+        usageZh: "不翻转科创50与半导体完整六爻主判，但把科技共振从5/5下调到4/5，强调选股而非板块普涨。",
+        usageEn: "Does not reverse the complete STAR 50/semiconductor Liu Yao call, but lowers technology consensus from 5/5 to 4/5 and favors selection over a broad rally.",
+      },
+      {
+        id: "GOLD-20260908-1008-QIMEN",
+        scopeZh: "黄金 · 9月8日至10月8日",
+        scopeEn: "Gold · Sep 8-Oct 8",
+        relationship: "ALIGNED" as const,
+        relationshipZh: "同向",
+        relationshipEn: "Aligned",
+        conclusionZh: "短线仍有减仓空间，随后可能回到4000—4100附近；4100—4300只作中长线观察区，不是正式保证点位。",
+        conclusionEn: "Short-term de-risking remains reasonable before a possible return toward 4,000-4,100. The 4,100-4,300 area is a longer-horizon watch zone, not a guaranteed formal level.",
+        usageZh: "与9月7日后温和回调同向，黄金方法共振提高到4/5，但跌幅仍由K线确认。",
+        usageEn: "Aligns with the mild pullback after Sep 7 and lifts gold method consensus to 4/5, while price action must confirm magnitude.",
+      },
+      {
+        id: "WTI-20260908-1008-QIMEN",
+        scopeZh: "原油 · 9月8日至10月8日",
+        scopeEn: "Crude oil · Sep 8-Oct 8",
+        relationship: "ALIGNED" as const,
+        relationshipZh: "同向",
+        relationshipEn: "Aligned",
+        conclusionZh: "运输受阻与地缘摩擦可能放大油价上行动能，与现有9月缓慢上行、10月高位候选路径一致。",
+        conclusionEn: "Transport disruption and geopolitical friction may amplify oil upside, aligning with the existing September grind-up and October candidate-high path.",
+        usageZh: "专项研究共振提高到4/5；仍不恢复原油日预测、周预测、历史验证或自动交易。",
+        usageEn: "Special-research consensus rises to 4/5. Oil daily/weekly forecasts, verification and automated trading remain retired.",
+      },
+    ],
+  },
+  confidenceCalibration: {
+    ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4.confidenceCalibration,
+    sourceState: "FULL_TRANSCRIPT_AND_VISIBLE_CHART" as const,
+    publicLabelZh: "最新奇门权重校准",
+    publicLabelEn: "Latest Qimen weight calibration",
+    items: [
+      ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4.confidenceCalibration.items.map((item) =>
+        item.id === "TECH-SEPTEMBER-ROTATION"
+          ? {
+              ...item,
+              index: 4,
+              delta: 1,
+              labelZh: "高",
+              labelEn: "High",
+              reasonZh: "完整六爻仍支持9月7日后科技相对转强，但新奇门月盘认为SOX多数成分上行受限、板块分化，因此从V4的5/5降至4/5；只降低信心，不翻转方向。",
+              reasonEn: "Complete Liu Yao still supports post-Sep 7 relative technology strength, but the new monthly Qimen chart sees capped SOX breadth and internal divergence. Consensus falls from 5/5 to 4/5 without reversing direction.",
+            }
+          : item.id === "BTC-SEPTEMBER-PATH"
+            ? {
+                ...item,
+                reasonZh: "新月盘同样提示月底至10月初高波动和快速下杀风险，但又保留资金关注与低点机会；与现有先涨后跌路径部分一致，维持4/5而不继续加权。",
+                reasonEn: "The new monthly chart also flags late-September/early-October volatility and fast downside risk, while retaining attention and a possible low. It partially aligns with the rise-then-fade path, so BTC stays 4/5.",
+              }
+            : item,
+      ),
+      {
+        id: "GOLD-SEPTEMBER-PATH",
+        scopeZh: "黄金9月前强后回调",
+        scopeEn: "Gold September strength then pullback",
+        index: 4,
+        max: 5,
+        delta: 1,
+        labelZh: "高",
+        labelEn: "High",
+        reasonZh: "奇门月盘明确给出短线减仓与随后回落观察，与现有9月7日后温和回调路径同向；口头价格区只作观察，不升格为正式点位。",
+        reasonEn: "The monthly Qimen chart explicitly supports short-term de-risking and a later pullback, aligning with the existing mild fade after Sep 7. Verbal price zones remain watch levels only.",
+      },
+      {
+        id: "WTI-SPECIAL-PATH",
+        scopeZh: "原油专项上行路径",
+        scopeEn: "Crude oil special upside path",
+        index: 4,
+        max: 5,
+        delta: 1,
+        labelZh: "高",
+        labelEn: "High",
+        reasonZh: "运输受阻与地缘风险的奇门解释，与现有9月缓慢上行、10月高位候选专项六爻同向；仅提高专项研究信心。",
+        reasonEn: "Qimen transport and geopolitical risk aligns with the existing September grind-up and October candidate-high Liu Yao path, raising special-research confidence only.",
+      },
+    ],
+    unchangedZh: "完整六爻继续拥有正式方向；奇门只调整时机与研究信心，不修改已锁定预测。A股、恒生科技、标普和原油不恢复日/周预测或历史验证，本次更新不产生自动交易权限。",
+    unchangedEn: "Complete Liu Yao retains formal direction; Qimen adjusts timing and research confidence only and does not modify locked forecasts. A-shares, Hang Seng Tech, the S&P 500 and oil remain retired from daily/weekly forecasts and historical verification. No automated-trading authority is created.",
+  },
+} as const;
+
 export const MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY = [
   MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2,
   MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3,
+  MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4,
 ] as const;

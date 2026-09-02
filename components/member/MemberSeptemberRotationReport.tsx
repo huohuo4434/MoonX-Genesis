@@ -66,6 +66,38 @@ export function MemberSeptemberRotationReport() {
           </details>
         </div>
 
+        <div className="mt-5 rounded-xl border border-rose-300/20 bg-rose-300/[0.045] p-4" data-qimen-monthly-update-20260902>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="warning">{en ? report.qimenMonthlyUpdate.publicLabelEn : report.qimenMonthlyUpdate.publicLabelZh}</Badge>
+              <Badge variant="outline">{en ? "Timing auxiliary · no direction override" : "时机辅助 · 不覆盖主判"}</Badge>
+            </div>
+            <span className="font-mono text-xs text-rose-100">
+              {en ? "Risk center: Sep 27" : "风险中心候选：9月27日前后"}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-foreground-secondary">{en ? report.qimenMonthlyUpdate.summaryEn : report.qimenMonthlyUpdate.summaryZh}</p>
+          <div className="mt-3 rounded-lg border border-rose-300/15 bg-black/15 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-rose-100">{en ? report.qimenMonthlyUpdate.riskWindow.actionEn : report.qimenMonthlyUpdate.riskWindow.actionZh}</span>
+              <span className="text-xs text-foreground-tertiary">{report.qimenMonthlyUpdate.riskWindow.start} — {report.qimenMonthlyUpdate.riskWindow.end}</span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-foreground-secondary">{en ? report.qimenMonthlyUpdate.riskWindow.noteEn : report.qimenMonthlyUpdate.riskWindow.noteZh}</p>
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {report.qimenMonthlyUpdate.items.map((item) => (
+              <article key={item.id} className={`rounded-lg border p-3 ${item.relationship === "ALIGNED" ? "border-emerald-300/15 bg-emerald-300/[0.03]" : item.relationship === "CONFLICTED" ? "border-rose-300/20 bg-rose-300/[0.04]" : "border-amber-300/15 bg-amber-300/[0.03]"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">{en ? item.scopeEn : item.scopeZh}</span>
+                  <Badge variant="outline">{en ? item.relationshipEn : item.relationshipZh}</Badge>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-foreground-secondary">{en ? item.conclusionEn : item.conclusionZh}</p>
+                <p className="mt-2 text-xs leading-5 text-foreground-tertiary">{en ? item.usageEn : item.usageZh}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] p-4" data-forward-confidence-calibration>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="success">{en ? report.confidenceCalibration.publicLabelEn : report.confidenceCalibration.publicLabelZh}</Badge>
