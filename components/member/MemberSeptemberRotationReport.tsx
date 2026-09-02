@@ -38,6 +38,27 @@ export function MemberSeptemberRotationReport() {
           {en ? report.conclusionEn : report.conclusionZh}
         </Text>
 
+        <div className="mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] p-4" data-forward-confidence-calibration>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="success">{en ? report.confidenceCalibration.publicLabelEn : report.confidenceCalibration.publicLabelZh}</Badge>
+            <Badge variant="outline">{en ? report.confidenceCalibration.metricEn : report.confidenceCalibration.metricZh}</Badge>
+          </div>
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            {report.confidenceCalibration.items.map((item) => (
+              <div key={item.id} className="rounded-lg border border-white/[0.07] bg-black/15 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">{en ? item.scopeEn : item.scopeZh}</span>
+                  <span className="rounded-full border border-emerald-300/25 px-2.5 py-1 text-xs font-semibold text-emerald-100">
+                    {en ? "Consensus" : "共振指数"} {item.index}/{item.max} · +{item.delta}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-foreground-secondary">{en ? item.reasonEn : item.reasonZh}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-foreground-tertiary">{en ? report.confidenceCalibration.unchangedEn : report.confidenceCalibration.unchangedZh}</p>
+        </div>
+
         <div className="mt-5 rounded-xl border border-primary/25 bg-primary/[0.06] p-4" data-monthly-action-summary>
           <div className="text-sm font-semibold text-primary">{en ? "Trading plan first" : "做单建议｜先看这里"}</div>
           <ol className="mt-3 grid gap-3 text-sm leading-6 text-foreground-secondary lg:grid-cols-3">

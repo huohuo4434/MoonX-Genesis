@@ -28,7 +28,7 @@ export type SeptemberRotationPhase = {
   goldEn: string;
 };
 
-export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2 = {
   version: "SEP_ROTATION_REPORT_20260826_V2",
   publishedAt: "2026-08-26T11:30:00+08:00",
   titleZh: "9月最终结论：半导体转强，加密资产上旬冲高后转弱",
@@ -172,3 +172,50 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
     "Pause the crypto fade plan if BTC holds above USD 85k or ETH sustains high-volume gains and holds retests from Sep 7-13. Treat gold as a mild pullback, not a crash call.",
   ],
 } as const;
+
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+  ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2,
+  version: "SEP_ROTATION_REPORT_20260902_V3",
+  publishedAt: "2026-09-02T14:05:00+08:00",
+  revisionOf: MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2.version,
+  revisionReason: "新增9月奇门时间证据，只提高同向路径的研究信心；不改正式方向、概率、点位或交易权限。",
+  confidenceCalibration: {
+    receivedAt: "2026-09-02T14:04:00+08:00",
+    sourceRef: "https://www.youtube.com/post/UgkxzhF29nHfMmQjDOD7_zIZScoRCDgJ5km_",
+    sourceState: "EDITED_POST" as const,
+    publicLabelZh: "新增奇门时间证据",
+    publicLabelEn: "New Qimen timing evidence",
+    metricZh: "方法共振指数，不是胜率",
+    metricEn: "Method-consensus index, not a win rate",
+    items: [
+      {
+        id: "BTC-SEPTEMBER-PATH",
+        scopeZh: "BTC 9月先涨后跌",
+        scopeEn: "BTC September rise-then-fade path",
+        index: 4,
+        max: 5,
+        delta: 1,
+        labelZh: "高",
+        labelEn: "High",
+        reasonZh: "新增时间证据同样指向9月上旬仍有冲高空间、下旬至10月初转弱；与现有9月9—11日第一转折窗和月度先涨后跌路径一致。",
+        reasonEn: "The new timing evidence also allows an early-September push before weakness into late September and early October, aligning with the existing Sep 9-11 first-turn window and rise-then-fade monthly path.",
+      },
+      {
+        id: "TECH-SEPTEMBER-ROTATION",
+        scopeZh: "科技／半导体先强后防高点",
+        scopeEn: "Technology / semiconductors strengthen before a later high-risk window",
+        index: 4,
+        max: 5,
+        delta: 1,
+        labelZh: "高",
+        labelEn: "High",
+        reasonZh: "新增时间证据把科技股的逢高保护窗口放在9月中下旬，与现有9月7日后相对转强、随后进入阶段高位候选区的路径一致。",
+        reasonEn: "The new timing evidence places the technology profit-protection window in mid/late September, aligning with the existing post-Sep 7 relative-strength phase followed by a candidate high zone.",
+      },
+    ],
+    unchangedZh: "农业与原油目前只加入观察清单，不提高正式信心；本次校准不修改已锁定预测，也不产生自动交易权限。",
+    unchangedEn: "Agriculture and oil remain watch-list themes only. This calibration does not change locked forecasts or create automated-trading authority.",
+  },
+} as const;
+
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY = [MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2] as const;

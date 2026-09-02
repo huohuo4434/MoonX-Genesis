@@ -3,7 +3,10 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import { bingwuCrossAssetRotation20260825Records } from "../lib/data/bingwu-cross-asset-rotation-20260825";
-import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as report } from "../lib/data/member-september-rotation-report-20260826";
+import {
+  MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as report,
+  MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY as reportHistory,
+} from "../lib/data/member-september-rotation-report-20260826";
 import { QIMEN_CYCLE_PATTERN_SOURCE_20260901 as cyclePattern } from "../lib/data/qimen-cycle-pattern-source-20260901";
 import { listResearchRecords } from "../lib/data/research-records";
 
@@ -36,6 +39,23 @@ test("member report labels the idea as relative rotation rather than guaranteed 
   assert.match(report.inferenceZh, /也可能短期同涨/);
   assert.match(report.resonanceZh, /时间跨度不一致/);
   assert.match(report.resonanceZh, /跨周期部分共振/);
+});
+
+test("new same-direction timing evidence raises only the research consensus index", () => {
+  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V3");
+  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260826_V2");
+  assert.equal(reportHistory[0]?.version, "SEP_ROTATION_REPORT_20260826_V2");
+  assert.equal(report.confidenceCalibration.sourceState, "EDITED_POST");
+  assert.deepEqual(
+    report.confidenceCalibration.items.map((item) => [item.id, item.index, item.max, item.delta]),
+    [
+      ["BTC-SEPTEMBER-PATH", 4, 5, 1],
+      ["TECH-SEPTEMBER-ROTATION", 4, 5, 1],
+    ],
+  );
+  assert.match(report.confidenceCalibration.metricZh, /不是胜率/);
+  assert.match(report.confidenceCalibration.unchangedZh, /不修改已锁定预测/);
+  assert.match(report.confidenceCalibration.unchangedZh, /不产生自动交易权限/);
 });
 
 test("member report exposes a concrete time map and does not leak teacher identities", () => {

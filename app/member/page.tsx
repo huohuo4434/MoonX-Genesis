@@ -4,6 +4,7 @@ import { Badge, Button, Heading, Section, Text } from "@/components/ui";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { MemberUpdateNotice } from "@/components/member/MemberUpdateNotice";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
+import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 } from "@/lib/data/member-september-rotation-report-20260826";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { LATEST_MEMBER_UPDATE } from "@/lib/member-updates/catalog";
 
@@ -137,6 +138,7 @@ function SeptemberSemiconductorSpotlight() {
     <section aria-labelledby="september-semiconductor-spotlight" className="overflow-hidden rounded-3xl border border-emerald-300/25 bg-[radial-gradient(circle_at_88%_0%,rgba(52,211,153,.18),transparent_35%),linear-gradient(145deg,#0c1715,#090a0e)] p-6 shadow-[0_0_60px_rgba(16,185,129,.07)] sm:p-8">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="success">9月高信心专题</Badge>
+        <Badge variant="outline">板块共振指数 {MEMBER_SEPTEMBER_ROTATION_REPORT_20260826.confidenceCalibration.items.find((item) => item.id === "TECH-SEPTEMBER-ROTATION")?.index ?? 4}/5</Badge>
         <Badge variant="outline">建议会员重点关注</Badge>
         <span className="text-caption text-emerald-100/55">方向、信心与执行条件分别判断</span>
       </div>
