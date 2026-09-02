@@ -5,7 +5,7 @@ import { MEMBER_VIDEO_CATALOG } from "@/lib/member-videos/catalog";
 import { MEMBER_VIDEO_FILE_SIZE_LIMIT } from "@/lib/member-videos/core";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type Asset = "video" | "subtitle";
+type Asset = "video" | "subtitle" | "subtitleEn";
 type UploadTicket = { bucket: string; path: string; token: string };
 type PrepareResponse = {
   releaseId?: string;
@@ -23,6 +23,7 @@ export function MemberVideoUploadClient() {
   const [slug, setSlug] = useState(MEMBER_VIDEO_CATALOG[0]?.slug ?? "");
   const [video, setVideo] = useState<File | null>(null);
   const [subtitle, setSubtitle] = useState<File | null>(null);
+  const [subtitleEn, setSubtitleEn] = useState<File | null>(null);
   const [files, setFiles] = useState<Record<string, RemoteFile>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("正在检查私有存储…");
@@ -52,6 +53,7 @@ export function MemberVideoUploadClient() {
   useEffect(() => {
     setVideo(null);
     setSubtitle(null);
+    setSubtitleEn(null);
     setFiles({});
     refresh(slug)
       .then((current) => {
@@ -75,11 +77,13 @@ export function MemberVideoUploadClient() {
   }
 
   async function upload() {
-    if (!video || !subtitle) {
-      setMessage("请同时选择最终版 MP4 和中文字幕 VTT");
+    const selectedVideo = MEMBER_VIDEO_CATALOG.find((item) => item.slug === slug);
+    const requiresEnglish = selectedVideo?.subtitleLanguages.includes("en") ?? false;
+    if (!video || !subtitle || (requiresEnglish && !subtitleEn)) {
+      setMessage(requiresEnglish ? "请同时选择最终版 MP4、中文字幕和英文字幕 VTT" : "请同时选择最终版 MP4 和中文字幕 VTT");
       return;
     }
-    if (!video.name.toLowerCase().endsWith(".mp4") || !subtitle.name.toLowerCase().endsWith(".vtt")) {
+    if (!video.name.toLowerCase().endsWith(".mp4") || !subtitle.name.toLowerCase().endsWith(".vtt") || (subtitleEn && !subtitleEn.name.toLowerCase().endsWith(".vtt"))) {
       setMessage("视频必须是 MP4，字幕必须是 VTT");
       return;
     }
@@ -102,6 +106,10 @@ export function MemberVideoUploadClient() {
       await uploadOne("video", prepared.assets.video, video);
       setMessage("视频完成，正在上传字幕…");
       await uploadOne("subtitle", prepared.assets.subtitle, subtitle);
+      if (requiresEnglish && subtitleEn) {
+        setMessage("中文字幕完成，正在上传英文字幕…");
+        await uploadOne("subtitleEn", prepared.assets.subtitleEn, subtitleEn);
+      }
       setMessage("双文件完成，正在复核并切换正式版本…");
       const publishResponse = await fetch("/api/admin/member-videos/upload-url", {
         method: "POST",
@@ -143,7 +151,7 @@ export function MemberVideoUploadClient() {
           ))}
         </select>
       </label>
-      <div className="grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4 sm:grid-cols-3">
         <div>
           <p className="text-sm font-medium text-white">视频文件</p>
           <p className="mt-1 text-xs text-white/55">
@@ -154,6 +162,18 @@ export function MemberVideoUploadClient() {
             type="file"
             accept="video/mp4,.mp4"
             onChange={(event) => setVideo(event.target.files?.[0] ?? null)}
+          />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-white">英文字幕</p>
+          <p className="mt-1 text-xs text-white/55">
+            线上：{formatBytes(files["subtitles.en.vtt"]?.size ?? 0)}
+          </p>
+          <input
+            className="mt-3 block w-full text-sm text-white/70 file:mr-3 file:rounded-md file:border-0 file:bg-violet-500 file:px-3 file:py-2 file:text-white"
+            type="file"
+            accept="text/vtt,.vtt"
+            onChange={(event) => setSubtitleEn(event.target.files?.[0] ?? null)}
           />
         </div>
         <div>

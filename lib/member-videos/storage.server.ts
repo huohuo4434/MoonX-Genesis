@@ -35,6 +35,9 @@ export const MEMBER_VIDEO_STORAGE = {
   "soxl-two-month-cycle-2026": {
     manifest: "soxl-two-month-cycle-2026/manifest.json",
   },
+  "crude-oil-long-cycle-geopolitics-2026": {
+    manifest: "crude-oil-long-cycle-geopolitics-2026/manifest.json",
+  },
 } as const;
 
 async function getPrivateMemberVideoAdmin() {

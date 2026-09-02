@@ -1,11 +1,12 @@
 export const MEMBER_VIDEO_SLUGS = [
   "nasdaq-100-historic-drop-window-2026",
   "soxl-two-month-cycle-2026",
+  "crude-oil-long-cycle-geopolitics-2026",
 ] as const;
 export const MEMBER_VIDEO_FILE_SIZE_LIMIT = 32 * 1024 * 1024;
 
 export type MemberVideoSlug = (typeof MEMBER_VIDEO_SLUGS)[number];
-export type MemberVideoAsset = "video" | "subtitle";
+export type MemberVideoAsset = "video" | "subtitle" | "subtitleEn";
 
 export type MemberVideoManifest = {
   schemaVersion: 1;
@@ -35,7 +36,12 @@ export function memberVideoReleaseObjectPath(input: {
   asset: MemberVideoAsset;
 }): string {
   if (!isMemberVideoReleaseId(input.releaseId)) throw new Error("无效的视频版本");
-  const name = input.asset === "video" ? "video.mp4" : "subtitles.vtt";
+  const name =
+    input.asset === "video"
+      ? "video.mp4"
+      : input.asset === "subtitleEn"
+        ? "subtitles.en.vtt"
+        : "subtitles.vtt";
   return `${input.slug}/releases/${input.releaseId}/${name}`;
 }
 
@@ -58,9 +64,12 @@ export function parseMemberVideoManifest(
   return parsed as MemberVideoManifest;
 }
 
-export function validateMemberVideoReleaseFiles(files: readonly MemberVideoReleaseFile[]): {
+export function validateMemberVideoReleaseFiles(
+  files: readonly MemberVideoReleaseFile[],
+  options?: { requireEnglishSubtitle?: boolean },
+): {
   ok: boolean;
-  error?: "VIDEO_INCOMPLETE" | "SUBTITLE_INCOMPLETE";
+  error?: "VIDEO_INCOMPLETE" | "SUBTITLE_INCOMPLETE" | "ENGLISH_SUBTITLE_INCOMPLETE";
 } {
   const video = files.find((file) => file.name === "video.mp4");
   const subtitle = files.find((file) => file.name === "subtitles.vtt");
@@ -69,6 +78,10 @@ export function validateMemberVideoReleaseFiles(files: readonly MemberVideoRelea
   }
   if (Number(subtitle?.metadata?.size ?? 0) < 32) {
     return { ok: false, error: "SUBTITLE_INCOMPLETE" };
+  }
+  const englishSubtitle = files.find((file) => file.name === "subtitles.en.vtt");
+  if (options?.requireEnglishSubtitle && Number(englishSubtitle?.metadata?.size ?? 0) < 32) {
+    return { ok: false, error: "ENGLISH_SUBTITLE_INCOMPLETE" };
   }
   return { ok: true };
 }

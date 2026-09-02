@@ -38,7 +38,9 @@ function HexagramCover({ video }: { video: MemberVideoRecord }) {
         <h2 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-4xl">
           {video.title}
         </h2>
-        <p className="mt-4 text-xs text-white/55 sm:text-sm">{video.durationLabel} · 中文字幕</p>
+        <p className="mt-4 text-xs text-white/55 sm:text-sm">
+          {video.durationLabel} · {video.subtitleLanguages.includes("en") ? "中英双字幕" : "中文字幕"}
+        </p>
       </div>
     </div>
   );
@@ -84,6 +86,14 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
                 src={`/api/member/videos/${video.slug}?asset=subtitle`}
                 srcLang="zh-CN"
               />
+              {video.subtitleLanguages.includes("en") ? (
+                <track
+                  kind="subtitles"
+                  label="English"
+                  src={`/api/member/videos/${video.slug}?asset=subtitleEn`}
+                  srcLang="en"
+                />
+              ) : null}
               当前浏览器不支持视频播放。
             </video>
           ) : (

@@ -21,12 +21,21 @@ test("public member-video catalogue exposes title metadata but not the member re
       title: "纳指100 · 十年周期风险窗口",
       durationLabel: "4分51秒",
       publishedAt: "2026-08-26",
+      subtitleLanguages: ["zh-CN"],
     },
     {
       slug: "soxl-two-month-cycle-2026",
       title: "半导体专题 · SOXL强势窗口与闪迪分化",
       durationLabel: "5分24秒",
       publishedAt: "2026-08-31",
+      subtitleLanguages: ["zh-CN"],
+    },
+    {
+      slug: "crude-oil-long-cycle-geopolitics-2026",
+      title: "原油专题 · 九至十一月趋势与地缘风险",
+      durationLabel: "4分02秒",
+      publishedAt: "2026-09-02",
+      subtitleLanguages: ["zh-CN", "en"],
     },
   ]);
   const catalogue = source("lib/member-videos/catalog.ts");
@@ -38,6 +47,19 @@ test("SOXL member summary reflects the teacher-priority SanDisk stage revision",
   assert.match(memberContent, /闪迪补录7月7日专项原课/);
   assert.match(memberContent, /9月7日至10月7日改按偏强阶段/);
   assert.match(memberContent, /后补偏弱卦保留为分歧风险/);
+});
+
+test("crude-oil member video keeps the long-cycle policy and bilingual delivery", () => {
+  const memberContent = source("lib/member-videos/member-content.server.ts");
+  const catalogue = MEMBER_VIDEO_CATALOG.find(
+    (item) => item.slug === "crude-oil-long-cycle-geopolitics-2026",
+  );
+  assert.deepEqual(catalogue?.subtitleLanguages, ["zh-CN", "en"]);
+  assert.match(memberContent, /九月偏修复/);
+  assert.match(memberContent, /10月7日至11月7日关注阶段高位/);
+  assert.match(memberContent, /9月21日后至月底/);
+  assert.match(memberContent, /退出日内与周度机械预测/);
+  assert.doesNotMatch(memberContent, /丙午|吴昌烨|狼叔|金兔子/);
 });
 
 test("member-only copy and storage coordinates stay in server-only modules", () => {
@@ -66,6 +88,7 @@ test("release core rejects path injection, wrong manifests and incomplete bundle
   const releaseId = "123e4567-e89b-42d3-a456-426614174000";
   assert.equal(isMemberVideoSlug("nasdaq-100-historic-drop-window-2026"), true);
   assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026"), true);
+  assert.equal(isMemberVideoSlug("crude-oil-long-cycle-geopolitics-2026"), true);
   assert.equal(isMemberVideoSlug("soxl-two-month-cycle-2026/../manifest.json"), false);
   assert.equal(isMemberVideoReleaseId(releaseId), true);
   assert.equal(isMemberVideoReleaseId("../../public"), false);
@@ -83,6 +106,14 @@ test("release core rejects path injection, wrong manifests and incomplete bundle
       asset: "subtitle",
     }),
     `nasdaq-100-historic-drop-window-2026/releases/${releaseId}/subtitles.vtt`,
+  );
+  assert.equal(
+    memberVideoReleaseObjectPath({
+      slug: "crude-oil-long-cycle-geopolitics-2026",
+      releaseId,
+      asset: "subtitleEn",
+    }),
+    `crude-oil-long-cycle-geopolitics-2026/releases/${releaseId}/subtitles.en.vtt`,
   );
   assert.equal(
     parseMemberVideoManifest(
@@ -114,6 +145,27 @@ test("release core rejects path injection, wrong manifests and incomplete bundle
     ]),
     { ok: true },
   );
+  assert.deepEqual(
+    validateMemberVideoReleaseFiles(
+      [
+        { name: "video.mp4", metadata: { size: 2_400_000 } },
+        { name: "subtitles.vtt", metadata: { size: 2_000 } },
+      ],
+      { requireEnglishSubtitle: true },
+    ),
+    { ok: false, error: "ENGLISH_SUBTITLE_INCOMPLETE" },
+  );
+  assert.deepEqual(
+    validateMemberVideoReleaseFiles(
+      [
+        { name: "video.mp4", metadata: { size: 2_400_000 } },
+        { name: "subtitles.vtt", metadata: { size: 2_000 } },
+        { name: "subtitles.en.vtt", metadata: { size: 3_000 } },
+      ],
+      { requireEnglishSubtitle: true },
+    ),
+    { ok: true },
+  );
 });
 
 test("playback API authenticates member and device before signing a short-lived URL", () => {
@@ -130,6 +182,7 @@ test("playback API authenticates member and device before signing a short-lived 
   assert.match(route, /NextResponse\.redirect\(signedUrl, \{ status: 307/);
   assert.match(route, /private, no-store/);
   assert.match(source("lib/member-videos/storage.server.ts"), /15 \* 60/);
+  assert.match(route, /requestedAsset !== "subtitleEn"/);
   const guardSource = source("lib/auth/member-device-guard.ts");
   assert.match(guardSource, /failClosed\?: boolean/);
   assert.match(guardSource, /input\?\.failClosed[\s\S]*status: "DEVICE_REQUIRED"/);
@@ -146,6 +199,7 @@ test("admin uploader is admin-only, allowlisted, private and atomically publishe
   const core = source("lib/member-videos/core.ts");
   assert.match(core, /video\.mp4/);
   assert.match(core, /subtitles\.vtt/);
+  assert.match(core, /subtitles\.en\.vtt/);
   assert.match(route, /MEMBER_VIDEO_STORAGE\[slug\]\.manifest/);
   const publishManifest = route.lastIndexOf("const manifest = {");
   assert.ok(route.indexOf("视频文件未完整上传") < publishManifest);
@@ -155,11 +209,13 @@ test("admin uploader is admin-only, allowlisted, private and atomically publishe
   assert.match(client, /new Blob\(\[file\], \{ type: expectedType \}\)/);
   assert.match(client, /files\["video\.mp4"\]/);
   assert.match(client, /files\["subtitles\.vtt"\]/);
+  assert.match(client, /files\["subtitles\.en\.vtt"\]/);
   assert.match(client, /action: "prepare"/);
   assert.match(client, /action: "publish"/);
   assert.match(client, /MEMBER_VIDEO_CATALOG\.map/);
   assert.match(client, /refreshSequence/);
   assert.ok(client.indexOf('uploadOne("subtitle"') < client.indexOf('action: "publish"'));
+  assert.ok(client.indexOf('uploadOne("subtitleEn"') < client.indexOf('action: "publish"'));
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
 });
 
@@ -171,6 +227,7 @@ test("member page shows a locked cover to visitors and playback only in allowed 
   assert.match(page, /普通访客可查看标题，会员登录后播放完整视频/);
   assert.match(page, /\/api\/member\/videos\/\$\{video\.slug\}/);
   assert.match(page, /asset=subtitle/);
+  assert.match(page, /asset=subtitleEn/);
   assert.match(page, /MEMBER_VIDEO_CATALOG\.map/);
   assert.match(page, /共 \{MEMBER_VIDEO_CATALOG\.length\} 期/);
   const services = source("app/member/consultations/page.tsx");

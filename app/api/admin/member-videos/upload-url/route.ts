@@ -11,6 +11,7 @@ import {
   type MemberVideoAsset,
 } from "@/lib/member-videos/storage.server";
 import { validateMemberVideoReleaseFiles } from "@/lib/member-videos/core";
+import { getMemberVideoRecord } from "@/lib/member-videos/catalog";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -86,7 +87,10 @@ export async function POST(request: NextRequest) {
         MemberVideoAsset,
         { bucket: string; path: string; token: string }
       >;
-      for (const asset of ["video", "subtitle"] as const) {
+      const assetsToUpload = getMemberVideoRecord(slug)?.subtitleLanguages.includes("en")
+        ? (["video", "subtitle", "subtitleEn"] as const)
+        : (["video", "subtitle"] as const);
+      for (const asset of assetsToUpload) {
         const objectPath = memberVideoReleaseObjectPath({ slug, releaseId, asset });
         const { data, error } = await admin.storage
           .from(MEMBER_VIDEO_BUCKET)
@@ -104,12 +108,16 @@ export async function POST(request: NextRequest) {
       .from(MEMBER_VIDEO_BUCKET)
       .list(folder, { limit: 10 });
     if (listError) throw new Error("无法复核上传文件");
-    const validation = validateMemberVideoReleaseFiles(releaseFiles ?? []);
+    const requireEnglishSubtitle = getMemberVideoRecord(slug)?.subtitleLanguages.includes("en") ?? false;
+    const validation = validateMemberVideoReleaseFiles(releaseFiles ?? [], { requireEnglishSubtitle });
     if (validation.error === "VIDEO_INCOMPLETE") {
       return noStore({ error: "视频文件未完整上传" }, 409);
     }
     if (validation.error === "SUBTITLE_INCOMPLETE") {
       return noStore({ error: "字幕文件未完整上传" }, 409);
+    }
+    if (validation.error === "ENGLISH_SUBTITLE_INCOMPLETE") {
+      return noStore({ error: "英文字幕文件未完整上传" }, 409);
     }
 
     const manifest = {

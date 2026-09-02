@@ -48,7 +48,7 @@ async function handle(
     return NextResponse.json({ error: "视频不存在" }, { status: 404, headers: PRIVATE_HEADERS });
   }
   const requestedAsset = request.nextUrl.searchParams.get("asset") ?? "video";
-  if (requestedAsset !== "video" && requestedAsset !== "subtitle") {
+  if (requestedAsset !== "video" && requestedAsset !== "subtitle" && requestedAsset !== "subtitleEn") {
     return NextResponse.json({ error: "资源不存在" }, { status: 404, headers: PRIVATE_HEADERS });
   }
   const signedUrl = await createMemberVideoSignedUrl({

@@ -15,7 +15,7 @@ export default function AdminMemberVideosPage() {
             会员视频管理
           </Heading>
           <Text color="secondary" className="mt-2">
-            当前片目：纳指100 · 十年周期风险窗口（4分51秒）
+            支持片目选择；新原油专题启用中英双字幕切换。
           </Text>
           <Card padding="lg" className="mt-6">
             <MemberVideoUploadClient />
