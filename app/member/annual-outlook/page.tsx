@@ -4,8 +4,9 @@ import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { AnnualForecastRoadmap2026 } from "@/components/research/AnnualForecastRoadmap2026";
-import { Section } from "@/components/ui";
+import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
+import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 } from "@/lib/data/member-september-rotation-report-20260826";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { listAnnualForecastRoadmaps2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
@@ -43,5 +44,15 @@ export default async function MemberAnnualOutlookPage() {
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
-  return <><MemberDeviceHeartbeat /><main className="min-h-screen bg-[#07080a] text-white"><Section spacing="lg"><div className="mx-auto w-full max-w-[1480px]"><AnnualForecastRoadmap2026 rows={listAnnualForecastRoadmaps2026()} /></div></Section></main></>;
+  const en = (await getRequestLocale()) === "en";
+  const btc2027 = MEMBER_SEPTEMBER_ROTATION_REPORT_20260826.primaryUpdate.items.find((item) => item.id === "BTC-2027-150K")!;
+  return <><MemberDeviceHeartbeat /><main className="min-h-screen bg-[#07080a] text-white"><Section spacing="lg"><div className="mx-auto w-full max-w-[1480px] space-y-5">
+    <Card padding="lg" className="border-amber-300/25 bg-amber-300/[0.05]" data-btc-2027-primary-update>
+      <div className="flex flex-wrap gap-2"><Badge variant="warning">{en ? "New long-horizon primary reading" : "新增长周期六爻主判"}</Badge><Badge variant="outline">{en ? btc2027.confidenceEn : btc2027.confidenceZh}</Badge></div>
+      <Heading as="h2" size="h3" className="mt-4">{en ? btc2027.scopeEn : btc2027.scopeZh}</Heading>
+      <Text variant="body" color="secondary" className="mt-2 block leading-7">{en ? btc2027.conclusionEn : btc2027.conclusionZh}</Text>
+      <Text variant="caption" color="tertiary" className="mt-2 block">{en ? btc2027.boundaryEn : btc2027.boundaryZh}</Text>
+    </Card>
+    <AnnualForecastRoadmap2026 rows={listAnnualForecastRoadmaps2026()} />
+  </div></Section></main></>;
 }

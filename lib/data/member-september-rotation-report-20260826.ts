@@ -173,7 +173,7 @@ const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2 = {
   ],
 } as const;
 
-export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+const MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3 = {
   ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2,
   version: "SEP_ROTATION_REPORT_20260902_V3",
   publishedAt: "2026-09-02T14:05:00+08:00",
@@ -218,4 +218,113 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
   },
 } as const;
 
-export const MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY = [MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2] as const;
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+  ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3,
+  version: "SEP_ROTATION_REPORT_20260902_V4",
+  publishedAt: "2026-09-02T18:10:00+08:00",
+  revisionOf: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3.version,
+  revisionReason: "新增9月2日完整六爻主判与奇门辅助资料；只发布新版本，不改写V2/V3历史。",
+  primaryUpdate: {
+    publicLabelZh: "核心六爻主判更新 · 第一优先级",
+    publicLabelEn: "Core Liu Yao update · primary authority",
+    summaryZh: "完整六爻负责本轮主判；奇门只给有明确问题、时间窗与最终答案的内容做辅助加权。不同周期不能互相代替。",
+    summaryEn: "Complete Liu Yao readings own the primary call. Qimen is an auxiliary weight only when the question, window and final answer are explicit. Evidence from different horizons is not interchangeable.",
+    items: [
+      {
+        id: "STAR50-202609",
+        scopeZh: "科创50 · 9月1日至10月1日",
+        scopeEn: "STAR 50 · Sep 1-Oct 1",
+        authority: "PRIMARY" as const,
+        confidenceZh: "中高",
+        confidenceEn: "Medium-high",
+        conclusionZh: "9月7日前偏低，9月7日后缓慢走高；财爻不旺，涨幅和后劲可能有限。",
+        conclusionEn: "Softer before Sep 7, then a gradual rise; weak wealth lines imply limited magnitude and follow-through.",
+        boundaryZh: "这是科创50本身的月度主判，可支持科技方向，但不能直接替代SNDK、MU或SOXL的个股与杠杆产品预测。",
+        boundaryEn: "This is a monthly STAR 50 call. It supports the technology path but does not replace asset-specific SNDK, MU or SOXL forecasts.",
+      },
+      {
+        id: "FED-202609",
+        scopeZh: "美联储 · 9月议息",
+        scopeEn: "Federal Reserve · September decision",
+        authority: "PRIMARY" as const,
+        confidenceZh: "中高",
+        confidenceEn: "Medium-high",
+        conclusionZh: "9月加息概率不高；鹰派压力仍在，10月是否进入更强紧缩窗口继续观察。",
+        conclusionEn: "A September hike is unlikely. Hawkish pressure remains, while a stronger October tightening window still needs confirmation.",
+        boundaryZh: "宏观结论只调整事件风险与仓位节奏，不直接翻转任何标的的锁定方向。",
+        boundaryEn: "This macro conclusion adjusts event risk and sizing only; it cannot reverse any locked asset direction.",
+      },
+      {
+        id: "WTI-202609-THREE-MONTH",
+        scopeZh: "国际油价 · 未来三个月",
+        scopeEn: "Crude oil · next three months",
+        authority: "PRIMARY" as const,
+        confidenceZh: "中",
+        confidenceEn: "Medium",
+        conclusionZh: "9月可能缓慢上行；10月7日至11月上旬是三个月高位候选区，11月7日后更偏向逐步回落。",
+        conclusionEn: "Oil may grind higher in September. Oct 7 into early November is the candidate three-month high zone, followed by a gradual fade after Nov 7.",
+        boundaryZh: "仅展示本期核心六爻结论；不恢复原油日预测、周预测或历史验证统计。",
+        boundaryEn: "This displays the current core Liu Yao conclusion only. Daily, weekly and historical-verification coverage for oil remains retired.",
+      },
+      {
+        id: "BTC-2027-150K",
+        scopeZh: "BTC · 2027年高点能否突破15万美元",
+        scopeEn: "BTC · can the 2027 high exceed USD 150k?",
+        authority: "PRIMARY" as const,
+        confidenceZh: "中高",
+        confidenceEn: "Medium-high",
+        conclusionZh: "2027年高点可能高于2026年，但本卦不支持突破15万美元；它只回答15万美元门槛，不给出精确最高价。",
+        conclusionEn: "The 2027 high may exceed 2026, but this reading does not support a break above USD 150k. It answers the threshold question, not the exact high.",
+        boundaryZh: "这是2027年长周期结论，不提高或降低2026年9月短线方向的信心。",
+        boundaryEn: "This is a 2027 long-horizon conclusion and does not change confidence in the September 2026 short-term path.",
+      },
+      {
+        id: "SPCX-20260915-QIMEN",
+        scopeZh: "SPCX · 截止9月15日",
+        scopeEn: "SPCX · through Sep 15",
+        authority: "AUXILIARY" as const,
+        confidenceZh: "低—中",
+        confidenceEn: "Low-medium",
+        conclusionZh: "奇门直播最终倾向跌破135美元的概率不高；9月7日至15日向上动能偏强，口头关注148、153、158附近，冲高后再防回落。",
+        conclusionEn: "The live Qimen reading ultimately leaned against a break below USD 135. Upside energy looked stronger from Sep 7-15, with verbal watch levels near 148, 153 and 158 before a possible fade.",
+        boundaryZh: "推演中多次出现不确定与重问，141、139/137等低点答案反复；因此只作待验证辅助，不生成正式点位或交易权限。",
+        boundaryEn: "The reading included repeated uncertainty and changing low candidates around 141 and 139/137. It remains provisional support only and creates no formal level or trading authority.",
+      },
+    ],
+    methodLearningZh: [
+      "奇门金融问盘必须限定一个标的、一个时间窗和一个阈值；一卦多问或连续重问要主动降权。",
+      "八字、紫微与占星的同向结论可以互相复核，但若共用同一出生资料，不能冒充三个独立票源。",
+      "出生时辰未校正时，只保留对时辰不敏感的长期结构；具体事件年份和结果必须降级表达。",
+      "命盘描述的是结构倾向，现实选择、行为与事件证据仍需单独核验。",
+    ],
+    methodLearningEn: [
+      "A financial Qimen query must bind one asset, one time window and one threshold; multi-question or repeatedly re-asked charts are downweighted.",
+      "Bazi, Zi Wei and astrology may cross-check one another, but shared birth data cannot be counted as three independent votes.",
+      "Without a calibrated birth time, keep only time-insensitive long-cycle structure and downgrade event-year or outcome claims.",
+      "A chart describes structural tendencies; real choices, conduct and event evidence still require independent verification.",
+    ],
+  },
+  confidenceCalibration: {
+    ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3.confidenceCalibration,
+    items: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3.confidenceCalibration.items.map((item) =>
+      item.id === "TECH-SEPTEMBER-ROTATION"
+        ? {
+            ...item,
+            index: 5,
+            delta: 2,
+            labelZh: "很高",
+            labelEn: "Very high",
+            reasonZh: "新增科创50完整月度六爻同样指向9月7日前偏低、9月7日后转强；与现有半导体路径同向，因此共振指数升至5/5，但财爻不旺提示涨幅与后劲仍可能有限。",
+            reasonEn: "A new complete STAR 50 monthly Liu Yao reading also points to softness before Sep 7 and strength afterward. This lifts the technology consensus index to 5/5, while weak wealth lines still warn that magnitude and follow-through may be limited.",
+          }
+        : item,
+    ),
+    unchangedZh: "BTC 2027、原油三个月与9月美联储属于不同对象或周期，不改变BTC 9月信心；SPCX奇门只作待验证辅助。本次更新不修改已锁定预测、不改写历史，也不产生自动交易权限。",
+    unchangedEn: "BTC 2027, three-month oil and the September Fed decision cover different assets or horizons and do not change September BTC confidence. SPCX Qimen remains provisional support only. No locked history or automated-trading authority changes.",
+  },
+} as const;
+
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY = [
+  MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2,
+  MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3,
+] as const;

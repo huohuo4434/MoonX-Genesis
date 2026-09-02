@@ -8,6 +8,7 @@ import {
   MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY as reportHistory,
 } from "../lib/data/member-september-rotation-report-20260826";
 import { QIMEN_CYCLE_PATTERN_SOURCE_20260901 as cyclePattern } from "../lib/data/qimen-cycle-pattern-source-20260901";
+import { SOURCE_AUDIT_20260902 as sourceAudit } from "../lib/data/internal/source-audit-20260902";
 import { listResearchRecords } from "../lib/data/research-records";
 
 test("teacher cycle records preserve the three distinct source conclusions", () => {
@@ -41,21 +42,44 @@ test("member report labels the idea as relative rotation rather than guaranteed 
   assert.match(report.resonanceZh, /跨周期部分共振/);
 });
 
-test("new same-direction timing evidence raises only the research consensus index", () => {
-  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V3");
-  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260826_V2");
+test("new primary and auxiliary evidence publishes V4 without rewriting V2 or V3", () => {
+  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V4");
+  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260902_V3");
   assert.equal(reportHistory[0]?.version, "SEP_ROTATION_REPORT_20260826_V2");
+  assert.equal(reportHistory[1]?.version, "SEP_ROTATION_REPORT_20260902_V3");
   assert.equal(report.confidenceCalibration.sourceState, "EDITED_POST");
   assert.deepEqual(
     report.confidenceCalibration.items.map((item) => [item.id, item.index, item.max, item.delta]),
     [
       ["BTC-SEPTEMBER-PATH", 4, 5, 1],
-      ["TECH-SEPTEMBER-ROTATION", 4, 5, 1],
+      ["TECH-SEPTEMBER-ROTATION", 5, 5, 2],
     ],
   );
   assert.match(report.confidenceCalibration.metricZh, /不是胜率/);
   assert.match(report.confidenceCalibration.unchangedZh, /不修改已锁定预测/);
   assert.match(report.confidenceCalibration.unchangedZh, /不产生自动交易权限/);
+});
+
+test("Sep 2 source batch keeps Liu Yao primary, Qimen bounded and Bazi method-only", () => {
+  const items = Object.fromEntries(report.primaryUpdate.items.map((item) => [item.id, item]));
+  assert.equal(items["STAR50-202609"]?.authority, "PRIMARY");
+  assert.match(items["STAR50-202609"]?.conclusionZh ?? "", /9月7日前偏低.*9月7日后缓慢走高/);
+  assert.match(items["STAR50-202609"]?.conclusionZh ?? "", /涨幅和后劲可能有限/);
+  assert.match(items["FED-202609"]?.conclusionZh ?? "", /9月加息概率不高/);
+  assert.match(items["WTI-202609-THREE-MONTH"]?.boundaryZh ?? "", /不恢复原油日预测、周预测或历史验证/);
+  assert.match(items["BTC-2027-150K"]?.conclusionZh ?? "", /不支持突破15万美元/);
+  assert.match(items["BTC-2027-150K"]?.boundaryZh ?? "", /不提高或降低2026年9月/);
+  assert.equal(items["SPCX-20260915-QIMEN"]?.authority, "AUXILIARY");
+  assert.match(items["SPCX-20260915-QIMEN"]?.boundaryZh ?? "", /不确定与重问/);
+  assert.match(items["SPCX-20260915-QIMEN"]?.boundaryZh ?? "", /不生成正式点位或交易权限/);
+  assert.ok(report.primaryUpdate.methodLearningZh.some((item) => /一卦多问或连续重问要主动降权/.test(item)));
+  assert.ok(report.primaryUpdate.methodLearningZh.some((item) => /不能冒充三个独立票源/.test(item)));
+  assert.equal(sourceAudit.policy.primaryFramework, "COMPLETE_LIUYAO");
+  assert.equal(sourceAudit.policy.auxiliaryFramework, "BOUNDED_QIMEN");
+  assert.equal(sourceAudit.policy.baziUse, "METHOD_LEARNING_ONLY");
+  assert.equal(sourceAudit.policy.mayTriggerTrade, false);
+  assert.equal(sourceAudit.files.length, 16);
+  assert.ok(sourceAudit.files.every(([, hash]) => /^[A-F0-9]{64}$/.test(hash)));
 });
 
 test("member report exposes a concrete time map and does not leak teacher identities", () => {

@@ -38,6 +38,34 @@ export function MemberSeptemberRotationReport() {
           {en ? report.conclusionEn : report.conclusionZh}
         </Text>
 
+        <div className="mt-5 rounded-xl border border-amber-300/25 bg-amber-300/[0.055] p-4" data-primary-liuyao-update>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="warning">{en ? report.primaryUpdate.publicLabelEn : report.primaryUpdate.publicLabelZh}</Badge>
+            <Badge variant="outline">{en ? "New forward evidence · Sep 2" : "9月2日新增前瞻证据"}</Badge>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-foreground-secondary">{en ? report.primaryUpdate.summaryEn : report.primaryUpdate.summaryZh}</p>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            {report.primaryUpdate.items.map((item) => (
+              <article key={item.id} className="rounded-xl border border-white/[0.08] bg-black/15 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-foreground">{en ? item.scopeEn : item.scopeZh}</span>
+                  <span className="rounded-full border border-amber-300/25 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                    {item.authority === "PRIMARY" ? (en ? "Primary" : "主判") : (en ? "Auxiliary" : "辅助")} · {en ? item.confidenceEn : item.confidenceZh}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-foreground-secondary">{en ? item.conclusionEn : item.conclusionZh}</p>
+                <p className="mt-2 text-xs leading-5 text-foreground-tertiary">{en ? item.boundaryEn : item.boundaryZh}</p>
+              </article>
+            ))}
+          </div>
+          <details className="mt-4 border-t border-white/10 pt-3 text-sm text-foreground-secondary" data-method-learning-20260902>
+            <summary className="min-h-8 cursor-pointer py-1 font-semibold">{en ? "Method learning from this batch" : "展开：本批资料学到的方法规则"}</summary>
+            <ul className="mt-2 space-y-2 leading-6">
+              {(en ? report.primaryUpdate.methodLearningEn : report.primaryUpdate.methodLearningZh).map((item) => <li key={item}>• {item}</li>)}
+            </ul>
+          </details>
+        </div>
+
         <div className="mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] p-4" data-forward-confidence-calibration>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="success">{en ? report.confidenceCalibration.publicLabelEn : report.confidenceCalibration.publicLabelZh}</Badge>
