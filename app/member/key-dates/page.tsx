@@ -202,7 +202,7 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
       {item.gann ? <div className={`mt-3 rounded-xl border px-3 py-3 text-body-sm leading-6 ${item.gann.status === "ALIGNED" ? "border-emerald-300/20 bg-emerald-300/[0.045]" : item.gann.status === "CONFLICTED" ? "border-rose-300/20 bg-rose-300/[0.045]" : "border-amber-300/20 bg-amber-300/[0.04]"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-foreground">江恩时间＋价格共振</span><Badge variant="outline">{item.gann.status === "ALIGNED" ? `同向 +${item.gann.appliedWeightPct}点` : item.gann.status === "CONFLICTED" ? `冲突 -${item.gann.appliedWeightPct}点` : item.gann.appliedWeightPct ? `时间 +${item.gann.appliedWeightPct}点` : "仅观察"}</Badge></div>
         <p className="mt-2 text-foreground-secondary">{item.gann.note}</p>
-        <p className="mt-2 text-caption text-foreground-tertiary">时间窗：{item.gann.matchedWindows.join("、")}；支撑：{item.gann.supportLevels.join(" / ") || "未给出"}；压力/目标：{[...item.gann.resistanceLevels, ...item.gann.targetLevels].join(" / ") || "未给出"}</p>
+        <p className="mt-2 text-caption text-foreground-tertiary">时间窗：{item.gann.matchedWindows.join("、")}；支撑：{item.gann.supportLevels.slice(0, 6).join(" / ") || "未给出"}；压力/目标：{[...item.gann.resistanceLevels, ...item.gann.targetLevels].slice(0, 6).join(" / ") || "未给出"}</p>
         <div className="mt-2 flex flex-wrap gap-3">{item.gann.sourceUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-caption text-primary">原始时间戳 {index + 1} →</a>)}</div>
       </div> : null}
       <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">

@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { parseExternalAnalystPost } from "@/lib/trading-signals/external-analyst-parser";
-import type { VerifiedGannSignal } from "@/lib/research/gann-prediction-overlay-core";
+import { inferGannTurnIntent, type VerifiedGannSignal } from "@/lib/research/gann-prediction-overlay-core";
 
 type GannRow = { username: string; post_id: string; post_url: string; posted_at: Date | string; text: string };
 
@@ -30,6 +30,7 @@ export async function getVerifiedGannPredictionSignals(now = new Date()): Promis
         postedAt: parsed.postedAt,
         symbol: parsed.symbols[0]!,
         direction: parsed.direction,
+        turnIntent: inferGannTurnIntent(parsed.text),
         timeWindows: parsed.timeWindows,
         supportLevels: parsed.supportLevels,
         resistanceLevels: parsed.resistanceLevels,

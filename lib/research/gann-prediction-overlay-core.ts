@@ -9,6 +9,7 @@ export type VerifiedGannSignal = {
   postedAt: string;
   symbol: string;
   direction: ThreeHorizonDirection;
+  turnIntent: "TOP" | "BOTTOM" | "NEUTRAL";
   timeWindows: string[];
   supportLevels: number[];
   resistanceLevels: number[];
@@ -88,19 +89,26 @@ function uniqueNumbers(values: number[]) {
   return Array.from(new Set(values.filter((value) => Number.isFinite(value) && value > 0))).sort((a, b) => a - b);
 }
 
-function expectedDirection(action: KeyDateRadarItem["action"]): ThreeHorizonDirection {
-  if (action === "BOTTOM_WATCH") return "LONG";
-  if (action === "TOP_EXIT_WATCH") return "SHORT";
+function countTerms(text: string, terms: string[]) {
+  return terms.reduce((score, term) => score + (text.includes(term) ? 1 : 0), 0);
+}
+
+export function inferGannTurnIntent(text: string): VerifiedGannSignal["turnIntent"] {
+  const normalized = text.toLowerCase();
+  const top = countTerms(normalized, ["阶段高点", "高点", "顶部", "见顶", "冲高", "压力", "阻力", "上涨终点", "反弹结束", "回落"]);
+  const bottom = countTerms(normalized, ["阶段低点", "低点", "底部", "见底", "探底", "支撑", "下跌终点", "回调结束", "止跌"]);
+  if (top > bottom) return "TOP";
+  if (bottom > top) return "BOTTOM";
   return "NEUTRAL";
 }
 
-function statusFor(item: KeyDateRadarItem, directions: ThreeHorizonDirection[]): { status: GannStatus; delta: number; note: string } {
-  const directional = Array.from(new Set(directions.filter((direction) => direction !== "NEUTRAL")));
-  const expected = expectedDirection(item.action);
-  if (directional.length > 1) return { status: "TIME_ONLY", delta: 0, note: "江恩时间窗重叠，但同一来源的当前方向分支不一致，只保留时间观察。" };
+function statusFor(item: KeyDateRadarItem, intents: VerifiedGannSignal["turnIntent"][]): { status: GannStatus; delta: number; note: string } {
+  const directional = Array.from(new Set(intents.filter((intent) => intent !== "NEUTRAL")));
+  const expected = item.action === "BOTTOM_WATCH" ? "BOTTOM" : item.action === "TOP_EXIT_WATCH" ? "TOP" : "NEUTRAL";
+  if (directional.length > 1) return { status: "TIME_ONLY", delta: 0, note: "江恩时间窗重叠，但同一来源同时包含高点与低点分支，只保留时间观察。" };
   if (expected === "NEUTRAL" || directional.length === 0) return { status: "TIME_ONLY", delta: 1, note: "江恩时间窗与关键日重叠，但未形成同向高低点结论，只增加1点时间信心。" };
   if (directional[0] === expected) return { status: "ALIGNED", delta: VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: `江恩时间窗与${item.action === "BOTTOM_WATCH" ? "低点" : "高点"}观察方向一致，研究信心增加3点。` };
-  return { status: "CONFLICTED", delta: -VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: "江恩方向与当前关键日动作冲突，研究信心降低3点；不改写正式方向，也不机械交易。" };
+  return { status: "CONFLICTED", delta: -VERIFIED_GANN_RESEARCH_WEIGHT_PCT, note: "江恩高低点意图与当前关键日动作冲突，研究信心降低3点；不改写正式方向，也不机械交易。" };
 }
 
 export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signals: readonly VerifiedGannSignal[]) {
@@ -109,7 +117,7 @@ export function applyVerifiedGannKeyDateOverlay(items: KeyDateRadarItem[], signa
     const matched = signals.filter((signal) => normalizeSymbol(signal.symbol) === symbol
       && signal.timeWindows.some((window) => gannWindowContainsDate(window, item.focusDate, signal.postedAt)));
     if (!matched.length) return item;
-    const result = statusFor(item, matched.map((signal) => signal.direction));
+    const result = statusFor(item, matched.map((signal) => signal.turnIntent));
     const sourceUrls = Array.from(new Set(matched.map((signal) => signal.postUrl))).slice(0, 3);
     const consensusNote = [item.consensusNote, result.note].filter(Boolean).join(" ");
     return {
