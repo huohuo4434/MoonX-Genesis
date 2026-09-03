@@ -21,26 +21,28 @@ test("板块共振独立模块覆盖全部24个重点品种和本周至10月初�
   assert.ok(board.rows.every((row) => "annualLiuyaoDetail" in row && "monthlyLiuyaoDetail" in row));
   assert.ok(board.rows.every((row) => row.cells.every((cell) => "liuyaoDetail" in cell)));
   assert.ok(board.rows.every((row) => row.annualDirection));
-  assert.equal(board.asOf, "2026-08-31");
+  assert.equal(board.asOf, "2026-09-03");
 });
 
-test("8月31日至9月5日奇门周盘按资产并列展示共振、分歧和未覆盖", () => {
+test("9月7日至12日奇门周盘提高半导体短线信心并保留退出窗口", () => {
   const board = buildSectorResonanceBoard();
-  assert.equal(board.qimenWeeklySourceBoundary.periodStart, "2026-08-31");
-  assert.equal(board.qimenWeeklySourceBoundary.periodEnd, "2026-09-05");
-  assert.equal(board.qimenWeeklyCrossCheck.length, 8);
+  assert.equal(board.qimenWeeklySourceBoundary.periodStart, "2026-09-07");
+  assert.equal(board.qimenWeeklySourceBoundary.periodEnd, "2026-09-12");
+  assert.equal(board.qimenWeeklyCrossCheck.length, 5);
+
+  const sox = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "sox");
+  assert.equal(sox?.relation, "共振");
+  assert.match(sox?.qimenDirection ?? "", /高波动上扬/u);
+  assert.match(sox?.timingNote ?? "", /9月14—20日.*9月21日前/u);
 
   const btc = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "bitcoin");
   assert.equal(btc?.relation, "部分一致");
-  assert.match(btc?.timingNote ?? "", /9月6日.*9月7日/u);
+  assert.match(btc?.timingNote ?? "", /未日、申日.*不制造精确下跌日/u);
 
   const gold = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "gold");
-  assert.equal(gold?.relation, "共振");
+  assert.equal(gold?.relation, "部分一致");
 
-  const hstech = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "hang-seng");
-  assert.equal(hstech?.relation, "分歧");
-
-  const uncovered = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "eth");
+  const uncovered = board.qimenWeeklyCrossCheck.find((row) => row.assetId === "uncovered");
   assert.equal(uncovered?.relation, "未覆盖");
 
   const memberCopy = JSON.stringify(board.qimenWeeklyCrossCheck);

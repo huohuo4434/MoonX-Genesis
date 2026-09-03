@@ -45,7 +45,7 @@ function QimenWeeklyCrossCheckPanel({
   return <section className="overflow-hidden rounded-2xl border border-violet-300/15 bg-violet-300/[.03]">
     <header className="border-b border-white/[.06] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-violet-100/50">WEEKLY CROSS-CHECK</p><h2 className="mt-1.5 text-lg font-semibold text-white">下周奇门复核｜共振与分歧</h2><p className="mt-2 max-w-4xl text-xs leading-6 text-white/45">{summary}</p></div>
+        <div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-violet-100/50">WEEKLY CROSS-CHECK</p><h2 className="mt-1.5 text-lg font-semibold text-white">奇门周度复核｜共振与分歧</h2><p className="mt-2 max-w-4xl text-xs leading-6 text-white/45">{summary}</p></div>
         <span className="rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-white/40">{periodStart}—{periodEnd}</span>
       </div>
     </header>
@@ -186,8 +186,9 @@ function GroupTable({
   selectedAssetId?: string;
   selectedWeekStart?: string;
 }) {
-  const current = summaries.find((item) => item.weekStart === weeks[0]!.start)!;
-  const next = summaries.find((item) => item.weekStart === weeks[1]!.start)!;
+  const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === selectedWeekStart));
+  const current = summaries.find((item) => item.weekStart === weeks[currentIndex]!.start)!;
+  const next = summaries.find((item) => item.weekStart === weeks[Math.min(currentIndex + 1, weeks.length - 1)]!.start)!;
   const selectedRow = rows.find((row) => row.assetId === selectedAssetId);
   const detailAnchor = `weekly-sector-details-${SECTOR_RESONANCE_GROUP_ORDER.indexOf(group)}`;
   return (
@@ -209,9 +210,9 @@ function GroupTable({
           <thead className="bg-white/[.025] text-[11px] text-white/38">
             <tr>
               <th className="sticky left-0 z-10 min-w-[150px] bg-[#090b0e] px-4 py-3">标的</th>
-              {weeks.map((week) => (
+              {weeks.map((week, index) => (
                 <th key={week.start} className="min-w-[128px] px-3 py-3">
-                  {week.badge ? <span className="mb-1 block text-[10px] font-semibold text-violet-200/75">{week.badge}</span> : null}
+                  {index === currentIndex || index === currentIndex + 1 ? <span className="mb-1 block text-[10px] font-semibold text-violet-200/75">{index === currentIndex ? "本周" : "下周"}</span> : null}
                   {week.label}
                 </th>
               ))}
@@ -290,8 +291,9 @@ export function SectorResonanceBoard({
   selectedAssetId?: string;
   selectedWeekStart?: string;
 }) {
-  const currentSummaries = summaries.filter((item) => item.weekStart === weeks[0]!.start);
-  const nextSummaries = summaries.filter((item) => item.weekStart === weeks[1]!.start);
+  const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === selectedWeekStart));
+  const currentSummaries = summaries.filter((item) => item.weekStart === weeks[currentIndex]!.start);
+  const nextSummaries = summaries.filter((item) => item.weekStart === weeks[Math.min(currentIndex + 1, weeks.length - 1)]!.start);
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-[26px] border border-cyan-300/15 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,.13),transparent_34%),radial-gradient(circle_at_90%_0%,rgba(139,92,246,.12),transparent_32%),#090b0f] p-5 sm:p-7">

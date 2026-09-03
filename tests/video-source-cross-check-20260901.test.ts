@@ -6,6 +6,7 @@ import { EXTERNAL_ANALYST_VIEWPOINTS_20260901 } from "../lib/data/external-analy
 import {
   MEMBER_SOURCE_CROSS_CHECK_20260901,
   MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260902,
+  MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903,
 } from "../lib/data/member-source-cross-check-20260901";
 import { TEACHER02_LIUYAO_20260901 } from "../lib/data/teacher02-liuyao-20260901";
 import { assessExternalViewpointCard, findDuplicateExternalViewpoints } from "../lib/research/external-viewpoint-card-core";
@@ -50,9 +51,21 @@ test("member cross-check is anonymous, conclusion-first, and never imports tradi
   assert.match(memberPage, /row\.levels/);
   assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "闪迪")?.relation, "需要修正节奏");
   assert.deepEqual(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "闪迪")?.levels, ["第一承接 1,413—1,435", "第二观察 1,268", "第三观察 1,084", "转强观察 9月7日以后"]);
-  assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.relation, "需要修正节奏");
-  assert.match(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.review ?? "", /九月中下旬/);
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.relation, "一致");
+  assert.match(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.review ?? "", /9月7—12日.*高波动上扬/u);
+  assert.match(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.action ?? "", /9月14—20日.*9月21日前/u);
   assert.match(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "原油")?.official ?? "", /取消日内、每日和每周/);
+});
+
+test("September 3 Qimen chart only calibrates timing and cannot trigger trades", () => {
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.sourcePublishedAt, null);
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.sourceRecordedAt, "2026-09-03T11:00:00+08:00");
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.sourceTimeVerified, true);
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.applicableFrom, "2026-09-07");
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.status, "TIMING_REVIEW");
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.consensusEligible, false);
+  assert.equal(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.tradingEligible, false);
+  assert.match(MEMBER_SOURCE_CROSS_CHECK_AUDIT_20260903.boundary, /不能改写已锁定六爻方向.*不直接产生交易权限/u);
 });
 
 test("September 2 source is auditable but adds no formal vote or trading authority", () => {
