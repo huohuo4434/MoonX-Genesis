@@ -73,11 +73,12 @@ export default async function MemberSectorResonancePage({
       value: item.label,
       tone: item.status === "HIGH" ? "positive" : item.status === "DIVERGENT" ? "turn" : item.status === "MEDIUM" ? "neutral" : "muted",
     }));
-    const strongerGroups = summaries.filter((item) => item.status === "HIGH" || (item.status === "MEDIUM" && item.bull > item.bear)).map((item) => item.group);
+    const strongerGroups = summaries.filter((item) => (item.status === "HIGH" || item.status === "MEDIUM") && item.bull > item.bear).map((item) => item.group);
+    const weakerGroups = summaries.filter((item) => (item.status === "HIGH" || item.status === "MEDIUM") && item.bear > item.bull).map((item) => item.group);
     const divergentGroups = summaries.filter((item) => item.status === "DIVERGENT").map((item) => item.group);
     return {
       title: `${index === 0 ? "本周板块结论" : "下周板块预报"}｜${week.label}`,
-      conclusion: `相对偏强：${strongerGroups.length ? strongerGroups.join("、") : "暂无明确板块"}；明显分化：${divergentGroups.length ? divergentGroups.join("、") : "暂无"}。${index === 0 ? "结合本周剩余交易日确认。" : "提前看方向，入场仍等下周关键日与价格结构。"}`,
+      conclusion: `相对偏强：${strongerGroups.length ? strongerGroups.join("、") : "暂无明确板块"}；相对偏弱：${weakerGroups.length ? weakerGroups.join("、") : "暂无明确板块"}；明显分化：${divergentGroups.length ? divergentGroups.join("、") : "暂无"}。${index === 0 ? "结合本周剩余交易日确认。" : "提前看方向，入场仍等下周关键日与价格结构。"}`,
       facts,
     };
   });

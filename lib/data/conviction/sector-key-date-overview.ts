@@ -34,7 +34,10 @@ export function selectCurrentAndNextSectorWeeks(
   let currentIndex = weeks.findIndex((week) => asOfDate >= week.start && asOfDate <= week.end);
   if (currentIndex < 0) currentIndex = weeks.findIndex((week) => week.end >= asOfDate);
   if (currentIndex < 0) currentIndex = weeks.length - 1;
-  return weeks.slice(currentIndex, currentIndex + 2);
+  return weeks.slice(currentIndex, currentIndex + 2).map((week, index) => ({
+    ...week,
+    badge: index === 0 ? "本周" : "下周",
+  }));
 }
 
 export function buildSectorKeyDateWindows(input: {

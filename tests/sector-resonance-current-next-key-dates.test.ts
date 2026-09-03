@@ -14,6 +14,9 @@ test("板块页首屏固定同时选择本周与下周，而不是只显示当�
   const weeks = selectCurrentAndNextSectorWeeks(board.weeks, "2026-08-30");
   assert.deepEqual(weeks.map((week) => week.start), ["2026-08-24", "2026-08-31"]);
   assert.deepEqual(weeks.map((week) => week.badge), ["本周", "下周"]);
+  const septemberWeeks = selectCurrentAndNextSectorWeeks(board.weeks, "2026-09-03");
+  assert.deepEqual(septemberWeeks.map((week) => week.start), ["2026-08-31", "2026-09-07"]);
+  assert.deepEqual(septemberWeeks.map((week) => week.badge), ["本周", "下周"]);
   assert.equal(selectCurrentAndNextSectorWeeks(board.weeks, "2026-08-01")[0]?.start, "2026-08-24");
   assert.equal(selectCurrentAndNextSectorWeeks(board.weeks, "2026-12-01")[0]?.start, "2026-09-28");
 });
@@ -43,6 +46,8 @@ test("板块页面和会员频道都恢复关键日入口并明确展示下周",
   const page = readFileSync(join(process.cwd(), "app/member/sector-resonance/page.tsx"), "utf8");
   const nav = readFileSync(join(process.cwd(), "config/member-channel-navigation.ts"), "utf8");
   assert.match(page, /下周板块预报/);
+  assert.match(page, /相对偏弱/);
+  assert.match(page, /\(item\.status === "HIGH" \|\| item\.status === "MEDIUM"\) && item\.bull > item\.bear/);
   assert.match(page, /本周＋下周关键日/);
   assert.match(page, /href="\/member\/key-dates"/);
   assert.match(nav, /memberNav\.keyDates/);
