@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { isAdminUser } from "@/lib/auth/is-admin";
 import { redirect } from "next/navigation";
+import { parseSignupAttributionTouch, type SignupAttributionTouch } from "@/lib/analytics/signup-attribution-core";
 
 export type AppRole = "user" | "admin";
 export type MembershipStatus = "inactive" | "active" | "expired";
@@ -64,6 +65,8 @@ export interface AppMetadata {
   founder_discount_status?: FounderDiscountStatus | null;
   founder_discount_granted_at?: string | null;
   founder_discount_forfeited_at?: string | null;
+  acquisition_first_touch?: SignupAttributionTouch | null;
+  acquisition_last_touch?: SignupAttributionTouch | null;
 }
 
 export interface AuthUserView {
@@ -92,6 +95,8 @@ export function readAppMetadata(user: { app_metadata?: Record<string, unknown> }
     founder_discount_status: raw.founder_discount_status === "active" || raw.founder_discount_status === "forfeited" ? raw.founder_discount_status : null,
     founder_discount_granted_at: raw.founder_discount_granted_at ?? null,
     founder_discount_forfeited_at: raw.founder_discount_forfeited_at ?? null,
+    acquisition_first_touch: parseSignupAttributionTouch(raw.acquisition_first_touch),
+    acquisition_last_touch: parseSignupAttributionTouch(raw.acquisition_last_touch),
   };
 }
 
@@ -188,9 +193,16 @@ export { computeNewExpiry } from "@/lib/payments/membership-dates";
 export async function listAllAuthUsers(): Promise<AuthUserView[]> {
   const admin = getAdminClient();
   if (!admin) return [];
-  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error || !data?.users) return [];
-  return data.users.filter((u) => Boolean(u.email)).map(toAuthUserView);
+  const users: User[] = [];
+  const perPage = 1000;
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error || !data?.users) return [];
+    users.push(...data.users);
+    if (data.users.length < perPage) {
+      return users.filter((user) => Boolean(user.email)).map(toAuthUserView);
+    }
+  }
 }
 
 export async function updateUserAppMetadata(

@@ -4,6 +4,11 @@ import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button, Card, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import {
+  ATTRIBUTION_FIRST_TOUCH_KEY,
+  ATTRIBUTION_LAST_TOUCH_KEY,
+  readStoredSignupAttribution,
+} from "@/lib/analytics/signup-attribution-core";
 
 type Tab = "login" | "register";
 
@@ -189,6 +194,15 @@ export function LoginForm({
     }
     setLoading(true);
 
+    let attributionFirst = null;
+    let attributionLast = null;
+    try {
+      attributionFirst = readStoredSignupAttribution(window.localStorage.getItem(ATTRIBUTION_FIRST_TOUCH_KEY));
+      attributionLast = readStoredSignupAttribution(window.localStorage.getItem(ATTRIBUTION_LAST_TOUCH_KEY));
+    } catch {
+      // Attribution is optional and must never block registration.
+    }
+
     const regRes = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
@@ -200,6 +214,8 @@ export function LoginForm({
         password,
         inviteCode: inviteCode.trim() || null,
         deviceId: getOrCreateDeviceId(),
+        attributionFirst,
+        attributionLast,
       }),
     });
     const regJson = (await regRes.json()) as {
@@ -212,6 +228,13 @@ export function LoginForm({
       setCooldownUntil(Date.now() + 60_000);
       setError(regJson.error ?? (en ? "Registration failed. Please try again later." : "注册失败，请稍后重试。"));
       return;
+    }
+
+    try {
+      window.localStorage.removeItem(ATTRIBUTION_FIRST_TOUCH_KEY);
+      window.localStorage.removeItem(ATTRIBUTION_LAST_TOUCH_KEY);
+    } catch {
+      // Registration succeeded; storage cleanup is best effort.
     }
 
     setInfo(regJson.inviteWarning ? (en ? `Account created. Invite-code note: ${regJson.inviteWarning}` : `账户创建成功。邀请码提示：${regJson.inviteWarning}`) : en ? "Account created. Signing in…" : "账户创建成功，正在登录。");

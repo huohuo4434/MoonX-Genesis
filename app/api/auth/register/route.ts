@@ -6,12 +6,25 @@ import { getFeatureFlags } from "@/lib/feature-flags";
 import { attachInviteOnRegister } from "@/lib/referral/service";
 import { ensureReferralInvite } from "@/lib/referral/store";
 import { updateUserAppMetadata } from "@/lib/auth/permissions";
+import { parseSignupAttributionTouch } from "@/lib/analytics/signup-attribution-core";
+
+const attributionSchema = z.object({
+  source: z.string().max(80),
+  medium: z.string().max(80).nullable(),
+  campaign: z.string().max(120).nullable(),
+  content: z.string().max(120).nullable(),
+  landingPath: z.string().max(200),
+  referrerHost: z.string().max(120).nullable(),
+  capturedAt: z.string().max(40),
+}).strict();
 
 const schema = z.object({
   email: z.string().email().max(200),
   password: z.string().min(8).max(200),
   inviteCode: z.string().max(32).optional().nullable(),
   deviceId: z.string().max(128).optional().nullable(),
+  attributionFirst: attributionSchema.optional().nullable(),
+  attributionLast: attributionSchema.optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
@@ -72,6 +85,8 @@ export async function POST(request: NextRequest) {
       referral_code: null,
       referred_by_code: null,
       referred_by_user_id: null,
+      acquisition_first_touch: parseSignupAttributionTouch(body.attributionFirst),
+      acquisition_last_touch: parseSignupAttributionTouch(body.attributionLast),
     },
   });
 

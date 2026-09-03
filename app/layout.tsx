@@ -13,6 +13,7 @@ import {
 import { siteConfig } from "@/lib/site-config";
 import { runResearchDataValidation } from "@/lib/research/run-validation";
 import { DeferredLegacyCompatibility } from "@/components/system/DeferredLegacyCompatibility";
+import { AttributionCapture } from "@/components/analytics/AttributionCapture";
 import "@/styles/globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <FooterShell />
           <MobileBottomNav />
           <DeferredLegacyCompatibility />
+          <AttributionCapture />
         </LocaleProvider>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
 </body>
