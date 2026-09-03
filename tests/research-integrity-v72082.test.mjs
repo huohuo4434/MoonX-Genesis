@@ -116,8 +116,10 @@ test("anonymous mobile homepage explains the product before member-only tools", 
   const mobile = read("components/home/HomeMobileAppView.tsx");
   assert.match(home, /<main id="moonx-view"/);
   assert.doesNotMatch(home, /id="daily-board"/);
+  assert.match(home, /五大市场每日方向研究/);
+  assert.doesNotMatch(home, /symbol: "(?:SPX|WTI|SHCOMP|HSTECH)"/);
   assert.match(mobile, /if \(!canViewDaily\)/);
-  assert.match(mobile, /九大市场每日方向研究/);
+  assert.match(mobile, /五大市场每日方向研究/);
   assert.match(mobile, /预测先锁定，结果再公开验证/);
   assert.match(mobile, /免费注册看今日/);
   assert.match(mobile, /查看公开验证/);

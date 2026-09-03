@@ -17,13 +17,9 @@ import { HomeIntradayLevelPair } from "@/components/home/HomeIntradayLevelPair";
 const CORE_MARKETS = [
   { symbol: "BTC", name: "比特币" },
   { symbol: "ETH", name: "以太坊" },
-  { symbol: "SPX", name: "标普500" },
   { symbol: "NDX", name: "纳斯达克100" },
-  { symbol: "WTI", name: "WTI原油" },
   { symbol: "GOLD", name: "黄金" },
   { symbol: "SILVER", name: "白银" },
-  { symbol: "SHCOMP", name: "上证A股" },
-  { symbol: "HSTECH", name: "恒生科技" },
 ] as const;
 
 type HomeDirection = "上涨" | "震荡上涨" | "先跌后涨" | "震荡" | "先涨后跌" | "震荡下跌" | "下跌";
@@ -197,7 +193,7 @@ async function HomeLandingData() {
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
                 <p className="text-sm font-medium tracking-[0.2em] text-violet-300">MOOX DAILY BOARD</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">九大市场每日方向研究</h1>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">五大市场每日方向研究</h1>
                 <p className="mt-3 max-w-3xl text-sm leading-7 text-white/62 sm:text-base">看方向，等确认，守失效。预测先锁定；命中、部分命中与未命中全部进入公开验证。</p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -233,7 +229,7 @@ async function HomeLandingData() {
               </div>
             ) : (
               <div className="mt-7 rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-5">
-                <div className="text-lg font-medium">{todayPayload?.allowed ? "今日预测暂未读到" : "登录后查看九大市场完整日度表"}</div>
+                <div className="text-lg font-medium">{todayPayload?.allowed ? "今日预测暂未读到" : "登录后查看五大市场完整日度表"}</div>
                 <p className="mt-2 text-sm leading-6 text-white/58">{todayPayload?.allowed ? "系统会继续自动重试；读取异常不会显示成已经发布的零条预测，也不会改写历史版本。" : todayAccessMessage}</p>
                 <div className="mt-4 flex flex-wrap items-center gap-4">{todayPayload?.allowed ? <Link href="/member/daily" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">打开会员日报重试</Link> : <Link href="/login?next=/" className="text-sm font-medium text-violet-200 underline decoration-violet-300/30 underline-offset-4">已有账户？登录查看</Link>}<Link href="/verification" className="text-sm text-white/55 underline decoration-white/20 underline-offset-4">查看历史验证</Link></div>
               </div>

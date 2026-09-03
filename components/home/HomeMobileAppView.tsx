@@ -35,7 +35,7 @@ export function HomeMobileAppView({
         <section className="px-4 pt-5">
           <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,.24),transparent_36%),linear-gradient(160deg,#15132a_0%,#090a10_66%)] p-5 shadow-[0_24px_70px_rgba(0,0,0,.35)]">
             <p className="text-[11px] font-medium tracking-[0.22em] text-violet-300">MOOX INTELLIGENCE</p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">九大市场每日方向研究</h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">五大市场每日方向研究</h1>
             <p className="mt-3 text-sm leading-6 text-white/65">看方向，等确认，守失效。预测先锁定，结果再公开验证。</p>
             <p className="mt-2 text-xs leading-5 text-white/42">{accessMessage}</p>
             <div className="mt-5 grid gap-2">
