@@ -23,7 +23,7 @@ test("track-record center exposes real stats, trend, asset and star views", () =
     "周度方向命中率",
     "月度路径命中率",
     "战绩趋势",
-    "按资产表现",
+    "现役重点标的表现（去重周样本）",
     "共识星级真实表现",
     "日度共识诊断（辅助复盘，默认收起）",
     "最近日验证",
