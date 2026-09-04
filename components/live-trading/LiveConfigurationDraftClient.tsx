@@ -19,6 +19,7 @@ export default function LiveConfigurationDraftClient() {
   const [mode, setMode] = useState("CONTINUOUS");
   const [days, setDays] = useState("30");
   const [budget, setBudget] = useState("");
+  const [leverage, setLeverage] = useState("2");
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [message, setMessage] = useState("展开读取已保存配置。保存只记录你的选择，不会启动、续期或更改当前预算。");
@@ -27,6 +28,7 @@ export default function LiveConfigurationDraftClient() {
     setMode(data.draft?.durationMode ?? "CONTINUOUS");
     setDays(String(data.draft?.durationDays ?? 30));
     setBudget(data.draft?.capitalUsdt ?? "");
+    setLeverage(String(data.draft?.leverage ?? 2));
   };
   const load = async () => {
     if (inFlight.current) return;
@@ -43,13 +45,13 @@ export default function LiveConfigurationDraftClient() {
   const save = async () => {
     if (inFlight.current || !view) return;
     let draft;
-    try { draft = parseLiveConfigurationDraft({ durationMode: mode, durationDays: mode === "FIXED" ? Number(days) : null, capitalUsdt: budget }); }
-    catch { setMessage("预算须为大于0的金额，最多两位小数；固定期限为1—36525天的整数。"); return; }
+    try { draft = parseLiveConfigurationDraft({ durationMode: mode, durationDays: mode === "FIXED" ? Number(days) : null, capitalUsdt: budget, leverage: Number(leverage) }); }
+    catch { setMessage("预算须为大于0的金额，最多两位小数；固定期限为1—36525天的整数；杠杆只能选1倍或2倍。"); return; }
     inFlight.current = true; setBusy(true);
     try {
       const response = await fetch("/api/admin/live-trading/configuration-draft", {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(15000),
-        body: JSON.stringify({ draft: { durationMode: draft.durationMode, durationDays: draft.durationDays, capitalUsdt: draft.capitalUsdt }, expectedRevision: view.revision, requestId: crypto.randomUUID() }),
+        body: JSON.stringify({ draft: { durationMode: draft.durationMode, durationDays: draft.durationDays, capitalUsdt: draft.capitalUsdt, leverage: draft.leverage }, expectedRevision: view.revision, requestId: crypto.randomUUID() }),
       });
       if (response.status === 409) throw new Error("CONFLICT");
       if (!response.ok) throw new Error("SAVE_FAILED");
@@ -72,8 +74,14 @@ export default function LiveConfigurationDraftClient() {
       </label>
       {mode === "FIXED" ? <label className="grid gap-2 text-sm">天数<input aria-label="运行天数" type="number" min="1" max="36525" step="1" className="rounded-lg bg-slate-900 p-3" value={days} onChange={(event) => setDays(event.target.value)} /></label> : null}
       <label className="grid gap-2 text-sm">拟用交易预算（USDT）<input aria-label="拟用交易预算" type="text" inputMode="decimal" placeholder="例如 500、1000 或 2000" className="rounded-lg bg-slate-900 p-3" value={budget} onChange={(event) => setBudget(event.target.value)} /></label>
+      <label className="grid gap-2 text-sm">最高杠杆
+        <select aria-label="最高杠杆" className="rounded-lg bg-slate-900 p-3" value={leverage} onChange={(event) => setLeverage(event.target.value)}>
+          <option value="1">1倍</option><option value="2">2倍</option>
+        </select>
+      </label>
       <button type="button" onClick={() => void save()} disabled={busy || !view} className="self-end rounded-xl bg-slate-700 p-3 disabled:opacity-50">保存待启用配置</button>
     </fieldset>
+    <p className="mt-3 text-xs text-slate-400">实际下单使用管理员上限、策略建议和系统2倍硬上限中的最低值；调整这里不会立即调用交易所。</p>
     <p role="status" className="mt-3 text-sm text-slate-300">{message}</p>
     {view?.savedAt ? <p className="mt-2 text-xs text-slate-400">保存时间：{new Date(view.savedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}（北京时间）。实际启用前仍须核对可用资金、未完成订单及历史风险记录。</p> : null}
   </details>;

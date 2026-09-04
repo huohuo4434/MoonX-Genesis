@@ -193,6 +193,28 @@ test("preview rejects an unexpected claim that renewal is enabled", async () => 
   assert.equal(ui.requests.length, 2);
   assert.ok(ui.requests.every((request) => request.method === undefined));
 });
+
+test("preview renders continuous, century-long and missing saved configuration without a default month", async () => {
+  for (const mode of ["CONTINUOUS", "FIXED", null]) {
+    const proposedConfiguration = mode ? {
+      applied: false, revision: "r1", savedAt: "2026-09-04T10:00:00Z",
+      draft: draftCore.parseLiveConfigurationDraft({ durationMode: mode, durationDays: mode === "FIXED" ? 36525 : null, capitalUsdt: "2345.67" }),
+    } : null;
+    const ui = harness([response(healthy()), response({
+      readOnly: true, writeAttempted: false, canRenew: false, checks: [], proposedConfiguration,
+      proposedDurationDays: mode === "FIXED" ? 36525 : null,
+      proposedEndsAt: mode === "FIXED" ? "2126-09-05T00:00:00Z" : null,
+    })]);
+    await ui.mount();
+    ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open: true } });
+    await settle();
+    assert.match(ui.text(), mode === "CONTINUOUS" ? /持续运行（无固定到期日）/ : mode === "FIXED" ? /36525天；预计截止/ : /未取得已保存配置/);
+    if (mode) assert.match(ui.text(), /2345.67/);
+    assert.doesNotMatch(ui.text(), /拟议续期30天/);
+    assert.match(ui.text(), /待启用，不是实际可用资金/);
+    assert.ok(ui.requests.every((request) => request.method === undefined));
+  }
+});
 test("malformed preview check entries do not crash the management page", async () => {
   for (const checks of [[null], ["bad"], [{ key: "x", label: {}, detail: "x", state: "OK" }]]) {
     const ui = harness([response(healthy()), response({ readOnly: true, writeAttempted: false, canRenew: false, checks })]);
@@ -209,7 +231,7 @@ const configurationCode = ts.transpileModule(configurationSource, { compilerOpti
   module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022,
 } }).outputText;
 const emptyConfiguration = { draft: null, revision: null, savedAt: null, applied: false };
-const savedConfiguration = { draft: draftCore.parseLiveConfigurationDraft({ durationMode: "CONTINUOUS", capitalUsdt: "2000" }), revision: "new-version", savedAt: "2026-09-05T00:00:00Z", applied: false };
+const savedConfiguration = { draft: draftCore.parseLiveConfigurationDraft({ durationMode: "CONTINUOUS", capitalUsdt: "2000", leverage: 1 }), revision: "new-version", savedAt: "2026-09-05T00:00:00Z", applied: false };
 const openConfiguration = async (ui) => { ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open: true } }); await settle(); };
 test("configuration form has no automatic write, and saves a continuous 2000U request only once", async () => {
   let release;
@@ -219,12 +241,13 @@ test("configuration form has no automatic write, and saves a continuous 2000U re
   await openConfiguration(ui);
   assert.equal(ui.requests.length, 1); assert.equal(ui.requests[0].method, undefined);
   ui.nodes(ui.render(), "input")[0].props.onChange({ target: { value: "2000" } });
+  ui.nodes(ui.render(), "select")[1].props.onChange({ target: { value: "1" } });
   const click = ui.button("保存待启用配置").props.onClick;
   click(); click();
   assert.equal(ui.requests.length, 2);
   assert.equal(ui.button("保存待启用配置").props.disabled, true);
   assert.deepEqual(JSON.parse(ui.requests[1].body), {
-    draft: { durationMode: "CONTINUOUS", durationDays: null, capitalUsdt: "2000.00" },
+    draft: { durationMode: "CONTINUOUS", durationDays: null, capitalUsdt: "2000.00", leverage: 1 },
     expectedRevision: null, requestId: "00000000-0000-4000-8000-000000000001",
   });
   release(response(savedConfiguration)); await settle();

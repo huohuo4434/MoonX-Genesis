@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveUnifiedLiveActor, isUnifiedLiveAdmin } from "@/lib/trading-signals/unified-live-auth";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
 import { buildLiveRenewalPreview, type LiveRenewalPreviewInput } from "@/lib/trading-signals/live-renewal-preview-core";
+import { getLiveConfigurationDraft } from "@/lib/trading-signals/live-configuration-draft-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -42,7 +43,8 @@ export async function GET(request: NextRequest) {
   } catch {
     // Unknown evidence is not an empty account. Never expose raw DB diagnostics.
   }
+  const configuration = await getLiveConfigurationDraft().catch(() => null);
   return NextResponse.json(buildLiveRenewalPreview({
-    ...evidence, dailyLossLimit: environment.liveDailyLossUsdt, drawdownLimit: environment.liveMaxDrawdownUsdt,
+    ...evidence, configuration, dailyLossLimit: environment.liveDailyLossUsdt, drawdownLimit: environment.liveMaxDrawdownUsdt,
   }, new Date()), { headers: { "Cache-Control": "no-store" } });
 }

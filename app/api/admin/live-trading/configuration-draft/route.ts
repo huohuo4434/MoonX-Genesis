@@ -25,12 +25,14 @@ export async function POST(request: NextRequest) {
     const payload = JSON.parse(text);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)
       || Object.keys(payload).some((key) => !["draft", "expectedRevision", "requestId"].includes(key))) throw new Error("INVALID_CONFIGURATION");
+    if (!payload.draft || typeof payload.draft !== "object" || Array.isArray(payload.draft)
+      || !("leverage" in payload.draft)) throw new Error("INVALID_CONFIGURATION");
     const saved = await saveLiveConfigurationDraft({ draft: payload.draft, expectedRevision: payload.expectedRevision, requestId: payload.requestId, actorId: actor.id });
     return NextResponse.json(saved, { headers });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === "CONFIGURATION_CONFLICT") return NextResponse.json({ error: code }, { status: 409, headers });
-    if (/^INVALID_(CONFIGURATION|BUDGET|DURATION)$/.test(code) || error instanceof SyntaxError) return NextResponse.json({ error: "INVALID_CONFIGURATION" }, { status: 400, headers });
+    if (/^INVALID_(CONFIGURATION|BUDGET|DURATION|LEVERAGE)$/.test(code) || error instanceof SyntaxError) return NextResponse.json({ error: "INVALID_CONFIGURATION" }, { status: 400, headers });
     return NextResponse.json({ error: "CONFIGURATION_UNAVAILABLE" }, { status: 503, headers });
   }
 }

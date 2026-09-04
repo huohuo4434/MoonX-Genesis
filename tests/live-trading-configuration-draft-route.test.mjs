@@ -20,6 +20,7 @@ function harness(admin = true, failure = "") {
   return { api: exports, reads: () => reads, writes: () => writes };
 }
 const request = (origin = "https://mooxintel.com", body = "{}") => ({ url: "https://mooxintel.com/api/admin/live-trading/configuration-draft", headers: new Headers({ origin, "content-type": "application/json" }), text: async () => body });
+const validBody = JSON.stringify({ draft: { durationMode: "CONTINUOUS", durationDays: null, capitalUsdt: "1000.00", leverage: 2 }, expectedRevision: null, requestId: "00000000-0000-4000-8000-000000000001" });
 test("authorization and same-origin JSON required before draft persistence", async () => {
   const denied = harness(false);
   assert.equal((await denied.api.GET(request())).status, 404);
@@ -31,14 +32,16 @@ test("authorization and same-origin JSON required before draft persistence", asy
   assert.equal((await h.api.POST(request("https://mooxintel.com", "x".repeat(4097)))).status, 400);
   assert.equal((await h.api.POST(request("https://mooxintel.com", '{"mode":"LIVE"}'))).status, 400);
   assert.equal(h.writes(), 0);
-  assert.equal((await h.api.POST(request())).data.applied, false);
+  assert.equal((await h.api.POST(request("https://mooxintel.com", validBody))).data.applied, false);
+  assert.equal(h.writes(), 1);
+  assert.equal((await h.api.POST(request("https://mooxintel.com", JSON.stringify({ draft: { durationMode: "CONTINUOUS", capitalUsdt: "1000.00" }, expectedRevision: null, requestId: "00000000-0000-4000-8000-000000000001" })))).status, 400);
   assert.equal(h.writes(), 1);
 });
 test("failures are safe, no raw DB details, reads cannot save or start", async () => {
   const h = harness(); const read = await h.api.GET(request());
   assert.equal(h.writes(), 0); assert.equal(read.headers["Cache-Control"], "no-store");
   for (const [error, status] of [["CONFIGURATION_CONFLICT", 409], ["INVALID_BUDGET", 400], ["secret database connection", 503]]) {
-    const result = await harness(true, error).api.POST(request());
+    const result = await harness(true, error).api.POST(request("https://mooxintel.com", validBody));
     assert.equal(result.status, status); assert.doesNotMatch(JSON.stringify(result), /secret database/);
   }
   assert.doesNotMatch(source, /demo-client|unified-live-store|syncBitget|setUnifiedLiveMode|processBitget/);

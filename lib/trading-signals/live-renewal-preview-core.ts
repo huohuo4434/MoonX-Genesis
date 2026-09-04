@@ -1,3 +1,5 @@
+import { parseLiveConfigurationDraft, type LiveConfigurationDraftView } from "./live-configuration-draft-core";
+
 type RecordValue = Record<string, unknown>;
 export type LiveRenewalPreviewInput = {
   experiment?: RecordValue | null;
@@ -7,6 +9,7 @@ export type LiveRenewalPreviewInput = {
   failedExecutions?: unknown;
   dailyLossLimit?: unknown;
   drawdownLimit?: unknown;
+  configuration?: LiveConfigurationDraftView | null;
 };
 function record(value: unknown): RecordValue {
   return value && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : {};
@@ -59,6 +62,22 @@ export function buildLiveRenewalPreview(input: LiveRenewalPreviewInput, now = ne
   const pending = count(input.pendingExecutions), failed = count(input.failedExecutions);
   const checks: Array<{ key: string; label: string; state: "OK" | "BLOCKED" | "UNKNOWN"; detail: string }> = [];
   const add = (key: string, label: string, state: "OK" | "BLOCKED" | "UNKNOWN", detail: string) => checks.push({ key, label, state, detail });
+  let proposedConfiguration: LiveConfigurationDraftView | null = null;
+  try {
+    const saved = input.configuration;
+    const savedAt = date(saved?.savedAt);
+    if (saved?.applied === false && saved.draft?.state === "PENDING" && saved.draft.schemaVersion === 1
+      && typeof saved.revision === "string" && saved.revision.trim() && savedAt !== null && savedAt <= nowMs) {
+      const draft = parseLiveConfigurationDraft({ durationMode: saved.draft.durationMode, durationDays: saved.draft.durationDays, capitalUsdt: saved.draft.capitalUsdt, leverage: saved.draft.leverage });
+      proposedConfiguration = { draft, revision: saved.revision, savedAt: iso(savedAt), applied: false };
+    }
+  } catch { /* Invalid saved settings are unknown, never default 30 days or 1000U. */ }
+  const proposed = proposedConfiguration?.draft;
+  const proposedEndMs = proposed?.durationMode === "FIXED" ? nowMs + proposed.durationDays! * 86_400_000 : null;
+  const proposedEndsAt = proposedEndMs !== null && Number.isFinite(new Date(proposedEndMs).getTime()) ? iso(proposedEndMs) : null;
+  add("configuration", "待启用期限与预算", proposed ? "OK" : "UNKNOWN", proposed
+    ? `已保存请求：${proposed.durationMode === "CONTINUOUS" ? "持续运行，无固定截止日期" : `${proposed.durationDays}天`}；预算 ${proposed.capitalUsdt} USDT；杠杆上限 ${proposed.leverage}倍。仅确认请求格式，不代表资金足够或已启用。`
+    : "未取得有效的已保存配置，请先保存期限与预算；不默认续期30天，也不默认1000U。");
   const expired = start !== null && end !== null && start < end && end <= nowMs;
   add("period", "原实验期限", expired && experiment.status === "COMPLETED" ? "OK" : "BLOCKED",
     expired && experiment.status === "COMPLETED" ? "记录为已结束且期限已过；仍需核查结束原因，这不代表已获准续期。" : "原实验状态或期限不满足结束复核条件，需先核查。");
@@ -85,7 +104,8 @@ export function buildLiveRenewalPreview(input: LiveRenewalPreviewInput, now = ne
     readOnly: true as const, writeAttempted: false as const, canRenew: false as const,
     generatedAt: now.toISOString(), accountCheckedAt: iso(checked), heartbeatAt: iso(heartbeat),
     originalStartedAt: iso(start), originalEndsAt: iso(end),
-    proposedDurationDays: 30, proposedEndsAt: new Date(nowMs + 30 * 86_400_000).toISOString(),
+    proposedConfiguration,
+    proposedDurationDays: proposed?.durationDays ?? null, proposedEndsAt,
     initialEquity: initial, currentEquity: current, peakEquity: peak, historicalMaxDrawdown: historicalDrawdown,
     cumulativePnl: currentFresh && validInitial ? current! - initial! : null,
     checks,

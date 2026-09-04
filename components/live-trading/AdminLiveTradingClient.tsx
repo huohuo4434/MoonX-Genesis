@@ -66,7 +66,7 @@ export default function AdminLiveTradingClient() {
         || !result.checks.every((check) => check && typeof check === "object" && typeof check.key === "string"
           && typeof check.label === "string" && typeof check.detail === "string" && ["OK", "BLOCKED", "UNKNOWN"].includes(check.state))) throw new Error("INVALID_PREVIEW");
       setPreview(result);
-      setPreviewMessage("本次仅检查，未修改期限。拟议续期30天，不清零原本金、盈亏或回撤；尚未生效。");
+      setPreviewMessage("本次仅检查已保存的配置，未修改实盘期限或预算，不清零原本金、盈亏或回撤；尚未生效。");
     } catch {
       setPreviewMessage("续期预检读取失败，不能据此判断可以恢复。可收起后重新展开检查。");
     } finally {
@@ -240,7 +240,10 @@ export default function AdminLiveTradingClient() {
           <p className="mt-3 text-sm leading-6 text-slate-400">
             读取时间：{displayTime(preview.generatedAt)}（北京时间）<br />
             原实验：{displayTime(preview.originalStartedAt)} — {displayTime(preview.originalEndsAt)}<br />
-            拟议截止时间：{displayTime(preview.proposedEndsAt)}（仅按本次读取时刻估算，尚未确认）<br />
+            拟议期限：{preview.proposedConfiguration?.draft?.durationMode === "CONTINUOUS" ? "持续运行（无固定到期日）" : preview.proposedConfiguration?.draft?.durationMode === "FIXED" ? `${preview.proposedDurationDays}天；预计截止 ${displayTime(preview.proposedEndsAt)}` : "未取得已保存配置"}<br />
+            拟用预算：{preview.proposedConfiguration?.draft?.capitalUsdt ?? "未取得"} USDT（待启用，不是实际可用资金）<br />
+            拟用最高杠杆：{preview.proposedConfiguration?.draft?.leverage ?? "未取得"}倍（实际执行仍取策略建议和系统上限中的较小值）<br />
+            配置保存时间：{displayTime(preview.proposedConfiguration?.savedAt ?? null)}；修改配置后请重新展开检查，固定期限按读取时刻估算。<br />
             账户快照：{displayTime(preview.accountCheckedAt)}；服务器心跳：{displayTime(preview.heartbeatAt)}
           </p>
           <ul className="mt-4 space-y-3">

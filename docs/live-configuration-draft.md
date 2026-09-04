@@ -2,7 +2,9 @@
 
 The administrator page offers CONTINUOUS (no proposed calendar expiry) or FIXED
 (1–36525 days) and a positive USDT budget, with at most two decimal places and
-an exact, safe-integer cent representation. Neither is fixed at 30 days/1000U
+an exact, safe-integer cent representation. It also offers a 1x or 2x maximum
+leverage; 2x remains the official hard ceiling and older drafts read as the
+existing 2x default. Neither duration nor budget is fixed at 30 days/1000U
 in this **pending configuration**.
 
 GET/POST `/api/admin/live-trading/configuration-draft` require an administrator;
@@ -34,3 +36,11 @@ and existing risk constraints; it is not a request to reset them. Current
 Rollback: revert this code commit. Existing events remain for audit and are
 ignored by execution. Do not delete them or overwrite the original experiment.
 Tests: live-trading-configuration-draft*.test.*, admin-live-two-buttons.test.mjs.
+
+The read-only renewal preview now reads this saved revision instead of proposing
+30 days unconditionally. CONTINUOUS has no proposed end date; FIXED uses the
+saved 1–36525 days. The requested USDT amount is shown separately from equity.
+Missing, invalid, future-dated or unreadable settings produce UNKNOWN, not a
+default duration or budget. The configuration row's OK confirms format only;
+canRenew remains false. Reopen the preview after editing settings to refresh
+its dated snapshot. This preview change still does not implement activation.

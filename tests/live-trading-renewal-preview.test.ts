@@ -16,12 +16,43 @@ test("healthy-looking snapshots remain read-only and never authorize renewal", (
   const result = buildLiveRenewalPreview(input, now);
   assert.equal(result.canRenew, false); assert.equal(result.writeAttempted, false); assert.equal(result.readOnly, true);
   assert.equal(result.initialEquity, 1000); assert.equal(result.peakEquity, 1100); assert.equal(result.historicalMaxDrawdown, 300);
-  assert.equal(result.cumulativePnl, 50); assert.equal(result.proposedEndsAt, "2026-10-04T15:00:00.000Z");
+  assert.equal(result.cumulativePnl, 50); assert.equal(result.proposedEndsAt, null);
   assert.equal(check(input, "exchange").state, "UNKNOWN"); assert.equal(check(input, "renewal").state, "BLOCKED");
   assert.equal(check(input, "positions").state, "UNKNOWN", "legacy zero protection count does not prove an empty exchange account");
   assert.match(check(input, "drawdown").detail, /50.00 USDT/);
   assert.match(check(input, "daily").detail, /-30.00 USDT/);
   assert.equal(JSON.stringify(input), before);
+});
+
+test("preview follows saved continuous or century-long settings without resetting risk or authorizing execution", () => {
+  for (const durationDays of [null, 1, 36525]) {
+    const input = evidence();
+    input.configuration = {
+      applied: false, revision: "saved-revision", savedAt: now.toISOString(),
+      draft: { state: "PENDING", schemaVersion: 1, durationMode: durationDays === null ? "CONTINUOUS" : "FIXED", durationDays, capitalUsdt: "2345.67", leverage: 1 },
+    };
+    const before = JSON.stringify(input);
+    const result = buildLiveRenewalPreview(input, now);
+    assert.equal(result.proposedDurationDays, durationDays);
+    assert.equal(result.proposedEndsAt, durationDays === null ? null : new Date(now.getTime() + durationDays * 86400000).toISOString());
+    assert.equal(result.proposedConfiguration?.draft?.capitalUsdt, "2345.67");
+    assert.equal(result.proposedConfiguration?.draft?.leverage, 1);
+    assert.equal(result.proposedConfiguration?.revision, "saved-revision");
+    assert.equal(result.initialEquity, 1000); assert.equal(result.peakEquity, 1100);
+    assert.equal(result.historicalMaxDrawdown, 300); assert.equal(result.canRenew, false);
+    assert.equal(result.writeAttempted, false); assert.equal(JSON.stringify(input), before);
+  }
+});
+
+test("missing or corrupt settings never create a default budget or duration", () => {
+  const valid = { applied: false, revision: "r1", savedAt: now.toISOString(), draft: { state: "PENDING", schemaVersion: 1, durationMode: "CONTINUOUS", durationDays: null, capitalUsdt: "500.00", leverage: 2 as const } };
+  for (const configuration of [null, undefined, {}, { ...valid, applied: true }, { ...valid, revision: "" }, { ...valid, savedAt: "2027-01-01" }, { ...valid, draft: { ...valid.draft, capitalUsdt: "NaN" } }, { ...valid, draft: { ...valid.draft, durationDays: 30 } }, { ...valid, draft: { ...valid.draft, leverage: 3 } }]) {
+    const input = evidence(); input.configuration = configuration as LiveRenewalPreviewInput["configuration"];
+    const result = buildLiveRenewalPreview(input, now);
+    assert.equal(result.proposedConfiguration, null); assert.equal(result.proposedDurationDays, null);
+    assert.equal(result.proposedEndsAt, null); assert.equal(check(input, "configuration").state, "UNKNOWN");
+    assert.equal(result.canRenew, false);
+  }
 });
 test("legacy protection zero remains unknown, while positive exposure is blocked", () => {
   const input = evidence();
