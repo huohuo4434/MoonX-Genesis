@@ -73,12 +73,9 @@ export default async function MemberSectorResonancePage({
       value: item.label,
       tone: item.status === "HIGH" ? "positive" : item.status === "DIVERGENT" ? "turn" : item.status === "MEDIUM" ? "neutral" : "muted",
     }));
-    const strongerGroups = summaries.filter((item) => (item.status === "HIGH" || item.status === "MEDIUM") && item.bull > item.bear).map((item) => item.group);
-    const weakerGroups = summaries.filter((item) => (item.status === "HIGH" || item.status === "MEDIUM") && item.bear > item.bull).map((item) => item.group);
-    const divergentGroups = summaries.filter((item) => item.status === "DIVERGENT").map((item) => item.group);
     return {
       title: `${index === 0 ? "本周板块结论" : "下周板块预报"}｜${week.label}`,
-      conclusion: `相对偏强：${strongerGroups.length ? strongerGroups.join("、") : "暂无明确板块"}；相对偏弱：${weakerGroups.length ? weakerGroups.join("、") : "暂无明确板块"}；明显分化：${divergentGroups.length ? divergentGroups.join("、") : "暂无"}。${index === 0 ? "结合本周剩余交易日确认。" : "提前看方向，入场仍等下周关键日与价格结构。"}`,
+      conclusion: index === 0 ? "看各板块强弱，结合关键日应对。" : "提前看方向，入场等走势确认。",
       facts,
     };
   });
@@ -100,7 +97,6 @@ export default async function MemberSectorResonancePage({
                 title={panel.title}
                 conclusion={panel.conclusion}
                 facts={panel.facts}
-                actions={["强共振只提高参考价值，不代表板块内每个标的涨幅相同。", "出现分化时不追板块标签，回到标的周卦、关键日和失效条件。"]}
               />)}
             </div>
             <Link href="/member/annual-outlook" className="mb-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[.04] px-5 py-4 text-sm text-amber-100/70"><span><b className="text-white">先看2026年度路线</b><span className="ml-2 text-white/40">9—12月候选与高低点候选月</span></span><span>进入 →</span></Link>
@@ -123,12 +119,9 @@ export default async function MemberSectorResonancePage({
                       <h3 className="font-semibold text-white">{row.asset}</h3>
                       <span className="rounded-full border border-amber-300/20 px-2.5 py-1 text-[10px] text-amber-100/70">{row.status}</span>
                     </div>
-                    <p className="mt-3 text-xs leading-6 text-white/48"><b className="text-white/68">易老师判断：</b>{row.outlook}</p>
-                    <p className="mt-2 text-xs leading-6 text-white/48"><b className="text-white/68">走势节奏：</b>{row.rhythm}</p>
-                    <p className="mt-2 text-xs leading-6 text-amber-100/65"><b>怎么看、怎么应对：</b>{row.action}</p>
-                    {row.levels?.length ? <div className="mt-3 flex flex-wrap gap-1.5">
-                      {row.levels.map((level) => <span key={level} className="rounded-full border border-cyan-300/15 bg-cyan-300/[.05] px-2.5 py-1 text-[10px] text-cyan-100/65">{level}</span>)}
-                    </div> : null}
+                    <p className="mt-3 text-sm leading-6 text-white/80">{row.outlook}</p>
+                    <p className="mt-2 text-xs leading-5 text-white/55"><b>时间：</b>{row.rhythm}</p>
+                    <p className="mt-2 text-xs leading-5 text-amber-100/75"><b>应对：</b>{row.action}</p>
                   </article>
                 ))}
               </div>

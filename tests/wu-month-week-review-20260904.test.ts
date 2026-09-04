@@ -61,8 +61,10 @@ test("current member view is gated and wired to latest review without private ev
   const component = readFileSync("components/member/MemberSeptemberRotationReport.tsx", "utf8");
   assert.match(page, /memberSectorOutlook as crossCheck/);
   assert.ok(page.indexOf('gate.status === "MEMBERSHIP_REQUIRED"') < page.indexOf("{crossCheck.title}"));
-  assert.match(page, /易老师判断/);
-  assert.match(component, /本轮维持/);
+  assert.match(page, /row\.outlook/);
+  assert.match(page, /应对：/);
+  assert.match(component, /共振程度，不是胜率/);
+  assert.match(component, /item\.index.*item\.max/);
   assert.match(component, /Updated Sep 4 · V6/);
   assert.doesNotMatch(`${page}${component}`, /source-audit-20260904-wu-qimen|submitOrder|createOrder/);
   assert.doesNotMatch(JSON.stringify({ report, review }), /吴老师|吳昌燁|丙午|金兔子|C:\\Users|714DF9A4/);

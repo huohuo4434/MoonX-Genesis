@@ -9,8 +9,8 @@ test("member copy states an outlook without source-processing narration in eithe
   assert.doesNotMatch(JSON.stringify({ view, sector }), /新资料|月度讲座|本轮复核|本批|新奇门|同一来源|来源继续|来源偏好|口头|直播|吴老师|丙午|金兔子|new evidence|monthly talk|live Qimen|cross-check|verbal|sourceRef|sourceFamily|internalSource/i);
   const page = readFileSync("app/member/sector-resonance/page.tsx", "utf8");
   const component = readFileSync("components/member/MemberSeptemberRotationReport.tsx", "utf8");
-  assert.match(page, /易老师判断：/);
-  assert.match(page, /走势节奏：/);
+  assert.match(page, /时间：/);
+  assert.match(page, /应对：/);
   assert.doesNotMatch(`${page}${component}`, /原判断／覆盖状态|本轮复核|RESEARCH CROSS-CHECK|本批资料|cyclePattern|\.revisionReason/);
   assert.match(component, /memberSeptemberOutlook as report/);
   const board = readFileSync("components/conviction/SectorResonanceBoard.tsx", "utf8");
@@ -31,9 +31,24 @@ test("editorial view preserves coverage, directions, risk windows, confidence an
   }
   assert.ok(view.riskItems.every((r) => r.usageZh && r.usageEn));
   assert.match(view.assets[0].conclusionZh, /持续性尚不确定/);
-  assert.match(view.assets[3].conclusionZh, /短期强弱与反弹起点仍有不确定性/);
-  assert.match(sector.rows[5].action, /不恢复日内、每日、每周预测或自动交易/);
-  assert.match(sector.rows[7].outlook, /已退出正式日周预测/);
+  assert.match(view.assets[3].conclusionZh, /月底反弹待确认/);
+  assert.match(sector.rows[5].action, /不做日周交易/);
+  assert.match(sector.rows[7].outlook, /不做日周预测/);
+});
+
+test("member scan view has bounded copy, with optional details closed by default", () => {
+  for (const row of sector.rows) {
+    assert.ok(row.outlook.length + row.rhythm.length + row.action.length <= 110, row.asset);
+  }
+  for (const action of view.executionZh) assert.ok(action.length <= 50);
+  const component = readFileSync("components/member/MemberSeptemberRotationReport.tsx", "utf8");
+  assert.match(component, /<details[^>]*data-risk-details/);
+  assert.match(component, /<details[^>]*data-other-outlooks/);
+  assert.doesNotMatch(component, /<details[^>]*\bopen\b|item\.boundary|item\.reason/);
+  assert.match(component, /asset\.invalidationZh/);
+  const weekly = readFileSync("components/conviction/SectorResonanceBoard.tsx", "utf8");
+  const daily = readFileSync("components/conviction/DailySectorResonanceBoard.tsx", "utf8");
+  assert.doesNotMatch(weekly + daily, /六爻详解顺序|首屏不再|不冒充|不虚构|不能越级|不从长周期|row\.longCycle/);
 });
 
 test("internal evidence and published historical copy remain available unchanged", () => {

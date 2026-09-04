@@ -46,8 +46,8 @@ test("板块页面和会员频道都恢复关键日入口并明确展示下周",
   const page = readFileSync(join(process.cwd(), "app/member/sector-resonance/page.tsx"), "utf8");
   const nav = readFileSync(join(process.cwd(), "config/member-channel-navigation.ts"), "utf8");
   assert.match(page, /下周板块预报/);
-  assert.match(page, /相对偏弱/);
-  assert.match(page, /\(item\.status === "HIGH" \|\| item\.status === "MEDIUM"\) && item\.bull > item\.bear/);
+  assert.match(page, /value: item\.label/);
+  assert.match(page, /facts=\{panel\.facts\}/);
   assert.match(page, /本周＋下周关键日/);
   assert.match(page, /href="\/member\/key-dates"/);
   assert.match(nav, /memberNav\.keyDates/);

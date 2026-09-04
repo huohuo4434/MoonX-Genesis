@@ -24,17 +24,6 @@ function summaryTone(status: SectorWeekSummary["status"]): string {
   return "border-white/10 bg-white/[.025] text-white/40";
 }
 
-function groupDescription(group: SectorResonanceGroup): string {
-  switch (group) {
-    case "半导体 / AI基础设施": return "把存储、光通信、芯片与AI算力基础设施对齐，重点看同一周是否同时转强或转弱。";
-    case "太空与高波动成长": return "高弹性资产只比较方向和先后顺序，不假设涨跌幅相同。";
-    case "大型科技": return "观察权重科技是否同步，避免用一只股票代替整个科技板块。";
-    case "加密资产": return "BTC、ETH、SOL、HYPE同周对齐；见高时间允许错开，不强行写成同一天。";
-    case "美股指数": return "标普与纳指允许分化；标普偏市场宽度，纳指偏科技权重。";
-    case "贵金属与能源": return "黄金、白银、WTI并排观察避险与通胀交易，但不把不同商品硬判为同涨同跌。";
-  }
-}
-
 function Cell({ cell }: { cell: SectorResonanceCell }) {
   return (
     <div className="min-w-[112px]" title={cell.summary}>
@@ -78,7 +67,7 @@ function HexagramDetailCard({ title, detail }: { title: string; detail: MemberLi
   if (!detail) {
     return <article className="rounded-2xl border border-dashed border-white/10 bg-white/[.015] p-4">
       <h4 className="text-sm font-semibold text-white/55">{title}</h4>
-      <p className="mt-3 text-xs leading-6 text-white/32">该周期卦象尚未完整录入，不用其他周期结论代替。</p>
+      <p className="mt-3 text-xs leading-6 text-white/32">该周期暂无完整卦象。</p>
     </article>;
   }
   return <article className="rounded-2xl border border-white/[.08] bg-black/25 p-4 sm:p-5">
@@ -106,7 +95,7 @@ function HexagramDetailCard({ title, detail }: { title: string; detail: MemberLi
       <div className="grid gap-2 sm:grid-cols-2">
         {detail.relations.map((item) => <div key={`${item.label}-${item.evidence}`} className={`rounded-xl border p-3 text-[11px] leading-5 ${relationTone(item.kind)}`}><b className="block">{item.label}</b><span className="mt-1 block opacity-65">{item.evidence}</span></div>)}
       </div>
-    </div> : <p className="mt-4 rounded-xl border border-dashed border-amber-300/15 px-3 py-2 text-[11px] leading-5 text-amber-100/45">当前原始记录没有足够的六亲旺衰细节，暂不补造生克关系。</p>}
+    </div> : null}
     {detail.keyMoments.length ? <div className="mt-4">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-white/35">关键时间</p>
       <div className="flex flex-wrap gap-2">{detail.keyMoments.map((item) => <div key={`${item.label}-${item.sourceLabel}`} className={`rounded-xl border px-3 py-2 text-[11px] ${momentTone(item.tone)}`}><b>{item.label}</b><span className="ml-2 opacity-55">{item.sourceLabel}</span>{item.note ? <p className="mt-1 max-w-xl leading-5 opacity-65">{item.note}</p> : null}</div>)}</div>
@@ -126,7 +115,7 @@ function AssetLiuyaoDossier({ row, weeks }: { row: SectorResonanceRow; weeks: Se
         <HexagramDetailCard title="月卦 · 月内路径与关键周" detail={row.monthlyLiuyaoDetail} />
       </div>
       <div>
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h4 className="text-sm font-semibold text-white">逐周卦象</h4><p className="mt-1 text-[11px] text-white/35">完整周卦直接展示；月卦拆分路径会明确标注，不冒充独立周卦。</p></div></div>
+        <h4 className="mb-3 text-sm font-semibold text-white">逐周卦象</h4>
         <div className="grid gap-4 xl:grid-cols-2">
           {row.cells.map((cell, index) => <HexagramDetailCard key={`${row.assetId}-${weeks[index]!.start}-detail`} title={`${weeks[index]!.label} · ${cell.sourceLabel}`} detail={cell.sourceKind === "MISSING" ? null : cell.liuyaoDetail} />)}
         </div>
@@ -161,7 +150,6 @@ function GroupTable({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">{group}</h2>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-white/42">{groupDescription(group)}</p>
           </div>
           <div className="flex flex-wrap gap-2 text-[11px]">
             <span className={`rounded-full border px-2.5 py-1 ${summaryTone(current.status)}`}>本周 {current.label}</span>
@@ -193,7 +181,7 @@ function GroupTable({
                 {row.cells.map((cell, index) => <td key={`${row.assetId}-${weeks[index]!.start}`} className="px-3 py-3.5"><Cell cell={cell} /></td>)}
                 <td className="px-3 py-3.5 text-xs leading-5 text-white/46">
                   <span className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${directionTone(row.annualDirection ?? "待补")}`}>{row.annualDirection ?? "年卦待补"}</span>
-                  <p>{row.annualMonthPath}</p>
+                  <details><summary className="cursor-pointer py-1">年度走势</summary><p>{row.annualMonthPath}</p></details>
                   {(row.annualHighMonths.length || row.annualLowMonths.length) ? <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
                     {row.annualHighMonths.length ? <span className="rounded-full border border-rose-300/20 bg-rose-300/[.06] px-2 py-1 text-rose-100/75">高点候选 {row.annualHighMonths.join("、")}</span> : null}
                     {row.annualLowMonths.length ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[.06] px-2 py-1 text-cyan-100/75">低点候选 {row.annualLowMonths.join("、")}</span> : null}
@@ -202,7 +190,6 @@ function GroupTable({
                     <p className="mb-1 text-[10px] font-semibold text-white/38">月内关键周</p>
                     <div className="flex flex-wrap gap-1.5">{row.monthKeyWeeks.map((item) => <span key={`${item.weekLabel}-${item.label}`} className={`rounded-lg border px-2 py-1 text-[10px] ${keyWeekTone(item.tone)}`}>{item.weekLabel} · {item.label}</span>)}</div>
                   </div> : null}
-                  <p className="mt-2 text-[10px] text-white/30">{row.longCycle}</p>
                 </td>
               </tr>
             ))}
@@ -210,7 +197,7 @@ function GroupTable({
         </table>
       </div>
       <div id={detailAnchor} className="space-y-3 border-t border-white/[.055] bg-black/15 p-3 sm:p-4">
-        <div className="mb-3 px-1"><h3 className="text-sm font-semibold text-white">卦象完整解读</h3><p className="mt-1 text-[11px] leading-5 text-white/35">按标的展开查看年卦、月卦、逐周卦象、六亲旺衰、生克关系和关键时间。</p></div>
+        <h3 className="mb-3 px-1 text-sm font-semibold text-white">按标的查看详情</h3>
         <div className="flex flex-wrap gap-2">
           {rows.map((row) => <Link
             key={`${row.assetId}-detail-link`}
@@ -219,11 +206,7 @@ function GroupTable({
             className={`rounded-full border px-3 py-1.5 text-[11px] transition ${selectedAssetId === row.assetId ? "border-violet-300/35 bg-violet-300/[.1] text-violet-100" : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/70"}`}
           >{row.name}</Link>)}
         </div>
-        {selectedRow
-          ? <AssetLiuyaoDossier row={selectedRow} weeks={weeks} />
-          : !selectedAssetId
-            ? <p className="rounded-xl border border-dashed border-white/10 px-4 py-3 text-xs text-white/38">点击上方标的后才加载完整卦象，首屏不再一次传输全部详情。</p>
-            : null}
+        {selectedRow ? <AssetLiuyaoDossier row={selectedRow} weeks={weeks} /> : null}
       </div>
       <footer className="grid gap-2 border-t border-white/[.05] bg-white/[.015] px-4 py-3 text-[10px] text-white/35 sm:grid-cols-3">
         {weeks.map((week, index) => {
@@ -261,7 +244,6 @@ export function SectorResonanceBoard({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[.2em] text-cyan-100/55">SECTOR RESONANCE</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">周度板块共振</h1>
-            <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">先看年度关键月，再看月内关键周和每周关键日。绿色偏多、红色偏空、黄色震荡；只有已正式锁定的周卦或明确覆盖该周的阶段路线参与板块共振计数，年度和月度背景只补充上下文，不冒充周预测。</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/42">资料截至 {asOf}</span>
         </div>
@@ -288,9 +270,6 @@ export function SectorResonanceBoard({
           <span><i className="mr-1.5 inline-block h-2 w-2 rounded-full bg-cyan-300" />周内路径转折窗</span>
           <span className="text-amber-100/40">“月度 / 上级周期背景”不计入共振强度</span>
         </div>
-        <div className="mt-4 rounded-2xl border border-violet-300/12 bg-violet-300/[.035] px-4 py-3 text-[11px] leading-5 text-violet-100/52">
-          六爻详解顺序：先看财爻旺衰，再看子孙能否生财、兄弟是否克财、官鬼与父母形成的风险或消息作用，最后结合世应、动变、伏神、空破墓绝及目标月令／日辰判断兑现时间；不凭卦名直接判涨跌。
-        </div>
       </section>
 
 
@@ -306,9 +285,6 @@ export function SectorResonanceBoard({
         />
       ))}
 
-      <section className="rounded-2xl border border-amber-300/15 bg-amber-300/[.035] p-4 text-xs leading-6 text-amber-100/55">
-        共振只提高“方向参考价值”，不代表各资产会在同一天见顶、同幅度上涨或可以直接下单。紫色关键日保留六爻、奇门、八字、技术或人工录入的真实来源；青色是周卦“先涨后跌／先跌后涨”路径的转折观察窗；灰色日干支只做软校准。三者都不能越级改变已锁定周方向。没有完整周卦的格子标为上级周期背景或待补，不从长周期强行制造周结论。
-      </section>
     </div>
   );
 }

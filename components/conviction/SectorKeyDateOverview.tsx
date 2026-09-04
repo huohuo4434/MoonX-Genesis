@@ -24,7 +24,7 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
       <div>
         <p className="text-xs font-semibold uppercase tracking-[.2em] text-amber-100/55">KEY-DATE RADAR</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">本周＋下周关键日</h2>
-        <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">月关键日优先，周关键日细化节奏；只展示板块页现有重点标的。不能确认高点或低点的日期明确写“只观察／不操作”，不把观察日包装成买卖信号。</p>
+        <p className="mt-3 text-sm text-white/55">月关键日优先；买卖前等走势确认。</p>
       </div>
       <Link href="/member/key-dates" className="rounded-full border border-amber-300/25 bg-amber-300/[.07] px-4 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-300/40 hover:bg-amber-300/[.12]">查看全部月＋周关键日 →</Link>
     </div>
@@ -47,7 +47,7 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
               <p className="mt-2 text-xs leading-5 text-white/55">{item.title}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-white/35"><span>{item.group}</span><span>·</span><span>{evidenceLabel(item)}</span></div>
             </article>;
-          }) : <p className="rounded-xl border border-white/[.06] bg-white/[.015] px-4 py-4 text-xs leading-6 text-white/38">本周期暂无属于板块页重点标的、且仍未过期的关键日记录；不为填满页面而补造日期。</p>}
+          }) : <p className="rounded-xl border border-white/[.06] bg-white/[.015] px-4 py-4 text-xs leading-6 text-white/38">本周期暂无待观察关键日。</p>}
         </div>
       </div>)}
     </div>

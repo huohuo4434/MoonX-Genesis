@@ -48,7 +48,8 @@ test("member cross-check is anonymous, conclusion-first, and never imports tradi
   assert.doesNotMatch(memberData, /狼叔|乔乔|视野环球|RINO|NaNa|NANA|博主/);
   assert.doesNotMatch(`${memberData}\n${memberPage}`, /lib\/trading-signals|lib\/bitget|submitOrder|createOrder/);
   assert.match(memberPage, /memberSectorOutlook as crossCheck/);
-  assert.match(memberPage, /row\.levels/);
+  assert.match(memberPage, /row\.rhythm/);
+  assert.match(memberPage, /row\.action/);
   assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "闪迪")?.relation, "需要修正节奏");
   assert.deepEqual(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "闪迪")?.levels, ["第一承接 1,413—1,435", "第二观察 1,268", "第三观察 1,084", "转强观察 9月7日以后"]);
   assert.equal(MEMBER_SOURCE_CROSS_CHECK_20260901.rows.find((row) => row.asset === "半导体")?.relation, "一致");

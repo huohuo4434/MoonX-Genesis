@@ -60,7 +60,6 @@ function DailyGroup({
     <header className="border-b border-white/[.06] px-4 py-3.5 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-white">{group}</h3>
-        <span className="text-[10px] text-white/32">当天有效周卦方向才计入共振</span>
       </div>
     </header>
     <div className="overflow-x-auto">
@@ -119,7 +118,7 @@ export function DailySectorResonanceBoard({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[.2em] text-violet-100/55">DAILY SECTOR RESONANCE</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">逐日板块共振</h1>
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-white/55">把同一周的路径拆到每个交易日：绿色偏强、红色偏弱、黄色震荡、紫色为关键日或转折窗。日结论来自已发布周卦路径与交易日历，不虚构独立日卦。</p>
+          <p className="mt-3 text-sm text-white/55">按周度预判展示每日节奏。</p>
         </div>
         <a href="#weekly-sector" className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:border-white/20 hover:text-white/70">查看周度矩阵 ↓</a>
       </div>
@@ -159,8 +158,5 @@ export function DailySectorResonanceBoard({
       summaries={summaries.filter((item) => item.group === group && dates.has(item.date))}
     />)}
 
-    <section className="rounded-2xl border border-amber-300/15 bg-amber-300/[.035] p-4 text-xs leading-6 text-amber-100/55">
-      逐日表用于看板块节奏，不把周卦拆分结果冒充独立日卦。紫色“关键日观察”保留已录入日期来源；紫色“见高转弱／探底转强”可来自周内路径转折窗。休市与缺少完整周卦的日期不计入共振，日干支软观察不能反转已锁定周方向。
-    </section>
   </div>;
 }
