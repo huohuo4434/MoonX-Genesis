@@ -43,20 +43,22 @@ test("member report labels the idea as relative rotation rather than guaranteed 
   assert.match(report.resonanceZh, /跨周期部分共振/);
 });
 
-test("new Qimen cross-check publishes V5 without rewriting V2 through V4", () => {
-  assert.equal(report.version, "SEP_ROTATION_REPORT_20260902_V5");
-  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260902_V4");
+test("new Qimen cross-check publishes V6 without rewriting V2 through V5", () => {
+  assert.equal(report.version, "SEP_ROTATION_REPORT_20260904_V6");
+  assert.equal(report.revisionOf, "SEP_ROTATION_REPORT_20260902_V5");
   assert.equal(reportHistory[0]?.version, "SEP_ROTATION_REPORT_20260826_V2");
   assert.equal(reportHistory[1]?.version, "SEP_ROTATION_REPORT_20260902_V3");
   assert.equal(reportHistory[2]?.version, "SEP_ROTATION_REPORT_20260902_V4");
+  assert.equal(reportHistory[3]?.version, "SEP_ROTATION_REPORT_20260902_V5");
+  assert.equal(reportHistory[3]?.confidenceCalibration.items[0]?.delta, 1);
   assert.equal(report.confidenceCalibration.sourceState, "FULL_TRANSCRIPT_AND_VISIBLE_CHART");
   assert.deepEqual(
     report.confidenceCalibration.items.map((item) => [item.id, item.index, item.max, item.delta]),
     [
-      ["BTC-SEPTEMBER-PATH", 4, 5, 1],
-      ["TECH-SEPTEMBER-ROTATION", 4, 5, 1],
-      ["GOLD-SEPTEMBER-PATH", 4, 5, 1],
-      ["WTI-SPECIAL-PATH", 4, 5, 1],
+      ["BTC-SEPTEMBER-PATH", 4, 5, 0],
+      ["TECH-SEPTEMBER-ROTATION", 4, 5, 0],
+      ["GOLD-SEPTEMBER-PATH", 4, 5, 0],
+      ["WTI-SPECIAL-PATH", 4, 5, 0],
     ],
   );
   assert.match(report.confidenceCalibration.metricZh, /不是胜率/);

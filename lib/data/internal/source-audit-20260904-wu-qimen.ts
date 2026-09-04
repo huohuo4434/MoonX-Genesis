@@ -1,0 +1,41 @@
+// Internal evidence only. Never import this into a member/client component.
+export const SOURCE_AUDIT_20260904_WU_QIMEN = {
+  receivedAt: "2026-09-04T21:10:00+08:00",
+  sourcePublishedAt: null,
+  sourceFamily: "WU_CHANGYE_OBJECT_YONGSHEN",
+  weeklySourceId: "-9mrXSWF89Y",
+  weeklyAlreadyReviewedAt: "2026-09-03",
+  weeklyWindow: { start: "2026-09-07", end: "2026-09-12" },
+  monthlyScope: "September outlook with October-November scenarios; not a newly supplied monthly chart",
+  files: [
+    ["【奇門遁甲預測】丙申8月局勢回顧與丁酉9月展望.txt", "714DF9A4CABB0A4EC2F0829DFB1C478006E4835D930676C76D60A4E14D2A4AA8"],
+    ["52262dc224e25365c2d33ca4d4c83bff.png", "74728E3C172BEF2062102FF346F1C4DDFDCF5ABEA98003A47439E8042D0F1FCE"],
+    ["6edb23ccf1a79d2cb44c946084292a11.png", "8D0E773CE811DDBE3ED198B191D1559CB3EE5D8C1F9B68E1355AD275F128981E"],
+    ["-9mrXSWF89Y.zh-Hant.vtt", "AD5012F93D7B0A87EE7587D8E18203CC3E88EAF2B34593A54C855DD7DECCBF59"],
+  ],
+  evidence: [
+    "Monthly transcript lines 53-55: September technology exit window before Sep 21; lines 196-203 distinguish trend trades from long-term holdings.",
+    "Weekly 04:21-05:35: zhi-fu/zhi-shi relationship, mixed execution and liquidity, volatility after Sep 7, exits before Sep 21.",
+    "Weekly 05:37-06:31: US equities Bing/Yi with Sheng door but constrained Ren liquidity; low-cost long-term holdings excluded from short-term exit advice.",
+    "Weekly 07:08-07:52: SOX Gui lodging in Kan/Kun, prior/later-heaven relation, volatile weekly rise not long-term bullishness.",
+    "Weekly 09:53-10:38: gold Xin/Geng, Gen and Jiudi, support but weak bounce/range; long-term view distinct.",
+    "Weekly 10:39-11:36: BTC Wu/Ding and Ren/Bing, two-sided range; Wei/Shen days explicitly not assigned to next week.",
+    "First PNG: current weekly board, chart time 2026-09-03 11:00. Second PNG: prior Aug 31-Sep 5 chart, cast Aug 27 11:40, retrospective only.",
+  ],
+  exclusions: [
+    "Monthly speaker self-reported near-perfect accuracy is not independently verified or added to MOOX statistics.",
+    "BTC 47000 to 523000 is ambiguous ASR; speaker explicitly calls bottom prices intuition, not Qimen or technical analysis. Do not correct by guess or create formal levels.",
+    "No independent Sep 27 confirmation in this new monthly talk; existing Sep 27 candidate derives from the earlier monthly chart.",
+    "Claims about disasters, politics, legislation and corporate events are unverified scenarios/claims, not current facts.",
+  ],
+  policy: {
+    priority: "HIGH_TIMING_REFERENCE",
+    independentVoteIncrement: 0,
+    consensusDeltaFromV5: 0,
+    mayReverseLockedDirection: false,
+    mayCreateFormalLevels: false,
+    mayTriggerTrade: false,
+    retrospectiveScoreEligible: false,
+    retiredCoverageRemainsRetired: true,
+  },
+} as const;

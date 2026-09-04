@@ -324,7 +324,7 @@ const MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4 = {
   },
 } as const;
 
-export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+const MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5 = {
   ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4,
   version: "SEP_ROTATION_REPORT_20260902_V5",
   publishedAt: "2026-09-02T18:45:00+08:00",
@@ -462,8 +462,87 @@ export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
   },
 } as const;
 
+export const MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 = {
+  ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5,
+  version: "SEP_ROTATION_REPORT_20260904_V6",
+  publishedAt: "2026-09-04T21:20:00+08:00",
+  revisionOf: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.version,
+  revisionReason: "补充月度讲座并重新核对9月7—12日周盘；提高退出节奏提示优先级，同源不重复加票，保留V2—V5。",
+  titleZh: "9月更新：先看修复，科技仓位在21日前重点复核",
+  titleEn: "September update: recovery first, review technology exposure before Sep 21",
+  conclusionZh: "六爻主判保留半导体9月7/10日后相对转强；新增月、周复核支持下周高波动上扬，却不支持持仓不管直到月底。短线与趋势仓应在反弹时检查退出条件，9月21日前重点复核。BTC、ETH保留上旬冲高后转弱观察，黄金短期可能继续盘整；这是相对强弱与时机判断，不是科技涨、其他资产必然跌。",
+  conclusionEn: "The primary Liu Yao call retains relative semiconductor strength after Sep 7/10. Monthly and weekly cross-checks support a volatile recovery next week, not an unattended hold through month-end. Review exits on rallies and technology exposure before Sep 21. BTC/ETH retain an early push followed by turn-risk, while gold may consolidate. These are relative-strength and timing views, not guaranteed inverse moves.",
+  resonanceZh: "9月7—12日周盘与半导体转强阶段同向；月度讲座更强调21日前的退出复核、月底风险和10—11月候选机会。时间跨度不一致的部分仍属跨周期部分共振；同一来源的月、周重复表述不新增独立票。",
+  resonanceEn: "The Sep 7-12 weekly chart supports the semiconductor recovery phase. The monthly talk emphasizes exit reviews before Sep 21, month-end risk and candidate opportunities in October-November. Differing horizons remain only partially aligned; repeated monthly and weekly statements from one source add no independent vote.",
+  executionZh: [
+    "短线／趋势仓：半导体9月7—12日看高波动修复，冲高后检查量价和回踩；9月14—20日强化利润保护、21日前重点复核，不等日期到了才首次看风险。低成本长期仓不等同于短线仓。",
+    "BTC／ETH：9月9—11日仍是原六爻转弱观察窗；奇门周盘也允许宽幅震荡、暂时跌不动，所以必须等转弱确认，不能把未日、申日硬套成下周必跌。月底至10月初另设风险观察，10—11月只是候选机会。",
+    "黄金：区分短期盘整与中长期偏多；月底反弹尚待确认，不把日期或口头价位变成保证底部。原油只保留长周期专题，农业只列研究观察，不新增自动交易品种。",
+  ],
+  executionEn: [
+    "Short-term/trend positions: watch for a volatile semiconductor recovery on Sep 7-12, then assess volume and retests. Emphasize profit protection on Sep 14-20 and review before Sep 21. Low-cost long-term holdings are a separate case.",
+    "BTC/ETH: Sep 9-11 remains the original Liu Yao turn-watch window. Weekly Qimen also allows wide ranges without immediate downside; require a confirmed turn rather than forcing Wei/Shen days into next week. Late September/early October is a separate risk window, and October-November is only a candidate opportunity.",
+    "Gold: distinguish short-term consolidation from a longer-term bullish view. A month-end rebound needs confirmation; neither dates nor verbal prices guarantee a bottom. Oil stays long-cycle research only, and agriculture stays a watch theme without automated-trading coverage.",
+  ],
+  assets: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.assets.map((asset) => asset.symbol === "SOXL" ? {
+    ...asset,
+    conclusionZh: "原六爻保留9月7日至10月7日相对强势候选；新奇门只支持9月7—12日高波动修复。两者对持续性有分歧：短线与趋势仓在21日前重点复核，不能理解成整段放心持有；SOX板块观点不等于SOXL、SNDK、MU各自同幅上涨。",
+    conclusionEn: "The original Liu Yao view retains a Sep 7-Oct 7 relative-strength candidate. New Qimen supports only a volatile Sep 7-12 recovery. Persistence remains disputed: review short-term/trend exposure before Sep 21, not an unconditional hold. SOX sector views do not imply identical SOXL, SNDK or MU returns.",
+  } : asset.symbol === "GOLD" ? {
+    ...asset,
+    conclusionZh: "原六爻仍保留9月7日前试高、之后温和回调；新奇门更偏未来一至两周盘整或弱反弹，月底再观察上扬。短期强弱与反弹起点有分歧，不把长期偏多写成下周立即大涨。",
+    conclusionEn: "Original Liu Yao retains a high probe before Sep 7 and a mild pullback afterward. New Qimen favors one to two weeks of consolidation or a weak bounce, with a later rebound watch. Near-term strength and rebound timing differ; long-term bullishness does not mean an immediate rally next week.",
+  } : asset),
+  phases: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.phases.map((phase, index) => index === 2 ? {
+    ...phase,
+    soxlZh: "原主判高位候选；21日前复核退出，之后防回撤",
+    soxlEn: "Original high-zone candidate; review exits before Sep 21, then pullback risk",
+    goldZh: "原主判温和回调；新奇门月底反弹候选，待确认",
+    goldEn: "Original mild pullback; new Qimen month-end bounce candidate needs confirmation",
+  } : phase),
+  qimenMonthlyUpdate: {
+    ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.qimenMonthlyUpdate,
+    publicLabelZh: "9月4日月／周解读复核 · 重点时机参考",
+    publicLabelEn: "Sep 4 monthly/weekly review · priority timing reference",
+    summaryZh: "周盘覆盖9月7—12日；月度讲座补充9月及10—11月情景，并非新增一张月盘。重点采用21日前科技趋势仓退出复核、月底风险提示；地缘冲突与运输受阻是来源提出的情景，不是已发生事实。9月27日候选沿用此前月盘，本次讲座未独立确认该日。",
+    summaryEn: "The weekly chart covers Sep 7-12. The monthly talk adds September and October-November scenarios, not a new monthly chart. Prioritize technology exit reviews before Sep 21 and month-end risk. Conflict and transport disruption are source scenarios, not established events. The Sep 27 candidate comes from the earlier monthly chart and is not independently confirmed by this talk.",
+    items: [
+      ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.qimenMonthlyUpdate.items,
+      {
+        id: "MONTH-WEEK-20260904", scopeZh: "半导体／BTC／黄金 · 月周差异", scopeEn: "Semiconductors / BTC / gold · horizon differences",
+        relationship: "PARTIAL" as const, relationshipZh: "部分一致", relationshipEn: "Partially aligned",
+        conclusionZh: "半导体下周偏多与月度谨慎并不矛盾；BTC可以脉冲上冲，也可能双向波动，不保证9月10日见顶；黄金短期整理，中长期偏多。",
+        conclusionEn: "A bullish semiconductor week can coexist with monthly caution. BTC may spike or whipsaw without topping on Sep 10. Gold can consolidate short term while retaining a longer-term bullish view.",
+        usageZh: "退出节奏列为重点参考，不统一上调全部品种信心；原有月度分歧保留。",
+        usageEn: "Prioritize exit timing without raising confidence across all assets; retain existing monthly disagreements.",
+      },
+      {
+        id: "AGRICULTURE-20260904", scopeZh: "农业／原油 · 长周期研究", scopeEn: "Agriculture / oil · long-cycle research",
+        relationship: "PARTIAL" as const, relationshipZh: "待独立复核", relationshipEn: "Independent review needed",
+        conclusionZh: "来源偏好农业与原油长周期机会：美国种植业、中国化肥农药，并提醒这些板块也可能先随市场下跌、随后修复；不解释为绝对避险。",
+        conclusionEn: "The source favors long-cycle agriculture and oil opportunities: US growers and Chinese fertilizer/crop-protection businesses. These sectors can also fall with the market before recovering; they are not absolute hedges.",
+        usageZh: "农业不凭主题映射为具体股票买入；原油不恢复日周预测。口述目标与直觉底价不进入正式点位。",
+        usageEn: "Do not convert a theme into stock-specific buys. Oil daily/weekly forecasts remain retired; verbal targets and intuitive bottoms are not formal levels.",
+      },
+    ],
+  },
+  confidenceCalibration: {
+    ...MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.confidenceCalibration,
+    receivedAt: "2026-09-04T21:10:00+08:00",
+    publicLabelZh: "重点奇门时机复核 · 同源不重复加权",
+    publicLabelEn: "Priority Qimen timing review · no duplicate-source uplift",
+    items: MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5.confidenceCalibration.items.map((item) => ({
+      ...item,
+      delta: 0,
+      reasonZh: `${item.reasonZh} 本轮是同一来源的月周补充，较V5不再加分；4/5表示方法共振，不能推算为80%胜率。`,
+      reasonEn: `${item.reasonEn} This is a monthly/weekly supplement from the same source, so there is no additional uplift versus V5. A 4/5 consensus score does not imply an 80% win rate.`,
+    })),
+  },
+} as const;
+
 export const MEMBER_SEPTEMBER_ROTATION_REPORT_HISTORY = [
   MEMBER_SEPTEMBER_ROTATION_REPORT_20260826_V2,
   MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V3,
   MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V4,
+  MEMBER_SEPTEMBER_ROTATION_REPORT_20260902_V5,
 ] as const;

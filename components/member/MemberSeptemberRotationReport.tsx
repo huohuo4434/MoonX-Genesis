@@ -28,7 +28,7 @@ export function MemberSeptemberRotationReport() {
             <Badge variant="default">{en ? "September member briefing" : "9月会员月报"}</Badge>
             <Badge variant="outline">{en ? "Partial cross-horizon alignment" : "跨周期部分共振"}</Badge>
           </div>
-          <Text variant="caption" color="tertiary">{en ? "Forward record · Aug 26" : "前瞻记录 · 8月26日"}</Text>
+          <Text variant="caption" color="tertiary">{en ? "Original record · Aug 26 / updated Sep 4 · V6" : "原始记录8月26日／9月4日更新 · V6"}</Text>
         </div>
 
         <Heading id="september-rotation-title" as="h2" size="h2" className="mt-5 max-w-5xl">
@@ -109,7 +109,7 @@ export function MemberSeptemberRotationReport() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-foreground">{en ? item.scopeEn : item.scopeZh}</span>
                   <span className="rounded-full border border-emerald-300/25 px-2.5 py-1 text-xs font-semibold text-emerald-100">
-                    {en ? "Consensus" : "共振指数"} {item.index}/{item.max} · +{item.delta}
+                    {en ? "Consensus" : "共振指数"} {item.index}/{item.max} · {item.delta === 0 ? (en ? "unchanged this revision" : "本轮维持") : `+${item.delta}`}
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-5 text-foreground-secondary">{en ? item.reasonEn : item.reasonZh}</p>

@@ -14,7 +14,7 @@ import { buildDailySectorResonanceBoard } from "@/lib/data/conviction/daily-sect
 import { buildSectorKeyDateWindows, selectCurrentAndNextSectorWeeks } from "@/lib/data/conviction/sector-key-date-overview";
 import { buildSectorResonanceBoard } from "@/lib/data/conviction/sector-resonance-board";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
-import { MEMBER_SOURCE_CROSS_CHECK_20260901 } from "@/lib/data/member-source-cross-check-20260901";
+import { MEMBER_SOURCE_CROSS_CHECK_20260904 as crossCheck } from "@/lib/data/member-source-cross-check-20260901";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -113,26 +113,26 @@ export default async function MemberSectorResonancePage({
             <section className="mb-6 overflow-hidden rounded-2xl border border-amber-300/15 bg-amber-300/[.035]">
               <header className="border-b border-white/[.06] px-5 py-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-100/50">RESEARCH CROSS-CHECK</p>
-                <h2 className="mt-1.5 text-lg font-semibold text-white">{MEMBER_SOURCE_CROSS_CHECK_20260901.title}</h2>
-                <p className="mt-2 text-xs leading-6 text-white/45">{MEMBER_SOURCE_CROSS_CHECK_20260901.boundary}</p>
+                <h2 className="mt-1.5 text-lg font-semibold text-white">{crossCheck.title}</h2>
+                <p className="mt-2 text-xs leading-6 text-white/45">{crossCheck.boundary}</p>
               </header>
               <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-                {MEMBER_SOURCE_CROSS_CHECK_20260901.rows.map((row) => (
+                {crossCheck.rows.map((row) => (
                   <article key={row.asset} className="rounded-xl border border-white/[.07] bg-black/20 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="font-semibold text-white">{row.asset}</h3>
                       <span className={`rounded-full border px-2.5 py-1 text-[10px] ${row.relation === "一致" ? "border-emerald-300/20 text-emerald-100/75" : row.relation === "需要修正节奏" ? "border-rose-300/20 text-rose-100/75" : "border-amber-300/20 text-amber-100/70"}`}>{row.relation}</span>
                     </div>
-                    <p className="mt-3 text-xs leading-6 text-white/48"><b className="text-white/68">正式结论：</b>{row.official}</p>
+                    <p className="mt-3 text-xs leading-6 text-white/48"><b className="text-white/68">原判断／覆盖状态：</b>{row.official}</p>
                     <p className="mt-2 text-xs leading-6 text-white/48"><b className="text-white/68">本轮复核：</b>{row.review}</p>
-                    <p className="mt-2 text-xs leading-6 text-amber-100/65"><b>执行提示：</b>{row.action}</p>
+                    <p className="mt-2 text-xs leading-6 text-amber-100/65"><b>怎么看、怎么应对：</b>{row.action}</p>
                     {row.levels?.length ? <div className="mt-3 flex flex-wrap gap-1.5">
                       {row.levels.map((level) => <span key={level} className="rounded-full border border-cyan-300/15 bg-cyan-300/[.05] px-2.5 py-1 text-[10px] text-cyan-100/65">{level}</span>)}
                     </div> : null}
                   </article>
                 ))}
               </div>
-              <p className="border-t border-white/[.05] px-5 py-3 text-[11px] leading-5 text-white/38">{MEMBER_SOURCE_CROSS_CHECK_20260901.methodNote}</p>
+              <p className="border-t border-white/[.05] px-5 py-3 text-[11px] leading-5 text-white/38">{crossCheck.methodNote}</p>
             </section>
             <SectorKeyDateOverview windows={keyDateWindows} />
             <div className="mt-10"><DailySectorResonanceBoard {...dailyBoard} selectedWeekStart={selectedDailyWeek?.start} /></div>
