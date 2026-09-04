@@ -3,6 +3,7 @@
  * Prisma deferred until production DATABASE_URL + TeacherLesson migration exist.
  */
 import "server-only";
+import { correctAnnualCase, correctAnnualLesson } from "@/lib/research/annual-source-corrections-20260905";
 
 import { randomBytes } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -393,12 +394,13 @@ export async function nextCode(kind: "lesson" | "rule" | "case"): Promise<string
 
 export async function listLessons(): Promise<TeacherLessonRecord[]> {
   const store = await loadStore();
-  return [...store.lessons].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return store.lessons.map(correctAnnualLesson).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getLesson(id: string): Promise<TeacherLessonRecord | null> {
   const store = await loadStore();
-  return store.lessons.find((l) => l.id === id || l.lessonCode === id) ?? null;
+  const lesson = store.lessons.find((l) => l.id === id || l.lessonCode === id);
+  return lesson ? correctAnnualLesson(lesson) : null;
 }
 
 export async function createLesson(input: {
@@ -556,7 +558,7 @@ export async function listRules(filter?: { status?: string }): Promise<TeacherRu
 
 export async function listCases(filter?: { status?: string }): Promise<TeacherCaseRecord[]> {
   const store = await loadStore();
-  return store.cases.filter((c) => (filter?.status ? c.status === filter.status : true));
+  return store.cases.map(correctAnnualCase).filter((c) => (filter?.status ? c.status === filter.status : true));
 }
 
 export async function listConcepts(filter?: { status?: string }): Promise<TeacherConceptRecord[]> {

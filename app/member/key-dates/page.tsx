@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BtcAnnualWindowAmendment } from "@/components/research/BtcAnnualWindowAmendment";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -271,6 +272,7 @@ export default async function MemberKeyDatesPage() {
 
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
+      <BtcAnnualWindowAmendment en={(await getRequestLocale()) === "en"} />
       <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_88%_0%,rgba(124,92,255,.2),transparent_34%),linear-gradient(145deg,#11101b,#090a0e)] p-6 sm:p-8">
         <div className="flex flex-wrap gap-2"><Badge variant="warning">会员关键日雷达</Badge><Badge variant="success">江恩前瞻权重 {gannPolicy.effectiveWeightPct}% · {gannPolicy.eligible ? "已达门槛" : `${gannPolicy.scored}/${gannPolicy.minimumSamples} 学习中`}</Badge></div>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>

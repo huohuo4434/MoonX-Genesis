@@ -15,6 +15,7 @@
  * Always display `publicSourceLabel` instead.
  */
 import { lt } from "@/lib/i18n/config";
+import { correctAnnualResearch } from "@/lib/research/annual-source-corrections-20260905";
 import {
   annualRiskEquityCollections,
   annualRiskEquityRecords,
@@ -1449,7 +1450,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
   }
-  return [...byId.values()];
+  return [...byId.values()].map(correctAnnualResearch);
 }
 
 export async function getResearchRecord(id: string): Promise<ResearchRecord | undefined> {
