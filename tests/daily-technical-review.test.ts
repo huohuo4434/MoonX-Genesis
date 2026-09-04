@@ -18,6 +18,8 @@ test("EMA retains warm-up; flat MACD is zero without imaginary momentum", () => 
   const row = review();
   assert.equal(row.ema60, 100); assert.equal(row.dif, 0); assert.equal(row.dea, 0); assert.equal(row.histogram, 0);
   assert.match(row.reason, /零轴附近/);
+  assert.match(row.reason, /柱体持平/);
+  assert.doesNotMatch(row.reason, /柱体回升/);
 });
 test("unfinished and future candles never change published review; duplicates do not add history", () => {
   const bars = candles();

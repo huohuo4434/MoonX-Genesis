@@ -54,13 +54,14 @@ export function reviewClosedTechnicalFrame(input: {
   const resistance = candidates.sort((a, b) => Math.abs(a - last.close) - Math.abs(b - last.close))[0] ?? null;
   const pressure = resistance !== null && !(brokenOut && resistance === priorHigh);
   const fading = histogram < previousHistogram;
+  const momentumLabel = histogram === previousHistogram ? "持平" : fading ? "回落" : "回升";
   const weak = last.close < average && dif < 0 && histogram < 0;
   const penalty = pressure ? ({ "1H": 4, "4H": 6, "1D": 8 }[input.timeframe]) + (fading ? 2 : 0)
     : weak ? ({ "1H": 2, "4H": 3, "1D": 4 }[input.timeframe]) : 0;
   const axis = Math.abs(dif) <= atr * 0.05 ? "零轴附近" : dif > 0 ? "零轴上方" : "零轴下方";
   return { timeframe: input.timeframe, available: true, closedAt: new Date(closedMs).toISOString(),
     pressure, resistance, ema60: average, dif, dea, histogram, penalty,
-    reason: `${label[input.timeframe]}：${pressure ? `已到压力区${number(resistance!)}，未确认有效突破` : brokenOut ? "连续两根收盘突破此前结构高点" : "未触及已识别压力区"}；MACD DIF在${axis}，柱体${fading ? "回落" : "回升"}；EMA60 ${number(average)}，收盘在其${last.close >= average ? "上" : "下"}方；缠论${chan.sufficient ? `结构已识别${chan.divergence ? "，有背驰候选" : ""}` : "结构未完整"}` };
+    reason: `${label[input.timeframe]}：${pressure ? `已到压力区${number(resistance!)}，未确认有效突破` : brokenOut ? "连续两根收盘突破此前结构高点" : "未触及已识别压力区"}；MACD DIF在${axis}，柱体${momentumLabel}；EMA60 ${number(average)}，收盘在其${last.close >= average ? "上" : "下"}方；缠论${chan.sufficient ? `结构已识别${chan.divergence ? "，有背驰候选" : ""}` : "结构未完整"}` };
 }
 
 export function applyDailyTechnicalReview(record: GeneratedDailyForecastRecord, frames: TechnicalReview[], quoteLabel: string): GeneratedDailyForecastRecord {
