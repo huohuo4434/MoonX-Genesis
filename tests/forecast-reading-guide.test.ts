@@ -60,6 +60,15 @@ test("missing conditions are explicit rather than invented, in Chinese and Engli
   assert.doesNotMatch(en, /[\u4e00-\u9fff]/);
 });
 
+test("legacy invalidation wording cannot swallow the recorded price condition", () => {
+  const original = "1小时收盘站上68,900美元，看跌观点失效。";
+  const html = renderToStaticMarkup(React.createElement(PlainLanguageSummary, { direction: "下跌", invalidation: original }));
+  assert.ok(html.includes(original));
+  assert.match(html, /条件保留原预测记录，不代表实时触发/);
+  assert.match(html, /技术条件不反向改写锁定方向/);
+  assert.doesNotMatch(html, /，作为技术风控位置参考/);
+});
+
 test("a successful HTTP refresh does not make an old snapshot current", () => {
   const nowMs = Date.parse("2026-09-04T04:00:00Z");
   for (const lastSyncedAt of ["2026-08-27T00:38:00Z", null, "invalid", "2026-09-04T04:01:01Z", "2026-09-04T03:56:59.999Z"]) {
@@ -80,8 +89,12 @@ test("member pages wire forecast dates and stale-state suppression without order
   const read = (file: string) => readFileSync(file, "utf8");
   const daily = read("app/member/daily/page.tsx");
   assert.match(daily, /<PlainLanguageSummary/);
-  assert.match(daily, /confirmation=\{forecast.confirmation\}/);
-  assert.match(daily, /invalidation=\{forecast.invalidation\}/);
+  assert.match(daily, /technicalReference/);
+  assert.match(daily, /invalidation=\{technical.invalidation/);
+  assert.doesNotMatch(daily, /confirmation=\{forecast.confirmation\}/);
+  assert.match(daily, /原预测确认：\{forecast.confirmation/);
+  assert.match(daily, /原预测失效：\{forecast.invalidation/);
+  assert.match(daily, /本页未判断实时入场是否触发/);
   assert.doesNotMatch(daily, /九大|nine core|Nine-market/);
   assert.equal((daily.match(/id=\{`daily-/g) ?? []).length, 1);
   assert.match(read("components/member/MemberWeeklyPage.tsx"), /period=\{`\$\{a.weekStart\} — \$\{a.weekEnd\}`\}/);
@@ -90,6 +103,8 @@ test("member pages wire forecast dates and stale-state suppression without order
   assert.match(desk, /lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt/);
   assert.match(desk, /!stale \? <AiTradeIntentBoard/);
   assert.match(desk, /data-stale-desk="1"/);
+  assert.match(desk, /formatBeijingDeskTime\(snapshot.lastSyncedAt\)/);
+  assert.doesNotMatch(desk, /lastSyncedAt \?\? snapshot.generatedAt/);
   assert.match(desk, /历史快照持仓 · 不代表当前/);
   assert.doesNotMatch(desk, /ACTIVE MODE|AI正在从动态候选池寻找下一笔/);
   assert.doesNotMatch(desk, /method:\s*["']POST/);

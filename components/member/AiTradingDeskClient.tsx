@@ -116,8 +116,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="flex flex-wrap gap-x-5 gap-y-1">
             <span>{en ? "Display layer" : "展示层"}：MEMBER_FEED</span>
             <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
-            <span>{en ? "Snapshot (Beijing)" : "快照时间（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt ?? snapshot.generatedAt)}</span>
-            <span>{en ? "Initial equity" : "初始资金"}：{number(snapshot.experiment.initialEquityUsdt)} USDT</span>
+            <span>{en ? "Last successful sync (Beijing)" : "最近成功同步（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt)}</span>
+            <span>{en ? "Initial equity" : "初始资金"}：{stale ? "—" : number(snapshot.experiment.initialEquityUsdt)} USDT</span>
             <span>{en ? "Quote age within snapshot" : "快照内行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">

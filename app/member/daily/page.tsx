@@ -177,8 +177,9 @@ function ForecastBoard({
                     <PlainLanguageSummary
                       direction={direction}
                       period={`${forecast.forecastForDate} · ${forecast.targetSessionLabel || forecast.tradingSessionLabel}`}
-                      confirmation={forecast.confirmation}
-                      invalidation={forecast.invalidation}
+                      technicalReference
+                      confirmation="本页未判断实时入场是否触发。先核对当前有效交易计划；只看到方向、支撑或压力，不代表可以立即买卖。"
+                      invalidation={technical.invalidation === "—" ? null : `技术观察边界：${technical.invalidation}。触及后重新核对结构；已有订单按该笔订单自己的止损执行。`}
                     />
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
@@ -190,6 +191,9 @@ function ForecastBoard({
                   <details className="mt-3 rounded-xl border border-border/[0.08] px-3 py-2 text-sm text-foreground-secondary">
                     <summary className="cursor-pointer text-foreground">查看研判依据</summary>
                     <p className="mt-2 leading-6">{conciseEvidence(forecast) || "详细依据整理中。"}</p>
+                    <p className="mt-3 text-xs leading-5">以下是发布时记录的条件，不代表实时触发；与当前技术位置不一致时，不应直接据此执行。</p>
+                    <p className="mt-2 leading-6">原预测确认：{forecast.confirmation || "未提供"}</p>
+                    <p className="mt-2 leading-6">原预测失效：{forecast.invalidation || "未提供"}</p>
                   </details>
                 </article>
               );
