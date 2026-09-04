@@ -70,7 +70,9 @@ test("production summary renders the correction, holiday and original caveat wit
   const windows = buildSectorKeyDateWindows({ weeks: board.weeks, rows: board.rows, keyDates: buildMemberKeyDateRadar("2026-09-04"), asOfDate: "2026-09-04" });
   Object.assign(globalThis, { React });
   const html = renderToStaticMarkup(React.createElement(SectorKeyDateOverview, { windows }));
-  assert.match(html, /闪迪日期更正/);
+  assert.match(html, /闪迪综合应对/);
+  assert.match(html, /回踩企稳可观察分批布局，破位则先控风险/);
+  assert.match(html, /已冲高受阻的短线仓可保护利润/);
   assert.match(html, /回撤风险观察/);
   assert.match(html, /休市 · 转强观察/);
   assert.match(html, /2026-09-08恢复交易后观察/);

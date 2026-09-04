@@ -58,3 +58,12 @@ test("internal evidence and published historical copy remain available unchanged
   assert.match(view.titleZh, /易老师/);
   assert.doesNotMatch(JSON.stringify(view), /独家原创|从未参考|100%|guaranteed profit/i);
 });
+
+test("stage guidance separates rebound holding periods from later defensive windows", () => {
+  assert.match(sector.boundary, /日内或2—3天复核/);
+  assert.match(sector.boundary, /不把短线多单拖成长线/);
+  assert.match(sector.rows[0].action, /回踩企稳/);
+  assert.match(sector.rows[1].action, /未确认不抢跑/);
+  assert.match(sector.rows[3].action, /不一律按20日清仓或开空/);
+  assert.match(sector.methodNote, /不代表AI已开仓/);
+});

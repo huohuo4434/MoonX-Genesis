@@ -32,4 +32,4 @@ export function keyDateGuidance(item: DateMeaning) {
   return { group, label: uncertainSession ? `时段待核实 · ${label}` : closed ? `休市 · ${label}` : label, note, closed, nextSessionDate };
 }
 
-export const SANDISK_KEY_DATE_CORRECTION = "闪迪日期更正：9/4仅提示回撤风险，不是卖出日；9/7是转强阶段观察起点，美股休市，不是抄底日。9/8恢复交易后再看走势，不预设开盘买入。";
+export const SANDISK_KEY_DATE_CORRECTION = "闪迪综合应对：9/4不因日期清仓。计划参与9/7后转强阶段的，回踩企稳可观察分批布局，破位则先控风险；已冲高受阻的短线仓可保护利润。9/5—7美股休市，9/8复市，不安排“4日逃顶、7日抄底”的来回交易。";

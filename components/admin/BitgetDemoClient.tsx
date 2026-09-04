@@ -8,7 +8,7 @@ import type {
   BitgetRuntimeState,
   BitgetSmokeTestReport,
 } from "@/types/bitget-demo-runtime";
-import { isUnifiedNewEntryBlockedForDisplay } from "@/lib/presentation/bitget-live-status";
+import { hasLiveHorizonConflict, isUnifiedNewEntryBlockedForDisplay } from "@/lib/presentation/bitget-live-status";
 
 const inputClass =
   "min-h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-primary/60";
@@ -146,10 +146,10 @@ async function parseJson<T>(res: Response, label: string): Promise<T> {
   }
 }
 
-function time(value: string | null): string {
+function time(value: string | null, timeZone?: string): string {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-CN");
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-CN", { timeZone });
 }
 
 function seconds(value: number | null): string {
@@ -654,6 +654,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
 
             <div className="space-y-2">
               <Text variant="body-sm" weight="semibold">18品种 × 3周期正式方向覆盖</Text>
+              <Text variant="caption" className="block text-amber-100/75">这是预测计划，不是实际持仓。跨周期一多一空时，须分别核对有效期与退出条件；长线看多不等于短线必须持多。</Text>
               <div className="overflow-x-auto rounded-lg border border-white/10">
                 <table className="min-w-[860px] w-full text-left text-sm">
                   <thead className="bg-white/[0.035] text-white/55">
@@ -667,7 +668,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
                   <tbody>
                     {tradingDiagnostics.coverage.map((item) => (
                       <tr key={item.symbol} className="border-t border-white/10">
-                        <td className="px-3 py-2"><span className="font-medium text-white">{LIVE_ASSET_LABELS[item.symbol] ?? item.symbol}</span><span className="ml-2 text-xs text-white/35">{item.symbol}</span></td>
+                        <td className="px-3 py-2"><span className="font-medium text-white">{LIVE_ASSET_LABELS[item.symbol] ?? item.symbol}</span><span className="ml-2 text-xs text-white/35">{item.symbol}</span>{hasLiveHorizonConflict(item.horizons) ? <span className="mt-1 block text-xs text-amber-200">预测跨周期分歧 · 核对期限</span> : null}</td>
                         {(["INTRADAY", "SWING", "POSITION"] as const).map((strategyType) => {
                           const horizon = item.horizons.find((row) => row.strategyType === strategyType);
                           if (!horizon) return <td key={strategyType} className="px-3 py-2 text-white/35">—</td>;
@@ -676,6 +677,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
                               <div className={`rounded-md border px-2 py-1.5 ${coverageClass(horizon.coverageState)}`}>
                                 <span className="font-medium">{coverageText(horizon.coverageState)}</span>
                                 <span className="ml-2 text-xs opacity-70">{horizon.armed ? "已武装" : horizon.planStatus || horizon.rejectionCode || "无计划"}</span>
+                                {horizon.forecastValidFrom && horizon.forecastValidUntil ? <span className="mt-1 block text-[10px] opacity-70">预测有效期（北京时间）：{time(horizon.forecastValidFrom, "Asia/Shanghai")}—{time(horizon.forecastValidUntil, "Asia/Shanghai")}</span> : null}
                               </div>
                             </td>
                           );

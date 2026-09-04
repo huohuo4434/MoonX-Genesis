@@ -4,6 +4,12 @@ export type BitgetLiveDisplayRuntime = {
   recentEvents?: Array<{ action?: string; message?: string }>;
 };
 
+/** Read-only comparison of already validated coverage, not an execution gate. */
+export function hasLiveHorizonConflict(horizons: ReadonlyArray<{ coverageState: string }>): boolean {
+  return horizons.some((row) => row.coverageState === "LONG") &&
+    horizons.some((row) => row.coverageState === "SHORT");
+}
+
 const UNIFIED_ENTRY_BLOCK = /ACCOUNT_NEW_ENTRIES_DISABLED|ENV_NEW_ENTRIES_DISABLED|RUNTIME_MODE_MANAGE_ONLY|RUNTIME_MODE_PAUSED|Unified Live新开仓闸门未通过/u;
 const RUNTIME_ENTRY_BLOCK = /账户对账未通过|行情未通过3分钟新鲜度检查|禁止生成新入场与提交订单|服务器交易执行已暂停|实盘实验状态为.*本轮(?:没有|不扫描)新开仓/u;
 
