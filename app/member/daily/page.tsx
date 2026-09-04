@@ -6,6 +6,7 @@ import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
+import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { ConclusionFirstPanel, type ConclusionFirstFact, type ConclusionFirstTone } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
@@ -46,8 +47,8 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: path,
     titleZh: "会员日报 | MOOX Intelligence",
     titleEn: "Member Daily Report | MOOX Intelligence",
-    descriptionZh: "九大市场今日与下一交易日方向、关键位、失效条件和简明结论。",
-    descriptionEn: "Clear daily and next-session calls, key levels and invalidation across the nine core markets.",
+    descriptionZh: "五大市场今日与下一交易日方向、关键位、失效条件和简明结论。",
+    descriptionEn: "Clear daily and next-session calls, key levels and invalidation across the five core markets.",
   });
 }
 
@@ -138,7 +139,7 @@ function ForecastBoard({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <Heading as="h2" size="h3">{title}</Heading>
-          <Text variant="caption" color="tertiary" className="mt-1 block">先看方向与双法关系，再看关键位和失效条件。</Text>
+          <Text variant="caption" color="tertiary" className="mt-1 block">先看适用日期与走势含义，再核对确认条件、支撑 / 压力和风险边界。</Text>
         </div>
         {rows[0]?.forecastForDate ? <Badge variant="outline">{formatDateChina(rows[0].forecastForDate)}</Badge> : null}
       </div>
@@ -156,7 +157,7 @@ function ForecastBoard({
             })}
           </div>
 
-          <div className="grid gap-3 md:hidden">
+          <div className="grid gap-4 lg:grid-cols-2">
             {rows.map((forecast) => {
               const direction = displayDirection(forecast);
               const relation = relationLabel(forecast);
@@ -172,11 +173,20 @@ function ForecastBoard({
                     <span className="font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</span>
                     <span className={`rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>奇门 {qimenDirectionLabel(forecast)}</span>
                   </div>
+                  <div className="mt-4">
+                    <PlainLanguageSummary
+                      direction={direction}
+                      period={`${forecast.forecastForDate} · ${forecast.targetSessionLabel || forecast.tradingSessionLabel}`}
+                      confirmation={forecast.confirmation}
+                      invalidation={forecast.invalidation}
+                    />
+                  </div>
                   <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
                     <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">支撑</dt><dd className="mt-1 font-medium">{technical.support}</dd></div>
                     <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">压力</dt><dd className="mt-1 font-medium">{technical.resistance}</dd></div>
-                    <div className="col-span-2 rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">失效条件</dt><dd className="mt-1 text-foreground-secondary">{technical.invalidation}</dd></div>
+                    <div className="col-span-2 rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">技术位置风险参考（不等于成交止损）</dt><dd className="mt-1 text-foreground-secondary">{technical.invalidation}</dd></div>
                   </dl>
+                  <p className="mt-2 text-xs leading-5 text-foreground-tertiary">支撑是观察承接的位置，压力是观察受阻的位置，都不是碰到就买卖。星级表示方法共识，不代表盈利概率。更新：{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</p>
                   <details className="mt-3 rounded-xl border border-border/[0.08] px-3 py-2 text-sm text-foreground-secondary">
                     <summary className="cursor-pointer text-foreground">查看研判依据</summary>
                     <p className="mt-2 leading-6">{conciseEvidence(forecast) || "详细依据整理中。"}</p>
@@ -186,35 +196,6 @@ function ForecastBoard({
             })}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-2xl border border-border/[0.08] bg-card/45 p-2 md:block">
-            <table className="min-w-[980px] w-full border-separate border-spacing-y-2 text-left">
-              <thead className="text-caption text-foreground-tertiary">
-                <tr><th className="px-3 py-2">市场</th><th className="px-3 py-2">正式方向</th><th className="px-3 py-2">双法关系</th><th className="px-3 py-2">奇门时机</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">支撑 / 压力</th><th className="px-3 py-2">失效条件</th><th className="px-3 py-2">更新</th></tr>
-              </thead>
-              <tbody>
-                {rows.map((forecast) => {
-                  const direction = displayDirection(forecast);
-                  const relation = relationLabel(forecast);
-                  const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
-                  return (
-                    <tr id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 bg-background/70 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]">
-                      <td className="rounded-l-xl px-3 py-3"><div className="font-semibold">{forecast.assetName}</div><div className="mt-1 font-mono text-caption text-foreground-tertiary">{forecast.symbol}</div></td>
-                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-3 py-1 text-body-sm font-semibold ${tone(direction)}`}>{direction}</span></td>
-                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${relation.className}`}>{relation.label}</span></td>
-                      <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>{qimenDirectionLabel(forecast)}</span></td>
-                      <td className="px-3 py-3 font-mono text-xs tracking-[0.12em] text-amber-200">{stars(forecast)}</td>
-                      <td className="px-3 py-3 text-body-sm"><div className="text-emerald-100">支 {technical.support}</div><div className="mt-1 text-rose-100">压 {technical.resistance}</div></td>
-                      <td className="max-w-[230px] px-3 py-3 text-body-sm text-foreground-secondary">{technical.invalidation}</td>
-                      <td className="rounded-r-xl px-3 py-3 text-caption text-foreground-tertiary">
-                        <div>{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</div>
-                        <details className="mt-2 max-w-[300px]"><summary className="cursor-pointer text-primary">查看依据</summary><p className="mt-2 leading-5 text-foreground-secondary">{conciseEvidence(forecast) || "详细依据整理中。"}</p></details>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </>
       ) : (
         <Card padding="lg" className={loadFailed ? "border border-rose-400/20 bg-rose-400/[0.04]" : "border border-border/[0.08]"}>
@@ -244,9 +225,9 @@ export default async function MemberDailyPage() {
     return <main><Section spacing="lg"><PublicFeaturePreview
       eyebrow={en ? "Daily terminal · Public preview" : "每日市场终端 · 公开预览"}
       title={en ? "See the call, levels and invalidation on one screen" : "先看方向，再看位置与失效"}
-      description={en ? "The daily terminal compresses nine core markets into a single board. Members see the official direction, Liu Yao/Qimen relationship, 4H structural levels and invalidation for today and the next session." : "把九大核心市场压缩到一张表：今日与下一交易日的正式方向、六爻与奇门关系、4H结构位和失效条件。"}
+      description={en ? "Read five core markets through their outlook, forecast period, confirmation and risk conditions for today and the next session." : "五大核心市场逐项看清：今日与下一交易日的走势、适用周期、确认条件和风险边界。"}
       solves={en ? ["Separate direction from timing", "Avoid stale or overly narrow levels", "Know exactly when a view is invalid"] : ["方向与时机分开看", "避免过期或过窄点位", "明确什么情况判定失效"]}
-      memberBenefits={en ? ["Nine-market today/next-session board", "Liu Yao and Qimen agreement alerts", "4H support, resistance and invalidation", "Versioned update timestamps"] : ["九大市场今日/下一交易日总表", "六爻与奇门同向/分歧提示", "4H支撑、压力与失效位", "每条观点独立更新时间"]}
+      memberBenefits={en ? ["Five-market today/next-session board", "Liu Yao and Qimen agreement alerts", "4H support, resistance and invalidation", "Versioned update timestamps"] : ["五大市场今日/下一交易日总览", "六爻与奇门同向/分歧提示", "4H支撑、压力与失效位", "每条观点独立更新时间"]}
       exampleTitle={en ? "BTC · Daily row example" : "BTC · 日报行示例"}
       exampleLines={en ? ["Official direction: rally then fade", "Methods: diverging · use caution", "4H support / resistance", "Invalidation: shown explicitly"] : ["正式方向：先涨后跌", "双法关系：分歧，降低信心", "4H支撑 / 压力", "失效条件：单独列明"]}
       nextPath={path}
@@ -295,7 +276,7 @@ export default async function MemberDailyPage() {
                 <div>
                   <Badge variant="default">MOOX DAILY TERMINAL</Badge>
                   <Heading as="h1" size="h2" className="mt-4">每日市场终端</Heading>
-                  <Text variant="body-sm" color="secondary" className="mt-2 block">方向、双法关系、关键位和失效条件集中在一屏。</Text>
+                  <Text variant="body-sm" color="secondary" className="mt-2 block">每个市场一张卡：这段时间怎么看、现在等什么、什么情况停止跟随。</Text>
                 </div>
                 <div className="text-right text-xs text-foreground-tertiary">北京时间<br />{formatDateTimeChina(now.toISOString())}</div>
               </div>
@@ -304,7 +285,7 @@ export default async function MemberDailyPage() {
                 title={todayPublished.length ? "今日最终结论" : "今日结论等待发布"}
                 conclusion={todayPublished.length ? `今日已发布${todayPublished.length}个市场。先看下面的正式方向；同向共振只提高信心，分歧则降低信心，不让技术面反向改写方向。` : "当前没有可展示的正式今日结论；系统会继续重试，不用旧内容冒充今天。"}
                 facts={todayFacts}
-                actions={["先选方向明确、双法同向的市场，再看4H位置。", "未到入场位置或触发失效条件时，方向正确也先不做。"]}
+                actions={["先对日期：日报看当天交易时段，周报看一周，月报看整月；不能把月度看涨当成今天必涨。", "再对条件：先跌后涨不等于已经见底；先涨后跌不等于现在就做空。", "最后对风险：确认条件缺失或失效条件触发时先不跟随；已有订单仍按自己的止损和期限执行。"]}
               />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />

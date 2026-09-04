@@ -33,11 +33,22 @@ export function startMemberDeskPolling<T>(input: {
   };
 }
 
-export function memberDeskRefreshPresentation(error: string, en: boolean): {
+export function memberDeskRefreshPresentation(error: string, en: boolean, freshness?: { lastSyncedAt: string | null; nowMs: number }): {
   stale: boolean;
   statusLabel: string | null;
   serverLabel: string | null;
 } {
+  if (!error && freshness) {
+    const synced = Date.parse(freshness.lastSyncedAt ?? "");
+    // Display-only freshness; never grant or revoke execution permission.
+    if (!Number.isFinite(synced) || !Number.isFinite(freshness.nowMs) || freshness.nowMs - synced > 180_000 || synced - freshness.nowMs > 60_000) {
+      return {
+        stale: true,
+        statusLabel: en ? "STALE SNAPSHOT · CURRENT STATE UNKNOWN" : "快照已过期 · 当前状态待核验",
+        serverLabel: en ? "current health unverified" : "当前健康状态未核验",
+      };
+    }
+  }
   if (!error) return { stale: false, statusLabel: null, serverLabel: null };
   return {
     stale: true,

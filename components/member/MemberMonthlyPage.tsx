@@ -127,6 +127,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
             </div>
             <PlainLanguageSummary
               direction={item.direction}
+              period={`${item.periodStart} — ${item.periodEnd}`}
               path={en ? item.pathEn : item.path}
               en={en}
             />

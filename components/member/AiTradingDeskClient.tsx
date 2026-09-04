@@ -44,7 +44,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const en = locale === "en";
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState("");
-  const refreshPresentation = memberDeskRefreshPresentation(error, en);
+  const [checkedAt, setCheckedAt] = useState<number>(NaN);
+  const refreshPresentation = memberDeskRefreshPresentation(error, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt });
+  const stale = refreshPresentation.stale;
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
   const dailyRows = snapshot.experiment.dailyHistory ?? [];
   const todayTrades = dailyRows.length
@@ -64,7 +66,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   };
 
   useEffect(() => {
-    return startMemberDeskPolling({
+    setCheckedAt(Date.now());
+    const ageTimer = window.setInterval(() => setCheckedAt(Date.now()), 30_000);
+    const stopPolling = startMemberDeskPolling({
       read: readSnapshot,
       onSnapshot: (next) => { setSnapshot(next); setError(""); },
       onError: (reason) => setError(reason instanceof Error ? reason.message : "刷新失败"),
@@ -72,6 +76,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
       setIntervalFn: window.setInterval.bind(window),
       clearIntervalFn: window.clearInterval.bind(window),
     });
+    return () => { stopPolling(); window.clearInterval(ageTimer); };
   }, []);
 
   return (
@@ -83,7 +88,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
               <Badge variant="outline">{en ? "Execution summary" : "执行结论"}</Badge>
               <Heading size="h2">{en ? "AI Trading Desk" : "AI交易执行台"}</Heading>
               <Badge variant={live ? "danger" : "warning"}>{live ? (en ? "LIVE FUNDS" : "实盘") : "DEMO"}</Badge>
-              <Badge variant="success">{en ? "ACTIVE MODE" : "主动交易模式"}</Badge>
+              <Badge variant="outline">{en ? "FORECAST ≠ ORDER" : "预测观点 ≠ 已执行订单"}</Badge>
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl">
               {en
@@ -99,12 +104,13 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {stale ? <div role="status" className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100" data-stale-desk="1">{en ? "This is an old or unverified snapshot, not the current account state. Current PnL, position count and trade candidates are withheld. Historical positions below do not mean they are still open. The page retries automatically; no trading settings are changed." : "当前为过期或未核验快照，不是账户实时状态。今日盈亏、当前持仓数及交易候选暂不展示；下方历史持仓不代表现在仍持有。页面会自动重试，不会因此改变交易开关。"}</div> : null}
+        {!stale ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Today PnL" : "今日盈亏"}</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(snapshot.experiment.dailyPnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(snapshot.experiment.dailyPnlUsdt, " USDT")}</Text></div>
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Total PnL" : "累计盈亏"}</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(snapshot.experiment.pnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(snapshot.experiment.pnlUsdt, " USDT")}</Text></div>
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Trades today" : "今日交易"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{todayTrades}</Text></div>
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Open positions" : "当前持仓"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{snapshot.positions.length}</Text></div>
-        </div>
+        </div> : null}
 
         <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/10 p-3 text-xs text-white/55">
           <div className="flex flex-wrap gap-x-5 gap-y-1">
@@ -112,7 +118,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
             <span>{en ? "Snapshot (Beijing)" : "快照时间（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt ?? snapshot.generatedAt)}</span>
             <span>{en ? "Initial equity" : "初始资金"}：{number(snapshot.experiment.initialEquityUsdt)} USDT</span>
-            <span>{en ? "Quote age" : "行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
+            <span>{en ? "Quote age within snapshot" : "快照内行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">
             <span>{en ? "Latest market" : "最新行情"}：{formatBeijingDeskTime(snapshot.latestQuoteAt)}</span>
@@ -121,20 +127,26 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                 ? refreshPresentation.serverLabel
                 : snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}
             </span>
-            <span className={snapshot.syncStatus === "ERROR" || error ? "text-red-300" : ""}>{error || snapshot.syncMessage}</span>
+            <span className={snapshot.syncStatus === "ERROR" || stale ? "text-red-300" : ""}>{stale ? refreshPresentation.statusLabel : snapshot.syncMessage}</span>
           </div>
         </div>
       </Card>
 
-      <AiTradeIntentBoard
+      {!stale ? <AiTradeIntentBoard
         locale={en ? "en" : "zh"}
         showHistory
         dashboard={focusDashboard}
-      />
+      /> : null}
+
+      <div className="rounded-xl border border-white/10 p-4 text-sm leading-6 text-foreground-secondary" data-trade-reading-guide="1">
+        <p className="font-semibold text-foreground">{en ? "Why a bullish forecast can still end in a stopped-out long" : "为什么预测看涨，多单仍可能止损？"}</p>
+        <p className="mt-2">{en ? "A forecast describes an asset over a dated period. A trade has its own entry, holding horizon and risk limit. A later rebound does not justify keeping a failed short-term trade open. Review the order record to determine whether an exit followed the plan." : "预测说的是某个标的在一段时间里的走势；每笔订单另有入场位置、持仓周期和风险上限。预计后面反弹，不等于短线失败后可以一直拿着。退出是否合理，要核对该笔订单记录，不能只看之后涨没涨。"}</p>
+        <p className="mt-2">{en ? "Read in order: snapshot time → execution status → plan horizon and conditions → actual fills. A candidate or an armed plan is not an order; account and risk checks still apply." : "阅读顺序：快照时间 → 执行状态 → 计划周期与条件 → 实际成交。候选、已武装都不等于已经下单，仍需通过账户与风险检查。"}</p>
+      </div>
 
       <Card padding="lg" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Heading size="h3">{en ? "Open positions" : "当前持仓"}</Heading>
+          <Heading size="h3">{stale ? (en ? "Historical snapshot positions · not current" : "历史快照持仓 · 不代表当前") : (en ? "Open positions" : "当前持仓")}</Heading>
           <Badge variant="outline">{snapshot.positions.length}</Badge>
         </div>
         <div className="overflow-x-auto rounded-xl border border-white/[0.08]">
@@ -152,7 +164,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                   <td className="px-3 py-3 text-emerald-300">{number(position.takeProfit)}</td>
                 </tr>
               ))}
-              {!snapshot.positions.length ? <tr><td colSpan={7} className="px-4 py-7 text-center text-white/45">{en ? "No open position." : "当前没有持仓，AI正在从动态候选池寻找下一笔。"}</td></tr> : null}
+              {!snapshot.positions.length ? <tr><td colSpan={7} className="px-4 py-7 text-center text-white/45">{en ? "This snapshot contains no open position. Check its timestamp and the execution status above; candidate scanning does not mean new entries are enabled." : "本快照未列出持仓。请同时核对快照时间与上方执行状态；扫描候选不代表已经允许新开仓。"}</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -179,9 +191,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
       <details className="rounded-2xl border border-white/[0.08] bg-white/[0.015] px-4 py-4">
         <summary className="cursor-pointer font-medium text-white/75">{en ? "System & risk details" : "系统与风控详情"}</summary>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-sm text-white/60">
-          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Market" : "行情"}：{snapshot.quoteReady ? (en ? "ready" : "正常") : (en ? "delayed" : "延迟")}</div>
+          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Market" : "行情"}：{stale ? (en ? "unverified" : "待重新核验") : snapshot.quoteReady ? (en ? "ready" : "正常") : (en ? "delayed" : "延迟")}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Heartbeat" : "心跳"}：{formatBeijingDeskTime(snapshot.runtime.lastHeartbeatAt)}</div>
-          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Execution" : "执行"}：{snapshot.executionAllowed ? (en ? "allowed" : "已授权") : (en ? "blocked" : "未授权")}</div>
+          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Execution" : "执行"}：{stale ? (en ? "unverified" : "待重新核验") : snapshot.executionAllowed ? (en ? "allowed" : "已授权") : (en ? "blocked" : "未授权")}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Universe" : "候选池"}：{en ? "dynamic Top 10 from allow-list" : "允许池动态Top10"}</div>
         </div>
         <Text variant="caption" color="secondary" className="mt-3 block leading-5">

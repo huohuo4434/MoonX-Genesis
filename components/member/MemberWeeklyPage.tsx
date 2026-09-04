@@ -172,6 +172,7 @@ function PublishedCard({ a, weekLabel }: { a: WeeklyAnalysisMemberView; weekLabe
       <p className="text-body-sm font-medium leading-6 text-foreground">{en ? safeEnglish(a.headline) : a.headline}</p>
       <PlainLanguageSummary
         direction={a.overallDirection}
+        period={`${a.weekStart} — ${a.weekEnd}`}
         path={en ? safeEnglish(a.weeklyPath) : a.weeklyPath}
         confirmation={en ? (a.confirmation ? safeEnglish(a.confirmation) : undefined) : a.confirmation}
         invalidation={en ? safeEnglish(a.invalidation) : a.invalidation}
