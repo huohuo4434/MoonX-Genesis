@@ -7,6 +7,7 @@ import {
 import { listDailyVerificationResults } from "@/lib/data/daily-accuracy-store";
 import {
   getIntradayTechnicalLevelMap,
+  resolveIntradayTechnicalTarget,
   type IntradayTechnicalLevels,
 } from "@/lib/market-data/intraday-chan-levels";
 import {
@@ -18,6 +19,7 @@ export type MemberDailyTechnicalView = {
   support: string;
   resistance: string;
   invalidation: string;
+  quoteSymbol?: string;
   source: "CHAN_4H" | "SWING_4H" | "CHAN_1H" | "SWING_1H" | "FALLBACK" | "VERIFIED_OHLC" | "FORECAST_SNAPSHOT" | "LOCKED_LEVELS" | "UNAVAILABLE";
 };
 
@@ -271,6 +273,7 @@ export async function buildMemberDailyTechnicalViews(
         resistance: live.resistance,
         invalidation: invalidationFor(direction, live.support, live.resistance),
         source: live.source,
+        quoteSymbol: resolveIntradayTechnicalTarget(normalizeSymbol(forecast.symbol))?.providerSymbol,
       };
       continue;
     }

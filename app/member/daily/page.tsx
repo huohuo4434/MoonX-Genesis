@@ -18,6 +18,7 @@ import type { DailyForecast } from "@/types/daily-forecast";
 import { buildDailyResearchReason } from "@/lib/forecasts/daily-display-reason";
 import { buildMemberDailyTechnicalViews, type MemberDailyTechnicalView } from "@/lib/forecasts/member-daily-live-levels";
 import { getOctober2026FlashCrashRisk } from "@/lib/research/october-2026-flash-crash-risk";
+import { dailyBoardDateLabel, dailyTechnicalBasisLabel } from "@/lib/presentation/daily-board-labels";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -141,7 +142,7 @@ function ForecastBoard({
           <Heading as="h2" size="h3">{title}</Heading>
           <Text variant="caption" color="tertiary" className="mt-1 block">先看适用日期与走势含义，再核对确认条件、支撑 / 压力和风险边界。</Text>
         </div>
-        {rows[0]?.forecastForDate ? <Badge variant="outline">{formatDateChina(rows[0].forecastForDate)}</Badge> : null}
+        {rows.length ? <Badge variant="outline">{dailyBoardDateLabel(rows)}</Badge> : null}
       </div>
 
       {rows.length ? (
@@ -151,7 +152,7 @@ function ForecastBoard({
               const direction = displayDirection(forecast);
               return (
                 <a key={forecast.id} href={`#daily-${forecast.id}`} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${tone(direction)}`}>
-                  {forecast.symbol} · {direction}
+                  {forecast.symbol} · {direction} · {formatDateChina(forecast.forecastForDate)}
                 </a>
               );
             })}
@@ -161,7 +162,7 @@ function ForecastBoard({
             {rows.map((forecast) => {
               const direction = displayDirection(forecast);
               const relation = relationLabel(forecast);
-              const technical = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" as const };
+              const technical: MemberDailyTechnicalView = technicalViews[forecast.id] ?? { support: "—", resistance: "—", invalidation: "—", source: "UNAVAILABLE" };
               return (
                 <article id={`daily-${forecast.id}`} key={forecast.id} className="scroll-mt-24 rounded-2xl border border-border/[0.1] bg-card/55 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -182,12 +183,13 @@ function ForecastBoard({
                       invalidation={technical.invalidation === "—" ? null : `技术观察边界：${technical.invalidation}。触及后重新核对结构；已有订单按该笔订单自己的止损执行。`}
                     />
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                  <p className="mt-4 text-xs leading-5 text-amber-100" data-technical-basis>{dailyTechnicalBasisLabel(technical.source, technical.quoteSymbol)}</p>
+                  <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
                     <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">支撑</dt><dd className="mt-1 font-medium">{technical.support}</dd></div>
                     <div className="rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">压力</dt><dd className="mt-1 font-medium">{technical.resistance}</dd></div>
                     <div className="col-span-2 rounded-xl bg-black/15 p-3"><dt className="text-xs text-foreground-tertiary">技术位置风险参考（不等于成交止损）</dt><dd className="mt-1 text-foreground-secondary">{technical.invalidation}</dd></div>
                   </dl>
-                  <p className="mt-2 text-xs leading-5 text-foreground-tertiary">支撑是观察承接的位置，压力是观察受阻的位置，都不是碰到就买卖。星级表示方法共识，不代表盈利概率。更新：{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}</p>
+                  <p className="mt-2 text-xs leading-5 text-foreground-tertiary">支撑是观察承接的位置，压力是观察受阻的位置，都不是碰到就买卖。星级表示方法共识，不代表盈利概率。预测记录更新：{formatDateTimeChina(forecast.updatedAt || forecast.publishedAt)}（不是技术行情时间）</p>
                   <details className="mt-3 rounded-xl border border-border/[0.08] px-3 py-2 text-sm text-foreground-secondary">
                     <summary className="cursor-pointer text-foreground">查看研判依据</summary>
                     <p className="mt-2 leading-6">{conciseEvidence(forecast) || "详细依据整理中。"}</p>
@@ -291,9 +293,14 @@ export default async function MemberDailyPage() {
                 facts={todayFacts}
                 actions={["先对日期：日报看当天交易时段，周报看一周，月报看整月；不能把月度看涨当成今天必涨。", "再对条件：先跌后涨不等于已经见底；先涨后跌不等于现在就做空。", "最后对风险：确认条件缺失或失效条件触发时先不跟随；已有订单仍按自己的止损和期限执行。"]}
               />
+              <nav aria-label="按持有周期阅读" className="mt-4 flex flex-wrap gap-3 text-sm">
+                <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-primary">做中线：先看周走势</Link>
+                <Link href="/member/monthly" className="rounded-full border border-border/20 px-4 py-2">看大背景：月走势</Link>
+                <Link href="/member/key-dates" className="rounded-full border border-border/20 px-4 py-2">找时间窗口：关键日</Link>
+              </nav>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />
-                <StatusCard label="下一交易日" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows[0]?.forecastForDate ? formatDateChina(tomorrowRows[0].forecastForDate) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />
+                <StatusCard label="下一交易日（按市场）" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows.length ? dailyBoardDateLabel(tomorrowRows) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />
                 <StatusCard label="最近更新" value={latest ? formatDateTimeChina(latest) : "暂无时间"} note="每条预测保留独立版本" toneClass="border-violet-400/20 bg-violet-400/[0.05]" />
               </div>
             </header>
