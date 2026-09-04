@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { LiveRenewalPreview } from "@/lib/trading-signals/live-renewal-preview-core";
 import type {
   UnifiedLiveCustodyAudit,
   UnifiedLiveHorizon,
@@ -47,6 +48,34 @@ export default function AdminLiveTradingClient() {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const readGeneration = useRef(0);
+  const [preview, setPreview] = useState<LiveRenewalPreview | null>(null);
+  const [previewMessage, setPreviewMessage] = useState("展开后自动读取，不会续期或下单。");
+  const previewInFlight = useRef(false);
+
+  const loadPreview = async () => {
+    if (previewInFlight.current) return;
+    previewInFlight.current = true;
+    setPreview(null);
+    setPreviewMessage("正在读取续期前检查……");
+    try {
+      const response = await fetch("/api/admin/live-trading/renewal-preview", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error("PREVIEW_UNAVAILABLE");
+      const result = await response.json() as LiveRenewalPreview;
+      if (!result || result.readOnly !== true || result.writeAttempted !== false || result.canRenew !== false || !Array.isArray(result.checks)
+        || !result.checks.every((check) => check && typeof check === "object" && typeof check.key === "string"
+          && typeof check.label === "string" && typeof check.detail === "string" && ["OK", "BLOCKED", "UNKNOWN"].includes(check.state))) throw new Error("INVALID_PREVIEW");
+      setPreview(result);
+      setPreviewMessage("本次仅检查，未修改期限。拟议续期30天，不清零原本金、盈亏或回撤；尚未生效。");
+    } catch {
+      setPreviewMessage("续期预检读取失败，不能据此判断可以恢复。可收起后重新展开检查。");
+    } finally {
+      previewInFlight.current = false;
+    }
+  };
+  const displayTime = (value: string | null) => {
+    const time = value ? Date.parse(value) : NaN;
+    return Number.isFinite(time) ? new Date(time).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "未取得";
+  };
 
   const load = useCallback(async () => {
     const generation = ++readGeneration.current;
@@ -202,6 +231,27 @@ export default function AdminLiveTradingClient() {
           </div>
         ) : null}
       </section>
+
+      <details className="mt-6 rounded-3xl border border-amber-400/20 p-4" onToggle={(event) => { if (event.currentTarget.open) void loadPreview(); }}>
+        <summary className="cursor-pointer text-amber-200">续期前检查（只读，不启动交易）</summary>
+        <p role="status" className="mt-3 text-sm text-slate-300">{previewMessage}</p>
+        {preview ? <>
+          <p className="mt-3 text-sm leading-6 text-slate-400">
+            读取时间：{displayTime(preview.generatedAt)}（北京时间）<br />
+            原实验：{displayTime(preview.originalStartedAt)} — {displayTime(preview.originalEndsAt)}<br />
+            拟议截止时间：{displayTime(preview.proposedEndsAt)}（仅按本次读取时刻估算，尚未确认）<br />
+            账户快照：{displayTime(preview.accountCheckedAt)}；服务器心跳：{displayTime(preview.heartbeatAt)}
+          </p>
+          <ul className="mt-4 space-y-3">
+            {preview.checks.map((check) => <li key={check.key} className="rounded-xl bg-white/5 p-3 text-sm">
+              <b className={check.state === "OK" ? "text-emerald-300" : check.state === "BLOCKED" ? "text-red-300" : "text-amber-200"}>
+                {check.label} · {check.state === "OK" ? "此项快照符合" : check.state === "BLOCKED" ? "未通过" : "待核查"}
+              </b>
+              <p className="mt-1 text-slate-300">{check.detail}</p>
+            </li>)}
+          </ul>
+        </> : null}
+      </details>
 
       <details className="mt-6 rounded-3xl border border-white/10 p-4">
         <summary className="cursor-pointer text-slate-300">高级诊断与仓位托管（平时不用展开）</summary>

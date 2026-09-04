@@ -156,3 +156,45 @@ test("an enabled switch plus expired experiment visibly says it cannot open orde
   assert.equal(ui.button("一键开启").props.disabled, true);
   assert.equal(ui.button("一键关闭").props.disabled, false);
 });
+
+test("renewal preview is opt-in GET only and a failed refresh removes the old snapshot", async () => {
+  const preview = { readOnly: true, writeAttempted: false, canRenew: false, checks: [
+    { key: "renewal", state: "BLOCKED", label: "续期确认流程", detail: "未开放测试标记" },
+  ], generatedAt: "2026-09-04T12:00:00Z", originalEndsAt: "2026-09-03T15:30:36Z" };
+  const ui = harness([response(healthy("LIVE")), response(preview), new Error("offline")]);
+  await ui.mount();
+  const toggle = (open) => ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open } });
+  toggle(false);
+  assert.equal(ui.requests.length, 1);
+  toggle(true); await settle();
+  assert.equal(ui.requests[1].url, "/api/admin/live-trading/renewal-preview");
+  assert.equal(ui.requests[1].method, undefined);
+  assert.equal(ui.requests[1].cache, "no-store");
+  assert.match(ui.text(), /未开放测试标记/);
+  assert.match(ui.text(), /尚未生效/);
+  toggle(false); toggle(true); await settle();
+  assert.match(ui.text(), /续期预检读取失败/);
+  assert.doesNotMatch(ui.text(), /未开放测试标记/);
+  assert.ok(ui.requests.every((request) => request.method === undefined));
+  assert.equal(ui.button("一键关闭").props.disabled, false);
+});
+
+test("preview rejects an unexpected claim that renewal is enabled", async () => {
+  const ui = harness([response(healthy()), response({ readOnly: true, writeAttempted: false, canRenew: true, checks: [] })]);
+  await ui.mount();
+  ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open: true } });
+  await settle();
+  assert.match(ui.text(), /续期预检读取失败/);
+  assert.equal(ui.requests.length, 2);
+  assert.ok(ui.requests.every((request) => request.method === undefined));
+});
+test("malformed preview check entries do not crash the management page", async () => {
+  for (const checks of [[null], ["bad"], [{ key: "x", label: {}, detail: "x", state: "OK" }]]) {
+    const ui = harness([response(healthy()), response({ readOnly: true, writeAttempted: false, canRenew: false, checks })]);
+    await ui.mount();
+    ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open: true } });
+    await settle();
+    assert.match(ui.text(), /续期预检读取失败/);
+    assert.equal(ui.button("一键关闭").props.disabled, false);
+  }
+});
