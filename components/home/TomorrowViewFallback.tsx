@@ -17,6 +17,7 @@ export function TomorrowViewFallback() {
 
   useEffect(() => {
     if (window.location.pathname !== "/") return;
+    if (!document.querySelector("[data-home-dashboard]")) return;
     // Mobile V7.20.7 home is intentionally concise; do not add a second network
     // request and late layout insertion on phones. Desktop keeps the legacy view.
     if (!window.matchMedia("(min-width: 768px)").matches) return;

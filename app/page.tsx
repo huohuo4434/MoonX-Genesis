@@ -10,9 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
     titleZh: "MOOX Intelligence",
     titleEn: "MOOX Intelligence | Direction First, Confirmation Before Entry",
     descriptionZh:
-      "首页聚焦九大核心市场的今日方向、信心星级、关键支撑与压力，并保留明日看点、验证记录、缠论与AI自动交易入口。",
+      "了解比特币、以太坊、纳斯达克100、黄金和白银的市场研究。免费体验今日基础观点，会员解锁周月展望、关键日期与技术价位。",
     descriptionEn:
-      "A simplified market dashboard focused on the nine core markets, confidence stars, key levels, tomorrow views, verification, Chan structure and AI execution.",
+      "Market research for Bitcoin, Ether, Nasdaq 100, gold and silver. Start with free daily views; explore membership for weekly and monthly outlooks, key dates and technical levels.",
   });
 }
 

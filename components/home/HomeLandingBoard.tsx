@@ -12,6 +12,8 @@ import type { PublicAccuracyHistoryItem } from "@/lib/accuracy/get-public-histor
 import { cleanDailyLevel } from "@/lib/forecasts/daily-display-reason";
 import { HomeMobileAppView } from "@/components/home/HomeMobileAppView";
 import { HomeIntradayLevelPair } from "@/components/home/HomeIntradayLevelPair";
+import { HomeWelcome } from "@/components/home/HomeWelcome";
+import { getRequestLocale } from "@/lib/i18n/server";
 // V7.20.7 compatibility note: getPublicUnifiedLiveSnapshot moved off the homepage critical render path in V7.20.8.
 
 const CORE_MARKETS = [
@@ -131,12 +133,17 @@ export function HomeLandingBoard() {
 
 async function HomeLandingData() {
   noStore();
+  const locale = await getRequestLocale();
   const now = new Date();
   const todayResult = await Promise.allSettled([getTodayForecastAccessPayload(now)]);
   const todayPayload = todayResult[0].status === "fulfilled" ? todayResult[0].value : null;
+  const todayAccessMessage = todayPayload && !todayPayload.allowed ? todayPayload.message : "今日观点正在整理中";
+  // English home is a product entry; localized research remains at /en/member/daily.
+  if (!todayPayload?.allowed || locale === "en") {
+    return <HomeWelcome locale={locale} canViewDaily={Boolean(todayPayload?.allowed)} />;
+  }
   const todayForecasts = todayPayload?.allowed ? todayPayload.forecasts : [];
   const marketRows = buildMarketRows(todayForecasts);
-  const todayAccessMessage = todayPayload && !todayPayload.allowed ? todayPayload.message : "今日观点正在整理中";
   const publishedRows = marketRows.filter((row) => Boolean(row.forecast));
   const mobileMarkets = publishedRows
     .map((row) => {
@@ -176,6 +183,7 @@ async function HomeLandingData() {
     .at(-1);
   return (
     <>
+      <span hidden data-home-dashboard />
       <HomeMobileAppView
         canViewDaily={Boolean(todayPayload?.allowed)}
         accessMessage={todayAccessMessage}

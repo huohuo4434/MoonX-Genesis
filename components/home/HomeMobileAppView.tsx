@@ -43,7 +43,7 @@ export function HomeMobileAppView({
               <Link href="/verification" className="flex min-h-11 items-center justify-center rounded-full border border-cyan-400/25 bg-cyan-500/[0.08] px-5 py-2.5 text-sm font-medium text-cyan-100">查看公开验证</Link>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-2">
-              <RadarStat label="核心市场" value="9" tone="text-white" />
+              <RadarStat label="核心市场" value="5" tone="text-white" />
               <RadarStat label="日／周／月" value="3层" tone="text-violet-200" />
               <RadarStat label="失败也保留" value="公开" tone="text-emerald-200" />
             </div>
@@ -85,7 +85,7 @@ export function HomeMobileAppView({
           <div className="mt-5 grid grid-cols-3 gap-2">
             <RadarStat label="奇六共振" value={resonanceCount} tone="text-emerald-200" />
             <RadarStat label="存在分歧" value={divergenceCount} tone="text-amber-100" />
-            <RadarStat label="已发布" value={`${publishedCount}/9`} tone="text-white" />
+            <RadarStat label="已发布" value={`${publishedCount}/5`} tone="text-white" />
           </div>
         </div>
       </section>

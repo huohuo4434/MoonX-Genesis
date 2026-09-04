@@ -127,6 +127,7 @@ export function PricingPageContent({
                 ? "View today's basic market direction after 08:00 Beijing time, public focused-asset summaries and verification records."
                 : "北京时间08:00后查看今日基础观点、重点资产公开摘要与公开验证。"}
             </Text>
+            <Button asChild className="mt-4" variant="outline"><Link href={isLoggedIn ? href("/member/daily") : href(`/register?next=${encodeURIComponent(href("/member/daily"))}`)}>{en ? (isLoggedIn ? "Read today's view" : "Start free — no payment required") : (isLoggedIn ? "查看今日观点" : "免费注册，无需付款")}</Link></Button>
           </Card>
           <Card padding="md" className="border-primary/25 bg-primary/[0.03]">
             <Text variant="body" weight="semibold">{en ? "Paid member" : "付费会员"}</Text>
@@ -135,10 +136,12 @@ export function PricingPageContent({
                 ? "Get early access to full daily forecasts plus next-session, weekly, monthly, technical levels and member signals."
                 : "全天提前查看今日完整预测，并解锁下一交易日、周度、月度、关键价位和会员信号。"}
             </Text>
+            <a href="#membership-plans" className="mt-4 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">{en ? "See prices and choose a plan" : "查看价格与套餐"}</a>
           </Card>
         </div>
 
-        <Card padding="lg" className="w-full max-w-4xl border-cyan-300/15 bg-cyan-300/[0.025]">
+        <details className="w-full max-w-4xl rounded-2xl border border-cyan-300/15 p-5">
+          <summary className="cursor-pointer font-semibold">{en ? "Explore the included research tools" : "展开查看包含哪些研究工具"}</summary>
           <div className="max-w-3xl">
             <Text variant="caption" className="tracking-[0.16em] text-cyan-200/70">
               {en ? "MEMBER RESEARCH MODULES" : "当前会员研究模块"}
@@ -171,7 +174,7 @@ export function PricingPageContent({
               </Link>
             ))}
           </div>
-        </Card>
+        </details>
 
         <Card padding="lg" className="w-full max-w-4xl border-amber-400/25 bg-amber-400/[0.04]">
           <Text variant="body" weight="semibold">
@@ -202,6 +205,8 @@ export function PricingPageContent({
           </Text>
         </Card>
 
+        <div id="membership-plans" className="w-full max-w-4xl scroll-mt-24">
+        <p className="mb-4 text-sm text-foreground-secondary">{en ? "Membership pays for research access, not guaranteed profits. Payments are in USDT; check the supported network before transferring." : "会员费购买研究内容，不保证盈利。当前以USDT付款，转账前请核对支持的网络。"}</p>
         {isAdmin ? (
           <Card padding="lg" className="w-full max-w-4xl">
             <Text variant="body-sm" color="secondary">
@@ -221,6 +226,7 @@ export function PricingPageContent({
             founderQuote={founderQuote}
           />
         )}
+        </div>
 
         <div className="grid w-full max-w-4xl gap-4 md:hidden">
           {(["free", "member"] as const).map((tier) => (

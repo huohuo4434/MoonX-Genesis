@@ -18,16 +18,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const QUESTIONS_ZH = [
-  { title: "MOOX先判断什么？", body: "有效的周／阶段六爻负责短中期方向。两份同周期六爻冲突时，默认来源略优先；若发布前奇门、多方观点严格多数和完整缠论全部支持另一份六爻，则采用交叉验证更充分的六爻，并保留分歧。锁定后不事后改写。" },
-  { title: "缠论和技术做什么？", body: "主要寻找支撑、压力、入场确认、加减仓和失效位置；不能单独翻转方向，但可在发布前参与两份冲突六爻的交叉验证。" },
+  { title: "一个月、一周、一天分别看什么？", body: "月度看大方向与关键日期；周度看阶段机会与风险；日度看价格是否到达支撑、压力或确认位置。短线反弹不等于长线转涨。" },
+  { title: "看涨之后，能直接买吗？", body: "不能只凭方向追涨。先看当前价格离压力位多近、入场条件是否满足，以及判断失效时如何控制风险。没有合适位置就等待。" },
   { title: "星级代表什么？", body: "表示方法之间的一致程度，不代表上涨幅度。五星可以看涨，也可以看跌。" },
   { title: "什么时候执行？", body: "方向提前锁定，价格和结构达到确认条件后才执行；没有合适位置就等待。" },
   { title: "怎么判断是否可靠？", body: "到历史验证查看连续样本。六爻、奇门、共振样本和量化交易结果分别留档，不只展示正确案例。" },
 ] as const;
 
 const QUESTIONS_EN = [
-  { title: "What does MOOX decide first?", body: "The active weekly or stage Liu Yao record owns direction. When two same-window readings conflict, the default source has a soft priority; before publication only, unanimous Qimen, an independent-analyst majority and complete Chan structure may select the better-confirmed Liu Yao candidate while preserving the disagreement. Locked history is never rewritten." },
-  { title: "What do Chan and technical data do?", body: "They mainly locate support, resistance, confirmation, scaling and invalidation. They cannot flip direction alone, but may help arbitrate two conflicting Liu Yao candidates before publication." },
+  { title: "What should I read each month, week and day?", body: "Monthly research gives the bigger picture and key dates. Weekly research highlights opportunities and risks. Daily levels help you evaluate a setup. A short-term bounce does not establish a long-term uptrend." },
+  { title: "Does a bullish view mean buy now?", body: "No. Check nearby resistance, entry conditions and what would invalidate the setup. A market outlook is not an immediate trade instruction. If the setup is unsuitable, wait." },
   { title: "What do stars mean?", body: "Stars show agreement across methods, not upside magnitude. Five stars can be bullish or bearish." },
   { title: "When is execution allowed?", body: "Direction is researched first; execution waits for price and structure confirmation. No suitable location means no trade." },
   { title: "How is reliability judged?", body: "Use Verification to review continuous samples. Liu Yao, Qimen, resonance and quant-trading outcomes are kept separately." },
@@ -62,17 +62,17 @@ export default async function GuidePage() {
     <div className="max-w-3xl">
       <Badge variant="default">{en ? "Beginner Guide" : "新手指南"}</Badge>
       <Heading as="h1" size="h2" className="mt-3">{en ? "Read the conclusion first" : "先看结论，再看位置"}</Heading>
-      <Text variant="body" color="secondary" className="mt-3 block">{en ? "Direction first, confirmation second, invalidation always respected." : "只记住三步：看方向、等确认、守失效。"}</Text>
+      <Text variant="body" color="secondary" className="mt-3 block">{en ? "Choose your timeframe. Check the price levels. Know when to step back." : "先选周期，再看位置，最后明确什么情况下不再做。"}</Text>
     </div>
 
     <Card padding="lg" className="border-primary/20 bg-primary/[0.025]">
       <Heading as="h2" size="h3">{en ? "Recommended reading order" : "推荐阅读顺序"}</Heading>
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         {[
-          { title: en ? "1. Daily Report" : "1. 会员日报", body: en ? "Today and next session" : "今天与下一交易日", path: "/member/daily" },
-          { title: en ? "2. Weekly Outlook" : "2. 周走势预测", body: en ? "Weekly stage and path" : "本周阶段与路径", path: "/member/weekly" },
-          { title: en ? "3. Quant Trading" : "3. 量化交易", body: en ? "Execution and risk state" : "执行与风控状态", path: "/member/ai-trading" },
-          { title: en ? "4. Verification" : "4. 历史验证", body: en ? "Continuous public record" : "连续样本与复盘", path: "/verification" },
+          { title: en ? "1. Review the record" : "1. 看预测回顾", body: en ? "Start with public results" : "先了解实际表现", path: "/verification" },
+          { title: en ? "2. Try daily views" : "2. 体验今日观点", body: en ? "Free after the daily release" : "每日开放后免费查看", path: "/member/daily" },
+          { title: en ? "3. Compare membership" : "3. 比较会员权益", body: en ? "Decide if you need more detail" : "按需要解锁详细研究", path: "/pricing" },
+          { title: en ? "4. Plan your week" : "4. 制定每周计划", body: en ? "Member outlook and risks" : "会员周度展望与风险", path: "/member/weekly" },
         ].map(({ title, body, path }) => <Link key={path} href={href(path)} className="rounded-xl border border-border/[0.1] p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.02]"><Text variant="body-sm" weight="semibold">{title}</Text><Text variant="caption" color="secondary" className="mt-2 block">{body}</Text></Link>)}
       </div>
     </Card>
@@ -106,7 +106,7 @@ export default async function GuidePage() {
       </div>
     </Card>
 
-    <div className="flex flex-wrap gap-3"><Button asChild variant="primary"><Link href={href("/member")}>{en ? "Open Member Channel" : "进入会员频道"}</Link></Button><Button asChild variant="outline"><Link href={href("/verification")}>{en ? "View Verification" : "查看历史验证"}</Link></Button></div>
+    <div className="flex flex-wrap gap-3"><Button asChild variant="primary"><Link href={href(`/register?next=${encodeURIComponent(href("/member/daily"))}`)}>{en ? "Create a free account" : "免费注册体验"}</Link></Button><Button asChild variant="outline"><Link href={href("/pricing")}>{en ? "Compare membership" : "比较会员权益"}</Link></Button></div>
     <Text variant="caption" color="tertiary">{en ? "Research and scenario analysis only. Not investment advice." : "所有内容仅供研究参考，不构成投资建议。"}</Text>
   </div></Section></main>;
 }
