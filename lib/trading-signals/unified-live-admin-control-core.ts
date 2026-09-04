@@ -13,6 +13,7 @@ export type UnifiedLiveRestoreReadiness = {
   environmentAllowsNewEntries: boolean;
   positionManagementEnabled: boolean;
   bitgetLiveExperiment: boolean;
+  liveExperiment?: { status: string; startedAt: Date | string | null; endsAt: Date | string | null } | null;
   bitgetConfigured: boolean;
   bitgetExecutionAllowed: boolean;
   bitgetLiveConfirmationAccepted: boolean;
@@ -25,6 +26,7 @@ export type UnifiedLiveRestoreReadiness = {
 
 export function buildUnifiedLiveRestoreBlockers(
   input: UnifiedLiveRestoreReadiness,
+  now = new Date(),
 ): UnifiedLiveRestoreBlocker[] {
   const blockers: UnifiedLiveRestoreBlocker[] = [];
   const add = (code: string, message: string, detail?: string) => {
@@ -36,6 +38,25 @@ export function buildUnifiedLiveRestoreBlockers(
   if (!input.environmentAllowsNewEntries) add("ENV_NEW_ENTRIES_DISABLED", "服务器环境仍禁止新开仓");
   if (!input.positionManagementEnabled) add("POSITION_MANAGEMENT_DISABLED", "已有仓位托管未启用");
   if (!input.bitgetLiveExperiment) add("BITGET_MODE_NOT_LIVE_EXPERIMENT", "Bitget当前不是1000U实盘实验模式");
+  if (input.bitgetLiveExperiment) {
+    const experiment = input.liveExperiment;
+    const start = experiment?.startedAt ? new Date(experiment.startedAt).getTime() : NaN;
+    const end = experiment?.endsAt ? new Date(experiment.endsAt).getTime() : NaN;
+    if (!experiment) {
+      add("LIVE_EXPERIMENT_UNAVAILABLE", "实盘实验状态未取得，暂不能开启；请稍后重新读取。");
+    } else if (experiment.status === "COMPLETED" || (Number.isFinite(end) && end <= now.getTime())) {
+      add("LIVE_EXPERIMENT_EXPIRED", "实盘实验已到期，自动新开仓尚未恢复。需要单独确认新的实验周期；重复点击开启不会续期。");
+    } else if (experiment.status === "STOPPED") {
+      add("LIVE_EXPERIMENT_STOPPED", "实盘实验已停止，需先核查停止原因；开启按钮不会重置实验。");
+    } else if (experiment.status === "NOT_STARTED") {
+      add("LIVE_EXPERIMENT_NOT_STARTED", "实盘实验尚未启动，需先完成实验周期配置。");
+    } else if (experiment.status !== "ACTIVE" || !Number.isFinite(start) || !Number.isFinite(end)
+      || !Number.isFinite(now.getTime()) || start >= end) {
+      add("LIVE_EXPERIMENT_INVALID", "实盘实验状态或起止时间无效，暂不能开启。");
+    } else if (start > now.getTime()) {
+      add("LIVE_EXPERIMENT_NOT_DUE", "尚未到达实盘实验开始时间，暂不能开启。");
+    }
+  }
   if (!input.bitgetConfigured) add("BITGET_CREDENTIALS_MISSING", "Bitget交易凭据未完整配置");
   if (!input.bitgetExecutionAllowed) add("BITGET_EXECUTION_DISABLED", "Bitget实盘执行许可未通过");
   if (!input.bitgetLiveConfirmationAccepted) add("BITGET_LIVE_CONFIRMATION_MISSING", "Bitget实盘确认尚未生效");

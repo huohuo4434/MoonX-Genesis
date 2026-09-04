@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
 import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
@@ -19,18 +20,31 @@ async function requireAdmin(request: NextRequest) {
   return (await isUnifiedLiveAdmin(actor)) ? actor : null;
 }
 
-function readRestoreReadiness(status: {
+async function readRestoreReadiness(status: {
   migrationRequired?: boolean;
   audit?: UnifiedLiveCustodyAudit | null;
-}): UnifiedLiveRestoreReadiness {
+}, checkExperiment = true): Promise<UnifiedLiveRestoreReadiness> {
   const runtime = readUnifiedLiveRuntimeConfig();
   const bitget = getBitgetDemoEnvironment();
+  // Read the authoritative row without ensure/sync helpers (those can create or renew state).
+  let liveExperiment: UnifiedLiveRestoreReadiness["liveExperiment"] = null;
+  if (checkExperiment && bitget.mode === "LIVE_EXPERIMENT" && prisma) {
+    try {
+      const rows = await prisma.$queryRaw<Array<{ status: string; started_at: Date | null; ends_at: Date | null }>>`
+        SELECT status, started_at, ends_at FROM trade_bitget_live_experiment WHERE id = 'default' LIMIT 1
+      `;
+      if (rows[0]) liveExperiment = { status: rows[0].status, startedAt: rows[0].started_at, endsAt: rows[0].ends_at };
+    } catch {
+      // Missing table, unavailable DB, or failed read is unknown, never permission.
+    }
+  }
   return {
     runtimeModeLive: runtime.mode === "LIVE",
     liveSwitchAllowed: runtime.allowLiveSwitch,
     environmentAllowsNewEntries: runtime.allowNewEntriesByEnv,
     positionManagementEnabled: runtime.positionManagementEnabled,
     bitgetLiveExperiment: bitget.mode === "LIVE_EXPERIMENT",
+    liveExperiment,
     bitgetConfigured: bitget.configured,
     bitgetExecutionAllowed: bitget.executionAllowed,
     bitgetLiveConfirmationAccepted: bitget.liveConfirmationAccepted,
@@ -45,7 +59,7 @@ function readRestoreReadiness(status: {
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   const status = await inspectUnifiedLiveCustody("official");
-  const restoreBlockers = buildUnifiedLiveRestoreBlockers(readRestoreReadiness(status));
+  const restoreBlockers = buildUnifiedLiveRestoreBlockers(await readRestoreReadiness(status));
   return NextResponse.json({ ...status, restoreBlockers }, {
     headers: { "Cache-Control": "no-store" },
   });
@@ -65,7 +79,7 @@ export async function POST(request: NextRequest) {
     const result = await applyUnifiedLiveModeChange({
       mode,
       confirmation: payload?.confirmation,
-      readiness: readRestoreReadiness(status),
+      readiness: await readRestoreReadiness(status, mode === "LIVE"),
       apply: (nextMode) => setUnifiedLiveMode({
         ownerKey: "official",
         mode: nextMode,

@@ -960,6 +960,7 @@ test("unified LIVE control and concurrent pause observability are behavioral fai
     environmentAllowsNewEntries: true,
     positionManagementEnabled: true,
     bitgetLiveExperiment: true,
+    liveExperiment: { status: "ACTIVE", startedAt: "2020-01-01T00:00:00Z", endsAt: "2099-01-01T00:00:00Z" },
     bitgetConfigured: false,
     bitgetExecutionAllowed: true,
     bitgetLiveConfirmationAccepted: true,

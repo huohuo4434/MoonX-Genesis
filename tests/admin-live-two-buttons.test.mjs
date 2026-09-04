@@ -145,3 +145,14 @@ test("a delayed initial GET cannot overwrite the newer off result or its status"
   assert.equal(ui.button("一键开启").props.disabled, false);
   }
 });
+
+test("an enabled switch plus expired experiment visibly says it cannot open orders", async () => {
+  const ui = harness([response({ ...healthy("LIVE"), restoreBlockers: [{ code: "LIVE_EXPERIMENT_EXPIRED", message: "实盘实验已到期" }] })]);
+  await ui.mount();
+  assert.match(ui.text(), /开关已开，但运行条件未通过/);
+  assert.match(ui.text(), /被运行条件阻断/);
+  assert.match(ui.text(), /实盘实验已到期/);
+  assert.doesNotMatch(ui.text(), /0项阻断/);
+  assert.equal(ui.button("一键开启").props.disabled, true);
+  assert.equal(ui.button("一键关闭").props.disabled, false);
+});

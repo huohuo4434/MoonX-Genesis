@@ -140,6 +140,11 @@ export default function AdminLiveTradingClient() {
           开启：允许现有策略用真实资金开仓。关闭：停止新开仓，已有仓位继续管理，不自动平仓。
         </p>
         <div role="status" aria-live="polite" className="mt-4 rounded-2xl bg-white/5 p-4 text-sm">{message}</div>
+        {account && blockerCount > 0 ? (
+          <p role="alert" className="mt-4 text-lg font-semibold text-red-300">
+            实盘状态：暂不能开新单{entryPermissionOn ? "（开关已开，但运行条件未通过）" : ""}
+          </p>
+        ) : null}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
             className="rounded-2xl bg-emerald-600 px-6 py-5 text-xl font-semibold disabled:cursor-not-allowed disabled:opacity-40"
@@ -171,7 +176,7 @@ export default function AdminLiveTradingClient() {
           <div className="rounded-xl bg-white/5 p-4">
             新开仓
             <br />
-            <b>{!account ? "未知" : entryPermissionOn ? "等待策略与风控检查" : "暂停"}</b>
+            <b>{!account ? "未知" : blockerCount > 0 ? "被运行条件阻断" : entryPermissionOn ? "等待策略与风控检查" : "暂停"}</b>
           </div>
           <div className="rounded-xl bg-white/5 p-4">
             已有仓管理

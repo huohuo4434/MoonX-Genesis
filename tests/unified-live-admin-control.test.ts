@@ -17,6 +17,7 @@ function ready(overrides: Partial<UnifiedLiveRestoreReadiness> = {}): UnifiedLiv
     environmentAllowsNewEntries: true,
     positionManagementEnabled: true,
     bitgetLiveExperiment: true,
+    liveExperiment: { status: "ACTIVE", startedAt: "2020-01-01T00:00:00Z", endsAt: "2099-01-01T00:00:00Z" },
     bitgetConfigured: true,
     bitgetExecutionAllowed: true,
     bitgetLiveConfirmationAccepted: true,
@@ -93,6 +94,38 @@ test("restore blockers are fixed and do not expose readiness values or raw error
     "LIVE_CAPITAL_NOT_1000U",
   ]);
   assert.equal(JSON.stringify(blockers).includes("process.env"), false);
+});
+
+test("experiment must be active and within valid start/end bounds, including exact expiry", async () => {
+  const now = new Date("2026-09-04T15:00:00Z");
+  const valid = { status: "ACTIVE", startedAt: "2026-09-01T00:00:00Z", endsAt: "2026-09-05T00:00:00Z" };
+  const cases: Array<[UnifiedLiveRestoreReadiness["liveExperiment"], string]> = [
+    [null, "LIVE_EXPERIMENT_UNAVAILABLE"],
+    [undefined, "LIVE_EXPERIMENT_UNAVAILABLE"],
+    [{ ...valid, endsAt: now.toISOString() }, "LIVE_EXPERIMENT_EXPIRED"],
+    [{ ...valid, endsAt: "2026-09-03T15:30:36Z" }, "LIVE_EXPERIMENT_EXPIRED"],
+    [{ ...valid, status: "COMPLETED" }, "LIVE_EXPERIMENT_EXPIRED"],
+    [{ ...valid, status: "STOPPED" }, "LIVE_EXPERIMENT_STOPPED"],
+    [{ ...valid, status: "NOT_STARTED", startedAt: null, endsAt: null }, "LIVE_EXPERIMENT_NOT_STARTED"],
+    [{ ...valid, startedAt: "2026-09-04T16:00:00Z" }, "LIVE_EXPERIMENT_NOT_DUE"],
+    [{ ...valid, startedAt: null }, "LIVE_EXPERIMENT_INVALID"],
+    [{ ...valid, endsAt: "garbage" }, "LIVE_EXPERIMENT_INVALID"],
+    [{ ...valid, startedAt: valid.endsAt }, "LIVE_EXPERIMENT_INVALID"],
+    [{ ...valid, status: "UNKNOWN" }, "LIVE_EXPERIMENT_INVALID"],
+  ];
+  for (const [liveExperiment, code] of cases) {
+    assert.deepEqual(buildUnifiedLiveRestoreBlockers(ready({ liveExperiment }), now).map((item) => item.code), [code]);
+  }
+  assert.deepEqual(buildUnifiedLiveRestoreBlockers(ready({ liveExperiment: valid }), now), []);
+  assert.deepEqual(buildUnifiedLiveRestoreBlockers(ready({ liveExperiment: { ...valid, startedAt: now } }), now), []);
+  let writes = 0;
+  const expired = ready({ liveExperiment: { ...valid, endsAt: "2000-01-01T00:00:00Z" } });
+  assert.equal((await applyUnifiedLiveModeChange({ mode: "LIVE", confirmation: "LIVE1000", readiness: expired, apply: async () => ++writes })).ok, false);
+  assert.equal(writes, 0);
+  for (const mode of ["MANAGE_ONLY", "PAUSED"] as const) {
+    assert.equal((await applyUnifiedLiveModeChange({ mode, readiness: expired, apply: async () => ++writes })).ok, true);
+  }
+  assert.equal(writes, 2);
 });
 
 test("every LIVE hard gate has one deterministic blocker code", () => {
