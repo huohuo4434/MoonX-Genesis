@@ -91,15 +91,15 @@ function chineseDate(value: string) {
 }
 
 function statusLabel(item: KeyDateRadarViewItem) {
-  return item.status === "ACTIVE" ? "今日" : item.status === "UPCOMING" ? "待观察" : "待复盘";
+  return item.status === "ACTIVE" ? "窗口进行中" : item.status === "UPCOMING" ? "待观察" : "待复盘";
 }
 
-function LatestResearchConsensus() {
-  return <section className="rounded-3xl border border-violet-300/15 bg-violet-300/[0.035] p-5 sm:p-6">
+function HistoricalResearchConsensus() {
+  return <details className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6" data-historical-consensus>
+    <summary className="cursor-pointer font-semibold text-foreground-secondary">历史观点共振复核 · 2026年8月30日</summary>
+    <p className="mt-3 text-body-sm text-amber-100">以下为当时记录，保留用于复盘；其中“下一周”和信心调整均指原记录周期，不是当前建议。最新日期请看上方行动总览。</p>
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <Badge variant="warning">8月30日新增资料</Badge>
-        <Heading as="h2" size="h3" className="mt-3">观点共振复核</Heading>
         <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
           同资产、同周期、独立方法方向一致时才提高研究信心；只有大方向一致但精确日期不同，只作小幅加分；路径冲突时主动降级。共振不会改写已经锁定的正式方向，也不会单独触发自动交易。
         </Text>
@@ -123,7 +123,7 @@ function LatestResearchConsensus() {
         </article>;
       })}
     </div>
-  </section>;
+  </details>;
 }
 
 function turningMeta(item: KeyDateRadarViewItem): ActionDisplay {
@@ -174,6 +174,7 @@ function KeyDateActionOverview({ title, note, rows }: { title: string; note: str
 
 function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
   const guidance = keyDateGuidance(item);
+  const cycleSummary = item.primaryView.split("。", 1)[0];
   const action = guidance.group === "TURNING_RISK" ? turningMeta(item) : ACTION_META[guidance.group];
   const isMonth = item.level === "MONTH";
   const evidenceLabel = item.evidence === "EXPLICIT"
@@ -196,6 +197,13 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
       <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className={`font-semibold ${action.tone}`}>{guidance.label}</span></div>
       <p className="mt-1 text-caption leading-5 text-foreground-secondary">{guidance.note}</p>
       <p className="mt-2 font-semibold text-foreground">{item.title}</p>
+      <p className="mt-2 text-body-sm text-foreground-secondary">{cycleSummary}</p>
+      <div className="mt-3 space-y-2 text-body-sm leading-6" data-key-date-conditions>
+        <p><span className="font-semibold text-emerald-200">确认：</span><span className="text-foreground-secondary">{item.confirmation}</span></p>
+        <p><span className="font-semibold text-rose-200">失效：</span><span className="text-foreground-secondary">{item.invalidation}</span></p>
+      </div>
+      <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm" data-key-date-evidence>
+        <summary className="cursor-pointer font-semibold text-foreground-secondary">展开周期观点与日期依据</summary>
       <p className="mt-3 text-body-sm leading-6 text-foreground-secondary">{item.primaryView}</p>
       <div className="mt-4 rounded-xl border border-violet-300/10 bg-violet-300/[0.035] px-3 py-2 text-body-sm">
         <span className="font-semibold text-violet-200">日期依据：</span>
@@ -211,12 +219,8 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
         <p className="mt-2 text-caption text-foreground-tertiary">时间窗：{item.gann.matchedWindows.join("、")}；支撑：{item.gann.supportLevels.slice(0, 6).join(" / ") || "未给出"}；压力/目标：{[...item.gann.resistanceLevels, ...item.gann.targetLevels].slice(0, 6).join(" / ") || "未给出"}</p>
         <div className="mt-2 flex flex-wrap gap-3">{item.gann.sourceUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-caption text-primary">原始时间戳 {index + 1} →</a>)}</div>
       </div> : null}
-      <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">
-        <summary className="cursor-pointer font-semibold text-foreground">查看路径、确认与失效条件</summary>
         <div className="mt-3 space-y-2 leading-6">
           <p><span className="font-semibold text-sky-200">路径：</span><span className="text-foreground-secondary">{item.weeklyAssist}</span></p>
-          <p><span className="font-semibold text-emerald-200">确认：</span><span className="text-foreground-secondary">{item.confirmation}</span></p>
-          <p><span className="font-semibold text-rose-200">失效：</span><span className="text-foreground-secondary">{item.invalidation}</span></p>
         </div>
       </details>
       {isMonth && (item.methodViews?.length ?? 0) >= 4 ? <details className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.025] px-3 py-2 text-body-sm">
@@ -247,7 +251,7 @@ function AssetKeyDateGroup({ assetId, rows }: { assetId: string; rows: KeyDateRa
       <div><Heading as="h3" size="h3">{first.assetName}</Heading><p className="mt-1 font-mono text-body-sm text-foreground-tertiary">{first.symbol}</p></div>
       <Badge variant="outline">月 {monthly.length} · 周 {weekly.length}</Badge>
     </div>
-    {ASSET_CONTEXT[assetId] ? <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3 text-body-sm leading-6 text-amber-50">{ASSET_CONTEXT[assetId]}</div> : null}
+    {ASSET_CONTEXT[assetId] ? <details className="mt-4 rounded-xl border border-white/10 px-4 py-3 text-body-sm leading-6 text-foreground-secondary"><summary className="cursor-pointer">周期与修订记录</summary><p className="mt-2">{ASSET_CONTEXT[assetId]}</p></details> : null}
     <div className="mt-5 grid gap-5 xl:grid-cols-2">
       <div><div className="mb-3 flex items-center gap-2"><Badge variant="warning">月关键日</Badge><span className="text-caption text-foreground-tertiary">第一优先级</span></div><div className="space-y-3">{monthly.map((item) => <KeyDateEntry key={item.id} item={item} />)}</div></div>
       <div><div className="mb-3 flex items-center gap-2"><Badge variant="outline">周关键日</Badge><span className="text-caption text-foreground-tertiary">节奏确认</span></div><div className="space-y-3">{weekly.map((item) => <KeyDateEntry key={item.id} item={item} />)}</div></div>
@@ -277,7 +281,7 @@ export default async function MemberKeyDatesPage() {
         <div className="flex flex-wrap gap-2"><Badge variant="warning">会员关键日雷达</Badge><Badge variant="success">江恩前瞻权重 {gannPolicy.effectiveWeightPct}% · {gannPolicy.eligible ? "已达门槛" : `${gannPolicy.scored}/${gannPolicy.minimumSamples} 学习中`}</Badge></div>
         <Heading as="h1" size="h2" className="mt-4">月关键日＋周关键日</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-4xl">
-          先看行动总览，再按板块和品种查看依据；同一品种的月关键日与周关键日放在一起。月关键日由月卦主判，周关键日细化当周节奏；证据不能确认高点或低点时明确写“只观察／不操作”，不再使用含糊标签。
+          同一品种的月关键日与周关键日放在一起。先看月份节奏，再看本周时机；日期是观察窗口，确认后再行动。
         </Text>
         <Link href="/member/gann" className="mt-4 inline-flex rounded-full border border-amber-300/25 bg-amber-300/[.06] px-4 py-2 text-body-sm text-amber-100">查看江恩时间＋价格共振 →</Link>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
@@ -289,8 +293,6 @@ export default async function MemberKeyDatesPage() {
       </header>
 
       {currentItems.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07") ? <p className="rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-4 text-body-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
-
-      <LatestResearchConsensus />
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -320,6 +322,7 @@ export default async function MemberKeyDatesPage() {
           </div>
         </section>;
       })}
+      <HistoricalResearchConsensus />
     </div></Section></main></>
   );
 }

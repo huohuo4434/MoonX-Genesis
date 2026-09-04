@@ -294,7 +294,7 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /周关键日行动总览/);
   assert.match(page, /观点共振复核/);
   assert.match(page, /共振不会改写已经锁定的正式方向/);
-  assert.match(page, /LatestResearchConsensus/);
+  assert.match(page, /HistoricalResearchConsensus/);
   assert.match(page, /低点候选/);
   assert.match(page, /高点候选/);
   assert.match(page, /keyDateGuidance\(item\)\.group/);
