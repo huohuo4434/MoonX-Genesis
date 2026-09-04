@@ -142,7 +142,7 @@ test("monthly page puts the concise conclusion and trading plan before supportin
 
   assert.ok(reportSource.indexOf("data-monthly-action-summary") < reportSource.indexOf("report.assets.map"));
   assert.match(reportSource, /<details[\s\S]*展开确认与失效条件/);
-  assert.match(reportSource, /data-qimen-monthly-update-20260902/);
+  assert.match(reportSource, /data-monthly-risk-outlook/);
   const keyDateSource = fs.readFileSync(path.join(process.cwd(), "app/member/key-dates/page.tsx"), "utf8");
   assert.match(keyDateSource, /data-global-risk-window-20260927/);
   assert.match(keyDateSource, /9月27日前后 · 全市场风险中心候选/);
@@ -187,8 +187,8 @@ test("all supplied cycle-pattern materials are hash locked and the public card h
 
   const component = fs.readFileSync(path.join(process.cwd(), "components/member/MemberSeptemberRotationReport.tsx"), "utf8");
   const publicCopy = `${cyclePattern.publicLabelZh}${cyclePattern.september2026.sourceConclusionZh}${component}`;
-  assert.match(component, /data-cycle-pattern-crosscheck/);
-  assert.match(component, /data-cycle-pattern-method-loop/);
+  assert.match(component, /data-horizon-outlook/);
+  assert.doesNotMatch(component, /cyclePattern|data-cycle-pattern-method-loop/);
   assert.doesNotMatch(publicCopy, /王老师|王子瑜|吴老师|金兔子/);
   assert.doesNotMatch(publicCopy, /可自动下单|提高交易权限/);
 });

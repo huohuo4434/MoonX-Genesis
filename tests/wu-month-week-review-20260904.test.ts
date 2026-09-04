@@ -59,11 +59,11 @@ test("stock-specific boundaries and retired coverage survive", () => {
 test("current member view is gated and wired to latest review without private evidence", () => {
   const page = readFileSync("app/member/sector-resonance/page.tsx", "utf8");
   const component = readFileSync("components/member/MemberSeptemberRotationReport.tsx", "utf8");
-  assert.match(page, /MEMBER_SOURCE_CROSS_CHECK_20260904 as crossCheck/);
+  assert.match(page, /memberSectorOutlook as crossCheck/);
   assert.ok(page.indexOf('gate.status === "MEMBERSHIP_REQUIRED"') < page.indexOf("{crossCheck.title}"));
-  assert.match(page, /原判断／覆盖状态/);
+  assert.match(page, /易老师判断/);
   assert.match(component, /本轮维持/);
-  assert.match(component, /updated Sep 4 · V6/);
+  assert.match(component, /Updated Sep 4 · V6/);
   assert.doesNotMatch(`${page}${component}`, /source-audit-20260904-wu-qimen|submitOrder|createOrder/);
   assert.doesNotMatch(JSON.stringify({ report, review }), /吴老师|吳昌燁|丙午|金兔子|C:\\Users|714DF9A4/);
 });
