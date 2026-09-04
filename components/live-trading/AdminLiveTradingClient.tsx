@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import LiveConfigurationDraftClient from "./LiveConfigurationDraftClient";
 import type { LiveRenewalPreview } from "@/lib/trading-signals/live-renewal-preview-core";
 import type {
   UnifiedLiveCustodyAudit,
@@ -253,6 +254,7 @@ export default function AdminLiveTradingClient() {
         </> : null}
       </details>
 
+      <LiveConfigurationDraftClient />
       <details className="mt-6 rounded-3xl border border-white/10 p-4">
         <summary className="cursor-pointer text-slate-300">高级诊断与仓位托管（平时不用展开）</summary>
         <div className="mt-4 flex flex-wrap gap-3">

@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import * as draftCore from "../lib/trading-signals/live-configuration-draft-core.ts";
 
 // Run the actual component handlers with deterministic hooks and mocked HTTP only.
 // No server, credentials, timers or exchange calls are involved.
@@ -17,7 +18,7 @@ const healthy = (mode = "MANAGE_ONLY") => ({
 });
 const response = (payload, status = 200) => ({ ok: status === 200, status, json: async () => payload });
 const settle = async () => { for (let n = 0; n < 4; n++) await new Promise(setImmediate); };
-function harness(replies) {
+function harness(replies, compiled = code) {
   const slots = [], effects = [], requests = [];
   let cursor = 0, mounted = false;
   const hooks = {
@@ -32,9 +33,13 @@ function harness(replies) {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
   };
   const exports = {};
-  vm.runInNewContext(code, {
-    exports, React: hooks, AbortSignal,
-    require(name) { assert.equal(name, "react"); return hooks; },
+  vm.runInNewContext(compiled, {
+    exports, React: hooks, AbortSignal, Error, crypto: { randomUUID: () => "00000000-0000-4000-8000-000000000001" },
+    require(name) {
+      if (name.endsWith("live-configuration-draft-core")) return draftCore;
+      if (name === "./LiveConfigurationDraftClient") return { default: () => null };
+      assert.equal(name, "react"); return hooks;
+    },
     fetch: async (url, options) => {
       requests.push({ url, ...options });
       assert.ok(replies.length, "unexpected HTTP request");
@@ -196,5 +201,57 @@ test("malformed preview check entries do not crash the management page", async (
     await settle();
     assert.match(ui.text(), /续期预检读取失败/);
     assert.equal(ui.button("一键关闭").props.disabled, false);
+  }
+});
+
+const configurationSource = readFileSync("components/live-trading/LiveConfigurationDraftClient.tsx", "utf8");
+const configurationCode = ts.transpileModule(configurationSource, { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022,
+} }).outputText;
+const emptyConfiguration = { draft: null, revision: null, savedAt: null, applied: false };
+const savedConfiguration = { draft: draftCore.parseLiveConfigurationDraft({ durationMode: "CONTINUOUS", capitalUsdt: "2000" }), revision: "new-version", savedAt: "2026-09-05T00:00:00Z", applied: false };
+const openConfiguration = async (ui) => { ui.nodes(ui.render(), "details")[0].props.onToggle({ currentTarget: { open: true } }); await settle(); };
+test("configuration form has no automatic write, and saves a continuous 2000U request only once", async () => {
+  let release;
+  const ui = harness([response(emptyConfiguration), () => new Promise((resolve) => { release = resolve; })], configurationCode);
+  await ui.mount(); assert.equal(ui.requests.length, 0);
+  assert.equal(ui.button("保存待启用配置").props.disabled, true);
+  await openConfiguration(ui);
+  assert.equal(ui.requests.length, 1); assert.equal(ui.requests[0].method, undefined);
+  ui.nodes(ui.render(), "input")[0].props.onChange({ target: { value: "2000" } });
+  const click = ui.button("保存待启用配置").props.onClick;
+  click(); click();
+  assert.equal(ui.requests.length, 2);
+  assert.equal(ui.button("保存待启用配置").props.disabled, true);
+  assert.deepEqual(JSON.parse(ui.requests[1].body), {
+    draft: { durationMode: "CONTINUOUS", durationDays: null, capitalUsdt: "2000.00" },
+    expectedRevision: null, requestId: "00000000-0000-4000-8000-000000000001",
+  });
+  release(response(savedConfiguration)); await settle();
+  assert.match(ui.text(), /配置已保存，尚未启用/);
+  assert.match(ui.text(), /不会划转资金或自动下单/);
+  assert.equal(ui.requests.length, 2, "no chained SET_MODE or renewal");
+  assert.ok(ui.requests.every((request) => request.url.endsWith("/configuration-draft")));
+});
+test("form rejects empty budget and refuses stale or unconfirmed save results", async () => {
+  for (const reply of [response({}, 409), new Error("timeout"), response({ ...savedConfiguration, applied: true })]) {
+    const ui = harness([response(emptyConfiguration), reply], configurationCode);
+    await ui.mount(); await openConfiguration(ui);
+    ui.button("保存待启用配置").props.onClick(); await settle();
+    assert.equal(ui.requests.length, 1); assert.match(ui.text(), /预算须为大于0/);
+    ui.nodes(ui.render(), "input")[0].props.onChange({ target: { value: "2000" } });
+    ui.button("保存待启用配置").props.onClick(); await settle();
+    assert.equal(ui.button("保存待启用配置").props.disabled, true);
+    assert.doesNotMatch(ui.text(), /配置已保存，尚未启用/);
+    assert.match(ui.text(), /另一窗口更新|保存结果未确认/);
+  }
+});
+test("malformed or failed reads do not enable configuration writes", async () => {
+  for (const reply of [response({}), response({ ...emptyConfiguration, applied: true }), response({}, 503), new Error("offline")]) {
+    const ui = harness([reply], configurationCode); await ui.mount(); await openConfiguration(ui);
+    assert.equal(ui.button("保存待启用配置").props.disabled, true);
+    ui.button("保存待启用配置").props.onClick(); await settle();
+    assert.equal(ui.requests.length, 1);
+    assert.match(ui.text(), /配置读取失败/);
   }
 });
