@@ -57,6 +57,6 @@ test("admin live GET is read-only while mutation remains explicit POST", () => {
   const inspection = runtime.slice(runtime.indexOf("export async function inspectUnifiedLiveCustody"), runtime.indexOf("export async function getUnifiedLiveRuntimeStatus"));
   assert.doesNotMatch(inspection, /ensureUnifiedLiveAccount|markUnifiedLiveManualClosures|recordUnifiedLiveEvents|setUnifiedLiveMode/);
   assert.match(cron, /export const maxDuration = 300/);
-  assert.match(admin, /立即执行托管对账/);
+  assert.match(admin, /执行托管对账（可能补充保护单）/);
   assert.doesNotMatch(admin, /立即只读审计/);
 });

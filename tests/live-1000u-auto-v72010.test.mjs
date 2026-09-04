@@ -142,8 +142,9 @@ test("LIVE mode switch is explicit and requires runtime, Bitget, 1000U and custo
   assert.match(adminControlCore, /LIVE_CONFIRMATION_REQUIRED/);
   assert.match(adminLive, /Math\.abs\(bitget\.liveInitialCapitalUsdt - 1000\) < 0\.01/);
   assert.match(adminLive, /status\.audit\?\.freezeNewEntries/);
-  assert.match(adminClient, /请输入 LIVE1000/);
+  assert.match(adminClient, /点击“一键开启”即确认允许现有1000U实盘引擎开仓/);
+  assert.match(adminClient, /confirmation: "LIVE1000"/);
   assert.match(adminClient, /mode: "LIVE", confirmation/);
-  assert.match(adminClient, /account\?\.mode === "MANAGE_ONLY" && blockerCount === 0/);
+  assert.match(adminClient, /disabled=\{cannotEnable\}/);
   assert.match(adminClient, /restoreBlockers/);
 });
