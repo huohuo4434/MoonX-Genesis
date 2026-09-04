@@ -295,8 +295,9 @@ test("member route is gated, discoverable and groups monthly and weekly dates by
   assert.match(page, /观点共振复核/);
   assert.match(page, /共振不会改写已经锁定的正式方向/);
   assert.match(page, /LatestResearchConsensus/);
-  assert.match(page, /抄底观察/);
-  assert.match(page, /逃顶 \/ 减仓观察/);
+  assert.match(page, /低点候选/);
+  assert.match(page, /高点候选/);
+  assert.match(page, /keyDateGuidance\(item\)\.group/);
   assert.match(page, /只观察 \/ 不操作/);
   assert.doesNotMatch(page, /变盘确认/);
   assert.match(page, /9月7日至10月7日相对转强/);

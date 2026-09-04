@@ -15,6 +15,9 @@ export type KeyDateRadarItem = {
   ganzhi: string;
   level: KeyDateLevel;
   action: KeyDateAction;
+  /** Original date meaning, retained separately from the legacy research action. */
+  sourceDateType?: "上涨候选" | "下跌风险" | "转折" | "波动放大" | "阶段高点" | "阶段低点" | "突破确认";
+  sourceDateNote?: string;
   title: string;
   primaryView: string;
   weeklyAssist: string;

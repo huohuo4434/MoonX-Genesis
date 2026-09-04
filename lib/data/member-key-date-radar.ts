@@ -253,6 +253,8 @@ function buildItem(input: {
   title: string;
   evidence: "EXPLICIT" | "DERIVED";
   derivation: string;
+  sourceDateType?: KeyDateRadarItem["sourceDateType"];
+  sourceDateNote?: string;
 }): KeyDateRadarItem {
   const asset = keyDateAsset(input.assetId);
   const duration = durationDays(input.row);
@@ -276,6 +278,8 @@ function buildItem(input: {
     ganzhi: getSexagenaryDay(input.date).label,
     level: input.level,
     action: input.action,
+    sourceDateType: input.sourceDateType,
+    sourceDateNote: input.sourceDateNote,
     title: input.title,
     primaryView: `${sourceLabel}（${input.row.periodStart}至${input.row.periodEnd}）：${input.row.direction}。${input.row.summary}`,
     weeklyAssist: input.row.expectedPath,
@@ -314,6 +318,8 @@ function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOf
       row,
       date: item.date!,
       action: actionForExplicitType(item.type),
+      sourceDateType: item.type,
+      sourceDateNote: item.note ?? undefined,
       title: item.label,
       evidence: "EXPLICIT",
       derivation: `${level === "MONTH" ? "月卦" : "周卦"}锁定记录明确点名${item.date}；${item.note ?? "仍须由真实K线确认。"}`,
@@ -329,6 +335,7 @@ function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOf
       row,
       date: hint.date,
       action: hint.action,
+      sourceDateType: hint.action === "BOTTOM_WATCH" ? "上涨候选" : hint.action === "TOP_EXIT_WATCH" ? "下跌风险" : "转折",
       title: hint.title,
       evidence: "DERIVED",
       derivation: `${hint.note} 该日期直接整理自已锁定路径文字，不是新增日卦，仍须由真实K线确认。`,

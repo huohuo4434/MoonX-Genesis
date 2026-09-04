@@ -1,15 +1,18 @@
 import Link from "next/link";
 import type { SectorKeyDateWindow } from "@/lib/data/conviction/sector-key-date-overview";
+import { keyDateGuidance, SANDISK_KEY_DATE_CORRECTION } from "@/lib/presentation/key-date-guidance";
 
 function shortDate(value: string) {
   const [, month, day] = value.split("-");
   return `${Number(month)}/${Number(day)}`;
 }
 
-function actionMeta(action: SectorKeyDateWindow["items"][number]["action"]) {
-  if (action === "BOTTOM_WATCH") return { label: "抄底观察", tone: "border-emerald-300/25 bg-emerald-300/[.07] text-emerald-100" };
-  if (action === "TOP_EXIT_WATCH") return { label: "逃顶／减仓观察", tone: "border-rose-300/25 bg-rose-300/[.07] text-rose-100" };
-  return { label: "只观察／不操作", tone: "border-amber-300/25 bg-amber-300/[.07] text-amber-100" };
+function actionMeta(item: SectorKeyDateWindow["items"][number]) {
+  const guidance = keyDateGuidance(item);
+  const tone = guidance.group === "BOTTOM_WATCH" ? "border-emerald-300/25 bg-emerald-300/[.07] text-emerald-100"
+    : guidance.group === "TOP_EXIT_WATCH" ? "border-rose-300/25 bg-rose-300/[.07] text-rose-100"
+      : "border-amber-300/25 bg-amber-300/[.07] text-amber-100";
+  return { ...guidance, tone };
 }
 
 function evidenceLabel(item: SectorKeyDateWindow["items"][number]) {
@@ -28,6 +31,7 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
       </div>
       <Link href="/member/key-dates" className="rounded-full border border-amber-300/25 bg-amber-300/[.07] px-4 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-300/40 hover:bg-amber-300/[.12]">查看全部月＋周关键日 →</Link>
     </div>
+    {windows.some(({ items }) => items.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07")) ? <p className="mt-4 rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-3 text-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
     <div className="mt-5 grid gap-4 xl:grid-cols-2">
       {windows.map(({ week, items }) => <div key={week.start} className="rounded-2xl border border-white/[.08] bg-black/20 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -36,7 +40,7 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
         </div>
         <div className="mt-4 space-y-2.5">
           {items.length ? items.map((item) => {
-            const action = actionMeta(item.action);
+            const action = actionMeta(item);
             return <article key={item.id} className="rounded-xl border border-white/[.07] bg-white/[.02] px-3.5 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-lg font-semibold text-white">{shortDate(item.focusDate)}</span>
@@ -45,6 +49,7 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
                 <span className={`ml-auto rounded-full border px-2 py-1 text-[10px] font-semibold ${action.tone}`}>{action.label}</span>
               </div>
               <p className="mt-2 text-xs leading-5 text-white/55">{item.title}</p>
+              <p className="mt-1 text-xs leading-5 text-amber-100/80">{action.note}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-white/35"><span>{item.group}</span><span>·</span><span>{evidenceLabel(item)}</span></div>
             </article>;
           }) : <p className="rounded-xl border border-white/[.06] bg-white/[.015] px-4 py-4 text-xs leading-6 text-white/38">本周期暂无待观察关键日。</p>}

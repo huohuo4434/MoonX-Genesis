@@ -12,6 +12,8 @@ export type SectorKeyDateBrief = {
   group: SectorResonanceRow["group"];
   focusDate: string;
   action: KeyDateAction;
+  sourceDateType?: KeyDateRadarItem["sourceDateType"];
+  sourceDateNote?: string;
   title: string;
   levels: KeyDateLevel[];
   evidence: KeyDateEvidence[];
@@ -57,11 +59,12 @@ export function buildSectorKeyDateWindows(input: {
     for (const item of input.keyDates) {
       const asset = assetRows.get(item.assetId);
       if (!asset || item.focusDate < input.asOfDate || item.focusDate < week.start || item.focusDate > week.end) continue;
-      const key = `${item.assetId}:${item.focusDate}:${item.action}`;
+      const key = `${item.assetId}:${item.focusDate}:${item.action}:${item.sourceDateType ?? ""}`;
       const current = grouped.get(key);
       if (current) {
         current.levels = unique([...current.levels, item.level]);
         current.evidence = unique([...current.evidence, item.evidence]);
+        current.sourceDateNote = unique([current.sourceDateNote, item.sourceDateNote].filter((note): note is string => Boolean(note))).join(" ") || undefined;
         if (!current.title.includes(item.title)) current.title = `${current.title}；${item.title}`;
         continue;
       }
@@ -73,6 +76,8 @@ export function buildSectorKeyDateWindows(input: {
         group: asset.group,
         focusDate: item.focusDate,
         action: item.action,
+        sourceDateType: item.sourceDateType,
+        sourceDateNote: item.sourceDateNote,
         title: item.title,
         levels: [item.level],
         evidence: [item.evidence],

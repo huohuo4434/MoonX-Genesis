@@ -14,6 +14,7 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
+import { keyDateGuidance, SANDISK_KEY_DATE_CORRECTION } from "@/lib/presentation/key-date-guidance";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as septemberReport } from "@/lib/data/member-september-rotation-report-20260826";
 import { applyVerifiedGannKeyDateOverlay } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
@@ -45,8 +46,8 @@ export async function generateMetadata(): Promise<Metadata> {
 type ActionDisplay = { short: string; tone: string; explanation?: string };
 
 const ACTION_META: Record<Exclude<KeyDateAction, "TURNING_RISK">, ActionDisplay> = {
-  BOTTOM_WATCH: { short: "抄底观察", tone: "text-emerald-200" },
-  TOP_EXIT_WATCH: { short: "逃顶 / 减仓观察", tone: "text-rose-200" },
+  BOTTOM_WATCH: { short: "低点候选", tone: "text-emerald-200" },
+  TOP_EXIT_WATCH: { short: "高点候选", tone: "text-rose-200" },
 };
 
 const SECTOR_GROUPS = [
@@ -145,22 +146,22 @@ function turningMeta(item: KeyDateRadarViewItem): ActionDisplay {
 
 function KeyDateActionOverview({ title, note, rows }: { title: string; note: string; rows: KeyDateRadarViewItem[] }) {
   const groups: Array<{ action: KeyDateAction; label: string; tone: string; empty: string }> = [
-    { action: "BOTTOM_WATCH", label: "抄底观察", tone: "border-emerald-300/20 bg-emerald-300/[0.045] text-emerald-100", empty: "本期没有证据充分的抄底日" },
-    { action: "TOP_EXIT_WATCH", label: "逃顶 / 减仓观察", tone: "border-rose-300/20 bg-rose-300/[0.045] text-rose-100", empty: "本期没有证据充分的逃顶日" },
-    { action: "TURNING_RISK", label: "只观察 / 不操作", tone: "border-amber-300/20 bg-amber-300/[0.045] text-amber-100", empty: "本期没有仅观察日期" },
+    { action: "BOTTOM_WATCH", label: "低点候选 · 等止跌确认", tone: "border-emerald-300/20 bg-emerald-300/[0.045] text-emerald-100", empty: "本期暂无低点候选" },
+    { action: "TOP_EXIT_WATCH", label: "高点候选 · 等转弱确认", tone: "border-rose-300/20 bg-rose-300/[0.045] text-rose-100", empty: "本期暂无高点候选" },
+    { action: "TURNING_RISK", label: "节奏／风险／休市观察", tone: "border-amber-300/20 bg-amber-300/[0.045] text-amber-100", empty: "本期没有仅观察日期" },
   ];
   return <section className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
     <Heading as="h2" size="h3">{title}</Heading>
     <Text variant="body-sm" color="secondary" className="mt-2 block">{note}</Text>
     <div className="mt-5 grid gap-4 xl:grid-cols-3">
       {groups.map((group) => {
-        const items = rows.filter((item) => item.action === group.action)
+        const items = rows.filter((item) => keyDateGuidance(item).group === group.action)
           .sort((left, right) => left.focusDate.localeCompare(right.focusDate) || left.assetName.localeCompare(right.assetName, "zh-CN"));
         return <div key={group.action} className={`rounded-2xl border p-4 ${group.tone}`}>
           <div className="flex items-center justify-between gap-3"><p className="font-semibold">{group.label}</p><Badge variant="outline">{items.length}</Badge></div>
           <div className="mt-3 space-y-2">
             {items.length ? items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2 text-body-sm">
-              <span className="font-semibold text-foreground">{item.assetName}</span>
+              <span className="font-semibold text-foreground">{item.assetName}<span className="mt-1 block text-caption font-normal">{keyDateGuidance(item).label}</span></span>
               <span className="shrink-0 font-mono text-foreground-secondary">{chineseDate(item.focusDate)}</span>
             </div>) : <p className="text-caption leading-5 opacity-65">{group.empty}</p>}
           </div>
@@ -171,7 +172,8 @@ function KeyDateActionOverview({ title, note, rows }: { title: string; note: str
 }
 
 function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
-  const action = item.action === "TURNING_RISK" ? turningMeta(item) : ACTION_META[item.action];
+  const guidance = keyDateGuidance(item);
+  const action = guidance.group === "TURNING_RISK" ? turningMeta(item) : ACTION_META[guidance.group];
   const isMonth = item.level === "MONTH";
   const evidenceLabel = item.evidence === "EXPLICIT"
     ? "原记录明确"
@@ -190,8 +192,8 @@ function KeyDateEntry({ item }: { item: KeyDateRadarViewItem }) {
           <Badge variant="outline">{evidenceLabel}</Badge>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className={`font-semibold ${action.tone}`}>{action.short}</span></div>
-      {item.action === "TURNING_RISK" ? <p className="mt-1 text-caption leading-5 text-foreground-tertiary">{action.explanation}</p> : null}
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className={`font-semibold ${action.tone}`}>{guidance.label}</span></div>
+      <p className="mt-1 text-caption leading-5 text-foreground-secondary">{guidance.note}</p>
       <p className="mt-2 font-semibold text-foreground">{item.title}</p>
       <p className="mt-3 text-body-sm leading-6 text-foreground-secondary">{item.primaryView}</p>
       <div className="mt-4 rounded-xl border border-violet-300/10 bg-violet-300/[0.035] px-3 py-2 text-body-sm">
@@ -284,6 +286,8 @@ export default async function MemberKeyDatesPage() {
         ].map(([label, value], index) => <div key={String(label)} className={`rounded-2xl border px-4 py-3 ${index === 1 ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-white/10 bg-black/20"}`}><p className="text-caption text-foreground-tertiary">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</div>
       </header>
 
+      {currentItems.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07") ? <p className="rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-4 text-body-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
+
       <LatestResearchConsensus />
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
@@ -297,7 +301,7 @@ export default async function MemberKeyDatesPage() {
         </Text>
       </section>
 
-      <KeyDateActionOverview title="月关键日行动总览" note="月卦优先。这里只把证据能够区分高点或低点的日期列为抄底、逃顶观察；其余日期明确保持不操作。" rows={agenda.monthly} />
+      <KeyDateActionOverview title="月关键日行动总览" note="月度节奏优先；候选高低点须等走势确认，休市日不作为买卖日。" rows={agenda.monthly} />
       <KeyDateActionOverview title="周关键日行动总览" note="周卦用于细化本周节奏，不覆盖月度方向；缺少独立周卦时会明确标记为月卦当周推演。" rows={agenda.weekly} />
 
       {SECTOR_GROUPS.map((sector) => {
