@@ -107,6 +107,7 @@ function conclusionTone(direction: string): ConclusionFirstTone {
 }
 
 function stars(forecast: DailyForecast): string {
+  if (forecast.consensusLabel === "未单独评估") return "方法共识未单独评估";
   const value = Math.max(1, Math.min(5, forecast.consensusStars ?? Math.round((forecast.consensusScore ?? forecast.confidence ?? 0) / 20)));
   return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
 }
@@ -176,6 +177,10 @@ function ForecastBoard({
                     <span className={`rounded-full border px-2.5 py-1 text-xs ${tone(qimenDirectionLabel(forecast))}`}>奇门 {qimenDirectionLabel(forecast)}</span>
                   </div>
                   <div className="mt-4">
+                    {forecast.risks?.filter((risk) => /^(技术复核|周期提示)：/.test(risk)).map((risk) => (
+                      <p key={risk} className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-sm text-amber-100">发布前{risk}</p>
+                    ))}
+                    {forecast.technicalReview ? <details className="mb-3 text-sm text-foreground-secondary"><summary className="cursor-pointer">MACD、EMA60与缠论复核（发布时快照）</summary><p className="mt-2 leading-6">{forecast.technicalReview}</p></details> : null}
                     <PlainLanguageSummary
                       direction={direction}
                       period={`${forecast.forecastForDate} · ${forecast.targetSessionLabel || forecast.tradingSessionLabel}`}

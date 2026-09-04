@@ -62,8 +62,13 @@ function conciseWeeklyReason(text: string | null | undefined): string | null {
   return clauses.slice(0, 2).join("；") || null;
 }
 
+function isStageSource(weekly: WeeklyForecastSourceRecord): boolean {
+  return weekly.specialPatterns.some((pattern) => pattern.endsWith("_NOT_DAILY_HEXAGRAM"));
+}
+
 function pathForDay(weekly: WeeklyForecastSourceRecord, progress: number): string {
   const path = weekly.weeklyPath;
+  if (isStageSource(weekly)) return path;
   if (progress < 0.34) {
     const m = path.match(/^[^，,；;]+/);
     return m?.[0] ?? path;
@@ -82,6 +87,7 @@ function directionForDay(
   movingActive: number[]
 ): string {
   const weeklyDir = normalizeFormalDirection(weekly.weeklyDirection);
+  if (isStageSource(weekly)) return weeklyDir;
   // No moving lines → do not invent a turning day; follow weekly with soft fade
   if (!weekly.movingLines.length) {
     if (progress > 0.75 && /震荡上涨|上涨/.test(weeklyDir)) return "震荡";
@@ -158,6 +164,9 @@ export function generateDailyFromWeekly(input: {
     path = explicitDaily.summary;
   }
   let probs = baseProbabilities(direction);
+  if (weekly.specialPatterns.includes("OVERLAPPING_LIUYAO_PATH_CONFLICT")) {
+    probs = { up: probs.up - 5, flat: probs.flat + 10, down: probs.down - 5 };
+  }
   const calendarEvidence = buildCalendarEvidence(forecastDate, weekly.weeklyDirection);
   if (calendarEvidence.relationToWeekly === "增强" && probs.up >= probs.down) {
     probs = { up: Math.min(75, probs.up + 3), flat: probs.flat, down: Math.max(10, probs.down - 3) };
@@ -193,9 +202,7 @@ export function generateDailyFromWeekly(input: {
     invalidationTriggered: input.invalidationTriggered,
   });
 
-  // This is the public daily horizon, not the live execution authority. Verified
-  // completed path may revise today's label (for example, an early rally becoming
-  // consolidation/pullback) while the locked weekly source remains immutable.
+  // Technical progress adjusts risk/path confidence, not the source-owned side.
   direction = assessed.direction;
   path = assessed.expectedPath;
   probs = {

@@ -1,4 +1,5 @@
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
+import { isFormallyLockedForecast } from "@/lib/trading-signals/formal-forecast-lock-core";
 
 export type PredictionSourceAuthority =
   | "BINGWU_TEACHER_ORIGINAL"
@@ -277,13 +278,25 @@ const TEACHER_STAGE_SOURCES: readonly WeeklyForecastSourceRecord[] = [
 export function findTeacherPriorityLiuyaoSource(
   marketCode: string,
   forecastDate: string,
+  asOfMs = Date.parse(`${forecastDate}T00:00:00+08:00`),
 ): WeeklyForecastSourceRecord | null {
   const upper = marketCode.toUpperCase();
   const normalized = upper === "GLD" ? "GOLD" : upper === "SOX" ? "SOXL" : upper;
   return TEACHER_STAGE_SOURCES
+    .filter((row) => isFormallyLockedForecast({ ...row, nowMs: asOfMs }))
     .filter((row) => row.marketCode === normalized || (normalized === "SSEC" && row.marketCode === "SHCOMP"))
     .filter((row) => row.periodStart <= forecastDate && forecastDate <= row.periodEnd)
     .sort((left, right) => right.version - left.version || right.lockedAt!.localeCompare(left.lockedAt!))[0] ?? null;
+}
+
+/** Preserve stage authority and expose overlapping weekly disagreement, without extending either period. */
+export function teacherSourceWithOverlap(teacher: WeeklyForecastSourceRecord | null, other: WeeklyForecastSourceRecord | null, asOfMs: number): WeeklyForecastSourceRecord | null {
+  if (!teacher) return other;
+  if (!other || !isFormallyLockedForecast({ ...other, nowMs: asOfMs }) || other.periodEnd < teacher.periodStart || other.periodStart > teacher.periodEnd
+    || other.id === teacher.id || other.weeklyDirection === teacher.weeklyDirection) return teacher;
+  return { ...teacher, specialPatterns: [...teacher.specialPatterns, "OVERLAPPING_LIUYAO_PATH_CONFLICT", `OTHER_SOURCE:${other.id}`],
+    riskSummary: `周期提示：阶段判断仅覆盖至${teacher.periodEnd}；重叠周路径为${other.weeklyDirection}（${other.periodStart}—${other.periodEnd}），需防节奏分歧。${teacher.riskSummary}`,
+    interpretation: `${teacher.interpretation} 重叠来源${other.id}：${other.weeklyPath}。不同周期不合并成同一份卦。` };
 }
 
 export function listTeacherPriorityLiuyaoSources20260821(): readonly WeeklyForecastSourceRecord[] {

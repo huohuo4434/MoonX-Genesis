@@ -147,6 +147,8 @@ export function decideDailyRevision(input: {
     input.candidate.invalidationLevel ?? "",
   ].join("|"));
   if (latestLevels !== candidateLevels) reasons.push("TECHNICAL_LEVELS_CHANGED");
+  const reviewRisks = (record: GeneratedDailyForecastRecord) => record.risks.filter((risk) => /^(技术复核|周期提示)：/.test(risk)).join("|");
+  if (reviewRisks(input.latest) !== reviewRisks(input.candidate)) reasons.push("TECHNICAL_REVIEW_CHANGED");
 
   return { shouldCreate: reasons.length > 0, reasons };
 }
@@ -179,4 +181,10 @@ export async function persistDailyRevision(input: {
   if (input.latest && !decision.shouldCreate) return { created: false, record: input.latest, decision };
   const saved = await input.persist(candidate);
   return { ...saved, decision };
+}
+/** Once its target day starts, the publication snapshot must not be removed or recomputed. */
+export function preservePublishedTechnicalReview(record: GeneratedDailyForecastRecord | null, today: string): boolean {
+  return Boolean(record && record.forecastDate <= today
+    && (record.status === "LOCKED" || record.status === "PUBLISHED")
+    && record.risks.some((risk) => risk.startsWith("技术复核：")));
 }

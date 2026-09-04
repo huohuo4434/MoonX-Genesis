@@ -11,6 +11,7 @@ import {
   buildClosedMarketProgressSnapshot,
   decideDailyPipelineEvidenceGate,
   persistDailyRevision,
+  preservePublishedTechnicalReview,
   withAuthoritativeDailyLatest,
 } from "@/lib/forecasts/daily-rolling-core";
 import type { MarketSnapshot } from "@/lib/forecasts/market-progress";
@@ -22,10 +23,11 @@ import { getCryptoPointGuidanceForDate } from "@/lib/forecasts/crypto-point-guid
 import type { WeeklyForecastSourceRecord } from "@/lib/weekly-source/types";
 import type { WeeklyAnalysisRecord } from "@/types/weekly-analysis";
 import { findCanonicalWeeklySource } from "@/lib/weekly-source/canonical-six";
-import { findTeacherPriorityLiuyaoSource } from "@/lib/data/teacher-priority-liuyao-20260821";
+import { findTeacherPriorityLiuyaoSource, teacherSourceWithOverlap } from "@/lib/data/teacher-priority-liuyao-20260821";
 import { validateGeneratedDailyPublication } from "@/lib/content/publication-quality-gate";
 import { applyQimenFirstToGeneratedDaily } from "./qimen-first-policy"; // MOOX_QIMEN_FIRST_V72005_IMPORT
 import { applyApprovedXOverlayToGeneratedDaily } from "@/lib/trading-signals/x-opinion-overlay-core";
+import { applyDailyTechnicalReview } from "@/lib/forecasts/daily-technical-review-core";
 
 export const CORE_DAILY_MARKETS = ["BTC", "ETH", "NDX", "GLD", "SILVER"] as const;
 export const AUTOMATED_DAILY_MARKETS = [...CORE_DAILY_MARKETS] as const;
@@ -237,15 +239,18 @@ function ethResearchAsWeeklySource(
 
 async function resolveWeekly(
   marketCode: string,
-  forecastDate: string
+  forecastDate: string,
+  asOfMs: number
 ): Promise<WeeklyForecastSourceRecord | null> {
   const { getWeeklySourceForMarketDate } = await import("@/lib/weekly-source/store");
   const normalized = marketCode.toUpperCase();
   // Default source authority is a soft teacher priority. A user weekly/stage
   // Liuyao may replace it only through the separately audited pre-publication
   // arbiter (same scope + Qimen + approved analyst majority + complete Chan).
-  const teacher = findTeacherPriorityLiuyaoSource(normalized, forecastDate);
-  if (teacher) return teacher;
+  const teacher = findTeacherPriorityLiuyaoSource(normalized, forecastDate, asOfMs);
+  const local = normalized === "BTC" ? btcResearchAsWeeklySource(forecastDate)
+    : normalized === "ETH" ? ethResearchAsWeeklySource(forecastDate) : analysisAsWeeklySource(normalized, forecastDate);
+  if (teacher) return teacherSourceWithOverlap(teacher, local, asOfMs);
   // BTC/ETH then use the current locked user research files.
   if (normalized === "BTC") {
     const btc = btcResearchAsWeeklySource(forecastDate);
@@ -278,19 +283,21 @@ function emptySnapshot(): MarketSnapshot {
 async function loadSnapshot(
   marketCode: string,
   forecastDate: string,
-  weekly: WeeklyForecastSourceRecord
+  weekly: WeeklyForecastSourceRecord,
+  now: Date
 ): Promise<MarketSnapshot | null> {
   // Keep this server-only adapter out of the module's pure export import graph.
   const { fetchRecentDailyBarsForForecast } = await import("@/lib/market-data/daily-prices");
   const meta = marketMeta(marketCode);
+  const closedBefore = [forecastDate, getBeijingTodayKey(now)].sort()[0]!;
   const bars = await fetchRecentDailyBarsForForecast({
     quoteSymbol: meta.quoteSymbol,
     market: verificationMarket(meta.legacyMarket),
-    asOfDate: forecastDate,
+    asOfDate: closedBefore,
   });
   return buildClosedMarketProgressSnapshot({
     bars,
-    forecastDate,
+    forecastDate: closedBefore,
     weeklyPeriodStart: weekly.periodStart,
   });
 }
@@ -460,7 +467,7 @@ export async function runDailyForecastPipeline(input?: {
 
     for (const target of targets) {
       try {
-        const weekly = await resolveWeekly(market, target);
+        const weekly = await resolveWeekly(market, target, now.getTime());
         if (!weekly) {
           report.skipped.push(`${market}:${target}:no-weekly-source`);
           continue;
@@ -477,10 +484,15 @@ export async function runDailyForecastPipeline(input?: {
         await withAuthoritativeDailyLatest({
           loadLatest: () => getLatestGeneratedDailyForMarketDate(market, target),
           runAfterAuthority: async (latest) => {
+        if (preservePublishedTechnicalReview(latest, beijingDate)) {
+          report.records.push(latest!);
+          report.skipped.push(`${market}:${target}:PRESERVE_PUBLICATION_SNAPSHOT`);
+          return;
+        }
         let snapshot: MarketSnapshot | null = null;
         try {
           snapshot = phase === "revise" || phase === "lock"
-            ? await loadSnapshot(market, target, weekly)
+            ? await loadSnapshot(market, target, weekly, now)
             : null;
         } catch (error) {
           report.warnings.push({
@@ -538,7 +550,7 @@ export async function runDailyForecastPipeline(input?: {
             resistanceLevels: technical.resistanceLevels,
             confirmationLevel: technical.confirmation,
             invalidationLevel: technical.invalidation,
-            technicalEvidence: `行情结构快照 ${technical.priceSnapshotAtLabel} · ${technical.priceDataSourceLabel}`,
+            technicalEvidence: [record.technicalEvidence, `行情结构快照 ${technical.priceSnapshotAtLabel} · ${technical.priceDataSourceLabel}`].filter(Boolean).join("。"),
           };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -551,7 +563,7 @@ export async function runDailyForecastPipeline(input?: {
               resistanceLevels: fallback.resistanceLevels,
               confirmationLevel: fallback.confirmation,
               invalidationLevel: fallback.invalidation,
-              technicalEvidence: "最近已收盘行情结构回退计算",
+              technicalEvidence: [record.technicalEvidence, "最近已收盘行情结构回退计算"].filter(Boolean).join("。"),
             };
             report.warnings.push({ market, date: target, error: "technical-levels:fallback-from-closed-market-snapshot" });
           } else {
@@ -570,6 +582,15 @@ export async function runDailyForecastPipeline(input?: {
               technicalEvidence: "行情源暂不可用，等待下一轮自动重试",
             };
           }
+        }
+
+        // Pre-publication review uses only evidence already closed NOW, never bars
+        // from the future forecast date. It cannot reverse the formal direction.
+        if (target > beijingDate) {
+          const { loadDailyTechnicalReview } = await import("@/lib/forecasts/daily-technical-review.server");
+          const review = await loadDailyTechnicalReview(market, Math.min(now.getTime(), Date.now()))
+            .catch(() => ({ frames: [], quoteLabel: "行情读取失败" }));
+          record = applyDailyTechnicalReview(record, review.frames, review.quoteLabel);
         }
 
         if (phase === "lock") {
@@ -649,15 +670,16 @@ export async function runDailyForecastPipeline(input?: {
 export function generateCoreMarketFromWeeklyPure(
   marketCode: string,
   forecastDate: string,
-  status: GeneratedDailyForecastRecord["status"] = "LOCKED"
+  status: GeneratedDailyForecastRecord["status"] = "LOCKED",
+  asOfMs = Date.parse(`${forecastDate}T00:00:00+08:00`)
 ): GeneratedDailyForecastRecord | null {
   const market = marketCode.toUpperCase();
-  const weekly =
-    findTeacherPriorityLiuyaoSource(market, forecastDate) ??
+  const other =
     (market === "BTC" ? btcResearchAsWeeklySource(forecastDate) : null) ??
     (market === "ETH" ? ethResearchAsWeeklySource(forecastDate) : null) ??
     findCanonicalWeeklySource(market, forecastDate) ??
     analysisAsWeeklySource(market, forecastDate);
+  const weekly = teacherSourceWithOverlap(findTeacherPriorityLiuyaoSource(market, forecastDate, asOfMs), other, asOfMs);
   if (!weekly) return null;
   return generateDailyFromWeekly({
     weekly,

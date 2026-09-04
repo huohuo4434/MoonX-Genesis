@@ -109,6 +109,8 @@ export interface DailyForecast {
 
   catalysts?: string[];
   risks?: string[];
+  /** Frozen at publication, not a live quote or execution authorization. */
+  technicalReview?: string;
   invalidation?: string;
   /** Direction confirmation with concrete price + method */
   confirmation?: string;

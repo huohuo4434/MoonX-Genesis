@@ -41,6 +41,7 @@ function homeDirection(forecast: DailyForecast): HomeDirection {
 }
 
 function confidenceStars(forecast: DailyForecast): number {
+  if (forecast.consensusLabel === "未单独评估") return 0;
   if (forecast.consensusStars) return forecast.consensusStars;
   const score = forecast.consensusScore ?? forecast.confidence ?? 0;
   return Math.max(1, Math.min(5, Math.round(score / 20)));

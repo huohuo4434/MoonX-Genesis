@@ -17,6 +17,7 @@ export function generatedDailyToUi(
   const meta = marketMeta(r.marketCode);
   const canonicalCode = canonicalAssetCode(r.marketCode);
   const formal = r.direction;
+  const technicalReviewed = r.risks.some((risk) => risk.startsWith("技术复核："));
   const qimenSummary = r.qimenEvidence
     ? r.qimenEvidence.split("；").slice(0, 3).join("；")
     : null; // MOOX_QIMEN_PARALLEL_V720130_UI
@@ -53,11 +54,11 @@ export function generatedDailyToUi(
     direction,
     directionLabel: formal,
     confidence: Math.max(r.upProbability, r.sidewaysProbability, r.downProbability),
-    consensusStars: consensus.stars,
-    consensusScore: consensus.score,
-    consensusLabel: consensus.label,
+    consensusStars: technicalReviewed ? undefined : consensus.stars,
+    consensusScore: technicalReviewed ? undefined : consensus.score,
+    consensusLabel: technicalReviewed ? "未单独评估" : consensus.label,
     consensusModuleCount: consensus.activeModules,
-    consensusNote: consensus.note,
+    consensusNote: technicalReviewed ? "技术情景分不作为方法一致性星级" : consensus.note,
     headline: `${meta.assetName}${formal}`,
     summary: [normalizeDailyLanguage(r.expectedPath), r.liuyaoEvidence, qimenSummary, r.revisionReason].filter(Boolean).join("。"),
     expectedPath: r.expectedPath ? [normalizeDailyLanguage(r.expectedPath)] : [],
@@ -71,6 +72,7 @@ export function generatedDailyToUi(
     confirmation: r.confirmationLevel ?? undefined,
     catalysts: r.catalysts,
     risks: r.risks,
+    technicalReview: r.risks.some((risk) => risk.startsWith("技术复核：")) ? r.technicalEvidence ?? undefined : undefined,
     probabilities: {
       up: r.upProbability,
       flat: r.sidewaysProbability,

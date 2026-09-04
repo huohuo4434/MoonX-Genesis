@@ -15,6 +15,7 @@ import { resolveCanonicalQuoteSymbol } from "@/lib/market-data/quote-symbols";
 import { loadChanCandles } from "@/lib/market-data/chan-market-data";
 import { loadChanInstrumentCatalog } from "@/lib/market-data/chan-instrument-catalog.server";
 import { resolveChanInstrument } from "@/lib/market-data/chan-instrument-catalog";
+import { ema } from "@/lib/market-data/ema-core";
 
 export const TECHNICAL_PRICE_DATA_UNAVAILABLE =
   "TECHNICAL_PRICE_DATA_UNAVAILABLE";
@@ -395,37 +396,6 @@ async function loadTechnicalBars(input: {
   throw lastError instanceof Error
     ? lastError
     : new Error(`${TECHNICAL_PRICE_DATA_UNAVAILABLE}: no reliable bars for ${input.symbol}`);
-}
-
-function ema(values: number[], period: number): number[] {
-  const out: number[] = [];
-  const k = 2 / (period + 1);
-  let previous: number | null = null;
-
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i]!;
-
-    if (previous == null) {
-      if (i + 1 < period) {
-        out.push(Number.NaN);
-        continue;
-      }
-
-      const seed =
-        values
-          .slice(i + 1 - period, i + 1)
-          .reduce((sum, item) => sum + item, 0) / period;
-
-      previous = seed;
-      out.push(seed);
-      continue;
-    }
-
-    previous = value * k + previous * (1 - k);
-    out.push(previous);
-  }
-
-  return out;
 }
 
 function macdLine(closes: number[]): {

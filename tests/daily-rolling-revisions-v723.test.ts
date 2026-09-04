@@ -66,12 +66,11 @@ test("pipeline evidence gate skips continuity and preserves a complete latest ve
     weeklySpecialPatterns: ["CONTINUITY_LOW_CONFIDENCE_RESEARCH_ONLY"],
   }), { action: "SKIP_RESEARCH_ONLY", reason: "continuity-research-only" });
   for (const input of [
-    { hasLatest: true, marketProgressAvailable: false },
-    { hasLatest: true, marketProgressAvailable: true, xSnapshotAvailable: false },
     { hasLatest: true, technicalReadFailed: true },
   ]) {
     assert.equal(decideDailyPipelineEvidenceGate(input).action, "PRESERVE_LATEST");
   }
+  assert.equal(decideDailyPipelineEvidenceGate({ hasLatest: true, marketProgressAvailable: false }).action, "CONTINUE", "optional progress outage does not freeze fresh technical levels");
   assert.deepEqual(decideDailyPipelineEvidenceGate({
     hasLatest: false,
     marketProgressAvailable: false,
@@ -140,11 +139,11 @@ function candidate(source: WeeklyForecastSourceRecord, snapshot: MarketSnapshot)
   return generateDailyFromWeekly({ weekly: source, forecastDate: "2026-08-11", status: "LOCKED", snapshot });
 }
 
-test("an early fulfilled bullish weekly path revises the public next day to pullback without mutating weekly authority", () => {
+test("an early fulfilled bullish path lowers continuation confidence without reversing its source direction", () => {
   const source = weekly();
   const before = structuredClone(source);
   const row = candidate(source, earlyRally);
-  assert.equal(row.direction, "冲高回落");
+  assert.equal(row.direction, "震荡上涨");
   assert.equal(row.marketProgressStatus, "AHEAD");
   assert.deepEqual(source, before);
 });
@@ -159,14 +158,14 @@ test("a delayed weekly path stays delayed instead of inventing realized movement
   assert.equal(result.direction, "上涨");
 });
 
-test("an early fulfilled bearish weekly path may show a daily rebound without rewriting the locked week", () => {
+test("support warns of rebound risk without reversing the bearish source direction", () => {
   const source = weekly("震荡下跌");
   const before = structuredClone(source);
   const result = candidate(source, {
     ...earlyRally, lastPrice: 89, previousClose: 91, weekOpen: 100, weekHigh: 101, weekLow: 88,
     nearestSupport: 89, nearestResistance: 101, weekReturnPct: -11,
   });
-  assert.equal(result.direction, "探底回升");
+  assert.equal(result.direction, "震荡下跌");
   assert.equal(result.marketProgressStatus, "AHEAD");
   assert.deepEqual(source, before);
 });
@@ -222,7 +221,7 @@ test("X stage is auxiliary and may version evidence without owning the public di
     verifiedMarketProgress: true, persist: async (record) => ({ created: true, record }),
   });
   assert.equal(result.created, true);
-  assert.equal(result.record.direction, "冲高回落");
+  assert.equal(result.record.direction, "震荡上涨");
   assert.ok(result.decision.reasons.includes("X_STAGE_CHANGED"));
 });
 

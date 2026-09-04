@@ -92,7 +92,7 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
     publishedAt: f.publishedAt,
     symbol: f.symbol,
   });
-  const consensus = deriveForecastConsensus(f);
+  const consensus = f.consensusLabel === "未单独评估" ? null : deriveForecastConsensus(f);
   const pathBias = normalizeDailyLanguage(f.pathBias || f.expectedPath?.join(" → ")) || "运行节奏待补充";
   const signalStrength = f.signalStrength ?? iching.signalStrength ?? signalStrengthFromConfidence(f.confidence);
 
@@ -148,18 +148,18 @@ export function MarketForecastCard({ f }: { f: DailyForecast }) {
           <div>
             <Text variant="caption" color="tertiary" className="block">方法共识度</Text>
             <Text variant="body" weight="semibold" className="mt-1 block text-primary">
-              {starsText(consensus.stars)} · {consensus.label}
+              {consensus ? `${starsText(consensus.stars)} · ${consensus.label}` : "未单独评估"}
             </Text>
           </div>
           <div className="text-right">
             <Text variant="caption" color="tertiary" className="block">共识分</Text>
             <Text variant="body" weight="semibold" className="font-mono tabular-nums">
-              {consensus.score}
+              {consensus?.score ?? "—"}
             </Text>
           </div>
         </div>
         <Text variant="caption" color="tertiary" className="mt-2 block">
-          {consensus.note} 星级表示方法一致程度，不代表预期涨幅。
+          {consensus?.note ?? f.consensusNote} 星级表示方法一致程度，不代表预期涨幅。
         </Text>
       </div>
 
