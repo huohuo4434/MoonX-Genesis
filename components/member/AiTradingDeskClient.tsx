@@ -45,7 +45,9 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState("");
   const [checkedAt, setCheckedAt] = useState<number>(NaN);
-  const refreshPresentation = memberDeskRefreshPresentation(error, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt });
+  const syncError = snapshot.syncStatus === "ERROR" || snapshot.syncStatus === "PARTIAL"
+    ? snapshot.syncMessage || (en ? "Snapshot needs verification" : "快照待核验") : "";
+  const refreshPresentation = memberDeskRefreshPresentation(error || syncError, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt });
   const stale = refreshPresentation.stale;
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
   const dailyRows = snapshot.experiment.dailyHistory ?? [];
@@ -78,6 +80,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
     });
     return () => { stopPolling(); window.clearInterval(ageTimer); };
   }, []);
+
+  if (!snapshot.settings.enabled) return <Card padding="lg"><Heading size="h2">{en ? "Member trading display is unavailable" : "会员交易展示暂未开放"}</Heading><Text className="mt-3 block">{en ? "Display settings are unavailable or have been disabled. This does not change server trading controls. The page checks again automatically." : "展示设置暂不可用或已由管理员关闭。这不会改变服务器交易开关；页面会自动重新检查。"}</Text></Card>;
 
   return (
     <div className="space-y-5">
@@ -117,7 +121,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             <span>{en ? "Display layer" : "展示层"}：MEMBER_FEED</span>
             <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
             <span>{en ? "Last successful sync (Beijing)" : "最近成功同步（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt)}</span>
-            <span>{en ? "Initial equity" : "初始资金"}：{stale ? "—" : number(snapshot.experiment.initialEquityUsdt)} USDT</span>
+            <span>{en ? "Account equity and order sizes are private" : "账户总资产及真实持仓数量不公开"}</span>
             <span>{en ? "Quote age within snapshot" : "快照内行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/45">

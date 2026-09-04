@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/member-ai-desk-sync",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/reconcile-payments",
       "schedule": "* * * * *"
     },

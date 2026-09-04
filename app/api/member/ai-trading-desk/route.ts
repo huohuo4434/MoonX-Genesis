@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
+import { getMemberDevicePageAccess as requireMemberDeviceAccess } from "@/lib/auth/member-device-guard";
 import { checkMemberApiRateLimit } from "@/lib/auth/member-api-rate-limit";
 import { getCachedMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk-cache";
 
@@ -8,7 +8,7 @@ export const revalidate = 0;
 export const maxDuration = 10;
 
 export async function GET() {
-  const gate = await getMemberDevicePageAccess();
+  const gate = await requireMemberDeviceAccess();
   if (gate.status !== "ALLOWED") {
     return NextResponse.json(
       { error: gate.status === "DEVICE_REQUIRED" ? "会员设备使用权无效" : "会员权限不足", reason: gate.device?.reason },
@@ -20,7 +20,7 @@ export async function GET() {
   try {
     return NextResponse.json(await getCachedMemberAiTradingDeskSnapshot(), {
       headers: {
-        "Cache-Control": "private, max-age=10, stale-while-revalidate=50",
+        "Cache-Control": "private, no-store",
         "X-MOOX-Desk-Mode": "snapshot-only",
       },
     });

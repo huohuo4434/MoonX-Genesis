@@ -122,7 +122,7 @@ export interface AiTradingDeskSnapshot {
     maxDrawdownPct: number | null;
     dailyPnlUsdt: number | null;
     dailyPnlPct: number | null;
-    dailyHistory: Array<{ date: string; openingEquityUsdt: number; closingEquityUsdt: number; pnlUsdt: number; pnlPct: number; trades: number }>;
+    dailyHistory: Array<{ date: string; openingEquityUsdt: number | null; closingEquityUsdt: number | null; pnlUsdt: number; pnlPct: number; trades: number }>;
     stopReason: string;
     securityMessage: string;
   };

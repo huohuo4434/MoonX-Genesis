@@ -10,6 +10,8 @@ import {
   type BitgetDemoStrategyOrder,
 } from "@/lib/bitget/demo-client";
 import { getBitgetRuntimeState } from "@/lib/bitget/demo-runtime";
+import { getBitgetLiveAdminSnapshot } from "@/lib/bitget/live-admin-snapshot";
+import { isUnifiedNewEntryBlockedForDisplay } from "@/lib/presentation/bitget-live-status";
 import { getBitgetDemoDashboard } from "@/lib/bitget/demo-connector";
 import { prisma } from "@/lib/prisma";
 import {
@@ -144,8 +146,11 @@ export async function ensureMemberAiTradingDeskTables(): Promise<boolean> {
   }
 }
 
-export async function getMemberAiTradingDeskSettings(): Promise<AiTradingDeskSettings> {
-  if (!prisma) return { ...DEFAULT_SETTINGS };
+export async function getMemberAiTradingDeskSettings(options: { strict?: boolean } = {}): Promise<AiTradingDeskSettings> {
+  if (!prisma) {
+    if (options.strict) throw new Error("交易数据库未连接");
+    return { ...DEFAULT_SETTINGS, enabled: false };
+  }
   try {
     const rows = await withReadTimeout(
       prisma.$queryRawUnsafe<DbDeskSettings[]>(`
@@ -157,10 +162,12 @@ export async function getMemberAiTradingDeskSettings(): Promise<AiTradingDeskSet
       `),
       "交易台设置"
     );
-    return mapSettings(rows[0]);
+    if (!rows[0] && options.strict) throw new Error("会员交易台设置缺失");
+    return rows[0] ? mapSettings(rows[0]) : { ...DEFAULT_SETTINGS, enabled: false };
   } catch (error) {
+    if (options.strict) throw error;
     console.warn("member AI trading desk settings read failed", error);
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, enabled: false };
   }
 }
 
@@ -206,28 +213,15 @@ function strategyOrderMap(rows: BitgetDemoStrategyOrder[]): Map<string, BitgetDe
   return map;
 }
 
-function plannedRiskPrices(
-  position: BitgetDemoPosition,
-  settings: { stopLossPct: number; target1Pct: number }
-): { stopLoss: number; takeProfit: number } {
-  const isLong = position.posSide === "long";
-  return {
-    stopLoss: round(position.avgPrice * (1 + (isLong ? -1 : 1) * settings.stopLossPct / 100), 8),
-    takeProfit: round(position.avgPrice * (1 + (isLong ? 1 : -1) * settings.target1Pct / 100), 8),
-  };
-}
-
 function buildPositions(
   positions: BitgetDemoPosition[],
   strategyOrders: BitgetDemoStrategyOrder[],
-  settings: AiTradingDeskSettings,
-  riskSettings: { stopLossPct: number; target1Pct: number }
+  settings: AiTradingDeskSettings
 ): AiTradingDeskPosition[] {
   if (!settings.showCurrentPositions) return [];
   const orderMap = strategyOrderMap(strategyOrders);
   return positions.map((position) => {
     const order = orderMap.get(`${position.symbol}:${position.posSide}`);
-    const planned = plannedRiskPrices(position, riskSettings);
     const hasExchangeRisk = Boolean(order?.stopLoss || order?.takeProfit);
     return {
       symbol: position.symbol,
@@ -238,9 +232,9 @@ function buildPositions(
       leverage: position.leverage,
       marginMode: position.marginMode,
       openedAt: position.createdAt,
-      stopLoss: order?.stopLoss ?? planned.stopLoss,
-      takeProfit: order?.takeProfit ?? planned.takeProfit,
-      riskSource: hasExchangeRisk ? "BITGET_ORDER" : "SYSTEM_PLAN",
+      stopLoss: order?.stopLoss ?? null,
+      takeProfit: order?.takeProfit ?? null,
+      riskSource: hasExchangeRisk ? "BITGET_ORDER" : "NONE",
       unrealisedPnlUsdt: settings.showAbsolutePnl ? round(position.unrealisedPnl, 4) : null,
     };
   });
@@ -382,27 +376,28 @@ function emptySnapshot(settings: AiTradingDeskSettings, message: string): AiTrad
 export async function buildMemberAiTradingDeskSnapshot(
   now = new Date()
 ): Promise<AiTradingDeskSnapshot> {
-  const storedSettings = await getMemberAiTradingDeskSettings();
+  const settings = await getMemberAiTradingDeskSettings({ strict: true });
   const environment = getBitgetDemoEnvironment();
   const live = environment.mode === "LIVE_EXPERIMENT";
-  const settings = live ? { ...storedSettings, showAbsolutePnl: true } : storedSettings;
   if (!settings.enabled) return emptySnapshot(settings, "AI交易公开台已由管理员关闭。");
 
-  const [predictionSettings, legacyBitget, runtime, strategies, planDashboard] = await Promise.all([
-    getPredictionAutoTraderSettings({ readOnly: true }),
-    getBitgetDemoDashboard(),
-    getBitgetRuntimeState(now),
-    getThreeHorizonPublicStrategies(now),
-    getAiTradePlanDashboard(now, { readOnly: true }),
+  const [predictionSettings, legacyBitget, strategies, planDashboard] = await Promise.all([
+    live ? Promise.resolve({ enabled: false }) : getPredictionAutoTraderSettings({ readOnly: true }),
+    live ? getBitgetLiveAdminSnapshot(now, { strict: true }) : Promise.all([
+      getBitgetDemoDashboard(), getBitgetRuntimeState(now),
+    ]).then(([dashboard, runtime]) => ({ ...dashboard, runtime })),
+    getThreeHorizonPublicStrategies(now, { readOnly: true }),
+    getAiTradePlanDashboard(now, { readOnly: true, strict: true }),
   ]);
-  const liveResults = await Promise.allSettled([
+  const runtime = legacyBitget.runtime;
+  const reportReadFailed = (runtime.lastReport?.market as { ok?: boolean } | undefined)?.ok === false
+    || (runtime.lastReport?.reconcile as { connected?: boolean } | undefined)?.connected === false;
+  const serverHealthy = runtime.serverHealthy && !reportReadFailed;
+  const [allPositions, bitgetClosed, strategyOrders] = await Promise.all([
     getBitgetDemoCurrentPositions(),
     getBitgetDemoClosedPositions(100),
     getBitgetDemoPendingStrategyOrders(),
   ]);
-  const allPositions = liveResults[0].status === "fulfilled" ? liveResults[0].value : [];
-  const bitgetClosed = liveResults[1].status === "fulfilled" ? liveResults[1].value : [];
-  const strategyOrders = liveResults[2].status === "fulfilled" ? liveResults[2].value : [];
   const executionMode = live ? "BITGET_LIVE" : "BITGET_DEMO";
   const persistedPlans = planDashboard.plans.filter((plan) => plan.executionMode === executionMode);
   const planSymbols = new Set(persistedPlans.map((plan) => plan.symbol.toUpperCase()));
@@ -417,9 +412,6 @@ export async function buildMemberAiTradingDeskSnapshot(
     const closedAt = Date.parse(row.updatedAt ?? row.createdAt ?? "");
     return Number.isFinite(closedAt) && closedAt >= experimentStartMs;
   });
-  const errors = liveResults
-    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-    .map((result) => result.reason instanceof Error ? result.reason.message : "Bitget读取失败");
 
   const snapshot: AiTradingDeskSnapshot = {
     generatedAt: now.toISOString(),
@@ -432,16 +424,13 @@ export async function buildMemberAiTradingDeskSnapshot(
     strategyEnabled: live ? strategies.some((row) => row.enabled) : predictionSettings.enabled,
     mirrorEnabled: live ? false : legacyBitget.settings.enabled,
     executionConfigured: runtime.executionAllowed,
-    executionAllowed: runtime.executionAllowed,
-    serverHealthy: runtime.serverHealthy,
-    syncStatus: errors.length
-      ? (errors.length < liveResults.length ? "PARTIAL" : "ERROR")
-      : runtime.serverHealthy
+    executionAllowed: runtime.executionAllowed && Boolean(runtime.lastReport)
+      && !isUnifiedNewEntryBlockedForDisplay(runtime),
+    serverHealthy,
+    syncStatus: serverHealthy
         ? "OK"
         : "PARTIAL",
-    syncMessage: errors.length
-      ? `部分数据同步失败：${errors.join("；")}`
-      : runtime.paused
+    syncMessage: reportReadFailed ? "最新行情或账户对账读取失败；当前状态待重新核验。" : runtime.paused
         ? `服务器交易执行已暂停：${runtime.pauseReason || "等待管理员恢复"}`
         : runtime.serverHealthy
           ? live ? "Bitget实盘行情、服务器心跳、策略检查与账户对账正常。" : "Bitget Demo行情、服务器心跳、策略检查与账户对账正常。"
@@ -479,10 +468,7 @@ export async function buildMemberAiTradingDeskSnapshot(
       openPositions: positions.map((row) => ({ symbol: row.symbol, posSide: row.posSide })),
       executionMode,
     }),
-    positions: buildPositions(positions, strategyOrders, settings, {
-      stopLossPct: predictionSettings.stopLossPct,
-      target1Pct: predictionSettings.target1Pct,
-    }),
+    positions: buildPositions(positions, strategyOrders, settings),
     recentTrades: buildTrades(closed, settings),
     stats: buildStats(closed, settings),
   };
@@ -492,29 +478,30 @@ export async function buildMemberAiTradingDeskSnapshot(
 export async function syncMemberAiTradingDeskSnapshot(
   now = new Date()
 ): Promise<AiTradingDeskSnapshot> {
-  if (!(await ensureMemberAiTradingDeskTables()) || !prisma) {
-    const settings = await getMemberAiTradingDeskSettings();
-    return emptySnapshot(settings, "交易数据库未连接。");
-  }
+  // Snapshot publishing only: schema and trading settings are never initialized here.
+  if (!prisma) throw new Error("交易数据库未连接。");
   try {
     const snapshot = await buildMemberAiTradingDeskSnapshot(now);
-    await prisma.$executeRaw`
+    if (Date.now() - now.getTime() > 50_000) throw new Error("快照读取超过发布预算。");
+    const updated = await prisma.$executeRaw`
       UPDATE trade_member_ai_desk_snapshot SET
         payload = ${JSON.stringify(snapshot)}::jsonb,
         last_synced_at = ${now},
         last_error = NULL,
         updated_at = NOW()
-      WHERE id = 'default'
+      WHERE id = 'default' AND (last_synced_at IS NULL OR last_synced_at < ${now})
     `;
+    if (!updated) throw new Error("快照未写入：记录缺失或已有更新版本。");
     lastReadableSnapshot = snapshot;
     return snapshot;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "同步失败";
+    // Do not expose provider errors, identifiers or credentials through the member payload.
+    const message = "同步读取未完成；保留上次成功快照，等待下一轮自动重试。";
     await prisma.$executeRaw`
       UPDATE trade_member_ai_desk_snapshot SET
         last_error = ${message},
         updated_at = NOW()
-      WHERE id = 'default'
+      WHERE id = 'default' AND (last_synced_at IS NULL OR last_synced_at < ${now})
     `;
     throw error;
   }

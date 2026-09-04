@@ -1657,11 +1657,11 @@ function parseRuntimeQuotes(value: unknown): Array<{ symbol?: unknown; price?: u
   return [];
 }
 
-async function getRuntimeMarketQuotes(now: Date): Promise<AiTradeMarketQuote[]> {
+async function getRuntimeMarketQuotes(now: Date, strict = false): Promise<AiTradeMarketQuote[]> {
   if (!prisma) return [];
   const rows = await prisma.$queryRawUnsafe<RuntimeQuoteStateRow[]>(
     `SELECT latest_quotes FROM trade_bitget_runtime_state WHERE id='default' LIMIT 1`
-  ).catch(() => []);
+  ).catch((error) => { if (strict) throw error; return []; });
   return parseRuntimeQuotes(rows[0]?.latest_quotes)
     .map((row) => {
       const symbol = String(row.symbol ?? "").toUpperCase();
@@ -1684,7 +1684,7 @@ async function getRuntimeMarketQuotes(now: Date): Promise<AiTradeMarketQuote[]> 
 
 export async function getPublishedAiTradePlans(
   limit = 30,
-  options: { readOnly?: boolean } = {}
+  options: { readOnly?: boolean; strict?: boolean } = {}
 ): Promise<AiTradePlan[]> {
   if (!prisma || (!options.readOnly && !(await ensureAiTradePlanTables()))) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
@@ -1692,8 +1692,11 @@ export async function getPublishedAiTradePlans(
     `SELECT * FROM trade_ai_plans
      ORDER BY published_at DESC, version DESC
      LIMIT ${safeLimit}`
-  ).catch(() => [] as PlanRow[]);
-  const events = await loadEvents(rows.map((row: PlanRow) => row.id)).catch(() => new Map<string, AiTradePlanEvent[]>());
+  ).catch((error) => { if (options.strict) throw error; return [] as PlanRow[]; });
+  const events = await loadEvents(rows.map((row: PlanRow) => row.id)).catch((error) => {
+    if (options.strict) throw error;
+    return new Map<string, AiTradePlanEvent[]>();
+  });
   return rows.map((row: PlanRow) => mapPlan(row, events.get(row.id) ?? []));
 }
 
@@ -1737,13 +1740,17 @@ export async function getLiveScanOpportunityHints(): Promise<LiveScanOpportunity
 
 export async function getAiTradePlanDashboard(
   now = new Date(),
-  options: { readOnly?: boolean } = {}
+  options: { readOnly?: boolean; strict?: boolean } = {}
 ): Promise<AiTradePlanDashboard> {
   const policy = aiTradePlanDashboardReadPolicy(Boolean(options.readOnly));
   const databaseReady = policy.ensureSchema ? await ensureAiTradePlanTables() : Boolean(prisma);
+  if (options.strict && !databaseReady) throw new Error("计划数据库未连接");
   if (databaseReady && policy.expirePlans) await expireStaleAiTradePlans(now).catch(() => 0);
   const [storedPlans, decisions, quotes]: [AiTradePlan[], AiTradeIntentDecision[], AiTradeMarketQuote[]] = databaseReady
-    ? await Promise.all([getPublishedAiTradePlans(60, options), getLatestIntentDecisions().catch(() => []), getRuntimeMarketQuotes(now)])
+    ? await Promise.all([getPublishedAiTradePlans(60, options), getLatestIntentDecisions().catch((error) => {
+        if (options.strict) throw error;
+        return [];
+      }), getRuntimeMarketQuotes(now, options.strict)])
     : [[], [], []];
   const quoteBySymbol = new Map(quotes.map((quote) => [quote.symbol.toUpperCase(), quote] as const));
   const plans = storedPlans.map((plan) => {

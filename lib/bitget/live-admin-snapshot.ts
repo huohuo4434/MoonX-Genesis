@@ -535,16 +535,22 @@ async function querySnapshot(): Promise<SnapshotEnvelope> {
   return rows[0];
 }
 
-export async function getBitgetLiveAdminSnapshot(now = new Date()): Promise<LiveAdminDashboard> {
+export async function getBitgetLiveAdminSnapshot(
+  now = new Date(),
+  options: { strict?: boolean } = {}
+): Promise<LiveAdminDashboard> {
   const currentTime = now.getTime();
-  if (cache && currentTime - cache.savedAt <= FRESH_CACHE_MS) return cache.value;
+  if (!options.strict && cache && currentTime - cache.savedAt <= FRESH_CACHE_MS) return cache.value;
 
   try {
     const envelope = await withTimeout(querySnapshot(), SNAPSHOT_TIMEOUT_MS);
+    if (options.strict && !envelope.live_experiment) throw new Error("实盘实验快照缺失");
     const dashboard = mapSnapshot(envelope, now);
     cache = { value: dashboard, savedAt: currentTime };
     return dashboard;
   } catch (error) {
+    // A scheduled publisher must never stamp an old fallback as a new successful read.
+    if (options.strict) throw error;
     const message = error instanceof Error ? error.message : "实盘状态快照读取失败";
     if (cache && currentTime - cache.savedAt <= STALE_CACHE_MS) {
       return {

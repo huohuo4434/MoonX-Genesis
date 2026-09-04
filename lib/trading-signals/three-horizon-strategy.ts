@@ -4957,9 +4957,25 @@ export async function getThreeHorizonStrategyDashboard(
 }
 
 export async function getThreeHorizonPublicStrategies(
-  now = new Date()
+  now = new Date(),
+  options: { readOnly?: boolean } = {}
 ): Promise<ThreeHorizonPublicStrategy[]> {
-  const dashboard = await getThreeHorizonStrategyDashboard(now);
+  // Member synchronization must not initialize or rewrite trading profiles.
+  const dashboard = options.readOnly
+    ? await (async () => {
+        if (!prisma) throw new Error("策略数据库未连接");
+        const [profiles, rows] = await Promise.all([
+          prisma.$queryRawUnsafe<ProfileRow[]>(`SELECT * FROM trade_three_horizon_profiles
+            WHERE strategy_type IN ('INTRADAY', 'SWING', 'POSITION')
+            ORDER BY CASE strategy_type WHEN 'INTRADAY' THEN 1 WHEN 'SWING' THEN 2 ELSE 3 END`),
+          prisma.$queryRawUnsafe<DecisionRow[]>(`SELECT * FROM trade_three_horizon_decisions
+            WHERE strategy_type IN ('INTRADAY', 'SWING', 'POSITION')
+            ORDER BY created_at DESC LIMIT 120`),
+        ]);
+        const mapped = profiles.map(mapProfile);
+        return { profiles: mapped, latestDecisions: rows.map(mapDecision), stats: await buildStrategyStats(mapped, now) };
+      })()
+    : await getThreeHorizonStrategyDashboard(now);
   return dashboard.profiles.map((profile) => {
     const decisions = dashboard.latestDecisions
       .filter((row) => row.strategyType === profile.strategyType)

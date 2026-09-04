@@ -330,7 +330,7 @@ test("strict member dashboard read policy permits no schema, expiry, or event wr
   assert.deepEqual(aiTradePlanDashboardReadPolicy(false), { ensureSchema: true, expirePlans: true });
   const memberSource = read("lib/trading-signals/member-ai-trading-desk.ts");
   const planSource = read("lib/trading-signals/ai-trade-plans.ts");
-  assert.match(memberSource, /getAiTradePlanDashboard\(now, \{ readOnly: true \}\)/);
+  assert.match(memberSource, /getAiTradePlanDashboard\(now, \{ readOnly: true, strict: true \}\)/);
   assert.match(memberSource, /persistedPlans = planDashboard\.plans\.filter\(\(plan\) => plan\.executionMode === executionMode\)/);
   assert.match(planSource, /policy\.ensureSchema \? await ensureAiTradePlanTables\(\) : Boolean\(prisma\)/);
   assert.match(planSource, /databaseReady && policy\.expirePlans/);

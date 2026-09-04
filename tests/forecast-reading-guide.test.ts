@@ -117,6 +117,7 @@ test("first paint cannot advertise old health, execution permission, or candidat
     generatedAt: "2026-08-27T00:38:00Z", lastSyncedAt: "2026-08-27T00:38:00Z",
     mode: "BITGET_LIVE_EXPERIMENT", operationalState: "LIVE_POSITION", operationalStateLabel: "实盘持仓中",
     executionAllowed: true, serverHealthy: true, syncStatus: "OK", syncMessage: "旧健康文案不应显示",
+    settings: { enabled: true },
     latestQuoteAt: "2026-08-27T00:36:00Z", quoteReady: true,
     runtime: { quoteAgeSeconds: 100, lastHeartbeatAt: "2026-08-27T00:38:00Z" },
     experiment: { dailyHistory: [], dailyPnlUsdt: 54321.23, pnlUsdt: 98765.43, initialEquityUsdt: 1000.8 },
