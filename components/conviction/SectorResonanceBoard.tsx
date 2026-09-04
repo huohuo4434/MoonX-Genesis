@@ -139,9 +139,8 @@ function GroupTable({
   selectedAssetId?: string;
   selectedWeekStart?: string;
 }) {
-  const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === selectedWeekStart));
-  const current = summaries.find((item) => item.weekStart === weeks[currentIndex]!.start)!;
-  const next = summaries.find((item) => item.weekStart === weeks[Math.min(currentIndex + 1, weeks.length - 1)]!.start)!;
+  const current = summaries.find((item) => item.weekStart === weeks.find((week) => week.badge === "本周")?.start);
+  const next = summaries.find((item) => item.weekStart === weeks.find((week) => week.badge === "下周")?.start);
   const selectedRow = rows.find((row) => row.assetId === selectedAssetId);
   const detailAnchor = `weekly-sector-details-${SECTOR_RESONANCE_GROUP_ORDER.indexOf(group)}`;
   return (
@@ -152,8 +151,8 @@ function GroupTable({
             <h2 className="text-lg font-semibold text-white">{group}</h2>
           </div>
           <div className="flex flex-wrap gap-2 text-[11px]">
-            <span className={`rounded-full border px-2.5 py-1 ${summaryTone(current.status)}`}>本周 {current.label}</span>
-            <span className={`rounded-full border px-2.5 py-1 ${summaryTone(next.status)}`}>下周 {next.label}</span>
+            {current ? <span className={`rounded-full border px-2.5 py-1 ${summaryTone(current.status)}`}>本周 {current.label}</span> : null}
+            {next ? <span className={`rounded-full border px-2.5 py-1 ${summaryTone(next.status)}`}>下周 {next.label}</span> : null}
           </div>
         </div>
       </header>
@@ -162,9 +161,9 @@ function GroupTable({
           <thead className="bg-white/[.025] text-[11px] text-white/38">
             <tr>
               <th className="sticky left-0 z-10 min-w-[150px] bg-[#090b0e] px-4 py-3">标的</th>
-              {weeks.map((week, index) => (
+              {weeks.map((week) => (
                 <th key={week.start} className="min-w-[128px] px-3 py-3">
-                  {index === currentIndex || index === currentIndex + 1 ? <span className="mb-1 block text-[10px] font-semibold text-violet-200/75">{index === currentIndex ? "本周" : "下周"}</span> : null}
+                  {week.badge ? <span className="mb-1 block text-[10px] font-semibold text-violet-200/75">{week.badge}</span> : null}
                   {week.label}
                 </th>
               ))}
@@ -234,9 +233,8 @@ export function SectorResonanceBoard({
   selectedAssetId?: string;
   selectedWeekStart?: string;
 }) {
-  const currentIndex = Math.max(0, weeks.findIndex((week) => week.start === selectedWeekStart));
-  const currentSummaries = summaries.filter((item) => item.weekStart === weeks[currentIndex]!.start);
-  const nextSummaries = summaries.filter((item) => item.weekStart === weeks[Math.min(currentIndex + 1, weeks.length - 1)]!.start);
+  const currentSummaries = summaries.filter((item) => item.weekStart === weeks.find((week) => week.badge === "本周")?.start);
+  const nextSummaries = summaries.filter((item) => item.weekStart === weeks.find((week) => week.badge === "下周")?.start);
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-[26px] border border-cyan-300/15 bg-[radial-gradient(circle_at_10%_0%,rgba(34,211,238,.13),transparent_34%),radial-gradient(circle_at_90%_0%,rgba(139,92,246,.12),transparent_32%),#090b0f] p-5 sm:p-7">
@@ -255,8 +253,8 @@ export function SectorResonanceBoard({
               <div key={group} className="rounded-2xl border border-white/[.07] bg-black/25 p-4">
                 <p className="text-sm font-semibold text-white">{group}</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                  <span className={`rounded-full border px-2.5 py-1 ${summaryTone(current.status)}`}>本周 {current.label}</span>
-                  <span className={`rounded-full border px-2.5 py-1 ${summaryTone(next.status)}`}>下周 {next.label}</span>
+                  {current ? <span className={`rounded-full border px-2.5 py-1 ${summaryTone(current.status)}`}>本周 {current.label}</span> : null}
+                  {next ? <span className={`rounded-full border px-2.5 py-1 ${summaryTone(next.status)}`}>下周 {next.label}</span> : null}
                 </div>
               </div>
             );

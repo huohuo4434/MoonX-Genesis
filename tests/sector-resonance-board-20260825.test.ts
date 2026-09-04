@@ -6,7 +6,7 @@ import { listSandiskPeriodForecasts } from "../lib/data/conviction/sandisk-forec
 import { extractMemberLiuyaoRelations } from "../lib/research/member-liuyao-detail";
 
 test("板块共振独立模块覆盖全部24个重点品种和本周至10月初六周", () => {
-  const board = buildSectorResonanceBoard();
+  const board = buildSectorResonanceBoard("2026-08-25");
   assert.equal(board.rows.length, 24);
   assert.equal(board.weeks.length, 6);
   assert.equal(board.weeks[0]?.start, "2026-08-24");

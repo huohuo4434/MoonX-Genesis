@@ -30,13 +30,18 @@ export function selectCurrentAndNextSectorWeeks(
   weeks: readonly SectorResonanceWeek[],
   asOfDate: string,
 ): SectorResonanceWeek[] {
-  if (!weeks.length) return [];
-  let currentIndex = weeks.findIndex((week) => asOfDate >= week.start && asOfDate <= week.end);
-  if (currentIndex < 0) currentIndex = weeks.findIndex((week) => week.end >= asOfDate);
-  if (currentIndex < 0) currentIndex = weeks.length - 1;
-  return weeks.slice(currentIndex, currentIndex + 2).map((week, index) => ({
-    ...week,
-    badge: index === 0 ? "本周" : "下周",
+  return labelSectorWeeks(weeks, asOfDate).filter((week) => week.badge !== null);
+}
+
+// Calendar labels describe today, never the selected tab or the research cutoff.
+export function labelSectorWeeks(weeks: readonly SectorResonanceWeek[], today: string): SectorResonanceWeek[] {
+  const date = new Date(`${today}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return weeks.map((week) => ({ ...week, badge: null }));
+  date.setUTCDate(date.getUTCDate() + 7);
+  const nextWeekDate = date.toISOString().slice(0, 10);
+  return weeks.map((week) => ({ ...week, badge:
+    today >= week.start && today <= week.end ? "本周"
+      : nextWeekDate >= week.start && nextWeekDate <= week.end ? "下周" : null,
   }));
 }
 

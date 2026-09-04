@@ -107,7 +107,8 @@ export function DailySectorResonanceBoard({
   summaries: DailySectorSummary[];
   selectedWeekStart?: string;
 }) {
-  const initialWeek = Math.max(0, weeks.findIndex((week) => asOf >= week.start && asOf <= week.end));
+  const calendarWeek = weeks.findIndex((week) => week.badge === "本周");
+  const initialWeek = calendarWeek >= 0 ? calendarWeek : Math.max(0, weeks.findIndex((week) => asOf >= week.start && asOf <= week.end));
   const selectedWeek = weeks.findIndex((week) => week.start === selectedWeekStart);
   const selectedWeekIndex = selectedWeek >= 0 ? selectedWeek : initialWeek;
   const week = weeks[selectedWeekIndex] ?? weeks[0]!;

@@ -58,15 +58,15 @@ export default async function MemberSectorResonancePage({
   if (gate.status === "DEVICE_REQUIRED") {
     return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   }
-  const board = buildSectorResonanceBoard();
-  const dailyBoard = buildDailySectorResonanceBoard(board);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const board = buildSectorResonanceBoard(today);
+  const dailyBoard = buildDailySectorResonanceBoard(board);
   const selectedDailyWeek = dailyBoard.weeks.find((week) => week.start === params.week)
     ?? dailyBoard.weeks.find((week) => today >= week.start && today <= week.end)
     ?? dailyBoard.weeks.find((week) => board.asOf >= week.start && board.asOf <= week.end)
     ?? dailyBoard.weeks[0];
   const headlineWeeks = selectCurrentAndNextSectorWeeks(board.weeks, today);
-  const headlinePanels = headlineWeeks.map((week, index) => {
+  const headlinePanels = headlineWeeks.map((week) => {
     const summaries = board.summaries.filter((item) => item.weekStart === week.start);
     const facts: ConclusionFirstFact[] = summaries.map((item) => ({
       label: item.group,
@@ -74,8 +74,8 @@ export default async function MemberSectorResonancePage({
       tone: item.status === "HIGH" ? "positive" : item.status === "DIVERGENT" ? "turn" : item.status === "MEDIUM" ? "neutral" : "muted",
     }));
     return {
-      title: `${index === 0 ? "本周板块结论" : "下周板块预报"}｜${week.label}`,
-      conclusion: index === 0 ? "看各板块强弱，结合关键日应对。" : "提前看方向，入场等走势确认。",
+      title: `${week.badge === "本周" ? "本周板块结论" : "下周板块预报"}｜${week.label}`,
+      conclusion: week.badge === "本周" ? "看各板块强弱，结合关键日应对。" : "提前看方向，入场等走势确认。",
       facts,
     };
   });

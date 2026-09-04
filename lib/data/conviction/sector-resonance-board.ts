@@ -1,4 +1,5 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import { labelSectorWeeks } from "./sector-key-date-overview";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
 import { US_INDEX_WEEKLY_REVISIONS_20260825 } from "@/lib/data/conviction/focus-weekly-revisions-20260825";
@@ -84,8 +85,8 @@ export type SectorWeekSummary = {
 };
 
 export const SECTOR_RESONANCE_WEEKS_20260825: SectorResonanceWeek[] = [
-  { start: "2026-08-24", end: "2026-08-30", label: "8/24–8/30", badge: "本周" },
-  { start: "2026-08-31", end: "2026-09-06", label: "8/31–9/6", badge: "下周" },
+  { start: "2026-08-24", end: "2026-08-30", label: "8/24–8/30", badge: null },
+  { start: "2026-08-31", end: "2026-09-06", label: "8/31–9/6", badge: null },
   { start: "2026-09-07", end: "2026-09-13", label: "9/7–9/13", badge: null },
   { start: "2026-09-14", end: "2026-09-20", label: "9/14–9/20", badge: null },
   { start: "2026-09-21", end: "2026-09-27", label: "9/21–9/27", badge: null },
@@ -462,7 +463,9 @@ export function buildSectorMonthKeyWeeks(cells: SectorResonanceCell[], weeks: Se
   return output.slice(0, 3);
 }
 
-export function buildSectorResonanceBoard(): {
+export function buildSectorResonanceBoard(today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
+}).format(new Date())): {
   asOf: string;
   weeks: SectorResonanceWeek[];
   rows: SectorResonanceRow[];
@@ -520,7 +523,7 @@ export function buildSectorResonanceBoard(): {
 
   return {
     asOf: "2026-09-03",
-    weeks: SECTOR_RESONANCE_WEEKS_20260825,
+    weeks: labelSectorWeeks(SECTOR_RESONANCE_WEEKS_20260825, today),
     rows,
     summaries,
     qimenWeeklyCrossCheck: QIMEN_WEEKLY_CROSSCHECK_20260907,
