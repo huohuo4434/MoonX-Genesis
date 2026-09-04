@@ -7,6 +7,7 @@ import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
+import { HorizonReadingNav } from "@/components/member/HorizonReadingNav";
 import { ConclusionFirstPanel, type ConclusionFirstFact, type ConclusionFirstTone } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
@@ -289,15 +290,11 @@ export default async function MemberDailyPage() {
               <ConclusionFirstPanel
                 className="mt-5"
                 title={todayPublished.length ? "今日最终结论" : "今日结论等待发布"}
-                conclusion={todayPublished.length ? `今日已发布${todayPublished.length}个市场。先看下面的正式方向；同向共振只提高信心，分歧则降低信心，不让技术面反向改写方向。` : "当前没有可展示的正式今日结论；系统会继续重试，不用旧内容冒充今天。"}
+                conclusion={todayPublished.length ? `今日已发布${todayPublished.length}个市场，逐项核对入场和退出条件。` : "今日预测尚未发布，请稍后刷新。"}
                 facts={todayFacts}
-                actions={["先对日期：日报看当天交易时段，周报看一周，月报看整月；不能把月度看涨当成今天必涨。", "再对条件：先跌后涨不等于已经见底；先涨后跌不等于现在就做空。", "最后对风险：确认条件缺失或失效条件触发时先不跟随；已有订单仍按自己的止损和期限执行。"]}
+                actions={["先跌后涨：先等止跌；先涨后跌：先看上冲后转弱。", "确认条件缺失先等待；持仓按自己的止损与期限退出。"]}
               />
-              <nav aria-label="按持有周期阅读" className="mt-4 flex flex-wrap gap-3 text-sm">
-                <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-primary">做中线：先看周走势</Link>
-                <Link href="/member/monthly" className="rounded-full border border-border/20 px-4 py-2">看大背景：月走势</Link>
-                <Link href="/member/key-dates" className="rounded-full border border-border/20 px-4 py-2">找时间窗口：关键日</Link>
-              </nav>
+              <HorizonReadingNav active="DAY" />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />
                 <StatusCard label="下一交易日（按市场）" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows.length ? dailyBoardDateLabel(tomorrowRows) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />

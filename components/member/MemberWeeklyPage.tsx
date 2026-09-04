@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HorizonReadingNav } from "@/components/member/HorizonReadingNav";
 import { PriceLevelsBlock } from "@/components/forecasts/PriceLevelsBlock";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { LockIcon } from "@/components/icons";
@@ -231,12 +232,13 @@ export function MemberWeeklyFullPage({ slots, summary, rollingVerification = [] 
     <Badge variant="default" className="mb-3">{en ? "Members" : "会员"}</Badge>
     <Heading as="h1" size="h2" className="mb-2">{en ? "Weekly Outlook" : "会员周走势预测"}</Heading>
     <Text variant="body" color="secondary" className="mb-6 max-w-3xl">{en ? "Direction, weekly path, key dates, price levels and invalidation for every core market." : "逐个标的讲清本周方向、周内路径、关键日期、支撑压力与失效条件。"}</Text>
+    <HorizonReadingNav en={en} active="WEEK" />
     <WeeklyAtAGlance rows={rows} />
     <WeeklyRollingVerificationPanel reports={rollingVerification} />
     <MetaHeader summary={summary} />
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
-        <Heading as="h2" size="h3">{en ? "Nine core markets" : "九大核心市场"}</Heading>
+        <Heading as="h2" size="h3">{en ? "Core market outlooks" : "核心市场走势"}</Heading>
         <Text variant="body-sm" color="secondary" className="mt-1 block">{en ? "Open any card for its weekly path and execution levels." : "先看方向，再看路径、关键日期和执行点位。"}</Text>
       </div>
       <Button asChild variant="outline" size="sm"><Link href={en ? "/en/member/weekly-report" : "/member/weekly-report"}>{en ? "Read Weekly Report" : "查看会员周报"}</Link></Button>

@@ -129,20 +129,20 @@ const STRATEGY_META: Record<ThreeHorizonStrategyType, {
   INTRADAY: {
     id: "intraday",
     name: "MOOX 短线策略",
-    cycle: "30分钟—8小时",
+    cycle: "30—90分钟",
     description: "读取现有短线策略记录；策略中心只展示，不改变方向、仓位或订单。",
   },
   SWING: {
     id: "swing",
     name: "MOOX 波段策略",
-    cycle: "1—7天",
+    cycle: "2—3天（新仓最多72小时）",
     description: "读取现有波段策略记录；方向仍由当前MOOX研究链决定。",
   },
   POSITION: {
     id: "position",
-    name: "MOOX 中长期策略",
+    name: "MOOX 长线策略",
     cycle: "1—4周",
-    description: "读取现有中长期策略记录；保留现有持仓托管和风险边界。",
+    description: "年度候选窗口内评估，月方向与周节奏一致后再看入场；预测先到期则先结束。",
   },
 };
 

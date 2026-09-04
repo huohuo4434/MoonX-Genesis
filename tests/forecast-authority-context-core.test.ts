@@ -55,16 +55,19 @@ test("INTRADAY and SWING still fail closed without a weekly direction", () => {
   }
 });
 
-test("a directional week remains authoritative over a conflicting month", () => {
+test("POSITION owns MONTH while SWING keeps WEEK, even when they disagree", () => {
   assert.deepEqual(resolveForecastAuthorityContext(plan({
     weeklyForecast: leg(72),
     weeklyDirection: "SHORT",
   }), "POSITION"), {
-    direction: "SHORT",
-    confidence: 72,
-    setup: "SELL_RALLY",
-    sourceHorizon: "WEEK",
+    direction: "LONG",
+    confidence: 66,
+    setup: "BUY_DIP",
+    sourceHorizon: "MONTH",
   });
+  assert.equal(resolveForecastAuthorityContext(plan({ weeklyForecast: leg(72), weeklyDirection: "SHORT" }), "SWING").direction, "SHORT");
+  assert.equal(resolveForecastAuthorityContext(plan({ monthlyForecast: null, weeklyForecast: leg(72), weeklyDirection: "SHORT" }), "POSITION").direction, "NEUTRAL");
+  assert.equal(resolveForecastAuthorityContext(plan({ monthlyDirection: "NEUTRAL", weeklyForecast: leg(72), weeklyDirection: "SHORT" }), "POSITION").setup, "HOLD");
 });
 
 test("a direction without its supplied forecast leg never gains executable setup metadata", () => {

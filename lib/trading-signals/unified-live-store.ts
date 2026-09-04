@@ -230,6 +230,7 @@ export async function registerUnifiedLiveStrategySlice(input: {
   target1?: number | null;
   target2?: number | null;
   maxHoldMinutes?: number;
+  openedAt?: Date;
   sourceKind?: string;
   technicalEntry?: string | null;
   qimenDirection?: string | null;
@@ -266,7 +267,7 @@ export async function registerUnifiedLiveStrategySlice(input: {
       target1: input.target1 ?? null,
       target2: input.target2 ?? null,
       maxHoldMinutes: input.maxHoldMinutes ?? UNIFIED_LIVE_HORIZON_LIMITS[input.horizon],
-      openedAt: new Date(),
+      openedAt: input.openedAt ?? new Date(),
       lastManagedAt: new Date(),
       nextCheckAt: new Date(Date.now() + 60_000),
       technicalEntry: input.technicalEntry ?? null,

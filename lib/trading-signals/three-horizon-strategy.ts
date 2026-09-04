@@ -1,4 +1,6 @@
 import "server-only";
+import { positionContextEligibility, cappedHoldingMinutes, newPositionHoldingDeadline } from "@/lib/trading-signals/strategy-horizon-policy-core";
+import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
 import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
 import {
@@ -233,22 +235,22 @@ const PROFILE_DEFINITIONS: Record<
   SWING: {
     strategyType: "SWING",
     label: "波段",
-    description: "1至7天，周/日方向、4小时结构、1小时入场，不把短线亏损被动变成波段。",
+    description: "中线2至3天：周预测定方向、4小时看结构、1小时确认入场；最多72小时，预测更早到期则提前结束。",
     symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
     environmentTimeframe: "1D/1W",
     directionTimeframe: "4H",
     entryTimeframe: "1H",
     scanIntervalMinutes: 15,
     riskPerTradePct: 0.3,
-    maxHoldingMinutes: 7 * 24 * 60,
+    maxHoldingMinutes: 3 * 24 * 60,
     planningMinConfidence: 44,
     minConfidence: 54,
     maxTradesPerDay: 5,
   },
   POSITION: {
     strategyType: "POSITION",
-    label: "中长期",
-    description: "1至4周，月/周主方向、日线与4小时入场，低杠杆、小风险、固定期限复核。",
+    label: "长线",
+    description: "长线1至4周：仅在年度低位候选月评估多头、高位候选月评估空头；月预测定方向，周节奏与日线/4小时确认入场。",
     symbols: [...LIVE_FULL_UNIVERSE_SYMBOLS],
     environmentTimeframe: "1M/1W",
     directionTimeframe: "1D",
@@ -708,7 +710,7 @@ function lockedLiuyaoDirection(
   strategyType: ThreeHorizonStrategyType,
 ): "LONG" | "SHORT" | null {
   if (!plan) return null;
-  const useMonthly = strategyType === "POSITION" && Boolean(plan.monthlyForecast);
+  const useMonthly = strategyType === "POSITION";
   const leg = useMonthly ? plan.monthlyForecast : plan.weeklyForecast;
   const direction = useMonthly ? plan.monthlyDirection : plan.weeklyDirection;
   const traceableLiuyao = /六爻|liu[\s_-]*yao|six[\s_-]*yao/i.test(leg?.sourceLabel ?? "");
@@ -1576,7 +1578,7 @@ export async function ensureThreeHorizonStrategyTables(): Promise<boolean> {
             ELSE 0.20 END,
           max_holding_minutes = CASE
             WHEN strategy_type='INTRADAY' THEN 90
-            WHEN strategy_type='SWING' THEN 10080
+            WHEN strategy_type='SWING' THEN 4320
             ELSE 40320 END,
           planning_min_confidence = CASE
             WHEN strategy_type='INTRADAY' THEN 40
@@ -1643,7 +1645,7 @@ function mapProfile(row: ProfileRow): ThreeHorizonStrategyProfile {
     symbols: symbols.length ? symbols : definition.symbols,
     scanIntervalMinutes: Math.max(1, Number(row.scan_interval_minutes || definition.scanIntervalMinutes)),
     riskPerTradePct: clamp(Number(row.risk_per_trade_pct || definition.riskPerTradePct), 0.1, 0.5),
-    maxHoldingMinutes: Math.max(30, Number(row.max_holding_minutes || definition.maxHoldingMinutes)),
+    maxHoldingMinutes: cappedHoldingMinutes(row.strategy_type, Math.max(30, Number(row.max_holding_minutes || definition.maxHoldingMinutes))),
     planningMinConfidence: Math.round(clamp(Number(row.planning_min_confidence || definition.planningMinConfidence), 40, 80)),
     minConfidence: Math.round(clamp(Number(row.min_confidence || definition.minConfidence), 50, 90)),
     maxTradesPerDay: Math.max(0, Math.min(10, Number(row.max_trades_per_day || definition.maxTradesPerDay))),
@@ -2322,7 +2324,16 @@ function evaluate(
   }
   if (profile.strategyType === "INTRADAY") return evaluateIntraday(profile, symbol, candles, plan, now, livePrice);
   if (profile.strategyType === "SWING") return evaluateSwing(profile, symbol, candles, plan, now, livePrice);
-  return evaluatePosition(profile, symbol, candles, plan, now, livePrice);
+  const result = evaluatePosition(profile, symbol, candles, plan, now, livePrice);
+  const eligibility = positionContextEligibility({
+    strategy: profile.strategyType, direction: result.direction, plan,
+    roadmap: plan ? getAnnualForecastRoadmap2026(plan.assetId) : null, nowMs: now.getTime(),
+  });
+  return eligibility.allowed ? result : {
+    ...result, ready: false, executionTier: "OBSERVE", riskScale: 0,
+    rejectionCode: "POSITION_CONTEXT_REQUIRED", rejectionReason: eligibility.reason,
+    raw: { ...result.raw, positionContext: eligibility },
+  };
 }
 
 
@@ -2638,6 +2649,7 @@ async function runLiveCommissioning(input: {
         decision, profile, evaluation, risk: input.risk, positions: input.positions,
         protections: input.protections, now: input.now, reservedSymbols: input.reservedSymbols, reservedRiskPct: 0,
         exposureAction: "COMMISSIONING_ENTRY",
+        forecastValidUntil: planGate.plan?.forecastValidUntil ?? null,
         forecastPlan: input.forecastBySymbol.get(selected.quote.symbol),
         authorityReadsOk: input.authorityReadsOk,
         ledgerConsistent: input.ledgerConsistent,
@@ -2810,15 +2822,8 @@ async function closePosition(
   reason: string,
   protection?: BitgetDemoStrategyOrder
 ): Promise<ThreeHorizonStrategyDecision> {
-  let protectionCancellationUncertain = false;
-  if (protection?.orderId) {
-    const cancellation = await cancelBitgetDemoStrategyOrder({
-      orderId: protection.orderId,
-      clientOid: protection.clientOid,
-      symbol: protection.symbol,
-    }).catch(() => null);
-    protectionCancellationUncertain = cancellation?.status !== "CONFIRMED";
-  }
+  // Keep exchange protection until reconciliation confirms the position is gone.
+  // An accepted market-close request is not proof of a fill.
   const result = await placeBitgetDemoMarketOrder({
     paperOrderId: `${decision.id}:time-close`,
     symbol: decision.symbol as BitgetSupportedSymbol,
@@ -2829,7 +2834,7 @@ async function closePosition(
   return updateDecision(decision.id, {
     status: "CLOSING",
     rejectionCode: "TIME_EXIT",
-    rejectionReason: `${reason}；平仓订单${result.orderId}已提交。${protectionCancellationUncertain ? `；保护单${protection?.orderId ?? ""}取消状态不确定，已记录并交由后续托管对账清理。` : ""}`,
+    rejectionReason: `${reason}；平仓订单${result.orderId}已提交。${protection?.orderId ? "原保护单保留，确认无仓后由托管对账清理。" : "等待交易所确认成交。"}`,
     currentPrice: position.markPrice,
   });
 }
@@ -2995,7 +3000,7 @@ async function manageActiveDecisions(
     let current = options.scaleInOnly
       ? decisionForManagement
       : await updateDecision(decisionForManagement.id, {
-        status: decisionForManagement.status === "PARTIAL" ? "PARTIAL" : "OPEN",
+        status: decisionForManagement.status === "CLOSING" ? "CLOSING" : decisionForManagement.status === "PARTIAL" ? "PARTIAL" : "OPEN",
         currentPrice: position.markPrice,
         entryPrice: position.avgPrice || decisionForManagement.entryPrice,
         quantity: position.total,
@@ -3040,7 +3045,7 @@ async function manageActiveDecisions(
             await closePosition(current, position, "保护单创建失败，执行紧急平仓");
           } catch {
             await updateDecision(current.id, {
-              status: "ERROR",
+              status: current.status === "CLOSING" ? "CLOSING" : "ERROR",
               rejectionCode: "PROTECTION_MISSING",
               rejectionReason: error instanceof Error ? error.message : "保护单创建失败",
             });
@@ -3055,6 +3060,11 @@ async function manageActiveDecisions(
     // closed-candle trigger plus verified position-side exchange protection.
     const canonicalForecast = options.canonicalForecastBySymbol?.get(current.symbol) ?? null;
     const canonicalDirection = forecastDirectionForStrategy(canonicalForecast ?? undefined, current.strategyType);
+    const scaleInContext = positionContextEligibility({
+      strategy: current.strategyType, direction: current.direction, plan: canonicalForecast,
+      roadmap: canonicalForecast ? getAnnualForecastRoadmap2026(canonicalForecast.assetId) : null, nowMs: now.getTime(),
+    });
+    const scaleInDeadline = Date.parse(current.maxHoldingUntil ?? "");
     const scaleInAuthority = evaluateScaleInAuthority({
       manageOnly: options.manageOnly ?? !options.scaleInOnly,
       scanOnly: options.scanOnly ?? false,
@@ -3069,6 +3079,7 @@ async function manageActiveDecisions(
     });
     if (
       scaleInAuthority.allowed &&
+      scaleInContext.allowed && Number.isFinite(scaleInDeadline) && Date.now() < scaleInDeadline &&
       current.entryStage === 1 &&
       current.maxEntryStages >= 2 &&
       !current.scaleInOrderId &&
@@ -3307,7 +3318,7 @@ async function manageActiveDecisions(
     const maxHoldingReached = current.strategyType !== "INTRADAY" && current.maxHoldingUntil
       ? now.getTime() >= Date.parse(current.maxHoldingUntil)
       : false;
-    if (ultraShortTimeExit?.shouldExit || maxHoldingReached || hardIntradayExit(current, now)) {
+    if (current.status === "CLOSING" || ultraShortTimeExit?.shouldExit || maxHoldingReached || hardIntradayExit(current, now)) {
       orderAttempts += 1;
       try {
         await closePosition(
@@ -3322,7 +3333,7 @@ async function manageActiveDecisions(
       } catch (error) {
         orderErrors += 1;
         await updateDecision(current.id, {
-          status: "ERROR",
+          status: "CLOSING",
           rejectionCode: "TIME_EXIT_FAILED",
           rejectionReason: error instanceof Error ? error.message : "时间止损平仓失败",
         });
@@ -3553,6 +3564,7 @@ async function executeReadyDecision(input: {
   reservedRiskPct: number;
   exposureAction: Exclude<NewExposureAction, "SCALE_IN" | "RISK_REDUCTION">;
   forecastPlan: PredictionStrategyPlan | null | undefined;
+  forecastValidUntil: string | null;
   authorityReadsOk: boolean;
   ledgerConsistent: boolean;
 }): Promise<{
@@ -3821,6 +3833,22 @@ async function executeReadyDecision(input: {
     };
   }
 
+  const deadline = newPositionHoldingDeadline({
+    strategy: input.profile.strategyType, configuredMinutes: input.profile.maxHoldingMinutes,
+    forecastValidUntil: input.forecastValidUntil, nowMs: Date.now(),
+  });
+  const annualWindow = positionContextEligibility({
+    strategy: input.profile.strategyType, direction: input.decision.direction,
+    plan: input.forecastPlan,
+    roadmap: input.forecastPlan ? getAnnualForecastRoadmap2026(input.forecastPlan.assetId) : null,
+    nowMs: Date.now(),
+  });
+  if (deadline === null || !annualWindow.allowed) {
+    return { decision: await updateDecision(input.decision.id, {
+      status: "BLOCKED", rejectionCode: deadline === null ? "FORECAST_HOLDING_WINDOW_INVALID" : "ANNUAL_POSITION_WINDOW",
+      rejectionReason: deadline === null ? "原绑定预测已过期或到期时间缺失，禁止提交新仓。" : annualWindow.reason,
+    }), attempted: false, success: false, error: false, riskReservedPct: 0 };
+  }
   let current = await updateDecision(input.decision.id, {
     status: "READY",
     quantity: sizing.quantity,
@@ -3834,9 +3862,11 @@ async function executeReadyDecision(input: {
     rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "完整确认仓"}通过组合风控与交易所规格预检，准备提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}订单。`,
     entryStage: 0,
     maxEntryStages: 2,
+    maxHoldingUntil: new Date(deadline),
   });
 
   try {
+    if (Date.now() >= deadline) throw new Error("原绑定预测持仓窗口已过期，未提交订单。");
     const order = await placeBitgetDemoMarketOrder({
       paperOrderId: current.id,
       symbol: current.symbol as BitgetSupportedSymbol,
@@ -3857,7 +3887,7 @@ async function executeReadyDecision(input: {
       riskPct: sizing.riskPct,
       entryStage: 1,
       openedAt: submittedAt,
-      maxHoldingUntil: new Date(submittedAt.getTime() + input.profile.maxHoldingMinutes * 60_000),
+      maxHoldingUntil: new Date(deadline),
       rejectionReason: `${input.evaluation.executionTier === "PROBE" ? "第一批探路仓" : "确认仓"}已提交${environment.mode === "LIVE_EXPERIMENT" ? "Bitget实盘" : "Bitget Demo"}，风险${round(sizing.riskPct, 3)}%，使用逐仓${sizing.leverage}倍并预设第二目标。${order.warnings.join("；")}`,
     });
     let custodyRegistrationFailed = false;
@@ -3877,7 +3907,8 @@ async function executeReadyDecision(input: {
           stopPrice: current.stopLoss,
           target1: current.target1,
           target2: current.target2,
-          maxHoldMinutes: input.profile.maxHoldingMinutes,
+          openedAt: submittedAt,
+          maxHoldMinutes: Math.max(0, Math.floor((deadline - submittedAt.getTime()) / 60_000)),
           sourceKind: `THREE_HORIZON_${input.profile.strategyType}`,
           technicalEntry: executionEvaluation.conditions.find((condition) => condition.key === "entry")?.value ?? null,
           liuyaoDirection: lockedLiuyaoDirection(input.forecastPlan, input.profile.strategyType),
@@ -4487,6 +4518,7 @@ export async function runThreeHorizonStrategyEngine(
               run: () => executeReadyDecision({
                 decision, profile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
                 exposureAction: "NORMAL_PROFILE_ENTRY",
+                forecastValidUntil: planGate.plan?.forecastValidUntil ?? null,
                 forecastPlan: canonicalForecastBySymbol.get(symbol),
                 authorityReadsOk: forecastAuthorityReadsOk,
                 ledgerConsistent: newExposureLedgerConsistent,
@@ -4725,6 +4757,7 @@ export async function runThreeHorizonStrategyEngine(
           run: () => executeReadyDecision({
             decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
             exposureAction: "DAILY_MINIMUM_ENTRY",
+            forecastValidUntil: planGate.plan?.forecastValidUntil ?? null,
             forecastPlan: canonicalForecastBySymbol.get(candidate.symbol),
             authorityReadsOk: forecastAuthorityReadsOk,
             ledgerConsistent: newExposureLedgerConsistent,
@@ -4861,6 +4894,7 @@ export async function runThreeHorizonStrategyEngine(
           run: () => executeReadyDecision({
             decision: promoted, profile: activityProfile, evaluation, risk, positions, protections, now, reservedSymbols, reservedRiskPct,
             exposureAction: "ACTIVITY_FALLBACK_ENTRY",
+            forecastValidUntil: planGate.plan?.forecastValidUntil ?? null,
             forecastPlan: canonicalForecastBySymbol.get(candidate.symbol),
             authorityReadsOk: forecastAuthorityReadsOk,
             ledgerConsistent: newExposureLedgerConsistent,

@@ -20,10 +20,8 @@ const setupFor = (
 
 /**
  * Resolves the forecast evidence that actually owns one execution horizon.
- * Weekly remains authoritative whenever it has a side. POSITION alone may use
- * a supplied monthly leg when the week has no direction. This helper only
- * aligns metadata with an already-allowed fallback; it never manufactures or
- * reverses a direction.
+ * Match the execution binding: WEEK for intraday/swing, MONTH for position.
+ * Technical timing and the other forecast legs cannot replace that authority.
  */
 export function resolveForecastAuthorityContext(
   plan: PredictionStrategyPlan | undefined,
@@ -33,28 +31,13 @@ export function resolveForecastAuthorityContext(
     return { direction: "NEUTRAL", confidence: 0, setup: "MISSING_FORECAST", sourceHorizon: null };
   }
 
-  if (plan.weeklyForecast && plan.weeklyDirection !== "NEUTRAL") {
-    return {
-      direction: plan.weeklyDirection,
-      confidence: plan.weeklyForecast.confidence,
-      setup: setupFor(plan.weeklyDirection, true),
-      sourceHorizon: "WEEK",
-    };
-  }
-
-  if (strategyType === "POSITION" && plan.monthlyForecast && plan.monthlyDirection !== "NEUTRAL") {
-    return {
-      direction: plan.monthlyDirection,
-      confidence: plan.monthlyForecast.confidence,
-      setup: setupFor(plan.monthlyDirection, true),
-      sourceHorizon: "MONTH",
-    };
-  }
-
+  const monthly = strategyType === "POSITION";
+  const leg = monthly ? plan.monthlyForecast : plan.weeklyForecast;
+  const direction = leg ? (monthly ? plan.monthlyDirection : plan.weeklyDirection) : "NEUTRAL";
   return {
-    direction: "NEUTRAL",
-    confidence: plan.weeklyForecast?.confidence ?? 0,
-    setup: setupFor("NEUTRAL", Boolean(plan.weeklyForecast)),
-    sourceHorizon: plan.weeklyForecast ? "WEEK" : null,
+    direction,
+    confidence: leg?.confidence ?? 0,
+    setup: setupFor(direction, Boolean(leg)),
+    sourceHorizon: leg ? (monthly ? "MONTH" : "WEEK") : null,
   };
 }

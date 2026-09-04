@@ -1,4 +1,5 @@
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
+import { isRetiredPredictionSymbol, PREDICTION_SCOPE_EFFECTIVE_DATE } from "@/lib/prediction-scope";
 import { labelSectorWeeks } from "./sector-key-date-overview";
 import type { StaticFocusAssetId } from "@/lib/data/conviction/focus-registry-core";
 import { listStaticFocusForecasts } from "@/lib/data/conviction/focus-static-forecast-registry";
@@ -473,7 +474,9 @@ export function buildSectorResonanceBoard(today = new Intl.DateTimeFormat("en-CA
   qimenWeeklyCrossCheck: typeof QIMEN_WEEKLY_CROSSCHECK_20260907;
   qimenWeeklySourceBoundary: typeof QIMEN_WEEKLY_SOURCE_BOUNDARY_20260907;
 } {
-  const rows = SECTOR_RESONANCE_ASSETS_20260825.map((definition) => {
+  const rows = SECTOR_RESONANCE_ASSETS_20260825
+    .filter((definition) => today < PREDICTION_SCOPE_EFFECTIVE_DATE || !isRetiredPredictionSymbol(definition.symbol))
+    .map((definition) => {
     const forecasts = forecastsFor(definition);
     const annual = getAnnualForecastRoadmap2026(definition.assetId);
     const annualForecast = forecasts

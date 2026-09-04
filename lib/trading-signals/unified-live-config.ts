@@ -1,9 +1,10 @@
 import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
+import { STRATEGY_HOLDING_CAP_MINUTES } from "@/lib/trading-signals/strategy-horizon-policy-core";
 
 export const UNIFIED_LIVE_HORIZON_LIMITS: Record<UnifiedLiveHorizon, number> = {
-  SHORT: 8 * 60,
-  MEDIUM: 7 * 24 * 60,
-  LONG: 28 * 24 * 60,
+  SHORT: STRATEGY_HOLDING_CAP_MINUTES.INTRADAY,
+  MEDIUM: STRATEGY_HOLDING_CAP_MINUTES.SWING,
+  LONG: STRATEGY_HOLDING_CAP_MINUTES.POSITION,
 };
 
 function envBoolean(value: string | undefined, fallback: boolean): boolean {

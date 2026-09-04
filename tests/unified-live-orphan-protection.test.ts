@@ -201,7 +201,10 @@ test("取消接口暴露ACK状态，托管周期对孤立保护单执行幂等�
   assert.match(client, /Promise<\{ status: "CONFIRMED" \| "ACKNOWLEDGED"; outboxId: string \}>/);
   assert.match(runtime, /runOrphanProtectionCleanup/);
   assert.match(client, /idempotencyKey: `cancel-protection:\$\{ref\}`/);
-  assert.match(strategy, /cancellation\?\.status !== "CONFIRMED"/);
+  const close = strategy.slice(strategy.indexOf("async function closePosition("), strategy.indexOf("async function manageActiveDecisions("));
+  assert.doesNotMatch(close, /cancelBitgetDemoStrategyOrder/);
+  assert.match(close, /reduceOnly: true/);
+  assert.match(close, /原保护单保留/);
 });
 
 test("管理员和Cron路由在任何可变托管操作前完成鉴权", () => {

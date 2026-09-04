@@ -65,7 +65,7 @@ test("板块页可展开年、月、周卦，并且不把系统发布时间冒�
 });
 
 test("标普与纳指9月月卦、长鑫新年卦和9月月卦均进入板块详情", () => {
-  const board = buildSectorResonanceBoard();
+  const board = buildSectorResonanceBoard("2026-08-31");
   const spx = board.rows.find((row) => row.symbol === "SPX");
   const ndx = board.rows.find((row) => row.symbol === "NDX");
   const cxmt = board.rows.find((row) => row.symbol === "CXMT");
@@ -149,7 +149,7 @@ test("HYPE五张已录入周卦进入板块与逐日路径，不再显示待补"
 });
 
 test("闪迪同周期分歧保留且既有阶段卦略优先，NBIS与美股指数新周卦均已接入", () => {
-  const board = buildSectorResonanceBoard();
+  const board = buildSectorResonanceBoard("2026-08-31");
   const sandisk = board.rows.find((row) => row.symbol === "SNDK");
   assert.equal(sandisk?.cells[1]?.direction, "先涨后跌");
   assert.equal(sandisk?.cells[1]?.forecastId, "SNDK-W5-20260831-V2");

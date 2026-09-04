@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildDailySectorCell, buildDailySectorResonanceBoard } from "../lib/data/conviction/daily-sector-resonance";
 import type { SectorResonanceCell } from "../lib/data/conviction/sector-resonance-board";
+import { buildSectorResonanceBoard } from "../lib/data/conviction/sector-resonance-board";
 
 function weeklyCell(direction: string, markerDate = "2026-08-27"): SectorResonanceCell {
   return {
@@ -16,7 +17,7 @@ function weeklyCell(direction: string, markerDate = "2026-08-27"): SectorResonan
 }
 
 test("逐日板块共振覆盖六周42天和全部24个重点品种", () => {
-  const board = buildDailySectorResonanceBoard();
+  const board = buildDailySectorResonanceBoard(buildSectorResonanceBoard("2026-08-31"));
   assert.equal(board.weeks.length, 6);
   assert.equal(board.weeks.flatMap((week) => week.days).length, 42);
   assert.equal(board.rows.length, 24);

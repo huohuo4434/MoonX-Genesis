@@ -63,7 +63,7 @@ export function buildMemberDeskPlansFromPersistedAudit(input: {
       strategyType,
       strategyLabel: plan.strategyLabel || (strategyType === "INTRADAY" ? "短线" : strategyType === "SWING" ? "中线" : "长线"),
       forecastHorizon: plan.forecastHorizon,
-      holdingWindow: strategyType === "INTRADAY" ? "30分钟—8小时" : strategyType === "SWING" ? "1—7天" : "1—4周",
+      holdingWindow: strategyType === "INTRADAY" ? "30—90分钟" : strategyType === "SWING" ? "2—3天（新仓最多72小时）" : "1—4周（年度窗口内）",
       status: planStatus.value,
       statusLabel: planStatus.label,
       direction: plan.direction,

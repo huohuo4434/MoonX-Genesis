@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HorizonReadingNav } from "@/components/member/HorizonReadingNav";
 import { Badge, Button, Card, Heading, Text } from "@/components/ui";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { MemberSeptemberRotationReport } from "@/components/member/MemberSeptemberRotationReport";
@@ -32,10 +33,11 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
         <Heading as="h1" size="h2" className="mt-3">{en ? "Monthly Outlook" : "会员月走势预测"}</Heading>
         <Text variant="body" color="secondary" className="mt-2 block max-w-4xl">
           {en
-            ? "MOOX OFFICIAL DIRECTION comes first. Where the metaphysical evidence is clear, the call is bullish or bearish; only genuinely conflicting evidence is marked unclear. Technical analysis is used for levels, not for changing the call."
+            ? "Read the monthly direction, path, key weeks and risk conditions."
             : "先看月度主方向，再看月内路径、关键周与失效条件。"}
         </Text>
       </div>
+      <HorizonReadingNav en={en} active="MONTH" />
       <div className="flex flex-wrap gap-2" role="tablist" aria-label={en ? "Monthly forecast cycle" : "月度预测周期"}>
         {cycles.map((item) => (
           <Button
@@ -56,11 +58,11 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
           <span>{en ? `Selected cycle: ${cycle.labelEn}` : `所选周期：${cycle.labelZh}`}</span>
           <span>{en ? `Published: ${items.length} assets` : `已发布：${items.length}项`}</span>
           <span>{en ? `Standalone monthly evidence: ${completeCount}/${items.length}` : `独立月度证据：${completeCount}/${items.length}`}</span>
-          {cycle.isUpcoming ? <span className="text-amber-200/80">{en ? "Forward research; subject to pre-period teacher updates" : "事前预测；开盘前若有更高优先级老师新卦可修订"}</span> : null}
         </div>
       </Card>
       {cycleId === "2026-09" ? <MemberSeptemberRotationReport /> : null}
       {cycleId === "2026-09" && cycleResearchOverlays.length ? (
+        <details><summary className="cursor-pointer text-sm text-foreground-secondary">{en ? "Additional cycle research and differences" : "展开周期补充与分歧"}</summary>
         <Card padding="lg" className="space-y-5 border-cyan-300/20 bg-cyan-300/[0.025]" data-cycle-research-overlay="btc-gold-20260823">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -113,7 +115,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
               </div>
             ))}
           </div>
-        </Card>
+        </Card></details>
       ) : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
@@ -131,7 +133,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
               path={en ? item.pathEn : item.path}
               en={en}
             />
-            <div className="space-y-2">
+            <details className="space-y-2"><summary className="cursor-pointer text-caption text-foreground-tertiary">{en ? "Scenario weights" : "展开情景权重"}</summary>
               <Text variant="caption" color="tertiary">{en ? "Scenario weights (not a direction vote)" : "情景权重（不参与方向投票）"}</Text>
               {bars(item.probabilities, en).map(([label, value, color]) => (
                 <div key={label} className="flex items-center gap-3 text-sm">
@@ -140,7 +142,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
                   <span className="w-10 text-right tabular-nums">{value}%</span>
                 </div>
               ))}
-            </div>
+            </details>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Key window" : "重点窗口"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.keyWindowEn : item.keyWindow}</Text></div>
               <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">{en ? "Primary risk" : "主要风险"}</Text><Text variant="body-sm" className="mt-1 block">{en ? item.riskEn : item.risk}</Text></div>

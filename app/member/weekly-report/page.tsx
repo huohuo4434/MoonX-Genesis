@@ -63,12 +63,12 @@ export default async function MemberWeeklyReportPage() {
             <header className="rounded-3xl border border-amber-300/15 bg-[radial-gradient(circle_at_90%_0%,rgba(245,158,11,.13),transparent_34%),linear-gradient(145deg,#12110d,#090a0e)] p-6 sm:p-8">
               <Badge variant="warning">会员周报</Badge>
               <Heading as="h1" size="h2" className="mt-4">本周先看什么</Heading>
-              <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">周报只保留最重要的机会、风险和行动顺序；九大市场逐项研究请进入“周走势预测”。</Text>
+              <Text variant="body" color="secondary" className="mt-3 block max-w-3xl">本周方向、风险与关键位置。逐项条件见“周走势预测”。</Text>
               <div className="mt-4 flex flex-wrap gap-4 text-caption text-foreground-tertiary"><span>{payload.summary.weekLabel}</span><span>已发布 {published.length}/{payload.summary.coverageCount}</span><span>{payload.summary.lastUpdatedLabel}</span></div>
             </header>
 
             <section>
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">本周优先关注</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">按当前信心和研究新鲜度筛出前5项，不代表全部都要立即交易。</Text></div><Link href="/member/weekly" className="text-body-sm text-primary">查看完整周走势 →</Link></div>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">本周研究摘要</Heading><Text variant="body-sm" color="secondary" className="mt-1 block">按信心排序，非可交易机会排名；入场还需位置和风险回报确认。</Text></div><Link href="/member/weekly" className="text-body-sm text-primary">查看完整周走势 →</Link></div>
               <div className="grid gap-4 lg:grid-cols-2">
                 {top.length ? top.map((row, index) => (
                   <Card key={row.id} padding="lg" className="border-border/[0.09] bg-card/55">

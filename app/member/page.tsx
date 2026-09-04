@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HorizonReadingNav } from "@/components/member/HorizonReadingNav";
 import Link from "next/link";
 import { Badge, Button, Heading, Section, Text } from "@/components/ui";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -112,7 +113,7 @@ const SEPTEMBER_SEMICONDUCTOR_SPOTLIGHT = [
     name: "半导体板块",
     direction: "9月7日后相对转强",
     window: "9月7日—10月6日",
-    path: "9月中下旬至10月初为阶段高位候选区；先等相对强势出现并在回踩中守住。",
+    path: "9/8美股复市后看承接，14—20日防兑现，21日前检查仓位；不能因高位候选延续到10月就一直持多。",
     href: "/member/sector-resonance",
   },
   {
@@ -120,7 +121,7 @@ const SEPTEMBER_SEMICONDUCTOR_SPOTLIGHT = [
     name: "闪迪",
     direction: "先跌后涨",
     window: "9月7日—10月7日",
-    path: "9月1—6日先释放压力，7日后观察上行启动；日线、4H止跌且30分钟形成更高低点才确认。",
+    path: "9/8复市后观察转强；日线、4H止跌且30分钟形成更高低点才确认。14—20日同步检查兑现风险。",
     href: "/featured-stocks/sandisk",
   },
   {
@@ -173,7 +174,7 @@ function TaskGrid({ cards }: { cards: ChannelCard[] }) {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <Heading id="member-main-tasks" as="h2" size="h3">六个入口，按顺序看</Heading>
-          <Text variant="body-sm" color="secondary" className="mt-1 block">旧功能没有删除，全部收进对应入口的二级链接。</Text>
+          <Text variant="body-sm" color="secondary" className="mt-1 block">先选持有周期，再看关注标的和交易条件。</Text>
         </div>
         <Text variant="caption" color="tertiary">今天 → 周期 → 关注 → 交易 → 复盘</Text>
       </div>
@@ -230,6 +231,7 @@ export default async function MemberChannelPage() {
               )}
             </header>
 
+            <HorizonReadingNav />
             {active ? <SeptemberSemiconductorSpotlight /> : null}
 
             <MemberUpdateNotice note={LATEST_MEMBER_UPDATE} />

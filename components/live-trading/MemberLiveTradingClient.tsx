@@ -246,7 +246,7 @@ type LiveStatusPayload = {
   } | null;
 };
 
-const labels = { SHORT: "超短线 30—90分钟", MEDIUM: "中线 1—7天", LONG: "长线 1—4周" } as const;
+const labels = { SHORT: "超短线 30—90分钟", MEDIUM: "中线 2—3天", LONG: "长线 1—4周 · 年度窗口内" } as const;
 const horizonName: Record<string, string> = { INTRADAY: "超短线", SWING: "中线", POSITION: "长线", SHORT: "超短线", MEDIUM: "中线", LONG: "长线" };
 const defaultSettings: Setting[] = [
   { horizon: "SHORT", enabled: true, sizingMode: "FIXED_MARGIN", sizingValue: 200, leverage: 2, maxOpenPositions: 2, maxLossPercent: 0.35, dailyLossPercent: 1, weeklyLossPercent: 2.5, maxMarginUsePercent: 20, target1ReducePercent: 30, isolatedMargin: true },

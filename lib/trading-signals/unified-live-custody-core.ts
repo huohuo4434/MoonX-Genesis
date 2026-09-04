@@ -143,7 +143,8 @@ export function auditUnifiedLiveCustody(input: {
   const timeExitDue: string[] = [];
   for (const slice of active) {
     const opened = new Date(slice.openedAt);
-    const configured = Number(slice.maxHoldMinutes) || UNIFIED_LIVE_HORIZON_LIMITS[slice.horizon];
+    const minutes = Number(slice.maxHoldMinutes);
+    const configured = Number.isFinite(minutes) && minutes >= 0 ? minutes : UNIFIED_LIVE_HORIZON_LIMITS[slice.horizon];
     if (Number.isFinite(opened.getTime()) && now.getTime() - opened.getTime() >= configured * 60_000) {
       timeExitDue.push(slice.id);
       issues.push({

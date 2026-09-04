@@ -64,8 +64,8 @@ test("legacy invalidation wording cannot swallow the recorded price condition", 
   const original = "1小时收盘站上68,900美元，看跌观点失效。";
   const html = renderToStaticMarkup(React.createElement(PlainLanguageSummary, { direction: "下跌", invalidation: original }));
   assert.ok(html.includes(original));
-  assert.match(html, /条件保留原预测记录，不代表实时触发/);
-  assert.match(html, /技术条件不反向改写锁定方向/);
+  assert.match(html, /原预测条件，使用前核对最新价格/);
+  assert.match(html, /止损或期限到达就退出/);
   assert.doesNotMatch(html, /，作为技术风控位置参考/);
 });
 

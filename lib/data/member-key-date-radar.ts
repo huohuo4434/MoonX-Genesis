@@ -1,4 +1,5 @@
 import { getSexagenaryDay } from "@/lib/calendar/sexagenary-calendar";
+import { isRetiredPredictionSymbol, PREDICTION_SCOPE_EFFECTIVE_DATE } from "@/lib/prediction-scope";
 import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-forecasts";
 import {
   STATIC_FOCUS_ASSET_IDS,
@@ -304,6 +305,7 @@ function buildItem(input: {
 }
 
 function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOfDate: string) {
+  if (level === "WEEK" && asOfDate >= PREDICTION_SCOPE_EFFECTIVE_DATE && isRetiredPredictionSymbol(keyDateAsset(assetId).canonicalSymbol ?? assetId)) return [];
   const forecasts = listKeyDateForecasts(assetId);
   const row = selectPeriod(forecasts, level, asOfDate, assetId)
     ?? (level === "WEEK" ? selectPeriod(forecasts, "MONTH", asOfDate, assetId) : null);

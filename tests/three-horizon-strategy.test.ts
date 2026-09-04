@@ -81,7 +81,7 @@ test("three independent strategy profiles use different horizons and holding per
   assert.match(source, /SWING:[\s\S]*environmentTimeframe: "1D\/1W"[\s\S]*directionTimeframe: "4H"[\s\S]*entryTimeframe: "1H"/);
   assert.match(source, /POSITION:[\s\S]*environmentTimeframe: "1M\/1W"[\s\S]*directionTimeframe: "1D"[\s\S]*entryTimeframe: "4H"/);
   assert.match(source, /maxHoldingMinutes: ULTRA_SHORT_MAX_HOLDING_MINUTES/);
-  assert.match(source, /maxHoldingMinutes: 7 \* 24 \* 60/);
+  assert.match(source, /maxHoldingMinutes: 3 \* 24 \* 60/);
   assert.match(source, /maxHoldingMinutes: 28 \* 24 \* 60/);
 });
 
@@ -125,12 +125,12 @@ test("risk engine enforces daily weekly open and correlated crypto limits", () =
   assert.match(source, /PROJECTED_CRYPTO_GROUP_LIMIT/);
 });
 
-test("ultra short execution uses 5m ATR and resets the hold deadline after order submission", () => {
+test("ultra short execution uses 5m ATR and preserves the frozen deadline after submission", () => {
   const source = engine();
   assert.match(source, /finalizeEvaluation\(profile, direction, conditions, forecast\.score, m5, atr5/);
   assert.match(source, /buildUltraShortPriceGeometry/);
   assert.match(source, /const submittedAt = new Date\(\)/);
-  assert.match(source, /openedAt: submittedAt[\s\S]*maxHoldingUntil: new Date\(submittedAt\.getTime\(\) \+ input\.profile\.maxHoldingMinutes \* 60_000\)/);
+  assert.match(source, /openedAt: submittedAt[\s\S]*maxHoldingUntil: new Date\(deadline\)/);
   assert.match(source, /normalizeExecutionPriceGeometry/);
   assert.match(source, /conservativeNetRewardRisk/);
   assert.match(source, /TRADING_ROUND_TRIP_COST_PCT/);
