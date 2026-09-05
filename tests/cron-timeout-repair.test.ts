@@ -312,3 +312,32 @@ test("X partial completion is explicit and never invokes site repair", async () 
     assert.equal(repair, 0);
   } finally { if (secret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = secret; }
 });
+
+test("daily partial diagnostic logs only allowlisted codes, not provider URLs or credentials", async () => {
+  const secret = process.env.CRON_SECRET;
+  const originalInfo = console.info;
+  const logs: any[] = [];
+  process.env.CRON_SECRET = "test-only";
+  console.info = (...args) => { logs.push(args); };
+  try {
+    const mod = await loadModule("app/api/cron/verify-daily/route.ts", {
+      "next/server": { NextResponse: { json: Response.json } },
+      "@/lib/verification/run-daily": { runDailyVerification: async () => ({
+        attempted: 8, verified: 6, deferred: 10, focusDeferred: 0, syncDeferred: 0,
+        reviewsCreated: 4, reviewsDeferred: 2, writeOutcomeUnknown: 0,
+        errors: ["focus-sync:FOCUS:TEST:2026-09-05:asset-metadata-missing", "sync:generated-source:https://user:fake-secret@example.invalid/?token=fake-token"],
+      }) },
+      "@/lib/data/member-stocks/verify": { runMemberStockVerification: async () => ({ verified: 0, manual: 0, deferred: 0 }) },
+    });
+    const response = await mod.GET(new Request("https://local.invalid", { headers: { authorization: "Bearer test-only" } }));
+    const body = await response.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.partial, true);
+    assert.equal(logs[0][1].daily.verified, 6);
+    assert.deepEqual(logs[0][1].daily.errorCodes, ["FOCUS:TEST:2026-09-05:asset-metadata-missing", "generated-source"]);
+    assert.doesNotMatch(JSON.stringify(logs), /fake-secret|fake-token|https|user:/);
+  } finally {
+    console.info = originalInfo;
+    if (secret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = secret;
+  }
+});

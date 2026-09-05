@@ -14,6 +14,14 @@ function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
+// Log allowlisted diagnostics only: provider/Prisma messages may contain URLs or secrets.
+function safeErrorCode(message: string): string {
+  const metadata = message.match(/FOCUS:[A-Z0-9-]+:\d{4}-\d{2}-\d{2}:asset-metadata-missing/);
+  if (metadata) return metadata[0];
+  return ["generated-schema", "generated-source", "focus-source", "review-generation", "focus-sync", "sync"]
+    .find((code) => message.includes(code)) ?? "record-or-storage-error";
+}
+
 export async function GET(request: NextRequest) {
   if (!authorizeCron(request)) {
     return NextResponse.json(
@@ -49,7 +57,17 @@ export async function GET(request: NextRequest) {
     },
   };
 
-  console.info("verify-daily completed", { elapsedMs: body.elapsedMs, ok: body.ok, partial: body.partial });
+  console.info("verify-daily completed", {
+    elapsedMs: body.elapsedMs, ok: body.ok, partial: body.partial,
+    daily: dailyOk ? {
+      attempted: dailyResult.value.attempted, verified: dailyResult.value.verified,
+      deferred: dailyResult.value.deferred, syncDeferred: dailyResult.value.syncDeferred,
+      reviewsCreated: dailyResult.value.reviewsCreated, reviewsDeferred: dailyResult.value.reviewsDeferred,
+      writeOutcomeUnknown: dailyResult.value.writeOutcomeUnknown,
+      errorCodes: [...new Set(dailyResult.value.errors.map(safeErrorCode))],
+    } : { error: "daily-task-rejected" },
+    memberStocks: stockOk ? { verified: stockResult.value.verified, manual: stockResult.value.manual, deferred: stockResult.value.deferred } : { error: "stock-task-rejected" },
+  });
   return NextResponse.json(body, {
     status: dailyOk || stockOk ? 200 : 500,
     headers: { "Cache-Control": "no-store" },
