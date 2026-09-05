@@ -29,6 +29,12 @@ function storageAdminError(label: string, error: unknown): Error {
 }
 
 export const MEMBER_VIDEO_STORAGE = {
+  "musk-ecosystem-september-2026": {
+    manifest: "musk-ecosystem-september-2026/manifest.json",
+  },
+  "musk-ecosystem-september-2026-en": {
+    manifest: "musk-ecosystem-september-2026-en/manifest.json",
+  },
   "nasdaq-100-historic-drop-window-2026": {
     manifest: "nasdaq-100-historic-drop-window-2026/manifest.json",
   },

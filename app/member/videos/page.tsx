@@ -6,9 +6,10 @@ import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import {
   getMemberVideoRecord,
   MEMBER_VIDEO_CATALOG,
+  MEMBER_VIDEO_EPISODE_COUNT,
   type MemberVideoRecord,
 } from "@/lib/member-videos/catalog";
-import { getMemberVideoMemberSummary } from "@/lib/member-videos/member-content.server";
+import { getMemberVideoMemberSummary, getMemberVideoSources } from "@/lib/member-videos/member-content.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,6 +59,8 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
   const gate = await getMemberDevicePageAccess({ failClosed: true });
   const memberSummary = getMemberVideoMemberSummary(video.slug);
   const allowed = gate.status === "ALLOWED";
+  const english = video.narrationLanguage === "en";
+  const sources = allowed ? getMemberVideoSources(video.slug) : [];
 
   return (
     <main className="min-h-screen bg-[#050509] px-4 py-10 text-white sm:px-6">
@@ -66,6 +69,11 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
         <p className="text-xs font-medium tracking-[0.2em] text-violet-300">会员视频</p>
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">{video.title}</h1>
         <p className="mt-2 text-sm text-white/50">发布于 {video.publishedAt} · {video.durationLabel}</p>
+        {video.alternateSlug ? (
+          <Link href={`/member/videos?video=${video.alternateSlug}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-violet-300/40 px-4 text-sm text-violet-200">
+            {english ? "切换国语配音 / Mandarin version" : "English narration / 英语配音版"}
+          </Link>
+        ) : null}
 
         <div className="mt-7">
           {allowed ? (
@@ -80,7 +88,7 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
             >
               <source src={`/api/member/videos/${video.slug}`} type="video/mp4" />
               <track
-                default
+                default={!english}
                 kind="subtitles"
                 label="中文字幕"
                 src={`/api/member/videos/${video.slug}?asset=subtitle`}
@@ -88,6 +96,7 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
               />
               {video.subtitleLanguages.includes("en") ? (
                 <track
+                  default={english}
                   kind="subtitles"
                   label="English"
                   src={`/api/member/videos/${video.slug}?asset=subtitleEn`}
@@ -103,9 +112,20 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
 
         {allowed ? (
           <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-            <h2 className="text-lg font-semibold">本期内容</h2>
+            <h2 className="text-lg font-semibold">{english ? "In this episode" : "本期内容"}</h2>
             <p className="mt-2 leading-7 text-white/70">{memberSummary}</p>
             <p className="mt-3 text-xs text-white/40">播放链接会定时失效，重新打开本页即可续签。</p>
+            {sources.length ? (
+              <details className="mt-4 text-sm text-white/60">
+                <summary className="cursor-pointer">{english ? "Public sources and research notes" : "公开依据与研究说明"}</summary>
+                <p className="mt-3">{english
+                  ? "Original conditional analysis. Traditional chart readings are symbolic hypotheses, not validated probability estimates. No private chat content is reproduced. ASTEROID Ethereum contract: 0xf280B16EF293D8e534e370794ef26bF312694126. The $9m-to-$40m example is hypothetical, not a live valuation or target."
+                  : "原创条件性分析。传统卦象解读属于象征性假说，不是经过验证的概率估计；未转载私人群聊内容。ASTEROID以太坊合约：0xf280B16EF293D8e534e370794ef26bF312694126。900万至4000万美元的例子仅为假设计算，不是实时报价或目标。"}</p>
+                <ul className="mt-3 space-y-2 break-words">
+                  {sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline">{source.title}</a></li>)}
+                </ul>
+              </details>
+            ) : null}
           </section>
         ) : gate.status === "DEVICE_REQUIRED" ? (
           <div className="mt-6">
@@ -132,7 +152,7 @@ export default async function MemberVideosPage({ searchParams }: PageProps) {
               <p className="text-xs font-medium tracking-[0.18em] text-violet-300">全部视频</p>
               <h2 className="mt-2 text-2xl font-semibold">选择一期观看</h2>
             </div>
-            <p className="text-xs text-white/40">共 {MEMBER_VIDEO_CATALOG.length} 期</p>
+            <p className="text-xs text-white/40">共 {MEMBER_VIDEO_EPISODE_COUNT} 期 · {MEMBER_VIDEO_CATALOG.length} 个语言版本</p>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {MEMBER_VIDEO_CATALOG.map((item) => {

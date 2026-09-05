@@ -2,6 +2,8 @@ export const MEMBER_VIDEO_SLUGS = [
   "nasdaq-100-historic-drop-window-2026",
   "soxl-two-month-cycle-2026",
   "crude-oil-long-cycle-geopolitics-2026",
+  "musk-ecosystem-september-2026",
+  "musk-ecosystem-september-2026-en",
 ] as const;
 export const MEMBER_VIDEO_FILE_SIZE_LIMIT = 32 * 1024 * 1024;
 

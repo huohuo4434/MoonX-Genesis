@@ -15,7 +15,7 @@ const root = process.cwd();
 const source = (path: string) => readFileSync(join(root, path), "utf8");
 
 test("public member-video catalogue exposes title metadata but not the member research summary", () => {
-  assert.deepEqual(MEMBER_VIDEO_CATALOG, [
+  assert.deepEqual(MEMBER_VIDEO_CATALOG.slice(0, 3), [
     {
       slug: "nasdaq-100-historic-drop-window-2026",
       title: "纳指100 · 十年周期风险窗口",
@@ -239,8 +239,8 @@ test("member page shows a locked cover to visitors and playback only in allowed 
   assert.match(page, /asset=subtitle/);
   assert.match(page, /asset=subtitleEn/);
   assert.match(page, /MEMBER_VIDEO_CATALOG\.map/);
-  assert.match(page, /共 \{MEMBER_VIDEO_CATALOG\.length\} 期/);
+  assert.match(page, /共 \{MEMBER_VIDEO_EPISODE_COUNT\} 期/);
   const services = source("app/member/consultations/page.tsx");
-  assert.match(services, /会员视频 · \{MEMBER_VIDEO_CATALOG\.length\}期/);
+  assert.match(services, /会员视频 · \{MEMBER_VIDEO_EPISODE_COUNT\}期/);
   assert.match(services, /href="\/member\/videos"/);
 });

@@ -1,6 +1,10 @@
 import "server-only";
 
 const MEMBER_VIDEO_SUMMARIES = {
+  "musk-ecosystem-september-2026":
+    "SPCX的周期机会、特斯拉的修复条件，以及ASTEROID的情绪联动风险。逐一解读火泽睽、革之小过两张事件卦，结合公开公告与9月4日收盘结构，给出后续确认和失效条件。合并传闻未获正式确认；ASTEROID并非公司权益。资料截点：2026年9月5日。",
+  "musk-ecosystem-september-2026-en":
+    "A conditional outlook for SPCX, Tesla and ASTEROID: two event charts, public disclosures, completed September 4 price data and forward review checkpoints. Merger speculation is not a signed deal. ASTEROID provides no company equity rights. Research cutoff: September 5, 2026. English narration with independently timed English and Chinese subtitle tracks.",
   "nasdaq-100-historic-drop-window-2026":
     "从卦象结构、时间传导与市场确认条件，梳理纳指100未来十年的主要风险窗口与失效条件。",
   "soxl-two-month-cycle-2026":
@@ -11,4 +15,22 @@ const MEMBER_VIDEO_SUMMARIES = {
 
 export function getMemberVideoMemberSummary(slug: string): string | null {
   return MEMBER_VIDEO_SUMMARIES[slug as keyof typeof MEMBER_VIDEO_SUMMARIES] ?? null;
+}
+
+const MUSK_PUBLIC_SOURCES = [
+  { title: "SpaceX IPO pricing announcement · June 11", url: "https://content.spacex.com/cms-assets/FINAL_Documents%20and%20Updates/SpaceX_PricingAnnouncement.pdf?embed=true" },
+  { title: "Tesla Q2 2026 · SEC 10-Q", url: "https://www.sec.gov/Archives/edgar/data/1318605/000162828026049270/tsla-20260630.htm" },
+  { title: "SpaceX Q2 2026 · SEC 10-Q", url: "https://www.sec.gov/Archives/edgar/data/1181412/000162828026052535/spcx-20260630.htm" },
+  { title: "Reuters · July 22 merger discussion", url: "https://www.investing.com/news/stock-market-news/musk-keeps-teslaspacex-merger-speculation-alive-cites-growing-overlap-4807344" },
+  { title: "Reuters · July 30 China-sale report denial", url: "https://uk.marketscreener.com/news/tesla-weighs-sale-of-china-business-to-pave-way-for-potential-spacex-merger-wsj-reports-ce7f50dbdb8df522" },
+  { title: "SpaceX · September 10 conference announcement", url: "https://ir.spacex.com/updates/releases-details/2026/SpaceX-to-Participate-in-the-Goldman-Sachs-Communacopia-and-Technology-Conference-2026-hMRDqGksMV/default.aspx" },
+  { title: "SPCX · Historical closing prices", url: "https://stockanalysis.com/stocks/spcx/history/" },
+  { title: "TSLA · Historical closing prices", url: "https://stockanalysis.com/stocks/tsla/history/" },
+  { title: "ASTEROID · Community disclaimer (not a safety endorsement)", url: "https://asteroideth.com/" },
+  { title: "NYSE · Market holidays", url: "https://www.nyse.com/markets/hours-calendars" },
+] as const;
+
+export function getMemberVideoSources(slug: string) {
+  return slug === "musk-ecosystem-september-2026" || slug === "musk-ecosystem-september-2026-en"
+    ? MUSK_PUBLIC_SOURCES : [];
 }

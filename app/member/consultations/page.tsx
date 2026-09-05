@@ -7,7 +7,7 @@ import { MemberConsultationClient } from "@/components/member/MemberConsultation
 import { MemberUpdateNotice } from "@/components/member/MemberUpdateNotice";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
-import { MEMBER_VIDEO_CATALOG } from "@/lib/member-videos/catalog";
+import { MEMBER_VIDEO_EPISODE_COUNT } from "@/lib/member-videos/catalog";
 import { LATEST_MEMBER_UPDATE } from "@/lib/member-updates/catalog";
 import { guardMemberForecastRoute } from "@/lib/route-feature-guards";
 
@@ -40,7 +40,7 @@ export default async function MemberConsultationsPage() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300">会员内容</p>
               <h1 className="mt-2 text-2xl font-semibold text-white">
-                会员视频 · {MEMBER_VIDEO_CATALOG.length}期
+                会员视频 · {MEMBER_VIDEO_EPISODE_COUNT}期
               </h1>
               <p className="mt-2 text-sm leading-6 text-white/60">
                 查看全部深度视频，并在两期内容之间直接切换。

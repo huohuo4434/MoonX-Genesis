@@ -4,6 +4,9 @@ export type MemberVideoRecord = {
   durationLabel: string;
   publishedAt: string;
   subtitleLanguages: readonly ("zh-CN" | "en")[];
+  narrationLanguage?: "zh-CN" | "en";
+  alternateSlug?: string;
+  alternateOf?: string;
 };
 
 export const MEMBER_VIDEO_CATALOG: readonly MemberVideoRecord[] = [
@@ -28,7 +31,28 @@ export const MEMBER_VIDEO_CATALOG: readonly MemberVideoRecord[] = [
     publishedAt: "2026-09-02",
     subtitleLanguages: ["zh-CN", "en"],
   },
+  {
+    slug: "musk-ecosystem-september-2026",
+    title: "马斯克生态专题 · SPCX、特斯拉与ASTEROID",
+    durationLabel: "10分22秒 · 国语配音",
+    publishedAt: "2026-09-05",
+    subtitleLanguages: ["zh-CN", "en"],
+    narrationLanguage: "zh-CN",
+    alternateSlug: "musk-ecosystem-september-2026-en",
+  },
+  {
+    slug: "musk-ecosystem-september-2026-en",
+    title: "Musk Ecosystem · SPCX, Tesla & ASTEROID",
+    durationLabel: "10m49s · English narration",
+    publishedAt: "2026-09-05",
+    subtitleLanguages: ["zh-CN", "en"],
+    narrationLanguage: "en",
+    alternateSlug: "musk-ecosystem-september-2026",
+    alternateOf: "musk-ecosystem-september-2026",
+  },
 ];
+
+export const MEMBER_VIDEO_EPISODE_COUNT = MEMBER_VIDEO_CATALOG.filter((video) => !video.alternateOf).length;
 
 export function getMemberVideoRecord(slug: string): MemberVideoRecord | null {
   return MEMBER_VIDEO_CATALOG.find((video) => video.slug === slug) ?? null;
