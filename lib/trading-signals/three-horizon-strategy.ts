@@ -1,5 +1,6 @@
 import "server-only";
 import { positionContextEligibility, cappedHoldingMinutes, newPositionHoldingDeadline } from "@/lib/trading-signals/strategy-horizon-policy-core";
+import { inspectHoldingClock, isIntradayDayEndDue } from "@/lib/trading-signals/holding-clock-core";
 import { getAnnualForecastRoadmap2026 } from "@/lib/research/annual-forecast-roadmap-2026";
 
 import { LIVE_COMMISSIONING_MAX_HOLDING_MINUTES, LIVE_COMMISSIONING_RISK_PCT } from "@/lib/trading-signals/live-commissioning-safety";
@@ -2795,12 +2796,7 @@ async function confirmPositionQuantityAtOrBelow(input: {
 }
 
 function hardIntradayExit(decision: ThreeHorizonStrategyDecision, now: Date): boolean {
-  if (decision.strategyType !== "INTRADAY" || !decision.openedAt) return false;
-  const opened = new Date(new Date(decision.openedAt).getTime() + 8 * 60 * 60_000);
-  const current = new Date(now.getTime() + 8 * 60 * 60_000);
-  const differentDay = opened.toISOString().slice(0, 10) !== current.toISOString().slice(0, 10);
-  const nearDayEnd = current.getUTCHours() === 23 && current.getUTCMinutes() >= 45;
-  return differentDay || nearDayEnd;
+  return isIntradayDayEndDue({ strategyType: decision.strategyType, openedAt: decision.openedAt, nowMs: now.getTime() });
 }
 
 function recentClosedMatch(
@@ -2996,7 +2992,7 @@ async function manageActiveDecisions(
         }
       }
     }
-    const openedAt = decisionForManagement.openedAt ? new Date(decisionForManagement.openedAt) : now;
+    const openedAt = decisionForManagement.openedAt ? new Date(decisionForManagement.openedAt) : null;
     let current = options.scaleInOnly
       ? decisionForManagement
       : await updateDecision(decisionForManagement.id, {
@@ -3004,7 +3000,7 @@ async function manageActiveDecisions(
         currentPrice: position.markPrice,
         entryPrice: position.avgPrice || decisionForManagement.entryPrice,
         quantity: position.total,
-        openedAt,
+        ...(openedAt ? { openedAt } : {}),
       });
     let protection = matchingProtection(protections, current);
     if (
@@ -3054,6 +3050,18 @@ async function manageActiveDecisions(
         }
       }
     }
+    const holdingClock = inspectHoldingClock({
+      openedAt: current.openedAt, maxHoldingUntil: current.maxHoldingUntil, nowMs: now.getTime(),
+    });
+    if (!holdingClock.verified) {
+      // Management errors already freeze ALL new entries below. Do not skip
+      // protection, TP1, an existing closing request, or other positions.
+      orderErrors += 1;
+      current = await updateDecision(current.id, {
+        rejectionCode: "HOLDING_CLOCK_UNVERIFIED",
+        rejectionReason: holdingClock.reason,
+      });
+    }
     // V6.4 staged entry; LIVE extension keeps this as the only same-symbol add-on path.
     // It reuses the existing
     // lifecycle instead of manufacturing a second decision, and requires a new
@@ -3078,7 +3086,7 @@ async function manageActiveDecisions(
       decisionStatus: current.status,
     });
     if (
-      scaleInAuthority.allowed &&
+      holdingClock.verified && scaleInAuthority.allowed &&
       scaleInContext.allowed && Number.isFinite(scaleInDeadline) && Date.now() < scaleInDeadline &&
       current.entryStage === 1 &&
       current.maxEntryStages >= 2 &&
@@ -3315,16 +3323,15 @@ async function manageActiveDecisions(
           tp1Done: current.tp1Done,
         })
       : null;
-    const maxHoldingReached = current.strategyType !== "INTRADAY" && current.maxHoldingUntil
-      ? now.getTime() >= Date.parse(current.maxHoldingUntil)
-      : false;
-    if (current.status === "CLOSING" || ultraShortTimeExit?.shouldExit || maxHoldingReached || hardIntradayExit(current, now)) {
+    const maxHoldingReached = holdingClock.deadlineReached;
+    const intradayDayEndReached = hardIntradayExit(current, now);
+    if (current.status === "CLOSING" || ultraShortTimeExit?.shouldExit || maxHoldingReached || intradayDayEndReached) {
       orderAttempts += 1;
       try {
         await closePosition(
           current,
           position,
-          hardIntradayExit(current, now)
+          intradayDayEndReached
             ? "超短线策略到达北京时间日终"
             : ultraShortTimeExit?.reason || "达到最大持仓时间",
           protection
@@ -5037,7 +5044,7 @@ export async function getThreeHorizonPublicStrategies(
       enabled: profile.enabled,
       mode: profile.mode,
       modeLabel: profile.mode === "LIVE" ? "Bitget实盘实验" : profile.mode === "DEMO" ? "Bitget Demo模拟执行" : "影子观察",
-      holdingLabel: profile.strategyType === "INTRADAY" ? "30～90分钟" : profile.strategyType === "SWING" ? "1～7天" : "1～4周",
+      holdingLabel: profile.strategyType === "INTRADAY" ? "30～90分钟" : profile.strategyType === "SWING" ? "2～3天（新仓最多72小时）" : "1～4周（年度窗口内）",
       timeframeLabel: `${profile.environmentTimeframe}环境 / ${profile.directionTimeframe}方向 / ${profile.entryTimeframe}入场`,
       riskPerTradePct: profile.riskPerTradePct,
       lastScanAt: profile.lastScanAt,

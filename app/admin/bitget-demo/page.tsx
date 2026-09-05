@@ -33,7 +33,7 @@ export default async function AdminBitgetDemoPage() {
           <AdminNav current="/admin/bitget-demo" />
           <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            1000 USDT、30天、{allowedCount}个正式允许USDT合约品种、最高2倍逐仓。{allowedCount}个允许品种全部扫描，动态Top10进入候选排序；玄学与锁定预测决定多空方向，技术结构只负责寻找入场时点和风控位置。所有新开仓仍必须通过实盘安全闸门。
+            当前引擎配置：预算{environment.liveInitialCapitalUsdt} USDT、期限{environment.liveDurationDays}天、{allowedCount}个允许USDT合约品种、最高{environment.leverage}倍杠杆。配置不代表实验已续期或可以开仓；实际期限和阻断原因见下方状态。各周期分批轮转扫描，锁定预测决定方向，技术结构确定入场与风控位置。
           </Text>
           <div className="space-y-8">
             <Card padding="lg" className={cronAuthorized && commissioningEnabled ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}>
@@ -52,7 +52,9 @@ export default async function AdminBitgetDemoPage() {
             <Card padding="lg" className="border-red-400/25 bg-red-400/[0.035]">
               <Heading size="h3">真实资金安全边界</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block leading-relaxed">
-                首笔闭环验收风险预算0.05%，最长持有30分钟；系统从正式允许池选择玄学方向最明确的可交易品种，BTC/ETH只有在允许池中才优先；短线、波段和中长期单笔计划风险分别为0.25%、0.35%和0.25%。每日开单数量不设机械配额，超短、短线、中线和长线独立寻找机会；最多同时持有10个仓位，单仓名义价值不超过账户权益30%且默认不超过300 USDT。单日账户亏损达到100 USDT后停止当天新开仓，总权益较峰值回撤达到500 USDT后停止实验并尝试平掉全部仓位。系统只在条件满足时下单，不会为了凑单强行交易。
+                当前账户上限：同时持仓{environment.liveMaxConcurrentPositions}个、每日开仓{environment.liveMaxTradesPerDay}笔；单仓名义价值不超过账户权益30%与{environment.liveMaxPositionNotionalUsdt} USDT中的较小值。
+                日亏损限额{environment.liveDailyLossUsdt} USDT，峰值回撤限额{environment.liveMaxDrawdownUsdt} USDT；达到限额将阻断新增敞口，具体处置以运行状态为准。
+                策略和托管检查还可进一步收紧。短线30～90分钟，中线2～3天（新仓最多72小时），长线1～4周且须符合年度窗口；不保证每天成交，也不因达到日期就机械下单。
               </Text>
             </Card>
             <BitgetLiveConsoleLoader />

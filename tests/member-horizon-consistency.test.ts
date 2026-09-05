@@ -32,9 +32,10 @@ test("retired markets stay out of current weekly and daily boards, not the archi
 });
 
 test("reading navigation is wired and old cycle labels removed from active entry points", () => {
-  for (const path of ["app/member/page.tsx", "app/member/daily/page.tsx", "components/member/MemberWeeklyPage.tsx", "components/member/MemberMonthlyPage.tsx"]) {
+  assert.match(readFileSync("app/member/page.tsx", "utf8"), /<MemberChannelContent/);
+  for (const path of ["components/member/MemberChannelContent.tsx", "app/member/daily/page.tsx", "components/member/MemberWeeklyPage.tsx", "components/member/MemberMonthlyPage.tsx"]) {
     assert.match(readFileSync(path, "utf8"), /<HorizonReadingNav/);
   }
   for (const path of ["components/member/MemberWeeklyPage.tsx", "app/member/weekly-report/page.tsx"]) assert.doesNotMatch(readFileSync(path, "utf8"), /九大|Nine core/);
-  for (const path of ["lib/presentation/strategy-center.ts", "lib/trading-signals/member-desk-persisted-plan-core.ts", "components/live-trading/MemberLiveTradingClient.tsx"]) assert.doesNotMatch(readFileSync(path, "utf8"), /1—7天|30分钟—8小时/);
+  for (const path of ["lib/presentation/strategy-center.ts", "lib/trading-signals/member-desk-persisted-plan-core.ts", "lib/trading-signals/three-horizon-strategy.ts", "components/live-trading/MemberLiveTradingClient.tsx"]) assert.doesNotMatch(readFileSync(path, "utf8"), /1[—～–-]7天|30分钟—8小时/);
 });

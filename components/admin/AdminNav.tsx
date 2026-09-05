@@ -14,6 +14,7 @@ const primaryLinks: AdminLink[] = [
   { href: "/admin/weekly", label: "周度行情" },
   { href: "/admin/stocks", label: "重点关注" },
   { href: "/admin/trading-terminal", label: "模拟交易" },
+  { href: "/admin/live-trading", label: "实盘开关与托管" },
   { href: "/admin/forecast-control", label: "研究中心" },
   { href: "/admin/users", label: "用户与会员" },
   { href: "/admin/automation", label: "自动化" },
@@ -26,7 +27,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
     label: "预测与交易",
     links: [
       { href: "/admin/trading-signals", label: "AI交易信号中心" },
-      { href: "/admin/bitget-demo", label: "Bitget模拟执行" },
+      { href: "/admin/bitget-demo", label: "Bitget执行诊断" },
       { href: "/admin/market-prices", label: "行情录入" },
       { href: "/admin/market-data-sources", label: "多源行情诊断" },
       { href: "/admin/support-resistance", label: "支撑压力录入" },
@@ -82,6 +83,7 @@ function AdminLinkItem({
   return (
     <Link
       href={link.href}
+      prefetch={false}
       className={`relative min-h-11 rounded-md px-3 py-2 text-body-sm transition-colors ${
         active
           ? "bg-primary text-primary-foreground"
