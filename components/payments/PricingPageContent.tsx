@@ -104,6 +104,7 @@ export function PricingPageContent({
 }) {
   const { locale, href } = useLocale();
   const en = locale === "en";
+  const referralHref = isLoggedIn ? href(inviteHref) : href(`/login?next=${encodeURIComponent(href("/account/invite"))}`);
 
   return (
     <main>
@@ -298,7 +299,7 @@ export function PricingPageContent({
                   : "邀请成功后继续按现有规则获得奖励天数；邀请奖励不会改变创始会员折扣档位。"}
               </Text>
             </div>
-            <Button asChild size="sm"><Link href={href(inviteHref)}>{en ? "Open referral page" : "进入邀请页面"}</Link></Button>
+            <Button asChild size="sm"><Link href={referralHref}>{en ? "Open referral page" : "进入邀请页面"}</Link></Button>
           </div>
         </Card>
 
@@ -325,7 +326,7 @@ export function PricingPageContent({
 
         <div className="flex flex-wrap justify-center gap-4">
           {isActiveMember ? <Link href={href("/account")} className="text-body-sm text-primary hover:underline">{en ? "My account" : "我的账户"}</Link> : null}
-          {!isLoggedIn ? <Link href={href("/login?next=/pricing")} className="text-body-sm text-primary hover:underline">{en ? "Already have an account? Sign in" : "已有账户？登录"}</Link> : null}
+          {!isLoggedIn ? <Link href={href(`/login?next=${encodeURIComponent(href("/pricing"))}`)} className="text-body-sm text-primary hover:underline">{en ? "Already have an account? Sign in" : "已有账户？登录"}</Link> : null}
         </div>
       </Section>
     </main>

@@ -11,6 +11,7 @@ import { buildPublicFooterColumns } from "../config/member-channel-navigation";
 import en from "../messages/en.json";
 import type { ChanInstrument } from "../types/chan-execution";
 import type { IntradayTechnicalLevels } from "../lib/market-data/intraday-chan-levels";
+import { emptyFounderQuote, PLAN_DAYS, OFFICIAL_PLAN_PRICES } from "../lib/payments/founder-discount-shared";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 const instrument: ChanInstrument = { symbol: "NDX", label: "NDX", formalPlanSymbol: "NDX", provider: "YAHOO_CHART", providerSymbol: "QQQ", market: "INDEX_COMMODITY" };
@@ -79,5 +80,21 @@ test("English footer labels resolve and links stay in English", async () => {
 });
 
 test("referral button preserves locale without changing its destination", () => {
-  assert.match(readFileSync("components/payments/PricingPageContent.tsx", "utf8"), /href=\{href\(inviteHref\)\}/);
+  const source = readFileSync("components/payments/PricingPageContent.tsx", "utf8");
+  assert.match(source, /href=\{referralHref\}/);
+  assert.ok(source.includes('encodeURIComponent(href("/account/invite"))'));
+  assert.ok(source.includes('encodeURIComponent(href("/pricing"))'));
+});
+
+test("all plan links preserve language and login return paths without altering prices", async () => {
+  const { PricingPlansClient } = await import("../components/payments/PricingPlansClient");
+  const plans = (Object.keys(PLAN_DAYS) as (keyof typeof PLAN_DAYS)[]).map((code, index) => ({ id: code, code, name: code, duration_days: PLAN_DAYS[code], price_usdt: OFFICIAL_PLAN_PRICES[code], access_level: "member" as const, active: true, sort_order: index }));
+  for (const locale of ["en", "zh-CN"] as const) for (const isLoggedIn of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement(LocaleProvider, { initialLocale: locale, messages: en, children: React.createElement(PricingPlansClient, { plans, supportEmail: "support@example.com", trc20Address: "", bep20Address: "", founderQuote: emptyFounderQuote(), isLoggedIn }) }));
+    const links = [...html.matchAll(/href="([^\"]+)"/g)].map((match) => match[1]).filter((value) => value.startsWith("/"));
+    const prefix = locale === "en" ? "/en" : "";
+    const expected = isLoggedIn ? plans.map((plan) => `${prefix}/checkout?plan=${plan.code}`) : plans.map(() => `${prefix}/login?next=${encodeURIComponent(`${prefix}/pricing`)}`);
+    assert.deepEqual(links, expected);
+    for (const price of [80, 200, 700]) assert.ok(html.includes(`${price} USDT`));
+  }
 });

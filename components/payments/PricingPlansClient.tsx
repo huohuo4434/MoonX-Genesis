@@ -67,7 +67,7 @@ export function PricingPlansClient({
   isLoggedIn: boolean;
   founderQuote: FounderDiscountQuote;
 }) {
-  const { locale } = useLocale();
+  const { locale, href: localizedHref } = useLocale();
   const english = locale === "en";
   const labels = english ? PLAN_LABELS_EN : PLAN_LABELS_ZH;
   const hasDiscount = founderQuote.discountPercent > 0;
@@ -109,8 +109,8 @@ export function PricingPlansClient({
         const meta = PLAN_DISPLAY[plan.code];
         const purchaseLabel = PLAN_PURCHASE_LABEL[plan.code] ?? "立即购买";
         const href = isLoggedIn
-          ? `/checkout?plan=${plan.code}`
-          : `/login?next=${encodeURIComponent("/pricing")}`;
+          ? localizedHref(`/checkout?plan=${plan.code}`)
+          : localizedHref(`/login?next=${encodeURIComponent(localizedHref("/pricing"))}`);
         const listPrice = OFFICIAL_PLAN_PRICES[code];
         const actualPrice = discountedPrice(code, founderQuote.discountPercent);
         const saving = Math.max(0, listPrice - actualPrice);
