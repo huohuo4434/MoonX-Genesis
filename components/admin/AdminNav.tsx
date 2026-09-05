@@ -39,6 +39,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
     links: [
       { href: "/admin/research-ingest", label: "统一资料入口" },
       { href: "/admin/external-viewpoints", label: "外部观点库" },
+      { href: "/admin/stone-intelligence", label: "Stone 重要消息" },
       { href: "/admin/asset-research", label: "资产材料导入" },
       { href: "/admin/ai-committee", label: "AI研究委员会" },
       { href: "/admin/qimen-shadow", label: "奇门影子A/B" },
