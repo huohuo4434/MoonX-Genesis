@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { build } from "esbuild";
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { ACTIVE_STATIC_FOCUS_ASSET_IDS, RETIRED_STATIC_FOCUS_ASSET_IDS } from "../lib/data/conviction/focus-registry-core.ts";
 import { rotatingCryptoBatch, selectCryptoBeijingV2Candidates } from "../lib/verification/crypto-beijing-v2-candidates.ts";
 
 // Execute production modules with only I/O boundaries replaced. No DB, credentials,
@@ -339,5 +341,92 @@ test("daily partial diagnostic logs only allowlisted codes, not provider URLs or
   } finally {
     console.info = originalInfo;
     if (secret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = secret;
+  }
+});
+
+test("verification-only evidence retains all four retired identities without reactivating them", async () => {
+  const before = [...ACTIVE_STATIC_FOCUS_ASSET_IDS];
+  const mod = await loadModule("lib/verification/focus-verification-evidence.ts", {
+    "@/lib/data/conviction/access": { listStaticFocusEvidence: async () => [{ assetId: "btc", symbol: "BTC", forecasts: [] }] },
+  });
+  const rows = await mod.listFocusVerificationEvidence();
+  assert.deepEqual(rows.slice(1).map((r: any) => r.assetId), [...RETIRED_STATIC_FOCUS_ASSET_IDS]);
+  assert.deepEqual(rows.slice(1).map((r: any) => r.symbol), ["002460", "300784", "300562", "688111"]);
+  assert.ok(rows.slice(1).every((r: any) => r.forecasts.length > 0));
+  assert.deepEqual(ACTIVE_STATIC_FOCUS_ASSET_IDS, before);
+  assert.ok(RETIRED_STATIC_FOCUS_ASSET_IDS.every((id) => !before.includes(id as any)));
+  const access = readFileSync("lib/data/conviction/access.ts", "utf8");
+  assert.match(access, /STATIC_PERIOD_ASSET_IDS = new Set<StaticPeriodAssetId>\(ACTIVE_STATIC_FOCUS_ASSET_IDS\)/);
+});
+
+async function focusSyncHarness(input: { existing?: any[]; rows?: any[]; evidence?: any[]; sourceError?: boolean } = {}) {
+  const writes: any[] = [];
+  const historic = {
+    id: "archived-locked-1", marketCode: "FOCUS:GANFENG-LITHIUM", forecastDate: "2026-08-24",
+    status: "LOCKED", version: 1, direction: "下跌", expectedPath: "原始下跌路径",
+    upProbability: 10, sidewaysProbability: 20, downProbability: 70,
+    supportLevels: [], resistanceLevels: [], sourceWeeklyForecastId: "original-source",
+    publishedAt: new Date("2026-08-23T02:00:00Z"), lockedAt: new Date("2026-08-23T02:00:00Z"),
+    createdAt: new Date("2026-08-23T02:00:00Z"), generatedAt: new Date("2026-08-23T02:00:00Z"),
+  };
+  let query: any;
+  const rows = input.rows ?? [historic];
+  const mod = await loadModule("lib/verification/sync-focus-generated-dailies.ts", {
+    "@/lib/prisma": { hasPrisma: () => true, prisma: { generatedDailyForecast: { findMany: async (q: any) => { query = q; return rows; } } } },
+    "@/lib/weekly-source/generated-source-schema": { ensureGeneratedForecastSourceSchema: async () => ({ ready: true }) },
+    "@/lib/verification/focus-verification-evidence": { listFocusVerificationEvidence: async () => {
+      if (input.sourceError) throw new Error("unavailable");
+      return input.evidence ?? [{ assetId: "ganfeng-lithium", symbol: "002460", assetType: "STOCK", exchange: "深圳证券交易所主板", forecasts: [] }];
+    } },
+    "@/lib/data/daily-accuracy-store": { listDailyForecastRecords: async () => input.existing ?? [], upsertDailyForecastRecord: async (r: any) => { writes.push(r); } },
+    "@/lib/market-data/daily-prices": { defaultCutoffAt: (date: string) => `${date}T01:00:00Z` },
+    "@/lib/verification/sync-generated-dailies": { generatedDirection: () => "DOWN", generatedPattern: () => "DOWN" },
+  });
+  return { writes, rows, query: () => query, run: (options = {}) => mod.syncFocusGeneratedDailiesToVerificationStore(now, options) };
+}
+
+test("historical focus sync uses archived identity and original locked direction, source and date", async () => {
+  const h = await focusSyncHarness();
+  const before = structuredClone(h.rows);
+  const report = await h.run();
+  assert.equal(report.created, 1);
+  assert.deepEqual(report.errors, []);
+  assert.equal(h.writes[0].symbol, "002460");
+  assert.equal(h.writes[0].quoteSymbol, "002460.SZ");
+  assert.equal(h.writes[0].market, "CN");
+  assert.equal(h.writes[0].direction, "DOWN");
+  assert.equal(h.writes[0].sourceForecastId, "original-source");
+  assert.equal(h.writes[0].publishedAt, "2026-08-23T02:00:00.000Z");
+  assert.equal(h.query().where.forecastDate.lte, "2026-09-05");
+  assert.deepEqual(h.rows, before);
+});
+
+test("already-synced historical focus skips missing metadata and never rewrites prior records", async () => {
+  const existing = [{ id: "member-focus-daily:archived-locked-1", direction: "DOWN", status: "verified" }];
+  const before = structuredClone(existing);
+  const h = await focusSyncHarness({ existing, evidence: [] });
+  const report = await h.run();
+  assert.equal(report.existing, 1);
+  assert.deepEqual(report.errors, []);
+  assert.deepEqual(h.writes, []);
+  assert.deepEqual(existing, before);
+});
+
+test("unknown unsynced focus and evidence read failures remain visible, without fabricated records", async () => {
+  for (const config of [{ evidence: [] }, { sourceError: true }]) {
+    const h = await focusSyncHarness(config);
+    const report = await h.run();
+    assert.equal(report.errors.length, 1);
+    assert.deepEqual(h.writes, []);
+  }
+});
+
+test("archived focus synchronization still obeys count and deadline budgets", async () => {
+  for (const options of [{ maxRecords: 0 }, { deadlineAt: Date.now() - 1 }]) {
+    const h = await focusSyncHarness();
+    const report = await h.run(options);
+    assert.equal(report.deferred, 1);
+    assert.deepEqual(report.errors, []);
+    assert.deepEqual(h.writes, []);
   }
 });

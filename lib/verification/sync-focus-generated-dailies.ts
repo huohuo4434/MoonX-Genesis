@@ -3,7 +3,7 @@ import "server-only";
 import { consensusStarsFromInputs } from "@/lib/forecasts/consensus-confidence";
 import { defaultCutoffAt } from "@/lib/market-data/daily-prices";
 import { prisma, hasPrisma } from "@/lib/prisma";
-import { listStaticFocusEvidence } from "@/lib/data/conviction/access";
+import { listFocusVerificationEvidence } from "@/lib/verification/focus-verification-evidence";
 import { focusDailyQuoteCapability } from "@/lib/data/conviction/focus-daily-generation-core";
 import { STATIC_MEMBER_AUTOMATION_FOCUS } from "@/lib/data/conviction/focus-registry-core";
 import { listDailyForecastRecords, upsertDailyForecastRecord } from "@/lib/data/daily-accuracy-store";
@@ -80,7 +80,7 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
   }
 
   let rows: Awaited<ReturnType<typeof prisma.generatedDailyForecast.findMany>>;
-  let evidence: Awaited<ReturnType<typeof listStaticFocusEvidence>>;
+  let evidence: Awaited<ReturnType<typeof listFocusVerificationEvidence>>;
   let existing: Awaited<ReturnType<typeof listDailyForecastRecords>>;
   try {
     [rows, evidence, existing] = await Promise.all([
@@ -95,7 +95,7 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
         orderBy: [{ forecastDate: "asc" }, { marketCode: "asc" }, { version: "asc" }],
         take: 3000,
       }),
-      listStaticFocusEvidence(),
+      listFocusVerificationEvidence(),
       listDailyForecastRecords(),
     ]);
   } catch (error) {
@@ -110,6 +110,11 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
     const assetId = focusAssetId(row.marketCode);
     if (!assetId || CORE_DUPLICATE_ASSETS.has(assetId) || NON_CANONICAL_PUBLIC_QUOTES.has(assetId)) {
       report.unsupported += 1;
+      continue;
+    }
+    const id = `member-focus-daily:${row.id}`;
+    if (existingIds.has(id)) {
+      report.existing += 1;
       continue;
     }
     const asset = evidenceById.get(assetId);
@@ -127,12 +132,6 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
       report.unsupported += 1;
       continue;
     }
-    const id = `member-focus-daily:${row.id}`;
-    if (existingIds.has(id)) {
-      report.existing += 1;
-      continue;
-    }
-
     const source = asset.forecasts.find((forecast) => forecast.id === row.sourceWeeklyForecastId) ?? null;
     const formalPath = `${row.direction} ${row.expectedPath ?? ""}`.trim();
     const direction = generatedDirection(row.direction);

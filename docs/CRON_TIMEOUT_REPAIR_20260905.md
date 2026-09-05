@@ -31,6 +31,13 @@ Baseline: ebb69974bd9781c900a08bfb82bc6f143306ce9a.
 - Responses explicitly expose partial/deferred work. Optional post-run dashboard aggregates are
   no longer recomputed on the daily Cron critical path; legacy keys remain null with a flag.
 - All three routes require CRON_SECRET; User-Agent is not authentication.
+- Production follow-up identified historical FOCUS rows for four retired assets as the
+  only daily error codes. Verification now reads their retained seed identities and
+  immutable forecast registry separately from active focus eligibility. Already-synced
+  records are skipped before metadata lookup; missing unknown identities still report
+  errors. No retired asset is republished, reactivated or assigned new trading authority.
+- Completion logs contain stage counts and allowlisted error codes only, never raw
+  provider URLs or credential-bearing error text.
 
 ## Verification / rollback
 
