@@ -35,7 +35,7 @@ test("updates page is member-gated and renders announcement history plus route c
 });
 
 test("latest update notice appears on member home and services", () => {
-  const home = read("app/member/page.tsx");
+  const home = read("components/member/MemberChannelContent.tsx");
   const services = read("app/member/consultations/page.tsx");
   for (const source of [home, services]) {
     assert.match(source, /MemberUpdateNotice/);

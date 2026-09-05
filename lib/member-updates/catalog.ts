@@ -6,6 +6,7 @@ export type MemberUpdateRoute = {
 };
 
 export type MemberUpdateNote = {
+  english?: { title: string; summary: string; highlights: readonly string[] };
   version: string;
   releasedAt: string;
   title: string;
@@ -19,6 +20,16 @@ export const MEMBER_UPDATE_NOTES: readonly MemberUpdateNote[] = [
   {
     version: "V7.21.0",
     releasedAt: "2026-08-30",
+    english: {
+      title: "Member navigation, next-week sectors and key dates",
+      summary: "Six starting points bring forecasts, watchlists, reviews and services together. Existing pages and bookmarks still work.",
+      highlights: [
+        "Start with today, forecasts, focus assets, trading, reviews or services.",
+        "Sector research includes this week and next week, with links to key dates.",
+        "Key dates remain grouped by month and week, with individual assets and observation windows.",
+        "Member services links to the video library; two videos were listed at this release.",
+      ],
+    },
     title: "会员频道导航、下周板块与关键日升级",
     summary: "本次改版把分散功能收进六个决策入口，同时补回关键日、会员视频和下周板块预报。原有页面没有删除，旧收藏和深层链接仍可继续使用。",
     highlights: [
