@@ -298,7 +298,7 @@ export function PricingPageContent({
                   : "邀请成功后继续按现有规则获得奖励天数；邀请奖励不会改变创始会员折扣档位。"}
               </Text>
             </div>
-            <Button asChild size="sm"><Link href={inviteHref}>{en ? "Open referral page" : "进入邀请页面"}</Link></Button>
+            <Button asChild size="sm"><Link href={href(inviteHref)}>{en ? "Open referral page" : "进入邀请页面"}</Link></Button>
           </div>
         </Card>
 

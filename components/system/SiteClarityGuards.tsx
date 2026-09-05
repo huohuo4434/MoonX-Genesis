@@ -254,6 +254,9 @@ function headerIndexes(table: HTMLTableElement): { support: number; resistance: 
 async function repairDailyLevels(): Promise<void> {
   const table = findDailyLevelTable();
   if (!table) return;
+  // The homepage already renders labeled provider snapshots on the server.
+  // Never overwrite them or populate empty rows that have no published forecast.
+  if (table.dataset.serverLevels === "true") return;
   const indexes = headerIndexes(table);
   const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr"));
 

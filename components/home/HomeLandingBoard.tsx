@@ -219,7 +219,7 @@ async function HomeLandingData() {
 
             {todayPayload?.allowed && publishedRows.length > 0 ? (
               <div className="mt-7 overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-3">
-                <table className="min-w-full border-separate border-spacing-y-2 text-left">
+                <table data-server-levels="true" className="min-w-full border-separate border-spacing-y-2 text-left">
                   <thead><tr className="text-xs tracking-[0.16em] text-white/42"><th className="px-3 py-2">市场</th><th className="px-3 py-2">今日预测</th><th className="px-3 py-2">信心</th><th className="px-3 py-2">关键支撑</th><th className="px-3 py-2">关键压力</th><th className="px-3 py-2">更新</th></tr></thead>
                   <tbody>
                     {marketRows.map(({ symbol, name, forecast }) => {
