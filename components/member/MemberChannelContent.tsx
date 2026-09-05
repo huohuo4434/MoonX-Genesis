@@ -133,7 +133,7 @@ function SeptemberSemiconductorSpotlight({ locale }: { locale: Locale }) {
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
         {septemberSpotlight(en).map((item) => (
           <Link key={item.symbol} href={localizeHref(item.href, locale)} className="group rounded-2xl border border-emerald-200/15 bg-black/20 p-5 transition hover:-translate-y-0.5 hover:border-emerald-200/35 hover:bg-emerald-300/[.05]">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
               <div><span className="font-mono text-caption text-emerald-200/65">{item.symbol}</span><h3 className="mt-1 text-xl font-semibold text-foreground">{item.name}</h3></div>
               <span className="rounded-full border border-emerald-300/25 bg-emerald-300/[.08] px-3 py-1 text-caption font-semibold text-emerald-100">{item.direction}</span>
             </div>
