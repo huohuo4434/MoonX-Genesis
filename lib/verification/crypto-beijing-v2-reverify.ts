@@ -3,87 +3,63 @@ import "server-only";
 import {
   listDailyForecastRecords,
   listDailyVerificationResults,
-  replaceDailyVerificationResult,
-  upsertDailyForecastRecord,
 } from "@/lib/data/daily-accuracy-store";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import {
-  CRYPTO_BEIJING_V2_MARKER,
+  rotatingCryptoBatch,
   selectCryptoBeijingV2Candidates,
 } from "@/lib/verification/crypto-beijing-v2-candidates";
-import type { DailyForecastRecord } from "@/types/daily-accuracy";
-
-const NON_AUDITABLE_AFTER_REVERIFY = new Set([
-  "UNVERIFIABLE",
-  "MANUAL_REVIEW",
-]);
+import { isSessionReadyToVerify } from "@/lib/verification/session-ready";
 
 export type CryptoBeijingReverifyReport = {
   scanned: number;
   candidates: number;
   upgraded: number;
   restoredPrior: number;
+  preservedPrior: number;
+  writeOutcomeUnknown: number;
+  deferred: number;
+  errors: string[];
   unchanged: number;
   candidateIds: string[];
 };
 
 export async function runCryptoBeijingV2Reverification(): Promise<CryptoBeijingReverifyReport> {
+  const now = new Date();
+  const deadlineAt = Date.now() + 180_000;
   const beforeForecasts = await listDailyForecastRecords();
   const beforeResults = await listDailyVerificationResults();
-  const candidateIds = selectCryptoBeijingV2Candidates(beforeForecasts, beforeResults);
+  const allIds = selectCryptoBeijingV2Candidates(
+    beforeForecasts.filter((row) => isSessionReadyToVerify(row.market, row.forecastDate, now)), beforeResults
+  );
+  const candidateIds = rotatingCryptoBatch(allIds, now);
 
   const report: CryptoBeijingReverifyReport = {
     scanned: beforeForecasts.length,
-    candidates: candidateIds.length,
+    candidates: allIds.length,
     upgraded: 0,
     restoredPrior: 0,
+    preservedPrior: 0,
+    writeOutcomeUnknown: 0,
+    deferred: allIds.length - candidateIds.length,
+    errors: [],
     unchanged: 0,
     candidateIds,
   };
   if (!candidateIds.length) return report;
 
-  const priorForecastById = new Map(beforeForecasts.map((row) => [row.id, row]));
-  const priorResultById = new Map(beforeResults.map((row) => [row.forecastId, row]));
-
-  // Reuse the production verifier, but bypass the historical lock only for the selected
-  // crypto records. V7.17.7 deliberately does not modify run-daily.ts itself.
-  await runDailyVerification({ forceRefetchForecastIds: candidateIds });
-
-  const afterForecasts = await listDailyForecastRecords();
-  const afterResults = await listDailyVerificationResults();
-  const afterForecastById = new Map(afterForecasts.map((row) => [row.id, row]));
-  const afterResultById = new Map(afterResults.map((row) => [row.forecastId, row]));
-
-  for (const id of candidateIds) {
-    const prior = priorResultById.get(id);
-    const next = afterResultById.get(id);
-    const priorForecast = priorForecastById.get(id);
-    const nextForecast = afterForecastById.get(id);
-
-    if (!prior || !next) {
-      report.unchanged += 1;
-      continue;
-    }
-
-    const hasNewMarker = String(next.dataSource ?? "").includes(CRYPTO_BEIJING_V2_MARKER);
-    const becameNonAuditable = NON_AUDITABLE_AFTER_REVERIFY.has(next.verdict);
-
-    if (!hasNewMarker || becameNonAuditable) {
-      // Fail closed: a migration may improve an auditable historical result, but it must
-      // never erase it merely because a provider no longer retains enough intraday bars.
-      await replaceDailyVerificationResult(prior);
-      if (priorForecast) {
-        await upsertDailyForecastRecord({
-          ...(nextForecast ?? priorForecast),
-          status: priorForecast.status,
-        } satisfies DailyForecastRecord);
-      }
-      report.restoredPrior += 1;
-      continue;
-    }
-
-    report.upgraded += 1;
-  }
+  // Strict scope skips sync/reviews. Reject non-auditable replacements BEFORE any
+  // write, rather than relying on a later restore which a hard timeout can prevent.
+  const result = await runDailyVerification({
+    now, forecastIds: candidateIds, forceRefetchForecastIds: candidateIds,
+    cryptoBeijingMigration: true, maxRecords: 2, deadlineAt,
+  });
+  report.upgraded = result.verified;
+  report.preservedPrior = result.preservedPrior;
+  report.writeOutcomeUnknown = result.writeOutcomeUnknown;
+  report.unchanged = Math.max(0, candidateIds.length - result.verified - result.deferred - result.writeOutcomeUnknown);
+  report.deferred += result.deferred;
+  report.errors = result.errors;
 
   return report;
 }

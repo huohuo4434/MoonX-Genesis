@@ -3,6 +3,7 @@ import "server-only";
 import {
   listDailyForecastRecords,
   listDailyVerificationResults,
+  listDailyReviews,
   upsertDailyReview,
   upsertLearningCase,
 } from "@/lib/data/moonx-data-store";
@@ -33,16 +34,26 @@ function pathFromDailyBars(result: DailyVerificationResult): PathVerdict {
   return "INSUFFICIENT_DATA";
 }
 
-export async function generateReviewsForVerified(now = new Date()): Promise<{ created: number; skipped: number }> {
-  const [forecasts, results] = await Promise.all([
+export async function generateReviewsForVerified(
+  now = new Date(),
+  options: { maxRecords?: number; deadlineAt?: number } = {}
+): Promise<{ created: number; skipped: number; deferred: number }> {
+  const [forecasts, results, reviews] = await Promise.all([
     listDailyForecastRecords(),
     listDailyVerificationResults(),
+    listDailyReviews(),
   ]);
   const byId = new Map(forecasts.map((f) => [f.id, f]));
+  const reviewed = new Set(reviews.map((review) => review.forecastId));
   let created = 0;
   let skipped = 0;
+  let deferred = 0;
 
   for (const result of results) {
+    if (reviewed.has(result.forecastId)) {
+      skipped += 1;
+      continue;
+    }
     if (!["HIT", "FULL_HIT", "PARTIAL_HIT", "MISS"].includes(result.verdict)) {
       skipped += 1;
       continue;
@@ -50,6 +61,10 @@ export async function generateReviewsForVerified(now = new Date()): Promise<{ cr
     const forecast = byId.get(result.forecastId);
     if (!forecast) {
       skipped += 1;
+      continue;
+    }
+    if (created >= (options.maxRecords ?? Infinity) || Date.now() >= (options.deadlineAt ?? Infinity)) {
+      deferred += 1;
       continue;
     }
 
@@ -225,5 +240,5 @@ export async function generateReviewsForVerified(now = new Date()): Promise<{ cr
     }
   }
 
-  return { created, skipped };
+  return { created, skipped, deferred };
 }

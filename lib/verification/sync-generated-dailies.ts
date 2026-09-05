@@ -27,6 +27,7 @@ export type GeneratedDailySyncReport = {
   unsupported: number;
   latePublished: number;
   errors: string[];
+  deferred: number;
 };
 
 type VerificationAsset = (typeof DAILY_ACCURACY_ASSETS)[number];
@@ -371,6 +372,8 @@ export async function listFormalGeneratedDailiesForVerification(
 
 export async function syncGeneratedDailyForecastsToVerificationStore(input: {
   now?: Date;
+  maxRecords?: number;
+  deadlineAt?: number;
 } = {}): Promise<GeneratedDailySyncReport> {
   const now = input.now ?? new Date();
   const report: GeneratedDailySyncReport = {
@@ -381,6 +384,7 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
     unsupported: 0,
     latePublished: 0,
     errors: [],
+    deferred: 0,
   };
   if (!hasPrisma() || !prisma) return report;
 
@@ -431,6 +435,10 @@ export async function syncGeneratedDailyForecastsToVerificationStore(input: {
       continue;
     }
 
+    if (report.created >= (input.maxRecords ?? Infinity) || Date.now() >= (input.deadlineAt ?? Infinity)) {
+      report.deferred += 1;
+      continue;
+    }
     try {
       const record = generatedDailyToVerificationRecord(row, asset);
       if (new Date(record.publishedAt).getTime() > new Date(record.cutoffAt).getTime()) {

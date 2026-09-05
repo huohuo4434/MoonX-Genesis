@@ -2,10 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAndStoreEarlyAltcoinRadar } from "@/lib/trading-signals/early-altcoin-radar";
 import { generateAndStoreXScanReport } from "@/lib/trading-signals/x-scan-report";
-import { runContentFreshnessSelfCheck } from "@/lib/automation/content-freshness";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET?.trim();
@@ -15,6 +14,7 @@ function authorized(request: NextRequest): boolean {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  const startedAt = Date.now();
   const [market, altcoin] = await Promise.allSettled([
     generateAndStoreXScanReport(),
     generateAndStoreEarlyAltcoinRadar(),
@@ -29,11 +29,16 @@ export async function GET(request: NextRequest) {
       altcoinError: altcoin.status === "rejected" ? String(altcoin.reason) : null,
     }, { status: 500 });
   }
-  const freshness = await runContentFreshnessSelfCheck({ repair: true, now: new Date() }).catch(() => null);
+  // Full freshness repair remains on generate-daily-forecasts / content-freshness.
+  // Do not recursively rebuild X reports or launch full-site verification here.
+  console.info("x-intelligence-report completed", { elapsedMs: Date.now() - startedAt, marketOk, altcoinOk });
   return NextResponse.json({
-    ok: true,
+    ok: marketOk && altcoinOk,
+    partial: marketOk !== altcoinOk,
+    elapsedMs: Date.now() - startedAt,
     market: marketOk ? { generatedAt: market.value.generatedAt, assets: market.value.assets.length, buyCandidates: market.value.buyCandidateCount } : { error: String(market.reason) },
     earlyAltcoin: altcoinOk ? { generatedAt: altcoin.value.generatedAt, candidates: altcoin.value.candidateCount, earlyCandidates: altcoin.value.earlyCandidateCount } : { error: String(altcoin.reason) },
-    freshness: freshness ? { status: freshness.status, generatedAt: freshness.generatedAt } : null,
+    freshness: null,
+    freshnessDeferred: true,
   });
 }

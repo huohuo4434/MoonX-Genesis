@@ -1,23 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runMemberStockVerification } from "@/lib/data/member-stocks/verify";
 import { runDailyVerification } from "@/lib/verification/run-daily";
-import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
-import { getVerificationPipelineStatus } from "@/lib/accuracy/verification-pipeline-status";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    return request.headers.get("authorization") === `Bearer ${secret}`;
-  }
-  if (process.env.VERCEL === "1") {
-    // Vercel documents this user-agent for scheduled invocations. This keeps
-    // idempotent verification alive when CRON_SECRET was not configured yet.
-    return request.headers.get("user-agent")?.includes("vercel-cron/1.0") ?? false;
-  }
-  return true;
+  const secret = process.env.CRON_SECRET?.trim();
+  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 function errorMessage(reason: unknown): string {
@@ -32,35 +22,34 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + 180_000;
   const [dailyResult, stockResult] = await Promise.allSettled([
-    runDailyVerification(),
-    runMemberStockVerification(),
+    runDailyVerification({ maxRecords: 8, deadlineAt }),
+    runMemberStockVerification(new Date(), { maxRecords: 4, deadlineAt }),
   ]);
 
   const dailyOk = dailyResult.status === "fulfilled";
   const stockOk = stockResult.status === "fulfilled";
-  const [publicSnapshot, pipeline] = await Promise.all([
-    getPublicVerificationSnapshot().catch(() => null),
-    getVerificationPipelineStatus().catch(() => null),
-  ]);
+  const partial = !dailyOk || !stockOk ||
+    (dailyOk && (dailyResult.value.errors.length > 0 || dailyResult.value.deferred > 0 || dailyResult.value.focusDeferred > 0 || dailyResult.value.syncDeferred > 0 || dailyResult.value.reviewsDeferred > 0)) ||
+    (stockOk && (stockResult.value.deferred > 0 || stockResult.value.manual > 0));
   const body = {
-    ok: dailyOk && stockOk,
-    partial: dailyOk !== stockOk,
+    ok: dailyOk && stockOk && !(dailyOk && dailyResult.value.errors.length),
+    partial,
+    elapsedMs: Date.now() - startedAt,
     report: dailyOk ? dailyResult.value : null,
     stockReport: stockOk ? stockResult.value : null,
-    publicAfterRun: publicSnapshot ? {
-      completed: publicSnapshot.daily.stats.verifiedCount,
-      visibleRows: publicSnapshot.daily.items.length,
-      pending: publicSnapshot.pending.length,
-      weeklySamples: publicSnapshot.weekly.stats.sampleSize,
-    } : null,
-    pipelineAfterRun: pipeline,
+    publicAfterRun: null,
+    pipelineAfterRun: null,
+    diagnosticsDeferred: true,
     errors: {
       daily: dailyOk ? null : errorMessage(dailyResult.reason),
       memberStocks: stockOk ? null : errorMessage(stockResult.reason),
     },
   };
 
+  console.info("verify-daily completed", { elapsedMs: body.elapsedMs, ok: body.ok, partial: body.partial });
   return NextResponse.json(body, {
     status: dailyOk || stockOk ? 200 : 500,
     headers: { "Cache-Control": "no-store" },

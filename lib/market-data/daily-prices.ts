@@ -474,11 +474,11 @@ export async function getDailyMarketResult(input: {
   if (market === "CRYPTO") {
     try {
       bars = await withRetries(() => fetchYahooCryptoBeijingBars(quoteSymbol, forecastDate), 2);
-      dataSource = `yahoo-finance-hourly-beijing:${quoteSymbol}`;
+      dataSource = `yahoo-finance-hourly-beijing:${quoteSymbol}; crypto-beijing-v2`;
     } catch (yahooCryptoError) {
       try {
         bars = await withRetries(() => fetchCoinGeckoCryptoBars(input.symbol, quoteSymbol, forecastDate), 2);
-        dataSource = "coingecko-beijing-session";
+        dataSource = "coingecko-beijing-session; crypto-beijing-v2";
       } catch (cgErr) {
         return {
           error: `加密行情获取失败：Yahoo ${yahooCryptoError instanceof Error ? yahooCryptoError.message : String(yahooCryptoError)}; CoinGecko ${

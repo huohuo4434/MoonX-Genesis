@@ -23,6 +23,7 @@ export type FocusGeneratedSyncReport = {
   existing: number;
   unsupported: number;
   errors: string[];
+  deferred: number;
 };
 
 function chinaDateKey(date: Date): string {
@@ -58,7 +59,8 @@ function strings(value: unknown): string[] {
 }
 
 export async function syncFocusGeneratedDailiesToVerificationStore(
-  now = new Date()
+  now = new Date(),
+  options: { maxRecords?: number; deadlineAt?: number } = {}
 ): Promise<FocusGeneratedSyncReport> {
   const report: FocusGeneratedSyncReport = {
     sourceAvailable: hasPrisma(),
@@ -67,6 +69,7 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
     existing: 0,
     unsupported: 0,
     errors: [],
+    deferred: 0,
   };
   if (!hasPrisma() || !prisma) return report;
 
@@ -186,6 +189,10 @@ export async function syncFocusGeneratedDailiesToVerificationStore(
       revisionReason: row.revisionReason,
     };
 
+    if (report.created >= (options.maxRecords ?? Infinity) || Date.now() >= (options.deadlineAt ?? Infinity)) {
+      report.deferred += 1;
+      continue;
+    }
     try {
       await upsertDailyForecastRecord(record);
       existingIds.add(id);

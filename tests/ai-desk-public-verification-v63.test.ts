@@ -68,7 +68,8 @@ test("每日验证单个资产和附属任务失败不会拖垮整批", () => {
   assert.match(runner, /report\.errors\.push/);
   assert.match(cron, /Promise\.allSettled/);
   assert.match(lateCron, /Promise\.allSettled/);
-  assert.match(cron, /vercel-cron\/1\.0/);
+  assert.doesNotMatch(cron, /vercel-cron\/1\.0|user-agent/);
+  assert.match(cron, /Boolean\(secret\).*authorization/);
   assert.match(lateCron, /vercel-cron\/1\.0/);
   assert.match(cron, /Cache-Control.*no-store/);
   assert.match(lateCron, /Cache-Control.*no-store/);

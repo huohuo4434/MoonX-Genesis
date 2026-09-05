@@ -45,16 +45,17 @@ test('crypto daily verification aggregates Beijing sessions instead of UTC daily
   assert.match(source, /coingecko-beijing-session/);
 });
 
-test('daily verification retries hourly and reports post-run public state', () => {
+test('daily verification retries hourly and explicitly defers post-run aggregates', () => {
   const vercel = JSON.parse(read('vercel.json'));
   const verify = vercel.crons.find((row) => row.path === '/api/cron/verify-daily');
   assert.deepEqual(verify, { path: '/api/cron/verify-daily', schedule: '10 * * * *' });
   assert.equal(vercel.crons.some((row) => row.path === '/api/cron/verify-daily-late'), false);
   const route = read('app/api/cron/verify-daily/route.ts');
-  assert.match(route, /getPublicVerificationSnapshot/);
-  assert.match(route, /getVerificationPipelineStatus/);
-  assert.match(route, /publicAfterRun/);
-  assert.match(route, /pipelineAfterRun/);
+  assert.doesNotMatch(route, /getPublicVerificationSnapshot|getVerificationPipelineStatus/);
+  assert.match(route, /publicAfterRun: null/);
+  assert.match(route, /pipelineAfterRun: null/);
+  assert.match(route, /diagnosticsDeferred: true/);
+  assert.match(route, /deadlineAt/);
 });
 
 test('terminal same-day verification may be published while future records stay hidden', () => {

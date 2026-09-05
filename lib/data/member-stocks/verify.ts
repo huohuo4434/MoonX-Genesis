@@ -127,9 +127,14 @@ export type StockVerifyReport = {
   voided: number;
   manual: number;
   notReady: number;
+  deferred: number;
+  attempted: number;
 };
 
-export async function runMemberStockVerification(now = new Date()): Promise<StockVerifyReport> {
+export async function runMemberStockVerification(
+  now = new Date(),
+  options: { maxRecords?: number; deadlineAt?: number } = {}
+): Promise<StockVerifyReport> {
   const forecasts = (await listAllDailyForecasts()).filter(
     (f) => f.status === "published" && f.role === "today" && f.accuracyEligible === true
   );
@@ -143,7 +148,10 @@ export async function runMemberStockVerification(now = new Date()): Promise<Stoc
     voided: 0,
     manual: 0,
     notReady: 0,
+    deferred: 0,
+    attempted: 0,
   };
+  forecasts.sort((a, b) => (byId.get(a.id)?.verifiedAt ?? "").localeCompare(byId.get(b.id)?.verifiedAt ?? "") || a.id.localeCompare(b.id));
 
   for (const forecast of forecasts) {
     report.scanned += 1;
@@ -157,6 +165,11 @@ export async function runMemberStockVerification(now = new Date()): Promise<Stoc
       continue;
     }
 
+    if (report.attempted >= (options.maxRecords ?? 4) || Date.now() >= (options.deadlineAt ?? Infinity)) {
+      report.deferred += 1;
+      continue;
+    }
+    report.attempted += 1;
     const stock = (await import("@/lib/data/member-stocks/store")).getBenefitStock(forecast.stockId);
     const quoteSymbol = stock?.quoteSymbol ?? `${forecast.stockId}.SS`;
 

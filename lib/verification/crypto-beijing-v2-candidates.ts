@@ -10,6 +10,21 @@ const AUDITABLE_VERDICTS = new Set([
   "MISS",
 ] as const);
 
+/** Accept a migration before any write, including HIT -> MISS corrections. */
+export function isAuditableCryptoBeijingV2Result(result: DailyVerificationResult): boolean {
+  return AUDITABLE_VERDICTS.has(result.verdict as "HIT" | "FULL_HIT" | "PARTIAL_HIT" | "MISS") &&
+    String(result.dataSource ?? "").includes(CRYPTO_BEIJING_V2_MARKER);
+}
+
+/** Failed historical rows must not permanently occupy the first batch. */
+export function rotatingCryptoBatch(ids: string[], now: Date, limit = 2): string[] {
+  const sorted = [...new Set(ids)].sort();
+  if (!sorted.length || !Number.isFinite(now.getTime()) || !Number.isInteger(limit) || limit <= 0) return [];
+  const size = Math.min(limit, sorted.length);
+  const start = (Math.floor(now.getTime() / 3_600_000) % Math.ceil(sorted.length / size)) * size;
+  return sorted.slice(start, start + size);
+}
+
 export function selectCryptoBeijingV2Candidates(
   forecasts: DailyForecastRecord[],
   results: DailyVerificationResult[]

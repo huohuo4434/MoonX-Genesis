@@ -39,7 +39,7 @@ test("v7.12 sync preserves daily path semantics", () => {
 
 test("v7.12 verifier syncs before reading the queue and keeps failure retention", () => {
   const verifier = read("lib/verification/run-daily.ts");
-  const syncAt = verifier.indexOf("syncGeneratedDailyForecastsToVerificationStore({ now })");
+  const syncAt = verifier.indexOf("syncGeneratedDailyForecastsToVerificationStore({ now,");
   const listAt = verifier.indexOf("const forecasts = await listDailyForecastRecords()");
   assert.ok(syncAt >= 0 && listAt > syncAt, "sync must happen before queue scan");
   assert.match(verifier, /syncedPublished/);
