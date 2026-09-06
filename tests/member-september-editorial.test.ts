@@ -19,7 +19,9 @@ test("member copy states an outlook without source-processing narration in eithe
 });
 
 test("editorial view preserves coverage, directions, risk windows, confidence and invalidation", () => {
-  assert.deepEqual(sector.rows.map((r) => r.asset), research.rows.map((r) => r.asset));
+  const expectedCoverage = research.rows.flatMap((r) => r.asset === "黄金／白银" ? ["黄金", "白银"] : [r.asset]);
+  assert.ok(expectedCoverage.every((asset) => sector.rows.some((r) => r.asset === asset)));
+  assert.ok(sector.rows.some((r) => r.asset === "特斯拉 TSLA"));
   assert.equal(view.version, record.version);
   assert.deepEqual(view.riskWindow, record.qimenMonthlyUpdate.riskWindow);
   assert.deepEqual(view.riskItems.map((r) => r.id), record.qimenMonthlyUpdate.items.map((r) => r.id));
@@ -31,7 +33,7 @@ test("editorial view preserves coverage, directions, risk windows, confidence an
   }
   assert.ok(view.riskItems.every((r) => r.usageZh && r.usageEn));
   assert.match(view.assets[0].conclusionZh, /持续性尚不确定/);
-  assert.match(view.assets[3].conclusionZh, /月底反弹待确认/);
+  assert.match(view.assets[3].conclusionZh, /月底反弹均不确定/);
   assert.match(sector.rows[5].action, /不做日周交易/);
   assert.match(sector.rows[7].outlook, /不做日周预测/);
 });
@@ -44,7 +46,9 @@ test("member scan view has bounded copy, with optional details closed by default
   const component = readFileSync("components/member/MemberSeptemberRotationReport.tsx", "utf8");
   assert.match(component, /<details[^>]*data-risk-details/);
   assert.match(component, /<details[^>]*data-other-outlooks/);
-  assert.doesNotMatch(component, /<details[^>]*\bopen\b|item\.boundary|item\.reason/);
+  assert.doesNotMatch(component, /<details[^>]*\bopen\b|item\.boundary/);
+  assert.match(component, /item\.reasonZh/);
+  assert.match(component, /原版方法共振指数/);
   assert.match(component, /asset\.invalidationZh/);
   const weekly = readFileSync("components/conviction/SectorResonanceBoard.tsx", "utf8");
   const daily = readFileSync("components/conviction/DailySectorResonanceBoard.tsx", "utf8");

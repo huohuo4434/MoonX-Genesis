@@ -65,7 +65,8 @@ test("current member view is gated and wired to latest review without private ev
   assert.match(page, /应对：/);
   assert.match(component, /共振程度，不是胜率/);
   assert.match(component, /item\.index.*item\.max/);
-  assert.match(component, /Updated Sep 4 · V6/);
+  assert.match(component, /report\.editorialUpdatedEn/);
+  assert.match(component, /原版方法共振指数 · 9月4日/);
   assert.doesNotMatch(`${page}${component}`, /source-audit-20260904-wu-qimen|submitOrder|createOrder/);
   assert.doesNotMatch(JSON.stringify({ report, review }), /吴老师|吳昌燁|丙午|金兔子|C:\\Users|714DF9A4/);
 });

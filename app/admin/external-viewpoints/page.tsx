@@ -12,6 +12,7 @@ import { EXTERNAL_ANALYST_ROLE_REGISTRY } from "@/lib/research/external-analyst-
 import { assessExternalViewpointCard } from "@/lib/research/external-viewpoint-card-core";
 import { listResearchRecords } from "@/lib/data/research-records";
 import { policyForTags } from "@/lib/research/external-source-policy";
+import { SOURCE_REVIEW_20260906 as latestReview } from "@/lib/data/internal/source-review-20260906";
 import {
   TEACHER02_REV322_EXECUTION_STEPS,
   TEACHER02_REV322_LIMITATIONS,
@@ -66,6 +67,32 @@ export default async function AdminExternalViewpointsPage() {
       <Text variant="body-sm" color="secondary" className="mb-6 max-w-4xl">
         外部材料只在明确发布时间、有效区间和验证条件齐全时参与研究。辅助导师02属于六爻模块内部的路径补充源：不覆盖已经锁定的正式预测，也不能单独触发自动交易。
       </Text>
+
+      <Card padding="lg" className="mb-6 space-y-4 border-cyan-400/20" data-source-review="20260906">
+        <Heading as="h2" size="h3">9月6日观点复核 · 7组材料已读</Heading>
+        <Text variant="body-sm" color="secondary">7份文字、21张配图。部分一致，不全体加分；黄金、TSLA、BTC／ETH的时间路径存在分歧。完整来源对照保存在私有审计，此处展示脱敏处理结果。</Text>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {latestReview.comparisons.map((row) => <article key={row.asset} className="rounded-xl border border-white/10 p-4">
+            <h3 className="font-semibold">{row.asset} · {row.alignment}</h3>
+            <p className="mt-1 text-xs text-foreground-tertiary">{row.horizon}</p>
+            <p className="mt-2 text-sm leading-6 text-foreground-secondary">{row.decision}</p>
+            <p className="mt-2 text-xs leading-5 text-foreground-tertiary">待复盘：{row.followup}</p>
+          </article>)}
+        </div>
+        <details>
+          <summary className="cursor-pointer py-2 text-sm font-semibold">来源、阅读覆盖与处理结果</summary>
+          <div className="space-y-3 pt-2">{latestReview.sources.map((source) => <article key={source.id} className="rounded-lg border border-white/10 p-3 text-sm leading-6">
+            <h3 className="font-semibold">{source.name} · {source.coverage}</h3>
+            <p className="text-xs text-foreground-tertiary">{source.period}</p><p>{source.finding}</p><p className="text-foreground-secondary">处理：{source.action}</p>
+          </article>)}</div>
+        </details>
+        <details>
+          <summary className="cursor-pointer py-2 text-sm font-semibold">纠错与审计边界</summary>
+          <ul className="list-disc space-y-2 pl-5 text-sm">{latestReview.corrections.map((correction) => <li key={correction}>{correction}</li>)}</ul>
+          <p className="mt-3 text-xs text-foreground-tertiary">记录 {latestReview.id}；收录时间 {latestReview.reviewedAt}。原发布时间未独立确认，不回填历史命中率；同作者与二次复核不重复计票；权重增量0；不触发自动交易。</p>
+          <div className="mt-3 flex flex-wrap gap-3 text-xs">{latestReview.officialReferences.map((ref) => <a key={ref.url} href={ref.url} target="_blank" rel="noopener noreferrer" className="underline">{ref.label}</a>)}</div>
+        </details>
+      </Card>
 
       <Card padding="lg" className="mb-6 space-y-5 border-amber-400/20">
         <div className="flex flex-wrap items-start justify-between gap-4">

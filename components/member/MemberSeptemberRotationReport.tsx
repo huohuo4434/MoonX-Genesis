@@ -12,7 +12,7 @@ export function MemberSeptemberRotationReport() {
       <Card padding="lg" data-conclusion-first="1" className="border-violet-400/25 bg-gradient-to-br from-violet-500/[0.10] via-background to-cyan-500/[0.05]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Badge variant="default">{en ? "Mr. Yi · September outlook" : "易老师 · 9月研判"}</Badge>
-          <Text variant="caption" color="tertiary">{en ? "Updated Sep 4 · V6" : "9月4日更新 · V6"}</Text>
+          <Text variant="caption" color="tertiary">{en ? report.editorialUpdatedEn : report.editorialUpdatedZh}</Text>
         </div>
         <Heading id="september-rotation-title" as="h2" size="h2" className="mt-5 max-w-5xl">{en ? report.titleEn : report.titleZh}</Heading>
         <Text variant="body" color="secondary" className="mt-3 block max-w-5xl leading-7">{en ? report.conclusionEn : report.conclusionZh}</Text>
@@ -22,6 +22,7 @@ export function MemberSeptemberRotationReport() {
             {(en ? report.executionEn : report.executionZh).map((item, index) => <li key={item} className="flex gap-3"><span className="font-semibold text-primary">{index + 1}.</span><span>{item}</span></li>)}
           </ol>
         </div>
+        <p className="mt-3 text-xs leading-6 text-foreground-tertiary" data-event-review-20260906>{en ? report.eventNoteEn : report.eventNoteZh}</p>
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {report.assets.map((asset) => (
             <article key={asset.symbol} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
@@ -59,11 +60,12 @@ export function MemberSeptemberRotationReport() {
         </details>
       </Card>
       <Card padding="lg" data-forward-confidence-calibration>
-        <Heading as="h3" size="h3">{en ? "Method-consensus index" : "方法共振指数"}</Heading>
-        <p className="mt-2 text-xs leading-5 text-foreground-tertiary">{en ? "Consensus score, not win rate." : "共振程度，不是胜率。"}</p>
+        <Heading as="h3" size="h3">{en ? "Original method-consensus index · Sep 4" : "原版方法共振指数 · 9月4日"}</Heading>
+        <p className="mt-2 text-xs leading-5 text-foreground-tertiary">{en ? "Consensus score, not win rate. Timing uncertainty has not increased these scores." : "共振程度，不是胜率。时间路径仍有分歧，本次未加分。"}</p>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {report.confidenceItems.map((item) => <article key={item.id} className="rounded-xl border border-white/10 p-4">
             <div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold">{en ? item.scopeEn : item.scopeZh}</h4><Badge variant="outline">{item.index}/{item.max}</Badge></div>
+            <p className="mt-2 text-xs leading-5 text-foreground-tertiary">{en ? item.reasonEn : item.reasonZh}</p>
           </article>)}
         </div>
       </Card>
