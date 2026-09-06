@@ -1,6 +1,7 @@
 import "server-only";
 import { evaluateLiveDuration } from "./live-duration-core";
 import { assertEmptyExchangePayloads, assertCurrentEntryEpoch, continuousPayloadShape } from "./live-continuous-transition-core";
+import { confirmEmptyUtaPositionSnapshot } from "./continuous-position-snapshot";
 import { livePeriodReadiness, requireCurrentLiveEquity, readLiveUsdtEquity } from "./live-period-readiness-core";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
@@ -2708,7 +2709,23 @@ export async function readBitgetContinuousTransitionSnapshot() {
     signedRequest<unknown>({ method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "trigger" } }),
     getBitgetRuntimeAccountBalance(), getBitgetApiSecurity(), getBitgetUtaSettingsSnapshot(),
   ]);
-  try { assertEmptyExchangePayloads(positions, orders, tpsl, trigger); }
+  let verifiedPositions = positions;
+  // REST sometimes reports explicit list:null. Missing/invalid data is never
+  // defaulted to []; require an independent authenticated full WS snapshot.
+  if (positions && typeof positions === "object" && !Array.isArray(positions)
+    && (positions as { list?: unknown }).list === null && !(positions as { cursor?: unknown }).cursor) {
+    let clock: Awaited<ReturnType<typeof assertBitgetClockSafe>>;
+    try {
+      clock = await assertBitgetClockSafe();
+      const clockAge = Date.now() - new Date(clock.syncedAt).getTime();
+      if (!clock.safe || !Number.isFinite(clockAge) || clockAge < 0 || clockAge > 5000) throw new Error("EXCHANGE_UNKNOWN");
+    } catch { throw new Error("EXCHANGE_UNKNOWN"); }
+    const auth = credentials();
+    await confirmEmptyUtaPositionSnapshot({ apiKey: auth.apiKey!, secretKey: auth.secretKey!, passphrase: auth.passphrase!, clockOffsetMs: clock.offsetMs });
+    verifiedPositions = { list: [] };
+    console.info("[continuous-position-proof] authenticated-empty-full-snapshot");
+  }
+  try { assertEmptyExchangePayloads(verifiedPositions, orders, tpsl, trigger); }
   catch (error) {
     console.warn("[continuous-exchange-shape]", JSON.stringify({
       positions: continuousPayloadShape(positions), orders: continuousPayloadShape(orders),

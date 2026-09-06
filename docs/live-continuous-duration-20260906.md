@@ -1,5 +1,21 @@
 # Continuous-duration runtime support (not live activation)
 
+## September 6 production diagnosis follow-up
+
+Production GET proved REST positions returns explicit `list:null`, while ordinary
+orders and both strategy lists are empty arrays. Never coerce missing data to zero.
+Only that explicit null-list case now requests an independent authenticated UTA
+WebSocket position **full snapshot**. Only a fresh matching `snapshot` with `data:[]`
+passes. ACK, update, null, timeout, errors or any rows fail closed. The socket closes
+after this bounded read. No new environment variables, dependencies, schema changes,
+permission changes or trade submission are introduced. Uses existing Bitget credentials
+only against the documented official private socket. Retains all other transition gates.
+Official sources: https://www.bitget.com/api-doc/uta/guide and
+https://www.bitget.com/api-doc/uta/websocket/private/Positions-Channel .
+
+Rollback before conversion: revert the diagnostic/fallback commits, retaining data.
+Do not use a pre-continuous-duration runtime after a user has converted duration.
+
 Scope: duration/transition core, Bitget reader/synchronizer and runtime DTO, admin
 readiness API, explicit continuous-duration POST and UI, member desk status,
 admin snapshot/UI, tests and additive SQL migration. Outbox open retries now
