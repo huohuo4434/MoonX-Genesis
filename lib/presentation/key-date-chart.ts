@@ -41,30 +41,47 @@ export function closedChartBars(candles: ChanCandle[], timeZone: string, now: nu
 }
 
 /** Presentation-only daily swing clusters, NOT volume-at-price or trade authority. */
-export function chartZones(bars: ChartBar[]): { support: ChartZone | null; resistance: ChartZone | null } {
-  if (bars.length < 20) return { support: null, resistance: null };
+function swingClusters(bars: ChartBar[], sides: Array<"low" | "high">): ChartZone[] {
+  if (bars.length < 20) return [];
   const price = bars.at(-1)!.close;
   const recent = bars.slice(-15);
   const atr = recent.slice(1).reduce((sum, bar, i) => sum + Math.max(bar.high - bar.low,
     Math.abs(bar.high - recent[i]!.close), Math.abs(bar.low - recent[i]!.close)), 0) / (recent.length - 1);
   const tolerance = Math.max(atr * 0.35, price * 0.001);
-  function clusters(side: "low" | "high") {
-    const points: number[] = [];
+  const points: number[] = [];
+  for (const side of sides) {
     for (let i = 2; i < bars.length - 2; i++) {
       const v = bars[i]![side];
       const neighbours = [bars[i - 2]!, bars[i - 1]!, bars[i + 1]!, bars[i + 2]!];
       if (neighbours.every(b => side === "low" ? b.low > v : b.high < v)) points.push(v);
     }
-    const zones: ChartZone[] = [];
-    for (const point of points.sort((a, b) => a - b)) {
-      const last = zones.at(-1);
-      if (last && point - last.low <= tolerance) { last.high = point; last.touches++; }
-      else zones.push({ low: point, high: point, touches: 1 });
-    }
-    return zones.filter(z => z.touches >= 2);
   }
+  const zones: ChartZone[] = [];
+  for (const point of points.sort((a, b) => a - b)) {
+    const last = zones.at(-1);
+    if (last && point - last.low <= tolerance) { last.high = point; last.touches++; }
+    else zones.push({ low: point, high: point, touches: 1 });
+  }
+  return zones;
+}
+
+/** Preserve the original repeated-pivot anchors used by the saved scenario engine. */
+export function chartZones(bars: ChartBar[]): { support: ChartZone | null; resistance: ChartZone | null } {
+  const price = bars.at(-1)?.close ?? 0;
   return {
-    support: clusters("low").filter(z => z.high < price).sort((a, b) => b.high - a.high)[0] ?? null,
-    resistance: clusters("high").filter(z => z.low > price).sort((a, b) => a.low - b.low)[0] ?? null,
+    support: swingClusters(bars, ["low"]).filter(z => z.touches >= 2 && z.high < price).sort((a, b) => b.high - a.high)[0] ?? null,
+    resistance: swingClusters(bars, ["high"]).filter(z => z.touches >= 2 && z.low > price).sort((a, b) => a.low - b.low)[0] ?? null,
+  };
+}
+
+/** Display-only ladder from closed bars. Broken historical highs/lows change sides
+ * relative to the last close, but remain candidates until a retest confirms them.
+ * No extrapolated targets when price is outside the available history. */
+export function chartLevelLadder(bars: ChartBar[]) {
+  const price = bars.at(-1)?.close ?? 0;
+  const zones = swingClusters(bars, ["low", "high"]);
+  return {
+    supports: zones.filter(z => z.high < price).sort((a, b) => b.high - a.high).slice(0, 5),
+    resistances: zones.filter(z => z.low > price).sort((a, b) => a.low - b.low).slice(0, 5),
   };
 }

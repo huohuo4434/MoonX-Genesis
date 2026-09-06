@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CandlestickSeries, HistogramSeries, LineSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers, type IChartApi, type Time, type Logical } from "lightweight-charts";
+import { CandlestickSeries, HistogramSeries, LineSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers, type AutoscaleInfo, type IChartApi, type Time, type Logical } from "lightweight-charts";
 import type { DailyProjectionData, CandleProjection } from "@/lib/research/daily-candle-projection-core";
+import { chartLevelLadder } from "@/lib/presentation/key-date-chart";
 
 const formatPrice = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
 
@@ -17,6 +18,8 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
   const [hoverDate, setHoverDate] = useState<string | null>(null);
   const [indicators, setIndicators] = useState(false);
   const [fault, setFault] = useState(false);
+  const [allLevels, setAllLevels] = useState(true);
+  const ladder = chartLevelLadder(data.bars);
   const future = projection?.candles ?? [];
   const selected = future.find(b => b.date === hoverDate) ?? data.bars.find(b => b.date === hoverDate) ?? future[0] ?? data.bars.at(-1)!;
   const isFuture = future.some(b => b.date === selected.date);
@@ -53,8 +56,21 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
           color: b.close >= b.open ? "#26a69a" : "#ef5350", borderColor: b.close >= b.open ? "#80cbc4" : "#ffab91", wickColor: b.close >= b.open ? "#80cbc4" : "#ffab91" }))]);
       const last = actualBars.at(-1)!;
       series.createPriceLine({ price: last.close, color: "#cbd5e1", lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: en ? "Last real close" : "真实收盘" });
-      for (const [zone, color, title] of [[data.support, "#38bdf8", en ? "Support" : "支撑"], [data.resistance, "#fb7185", en ? "Resistance" : "压力"]] as const) {
-        if (zone) series.createPriceLine({ price: (zone.high + zone.low) / 2, color, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title });
+      const levels = chartLevelLadder(data.bars);
+      const shown = [...levels.supports.slice(0, allLevels ? 5 : 3), ...levels.resistances.slice(0, allLevels ? 5 : 3)];
+      series.applyOptions({ autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
+        const info = original();
+        return info?.priceRange && shown.length ? { ...info, priceRange: {
+          minValue: Math.min(info.priceRange.minValue, ...shown.map(z => z.low)),
+          maxValue: Math.max(info.priceRange.maxValue, ...shown.map(z => z.high)),
+        } } : info;
+      } });
+      for (const [zones, color, prefix] of [[levels.supports, "#38bdf8", "S"], [levels.resistances, "#fb7185", "R"]] as const) {
+        zones.slice(0, allLevels ? 5 : 3).forEach((zone, index) => series.createPriceLine({
+          price: (zone.high + zone.low) / 2, color,
+          lineStyle: zone.touches >= 2 ? LineStyle.Dashed : LineStyle.Dotted,
+          axisLabelVisible: true, title: `${prefix}${index + 1}`,
+        }));
       }
       const volume = chart.addSeries(HistogramSeries, { priceScaleId: "volume", priceFormat: { type: "volume" }, lastValueVisible: false, priceLineVisible: false });
       volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
@@ -97,13 +113,14 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
     } catch { chart?.remove(); chart = null; api.current = null; setFault(true); }
     return () => { cancelAnimationFrame(frame); observer?.disconnect(); chart?.remove(); api.current = null; };
     // Hover must not recreate the chart or reset the user's zoom.
-  }, [data, projection, en, band, indicators]);
+  }, [data, projection, en, band, indicators, allLevels]);
 
   return <div className="overflow-hidden rounded-xl border border-slate-700 bg-[#0b1220]" data-candle-terminal="v2">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-xs">
       <strong className="text-base">{data.quoteSymbol} · 1D</strong>
       <span className="text-emerald-300">■ {en ? "Up" : "涨"}</span><span className="text-red-300">■ {en ? "Down" : "跌"}</span>
       <label><input type="checkbox" checked={indicators} onChange={e => setIndicators(e.target.checked)} /> EMA20 / EMA60</label>
+      <label><input type="checkbox" checked={allLevels} onChange={e => setAllLevels(e.target.checked)} />{en ? "All levels (up to 5 per side)" : "全部层级（每侧最多5档）"}</label>
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 18), to: n + future.length + 2 }); }} className="rounded border border-slate-600 px-3 py-1">{en ? "Reset view" : "重置视图"}</button>
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: n - 2, to: n + future.length + 1 }); }} disabled={!future.length} className="rounded border border-slate-600 px-3 py-1 disabled:opacity-40">{en ? "Focus forecast" : "放大预测区"}</button>
     </div>
@@ -117,5 +134,20 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       {fault ? <p role="alert" className="absolute inset-0 bg-slate-900 p-6 text-amber-200">{en ? "Chart could not load. Use the dated OHLC table below and refresh." : "图表加载失败，请先查看下方逐日价格表并刷新。"}</p> : null}
     </div>
     <div className="flex flex-wrap justify-between gap-2 px-4 py-2 text-xs text-slate-400"><span>{en ? "Drag / pinch to zoom · Volume is historical only" : "拖动查看／双指缩放 · 成交量仅为历史真实数据"}</span><a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">Charts by TradingView Lightweight Charts™</a></div>
+    <div className="border-t border-slate-700 p-4" data-price-level-ladder="v1">
+      <h3 className="font-semibold">{en ? "Support / resistance ladder" : "多级支撑／压力地图"}</h3>
+      <p className="mt-1 text-xs text-slate-400">{en ? "R1 → R2 → R3 after a confirmed breakout; S1 → S2 → S3 after a breakdown. Levels are candidates, not automatic orders. Uncheck all levels for a closer 3-level view." : "突破站稳R1，再看R2、R3；跌破S1，再看S2、S3。位置是观察区，不是自动买卖点；取消全部层级可聚焦最近3档。"}</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        {([['supports', 'S', en ? 'Support below' : '下方支撑', 'text-sky-200'], ['resistances', 'R', en ? 'Resistance above' : '上方压力', 'text-rose-200']] as const).map(([side, prefix, title, color]) => <div key={side}>
+          <h4 className={color}>{title}</h4>
+          <ol className="mt-2 space-y-2 text-sm">{ladder[side].map((zone, index) => <li key={zone.low} className="flex flex-wrap justify-between gap-x-3 rounded bg-white/5 px-3 py-2">
+            <strong className={color}>{prefix}{index + 1} · {formatPrice(zone.low)}{zone.high !== zone.low ? `–${formatPrice(zone.high)}` : ''}</strong>
+            <span className="text-xs text-slate-400">{zone.touches >= 2 ? en ? `${zone.touches} pivot tests` : `${zone.touches}次拐点测试` : en ? 'Single historical pivot' : '单次历史拐点'}</span>
+          </li>)}</ol>
+          {!ladder[side].length ? <p className="mt-2 text-sm text-slate-400">{en ? 'No confirmed historical pivot on this side in the loaded data; no invented target.' : '当前历史范围内该侧没有已确认拐点，不虚构下一目标。'}</p> : null}
+        </div>)}
+      </div>
+      <p className="mt-3 text-xs text-slate-400">{en ? `Based on ${data.bars.length} closed daily candles through ${data.asOf}. Dashed = clustered pivots; dotted = single pivot. Not volume profile. Broken levels need retest confirmation; future simulated candles do not create these levels.` : `基于截至${data.asOf}的${data.bars.length}根闭合日K。虚线为重复拐点区，点线为单次拐点，并非筹码分布。突破后的支撑压力转换需回踩确认；不拿未来模拟K线生成这些位置。`}</p>
+    </div>
   </div>;
 }
