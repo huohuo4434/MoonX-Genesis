@@ -1,6 +1,6 @@
 import "server-only";
 import { evaluateLiveDuration } from "./live-duration-core";
-import { assertEmptyExchangePayloads, assertCurrentEntryEpoch } from "./live-continuous-transition-core";
+import { assertEmptyExchangePayloads, assertCurrentEntryEpoch, continuousPayloadShape } from "./live-continuous-transition-core";
 import { livePeriodReadiness, requireCurrentLiveEquity, readLiveUsdtEquity } from "./live-period-readiness-core";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
@@ -2708,7 +2708,14 @@ export async function readBitgetContinuousTransitionSnapshot() {
     signedRequest<unknown>({ method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "trigger" } }),
     getBitgetRuntimeAccountBalance(), getBitgetApiSecurity(), getBitgetUtaSettingsSnapshot(),
   ]);
-  assertEmptyExchangePayloads(positions, orders, tpsl, trigger);
+  try { assertEmptyExchangePayloads(positions, orders, tpsl, trigger); }
+  catch (error) {
+    console.warn("[continuous-exchange-shape]", JSON.stringify({
+      positions: continuousPayloadShape(positions), orders: continuousPayloadShape(orders),
+      tpsl: continuousPayloadShape(tpsl), trigger: continuousPayloadShape(trigger),
+    }));
+    throw error;
+  }
   if (!security.failClosedReady || !["unified", "hybrid"].includes(String(settings.accountMode).toLowerCase())) throw new Error("EXCHANGE_SECURITY_INVALID");
   if (!Number.isFinite(balance.equityUsdt) || balance.equityUsdt <= 0) throw new Error("EXCHANGE_UNKNOWN");
   return { observedAt, equity: balance.equityUsdt, dailyLossLimit: environment.liveDailyLossUsdt, drawdownLimit: environment.liveMaxDrawdownUsdt };

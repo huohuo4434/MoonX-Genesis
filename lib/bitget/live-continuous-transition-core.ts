@@ -2,6 +2,13 @@ import { evaluateLiveDuration } from "./live-duration-core";
 
 export const CONTINUOUS_CONFIRMATION = "PREPARE_CONTINUOUS_KEEP_RISK";
 export const CONTINUOUS_EVENT = "LIVE_CONTINUOUS_PREPARED_V1";
+export function continuousPayloadShape(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return `array:${value.length}`;
+  if (typeof value !== "object") return typeof value;
+  const row = value as { list?: unknown; cursor?: unknown };
+  return `object/list:${row.list === null ? "null" : Array.isArray(row.list) ? `array:${row.list.length}` : typeof row.list}/cursor:${row.cursor ? "present" : "empty"}`;
+}
 export function assertEmptyExchangePayloads(positions: unknown, orders: unknown, tpsl: unknown, trigger: unknown) {
   const list = (value: unknown) => value && typeof value === "object" && !Array.isArray(value)
     ? value as { list?: unknown; cursor?: unknown } : null;

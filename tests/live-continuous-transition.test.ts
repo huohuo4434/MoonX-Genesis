@@ -10,6 +10,13 @@ const row = { status: "COMPLETED", duration_mode: "FIXED", started_at: new Date(
   stop_reason: "30天实盘实验到期，已停止新开仓。", initial_equity_usdt: 1000, current_equity_usdt: 1002,
   peak_equity_usdt: 1006, max_drawdown_usdt: 6, max_drawdown_pct: 0.6, entry_epoch_at: null };
 const evidence = { row, equity: 1002, openingEquity: 1001, dailyLossLimit: 10, drawdownLimit: 50, observedAt: now.getTime(), now };
+test("payload diagnostics reveal structure only, never rows or cursor values", () => {
+  assert.equal(core.continuousPayloadShape({ list: [{ secret: "sensitive" }], cursor: "secret-cursor" }), "object/list:array:1/cursor:present");
+  assert.equal(core.continuousPayloadShape(null), "null");
+  assert.equal(core.continuousPayloadShape({ list: null }), "object/list:null/cursor:empty");
+  assert.equal(core.continuousPayloadShape([]), "array:0");
+  assert.equal(core.continuousPayloadShape({}), "object/list:undefined/cursor:empty");
+});
 test("transition permits only expired fixed completion, never a stop/risk restart", () => {
   assert.doesNotThrow(() => core.assertContinuousTransition(evidence));
   for (const patch of [{ status: "STOPPED" }, { status: "ACTIVE" }, { stop_reason: "总止损" }, { ends_at: null }, { duration_mode: "CONTINUOUS" }]) {
