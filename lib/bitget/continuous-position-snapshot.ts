@@ -43,7 +43,7 @@ export async function confirmEmptyUtaPositionSnapshot(input: {
         }
         if (message.event === "error") { reason = "EVENT_ERROR"; return finish("EXCHANGE_UNKNOWN"); }
         if (message.event === "login") {
-          if (message.code !== "0" || authenticated) { reason = "LOGIN_REJECTED"; return finish("EXCHANGE_UNKNOWN"); }
+          if ((message.code !== "0" && message.code !== 0) || authenticated) { reason = "LOGIN_REJECTED"; return finish("EXCHANGE_UNKNOWN"); }
           authenticated = true;
           phase = "SNAPSHOT";
           socket.send(JSON.stringify({ op: "subscribe", args: [{ instType: "UTA", topic: "position" }] }));

@@ -13,7 +13,8 @@ function probe(patch: Record<string, unknown> = {}, mode = "snapshot") {
       const data = JSON.parse(text); sent.push(data);
       queueMicrotask(() => {
         if (mode === "event-error") { handlers.message({ data: JSON.stringify({ event: "error", ...patch }) }); return; }
-        if (data.op === "login") handlers.message({ data: JSON.stringify({ event: "login", code: mode === "bad-auth" ? "1" : "0" }) });
+        if (data.op === "login") handlers.message({ data: JSON.stringify({ event: "login", code: mode === "bad-auth" ? "1" : mode === "numeric-success" ? 0 : "0" }) });
+        else if (mode === "duplicate-login") handlers.message({ data: JSON.stringify({ event: "login", code: 0 }) });
         else if (mode === "ack-only") { handlers.message({data: JSON.stringify({event: "subscribe"})}); handlers.close({}); }
         else handlers.message({ data: JSON.stringify({ action: "snapshot", arg: { instType: "UTA", topic: "position" }, ts: Date.now(), data: [], ...patch }) });
       });
@@ -38,7 +39,12 @@ test("nonempty, missing, incremental, wrong-channel and stale snapshots fail clo
   for (const patch of [{ data: [{}] }, { data: null }, { action: "update" }, { arg: { instType: "UTA", topic: "account" } }, { ts: 0 }, { ts: Date.now()+60000 }]) {
     const p = probe(patch); await assert.rejects(p.promise, /EXCHANGE_UNKNOWN|EXCHANGE_NOT_EMPTY/); assert.equal(p.closed(), 1);
   }
-  for (const mode of ["bad-auth", "ack-only", "socket-error"]) { const p = probe({}, mode); await assert.rejects(p.promise); assert.equal(p.closed(), 1); }
+  for (const mode of ["bad-auth", "ack-only", "socket-error", "duplicate-login"]) { const p = probe({}, mode); await assert.rejects(p.promise); assert.equal(p.closed(), 1); }
+});
+
+test("numeric zero success still requires the full authenticated position snapshot", async () => {
+  const p = probe({}, "numeric-success"); await p.promise; assert.equal(p.closed(), 1);
+  const invalid = probe({ data: null }, "numeric-success"); await assert.rejects(invalid.promise, /EXCHANGE_UNKNOWN/);
 });
 
 test("invalid clock offsets never create a socket", async () => {
