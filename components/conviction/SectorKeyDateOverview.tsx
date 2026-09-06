@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { SectorKeyDateWindow } from "@/lib/data/conviction/sector-key-date-overview";
-import { keyDateGuidance, SANDISK_KEY_DATE_CORRECTION } from "@/lib/presentation/key-date-guidance";
+import { keyDateGuidance } from "@/lib/presentation/key-date-guidance";
 
 function shortDate(value: string) {
   const [, month, day] = value.split("-");
@@ -31,7 +31,6 @@ export function SectorKeyDateOverview({ windows }: { windows: SectorKeyDateWindo
       </div>
       <Link href="/member/key-dates" className="rounded-full border border-amber-300/25 bg-amber-300/[.07] px-4 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-300/40 hover:bg-amber-300/[.12]">查看全部月＋周关键日 →</Link>
     </div>
-    {windows.some(({ items }) => items.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07")) ? <p className="mt-4 rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-3 text-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
     <div className="mt-5 grid gap-4 xl:grid-cols-2">
       {windows.map(({ week, items }) => <div key={week.start} className="rounded-2xl border border-white/[.08] bg-black/20 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">

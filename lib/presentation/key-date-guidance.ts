@@ -31,5 +31,3 @@ export function keyDateGuidance(item: DateMeaning) {
     : `${condition}${item.sourceDateNote ? ` ${item.sourceDateNote}` : ""}`;
   return { group, label: uncertainSession ? `时段待核实 · ${label}` : closed ? `休市 · ${label}` : label, note, closed, nextSessionDate };
 }
-
-export const SANDISK_KEY_DATE_CORRECTION = "闪迪综合应对：9/4不因日期清仓。计划参与9/7后转强阶段的，回踩企稳可观察分批布局，破位则先控风险；已冲高受阻的短线仓可保护利润。9/5—7美股休市，9/8复市，不安排“4日逃顶、7日抄底”的来回交易。";

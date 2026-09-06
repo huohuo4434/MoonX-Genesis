@@ -19,7 +19,7 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
-import { keyDateGuidance, SANDISK_KEY_DATE_CORRECTION } from "@/lib/presentation/key-date-guidance";
+import { keyDateGuidance } from "@/lib/presentation/key-date-guidance";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as septemberReport } from "@/lib/data/member-september-rotation-report-20260826";
 import { applyVerifiedGannKeyDateOverlay } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
@@ -298,7 +298,6 @@ export default async function MemberKeyDatesPage() {
 
       <KeyDatePriceChart windows={currentItems.map(chartWindow)} paths={forecastPaths(currentItems, keyDateChartForecasts(currentItems, Date.now()), asOfDate)} asOfDate={asOfDate} />
 
-      {currentItems.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07") ? <p className="rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-4 text-body-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
         <div className="flex flex-wrap items-center justify-between gap-3">

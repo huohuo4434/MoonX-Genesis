@@ -65,14 +65,12 @@ test("an explicit top or bottom remains a candidate, other date types stay timin
   }
 });
 
-test("production summary renders the correction, holiday and original caveat without escape-top labels", () => {
+test("production summary omits retired SNDK banner and retains holiday and original caveat", () => {
   const board = buildSectorResonanceBoard("2026-09-04");
   const windows = buildSectorKeyDateWindows({ weeks: board.weeks, rows: board.rows, keyDates: buildMemberKeyDateRadar("2026-09-04"), asOfDate: "2026-09-04" });
   Object.assign(globalThis, { React });
   const html = renderToStaticMarkup(React.createElement(SectorKeyDateOverview, { windows }));
-  assert.match(html, /闪迪综合应对/);
-  assert.match(html, /回踩企稳可观察分批布局，破位则先控风险/);
-  assert.match(html, /已冲高受阻的短线仓可保护利润/);
+  assert.doesNotMatch(html, /闪迪综合应对|9\/4不因日期清仓/);
   assert.match(html, /回撤风险观察/);
   assert.match(html, /休市 · 转强观察/);
   assert.match(html, /2026-09-08恢复交易后观察/);
@@ -82,5 +80,5 @@ test("production summary renders the correction, holiday and original caveat wit
   assert.match(page, /keyDateGuidance\(item\)\.group === group.action/);
   assert.match(page, /\{guidance.label\}/);
   assert.match(page, /\{guidance.note\}/);
-  assert.match(page, /SANDISK_KEY_DATE_CORRECTION/);
+  assert.doesNotMatch(page, /SANDISK_KEY_DATE_CORRECTION|闪迪综合应对/);
 });
