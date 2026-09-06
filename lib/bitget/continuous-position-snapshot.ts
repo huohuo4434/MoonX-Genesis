@@ -25,7 +25,8 @@ export async function confirmEmptyUtaPositionSnapshot(input: {
       if (done) return;
       phase = "LOGIN";
       try {
-        const timestamp = String(Date.now() + input.clockOffsetMs);
+        // Official V3 Node SDK uses integer seconds for WS login (REST is ms).
+        const timestamp = String(Math.floor((Date.now() + input.clockOffsetMs) / 1000));
         const sign = createHmac("sha256", input.secretKey).update(timestamp + "GET/user/verify").digest("base64");
         socket.send(JSON.stringify({ op: "login", args: [{ apiKey: input.apiKey, passphrase: input.passphrase, timestamp, sign }] }));
       }

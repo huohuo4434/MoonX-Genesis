@@ -28,7 +28,8 @@ test("authenticated fresh full empty snapshot is the only successful empty proof
   const p = probe(); await p.promise; assert.equal(p.closed(), 1);
   assert.deepEqual(p.sent.map(x => x.op), ["login", "subscribe"]);
   const login = p.sent[0].args[0];
-  assert.ok(Math.abs(Number(login.timestamp) - Date.now()) < 1000);
+  assert.ok(Number.isInteger(Number(login.timestamp)));
+  assert.ok(Math.abs(Number(login.timestamp) * 1000 - Date.now()) < 1500);
   assert.equal(login.sign, createHmac("sha256", auth.secretKey).update(login.timestamp + "GET/user/verify").digest("base64"));
   assert.doesNotMatch(JSON.stringify(p.sent), /place-order|cancel|trade/);
 });

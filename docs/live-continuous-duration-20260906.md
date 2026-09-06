@@ -12,6 +12,9 @@ permission changes or trade submission are introduced. Uses existing Bitget cred
 only against the documented official private socket. Retains all other transition gates.
 Official sources: https://www.bitget.com/api-doc/uta/guide and
 https://www.bitget.com/api-doc/uta/websocket/private/Positions-Channel .
+WS login uses integer seconds, matching the official V3 Node SDK, despite the
+guide prose saying milliseconds. Position snapshot timestamps remain milliseconds.
+SDK: https://github.com/BitgetLimited/v3-bitget-api-sdk/blob/master/bitget-node-sdk-api/src/lib/ws/BitgetWsClient.ts .
 
 Rollback before conversion: revert the diagnostic/fallback commits, retaining data.
 Do not use a pre-continuous-duration runtime after a user has converted duration.
