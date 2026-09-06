@@ -63,8 +63,8 @@ separate and requires `UPGRADE VALIDATION PASSED` plus fresh read-only runtime p
 
 Previous preparation had combined targeted result 143/143 PASS, TypeScript PASS
 and production build PASS. Current merged code: targeted tests 57/57 PASS;
-separate Reviewer independently reran 57/57 and approved. New production build
-and typecheck are being verified before release. Store, route, UI and actual
+separate Reviewer independently reran 57/57 and approved. Merged production build
+and typecheck passed; pretest passed 3 market-session and 61 safety tests. Store, route, UI and actual
 reader/synchronizer tests mock database/exchange/HTTP boundaries; these are not
 proof of a production conversion. No production acceptance has been claimed.
 An independent extra historical public-verification test has an unrelated existing
