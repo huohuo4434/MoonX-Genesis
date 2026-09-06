@@ -3,8 +3,8 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "conditional-atr-v1";
-export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number };
+export const PROJECTION_ENGINE = "conditional-history-shape-v2";
+export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
   dateBasis: "EXPLICIT_WINDOW" | "MODEL_PHASE_ALLOCATION"; candles: ScenarioCandle[];
@@ -76,19 +76,38 @@ export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[
       const totalSessions = Math.min(30, Math.max(1, Math.round((Date.parse(path.periodEnd) - Date.parse(path.periodStart)) / 86_400_000)));
       // A transparent volatility scale, NOT a calibrated expected return.
       const scale = metrics.atr14 / last.close * Math.sqrt(totalSessions);
+      // Replay a consecutive, already-closed shape sample, NOT its trend or dates.
+      // Detrend the sample and pin its endpoint to the unchanged central scenario.
+      // ponytail: one transparent sample, not a calibrated distribution of futures.
+      const sample = data.bars.slice(-(dates.length + 1));
+      const shapes = dates.map((_, i) => sample[1 + i % (sample.length - 1)]!);
+      const returns = shapes.map((bar, i) => Math.log(bar.close / sample[i % (sample.length - 1)]!.close));
+      const drift = returns.reduce((sum, r) => sum + r, 0) / Math.max(1, returns.length);
+      let residual = 0;
       let previous = last.close;
       const candles = dates.map((date, i): ScenarioCandle => {
         let move = (interpolate(geometry.points, progress(date)) - baseline) * scale;
         if (move > 0 && (nearResistance || risk === "BELOW_EMA60")) move *= .6;
         if (move < 0 && support && last.close - support.high <= metrics.atr14) move *= .6;
-        const close = last.close * Math.exp(Math.max(-.7, Math.min(.7, move)));
-        const open = previous;
+        const baselineClose = last.close * Math.exp(Math.max(-.7, Math.min(.7, move)));
+        residual += returns[i]! - drift;
+        const datedAnchor = path.windows.some(w => w.evidence === "EXPLICIT" && (w.closed ? w.nextSessionDate : w.focusDate) === date);
+        const cap = .75 * metrics.atr14;
+        const offset = i === dates.length - 1 || datedAnchor ? 0 : cap * Math.tanh(residual * last.close / Math.max(cap, 1e-9));
+        const close = Math.max(.00000001, baselineClose + offset);
+        const shape = shapes[i]!;
+        const prior = sample[i % (sample.length - 1)]!;
+        const gapCap = metrics.atr14 * .5;
+        const gap = data.timeZone === "UTC" || i === 0 ? 0 : Math.max(-gapCap, Math.min(gapCap, previous * (shape.open / prior.close - 1)));
+        const open = Math.max(.00000001, previous + gap);
         previous = close;
-        const wick = metrics.atr14 * .25;
+        const upper = Math.max(.05 * metrics.atr14, Math.min(1.5 * metrics.atr14, (shape.high - Math.max(shape.open, shape.close)) / shape.close * close));
+        const lower = Math.max(.05 * metrics.atr14, Math.min(1.5 * metrics.atr14, (Math.min(shape.open, shape.close) - shape.low) / shape.close * close));
         const spread = metrics.atr14 / last.close * Math.sqrt(i + 1);
         return { date, timestamp: Date.parse(`${date}T00:00:00Z`), open, close,
-          high: Math.max(open, close) + wick, low: Math.max(.00000001, Math.min(open, close) - wick), volume: null,
-          rangeLow: close * Math.exp(-spread), rangeHigh: close * Math.exp(spread) };
+          high: Math.max(open, close) + upper, low: Math.max(.00000001, Math.min(open, close) - lower), volume: null,
+          baselineClose, morphologyDate: shape.date,
+          rangeLow: baselineClose * Math.exp(-spread), rangeHigh: baselineClose * Math.exp(spread) };
       });
       return { sourceId: path.id, sourceVersion: path.version, level: path.level, direction: path.direction,
         dateBasis: whole.mode === "DATED" ? "EXPLICIT_WINDOW" as const : "MODEL_PHASE_ALLOCATION" as const,

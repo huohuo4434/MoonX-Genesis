@@ -103,7 +103,8 @@ test("elapsed high is not moved into the future on daily updates", () => {
   data.bars = [...data.bars, { ...tail, date: "2026-09-11", timestamp: Date.parse("2026-09-11T00:00:00Z") }];
   data.asOf = "2026-09-11";
   const result = projectDailyCandles(data, [p], Date.parse("2026-09-12T01:00:00Z"))[0]!;
-  assert.ok(result.candles.every(b => b.close <= b.open));
+  assert.ok(result.candles.every((b, i) => b.baselineClose <= (i ? result.candles[i - 1]!.baselineClose : tail.close)));
+  assert.equal(result.candles.at(-1)!.close, result.candles.at(-1)!.baselineClose);
   assert.equal(result.windows[0]!.focusDate, "2026-09-10");
 });
 test("daily re-computation reacts to a new closed price and preserves source directions", () => {
@@ -131,8 +132,39 @@ test("cron, private archive and UI freshness have independent fail-closed wiring
   assert.match(ui, /visibilitychange/);
   assert.match(ui, /data\?\.projectionDate/);
   const chart = readFileSync("components/member/DailyCandleChart.tsx", "utf8");
-  assert.match(chart, /未模拟跳空/);
+  assert.match(chart, /股票跳空假设上限0.5 ATR/);
   assert.match(chart, /MODEL_PHASE_ALLOCATION/);
   assert.match(chart, /尚未验证准确率/);
   assert.match(chart, /data.archiveStatus === "UNAVAILABLE"/);
+});
+
+test("history-shaped simulation varies bodies and wicks without random data or direction overwrite", () => {
+  const data = fixture();
+  data.bars = data.bars.map((b, i) => ({ ...b, open: b.close - (i % 2 ? 1.3 : -.8),
+    high: b.close + 2 + i % 4, low: b.close - 2 - i % 3, close: b.close + (i % 3 === 0 ? 1 : -1) }));
+  const p = path();
+  const original = JSON.stringify(p);
+  const result = projectDailyCandles(data, [p], now)[0]!;
+  assert.ok(new Set(result.candles.map(b => (b.high - Math.max(b.open, b.close)).toFixed(6))).size > 3);
+  assert.ok(result.candles.some(b => b.close > b.open));
+  assert.ok(result.candles.some(b => b.close < b.open));
+  assert.equal(result.candles.at(-1)!.close, result.candles.at(-1)!.baselineClose);
+  for (const b of result.candles) {
+    assert.ok(b.morphologyDate <= data.asOf);
+    assert.ok(Math.abs(b.close - b.baselineClose) <= .75 * result.atr14 + 1e-12);
+  }
+  assert.equal(JSON.stringify(p), original);
+  assert.deepEqual(result, projectDailyCandles(data, [p], now)[0]);
+});
+
+test("terminal uses real candlestick renderer, priced date crosshair and only actual volume", () => {
+  const src = readFileSync("components/member/ResearchCandleTerminal.tsx", "utf8");
+  assert.match(src, /addSeries\(CandlestickSeries/);
+  assert.match(src, /subscribeCrosshairMove/);
+  assert.match(src, /放大预测区/);
+  assert.match(src, /未来模拟区 · 非真实行情/);
+  assert.match(src, /volume.setData\(actualBars/);
+  assert.match(src, /observer\?\.disconnect/);
+  assert.match(src, /chart\?\.remove/);
+  assert.doesNotMatch(src, /generateCandleRange|Math.random/);
 });

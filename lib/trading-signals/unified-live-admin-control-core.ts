@@ -1,4 +1,5 @@
 import type { UnifiedLiveMode } from "@/types/unified-live-trading";
+import { livePeriodReadiness } from "../bitget/live-period-readiness-core";
 
 export type UnifiedLiveRestoreBlocker = {
   code: string;
@@ -40,20 +41,18 @@ export function buildUnifiedLiveRestoreBlockers(
   if (!input.bitgetLiveExperiment) add("BITGET_MODE_NOT_LIVE_EXPERIMENT", "Bitget当前不是1000U实盘实验模式");
   if (input.bitgetLiveExperiment) {
     const experiment = input.liveExperiment;
-    const start = experiment?.startedAt ? new Date(experiment.startedAt).getTime() : NaN;
-    const end = experiment?.endsAt ? new Date(experiment.endsAt).getTime() : NaN;
-    if (!experiment) {
+    const period = livePeriodReadiness(experiment, now);
+    if (period === "UNAVAILABLE") {
       add("LIVE_EXPERIMENT_UNAVAILABLE", "实盘实验状态未取得，暂不能开启；请稍后重新读取。");
-    } else if (experiment.status === "COMPLETED" || (Number.isFinite(end) && end <= now.getTime())) {
+    } else if (period === "EXPIRED") {
       add("LIVE_EXPERIMENT_EXPIRED", "实盘实验已到期，自动新开仓尚未恢复。需要单独确认新的实验周期；重复点击开启不会续期。");
-    } else if (experiment.status === "STOPPED") {
+    } else if (period === "STOPPED") {
       add("LIVE_EXPERIMENT_STOPPED", "实盘实验已停止，需先核查停止原因；开启按钮不会重置实验。");
-    } else if (experiment.status === "NOT_STARTED") {
+    } else if (period === "NOT_STARTED") {
       add("LIVE_EXPERIMENT_NOT_STARTED", "实盘实验尚未启动，需先完成实验周期配置。");
-    } else if (experiment.status !== "ACTIVE" || !Number.isFinite(start) || !Number.isFinite(end)
-      || !Number.isFinite(now.getTime()) || start >= end) {
+    } else if (period === "INVALID") {
       add("LIVE_EXPERIMENT_INVALID", "实盘实验状态或起止时间无效，暂不能开启。");
-    } else if (start > now.getTime()) {
+    } else if (period === "NOT_DUE") {
       add("LIVE_EXPERIMENT_NOT_DUE", "尚未到达实盘实验开始时间，暂不能开启。");
     }
   }
