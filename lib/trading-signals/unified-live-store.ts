@@ -115,11 +115,55 @@ export async function getUnifiedLiveAccount(ownerKey: string) {
         slices: { orderBy: { openedAt: "desc" }, take: 200 },
       },
     });
+    // History is bounded for display; custody must never lose an older live slice.
+    if (account && account.slices.length === 200) {
+      const olderActive = await database.mooxUnifiedLiveSlice.findMany({
+        where: {
+          accountId: account.id,
+          status: { in: ["PENDING", "OPEN", "PARTIALLY_CLOSED", "ORPHAN_PENDING_CLAIM"] },
+          id: { notIn: account.slices.map((slice) => slice.id) },
+        },
+        orderBy: { openedAt: "desc" },
+      });
+      account.slices.push(...olderActive);
+    }
     return { migrationRequired: false, account };
   } catch (error) {
     if (isMissingTableError(error)) return { migrationRequired: true, account: null };
     throw error;
   }
+}
+
+/** Freeze only the authority version that was inspected, never a later user action. */
+export async function freezeUnifiedLiveEntries(input: {
+  accountId: string;
+  updatedAt: Date;
+  trigger: string;
+  reason: string;
+}) {
+  const database = requireUnifiedLiveDatabase();
+  return database.$transaction(async (tx) => {
+    const result = await tx.mooxUnifiedLiveAccount.updateMany({
+      where: {
+        id: input.accountId,
+        updatedAt: input.updatedAt,
+        mode: "LIVE",
+        newEntriesEnabled: true,
+      },
+      data: { mode: "MANAGE_ONLY", newEntriesEnabled: false },
+    });
+    if (result.count) {
+      await tx.mooxUnifiedLiveEvent.create({
+        data: {
+          accountId: input.accountId,
+          code: "CUSTODY_NEW_ENTRIES_FROZEN",
+          severity: "BLOCKER",
+          detail: `${input.trigger}: ${input.reason}`,
+        },
+      });
+    }
+    return result;
+  });
 }
 
 export async function setUnifiedLiveMode(input: {

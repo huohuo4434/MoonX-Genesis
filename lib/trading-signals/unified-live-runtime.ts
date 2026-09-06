@@ -3,11 +3,11 @@ import { readUnifiedLiveExchangeSnapshot } from "@/lib/trading-signals/unified-l
 import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import {
   ensureUnifiedLiveAccount,
+  freezeUnifiedLiveEntries,
   getUnifiedLiveAccount,
   markUnifiedLiveManualClosures,
   markUnifiedLivePendingSlicesOpen,
   recordUnifiedLiveEvents,
-  setUnifiedLiveMode,
 } from "@/lib/trading-signals/unified-live-store";
 import type { UnifiedLiveCustodyAudit } from "@/types/unified-live-trading";
 import { cancelBitgetDemoStrategyOrder } from "@/lib/bitget/demo-client";
@@ -24,6 +24,34 @@ type StoredUnifiedLiveSlice = {
   maxHoldMinutes: number;
   exchangePositionKey: string | null;
 };
+
+async function readConfirmedUnifiedLiveCustody(ownerKey: string) {
+  const readOnce = async () => {
+    // Read the ledger AFTER the exchange: new fills can register while GETs run.
+    const exchange = await readUnifiedLiveExchangeSnapshot();
+    const stored = await getUnifiedLiveAccount(ownerKey);
+    const slices = (stored.account?.slices ?? []).map((slice: StoredUnifiedLiveSlice) => ({
+      ...slice,
+      horizon: slice.horizon as "SHORT" | "MEDIUM" | "LONG",
+      side: slice.side as "LONG" | "SHORT",
+    }));
+    const audit = stored.account ? auditUnifiedLiveCustody({
+      snapshotAvailable: exchange.available,
+      positions: exchange.positions,
+      orders: exchange.orders,
+      slices,
+    }) : null;
+    return { exchange, stored, audit };
+  };
+  const first = await readOnce();
+  // Only suspect/transition snapshots incur extra GETs. This reduces read skew;
+  // it is not an execution lock. Unknown or persistent anomalies still block.
+  if (first.audit?.snapshotAvailable
+    && (first.audit.issues.length || first.audit.matchedPendingSlices.length)) {
+    return readOnce();
+  }
+  return first;
+}
 
 export async function runUnifiedLiveCustodyCycle(input: {
   trigger: string;
@@ -43,25 +71,8 @@ export async function runUnifiedLiveCustodyCycle(input: {
     };
   }
 
-  const exchange = await readUnifiedLiveExchangeSnapshot();
-  const stored = await getUnifiedLiveAccount(ownerKey);
-  const slices = (stored.account?.slices ?? []).map((slice: StoredUnifiedLiveSlice) => ({
-    id: slice.id,
-    symbol: slice.symbol,
-    horizon: slice.horizon as "SHORT" | "MEDIUM" | "LONG",
-    side: slice.side as "LONG" | "SHORT",
-    status: slice.status,
-    quantity: slice.quantity,
-    openedAt: slice.openedAt,
-    maxHoldMinutes: slice.maxHoldMinutes,
-    exchangePositionKey: slice.exchangePositionKey,
-  }));
-  const audit = auditUnifiedLiveCustody({
-    snapshotAvailable: exchange.available,
-    positions: exchange.positions,
-    orders: exchange.orders,
-    slices,
-  });
+  const { exchange, stored, audit } = await readConfirmedUnifiedLiveCustody(ownerKey);
+  if (!audit || !stored.account) throw new Error("UNIFIED_LIVE_CUSTODY_ACCOUNT_UNAVAILABLE");
 
   if (audit.snapshotAvailable && audit.matchedPendingSlices.length) {
     await markUnifiedLivePendingSlicesOpen(ownerKey, audit.matchedPendingSlices.map((slice) => slice.id));
@@ -82,23 +93,28 @@ export async function runUnifiedLiveCustodyCycle(input: {
   await recordUnifiedLiveEvents(ownerKey, audit.issues);
 
   const config = readUnifiedLiveRuntimeConfig();
+  let currentAccount = stored.account;
   if (audit.freezeNewEntries && stored.account?.newEntriesEnabled) {
-    await setUnifiedLiveMode({
-      ownerKey,
-      mode: "MANAGE_ONLY",
-      newEntriesEnabled: false,
-      positionManagementEnabled: true,
+    await freezeUnifiedLiveEntries({
+      accountId: stored.account.id,
+      updatedAt: stored.account.updatedAt,
+      trigger: input.trigger,
+      reason: audit.issues.filter((issue) => issue.severity === "BLOCKER")
+        .map((issue) => `${issue.code}${issue.symbol ? `(${issue.symbol})` : ""}`).join(", "),
     });
+    const refreshed = await getUnifiedLiveAccount(ownerKey);
+    if (!refreshed.account) throw new Error("UNIFIED_LIVE_CUSTODY_ACCOUNT_UNAVAILABLE");
+    currentAccount = refreshed.account;
   }
   return {
     ok: true,
     migrationRequired: false,
     trigger: input.trigger,
-    mode: audit.freezeNewEntries ? "MANAGE_ONLY" : stored.account?.mode ?? config.mode,
+    mode: currentAccount.mode,
     newOrdersPlaced: 0,
-    positionManagementContinues: config.positionManagementEnabled,
+    positionManagementContinues: currentAccount.positionManagementEnabled && config.positionManagementEnabled,
     exchangePositions: exchange.positions,
-    settledPendingSlices: audit.matchedPendingSlices.map((slice) => slice.id),
+    settledPendingSlices: audit.snapshotAvailable ? audit.matchedPendingSlices.map((slice) => slice.id) : [],
     orphanOrderCleanup,
     audit,
   };
@@ -110,7 +126,7 @@ export async function runUnifiedLiveCustodyCycle(input: {
  * records events, or changes the account mode.
  */
 export async function inspectUnifiedLiveCustody(ownerKey = "official") {
-  const stored = await getUnifiedLiveAccount(ownerKey);
+  const { exchange, stored, audit } = await readConfirmedUnifiedLiveCustody(ownerKey);
   if (stored.migrationRequired || !stored.account) {
     return {
       migrationRequired: stored.migrationRequired,
@@ -119,24 +135,6 @@ export async function inspectUnifiedLiveCustody(ownerKey = "official") {
       exchangePositions: [],
     };
   }
-  const exchange = await readUnifiedLiveExchangeSnapshot();
-  const slices = stored.account.slices.map((slice: StoredUnifiedLiveSlice) => ({
-    id: slice.id,
-    symbol: slice.symbol,
-    horizon: slice.horizon as "SHORT" | "MEDIUM" | "LONG",
-    side: slice.side as "LONG" | "SHORT",
-    status: slice.status,
-    quantity: slice.quantity,
-    openedAt: slice.openedAt,
-    maxHoldMinutes: slice.maxHoldMinutes,
-    exchangePositionKey: slice.exchangePositionKey,
-  }));
-  const audit = auditUnifiedLiveCustody({
-    snapshotAvailable: exchange.available,
-    positions: exchange.positions,
-    orders: exchange.orders,
-    slices,
-  });
   return {
     migrationRequired: false,
     account: stored.account,
