@@ -12,6 +12,7 @@ function probe(patch: Record<string, unknown> = {}, mode = "snapshot") {
     send(text: string) {
       const data = JSON.parse(text); sent.push(data);
       queueMicrotask(() => {
+        if (mode === "event-error") { handlers.message({ data: JSON.stringify({ event: "error", ...patch }) }); return; }
         if (data.op === "login") handlers.message({ data: JSON.stringify({ event: "login", code: mode === "bad-auth" ? "1" : "0" }) });
         else if (mode === "ack-only") { handlers.message({data: JSON.stringify({event: "subscribe"})}); handlers.close({}); }
         else handlers.message({ data: JSON.stringify({ action: "snapshot", arg: { instType: "UTA", topic: "position" }, ts: Date.now(), data: [], ...patch }) });
@@ -48,4 +49,16 @@ test("invalid clock offsets never create a socket", async () => {
 
 test("connection timeout closes the read-only socket", async () => {
   const p = probe({}, "timeout"); await assert.rejects(p.promise, /EXCHANGE_UNKNOWN/); assert.equal(p.closed(), 1);
+});
+
+test("error diagnostics retain numeric status but never raw errors or echoed secrets", async t => {
+  const logs: unknown[] = [];
+  t.mock.method(console, "warn", (...args: unknown[]) => logs.push(args));
+  for (const code of ["30005", "secret-api-key"]) {
+    const p = probe({ code, msg: "secret-passphrase", args: [{ sign: "secret-signature" }] }, "event-error");
+    await assert.rejects(p.promise, /EXCHANGE_UNKNOWN/);
+  }
+  assert.match(JSON.stringify(logs), /30005/);
+  assert.match(JSON.stringify(logs), /UNKNOWN/);
+  assert.doesNotMatch(JSON.stringify(logs), /secret-/);
 });
