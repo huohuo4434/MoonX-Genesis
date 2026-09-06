@@ -1,6 +1,7 @@
 import "server-only";
 import { evaluateLiveDuration } from "./live-duration-core";
 import { assertEmptyExchangePayloads, assertCurrentEntryEpoch } from "./live-continuous-transition-core";
+import { livePeriodReadiness, requireCurrentLiveEquity, readLiveUsdtEquity } from "./live-period-readiness-core";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
 import { resolveAllowedSymbolUniverse } from "@/lib/bitget/live-symbol-universe-core";
@@ -870,7 +871,7 @@ export async function getBitgetRuntimeAccountBalance(): Promise<{
     (row) => String(row.coin ?? "").toUpperCase() === "USDT"
   );
   const availableUsdt = finiteNumber(usdt?.available, usdt?.balance);
-  const equityUsdt = finiteNumber(
+  const equityUsdt = getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? readLiveUsdtEquity(account) : finiteNumber(
     account.usdtEquity,
     usdt?.equity,
     usdt?.balance,
@@ -919,7 +920,7 @@ export async function testBitgetDemoConnection(): Promise<{
   );
 
   const availableUsdt = finiteNumber(usdt?.available, usdt?.balance);
-  const equityUsdt = finiteNumber(
+  const equityUsdt = getBitgetDemoEnvironment().mode === "LIVE_EXPERIMENT" ? readLiveUsdtEquity(account) : finiteNumber(
     account.usdtEquity,
     usdt?.equity,
     usdt?.balance,
@@ -1219,6 +1220,7 @@ export async function readBitgetLiveExperimentStatus(now = new Date()): Promise<
   const row = rows[0];
   if (!row) throw new Error("实盘实验状态读取失败");
   const status = String(row.status || "NOT_STARTED").toUpperCase() as BitgetLiveExperimentStatus["status"];
+  const period = livePeriodReadiness({ status, durationMode: row.duration_mode, startedAt: row.started_at, endsAt: row.ends_at }, now);
   const initial = Number(row.initial_equity_usdt ?? environment.liveInitialCapitalUsdt);
   const current = Number(row.current_equity_usdt ?? initial);
   const peak = Number(row.peak_equity_usdt ?? current);
@@ -1226,13 +1228,13 @@ export async function readBitgetLiveExperimentStatus(now = new Date()): Promise<
   const today = history.find((item) => item.date === beijingDateKey(now));
   const pnl = initial > 0 ? current - initial : 0;
   return {
-    enabled: true, active: evaluateLiveDuration({ status, durationMode: row.duration_mode, startedAt: row.started_at, endsAt: row.ends_at }, now).active, completed: status === "COMPLETED", stopped: status === "STOPPED", status,
+    enabled: true, active: period === "READY", completed: status === "COMPLETED", stopped: status === "STOPPED", status,
     durationMode: row.duration_mode ?? "FIXED",
     startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: current || 0, peakEquityUsdt: peak || 0,
     pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0,
     maxDrawdownUsdt: Number(row.max_drawdown_usdt ?? 0), maxDrawdownPct: Number(row.max_drawdown_pct ?? 0),
     dailyPnlUsdt: today?.pnlUsdt ?? 0, dailyPnlPct: today?.pnlPct ?? 0, dailyHistory: history,
-    stopReason: String(row.stop_reason ?? ""), securityMessage: "安全权限在实验启动及管理员检查时验证；运行中由服务器账户对账持续监控。",
+    stopReason: String(row.stop_reason || (period !== "READY" ? `运行期限未通过：${period}，禁止新开仓。` : "")), securityMessage: "安全权限在实验启动及管理员检查时验证；运行中由服务器账户对账持续监控。",
   };
 }
 
@@ -1265,7 +1267,7 @@ export async function syncBitgetLiveExperimentStatus(
       getBitgetDemoCurrentPositions(),
       getBitgetDemoPendingStrategyOrders(),
     ]);
-    equity = account.equityUsdt || account.availableUsdt || 0;
+    equity = requireCurrentLiveEquity(account.equityUsdt);
     securityMessage = security.message;
     securitySafe = security.safeForLiveExperiment;
     if (!environment.liveConfirmationAccepted) throw new Error("未确认真实亏损风险");
@@ -1286,7 +1288,7 @@ export async function syncBitgetLiveExperimentStatus(
   } else {
     // 运行中只读取账户余额和API权限，不再每分钟重复拉取10个合约配置、资金账户、持仓及策略单。
     const [balance, security] = await Promise.all([getBitgetRuntimeAccountBalance(), getBitgetApiSecurity()]);
-    equity = balance.equityUsdt || balance.availableUsdt || Number(row.current_equity_usdt ?? 0);
+    equity = requireCurrentLiveEquity(balance.equityUsdt);
     securityMessage = security.message;
     securitySafe = security.safeForLiveExperiment;
   }

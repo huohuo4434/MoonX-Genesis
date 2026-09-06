@@ -53,7 +53,8 @@ test("migration is additive only; pending drafts cannot activate runtime mode", 
   assert.doesNotMatch(sql, /\bUPDATE\b|\bDELETE\b|\bDROP\b/i);
   for (const path of ["lib/bitget/demo-client.ts", "lib/trading-signals/ai-desk-status.ts", "lib/trading-signals/unified-live-admin-control-core.ts"]) {
     const source = readFileSync(path, "utf8");
-    assert.match(source, /evaluateLiveDuration/);
+    assert.match(source, /evaluateLiveDuration|livePeriodReadiness/);
     assert.doesNotMatch(source, /getLiveConfigurationDraft|LIVE_CONFIGURATION_DRAFT_V1/);
   }
+  assert.match(readFileSync("lib/bitget/live-period-readiness-core.ts", "utf8"), /evaluateLiveDuration/);
 });

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { KeyDatePriceChart } from "@/components/member/KeyDatePriceChart";
+import { chartWindow } from "@/lib/presentation/key-date-chart";
+import { forecastPaths } from "@/lib/presentation/forecast-path";
+import { keyDateChartForecasts } from "@/lib/data/member-key-date-radar";
 import { BtcAnnualWindowAmendment } from "@/components/research/BtcAnnualWindowAmendment";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
@@ -15,7 +19,7 @@ import {
   type KeyDateRadarViewItem,
 } from "@/lib/data/key-date-radar-core";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
-import { keyDateGuidance, SANDISK_KEY_DATE_CORRECTION } from "@/lib/presentation/key-date-guidance";
+import { keyDateGuidance } from "@/lib/presentation/key-date-guidance";
 import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as septemberReport } from "@/lib/data/member-september-rotation-report-20260826";
 import { applyVerifiedGannKeyDateOverlay } from "@/lib/research/gann-prediction-overlay-core";
 import { getVerifiedGannPredictionSignals } from "@/lib/research/gann-prediction-signals.server";
@@ -292,7 +296,8 @@ export default async function MemberKeyDatesPage() {
         ].map(([label, value], index) => <div key={String(label)} className={`rounded-2xl border px-4 py-3 ${index === 1 ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-white/10 bg-black/20"}`}><p className="text-caption text-foreground-tertiary">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</div>
       </header>
 
-      {currentItems.some((item) => item.assetId === "sandisk" && item.focusDate >= "2026-09-04" && item.focusDate <= "2026-09-07") ? <p className="rounded-xl border border-amber-300/25 bg-amber-300/[.07] p-4 text-body-sm text-amber-100">{SANDISK_KEY_DATE_CORRECTION}</p> : null}
+      <KeyDatePriceChart windows={currentItems.map(chartWindow)} paths={forecastPaths(currentItems, keyDateChartForecasts(currentItems, Date.now()), asOfDate)} asOfDate={asOfDate} />
+
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
         <div className="flex flex-wrap items-center justify-between gap-3">

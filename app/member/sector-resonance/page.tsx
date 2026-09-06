@@ -110,6 +110,7 @@ export default async function MemberSectorResonancePage({
               <header className="border-b border-white/[.06] px-5 py-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-100/50">MR. YI · MARKET OUTLOOK</p>
                 <h2 className="mt-1.5 text-lg font-semibold text-white">{crossCheck.title}</h2>
+                <p className="mt-1 text-xs text-white/45">应对更新：{crossCheck.reviewedAt}</p>
                 <p className="mt-2 text-xs leading-6 text-white/45">{crossCheck.boundary}</p>
               </header>
               <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">

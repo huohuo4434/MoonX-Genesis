@@ -34,9 +34,19 @@ does not count as an applied runtime setting.
   new position. Synchronizer status/mode CAS prevents an old fixed-duration read
   from overwriting a newly converted record. Repeating a successful conversion
   does not reset history. Database concurrency has not been live-tested.
-- No production migration, deployment, lifecycle conversion or live switch was
-  performed. Deployment inspection returned Vercel 403 for scope huohuo2; the
-  connected account requires re-authorization before publishing can continue.
+- Historical preparation stopped at a Vercel connector 403. On September 6 the
+  configured Vercel CLI successfully inspected the production project, so the
+  earlier connector error is not a current CLI deployment blocker.
+- The additive migration has now been applied through the configured Supabase
+  connection and verified. The existing row remains FIXED/COMPLETED with its
+  original deadline and no entry epoch. No lifecycle conversion or live switch
+  has been performed. The stored account permission is LIVE, but expiry blocks
+  entries; the administrator must turn off new entries before conversion.
+- Merge with origin/main preserves strict current USDT equity reads and routes
+  the shared period evaluator through the continuous-duration evaluator.
+- Before conversion, verify every scheduler calls the new production alias or
+  uses an upgraded worker; allow old in-flight synchronizers to finish. Never
+  roll back to a pre-CONTINUOUS synchronizer after applying continuous duration.
 
 ## Rollback
 
@@ -51,10 +61,10 @@ Run targeted duration/admin/member publisher tests, typecheck, production build
 and impact audit. Require separate Reviewer approval. Production acceptance remains
 separate and requires `UPGRADE VALIDATION PASSED` plus fresh read-only runtime proof.
 
-Latest combined targeted result: 143/143 PASS. TypeScript PASS. Production build
-PASS (65 generated pages, existing unrelated lint warnings). Impact audit:
-24 changed/new files, 0 blockers. Separate Reviewer
-APPROVE after independently running 41/41 tests. Store, route, UI and actual
+Previous preparation had combined targeted result 143/143 PASS, TypeScript PASS
+and production build PASS. Current merged code: targeted tests 57/57 PASS;
+separate Reviewer independently reran 57/57 and approved. New production build
+and typecheck are being verified before release. Store, route, UI and actual
 reader/synchronizer tests mock database/exchange/HTTP boundaries; these are not
 proof of a production conversion. No production acceptance has been claimed.
 An independent extra historical public-verification test has an unrelated existing

@@ -24,7 +24,7 @@ export function assertContinuousTransition(input: {
   const { row, now } = input;
   const duration = evaluateLiveDuration({ status: row.status, durationMode: row.duration_mode, startedAt: row.started_at, endsAt: row.ends_at }, now);
   if (row.status !== "COMPLETED" || !duration.expired || duration.mode !== "FIXED"
-    || !["30天实盘实验到期，已停止新开仓。", "定期实盘运行已到期，已停止新开仓。"].includes(row.stop_reason)) throw new Error("NOT_EXPIRY_COMPLETED");
+    || !["30天实盘实验到期，已停止新开仓。", "定期实盘运行已到期，已停止新开仓。", "已配置的运行期限到期，已停止新开仓。"].includes(row.stop_reason)) throw new Error("NOT_EXPIRY_COMPLETED");
   const age = now.getTime() - input.observedAt;
   if (!Number.isFinite(age) || age < 0 || age > 30_000) throw new Error("SNAPSHOT_STALE");
   for (const value of [row.initial_equity_usdt, row.current_equity_usdt, row.peak_equity_usdt,

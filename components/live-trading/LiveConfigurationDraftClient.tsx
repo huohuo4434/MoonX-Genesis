@@ -10,7 +10,7 @@ function decodeView(value: unknown): LiveConfigurationDraftView {
   if (data.draft === null && data.revision === null && data.savedAt === null) return data;
   if (!data.draft || data.draft.state !== "PENDING" || data.draft.schemaVersion !== 1
     || typeof data.revision !== "string" || !data.revision || typeof data.savedAt !== "string" || !Number.isFinite(Date.parse(data.savedAt))) throw new Error("INVALID_VIEW");
-  parseLiveConfigurationDraft({ durationMode: data.draft.durationMode, durationDays: data.draft.durationDays, capitalUsdt: data.draft.capitalUsdt });
+  parseLiveConfigurationDraft({ durationMode: data.draft.durationMode, durationDays: data.draft.durationDays, capitalUsdt: data.draft.capitalUsdt, leverage: data.draft.leverage });
   return data;
 }
 

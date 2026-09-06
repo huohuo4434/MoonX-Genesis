@@ -14,6 +14,7 @@ import {
 } from "@/lib/data/conviction/us-megacap-liuyao-20260829";
 import type { KeyDateAction, KeyDateLevel, KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
 import { applyResearchConsensusOverlays20260830 } from "@/lib/data/research-consensus-20260830";
+import { keyDateSourceHorizon } from '@/lib/presentation/key-date-source-horizon';
 
 const DAY_MS = 86_400_000;
 const BRANCH_PATTERN = /[财官兄弟子孙父母世应][^，。；]{0,5}([子丑寅卯辰巳午未申酉戌亥])/g;
@@ -44,6 +45,18 @@ function listKeyDateForecasts(assetId: MemberKeyDateAssetId) {
   return isSupplementalKeyDateAssetId(assetId)
     ? listMonthlyLiuyaoForecasts20260829(assetId)
     : listStaticFocusForecasts(assetId);
+}
+
+/** Resolve only the immutable records already selected by the member radar. */
+export function keyDateChartForecasts(items: KeyDateRadarItem[], now: number) {
+  const records: ConvictionPeriodForecast[] = [];
+  for (const assetId of MEMBER_KEY_DATE_ASSET_IDS) {
+    const ids = new Set(items.filter(item => item.assetId === assetId).flatMap(item => item.sourceIds));
+    records.push(...listKeyDateForecasts(assetId).filter(row => ids.has(row.id)
+      && row.status === "published" && Date.parse(row.lockedAt) <= now && Date.parse(row.publishedAt) <= now)
+      .map(row => ({ ...row, assetId }))); // Registry aliases (bitcoin -> btc), never mutate source records.
+  }
+  return records;
 }
 
 type LockedPathDateHint = {
@@ -117,8 +130,8 @@ function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asO
       && Date.parse(row.lockedAt) <= Date.parse(`${asOfDate}T23:59:59.999+08:00`)
       && row.periodEnd >= asOfDate
       && (level === "MONTH"
-        ? row.forecastType.startsWith("MONTH") && duration >= 20
-        : row.forecastType.startsWith("WEEK") && duration <= 14 && hasUsableTradingDate(row, assetId, asOfDate));
+        ? keyDateSourceHorizon(row) === 'MONTH' && duration >= 20
+        : keyDateSourceHorizon(row) === 'WEEK' && duration <= 14 && hasUsableTradingDate(row, assetId, asOfDate));
   });
   if (level === "MONTH" && valid.length === 0) {
     valid = rows.filter((row) =>
@@ -128,6 +141,11 @@ function selectPeriod(rows: ConvictionPeriodForecast[], level: KeyDateLevel, asO
       && (row.keyDates ?? []).some((item) => Boolean(item.date) && item.date! >= asOfDate)
       && /月卦/.test(`${row.summary}${row.expectedPath}${row.ichingEvidence.notes}${row.methodViews?.map((item) => item.label).join("") ?? ""}`)
     );
+  }
+  // Stage fallback must not displace a previously selected dated monthly record.
+  if (level === 'MONTH' && valid.length === 0) {
+    valid = rows.filter(row => keyDateSourceHorizon(row) === 'STAGE' && row.status === 'published'
+      && Date.parse(row.lockedAt) <= Date.parse(`${asOfDate}T23:59:59.999+08:00`) && row.periodEnd >= asOfDate);
   }
   return valid.sort((left, right) => {
     const targetMonth = target.slice(0, 7);
@@ -207,7 +225,7 @@ function normalizeTradingDate(date: string, row: ConvictionPeriodForecast, asset
 }
 
 function derivedFocus(row: ConvictionPeriodForecast, assetId: MemberKeyDateAssetId, asOfDate: string, level: KeyDateLevel) {
-  const monthlyWeekFallback = level === "WEEK" && row.forecastType.startsWith("MONTH");
+  const monthlyWeekFallback = level === "WEEK" && keyDateSourceHorizon(row) !== 'WEEK';
   const target = addDays(asOfDate, level === "MONTH" ? 7 : 2);
   const targetMonthStart = `${target.slice(0, 7)}-01`;
   const nextMonthStart = addDays(`${target.slice(0, 7)}-28`, 4).slice(0, 7) + "-01";
@@ -259,7 +277,7 @@ function buildItem(input: {
 }): KeyDateRadarItem {
   const asset = keyDateAsset(input.assetId);
   const duration = durationDays(input.row);
-  const sourceLabel = input.level === "WEEK" && input.row.forecastType.startsWith("MONTH")
+  const sourceLabel = input.level === "WEEK" && keyDateSourceHorizon(input.row) !== 'WEEK'
     ? "月卦当周推演方向"
     : input.level === "MONTH" && duration > 45
       ? "多月卦阶段方向"
@@ -354,7 +372,7 @@ function itemsForPeriod(assetId: MemberKeyDateAssetId, level: KeyDateLevel, asOf
     action,
     title: derivedTitle(row.direction, action, derived.structuralTurnPending),
     evidence: "DERIVED",
-    derivation: level === "WEEK" && row.forecastType.startsWith("MONTH")
+    derivation: level === "WEEK" && keyDateSourceHorizon(row) !== 'WEEK'
       ? `下一独立周卦尚未覆盖，先按已锁定月卦的当周段推演；${derived.derivation}`
       : crossMonthResidual
         ? `当前目标月没有独立整月记录，只展示既有跨月锁定记录的剩余有效窗；${derived.derivation}`

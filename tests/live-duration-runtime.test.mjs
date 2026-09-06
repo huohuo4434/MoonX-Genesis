@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import { evaluateLiveDuration } from "../lib/bitget/live-duration-core.ts";
+import { livePeriodReadiness, requireCurrentLiveEquity } from "../lib/bitget/live-period-readiness-core.ts";
 
 // Execute the real reader/synchronizer with DB/exchange boundaries mocked.
 // No credentials, request headers, network or persistent writes are available.
@@ -22,7 +23,7 @@ function harness(row = base, { securitySafe = true, equity = 1002, dailyPnl = 2,
   const writes = [], exports = {};
   const current = { date: "2026-09-06", pnlUsdt: dailyPnl, pnlPct: dailyPnl / 10, trades: 0 };
   vm.runInNewContext(compiled, {
-    exports, Date, evaluateLiveDuration,
+    exports, Date, evaluateLiveDuration, livePeriodReadiness, requireCurrentLiveEquity,
     getBitgetDemoEnvironment: () => ({ mode: "LIVE_EXPERIMENT", executionAllowed: true,
       liveInitialCapitalUsdt: 1000, liveDailyLossUsdt: 10, liveMaxDrawdownUsdt: 50 }),
     ensureBitgetLiveExperimentTable: async () => true,
