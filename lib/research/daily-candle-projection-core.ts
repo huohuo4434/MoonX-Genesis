@@ -3,19 +3,33 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "conditional-history-shape-v2";
+export const PROJECTION_ENGINE = "conditional-history-shape-v3-coverage";
 export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
   dateBasis: "EXPLICIT_WINDOW" | "MODEL_PHASE_ALLOCATION"; candles: ScenarioCandle[];
   windows: ForecastPath["windows"]; atr14: number; ema60: number | null;
   risk: "NEAR_RESISTANCE" | "BELOW_EMA60" | "NORMAL"; generatedAt: string;
+  sourceHorizon?: ForecastPath['sourceHorizon'];
 };
 export type DailyProjectionData = KeyDateChartData & {
   checkedAt: string; expectedAsOf: string; projectionDate: string; engine: string;
   projections: CandleProjection[]; archiveStatus: "STORED" | "UNAVAILABLE" | "NOT_APPLICABLE";
   archiveId: string | null;
+  unavailable?: Partial<Record<'MONTH' | 'WEEK', 'NO_SOURCE' | 'INSUFFICIENT_BARS' | 'CALENDAR' | 'NO_FUTURE_SESSION'>>;
 };
+
+export function projectionCoverage(data: KeyDateChartData, paths: ForecastPath[], projections: CandleProjection[], now: number): DailyProjectionData['unavailable'] {
+  const result: NonNullable<DailyProjectionData['unavailable']> = {};
+  const today = exchangeDate(now, data.timeZone);
+  for (const level of ['MONTH', 'WEEK'] as const) {
+    if (projections.some(p => p.level === level)) continue;
+    const sources = paths.filter(p => p.assetId === data.assetId && p.level === level && p.periodEnd >= today && Date.parse(p.lockedAt) <= now);
+    result[level] = !sources.length ? 'NO_SOURCE' : !dailyVolatility(data.bars) ? 'INSUFFICIENT_BARS'
+      : !sources.some(p => chartCalendarSupported(data.assetId, p.periodStart > today ? p.periodStart : today)) ? 'CALENDAR' : 'NO_FUTURE_SESSION';
+  }
+  return result;
+}
 
 function ema(bars: ChartBar[], period: number) {
   if (bars.length < period) return null;
@@ -109,7 +123,7 @@ export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[
           baselineClose, morphologyDate: shape.date,
           rangeLow: baselineClose * Math.exp(-spread), rangeHigh: baselineClose * Math.exp(spread) };
       });
-      return { sourceId: path.id, sourceVersion: path.version, level: path.level, direction: path.direction,
+      return { sourceId: path.id, sourceVersion: path.version, level: path.level, sourceHorizon: path.sourceHorizon, direction: path.direction,
         dateBasis: whole.mode === "DATED" ? "EXPLICIT_WINDOW" as const : "MODEL_PHASE_ALLOCATION" as const,
         candles, windows: path.windows, ...metrics, risk, generatedAt: new Date(now).toISOString() };
     }).filter(p => p.candles.length > 0);

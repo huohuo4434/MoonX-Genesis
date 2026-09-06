@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CandlestickSeries, HistogramSeries, LineSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers, type IChartApi, type Time, type Logical } from "lightweight-charts";
 import type { DailyProjectionData, CandleProjection } from "@/lib/research/daily-candle-projection-core";
 
-const formatPrice = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < 1 ? 6 : 2 });
+const formatPrice = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
 
 /** Actual provider OHLC only on the left. Future scenario has its own shading,
  * label and immutable archive. No fabricated volume or historical candles. */
@@ -43,7 +43,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       const series = chart.addSeries(CandlestickSeries, {
         upColor: "#26a69a", downColor: "#ef5350", borderVisible: true,
         borderUpColor: "#26a69a", borderDownColor: "#ef5350", wickUpColor: "#26a69a", wickDownColor: "#ef5350",
-        priceFormat: { type: "price", precision: data.bars.at(-1)!.close < 1 ? 6 : 2, minMove: data.bars.at(-1)!.close < 1 ? .000001 : .01 },
+        priceFormat: { type: "price", precision: data.bars.at(-1)!.close < .001 ? 10 : data.bars.at(-1)!.close < 1 ? 6 : 2, minMove: data.bars.at(-1)!.close < .001 ? 1e-10 : data.bars.at(-1)!.close < 1 ? .000001 : .01 },
         lastValueVisible: false, priceLineVisible: false,
       });
       const actualBars = data.bars.slice(-70);

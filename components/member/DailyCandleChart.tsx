@@ -4,21 +4,28 @@ import { useState } from "react";
 import type { DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import { ResearchCandleTerminal } from "./ResearchCandleTerminal";
 
-const price = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < 1 ? 6 : 2 });
+const price = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
 const directions: Record<string, string> = { 上涨: "Rising", 下跌: "Falling", 震荡: "Range-bound", 震荡上涨: "Choppy rise", 震荡下跌: "Choppy decline", 先涨后跌: "Rise, then pull back", 先跌后涨: "Dip, then recover" };
 
 export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: boolean }) {
-  const [level, setLevel] = useState<"MONTH" | "WEEK">("MONTH");
+  const [level, setLevel] = useState<"MONTH" | "WEEK">(() => data.projections.some(p => p.level === 'MONTH') ? 'MONTH' : data.projections.some(p => p.level === 'WEEK') ? 'WEEK' : 'MONTH');
   const [source, setSource] = useState("");
   const [band, setBand] = useState(false);
   const choices = data.projections.filter(p => p.level === level);
   const projection = choices.find(p => p.sourceId === source) ?? choices[0];
   const last = data.bars.at(-1)!;
+  const missing = data.unavailable?.[level] ?? 'NO_SOURCE';
+  const missingText = missing === 'INSUFFICIENT_BARS'
+    ? en ? `Only ${data.bars.length} closed candles or insufficient volatility history; at least 20 are needed.` : `闭合日K共${data.bars.length}根，尚不足20根或缺少有效波动样本，暂不推演。`
+    : missing === 'CALENDAR' ? en ? 'Trading calendar for this period is pending verification.' : '该周期交易日历尚待核验。'
+      : missing === 'NO_FUTURE_SESSION' ? en ? 'This published period has no remaining verified session.' : '该预测周期已无剩余可推演交易日。'
+        : level === 'WEEK' ? en ? 'No independent weekly forecast. The monthly/stage chart remains available above.' : '暂无独立周预测，可切换上方月度／阶段图查看，不能把月卦冒充周卦。'
+          : en ? 'No monthly/stage forecast. Check the weekly chart above.' : '暂无月度／阶段预测，可切换上方周度图查看。';
   const checkAt = new Date(data.checkedAt).toLocaleString(en ? "en-US" : "zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
   return <div className="mt-5 space-y-3" data-daily-candle-projection="v2">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex gap-2" role="group" aria-label={en ? "Forecast horizon" : "预测周期"}>
-        {(["MONTH", "WEEK"] as const).map(v => <button key={v} type="button" aria-pressed={level === v} onClick={() => { setLevel(v); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === v ? "border-cyan-300 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{v === "MONTH" ? en ? "Monthly candles" : "月度预测K线" : en ? "Weekly candles" : "周度预测K线"}</button>)}
+        {(["MONTH", "WEEK"] as const).map(v => <button key={v} type="button" aria-pressed={level === v} onClick={() => { setLevel(v); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === v ? "border-cyan-300 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{v === "MONTH" ? data.projections.some(p => p.level === 'MONTH' && p.sourceHorizon === 'STAGE') ? en ? 'Stage forecast candles' : '阶段预测K线' : en ? "Monthly candles" : "月度预测K线" : en ? "Weekly candles" : "周度预测K线"}{!data.projections.some(p => p.level === v) ? en ? ' · unavailable' : ' · 暂无' : ''}</button>)}
       </div>
       <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={band} onChange={e => setBand(e.target.checked)} />{en ? "Volatility bounds (not probability)" : "波动边界（非概率区间）"}</label>
     </div>
@@ -28,7 +35,10 @@ export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: 
       {projection ? <strong className="text-cyan-200">{en ? directions[projection.direction] ?? projection.direction : projection.direction} · {projection.candles[0]?.date}—{projection.candles.at(-1)?.date}</strong> : null}
     </div>
     <p className="text-xs text-amber-200">{en ? "Future candles = one historical-shape simulation, not future quotes or validated daily targets." : "右侧是参考历史波动形态的未来模拟，不是真实报价；尚未验证准确率。"}</p>
-    {data.stale ? <p className="rounded-lg border border-amber-400/30 p-3 text-sm text-amber-200">{en ? `Daily feed delayed: expected ${data.expectedAsOf}. Forecast withheld.` : `日K数据延迟：应更新至 ${data.expectedAsOf}，完整行情到达前暂停预测。`}</p> : !projection ? <p className="p-3 text-sm text-amber-200">{en ? "No usable published forecast, verified calendar or enough closed candles for this horizon. Actual data only." : "该周期暂无可用正式预测、已核验交易日历或充足闭合K线；仅显示真实行情。"}</p> : null}
+    {data.stale ? <p className="rounded-lg border border-amber-400/30 p-3 text-sm text-amber-200">{en ? `Daily feed delayed: expected ${data.expectedAsOf}. Forecast withheld.` : `日K数据延迟：应更新至 ${data.expectedAsOf}，完整行情到达前暂停预测。`}</p> : !projection ? <p className="p-3 text-sm text-amber-200">{missingText}</p> : null}
+    {data.assetId === 'spcx' ? <p className="text-xs text-amber-200">{en ? 'Mythos SPCX perpetual, quoted in USDC — not stock spot prices. Zero-volume candles may reflect order-book quotes, not trades.' : 'Mythos SPCX永续合约，USDC计价，并非股票现货报价；零成交量K线可能来自盘口报价，不代表实际成交。'}</p> : null}
+    {data.assetId === 'asteroid' ? <p className="text-xs text-slate-400">{en ? 'ASTEROID token price in USD, not market capitalization; Ethereum contract 0xf280…694126.' : '这里是ASTEROID代币美元单价，不是市值；以太坊合约0xf280…694126。'}</p> : null}
+    {['gold','silver','wti-crude'].includes(data.assetId) ? <p className="text-xs text-slate-400">{en ? 'Continuous futures reference, not spot; rollover can affect prices. September settlement-day calendar verified; no separate Sep 7 daily forecast candle.' : '连续期货参考行情，并非现货；换月可能影响价格。已核验9月结算交易日日历，9月7日不单独绘制预测日K。'}</p> : null}
     {projection && projection.risk !== "NORMAL" ? <p className="text-sm text-amber-200">{projection.risk === "NEAR_RESISTANCE" ? en ? "Near daily resistance: upside scenario reduced. Watch the breakout." : "接近日线压力：上行幅度已收敛，先看突破能否站稳。" : en ? "Below daily EMA60: recovery unconfirmed; upside scenario reduced." : "处于日线EMA60下方：修复待确认，上行幅度已收敛。"}</p> : null}
     <ResearchCandleTerminal data={data} projection={projection} en={en} band={band} />
     <p className="text-xs text-slate-400">{en ? "Daily data through" : "日K已更新至"} {data.asOf} · {en ? "Checked (Beijing)" : "检查时间（北京）"} {checkAt} · {data.source} · {data.timeZone}</p>

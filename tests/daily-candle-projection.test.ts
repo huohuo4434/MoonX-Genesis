@@ -20,7 +20,8 @@ test('verified 2026 exchange holidays and unsupported future years fail closed',
   assert.equal(isChartTradingDay('sandisk', '2026-04-03'), false);
   assert.equal(isChartTradingDay('sandisk', '2026-06-19'), false);
   assert.equal(chartCalendarSupported('sandisk', '2027-01-04'), false);
-  assert.equal(chartCalendarSupported('gold', '2026-09-08'), false);
+  assert.equal(chartCalendarSupported('gold', '2026-09-08'), true);
+  assert.equal(chartCalendarSupported('gold', '2026-10-01'), false);
   assert.equal(chartCalendarSupported('btc', '2027-01-04'), true);
   const p = { ...path('sandisk'), periodStart: '2027-01-01', periodEnd: '2027-01-31' };
   assert.deepEqual(projectDailyCandles(fixture('sandisk'), [p], Date.parse('2027-01-01T01:00:00Z')), []);

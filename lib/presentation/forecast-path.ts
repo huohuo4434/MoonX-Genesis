@@ -2,11 +2,13 @@ import type { ConvictionPeriodForecast } from "@/lib/data/conviction/asteroid-fo
 import type { KeyDateRadarItem } from "@/lib/data/key-date-radar-core";
 import { normalizeOfficialDirection, ALLOWED_FORMAL_DIRECTIONS, type OfficialDirection } from "@/lib/forecasts/formal-direction";
 import { chartWindow, type ChartWindow } from "./key-date-chart";
+import { keyDateSourceHorizon } from './key-date-source-horizon';
 
 export type ForecastPath = {
   id: string; assetId: string; level: "MONTH" | "WEEK"; direction: OfficialDirection;
   periodStart: string; periodEnd: string; lockedAt: string; version: number;
   windows: ChartWindow[];
+  sourceHorizon?: 'MONTH' | 'WEEK' | 'STAGE';
 };
 /** The chart does not create or publish a forecast. Unknown/discordant inputs have no curve. */
 export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeriodForecast[], asOfDate: string): ForecastPath[] {
@@ -14,7 +16,8 @@ export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeri
   for (const row of records) {
     if (row.status !== "published" || row.periodEnd < asOfDate
       || !(ALLOWED_FORMAL_DIRECTIONS as readonly string[]).includes(row.direction)) continue;
-    const level = row.forecastType.startsWith("MONTH") ? "MONTH" : row.forecastType.startsWith("WEEK") ? "WEEK" : null;
+    const sourceHorizon = keyDateSourceHorizon(row);
+    const level = sourceHorizon === 'STAGE' ? 'MONTH' : sourceHorizon;
     if (!level) continue; // Never relabel an annual/monthly fallback as a weekly forecast.
     const matching = items.filter(item => item.assetId === row.assetId && item.level === level && item.sourceIds.includes(row.id));
     if (!matching.length) continue;
@@ -27,7 +30,7 @@ export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeri
         focusDate: key.date!, sourceDateType: key.type, evidence: "EXPLICIT" }));
     // Retain passed explicit anchors: a past high must not become another future high on refresh.
     const windows = explicitWindows.length ? explicitWindows : matching.map(chartWindow);
-    paths.push({ id: row.id, assetId: row.assetId, level, direction, periodStart: row.periodStart,
+    paths.push({ id: row.id, assetId: row.assetId, level, sourceHorizon: sourceHorizon!, direction, periodStart: row.periodStart,
       periodEnd: row.periodEnd, lockedAt: row.lockedAt, version: row.version, windows });
   }
   return [...new Map(paths.map(path => [`${path.level}:${path.id}`, path])).values()];

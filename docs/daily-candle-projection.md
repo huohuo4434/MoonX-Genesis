@@ -1,5 +1,18 @@
 # Daily candle projection v2
 
+## Coverage repair (2026-09-06)
+
+Engine `conditional-history-shape-v3-coverage` keeps v2 mathematics, isolates cache/archive versions, and fixes input coverage. No orders, execution calendars, API authorization, env variables, schema or locked forecast records change. Revert this coverage commit to `bbd71c5` to roll back; preserve archives.
+
+- TSLA original seven-week record `TSLA-7W-20260817-V1` occupies legacy YEAR_1; actual source horizon is STAGE, displayed as stage candles. TSLA W5/W6/W7 occupy MONTH_1/MONTH_3/TODAY slots; all remain WEEK by original IDs and dates. No annual forecast is arbitrarily converted to monthly, and no monthly source becomes an independent week.
+- SPCX exact public instrument: Orderly `PERP_SPCX_USDC_mythos`, UTC daily, USDC perpetual, not underlying stock or Yahoo's same-name ticker. Public `/v1/tv/kline_history` returns OHLCV arrays. Zero-volume quote-derived bars are retained with explicit user disclosure, never claimed as executed trades. Source: https://orderly.network/docs/build-on-omnichain/restful-api/public/get-kline-history
+- ASTEROID uses the verified Ethereum token `0xf280b16ef293d8e534e370794ef26bf312694126` in pool `0x76a411f14a704099ba476ce8dffc288a53295218`, base-token USD OHLCV, not market capitalization. Each load verifies pool base-token identity. https://apiguide.geckoterminal.com/faq
+- CXMT `688825.SS` uses Asia/Shanghai, finalization at 15:30 local, full 2026 SSE calendar from https://www.sse.com.cn/disclosure/announcement/general/c/c_20251222_10802507.shtml . Do not treat weekend make-up workdays as exchange sessions.
+- GC=F, SI=F and CL=F retain continuous-futures data and conservative next-exchange-date finalization. Forecast calendar support is explicitly **September 2026 only**, not blanket all-year support. CME's September 6 reopening carries September 8 trade date; September 7 has no separate settlement-date simulated candle. https://www.cmegroup.com/trading-hours.html ; https://www.cmegroup.com/tools-information/holiday-calendar/files/2026/labor-day-holiday-settlement-times-2026.pdf . Beyond verified dates fail closed until calendar maintenance. WTI only visualizes its existing monthly conclusion, not a new daily/weekly published forecast.
+- 23 active feeds checked locally against current public responses; all had at least 20 closed candles and at least one projection. Apple, Amazon, META, HYPE and WTI had no independent weekly record selected; no weekly record is fabricated. Missing source / history / calendar / remaining session have separate bilingual notices.
+- The page also still lists Ganfeng, Lian and Lexin despite their retired focus status. Their existing research gets exact `002460.SZ`, `300784.SZ`, `300562.SZ` reference charts, with SZSE 2026 calendar (https://investor.szse.cn/disclosure/notice/general/t20251222_618087.html). This does not reactivate them in trading or publish new forecasts.
+- Existing hourly cron enumerates the shared symbol registry, now 26 feeds covering every current dropdown choice; no new scheduler is introduced. Adding a feed does not prove the next scheduled job succeeded; production member response, private archive and recurring runtime must be verified separately.
+
 Scope: member key-date chart only. No trading permissions, locked forecast changes, financial orders, accuracy score changes, new packages or database-schema changes.
 
 - Real OHLC uses verified quote identifiers and closed sessions only. US/HK equity closes are eligible at 16:30 exchange-local time (conservative on half-days). Crypto UTC daily bars finalize after UTC midnight. Commodity settlement/session calendars are not fully verified; those feeds retain the conservative next-exchange-date cutoff.
