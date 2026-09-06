@@ -141,7 +141,11 @@ export function auditUnifiedLiveCustody(input: {
   }
 
   const timeExitDue: string[] = [];
+  const absentSliceIds = new Set(siteOnlySlices.map((slice) => slice.id));
   for (const slice of active) {
+    // Confirmed exchange absence is a ledger reconciliation, not an overdue exposure.
+    // Unknown snapshots remain fail-closed; pending settlement is not proven absence.
+    if (input.snapshotAvailable && absentSliceIds.has(slice.id)) continue;
     const opened = new Date(slice.openedAt);
     const minutes = Number(slice.maxHoldMinutes);
     const configured = Number.isFinite(minutes) && minutes >= 0 ? minutes : UNIFIED_LIVE_HORIZON_LIMITS[slice.horizon];

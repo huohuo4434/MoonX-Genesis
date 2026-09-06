@@ -69,6 +69,26 @@ function harness({ exchanges = [healthy], accounts = [account], concurrentAction
 }
 const run = h => h.runUnifiedLiveCustodyCycle({ trigger: "TEST_ONLY" });
 
+test("confirmed already-closed overdue position reconciles without a sticky time-exit freeze", async () => {
+  const overdue = { ...account, slices: [{ ...slice, openedAt: new Date(Date.now() - 3600_000), maxHoldMinutes: 30 }] };
+  const h = harness({ exchanges: [empty], accounts: [overdue] });
+  const result = await run(h);
+  assert.equal(result.audit.freezeNewEntries, false);
+  assert.deepEqual(h.writes.map(w => w.kind), ["close"]);
+  assert.equal(h.calls.filter(c => c === "exchange").length, 2);
+});
+
+test("overdue real exposure and unavailable exchange snapshots still fail closed", async () => {
+  const overdue = { ...account, slices: [{ ...slice, openedAt: new Date(Date.now() - 3600_000), maxHoldMinutes: 30 }] };
+  for (const snapshot of [healthy, { ...empty, available: false }]) {
+    const h = harness({ exchanges: [snapshot], accounts: [overdue] });
+    const result = await run(h);
+    assert.equal(result.audit.freezeNewEntries, true);
+    assert.equal(h.writes.some(w => w.kind === "close"), false);
+    assert.equal(result.audit.issues.some(i => i.code === (snapshot.available ? "TIME_EXIT_DUE" : "SNAPSHOT_UNAVAILABLE")), true);
+  }
+});
+
 test("new exchange fill followed by ledger registration does not permanently freeze", async () => {
   const h = harness({ accounts: [{ ...account, slices: [] }, account] });
   const result = await run(h);

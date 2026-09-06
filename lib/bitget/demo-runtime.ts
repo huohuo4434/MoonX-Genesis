@@ -89,6 +89,7 @@ const LIVE_STRATEGY_BUDGET_MS = 55_000;
 
 interface RuntimeStateRow {
   paused: boolean;
+  run_lock_owner: string | null;
   pause_reason: string;
   run_lock_until: Date | string | null;
   last_heartbeat_at: Date | string | null;
@@ -581,6 +582,7 @@ async function reconcileAccount(now: Date): Promise<BitgetRuntimeAccountSnapshot
 }
 
 async function persistRuntimeHealthSnapshot(input: {
+  runId: string;
   now: Date;
   quotes: BitgetRuntimeQuote[];
   marketEndpointOk: boolean;
@@ -590,7 +592,7 @@ async function persistRuntimeHealthSnapshot(input: {
   message: string;
 }): Promise<void> {
   if (!prisma) return;
-  await prisma.$executeRaw`
+  const updated = await prisma.$executeRaw`
     UPDATE trade_bitget_runtime_state SET
       last_heartbeat_at = ${input.now},
       last_market_at = CASE WHEN ${input.marketEndpointOk} THEN ${input.now} ELSE last_market_at END,
@@ -604,11 +606,14 @@ async function persistRuntimeHealthSnapshot(input: {
       last_account_error = ${input.accountError},
       last_report = ${JSON.stringify({ stage: "HEALTH_READY", message: input.message })}::jsonb,
       updated_at = NOW()
-    WHERE id = 'default'
+    WHERE id = 'default' AND run_lock_owner = ${input.runId}
   `;
+  if (updated !== 1) throw new Error("RUNTIME_HEALTH_OWNER_CHANGED");
 }
 
 async function updateRuntimeState(input: {
+  runId: string;
+  systemError?: boolean;
   now: Date;
   quotes: BitgetRuntimeQuote[];
   marketEndpointOk: boolean;
@@ -624,64 +629,84 @@ async function updateRuntimeState(input: {
   report: Record<string, unknown>;
 }): Promise<void> {
   if (!prisma) return;
-  const previous = await readStateRow();
-  const previousApiErrors = Number(previous?.consecutive_api_errors ?? 0);
-  const previousOrderErrors = Number(previous?.consecutive_order_errors ?? 0);
-  const previousHealthyRuns = Number(previous?.consecutive_healthy_runs ?? 0);
-  const nextApiErrors = input.criticalApiError ? previousApiErrors + 1 : 0;
-  const nextOrderErrors = input.orderErrors > 0 ? previousOrderErrors + 1 : 0;
-  const healthyCycle = input.marketEndpointOk && input.account.connected && input.orderErrors === 0;
-  const nextHealthyRuns = healthyCycle ? previousHealthyRuns + 1 : 0;
-  const previousReason = String(previous?.pause_reason ?? "");
-  const previousSource = String(previous?.pause_source ?? "");
-  const legacyAutoPause = !previousSource && /连续2次Bitget/.test(previousReason);
-  const wasAutoApiPaused = ["AUTO", "AUTO_API"].includes(previousSource) || legacyAutoPause;
-  const wasAutoOrderPaused = previousSource === "AUTO_ORDER";
-  const wasManualPaused = Boolean(previous?.paused) && !wasAutoApiPaused && !wasAutoOrderPaused;
-  const shouldAutoPause = nextApiErrors >= API_FAILURE_PAUSE_THRESHOLD || nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD;
-  const shouldAutoRecover = Boolean(previous?.paused) && wasAutoApiPaused && nextHealthyRuns >= AUTO_RECOVERY_HEALTHY_RUNS;
+  await prisma.$transaction(async (tx) => {
+    // Serialize with administrator UPDATEs. No exchange or network work in this lock.
+    const rows = await tx.$queryRaw<RuntimeStateRow[]>`
+      SELECT * FROM trade_bitget_runtime_state WHERE id = 'default' FOR UPDATE
+    `;
+    const previous = rows[0];
+    if (!previous) throw new Error("RUNTIME_STATE_MISSING");
+    if (previous.run_lock_owner !== input.runId) throw new Error("RUNTIME_STATE_OWNER_CHANGED");
+    const previousReport = previous.last_report as Record<string, unknown> | null;
+    if (previousReport?.runId === input.runId) {
+      // FINISH persistence / lease release can fail after the state committed.
+      // Audit that failure without counting the same orders as another failed cycle.
+      if (input.systemError) await tx.$executeRaw`
+        UPDATE trade_bitget_runtime_state SET
+          last_error = ${input.diagnosticError}, consecutive_healthy_runs = 0, updated_at = NOW()
+        WHERE id = 'default'
+      `;
+      return;
+    }
+    const previousApiErrors = Number(previous?.consecutive_api_errors ?? 0);
+    const previousOrderErrors = Number(previous?.consecutive_order_errors ?? 0);
+    const previousHealthyRuns = Number(previous?.consecutive_healthy_runs ?? 0);
+    const nextApiErrors = input.criticalApiError ? previousApiErrors + 1 : 0;
+    const nextOrderErrors = input.orderErrors > 0 ? previousOrderErrors + 1 : 0;
+    const healthyCycle = input.marketEndpointOk && input.account.connected && input.orderErrors === 0
+      && !input.criticalApiError && !input.systemError && input.report.ok !== false;
+    const nextHealthyRuns = healthyCycle ? previousHealthyRuns + 1 : 0;
+    const previousReason = String(previous?.pause_reason ?? "");
+    const previousSource = String(previous?.pause_source ?? "");
+    const legacyAutoPause = !previousSource && /连续2次Bitget/.test(previousReason);
+    const wasAutoApiPaused = ["AUTO", "AUTO_API"].includes(previousSource) || legacyAutoPause;
+    const wasAutoOrderPaused = previousSource === "AUTO_ORDER";
+    const wasManualPaused = Boolean(previous?.paused) && !wasAutoApiPaused && !wasAutoOrderPaused;
+    const shouldAutoPause = nextApiErrors >= API_FAILURE_PAUSE_THRESHOLD || nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD;
+    const shouldAutoRecover = Boolean(previous?.paused) && wasAutoApiPaused && nextHealthyRuns >= AUTO_RECOVERY_HEALTHY_RUNS;
 
-  let nextPaused = Boolean(previous?.paused);
-  let nextPauseSource = previousSource || (legacyAutoPause ? "AUTO" : previous?.paused ? "MANUAL" : "");
-  let nextPauseReason = previousReason;
-  if (shouldAutoPause && !wasManualPaused) {
-    nextPaused = true;
-    nextPauseSource = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD ? "AUTO_ORDER" : "AUTO_API";
-    nextPauseReason = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD
-      ? `连续${nextOrderErrors}轮发生真实订单写入错误，系统已暂停新开仓；健康检查恢复后仍需管理员确认订单状态。`
-      : `连续${nextApiErrors}轮Bitget关键行情/账户接口重试失败，系统已自动暂停新开仓；连续${AUTO_RECOVERY_HEALTHY_RUNS}轮恢复正常后自动解除。`;
-  } else if (shouldAutoRecover) {
-    nextPaused = false;
-    nextPauseSource = "";
-    nextPauseReason = "";
-  }
+    let nextPaused = Boolean(previous?.paused);
+    let nextPauseSource = previousSource || (legacyAutoPause ? "AUTO" : previous?.paused ? "MANUAL" : "");
+    let nextPauseReason = previousReason;
+    if (shouldAutoPause && !wasManualPaused && !(previous.paused && wasAutoOrderPaused)) {
+      nextPaused = true;
+      nextPauseSource = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD ? "AUTO_ORDER" : "AUTO_API";
+      nextPauseReason = nextOrderErrors >= ORDER_FAILURE_PAUSE_THRESHOLD
+        ? `连续${nextOrderErrors}轮发生真实订单写入错误，系统已暂停新开仓；健康检查恢复后仍需管理员确认订单状态。`
+        : `连续${nextApiErrors}轮Bitget关键行情/账户接口重试失败，系统已自动暂停新开仓；连续${AUTO_RECOVERY_HEALTHY_RUNS}轮恢复正常后自动解除。`;
+    } else if (shouldAutoRecover) {
+      nextPaused = false;
+      nextPauseSource = "";
+      nextPauseReason = "";
+    }
 
-  await prisma.$executeRaw`
-    UPDATE trade_bitget_runtime_state SET
-      paused = ${nextPaused},
-      pause_source = ${nextPauseSource},
-      pause_reason = ${nextPauseReason},
-      last_heartbeat_at = ${input.now},
-      last_market_at = CASE WHEN ${input.marketEndpointOk} THEN ${input.now} ELSE last_market_at END,
-      last_strategy_at = CASE WHEN ${input.strategyRan} THEN ${input.now} ELSE last_strategy_at END,
-      last_reconcile_at = ${input.now},
-      last_order_attempt_at = CASE WHEN ${input.orderAttempted} THEN ${input.now} ELSE last_order_attempt_at END,
-      last_order_success_at = CASE WHEN ${input.orderSuccess} THEN ${input.now} ELSE last_order_success_at END,
-      latest_quotes = CASE
-        WHEN ${input.quotes.length > 0} THEN ${JSON.stringify(input.quotes)}::jsonb
-        ELSE latest_quotes
-      END,
-      account_snapshot = ${JSON.stringify(input.account)}::jsonb,
-      last_report = ${JSON.stringify(input.report)}::jsonb,
-      consecutive_api_errors = ${nextApiErrors},
-      consecutive_order_errors = ${nextOrderErrors},
-      consecutive_healthy_runs = ${nextHealthyRuns},
-      last_market_error = ${input.marketError},
-      last_account_error = ${input.accountError},
-      last_error = ${input.diagnosticError || input.criticalApiError || (input.orderErrors > 0 ? `${input.orderErrors}笔真实订单写入失败` : "")},
-      updated_at = NOW()
-    WHERE id = 'default'
-  `;
+    await tx.$executeRaw`
+      UPDATE trade_bitget_runtime_state SET
+        paused = ${nextPaused},
+        pause_source = ${nextPauseSource},
+        pause_reason = ${nextPauseReason},
+        last_heartbeat_at = ${input.now},
+        last_market_at = CASE WHEN ${input.marketEndpointOk} THEN ${input.now} ELSE last_market_at END,
+        last_strategy_at = CASE WHEN ${input.strategyRan} THEN ${input.now} ELSE last_strategy_at END,
+        last_reconcile_at = ${input.now},
+        last_order_attempt_at = CASE WHEN ${input.orderAttempted} THEN ${input.now} ELSE last_order_attempt_at END,
+        last_order_success_at = CASE WHEN ${input.orderSuccess} THEN ${input.now} ELSE last_order_success_at END,
+        latest_quotes = CASE
+          WHEN ${input.quotes.length > 0} THEN ${JSON.stringify(input.quotes)}::jsonb
+          ELSE latest_quotes
+        END,
+        account_snapshot = ${JSON.stringify(input.account)}::jsonb,
+        last_report = ${JSON.stringify({ ...input.report, runId: input.runId })}::jsonb,
+        consecutive_api_errors = ${nextApiErrors},
+        consecutive_order_errors = ${nextOrderErrors},
+        consecutive_healthy_runs = ${nextHealthyRuns},
+        last_market_error = ${input.marketError},
+        last_account_error = ${input.accountError},
+        last_error = ${input.diagnosticError || input.criticalApiError || (input.orderErrors > 0 ? `${input.orderErrors}笔真实订单写入失败` : "")},
+        updated_at = NOW()
+      WHERE id = 'default'
+    `;
+  });
 }
 
 async function cleanupEvents(): Promise<void> {
@@ -1071,6 +1096,7 @@ export async function runBitgetDemoServerRuntime(
         ? `行情未通过新鲜度检查，本轮只做安全对账，不开新仓。${marketMessage}`
         : `账户对账未通过，本轮禁止新开仓。${account.message}`;
     await persistRuntimeHealthSnapshot({
+      runId,
       now,
       quotes: quotes.map((row) => ({ ...row })),
       marketEndpointOk,
@@ -1470,6 +1496,7 @@ export async function runBitgetDemoServerRuntime(
       message: finalMessage,
     };
     const persistFinalState = () => updateRuntimeState({
+      runId,
       now,
       quotes: quotes.map((row) => ({ ...row })),
       marketEndpointOk,
@@ -1523,6 +1550,8 @@ export async function runBitgetDemoServerRuntime(
           message: `FINALIZATION_FAILED: ${finalizeMessage}`,
         }).catch(() => undefined);
         await updateRuntimeState({
+          runId,
+          systemError: true,
           now,
           quotes: quotes.map((row) => ({ ...row })),
           marketEndpointOk,
@@ -1530,7 +1559,7 @@ export async function runBitgetDemoServerRuntime(
           account,
           orderAttempted: Boolean((threeHorizon?.orderAttempts ?? 0) > 0 || liveExit.attempted > 0),
           orderSuccess: Boolean((threeHorizon?.orderSuccess ?? 0) > 0 || liveExit.success > 0),
-          criticalApiError: finalizeMessage,
+          criticalApiError: [marketEndpointOk ? "" : marketError, account.connected ? "" : accountError].filter(Boolean).join("；"),
           marketError,
           accountError,
           diagnosticError: finalizeMessage,
@@ -1554,6 +1583,8 @@ export async function runBitgetDemoServerRuntime(
       message,
     }).catch(() => undefined);
     if (!ownerReleased && (finalizationPersisted || !finalizationFailureAudited)) await updateRuntimeState({
+      runId,
+      systemError: true,
       now,
       quotes: quotes.map((row) => ({ ...row })),
       marketEndpointOk,
@@ -1569,8 +1600,8 @@ export async function runBitgetDemoServerRuntime(
         (threeHorizon && threeHorizon.orderSuccess > 0) ||
         liveExit.success > 0
       ),
-      criticalApiError: message,
-      marketError: marketError || message,
+      criticalApiError: [marketEndpointOk ? "" : marketError, account.connected ? "" : accountError].filter(Boolean).join("；"),
+      marketError,
       accountError,
       diagnosticError: [...diagnosticErrors, message].join("；"),
       orderErrors: (mirrorResult?.errors ?? 0) + (threeHorizon?.orderErrors ?? 0) + liveExit.errors,
