@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/daily-candle-projections",
+      "schedule": "25 * * * *"
+    },
+    {
       "path": "/api/cron/member-ai-desk-sync",
       "schedule": "*/2 * * * *"
     },

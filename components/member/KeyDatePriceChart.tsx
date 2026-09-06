@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import type { ChartWindow, KeyDateChartData, ChartZone } from "@/lib/presentation/key-date-chart";
+import type { ChartWindow, ChartZone } from "@/lib/presentation/key-date-chart";
+import type { DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import type { ForecastPath } from "@/lib/presentation/forecast-path";
-import { ForecastPathPanel } from "./ForecastPathPanel";
+import { DailyCandleChart } from "./DailyCandleChart";
 
 const DAY = 86_400_000;
 const day = (date: string) => Date.parse(`${date}T00:00:00Z`);
@@ -16,13 +17,20 @@ const colors = { strength: "#34d399", risk: "#fb7185", low: "#38bdf8", high: "#f
 const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: value < 10 ? 4 : 2 });
 const zoneText = (zone: ChartZone | null) => zone ? `${format(zone.low)}–${format(zone.high)}` : "—";
 
-export function KeyDatePriceChart({ windows, paths, asOfDate }: { windows: ChartWindow[]; paths: ForecastPath[]; asOfDate: string }) {
+export function KeyDatePriceChart({ windows, asOfDate: initialDate }: { windows: ChartWindow[]; paths: ForecastPath[]; asOfDate: string }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const assets = [...new Map(windows.map(w => [w.assetId, w.symbol])).entries()];
   const [asset, setAsset] = useState(assets.some(([id]) => id === "btc") ? "btc" : assets[0]?.[0] ?? "btc");
   const [request, setRequest] = useState(0);
-  const [state, setState] = useState<{ asset: string; data?: KeyDateChartData; error?: string } | null>(null);
+  const [state, setState] = useState<{ asset: string; data?: DailyProjectionData; error?: string } | null>(null);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") setRequest(n => n + 1); };
+    const timer = window.setInterval(refresh, 5 * 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     setState(null);
@@ -37,6 +45,7 @@ export function KeyDatePriceChart({ windows, paths, asOfDate }: { windows: Chart
   }, [asset, request]);
   const data = state?.asset === asset ? state.data : undefined;
   const error = state?.asset === asset ? state.error : undefined;
+  const asOfDate = data?.projectionDate ?? initialDate;
   const end = day(asOfDate) + 40 * DAY;
   const rows = windows.filter(w => w.assetId === asset && day(w.endDate) >= day(asOfDate) && day(w.startDate) <= end);
   const bars = data?.bars ?? [];
@@ -51,17 +60,15 @@ export function KeyDatePriceChart({ windows, paths, asOfDate }: { windows: Chart
   const label = (w: ChartWindow) => labels[w.kind][en ? 1 : 0];
   const nearest = rows.slice().sort((a, b) => a.focusDate.localeCompare(b.focusDate))[0];
   const atResistance = data?.resistance && bars.length && data.resistance.low - bars.at(-1)!.close <= bars.at(-1)!.close * 0.015;
-  return <section id="price-time-chart" className="rounded-3xl border border-cyan-300/20 bg-[#0b1018] p-4 sm:p-6 text-slate-100" data-key-date-chart="v2">
+  return <section id="price-time-chart" className="rounded-3xl border border-cyan-300/20 bg-[#0b1018] p-4 sm:p-6 text-slate-100" data-key-date-chart="v3">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><h2 className="text-xl font-semibold">{en ? "Future paths & real price action" : "未来走势预测图"}</h2>
-        <p className="mt-1 text-sm text-slate-400">{en ? "Monthly main scenario · Weekly detail · Actual candles below" : "月度主路径 · 周度细化 · 下方对照真实K线"}</p></div>
+      <div><h2 className="text-xl font-semibold">{en ? "Daily candle forecast · dates & prices" : "未来日K预测 · 日期与价格"}</h2>
+        <p className="mt-1 text-sm text-slate-400">{en ? "Actual daily candles on the left · conditional forecast candles on the right · updated after daily closes" : "左侧真实日K · 右侧未来日K情景推演 · 收盘后自动更新"}</p></div>
       <div className="flex items-center gap-2"><label className="sr-only" htmlFor="chart-asset">{en ? "Asset" : "标的"}</label>
         <select id="chart-asset" value={asset} onChange={e => setAsset(e.target.value)} className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
           {assets.map(([id, symbol]) => <option key={id} value={id}>{symbol}</option>)}
         </select><button type="button" onClick={() => setRequest(n => n + 1)} className="rounded-lg border border-slate-600 px-3 py-2 text-sm">{en ? "Refresh" : "刷新"}</button></div>
     </div>
-    <ForecastPathPanel paths={paths} assetId={asset} asOfDate={asOfDate} en={en} />
-    <details className="mt-5"><summary className="cursor-pointer text-sm text-cyan-200">{en ? "Compare actual candles, support / resistance & key dates" : "展开真实K线、支撑压力与关键日对照"}</summary>
     <div aria-live="polite" className="mt-4">
       {!data && !error ? <p className="p-4 text-slate-400">{en ? "Loading closed daily candles…" : "读取已闭合日K线…"}</p> : null}
       {error ? <p className="rounded-lg border border-amber-300/20 p-4 text-amber-200">{error === "UNSUPPORTED_MARKET"
@@ -69,6 +76,8 @@ export function KeyDatePriceChart({ windows, paths, asOfDate }: { windows: Chart
         : error === "MEMBER_ACCESS_REQUIRED" ? en ? "Please sign in with an active member device to load the chart." : "请确认会员登录与设备权限后刷新图表。"
           : en ? "Price data could not be loaded. Retry shortly; no previous asset's chart is shown." : "行情暂未读取成功，请稍后刷新；不会残留上一个标的的图。"}</p> : null}
     </div>
+    {data ? <DailyCandleChart key={asset} data={data} en={en} /> : null}
+    <details className="mt-5"><summary className="cursor-pointer text-sm text-cyan-200">{en ? "Detailed support / resistance & timing bands" : "展开支撑压力与月周关键日色带"}</summary>
     {data ? <>
       <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
         <div className="rounded-xl bg-sky-400/10 p-3">{en ? "Daily support zone" : "日线支撑区"}<strong className="mt-1 block text-sky-200">{zoneText(data.support)}</strong></div>

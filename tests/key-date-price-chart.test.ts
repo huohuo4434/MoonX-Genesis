@@ -37,7 +37,7 @@ test("keep source meaning, holiday and source date without automatic buy/sell ma
 });
 test("member route authorizes before fetching and cannot mutate or accept arbitrary URLs", () => {
   const route = readFileSync("app/api/member/key-date-chart/route.ts", "utf8");
-  assert.ok(route.indexOf('gate.status !== "ALLOWED"') < route.indexOf("await loadChanCandles"));
+  assert.ok(route.indexOf('gate.status !== "ALLOWED"') < route.indexOf("await getDailyProjection"));
   assert.match(route, /checkMemberApiRateLimit/);
   assert.match(route, /Object.hasOwn\(symbols, assetId\)/);
   assert.match(route, /private, no-store/);
