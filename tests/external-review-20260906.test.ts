@@ -52,6 +52,7 @@ test("private source module is server-only behind the admin gate", () => {
   assert.ok(layout.indexOf('await requireAdminOrRedirect("/admin")') < layout.indexOf("return children"));
   const page = readFileSync("app/admin/external-viewpoints/page.tsx", "utf8");
   assert.match(page, /data-source-review="20260906"/);
+  assert.ok(page.indexOf('await requireAdminOrRedirect("/admin/external-viewpoints")') < page.indexOf("await listResearchRecords()"));
   for (const file of ["lib/presentation/member-september-outlook.ts", "components/member/MemberSeptemberRotationReport.tsx", "app/member/sector-resonance/page.tsx"]) {
     assert.doesNotMatch(readFileSync(file, "utf8"), /source-review-20260906|submitOrder|createOrder/);
   }

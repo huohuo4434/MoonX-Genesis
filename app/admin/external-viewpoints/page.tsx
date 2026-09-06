@@ -1,4 +1,5 @@
 import { AdminNav } from "@/components/admin/AdminNav";
+import { requireAdminOrRedirect } from "@/lib/auth/permissions";
 import { Card, Heading, Text, Badge } from "@/components/ui";
 import { externalViewpoints20260801 } from "@/lib/data/external-viewpoints-20260801";
 import { externalViewpointsFollowup20260801 } from "@/lib/data/external-viewpoints-followup-20260801";
@@ -42,6 +43,8 @@ function roleText(role: string) {
 }
 
 export default async function AdminExternalViewpointsPage() {
+  // Layouts and pages can render concurrently; gate before reading or serializing research.
+  await requireAdminOrRedirect("/admin/external-viewpoints");
   const allRecords = await listResearchRecords();
   const verification = summarizeTeacher02Verification(allRecords);
   const teacherBlendRows = TEACHER_SOURCE_WEIGHT_PROFILES.map((profile) => ({
