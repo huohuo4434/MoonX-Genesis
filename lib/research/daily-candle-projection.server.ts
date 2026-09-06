@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { PROJECTION_ENGINE } from "./daily-candle-projection-core";
 import { loadKeyDateDaily, KEY_DATE_SYMBOLS } from "@/lib/market-data/key-date-daily.server";
 import { archiveDailyProjection, ensureProjectionBucket } from "./daily-candle-projection-storage.server";
 
@@ -7,7 +8,7 @@ export async function refreshDailyProjection(assetId: string) {
   return archiveDailyProjection(await loadKeyDateDaily(assetId));
 }
 // Authentication must run BEFORE this shared, identity-free research cache.
-export const getDailyProjection = unstable_cache(refreshDailyProjection, ["daily-candle-projection-v1"], { revalidate: 300 });
+export const getDailyProjection = unstable_cache(refreshDailyProjection, ["daily-candle-projection", PROJECTION_ENGINE], { revalidate: 300 });
 
 export async function refreshAllDailyProjections() {
   // Only the secret-authenticated cron/setup workflow provisions this private bucket.

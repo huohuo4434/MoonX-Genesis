@@ -168,3 +168,9 @@ test("terminal uses real candlestick renderer, priced date crosshair and only ac
   assert.match(src, /chart\?\.remove/);
   assert.doesNotMatch(src, /generateCandleRange|Math.random/);
 });
+
+test("shared cache isolates projection engine versions across deployments", () => {
+  const src = readFileSync("lib/research/daily-candle-projection.server.ts", "utf8");
+  assert.match(src, /\["daily-candle-projection", PROJECTION_ENGINE\]/);
+  assert.match(src, /revalidate: 300/);
+});
