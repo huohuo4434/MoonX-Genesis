@@ -69,8 +69,18 @@ function storeHarness(overrides: Record<string, unknown> = {}) {
     if (name.endsWith("live-continuous-transition-core")) return core;
     throw new Error("unexpected import");
   } });
-  return { run: () => exports.prepareContinuousDuration("admin-actor"), writes, events, reads };
+  return { run: () => exports.prepareContinuousDuration("admin-actor"), inspect: () => exports.inspectContinuousDuration("admin-actor"), writes, events, reads };
 }
+
+test("read-only inspection uses the same gates but never writes lifecycle or events", async () => {
+  const h = storeHarness();
+  assert.equal((await h.inspect() as { readyToPrepare: boolean }).readyToPrepare, true);
+  assert.equal(h.writes.length, 0); assert.equal(h.events.length, 0);
+  for (const patch of [{ failExchange: true }, { daily: [] }, { unsettled: 1 }, { account: { mode: "LIVE" } }]) {
+    const blocked = storeHarness(patch); await assert.rejects(blocked.inspect());
+    assert.equal(blocked.writes.length, 0); assert.equal(blocked.events.length, 0);
+  }
+});
 test("real store changes only lifecycle and records original evidence; never account mode or risk", async () => {
   const h = storeHarness(); const result = await h.run() as { ok: boolean; newEntriesEnabled: boolean };
   assert.equal(result.ok, true); assert.equal(result.newEntriesEnabled, false);
@@ -106,5 +116,26 @@ test("route authenticates and checks same origin and exact confirmation before s
     const result = await exports.POST({ url: "https://mooxintel.com/api/admin/live-trading/continuous-duration", headers: new Headers({ origin: option.origin, "content-type": "application/json" }), text: async () => option.body });
     assert.equal(result.status, !option.admin ? 404 : option.origin.includes("bad") ? 403 : option.body !== JSON.stringify({ confirmation: core.CONTINUOUS_CONFIRMATION }) ? 400 : 200);
     assert.equal(calls, result.status === 200 ? 1 : 0);
+  }
+});
+
+test("GET is admin-only, calls inspection not preparation, and sanitizes errors", async () => {
+  for (const admin of [false, true]) for (const failure of ["", "EXCHANGE_UNKNOWN", "secret connection data"]) {
+    let inspected = 0;
+    const exports: Record<string, (r: unknown) => Promise<{status: number; data: unknown}>> = {};
+    vm.runInNewContext(compile("app/api/admin/live-trading/continuous-duration/route.ts"), { exports, URL, Error, console: { warn() {} }, require: (name: string) => {
+      if (name === "next/server") return { NextResponse: { json: (data: unknown, init: {status?: number} = {}) => ({ data, status: init.status ?? 200 }) } };
+      if (name.endsWith("unified-live-auth")) return { resolveUnifiedLiveActor: async () => ({ id: "actor" }), isUnifiedLiveAdmin: async () => admin };
+      if (name.endsWith("live-continuous-transition-core")) return core;
+      if (name.endsWith("live-continuous-transition-store")) return {
+        prepareContinuousDuration: () => { throw new Error("GET MUST NOT PREPARE"); },
+        inspectContinuousDuration: async () => { inspected++; if (failure) throw new Error(failure); return { readyToPrepare: true }; },
+      };
+      throw new Error("unexpected import");
+    } });
+    const result = await exports.GET({});
+    assert.equal(inspected, admin ? 1 : 0);
+    assert.equal(result.status, !admin ? 404 : !failure ? 200 : failure === "EXCHANGE_UNKNOWN" ? 409 : 503);
+    assert.doesNotMatch(JSON.stringify(result), /secret connection/);
   }
 });

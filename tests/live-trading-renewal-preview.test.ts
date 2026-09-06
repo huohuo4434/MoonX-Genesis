@@ -17,7 +17,8 @@ test("healthy-looking snapshots remain read-only and never authorize renewal", (
   assert.equal(result.canRenew, false); assert.equal(result.writeAttempted, false); assert.equal(result.readOnly, true);
   assert.equal(result.initialEquity, 1000); assert.equal(result.peakEquity, 1100); assert.equal(result.historicalMaxDrawdown, 300);
   assert.equal(result.cumulativePnl, 50); assert.equal(result.proposedEndsAt, null);
-  assert.equal(check(input, "exchange").state, "UNKNOWN"); assert.equal(check(input, "renewal").state, "BLOCKED");
+  assert.equal(check(input, "exchange").state, "UNKNOWN"); assert.equal(check(input, "renewal").state, "UNKNOWN");
+  assert.doesNotMatch(check(input, "renewal").detail, /入口尚未开放/);
   assert.equal(check(input, "positions").state, "UNKNOWN", "legacy zero protection count does not prove an empty exchange account");
   assert.match(check(input, "drawdown").detail, /50.00 USDT/);
   assert.match(check(input, "daily").detail, /-30.00 USDT/);

@@ -4,6 +4,15 @@ import { assertContinuousTransition, CONTINUOUS_EVENT, type ContinuousTransition
 
 // Prepares duration only. This function never grants account new-entry permission.
 export async function prepareContinuousDuration(actorId: string) {
+  return evaluateContinuousDuration(actorId, false);
+}
+
+// Same gates, no lifecycle/event writes. A passing check is not permission to trade.
+export async function inspectContinuousDuration(actorId: string) {
+  return evaluateContinuousDuration(actorId, true);
+}
+
+async function evaluateContinuousDuration(actorId: string, readOnly: boolean) {
   if (!prisma || !actorId) throw new Error("TRANSITION_UNAVAILABLE");
   const snapshot = await readBitgetContinuousTransitionSnapshot();
   return prisma.$transaction(async tx => {
@@ -42,6 +51,7 @@ export async function prepareContinuousDuration(actorId: string) {
     `;
     if (!daily[0]) throw new Error("RISK_EVIDENCE_INVALID");
     assertContinuousTransition({ ...snapshot, now, row, openingEquity: daily[0].opening_equity_usdt });
+    if (readOnly) return { ok: true, readOnly: true, readyToPrepare: true, newEntriesEnabled: false };
     const changed = await tx.$executeRaw`
       UPDATE trade_bitget_live_experiment SET duration_mode='CONTINUOUS', ends_at=NULL,
       status='ACTIVE', entry_epoch_at=${now}, stop_reason='', updated_at=NOW() WHERE id='default' AND status='COMPLETED'

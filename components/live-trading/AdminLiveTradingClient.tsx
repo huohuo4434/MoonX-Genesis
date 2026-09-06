@@ -184,6 +184,12 @@ export default function AdminLiveTradingClient() {
           UNSETTLED_WORK: "仍有未结任务或持仓记录，需完成对账。", EXCHANGE_NOT_EMPTY: "交易所仍有仓位或委托，不能转换。",
           RISK_LIMIT_REACHED: "原始风险记录已触及亏损或回撤限额，不能借转换重置。", NOT_EXPIRY_COMPLETED: "当前结束原因不是单纯到期，需核查。",
           SNAPSHOT_STALE: "账户核查耗时过长，请重新检查。",
+          RISK_EVIDENCE_INVALID: "原始权益、当日权益或风险限额数据不完整，需核查数据字段。",
+          EXCHANGE_UNKNOWN: "交易所持仓或订单返回格式未通过完整性校验，不能据此确认空仓。",
+          EXCHANGE_SECURITY_INVALID: "交易所账户模式或API权限未通过检查。",
+          LIVE_CONFIG_INVALID: "服务器实盘配置未通过检查。",
+          TRANSITION_CONFLICT: "账户状态已变化，请刷新后检查。",
+          TRANSITION_UNAVAILABLE: "转换服务异常，需核查服务日志。",
         };
         result = `尚未转换：${reasons[payload.error] ?? "未取得完整安全证据，请稍后重试或核查诊断。"}`;
       }

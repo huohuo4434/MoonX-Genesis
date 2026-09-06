@@ -99,7 +99,7 @@ export function buildLiveRenewalPreview(input: LiveRenewalPreviewInput, now = ne
   add("outbox", "待完成执行任务", pending === null ? "UNKNOWN" : pending > 0 ? "BLOCKED" : "OK", `待处理、处理中、待确认或可重试的任务：${pending ?? "未知"}。`);
   add("failed", "失败任务核查", failed === null || failed > 0 ? "UNKNOWN" : "OK", `失败记录 ${failed ?? "未知"} 条。历史失败不自动当作当前故障，也不能只凭数量认定结果已核清。`);
   add("exchange", "续期时的交易所即时核查", "UNKNOWN", "还需严格核对普通挂单、全部策略单、账户权限、允许合约、服务器时钟及未知订单结果。");
-  add("renewal", "续期确认流程", "BLOCKED", "安全续期入口尚未开放：旧任务隔离和永久续期凭证需要完成后，才能由你确认。预检不改变实验期限或开关。");
+  add("renewal", "续期确认流程", "UNKNOWN", "本区只展示历史快照，不代表转换结果。请查看上方持续运行转换结果；转换会重新检查交易所、任务和风险记录，不自动开启新仓。");
   return {
     readOnly: true as const, writeAttempted: false as const, canRenew: false as const,
     generatedAt: now.toISOString(), accountCheckedAt: iso(checked), heartbeatAt: iso(heartbeat),
