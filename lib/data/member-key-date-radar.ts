@@ -46,6 +46,18 @@ function listKeyDateForecasts(assetId: MemberKeyDateAssetId) {
     : listStaticFocusForecasts(assetId);
 }
 
+/** Resolve only the immutable records already selected by the member radar. */
+export function keyDateChartForecasts(items: KeyDateRadarItem[], now: number) {
+  const records: ConvictionPeriodForecast[] = [];
+  for (const assetId of MEMBER_KEY_DATE_ASSET_IDS) {
+    const ids = new Set(items.filter(item => item.assetId === assetId).flatMap(item => item.sourceIds));
+    records.push(...listKeyDateForecasts(assetId).filter(row => ids.has(row.id)
+      && row.status === "published" && Date.parse(row.lockedAt) <= now && Date.parse(row.publishedAt) <= now)
+      .map(row => ({ ...row, assetId }))); // Registry aliases (bitcoin -> btc), never mutate source records.
+  }
+  return records;
+}
+
 type LockedPathDateHint = {
   date: string;
   action: KeyDateAction;

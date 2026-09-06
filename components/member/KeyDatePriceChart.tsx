@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import type { ChartWindow, KeyDateChartData, ChartZone } from "@/lib/presentation/key-date-chart";
+import type { ForecastPath } from "@/lib/presentation/forecast-path";
+import { ForecastPathPanel } from "./ForecastPathPanel";
 
 const DAY = 86_400_000;
 const day = (date: string) => Date.parse(`${date}T00:00:00Z`);
@@ -14,7 +16,7 @@ const colors = { strength: "#34d399", risk: "#fb7185", low: "#38bdf8", high: "#f
 const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: value < 10 ? 4 : 2 });
 const zoneText = (zone: ChartZone | null) => zone ? `${format(zone.low)}–${format(zone.high)}` : "—";
 
-export function KeyDatePriceChart({ windows, asOfDate }: { windows: ChartWindow[]; asOfDate: string }) {
+export function KeyDatePriceChart({ windows, paths, asOfDate }: { windows: ChartWindow[]; paths: ForecastPath[]; asOfDate: string }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const assets = [...new Map(windows.map(w => [w.assetId, w.symbol])).entries()];
@@ -49,16 +51,17 @@ export function KeyDatePriceChart({ windows, asOfDate }: { windows: ChartWindow[
   const label = (w: ChartWindow) => labels[w.kind][en ? 1 : 0];
   const nearest = rows.slice().sort((a, b) => a.focusDate.localeCompare(b.focusDate))[0];
   const atResistance = data?.resistance && bars.length && data.resistance.low - bars.at(-1)!.close <= bars.at(-1)!.close * 0.015;
-  return <section id="price-time-chart" className="rounded-3xl border border-cyan-300/20 bg-[#0b1018] p-4 sm:p-6 text-slate-100" data-key-date-chart="v1">
+  return <section id="price-time-chart" className="rounded-3xl border border-cyan-300/20 bg-[#0b1018] p-4 sm:p-6 text-slate-100" data-key-date-chart="v2">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><h2 className="text-xl font-semibold">{en ? "Price & timing map" : "K线与关键日一张图"}</h2>
-        <p className="mt-1 text-sm text-slate-400">{en ? "Daily candles · Monthly context / weekly timing · No intraday orders" : "日K结构 · 月度背景／周内时机 · 非日内下单信号"}</p></div>
+      <div><h2 className="text-xl font-semibold">{en ? "Future paths & real price action" : "未来走势预测图"}</h2>
+        <p className="mt-1 text-sm text-slate-400">{en ? "Monthly main scenario · Weekly detail · Actual candles below" : "月度主路径 · 周度细化 · 下方对照真实K线"}</p></div>
       <div className="flex items-center gap-2"><label className="sr-only" htmlFor="chart-asset">{en ? "Asset" : "标的"}</label>
         <select id="chart-asset" value={asset} onChange={e => setAsset(e.target.value)} className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
           {assets.map(([id, symbol]) => <option key={id} value={id}>{symbol}</option>)}
         </select><button type="button" onClick={() => setRequest(n => n + 1)} className="rounded-lg border border-slate-600 px-3 py-2 text-sm">{en ? "Refresh" : "刷新"}</button></div>
     </div>
-    <p className="mt-3 text-sm text-slate-300">{en ? "Read the price zones first, then the dated blocks. A potential low/high is not a guaranteed up/down day." : "先看价格区间，再看日期色块。低点／高点候选，不等于当天必涨／必跌。"}</p>
+    <ForecastPathPanel paths={paths} assetId={asset} asOfDate={asOfDate} en={en} />
+    <details className="mt-5"><summary className="cursor-pointer text-sm text-cyan-200">{en ? "Compare actual candles, support / resistance & key dates" : "展开真实K线、支撑压力与关键日对照"}</summary>
     <div aria-live="polite" className="mt-4">
       {!data && !error ? <p className="p-4 text-slate-400">{en ? "Loading closed daily candles…" : "读取已闭合日K线…"}</p> : null}
       {error ? <p className="rounded-lg border border-amber-300/20 p-4 text-amber-200">{error === "UNSUPPORTED_MARKET"
@@ -97,6 +100,7 @@ export function KeyDatePriceChart({ windows, asOfDate }: { windows: ChartWindow[
     <details className="mt-4"><summary className="cursor-pointer text-sm text-cyan-200">{en ? "Read dates and market closures" : "展开日期与休市说明"} ({rows.length})</summary>
       <ul className="mt-3 space-y-2 text-sm">{rows.map(w => <li key={w.id} className="border-l-2 pl-3" style={{ borderColor: colors[w.kind] }}><span className="font-medium">{w.level === "MONTH" ? en ? "Monthly" : "月" : en ? "Weekly" : "周"} · {w.startDate}–{w.endDate} · {label(w)}</span><span className="ml-2 text-slate-400">{w.evidence === "DERIVED" ? en ? "Derived" : "推演" : en ? "Explicit date" : "明确日期"}</span>{w.closed ? <p className="text-amber-200">{en ? `Focus date ${w.focusDate}: closed / session needs verification. ${w.nextSessionDate ? `Next session: ${w.nextSessionDate}.` : ''} No automatic trade.` : `重点日 ${w.focusDate} 休市／时段待核实；${w.nextSessionDate ? `下一交易日 ${w.nextSessionDate}。` : ''}不按日期直接买卖。`}</p> : null}</li>)}</ul>
       {!rows.length ? <p className="mt-2 text-slate-400">{en ? "No active dated window for this asset in this range." : "该标的在此区间暂无有效关键日。"}</p> : null}
+    </details>
     </details>
   </section>;
 }
