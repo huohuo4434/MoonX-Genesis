@@ -469,7 +469,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
         <Card padding="lg" className="space-y-5 border-red-400/25 bg-red-400/[0.025]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <Heading size="h3">实盘实验运行状态</Heading>
+              <Heading size="h3">实盘运行状态</Heading>
               <Text variant="body-sm" color="secondary" className="mt-2 block max-w-4xl">
                 服务器定时检查行情、账户和持仓；关闭电脑不会停止调度，但实验到期或闸门未通过时不新开仓。{dashboard.environment.liveAllowedSymbols.length}个允许品种分批轮转；最高{dashboard.environment.leverage}倍杠杆，同时持仓上限{dashboard.environment.liveMaxConcurrentPositions}个，每日开仓上限{dashboard.environment.liveMaxTradesPerDay}笔，策略还可进一步收紧。短、中、长线分别判断，不强行凑单。
               </Text>
@@ -483,7 +483,7 @@ export function BitgetDemoClient({ initial }: { initial: BitgetAdminDashboard })
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">当前权益</Text><Text variant="body" weight="semibold" className="mt-1 block">{experiment?.currentEquityUsdt?.toFixed(2) ?? "—"} USDT</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">初始本金</Text><Text variant="body" weight="semibold" className="mt-1 block">{experiment?.initialEquityUsdt?.toFixed(2) ?? dashboard.environment.liveInitialCapitalUsdt.toFixed(2)} USDT</Text></div>
             <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">最大回撤</Text><Text variant="body" weight="semibold" className="mt-1 block text-red-300">{signed(experiment?.maxDrawdownUsdt, " USDT")} · {signed(experiment?.maxDrawdownPct, "%")}</Text></div>
-            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">结束时间</Text><Text variant="body-sm" className="mt-1 block">{time(experiment?.endsAt ?? null)}</Text></div>
+            <div className="rounded-lg border border-white/10 p-3"><Text variant="caption" color="tertiary">运行期限</Text><Text variant="body-sm" className="mt-1 block">{experiment?.durationMode === "CONTINUOUS" && experiment.endsAt === null ? "持续运行（无固定到期日）" : time(experiment?.endsAt ?? null)}</Text></div>
           </div>
 
           {dashboard.runtime.paused ? (

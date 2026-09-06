@@ -170,6 +170,7 @@ export interface BitgetRuntimeState {
   recentExecutionFailures?: BitgetRuntimeExecutionFailure[];
   updatedAt: string;
   liveExperiment?: {
+    durationMode?: string | null;
     status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
     startedAt: string | null;
     endsAt: string | null;

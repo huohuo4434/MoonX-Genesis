@@ -1,4 +1,6 @@
 import "server-only";
+import { evaluateLiveDuration } from "./live-duration-core";
+import { assertEmptyExchangePayloads, assertCurrentEntryEpoch } from "./live-continuous-transition-core";
 
 import { resolveLiveCapacityV4 } from "@/lib/bitget/live-capacity-core";
 import { resolveAllowedSymbolUniverse } from "@/lib/bitget/live-symbol-universe-core";
@@ -1034,6 +1036,7 @@ export async function getBitgetApiSecurity(): Promise<BitgetApiSecurity> {
 }
 
 export type BitgetLiveExperimentStatus = {
+  durationMode?: string | null;
   enabled: boolean;
   active: boolean;
   completed: boolean;
@@ -1063,6 +1066,7 @@ export type BitgetLiveExperimentStatus = {
 };
 
 type LiveExperimentRow = {
+  duration_mode?: string | null;
   status: string;
   started_at: Date | string | null;
   ends_at: Date | string | null;
@@ -1082,6 +1086,8 @@ async function ensureBitgetLiveExperimentTable(): Promise<boolean> {
     CREATE TABLE IF NOT EXISTS trade_bitget_live_experiment (
       id TEXT PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+      duration_mode TEXT NOT NULL DEFAULT 'FIXED' CHECK (duration_mode IN ('FIXED', 'CONTINUOUS')),
+      entry_epoch_at TIMESTAMPTZ,
       started_at TIMESTAMPTZ,
       ends_at TIMESTAMPTZ,
       initial_equity_usdt DOUBLE PRECISION,
@@ -1220,7 +1226,8 @@ export async function readBitgetLiveExperimentStatus(now = new Date()): Promise<
   const today = history.find((item) => item.date === beijingDateKey(now));
   const pnl = initial > 0 ? current - initial : 0;
   return {
-    enabled: true, active: status === "ACTIVE", completed: status === "COMPLETED", stopped: status === "STOPPED", status,
+    enabled: true, active: evaluateLiveDuration({ status, durationMode: row.duration_mode, startedAt: row.started_at, endsAt: row.ends_at }, now).active, completed: status === "COMPLETED", stopped: status === "STOPPED", status,
+    durationMode: row.duration_mode ?? "FIXED",
     startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: current || 0, peakEquityUsdt: peak || 0,
     pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0,
     maxDrawdownUsdt: Number(row.max_drawdown_usdt ?? 0), maxDrawdownPct: Number(row.max_drawdown_pct ?? 0),
@@ -1271,7 +1278,8 @@ export async function syncBitgetLiveExperimentStatus(
     const tolerance = Math.max(50, environment.liveInitialCapitalUsdt * 0.15);
     if (Math.abs(equity - environment.liveInitialCapitalUsdt) > tolerance) throw new Error(`实盘账户权益${equity.toFixed(2)} USDT与实验本金${environment.liveInitialCapitalUsdt.toFixed(2)} USDT偏差过大。`);
     if (positions.length || pending.length) throw new Error("实验启动前账户必须无持仓、无止盈止损策略单。");
-    const endsAt = new Date(now.getTime() + environment.liveDurationDays * 24 * 60 * 60_000);
+    if (row.duration_mode != null && !["FIXED", "CONTINUOUS"].includes(row.duration_mode)) throw new Error("实盘运行期限配置无效");
+    const endsAt = row.duration_mode === "CONTINUOUS" ? null : new Date(now.getTime() + environment.liveDurationDays * 24 * 60 * 60_000);
     await prisma.$executeRaw`UPDATE trade_bitget_live_experiment SET status='ACTIVE', started_at=${now}, ends_at=${endsAt}, initial_equity_usdt=${equity}, current_equity_usdt=${equity}, peak_equity_usdt=${equity}, max_drawdown_usdt=0, max_drawdown_pct=0, stop_reason='', updated_at=NOW() WHERE id='default'`;
     row = { ...row, status: "ACTIVE", started_at: now, ends_at: endsAt, initial_equity_usdt: equity, current_equity_usdt: equity, peak_equity_usdt: equity, max_drawdown_usdt: 0, max_drawdown_pct: 0, stop_reason: "" };
     status = "ACTIVE";
@@ -1289,16 +1297,19 @@ export async function syncBitgetLiveExperimentStatus(
   const peak = Math.max(Number(row.peak_equity_usdt ?? equity), equity);
   const drawdown = Math.max(0, peak - equity);
   const drawdownPct = peak > 0 ? drawdown / peak * 100 : 0;
-  const endsAtMs = row.ends_at ? new Date(row.ends_at).getTime() : NaN;
+  const duration = evaluateLiveDuration({ status, durationMode: row.duration_mode, startedAt: row.started_at, endsAt: row.ends_at }, now);
   let stopReason = String(row.stop_reason ?? "");
   if (status === "ACTIVE" && stopReason.startsWith("今日账户亏损") && dailySnapshot.current.pnlUsdt > -environment.liveDailyLossUsdt) stopReason = "";
   if (status === "ACTIVE" && !securitySafe) { status = "STOPPED"; stopReason = `API安全检查未通过：${securityMessage}`; }
   else if (status === "ACTIVE" && dailySnapshot.current.pnlUsdt <= -environment.liveDailyLossUsdt) stopReason = `今日账户亏损${Math.abs(dailySnapshot.current.pnlUsdt).toFixed(2)} USDT，已达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损；今天停止新开仓。`;
   else if (status === "ACTIVE" && drawdown >= environment.liveMaxDrawdownUsdt) { status = "STOPPED"; stopReason = `账户回撤达到${drawdown.toFixed(2)} USDT，超过${environment.liveMaxDrawdownUsdt.toFixed(2)} USDT总止损。`; }
-  else if (status === "ACTIVE" && Number.isFinite(endsAtMs) && now.getTime() >= endsAtMs) { status = "COMPLETED"; stopReason = "30天实盘实验到期，已停止新开仓。"; }
-  await prisma.$executeRaw`UPDATE trade_bitget_live_experiment SET status=${status}, current_equity_usdt=${equity}, peak_equity_usdt=${peak}, max_drawdown_usdt=GREATEST(max_drawdown_usdt, ${drawdown}), max_drawdown_pct=GREATEST(max_drawdown_pct, ${drawdownPct}), stop_reason=${stopReason}, updated_at=NOW() WHERE id='default'`;
+  else if (status === "ACTIVE" && (!duration.valid || !duration.due)) { status = "STOPPED"; stopReason = "实盘运行期限配置无效或尚未开始，已停止新开仓。"; }
+  else if (status === "ACTIVE" && duration.expired) { status = "COMPLETED"; stopReason = "定期实盘运行已到期，已停止新开仓。"; }
+  // An in-flight old synchronizer must not overwrite an explicit lifecycle conversion.
+  const changed = await prisma.$executeRaw`UPDATE trade_bitget_live_experiment e SET status=${status}, current_equity_usdt=${equity}, peak_equity_usdt=GREATEST(peak_equity_usdt, ${peak}), max_drawdown_usdt=GREATEST(max_drawdown_usdt, ${drawdown}), max_drawdown_pct=GREATEST(max_drawdown_pct, ${drawdownPct}), stop_reason=${stopReason}, updated_at=NOW() WHERE id='default' AND status=${row.status} AND COALESCE(to_jsonb(e)->>'duration_mode', 'FIXED')=${row.duration_mode ?? "FIXED"}`;
+  if (changed !== 1) return readBitgetLiveExperimentStatus(now);
   const pnl = initial > 0 ? equity - initial : 0;
-  return { enabled: true, active: status === "ACTIVE", completed: status === "COMPLETED", stopped: status === "STOPPED", status: status as BitgetLiveExperimentStatus["status"], startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: equity || 0, peakEquityUsdt: peak || 0, pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0, maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown), maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct), dailyPnlUsdt: dailySnapshot.current.pnlUsdt, dailyPnlPct: dailySnapshot.current.pnlPct, dailyHistory: dailySnapshot.history, stopReason, securityMessage };
+  return { enabled: true, active: status === "ACTIVE" && duration.active, durationMode: row.duration_mode ?? "FIXED", completed: status === "COMPLETED", stopped: status === "STOPPED", status: status as BitgetLiveExperimentStatus["status"], startedAt: dateIso(row.started_at), endsAt: dateIso(row.ends_at), initialEquityUsdt: initial || null, currentEquityUsdt: equity || 0, peakEquityUsdt: peak || 0, pnlUsdt: pnl, pnlPct: initial > 0 ? pnl / initial * 100 : 0, maxDrawdownUsdt: Math.max(Number(row.max_drawdown_usdt ?? 0), drawdown), maxDrawdownPct: Math.max(Number(row.max_drawdown_pct ?? 0), drawdownPct), dailyPnlUsdt: dailySnapshot.current.pnlUsdt, dailyPnlPct: dailySnapshot.current.pnlPct, dailyHistory: dailySnapshot.history, stopReason, securityMessage };
 }
 
 async function assertLiveExperimentOpenAllowed(input: {
@@ -1330,6 +1341,14 @@ async function assertLiveExperimentOpenAllowed(input: {
   if (!environment.liveAllowedSymbols.includes(input.symbol)) throw new Error(`${input.symbol}不在实盘实验允许品种中`);
   const experiment = await readBitgetLiveExperimentStatus(new Date());
   if (!experiment.active) throw new Error(experiment.stopReason || `实盘实验状态为${experiment.status}，禁止新开仓`);
+  const epochRows = await prisma.$queryRaw<Array<{ epoch: string | null; created_at: Date | null }>>`
+    SELECT to_jsonb(e)->>'entry_epoch_at' AS epoch, d.created_at
+    FROM trade_bitget_live_experiment e
+    LEFT JOIN trade_three_horizon_decisions d ON d.id=${input.executionIdentity.split(":")[0]}
+    WHERE e.id='default'
+  `;
+  if (!epochRows[0] || (experiment.durationMode === "CONTINUOUS" && !epochRows[0].epoch)) throw new Error("持续运行开仓批次证据缺失");
+  assertCurrentEntryEpoch(epochRows[0].epoch, epochRows[0].created_at);
   if ((experiment.dailyPnlUsdt ?? 0) <= -environment.liveDailyLossUsdt) {
     throw new Error(`今日净亏损${Math.abs(experiment.dailyPnlUsdt ?? 0).toFixed(2)} USDT，达到${environment.liveDailyLossUsdt.toFixed(2)} USDT日止损，明日再评估。`);
   }
@@ -2042,12 +2061,14 @@ async function processSingleOutboxTask(id: string): Promise<ExecutionOutboxRow> 
       configureAccount: acquired.action_type === "OPEN_MARKET"
         ? async () => {
             if (!preparedSettings) throw new Error("UTA账户设置未完成预读取");
+            await assertLiveExperimentOpenAllowed({ symbol: payload.symbol, size: payload.size, side: payload.side, executionIdentity: payload.paperOrderId, exposureAction: payload.exposureAction, technicalTriggerFingerprint: payload.technicalTriggerFingerprint });
             await configureUtaSymbol(payload.symbol, posSide, preparedSettings, payload.leverage);
           }
         : undefined,
       queryExisting: () => getBitgetDemoOrderByClientOid(oid),
       submitOrder: async (onRemoteDispatch) => {
         if (!preparedSettings) throw new Error("UTA账户设置未完成预读取");
+        if (acquired.action_type === "OPEN_MARKET") await assertLiveExperimentOpenAllowed({ symbol: payload.symbol, size: payload.size, side: payload.side, executionIdentity: payload.paperOrderId, exposureAction: payload.exposureAction, technicalTriggerFingerprint: payload.technicalTriggerFingerprint });
         return submitMarketOrderDirect(payload, oid, preparedSettings, onRemoteDispatch);
       },
       describeError: describeBitgetFailure,
@@ -2671,6 +2692,24 @@ export async function getBitgetDemoAllPendingStrategyOrders(): Promise<BitgetAud
     seen.add(key);
     return true;
   });
+}
+
+/** Strict, read-only transition evidence; never normalize missing exchange data to zero. */
+export async function readBitgetContinuousTransitionSnapshot() {
+  const observedAt = Date.now();
+  const environment = getBitgetDemoEnvironment();
+  if (environment.mode !== "LIVE_EXPERIMENT" || !environment.configured || !environment.liveConfirmationAccepted) throw new Error("LIVE_CONFIG_INVALID");
+  const [positions, orders, tpsl, trigger, balance, security, settings] = await Promise.all([
+    signedRequest<unknown>({ method: "GET", path: "/api/v3/position/current-position", query: { category: PRODUCT_TYPE } }),
+    signedRequest<unknown>({ method: "GET", path: "/api/v3/trade/unfilled-orders", query: { category: PRODUCT_TYPE, limit: 100 } }),
+    signedRequest<unknown>({ method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "tpsl" } }),
+    signedRequest<unknown>({ method: "GET", path: "/api/v3/trade/unfilled-strategy-orders", query: { category: PRODUCT_TYPE, type: "trigger" } }),
+    getBitgetRuntimeAccountBalance(), getBitgetApiSecurity(), getBitgetUtaSettingsSnapshot(),
+  ]);
+  assertEmptyExchangePayloads(positions, orders, tpsl, trigger);
+  if (!security.failClosedReady || !["unified", "hybrid"].includes(String(settings.accountMode).toLowerCase())) throw new Error("EXCHANGE_SECURITY_INVALID");
+  if (!Number.isFinite(balance.equityUsdt) || balance.equityUsdt <= 0) throw new Error("EXCHANGE_UNKNOWN");
+  return { observedAt, equity: balance.equityUsdt, dailyLossLimit: environment.liveDailyLossUsdt, drawdownLimit: environment.liveMaxDrawdownUsdt };
 }
 
 function auditWindowQuery(symbol: string, startAt: string, endAt: string) {

@@ -1,4 +1,5 @@
 import type { UnifiedLiveMode } from "@/types/unified-live-trading";
+import { evaluateLiveDuration } from "../bitget/live-duration-core";
 
 export type UnifiedLiveRestoreBlocker = {
   code: string;
@@ -13,7 +14,7 @@ export type UnifiedLiveRestoreReadiness = {
   environmentAllowsNewEntries: boolean;
   positionManagementEnabled: boolean;
   bitgetLiveExperiment: boolean;
-  liveExperiment?: { status: string; startedAt: Date | string | null; endsAt: Date | string | null } | null;
+  liveExperiment?: { status: string; durationMode?: string | null; startedAt: Date | string | null; endsAt: Date | string | null } | null;
   bitgetConfigured: boolean;
   bitgetExecutionAllowed: boolean;
   bitgetLiveConfirmationAccepted: boolean;
@@ -40,20 +41,18 @@ export function buildUnifiedLiveRestoreBlockers(
   if (!input.bitgetLiveExperiment) add("BITGET_MODE_NOT_LIVE_EXPERIMENT", "Bitget当前不是1000U实盘实验模式");
   if (input.bitgetLiveExperiment) {
     const experiment = input.liveExperiment;
-    const start = experiment?.startedAt ? new Date(experiment.startedAt).getTime() : NaN;
-    const end = experiment?.endsAt ? new Date(experiment.endsAt).getTime() : NaN;
+    const duration = experiment ? evaluateLiveDuration(experiment, now) : null;
     if (!experiment) {
       add("LIVE_EXPERIMENT_UNAVAILABLE", "实盘实验状态未取得，暂不能开启；请稍后重新读取。");
-    } else if (experiment.status === "COMPLETED" || (Number.isFinite(end) && end <= now.getTime())) {
-      add("LIVE_EXPERIMENT_EXPIRED", "实盘实验已到期，自动新开仓尚未恢复。需要单独确认新的实验周期；重复点击开启不会续期。");
+    } else if (experiment.status === "COMPLETED" || duration?.expired) {
+      add("LIVE_EXPERIMENT_EXPIRED", "原定期运行已结束，尚未转换为已生效的持续运行。保存配置或重复点击开启不会恢复新开仓。");
     } else if (experiment.status === "STOPPED") {
       add("LIVE_EXPERIMENT_STOPPED", "实盘实验已停止，需先核查停止原因；开启按钮不会重置实验。");
     } else if (experiment.status === "NOT_STARTED") {
       add("LIVE_EXPERIMENT_NOT_STARTED", "实盘实验尚未启动，需先完成实验周期配置。");
-    } else if (experiment.status !== "ACTIVE" || !Number.isFinite(start) || !Number.isFinite(end)
-      || !Number.isFinite(now.getTime()) || start >= end) {
+    } else if (experiment.status !== "ACTIVE" || !duration?.valid) {
       add("LIVE_EXPERIMENT_INVALID", "实盘实验状态或起止时间无效，暂不能开启。");
-    } else if (start > now.getTime()) {
+    } else if (!duration?.due) {
       add("LIVE_EXPERIMENT_NOT_DUE", "尚未到达实盘实验开始时间，暂不能开启。");
     }
   }

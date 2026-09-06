@@ -15,7 +15,7 @@ function route({ admin = true, rows = [], failRead = false } = {}) {
     if (name === "next/server") return { NextResponse: { json: (data, options) => ({ data, status: options?.status ?? 200 }) } };
     if (name === "@/lib/prisma") return { prisma: { $queryRaw: async (query) => {
       calls.reads++;
-      assert.match(query.join(""), /SELECT status, started_at, ends_at FROM trade_bitget_live_experiment WHERE id = 'default' LIMIT 1/);
+      assert.match(query.join(""), /SELECT status, started_at, ends_at, to_jsonb\(e\)->>'duration_mode' AS duration_mode FROM trade_bitget_live_experiment e WHERE id = 'default' LIMIT 1/);
       assert.doesNotMatch(query.join(""), /INSERT|UPDATE|DELETE|CREATE|ALTER/);
       if (failRead) throw new Error("private DB diagnostic must not leak");
       return rows;

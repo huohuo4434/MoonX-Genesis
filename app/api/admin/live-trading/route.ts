@@ -30,10 +30,10 @@ async function readRestoreReadiness(status: {
   let liveExperiment: UnifiedLiveRestoreReadiness["liveExperiment"] = null;
   if (checkExperiment && bitget.mode === "LIVE_EXPERIMENT" && prisma) {
     try {
-      const rows = await prisma.$queryRaw<Array<{ status: string; started_at: Date | null; ends_at: Date | null }>>`
-        SELECT status, started_at, ends_at FROM trade_bitget_live_experiment WHERE id = 'default' LIMIT 1
+      const rows = await prisma.$queryRaw<Array<{ status: string; duration_mode: string | null; started_at: Date | null; ends_at: Date | null }>>`
+        SELECT status, started_at, ends_at, to_jsonb(e)->>'duration_mode' AS duration_mode FROM trade_bitget_live_experiment e WHERE id = 'default' LIMIT 1
       `;
-      if (rows[0]) liveExperiment = { status: rows[0].status, startedAt: rows[0].started_at, endsAt: rows[0].ends_at };
+      if (rows[0]) liveExperiment = { status: rows[0].status, durationMode: rows[0].duration_mode, startedAt: rows[0].started_at, endsAt: rows[0].ends_at };
     } catch {
       // Missing table, unavailable DB, or failed read is unknown, never permission.
     }

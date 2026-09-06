@@ -31,9 +31,10 @@ export default async function AdminBitgetDemoPage() {
       <main>
         <Section spacing="lg">
           <AdminNav current="/admin/bitget-demo" />
-          <Heading as="h1" size="h2">Bitget 实盘实验控制台</Heading>
+          <Heading as="h1" size="h2">Bitget 实盘运行控制台</Heading>
           <Text variant="body-sm" color="secondary" className="mt-2 mb-6 max-w-4xl">
-            当前引擎配置：预算{environment.liveInitialCapitalUsdt} USDT、期限{environment.liveDurationDays}天、{allowedCount}个允许USDT合约品种、最高{environment.leverage}倍杠杆。配置不代表实验已续期或可以开仓；实际期限和阻断原因见下方状态。各周期分批轮转扫描，锁定预测决定方向，技术结构确定入场与风控位置。
+            当前引擎配置：预算{environment.liveInitialCapitalUsdt} USDT、{allowedCount}个允许USDT合约品种、最高{environment.leverage}倍杠杆。实际期限以生效状态为准，支持持续运行；旧定期账户不会自动转换。各周期轮转扫描，锁定预测决定方向，技术结构确定入场与风控位置。
+            <a className="ml-2 underline" href="/admin/live-trading">管理持续运行与开关</a>
           </Text>
           <div className="space-y-8">
             <Card padding="lg" className={cronAuthorized && commissioningEnabled ? "border-emerald-400/25 bg-emerald-400/[0.035]" : "border-amber-400/25 bg-amber-400/[0.035]"}>

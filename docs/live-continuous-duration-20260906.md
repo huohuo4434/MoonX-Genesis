@@ -1,0 +1,61 @@
+# Continuous-duration runtime support (not live activation)
+
+Scope: duration/transition core, Bitget reader/synchronizer and runtime DTO, admin
+readiness API, explicit continuous-duration POST and UI, member desk status,
+admin snapshot/UI, tests and additive SQL migration. Outbox open retries now
+recheck current authority and entry epoch before configure/submit. No new environment
+variables, risk-limit changes, forecast changes or automatic account-mode changes.
+The transition itself only reads the exchange; it never submits an order.
+
+The applied database row owns `duration_mode`. Missing mode is legacy `FIXED`.
+`CONTINUOUS` requires an explicit value, valid non-future start, ACTIVE status and
+NULL deadline. An absent deadline alone is never authority. All existing security,
+daily-loss, drawdown and entry gates still apply. A pending configuration event
+does not count as an applied runtime setting.
+
+## Release and activation boundaries
+
+- This migration adds FIXED-default duration_mode and nullable entry_epoch_at columns. It does not renew COMPLETED
+  experiments or clear STOPPED states, expiry dates, loss history or stop reasons.
+- Code tolerates the old schema on read via to_jsonb; missing mode stays FIXED.
+- The existing production record is COMPLETED. Deploying this code does **not**
+  make it active. The saved configuration remains pending.
+- Implemented POST /api/admin/live-trading/continuous-duration with administrator,
+  same-origin JSON and exact-confirmation checks. Its user-clicked button only
+  prepares continuous duration, never chains SET_MODE LIVE.
+- The transaction requires MANAGE_ONLY + new entries disabled + management enabled;
+  a completely released runtime lease; no unresolved outbox work, active decisions
+  or live slices; strict empty exchange evidence; current daily opening equity;
+  and a FIXED/COMPLETED record whose stop reason is specifically expiry.
+- Original capital, started_at, peak equity, cumulative/daily P&L and drawdowns
+  remain intact. Risk breaches and unknown evidence block. Original evidence is
+  recorded in the same transaction. The pending capital/leverage draft is not applied.
+- Conversion sets an entry epoch. Old or missing decision evidence cannot open a
+  new position. Synchronizer status/mode CAS prevents an old fixed-duration read
+  from overwriting a newly converted record. Repeating a successful conversion
+  does not reset history. Database concurrency has not been live-tested.
+- No production migration, deployment, lifecycle conversion or live switch was
+  performed. Deployment inspection returned Vercel 403 for scope huohuo2; the
+  connected account requires re-authorization before publishing can continue.
+
+## Rollback
+
+Before any future continuous activation, rollback is code-only: retain the additive
+column and all data. After a continuous account exists, an old application cannot
+interpret its NULL deadline; reverting then requires a separately reviewed pause
+and compatibility plan, not dropping data or resetting the account.
+
+## Validation
+
+Run targeted duration/admin/member publisher tests, typecheck, production build
+and impact audit. Require separate Reviewer approval. Production acceptance remains
+separate and requires `UPGRADE VALIDATION PASSED` plus fresh read-only runtime proof.
+
+Latest combined targeted result: 143/143 PASS. TypeScript PASS. Production build
+PASS (65 generated pages, existing unrelated lint warnings). Impact audit:
+24 changed/new files, 0 blockers. Separate Reviewer
+APPROVE after independently running 41/41 tests. Store, route, UI and actual
+reader/synchronizer tests mock database/exchange/HTTP boundaries; these are not
+proof of a production conversion. No production acceptance has been claimed.
+An independent extra historical public-verification test has an unrelated existing
+`starBreakdown` static assertion failure. These results are not an all-repository pass.

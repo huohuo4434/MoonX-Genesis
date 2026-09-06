@@ -95,6 +95,22 @@ test("LIVE publisher reads only; account entry gate remains closed and actual st
   assert.equal(h.state.writes.length, 1);
 });
 
+test("continuous duration survives publisher and never opens a closed account gate", async () => {
+  const h = harness();
+  Object.assign(h.runtime.liveExperiment, { durationMode: "CONTINUOUS", endsAt: null });
+  const result = await h.sync(h.now);
+  assert.equal(result.experiment.durationMode, "CONTINUOUS");
+  assert.equal(result.experiment.endsAt, null);
+  assert.equal(result.executionAllowed, false);
+  const permitted = applyAiDeskOperationalState({ ...result, executionAllowed: true,
+    executionConfigured: true, serverHealthy: true, syncStatus: "OK" } as any, h.now);
+  assert.equal(permitted.executionAllowed, true);
+  const missing = applyAiDeskOperationalState({ ...permitted,
+    experiment: { ...permitted.experiment, durationMode: undefined } }, h.now);
+  assert.equal(missing.executionAllowed, false);
+  assert.equal(missing.operationalStateLabel, "运行期限待核验");
+});
+
 test("exchange read failure preserves last successful positions and timestamp; private errors stay private", async () => {
   const h = harness(); const old = h.state.payload; const stamp = h.state.synced;
   h.state.positions = async () => { throw new Error("PRIVATE_EXCHANGE_ERROR"); };

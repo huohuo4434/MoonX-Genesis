@@ -21,7 +21,7 @@
     "ensure:admin": "node --import tsx scripts/ensure-admin-role.ts",
     "postinstall": "prisma generate",
     "start": "next start",
-    "pretest": "npm run test:live-market-session && node --import tsx --test tests/daily-champion-core.test.ts tests/ultra-short-execution-core.test.ts tests/trading-outbox-failure-relevance-core.test.ts tests/bitget-protection-outbox-preflight.test.ts tests/unified-live-orphan-protection.test.ts tests/bazi-divergence-integration-v720101.test.mjs tests/perf-trading-cadence-v720113.test.ts",
+    "pretest": "npm run test:live-market-session && node --import tsx --test tests/live-duration-core.test.ts tests/live-duration-runtime.test.mjs tests/live-continuous-transition.test.ts tests/daily-champion-core.test.ts tests/ultra-short-execution-core.test.ts tests/trading-outbox-failure-relevance-core.test.ts tests/bitget-protection-outbox-preflight.test.ts tests/unified-live-orphan-protection.test.ts tests/bazi-divergence-integration-v720101.test.mjs tests/perf-trading-cadence-v720113.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:qimen-shadow": "node --conditions=react-server --import tsx --test tests/qimen-school-separation.test.ts tests/qimen-shadow-ab-core.test.ts tests/qimen-shadow-capture-core.test.ts tests/qimen-shadow-automation-core.test.ts tests/qimen-shadow-reading-core.test.ts tests/qimen-shadow-reading-pair-core.test.ts tests/qimen-shadow-candidate-v1-compat.test.ts tests/qimen-shadow-persistence-boundary.test.mjs tests/qimen-shadow-lesson-ingestion-core.test.ts tests/qimen-shadow-lesson-wiring.test.mjs tests/qimen-ops-phase7.test.ts",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import LiveConfigurationDraftClient from "./LiveConfigurationDraftClient";
+import { CONTINUOUS_CONFIRMATION } from "@/lib/bitget/live-continuous-transition-core";
 import type { LiveRenewalPreview } from "@/lib/trading-signals/live-renewal-preview-core";
 import type {
   UnifiedLiveCustodyAudit,
@@ -160,6 +161,39 @@ export default function AdminLiveTradingClient() {
   const blockerCount = restoreBlockers.length;
   const entryPermissionOn = account?.mode === "LIVE" && account.newEntriesEnabled === true;
   const cannotEnable = busy || !account || data?.migrationRequired !== false || !Array.isArray(data?.restoreBlockers) || blockerCount > 0 || entryPermissionOn;
+  const canPrepare = !busy && account?.mode === "MANAGE_ONLY" && account.newEntriesEnabled === false
+    && account.positionManagementEnabled === true && restoreBlockers.some(item => item.code === "LIVE_EXPERIMENT_EXPIRED");
+  const prepareContinuous = async () => {
+    if (!canPrepare || inFlight.current) return;
+    inFlight.current = true;
+    readGeneration.current += 1;
+    setBusy(true);
+    setMessage("正在核查空仓、旧任务和原始风险记录……不会开启新仓。");
+    let result = "转换结果尚未确认，请刷新状态核对；没有提交开启新仓请求。";
+    try {
+      const response = await fetch("/api/admin/live-trading/continuous-duration", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirmation: CONTINUOUS_CONFIRMATION }), signal: AbortSignal.timeout(45000),
+      });
+      const payload = await response.json();
+      if (response.ok && payload.ok === true && payload.durationMode === "CONTINUOUS" && payload.newEntriesEnabled === false) {
+        result = "已转为持续运行，原始本金、盈亏和回撤保留。新仓许可仍关闭；如需启动，请在检查通过后自行点击“一键开启”。";
+      } else {
+        const reasons: Record<string, string> = {
+          RUNTIME_BUSY: "服务器正在运行一轮任务，请稍后重试。", MANAGE_ONLY_REQUIRED: "请先关闭新开仓，并保持已有仓托管。",
+          UNSETTLED_WORK: "仍有未结任务或持仓记录，需完成对账。", EXCHANGE_NOT_EMPTY: "交易所仍有仓位或委托，不能转换。",
+          RISK_LIMIT_REACHED: "原始风险记录已触及亏损或回撤限额，不能借转换重置。", NOT_EXPIRY_COMPLETED: "当前结束原因不是单纯到期，需核查。",
+          SNAPSHOT_STALE: "账户核查耗时过长，请重新检查。",
+        };
+        result = `尚未转换：${reasons[payload.error] ?? "未取得完整安全证据，请稍后重试或核查诊断。"}`;
+      }
+    } catch { /* Lost response is not proof of either success or rollback. */ }
+    finally {
+      const refreshed = await load();
+      setMessage(result + (refreshed ? "" : " 最新状态未读到，请刷新核对。"));
+      inFlight.current = false; setBusy(false);
+    }
+  };
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 text-white">
@@ -193,9 +227,13 @@ export default function AdminLiveTradingClient() {
           >一键关闭</button>
         </div>
         <p id="live-control-notice" className="mt-3 text-sm leading-6 text-slate-300">
-          点击“一键开启”即确认允许现有1000U实盘引擎开仓。开关不等于已经成交，也不会自动续期实验；实验到期或风控未通过时仍不下单。
-          <a className="ml-2 underline" href="/admin/bitget-demo">查看实际运行与实验期限</a>
+          点击“一键开启”即确认允许现有1000U实盘引擎开仓。开关不等于已经成交；定期运行到期或风控未通过时仍不下单。
+          <a className="ml-2 underline" href="/admin/bitget-demo">查看实际运行与生效期限</a>
         </p>
+        {restoreBlockers.some(item => item.code === "LIVE_EXPERIMENT_EXPIRED") ? <div className="mt-4 rounded-2xl border border-amber-400/30 p-4">
+          <p className="text-sm leading-6 text-amber-100">旧定期运行已到期。可转换为无固定到期日的持续运行；保留所有历史盈亏与风控限额，不使用待保存的金额、杠杆草稿，不自动开启新仓。</p>
+          <button disabled={!canPrepare} onClick={() => void prepareContinuous()} className="mt-3 rounded-xl bg-amber-600 px-5 py-3 font-semibold disabled:opacity-40">确认转为持续运行（不开新仓）</button>
+        </div> : null}
         {data?.migrationRequired ? <p role="alert" className="mt-3 text-red-300">数据库迁移尚未完成，暂不能开启。</p> : null}
         <div className="mt-5 grid gap-3 md:grid-cols-4">
           <div className="rounded-xl bg-white/5 p-4">

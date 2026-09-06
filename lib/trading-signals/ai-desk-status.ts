@@ -1,3 +1,4 @@
+import { evaluateLiveDuration } from "../bitget/live-duration-core";
 import type {
   AiTradingDeskOperationalState,
   AiTradingDeskSnapshot,
@@ -135,16 +136,16 @@ export function applyAiDeskOperationalState(
   const executionConfigured = snapshot.executionConfigured ?? snapshot.executionAllowed;
 
   if (snapshot.mode === "BITGET_LIVE_EXPERIMENT") {
-    const endsAt = timeMs(snapshot.experiment.endsAt);
-    const experimentStatus = snapshot.experiment.status === "ACTIVE" && endsAt != null && now.getTime() >= endsAt
+    const duration = evaluateLiveDuration(snapshot.experiment, now);
+    const experimentStatus = snapshot.experiment.status === "ACTIVE" && duration.expired
       ? "COMPLETED" : snapshot.experiment.status;
     let state: AiTradingDeskOperationalState;
     let label: string;
     let message: string;
     if (experimentStatus === "COMPLETED") {
       state = "PAUSED";
-      label = "实验已结束";
-      message = snapshot.experiment.stopReason || "30天实盘实验已结束。";
+      label = "定期运行已结束";
+      message = snapshot.experiment.stopReason || "原定期运行已结束，持续运行尚未生效。";
     } else if (experimentStatus === "STOPPED") {
       state = "PAUSED";
       label = "止损停止";
@@ -153,6 +154,10 @@ export function applyAiDeskOperationalState(
       state = "PAUSED";
       label = "待启动";
       message = snapshot.syncMessage || "等待完成实盘环境配置和安全检查。";
+    } else if (!duration.active) {
+      state = "PAUSED";
+      label = "运行期限待核验";
+      message = "运行期限配置无效或尚未开始，禁止新开仓。";
     } else if (snapshot.runtime.paused) {
       state = "PAUSED";
       label = "执行已暂停";
@@ -180,13 +185,13 @@ export function applyAiDeskOperationalState(
     } else {
       state = "WAITING_ENTRY";
       label = "等待交易机会";
-      message = "实盘实验运行正常，当前没有持仓。";
+      message = "实盘运行正常，当前没有持仓。";
     }
     const executionAllowed = Boolean(
       executionConfigured &&
       snapshot.executionAllowed && snapshot.serverHealthy &&
       experimentStatus === "ACTIVE" &&
-      endsAt != null && now.getTime() < endsAt &&
+      duration.active &&
       quoteReady &&
       !heartbeatStale &&
       !snapshot.runtime.paused &&

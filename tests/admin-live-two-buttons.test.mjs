@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import * as draftCore from "../lib/trading-signals/live-configuration-draft-core.ts";
+import * as durationCore from "../lib/bitget/live-continuous-transition-core.ts";
 
 // Run the actual component handlers with deterministic hooks and mocked HTTP only.
 // No server, credentials, timers or exchange calls are involved.
@@ -37,6 +38,7 @@ function harness(replies, compiled = code) {
     exports, React: hooks, AbortSignal, Error, crypto: { randomUUID: () => "00000000-0000-4000-8000-000000000001" },
     require(name) {
       if (name.endsWith("live-configuration-draft-core")) return draftCore;
+      if (name.endsWith("live-continuous-transition-core")) return durationCore;
       if (name === "./LiveConfigurationDraftClient") return { default: () => null };
       assert.equal(name, "react"); return hooks;
     },
@@ -72,7 +74,24 @@ test("mount is GET only, with exactly two main buttons and collapsed advanced co
   const tree = ui.render();
   assert.equal(ui.nodes(tree.props.children[0], "button").length, 2);
   assert.equal(ui.nodes(tree, "details")[0].props.open, undefined);
-  assert.match(ui.text(), /不会自动续期实验/);
+  assert.match(ui.text(), /定期运行到期或风控未通过时仍不下单/);
+});
+
+test("explicit continuous preparation submits once and never chains live enable", async () => {
+  const expired = { ...healthy(), restoreBlockers: [{ code: "LIVE_EXPERIMENT_EXPIRED" }] };
+  let release;
+  const ui = harness([response(expired), () => new Promise(resolve => { release = resolve; }), response(healthy())]);
+  await ui.mount();
+  assert.equal(ui.requests.length, 1);
+  const click = ui.button("确认转为持续运行（不开新仓）").props.onClick;
+  click(); click();
+  assert.equal(ui.requests.length, 2);
+  assert.equal(ui.requests[1].url, "/api/admin/live-trading/continuous-duration");
+  assert.deepEqual(JSON.parse(ui.requests[1].body), { confirmation: durationCore.CONTINUOUS_CONFIRMATION });
+  release(response({ ok: true, durationMode: "CONTINUOUS", newEntriesEnabled: false }));
+  await settle();
+  assert.equal(ui.requests.filter(r => r.method === "POST").length, 1);
+  assert.match(ui.text(), /新仓许可仍关闭/);
 });
 
 test("one explicit enable click sends the existing confirmation once; no double submission", async () => {

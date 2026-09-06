@@ -48,6 +48,7 @@ type RuntimeStateRow = {
 };
 
 type LiveExperimentRow = {
+  duration_mode?: string | null;
   status: string;
   started_at: Date | string | null;
   ends_at: Date | string | null;
@@ -385,6 +386,7 @@ function mapSnapshot(envelope: SnapshotEnvelope, now: Date): LiveAdminDashboard 
       updatedAt: iso(row.updated_at) ?? now.toISOString(),
       liveExperiment: {
         status,
+        durationMode: experiment?.duration_mode ?? "FIXED",
         startedAt: iso(experiment?.started_at),
         endsAt: iso(experiment?.ends_at),
         initialEquityUsdt: initial || null,
@@ -447,10 +449,10 @@ async function querySnapshot(): Promise<SnapshotEnvelope> {
         LIMIT 1
       ) state_row) AS runtime_state,
       (SELECT row_to_json(experiment_row) FROM (
-        SELECT status, started_at, ends_at, initial_equity_usdt,
+        SELECT status, started_at, ends_at, to_jsonb(e)->>'duration_mode' AS duration_mode, initial_equity_usdt,
                current_equity_usdt, peak_equity_usdt, max_drawdown_usdt,
                max_drawdown_pct, stop_reason
-        FROM trade_bitget_live_experiment
+        FROM trade_bitget_live_experiment e
         WHERE id = 'default'
         LIMIT 1
       ) experiment_row) AS live_experiment,

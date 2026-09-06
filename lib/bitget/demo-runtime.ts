@@ -751,6 +751,7 @@ export async function getBitgetRuntimeState(
   );
   const liveExperiment = environment.mode === "LIVE_EXPERIMENT"
     ? await readBitgetLiveExperimentStatus(now).catch((error) => ({
+      durationMode: null,
         enabled: true, active: false, completed: false, stopped: true, status: "STOPPED" as const,
         startedAt: null, endsAt: null, initialEquityUsdt: null, currentEquityUsdt: null, peakEquityUsdt: null,
         pnlUsdt: null, pnlPct: null, maxDrawdownUsdt: null, maxDrawdownPct: null, dailyPnlUsdt: null, dailyPnlPct: null, dailyHistory: [],
@@ -794,7 +795,7 @@ export async function getBitgetRuntimeState(
     recentEvents: databaseReady ? await listEvents() : [],
     updatedAt: iso(row?.updated_at) ?? now.toISOString(),
     liveExperiment: liveExperiment ? {
-      status: liveExperiment.status, startedAt: liveExperiment.startedAt, endsAt: liveExperiment.endsAt,
+      status: liveExperiment.status, durationMode: liveExperiment.durationMode, startedAt: liveExperiment.startedAt, endsAt: liveExperiment.endsAt,
       initialEquityUsdt: liveExperiment.initialEquityUsdt, currentEquityUsdt: liveExperiment.currentEquityUsdt,
       pnlUsdt: liveExperiment.pnlUsdt, pnlPct: liveExperiment.pnlPct,
       maxDrawdownUsdt: liveExperiment.maxDrawdownUsdt, maxDrawdownPct: liveExperiment.maxDrawdownPct,

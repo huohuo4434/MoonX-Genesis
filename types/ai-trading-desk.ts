@@ -111,6 +111,7 @@ export interface AiTradingDeskSnapshot {
   quoteReady: boolean;
   latestQuoteAt: string | null;
   experiment: {
+    durationMode?: string | null;
     status: "DISABLED" | "NOT_STARTED" | "ACTIVE" | "COMPLETED" | "STOPPED";
     startedAt: string | null;
     endsAt: string | null;
