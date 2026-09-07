@@ -8,6 +8,7 @@ import { DailySectorResonanceBoard } from "@/components/conviction/DailySectorRe
 import { SectorResonanceBoard } from "@/components/conviction/SectorResonanceBoard";
 import { SectorKeyDateOverview } from "@/components/conviction/SectorKeyDateOverview";
 import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
+import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildDailySectorResonanceBoard } from "@/lib/data/conviction/daily-sector-resonance";
@@ -91,6 +92,7 @@ export default async function MemberSectorResonancePage({
       <main className="min-h-screen bg-[#07080a] text-white">
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
+            <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
             <div className="grid gap-5 xl:grid-cols-2">
               {headlinePanels.map((panel) => <ConclusionFirstPanel
                 key={panel.title}
