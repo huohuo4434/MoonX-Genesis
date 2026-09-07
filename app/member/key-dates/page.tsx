@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KeyDatePriceChart } from "@/components/member/KeyDatePriceChart";
+import { CryptoTechnicalReview } from "@/components/member/CryptoTechnicalReview";
 import { chartWindow } from "@/lib/presentation/key-date-chart";
 import { forecastPaths } from "@/lib/presentation/forecast-path";
 import { keyDateChartForecasts } from "@/lib/data/member-key-date-radar";
@@ -297,6 +298,7 @@ export default async function MemberKeyDatesPage() {
       </header>
 
       <KeyDatePriceChart windows={currentItems.map(chartWindow)} paths={forecastPaths(currentItems, keyDateChartForecasts(currentItems, Date.now()), asOfDate)} asOfDate={asOfDate} />
+      <CryptoTechnicalReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
 
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>
