@@ -5,6 +5,7 @@ import {
   ensureUnifiedLiveAccount,
   freezeUnifiedLiveEntries,
   getUnifiedLiveAccount,
+  getUnifiedLiveAuthorityVersion,
   markUnifiedLiveManualClosures,
   markUnifiedLivePendingSlicesOpen,
   recordUnifiedLiveEvents,
@@ -27,6 +28,8 @@ type StoredUnifiedLiveSlice = {
 
 async function readConfirmedUnifiedLiveCustody(ownerKey: string) {
   const readOnce = async () => {
+    // Fence authority BEFORE exchange IO; a later user click must win over this read.
+    const freezeAuthority = await getUnifiedLiveAuthorityVersion(ownerKey);
     // Read the ledger AFTER the exchange: new fills can register while GETs run.
     const exchange = await readUnifiedLiveExchangeSnapshot();
     const stored = await getUnifiedLiveAccount(ownerKey);
@@ -41,16 +44,25 @@ async function readConfirmedUnifiedLiveCustody(ownerKey: string) {
       orders: exchange.orders,
       slices,
     }) : null;
-    return { exchange, stored, audit };
+    return { exchange, stored, audit, freezeAuthority };
   };
   const first = await readOnce();
   // Only suspect/transition snapshots incur extra GETs. This reduces read skew;
   // it is not an execution lock. Unknown or persistent anomalies still block.
   if (first.audit?.snapshotAvailable
     && (first.audit.issues.length || first.audit.matchedPendingSlices.length)) {
-    return readOnce();
+    const confirmed = await readOnce();
+    // A different anomaly in the second snapshot is not a repeated observation.
+    // It still blocks this execution via audit.freezeNewEntries; only stable
+    // anomalies (or unavailable snapshots) persistently suspend the account.
+    const key = (issue: NonNullable<typeof first.audit>["issues"][number]) =>
+      JSON.stringify([issue.code, issue.symbol, issue.positionKey, issue.sliceId]);
+    const firstBlockers = new Set(first.audit.issues.filter(i => i.severity === "BLOCKER").map(key));
+    const persistentBlockers = confirmed.audit?.issues.filter(i => i.severity === "BLOCKER"
+      && (i.code === "SNAPSHOT_UNAVAILABLE" || firstBlockers.has(key(i)))) ?? [];
+    return { ...confirmed, persistentBlockers };
   }
-  return first;
+  return { ...first, persistentBlockers: first.audit?.issues.filter(i => i.severity === "BLOCKER") ?? [] };
 }
 
 export async function runUnifiedLiveCustodyCycle(input: {
@@ -71,7 +83,7 @@ export async function runUnifiedLiveCustodyCycle(input: {
     };
   }
 
-  const { exchange, stored, audit } = await readConfirmedUnifiedLiveCustody(ownerKey);
+  const { exchange, stored, audit, freezeAuthority, persistentBlockers } = await readConfirmedUnifiedLiveCustody(ownerKey);
   if (!audit || !stored.account) throw new Error("UNIFIED_LIVE_CUSTODY_ACCOUNT_UNAVAILABLE");
 
   if (audit.snapshotAvailable && audit.matchedPendingSlices.length) {
@@ -94,12 +106,12 @@ export async function runUnifiedLiveCustodyCycle(input: {
 
   const config = readUnifiedLiveRuntimeConfig();
   let currentAccount = stored.account;
-  if (audit.freezeNewEntries && stored.account?.newEntriesEnabled) {
+  if (persistentBlockers.length && stored.account?.newEntriesEnabled && freezeAuthority?.id === stored.account.id) {
     await freezeUnifiedLiveEntries({
       accountId: stored.account.id,
-      updatedAt: stored.account.updatedAt,
+      updatedAt: freezeAuthority.updatedAt,
       trigger: input.trigger,
-      reason: audit.issues.filter((issue) => issue.severity === "BLOCKER")
+      reason: persistentBlockers
         .map((issue) => `${issue.code}${issue.symbol ? `(${issue.symbol})` : ""}`).join(", "),
     });
     const refreshed = await getUnifiedLiveAccount(ownerKey);

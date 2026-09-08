@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LiveConfigurationDraftClient from "./LiveConfigurationDraftClient";
 import { CONTINUOUS_CONFIRMATION } from "@/lib/bitget/live-continuous-transition-core";
 import type { LiveRenewalPreview } from "@/lib/trading-signals/live-renewal-preview-core";
+import type { LiveControlHistoryView } from "@/lib/presentation/live-control-history";
 import type {
   UnifiedLiveCustodyAudit,
   UnifiedLiveHorizon,
@@ -21,6 +22,7 @@ type AdminLiveStatusPayload = {
   account?: AdminLiveAccount | null;
   audit?: UnifiedLiveCustodyAudit | null;
   restoreBlockers?: Array<{ code?: string; message?: string; detail?: string }>;
+  controlHistory?: LiveControlHistoryView;
 };
 
 type AdminLiveErrorPayload = {
@@ -210,6 +212,15 @@ export default function AdminLiveTradingClient() {
           开启：允许现有策略用真实资金开仓。关闭：停止新开仓，已有仓位继续管理，不自动平仓。
         </p>
         <div role="status" aria-live="polite" className="mt-4 rounded-2xl bg-white/5 p-4 text-sm">{message}</div>
+        <div data-live-control-history className="mt-4 rounded-2xl border border-amber-300/20 p-4 text-sm leading-6 text-slate-300">
+          <p>{account && !entryPermissionOn && blockerCount === 0
+            ? "开启前检查暂无阻断，但新开仓许可仍关闭。若要恢复，请自行点击“一键开启”；检查通过不等于已经开启。"
+            : "开关许可、当前阻断和实际成交是三个不同状态。"}</p>
+          <p className="mt-2">{!data?.controlHistory?.available ? "开关历史未取得，不能判定上次关闭原因。"
+            : data.controlHistory.latest ? `最近变更：${displayTime(data.controlHistory.latest.at)}（北京时间）· ${data.controlHistory.latest.label}。历史原因不代表当前仍有相同阻断。`
+            : "尚无可追溯的开关记录；不将旧故障猜作当前关闭原因。"}</p>
+          <button className="mt-2 underline disabled:opacity-40" disabled={busy} onClick={() => { void load(); }}>刷新检查（不下单）</button>
+        </div>
         {account && blockerCount > 0 ? (
           <p role="alert" className="mt-4 text-lg font-semibold text-red-300">
             实盘状态：暂不能开新单{entryPermissionOn ? "（开关已开，但运行条件未通过）" : ""}

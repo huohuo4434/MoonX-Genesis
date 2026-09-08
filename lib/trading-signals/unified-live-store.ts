@@ -134,6 +134,30 @@ export async function getUnifiedLiveAccount(ownerKey: string) {
   }
 }
 
+export async function getUnifiedLiveAuthorityVersion(ownerKey: string) {
+  if (!prisma) return null;
+  try {
+    return await prisma.mooxUnifiedLiveAccount.findUnique({
+      where: { ownerKey }, select: { id: true, updatedAt: true },
+    });
+  } catch (error) {
+    if (isMissingTableError(error)) return null;
+    throw error;
+  }
+}
+
+export async function getUnifiedLiveControlHistory(accountId: string) {
+  try {
+    const latest = await requireUnifiedLiveDatabase().mooxUnifiedLiveEvent.findFirst({
+      where: { accountId, code: { in: ["CUSTODY_NEW_ENTRIES_FROZEN", "ADMIN_MODE_CHANGED"] } },
+      orderBy: { createdAt: "desc" }, select: { code: true, detail: true, createdAt: true },
+    });
+    return { available: true, latest };
+  } catch {
+    return { available: false, latest: null };
+  }
+}
+
 /** Freeze only the authority version that was inspected, never a later user action. */
 export async function freezeUnifiedLiveEntries(input: {
   accountId: string;
@@ -171,15 +195,32 @@ export async function setUnifiedLiveMode(input: {
   mode: UnifiedLiveMode;
   newEntriesEnabled: boolean;
   positionManagementEnabled: boolean;
+  actorId: string;
+  expectedUpdatedAt?: Date;
 }) {
   const database = requireUnifiedLiveDatabase();
-  return database.mooxUnifiedLiveAccount.update({
-    where: { ownerKey: input.ownerKey },
-    data: {
+  return database.$transaction(async (tx) => {
+    const data = {
       mode: input.mode,
       newEntriesEnabled: input.newEntriesEnabled,
       positionManagementEnabled: input.positionManagementEnabled,
-    },
+    };
+    if (input.mode === "LIVE") {
+      if (!input.expectedUpdatedAt) throw new Error("LIVE_CONTROL_STATE_CHANGED");
+      const changed = await tx.mooxUnifiedLiveAccount.updateMany({
+        where: { ownerKey: input.ownerKey, updatedAt: input.expectedUpdatedAt }, data,
+      });
+      if (changed.count !== 1) throw new Error("LIVE_CONTROL_STATE_CHANGED");
+    } else {
+      // A user stop must not wait for exchange preflight or a stale version.
+      await tx.mooxUnifiedLiveAccount.update({ where: { ownerKey: input.ownerKey }, data });
+    }
+    const account = await tx.mooxUnifiedLiveAccount.findUniqueOrThrow({ where: { ownerKey: input.ownerKey } });
+    await tx.mooxUnifiedLiveEvent.create({ data: {
+      accountId: account.id, code: "ADMIN_MODE_CHANGED", severity: "INFO",
+      detail: JSON.stringify({ actorId: input.actorId, source: "ADMIN_SET_MODE", ...data, authorityUpdatedAt: account.updatedAt.toISOString() }),
+    } });
+    return account;
   });
 }
 

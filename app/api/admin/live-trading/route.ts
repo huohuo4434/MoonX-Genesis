@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
 import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
-import { getUnifiedLiveRuntimeStatus, inspectUnifiedLiveCustody, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
-import { claimUnifiedLivePosition, setUnifiedLiveMode } from "@/lib/trading-signals/unified-live-store";
+import { inspectUnifiedLiveCustody, runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
+import { claimUnifiedLivePosition, setUnifiedLiveMode, getUnifiedLiveAuthorityVersion, getUnifiedLiveControlHistory } from "@/lib/trading-signals/unified-live-store";
+import { presentLiveControlHistory } from "@/lib/presentation/live-control-history";
 import {
   applyUnifiedLiveModeChange,
   buildUnifiedLiveRestoreBlockers,
@@ -60,13 +61,16 @@ export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   const status = await inspectUnifiedLiveCustody("official");
   const restoreBlockers = buildUnifiedLiveRestoreBlockers(await readRestoreReadiness(status));
-  return NextResponse.json({ ...status, restoreBlockers }, {
+  const controlHistory = presentLiveControlHistory(status.account
+    ? await getUnifiedLiveControlHistory(status.account.id) : { available: false, latest: null });
+  return NextResponse.json({ ...status, restoreBlockers, controlHistory }, {
     headers: { "Cache-Control": "no-store" },
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  const actor = await requireAdmin(request);
+  if (!actor) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const action = String(payload?.action ?? "").toUpperCase();
   if (action === "RUN_AUDIT") {
@@ -75,20 +79,37 @@ export async function POST(request: NextRequest) {
   if (action === "SET_MODE") {
     const mode = String(payload?.mode ?? "MANAGE_ONLY").toUpperCase() as UnifiedLiveMode;
     if (!["PAUSED", "MANAGE_ONLY", "LIVE"].includes(mode)) return NextResponse.json({ error: "INVALID_MODE" }, { status: 400 });
-    const status = await getUnifiedLiveRuntimeStatus("official");
-    const result = await applyUnifiedLiveModeChange({
-      mode,
-      confirmation: payload?.confirmation,
-      readiness: await readRestoreReadiness(status, mode === "LIVE"),
-      apply: (nextMode) => setUnifiedLiveMode({
-        ownerKey: "official",
-        mode: nextMode,
-        newEntriesEnabled: nextMode === "LIVE",
-        positionManagementEnabled: nextMode !== "PAUSED",
-      }),
-    });
-    if (!result.ok) return NextResponse.json(result, { status: 409 });
-    return NextResponse.json(result);
+    if (mode !== "LIVE") {
+      const account = await setUnifiedLiveMode({ ownerKey: "official", mode, actorId: actor.id,
+        newEntriesEnabled: false, positionManagementEnabled: mode !== "PAUSED" });
+      return NextResponse.json({ ok: true, account });
+    }
+    const authority = await getUnifiedLiveAuthorityVersion("official");
+    const status = await inspectUnifiedLiveCustody("official");
+    try {
+      const result = await applyUnifiedLiveModeChange({
+        mode,
+        confirmation: payload?.confirmation,
+        readiness: await readRestoreReadiness(status),
+        apply: (nextMode) => setUnifiedLiveMode({
+          ownerKey: "official",
+          actorId: actor.id,
+          expectedUpdatedAt: authority?.updatedAt,
+          mode: nextMode,
+          newEntriesEnabled: nextMode === "LIVE",
+          positionManagementEnabled: nextMode !== "PAUSED",
+        }),
+      });
+      if (!result.ok) return NextResponse.json(result, { status: 409 });
+      return NextResponse.json(result);
+    } catch (error) {
+      if (error instanceof Error && error.message === "LIVE_CONTROL_STATE_CHANGED") {
+        return NextResponse.json({ ok: false, error: "LIVE_CONTROL_STATE_CHANGED", blockers: [
+          { code: "LIVE_CONTROL_STATE_CHANGED", message: "检查期间账户开关已变化，本次未开启；请刷新核对。" },
+        ] }, { status: 409 });
+      }
+      throw error;
+    }
   }
   if (action === "CLAIM_POSITION") {
     const horizon = String(payload?.horizon ?? "").toUpperCase() as UnifiedLiveHorizon;

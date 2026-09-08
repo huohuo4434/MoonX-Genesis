@@ -30,8 +30,9 @@ const account = { id: "official-id", updatedAt: new Date("2026-09-07T00:00:00Z")
 const healthy = { available: true, positions: [position], orders: [protection] };
 const empty = { available: true, positions: [], orders: [] };
 
-function harness({ exchanges = [healthy], accounts = [account], concurrentAction } = {}) {
+function harness({ exchanges = [healthy], accounts = [account], concurrentAction, authorityVersions, traceAuthority = false } = {}) {
   let ei = 0, si = 0;
+  let ai = 0;
   let current = structuredClone(accounts.at(-1));
   const calls = [], writes = [], events = [], exports = {}, freezeExports = {};
   const database = { $transaction: async fn => fn({
@@ -51,6 +52,10 @@ function harness({ exchanges = [healthy], accounts = [account], concurrentAction
   vm.runInNewContext(runtime, {
     exports, auditUnifiedLiveCustody, runOrphanProtectionCleanup,
     ensureUnifiedLiveAccount: async () => { calls.push("ensure"); return { ok: true }; },
+    getUnifiedLiveAuthorityVersion: async () => {
+      if (traceAuthority) calls.push("authority");
+      return authorityVersions ? authorityVersions[Math.min(ai++, authorityVersions.length - 1)] : current;
+    },
     readUnifiedLiveExchangeSnapshot: async () => { calls.push("exchange"); return exchanges[Math.min(ei++, exchanges.length - 1)]; },
     getUnifiedLiveAccount: async () => {
       calls.push("ledger");
@@ -146,10 +151,10 @@ test("pending promotion uses confirmed state only", async () => {
   assert.equal(result.audit.freezeNewEntries, false);
   assert.equal(h.calls.filter(x => x === "exchange").length, 2);
 });
-test("healthy steady state does not double exchange or DB reads", async () => {
-  const h = harness();
+test("healthy steady state adds one authority read but does not repeat exchange and ledger", async () => {
+  const h = harness({ traceAuthority: true });
   await run(h);
-  assert.deepEqual(h.calls, ["ensure", "exchange", "ledger"]);
+  assert.deepEqual(h.calls, ["ensure", "authority", "exchange", "ledger"]);
   assert.deepEqual(h.writes, []);
 });
 test("read-only inspection uses same confirmation but performs zero writes even for real blockers", async () => {
@@ -175,6 +180,34 @@ test("freeze CAS cannot overwrite a concurrent pause or later enable; no false f
     assert.equal(result.audit.freezeNewEntries, true, "current execution still blocked by audit; CAS never authorizes new orders");
   }
 });
+test("authority is fenced before each exchange read, not paired with a newer ledger version", async () => {
+  const newer = { ...account, updatedAt: new Date(+account.updatedAt + 1000) };
+  const h = harness({ exchanges: [{ ...healthy, orders: [] }], accounts: [account, newer],
+    authorityVersions: [account, account], traceAuthority: true });
+  const result = await run(h);
+  assert.deepEqual(h.calls.slice(0, 7), ["ensure", "authority", "exchange", "ledger", "authority", "exchange", "ledger"]);
+  assert.equal(result.audit.freezeNewEntries, true, "the current unsafe snapshot still blocks execution");
+  assert.equal(result.mode, "LIVE");
+  assert.deepEqual(h.writes, []);
+  assert.ok(!h.events.some(e => e.code === "CUSTODY_NEW_ENTRIES_FROZEN"));
+});
+
+test("a newly different blocker blocks execution without claiming persistent confirmation", async () => {
+  const h = harness({ exchanges: [empty, { ...healthy, orders: [] }] });
+  const result = await run(h);
+  assert.equal(result.audit.freezeNewEntries, true);
+  assert.ok(result.audit.issues.some(i => i.code === "PROTECTION_MISSING"));
+  assert.equal(result.mode, "LIVE");
+  assert.deepEqual(h.writes, []);
+  assert.ok(!h.events.some(e => e.code === "CUSTODY_NEW_ENTRIES_FROZEN"));
+});
+
+test("persistent missing protection still freezes even when permission version is unchanged", async () => {
+  const h = harness({ exchanges: [{ ...healthy, orders: [] }] });
+  assert.equal((await run(h)).mode, "MANAGE_ONLY");
+  assert.ok(h.events.some(e => e.code === "CUSTODY_NEW_ENTRIES_FROZEN" && /PROTECTION_MISSING/.test(e.detail)));
+});
+
 test("account reader retains all active long slices beyond 200 recent history rows", async () => {
   for (const count of [199, 200]) {
     const recent = Array.from({ length: count }, (_, i) => ({ ...slice, id: `closed-${i}`, status: "CLOSED" }));
