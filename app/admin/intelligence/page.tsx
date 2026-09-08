@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { requireAdminOrRedirect } from "@/lib/auth/permissions";
+import { researchReviewQueue, sourceReviewPriority } from "@/lib/research/source-review-priority";
+import { getPrioritySourceInbox } from "@/lib/research/priority-source-inbox.server";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { listResearchRecords } from "@/lib/data/research-records";
@@ -9,7 +12,9 @@ import { resolveResearchVisibility } from "@/lib/research/visibility";
 export const dynamic = "force-dynamic";
 
 export default async function AdminIntelligencePage() {
-  const records = await listResearchRecords();
+  await requireAdminOrRedirect("/admin/intelligence");
+  const [records, sourceInbox] = await Promise.all([listResearchRecords(), getPrioritySourceInbox()]);
+  const priorityQueue = researchReviewQueue(records).filter((record) => sourceReviewPriority(record) <= 2);
   const wtiCard = getWtiExtPathAdminCard();
   const wtiComparisons = listWtiLaterComparisons(records);
   const internal = records
@@ -28,6 +33,17 @@ export default async function AdminIntelligencePage() {
           周度／月度／季度／年度等长线研究仅供内部与日度引擎使用，不对公众开放。
         </Text>
 
+        <Card padding="md" className="mb-6 space-y-3" >
+          <Heading as="h2" size="h3">优先复核队列</Heading>
+          <Text variant="body-sm">研究顺序：丙午第一、彼得兔 @BTCTW0 第二，优先于自起卦和狼叔；其他来源保持原相对顺序。这是审阅优先级，不是胜率或自动下单权重。</Text>
+          <p className="text-sm text-amber-200">{!sourceInbox.available ? "采集库暂不可读，不能确认是否有新帖。" : sourceInbox.posts.length ? `本期视频之后有 ${sourceInbox.posts.length === 20 ? "至少20" : sourceInbox.posts.length} 条新帖待复核。` : "本期视频之后暂无已入库新帖。"}</p>
+          <p className="text-xs text-foreground-secondary">沿用服务器每15分钟采集；刷新此页读取新入库记录。文字合格记录沿用江恩接入流程；视频须完成逐标的复核后再发布，不把收录等同已采用。</p>
+          {sourceInbox.posts.map((post) => <a key={post.post_id} href={`https://x.com/BTCTW0/status/${post.post_id}`} target="_blank" rel="noreferrer" className="block text-sm text-primary">待复核 · {new Date(post.posted_at).toLocaleString("zh-CN", { timeZone: "Asia/Hong_Kong" })} →</a>)}
+          {priorityQueue.map((record) => <div key={record.id} className="border-t border-white/10 pt-3">
+            <Link href={`/admin/intelligence/${record.id}`} className="text-sm text-primary">P{sourceReviewPriority(record)} · {record.title.zhCN}</Link>
+            <p className="mt-1 text-sm text-foreground-secondary">{record.summary.zhCN}</p>
+          </div>)}
+        </Card>
         <Card padding="md" className="mb-6 space-y-2 border border-amber-500/30">
           <div className="flex flex-wrap items-center gap-2">
             <Text variant="body" weight="semibold">

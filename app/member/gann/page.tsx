@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GannPriorityReview } from "@/components/member/GannPriorityReview";
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -42,9 +43,11 @@ export default async function MemberGannPage() {
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
 
   const summary = summarizeGannAudit();
+  const en = (await getRequestLocale()) === "en";
   const [currentSignals, forwardSnapshot] = await Promise.all([getVerifiedGannPredictionSignals(), getGannForwardVerificationSnapshot()]);
   const forwardSummary = summarizeGannForwardSnapshot(forwardSnapshot?.samples ?? []);
   return <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-8">
+    <GannPriorityReview en={en} nowMs={Date.now()} />
     <header className="rounded-3xl border border-amber-300/20 bg-[radial-gradient(circle_at_88%_0%,rgba(251,191,36,.16),transparent_34%),linear-gradient(145deg,#15120b,#090a0e)] p-6 sm:p-8">
       <div className="flex flex-wrap gap-2"><Badge variant="warning">江恩时间＋价格研究</Badge><Badge variant="success">预测研究层 {forwardSummary.effectiveWeightPct}% 已接入</Badge></div>
       <Heading as="h1" size="h2" className="mt-4">可以采用，但只给可验证部分权重</Heading>

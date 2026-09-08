@@ -9,6 +9,7 @@ import { SectorResonanceBoard } from "@/components/conviction/SectorResonanceBoa
 import { SectorKeyDateOverview } from "@/components/conviction/SectorKeyDateOverview";
 import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
+import { GannPriorityReview } from "@/components/member/GannPriorityReview";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildDailySectorResonanceBoard } from "@/lib/data/conviction/daily-sector-resonance";
@@ -93,6 +94,7 @@ export default async function MemberSectorResonancePage({
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
             <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
+            <GannPriorityReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} compact />
             <div className="grid gap-5 xl:grid-cols-2">
               {headlinePanels.map((panel) => <ConclusionFirstPanel
                 key={panel.title}

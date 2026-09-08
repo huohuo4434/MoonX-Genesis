@@ -15,6 +15,7 @@
  * Always display `publicSourceLabel` instead.
  */
 import { lt } from "@/lib/i18n/config";
+import { gannReviewRecords } from "@/lib/research/gann-review-20260908";
 import { correctAnnualResearch } from "@/lib/research/annual-source-corrections-20260905";
 import {
   annualRiskEquityCollections,
@@ -1446,6 +1447,7 @@ export async function listResearchRecords(): Promise<ResearchRecord[]> {
     ...cycleResearchUsIndices20260824Records,
     ...cycleResearchMarketClose20260825Records,
     ...bingwuCrossAssetRotation20260825Records,
+    ...gannReviewRecords,
   ]) {
     // Later packs win on same id; aliases resolve at lookup.
     byId.set(record.id, record);
