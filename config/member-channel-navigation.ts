@@ -25,6 +25,7 @@ export const NAV_ROUTES = {
   guide: "/guide",
   memberChannel: "/member",
   memberVideos: "/member/videos",
+  memberNotes: "/member/notes",
   memberUpdates: "/member/updates",
   memberAnnualOutlook: "/member/annual-outlook",
   memberDaily: "/member/daily",
@@ -65,6 +66,7 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 export const PUBLIC_MORE_NAV: NavItem[] = [];
 
 export const MEMBER_RESEARCH_NAV: NavItem[] = [
+  { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "易老师随笔", labelEn: "Yi's Notes", groupKey: "tools", groupZh: "交流与服务", groupEn: "Community" },
   {
     key: "memberNav.todayDecision",
     href: NAV_ROUTES.memberDaily,
@@ -156,6 +158,7 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.memberChannel", href: NAV_ROUTES.memberChannel, labelZh: "会员频道", labelEn: "Member Channel" },
   ];
   const member: NavItem[] = [
+    { key: "footer.memberNotes", href: NAV_ROUTES.memberNotes, labelZh: "易老师随笔", labelEn: "Yi's Notes" },
     { key: "footer.memberToday", href: NAV_ROUTES.memberDaily, labelZh: "今日决策", labelEn: "Today" },
     { key: "footer.memberForecast", href: NAV_ROUTES.memberWeeklyReport, labelZh: "周期预测", labelEn: "Forecasts" },
     { key: "footer.memberKeyDates", href: NAV_ROUTES.memberKeyDates, labelZh: "关键日", labelEn: "Key Dates" },

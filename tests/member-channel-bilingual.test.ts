@@ -21,12 +21,12 @@ for (const locale of ["en", "zh-CN", "zh-TW"] as const) {
       const html = render(locale, active);
       const en = locale === "en";
       assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
-      assert.equal((html.match(/<article\b/g) ?? []).length, 6);
+      assert.equal((html.match(/<article\b/g) ?? []).length, 7);
       for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {
         assert.ok(en ? href.startsWith("/en/") : !href.startsWith("/en/"), href);
       }
       if (en) assert.doesNotMatch(html, /[\u4e00-\u9fff]/);
-      for (const route of ["monthly", "weekly", "daily", "videos", "key-dates", "updates", "weekly-review", "ai-trading"]) {
+      for (const route of ["monthly", "weekly", "daily", "videos", "key-dates", "updates", "weekly-review", "ai-trading", "notes"]) {
         assert.ok(html.includes(`href="${en ? "/en" : ""}/member/${route}"`), route);
       }
       assert.doesNotMatch(html, /会员视频（2期）|Member videos \(2/);

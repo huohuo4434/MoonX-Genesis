@@ -17,6 +17,14 @@ type ChannelCard = {
 
 function primaryTasks(en: boolean): ChannelCard[] { return [
   {
+    href: "/member/notes",
+    title: en ? "Teacher Yi's Notes" : "易老师随笔",
+    eyebrow: en ? "New · Member conversations" : "新栏目 · 观点与交流",
+    description: en ? "Read personal observations. Free members see titles and opening lines; paid members read and reply." : "个人见解与市场观察。普通会员可看标题和首行，高级会员阅读全文并回帖交流。",
+    action: en ? "Read the notes" : "进入随笔专栏",
+    links: [],
+  },
+  {
     href: "/member/daily",
     title: (en ? "Today's plan" : "今日决策"),
     eyebrow: (en ? "1 · Start with today" : "第一步 · 今天做什么"),

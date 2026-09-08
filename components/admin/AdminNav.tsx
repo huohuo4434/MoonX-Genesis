@@ -17,6 +17,7 @@ const primaryLinks: AdminLink[] = [
   { href: "/admin/live-trading", label: "实盘开关与托管" },
   { href: "/admin/forecast-control", label: "研究中心" },
   { href: "/admin/users", label: "用户与会员" },
+  { href: "/member/notes", label: "发随笔 / 会员回帖" },
   { href: "/admin/automation", label: "自动化" },
   { href: "/admin/site-health", label: "网站诊断" },
   { href: "/admin/settings", label: "设置" },
