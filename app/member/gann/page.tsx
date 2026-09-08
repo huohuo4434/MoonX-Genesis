@@ -46,6 +46,11 @@ export default async function MemberGannPage() {
   const en = (await getRequestLocale()) === "en";
   const [currentSignals, forwardSnapshot] = await Promise.all([getVerifiedGannPredictionSignals(), getGannForwardVerificationSnapshot()]);
   const forwardSummary = summarizeGannForwardSnapshot(forwardSnapshot?.samples ?? []);
+  // Do not republish raw promotional claims or mix source quote bases with live prices.
+  const memberSignalRows = currentSignals.map((signal) => ({ ...signal,
+    summary: en ? "Conditional time/price observation. A window alone does not establish a reversal; confirm with closed candles." : "条件性时间／价格观察。到达窗口不等于反转，须由闭合K线确认。",
+    supportLevels: [], resistanceLevels: [], targetLevels: [], invalidationLevels: [],
+  }));
   return <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-8">
     <GannPriorityReview en={en} nowMs={Date.now()} />
     <header className="rounded-3xl border border-amber-300/20 bg-[radial-gradient(circle_at_88%_0%,rgba(251,191,36,.16),transparent_34%),linear-gradient(145deg,#15120b,#090a0e)] p-6 sm:p-8">
@@ -69,7 +74,7 @@ export default async function MemberGannPage() {
 
     <section className="rounded-3xl border border-emerald-300/15 bg-emerald-300/[.035] p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3"><div><Heading as="h2" size="h3">近期合格江恩记录</Heading><Text variant="body-sm" color="secondary" className="mt-2 block">只读取采集库最近45天内、单一标的且带明确时间窗或价位的合格记录；其中只有仍与未来月／周关键日重叠的记录才按当前 {forwardSummary.effectiveWeightPct} 点研究权重参与信心校准。</Text></div><Badge variant="outline">{currentSignals.length} 条合格记录</Badge></div>
-      {currentSignals.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{currentSignals.slice(0, 8).map((signal) => <article key={signal.postId} className="rounded-2xl border border-white/[.08] bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{signal.symbol.replace(/USDT$/, "")}</p><Badge variant="outline">{signal.turnIntent === "TOP" ? "高点观察" : signal.turnIntent === "BOTTOM" ? "低点观察" : "时间/点位观察"}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{signal.summary}</p><p className="mt-2 text-caption text-foreground-tertiary">时间窗：{signal.timeWindows.join("、") || "未给出"}；关键价位：{Array.from(new Set([...signal.supportLevels, ...signal.resistanceLevels, ...signal.targetLevels, ...signal.invalidationLevels])).slice(0, 10).join(" / ") || "未给出"}</p><a className="mt-3 inline-flex text-caption text-primary" href={signal.postUrl} target="_blank" rel="noreferrer">查看原始时间戳 →</a></article>)}</div> : <p className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4 text-body-sm text-foreground-secondary">当前采集库没有满足条件的近期江恩记录，因此不加权；系统保持原预测，不拿历史成绩代替当前信号。</p>}
+      {memberSignalRows.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{memberSignalRows.slice(0, 8).map((signal) => <article key={signal.postId} className="rounded-2xl border border-white/[.08] bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{signal.symbol.replace(/USDT$/, "")}</p><Badge variant="outline">{en ? "Conditional observation" : "条件观察"}</Badge></div><p className="mt-2 text-body-sm leading-6 text-foreground-secondary">{signal.summary}</p><p className="mt-2 text-caption text-foreground-tertiary">{en ? "Source window: " : "原始窗口："}{signal.timeWindows.join(" / ") || (en ? "Unspecified" : "未给出")} · {en ? "May be historical; raw price extraction awaits quote-basis checks." : "窗口可能已过；原始价位待报价口径核验。"}</p><a className="mt-3 inline-flex text-caption text-primary" href={signal.postUrl} target="_blank" rel="noreferrer">{en ? "Original timestamp →" : "查看原始时间戳 →"}</a></article>)}</div> : <p className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4 text-body-sm text-foreground-secondary">{en ? "No qualifying recent observations. Historical performance is not a current signal." : "暂无合格近期记录，不拿历史成绩代替当前信号。"}</p>}
     </section>
 
     <section className="rounded-3xl border border-sky-300/15 bg-sky-300/[.035] p-5 sm:p-6">

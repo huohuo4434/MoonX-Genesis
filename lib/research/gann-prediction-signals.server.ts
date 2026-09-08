@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { parseExternalAnalystPost } from "@/lib/trading-signals/external-analyst-parser";
 import { inferGannTurnIntent, type VerifiedGannSignal } from "@/lib/research/gann-prediction-overlay-core";
+import { explicitGannTimeWindows, gannHasUnambiguousSymbol } from "@/lib/research/gann-source-integrity-core";
 
 type GannRow = { username: string; post_id: string; post_url: string; posted_at: Date | string; text: string };
 
@@ -24,6 +25,7 @@ export async function getVerifiedGannPredictionSignals(now = new Date()): Promis
       const postedAt = postedDate.toISOString();
       const parsed = parseExternalAnalystPost({ source: "BTCTW0", username: row.username, postId: row.post_id, postUrl: row.post_url, postedAt, text: row.text });
       if (!parsed.researchEligible || parsed.symbols.length !== 1) return [];
+      if (!gannHasUnambiguousSymbol(parsed.text, parsed.symbols[0]!)) return [];
       return [{
         postId: parsed.postId,
         postUrl: parsed.postUrl,
@@ -31,7 +33,7 @@ export async function getVerifiedGannPredictionSignals(now = new Date()): Promis
         symbol: parsed.symbols[0]!,
         direction: parsed.direction,
         turnIntent: inferGannTurnIntent(parsed.text),
-        timeWindows: parsed.timeWindows,
+        timeWindows: explicitGannTimeWindows(parsed.timeWindows),
         supportLevels: parsed.supportLevels,
         resistanceLevels: parsed.resistanceLevels,
         targetLevels: parsed.targetLevels,

@@ -21,3 +21,5 @@ Existing VPS collector runs every 15 minutes and persists original X posts. Admi
 Run new targeted test plus crypto/semiconductor and Gann regression tests, TypeScript, production build and impact audit. Verify member zh/en, anonymous access and admin pending state in production. Run the existing read-only release validator; do not claim acceptance before `UPGRADE VALIDATION PASSED`.
 
 Rollback: revert this release commit and redeploy through existing Git integration. No data, environment or trading rollback required. Historic material is retained.
+
+Production acceptance exposed a legacy parser problem: unsupported stock mentions could leave BTC as the only detected symbol, and decimals/price ranges could become dates. A Gann-consumer guard now rejects conflicting cashtags/equity names and punctuation-only date extractions. Raw promotional summaries and unreconciled price arrays are no longer rendered in the recent member feed. Existing locked forward samples are preserved; no shared trading parser or order code changes. MU/MSFT/LITE use existing canonical asset IDs.

@@ -9,6 +9,20 @@ import { sourceReviewPriority, researchReviewQueue } from "../lib/research/sourc
 import { listResearchRecords } from "../lib/data/research-records";
 import { isResearchRecordEligibleForDirectionVote } from "../lib/research/weighted-research-vote";
 import { isPublicResearchRecord } from "../lib/research/visibility";
+import { explicitGannTimeWindows, gannHasUnambiguousSymbol } from "../lib/research/gann-source-integrity-core";
+
+test("unsupported equities and numeric pseudo-dates cannot masquerade as BTC evidence", () => {
+  assert.equal(gannHasUnambiguousSymbol("$MSTR 目标163，对比BTC", "BTCUSDT"), false);
+  assert.equal(gannHasUnambiguousSymbol("CRCL 目标116，观察BTC", "BTCUSDT"), false);
+  assert.equal(gannHasUnambiguousSymbol("BTC 与 微策略", "BTCUSDT"), false);
+  assert.equal(gannHasUnambiguousSymbol("$XYZ 目标116，BTC", "BTCUSDT"), false);
+  assert.equal(gannHasUnambiguousSymbol("$BTC 9月10号观察高点", "BTCUSDT"), true);
+  assert.equal(gannHasUnambiguousSymbol("$XAU 黄金9月10号", "XAUTUSDT"), true);
+  assert.deepEqual(explicitGannTimeWindows(["35.82", "8.71", "93-94", "9月10号", "下周", "2026-09-10"]), ["9月10号", "下周", "2026-09-10"]);
+  const source = readFileSync("lib/research/gann-prediction-signals.server.ts", "utf8");
+  assert.match(source, /gannHasUnambiguousSymbol\(parsed.text/);
+  assert.match(source, /explicitGannTimeWindows\(parsed.timeWindows\)/);
+});
 
 test("13 separate assets are consumed by the real record store, not a sidecar", async () => {
   const records = await listResearchRecords();
@@ -23,6 +37,9 @@ test("13 separate assets are consumed by the real record store, not a sidecar", 
     assert.ok(Date.parse(row.ingestedAt!) > Date.parse(row.sourcePublishedAt!));
   }
   assert.ok(!gannReviewAssets.some(a => ["SPX", "TSLA", "HYPE", "ASTEROID"].includes(a.symbol)));
+  for (const [symbol, id] of [["MU", "mu"], ["MSFT", "msft"], ["LITE", "lite"]]) {
+    assert.equal(gannReviewAssets.find(asset => asset.symbol === symbol)?.assetId, id);
+  }
 });
 
 test("review order prioritizes core teacher then BTCTW0 without changing records or unknown-source order", () => {
@@ -36,6 +53,8 @@ test("review order prioritizes core teacher then BTCTW0 without changing records
   assert.equal(researchReviewQueue(input, new Date(0)).length, 0);
   assert.equal(researchReviewQueue(input, new Date(GANN_REVIEW_EXPIRES_AT)).length, 0);
   assert.equal(researchReviewQueue(input, new Date(NaN)).length, 0);
+  assert.equal(researchReviewQueue([{ ...base, publishedAt: "2026-10-01T00:00:00Z" }], new Date(GANN_REVIEW_RECORDED_AT)).length, 0);
+  assert.equal(researchReviewQueue([{ ...base, expiresAt: undefined, forecastEnd: undefined }], new Date(GANN_REVIEW_RECORDED_AT)).length, 0);
 });
 
 test("forward-only display expires into explicit archive", () => {
