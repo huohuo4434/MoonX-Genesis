@@ -127,8 +127,10 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
               </div>
               <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{mooxDirectionArrow(item.direction)} {en ? mooxDirectionLabelEn(item.direction) : mooxDirectionLabelZh(item.direction)}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
             </div>
-            {cycleId === "2026-09" && ["BTC", "NDX"].includes(item.symbol) ? <p className="text-xs leading-6 text-amber-100/80" data-original-monthly-record>
-              {en ? "Locked monthly record below · The Sep 8 update is shown separately above; earlier price thresholds keep their original deadlines." : "下列为已锁定月度原版 · 9月8日更新在上方单列，旧价位保留原截止时间。"}
+            {cycleId === "2026-09" && ["BTC", "NDX", "WTI"].includes(item.symbol) ? <p className="text-xs leading-6 text-amber-100/80" data-original-monthly-record>
+              {item.symbol === "WTI"
+                ? en ? "Historical monthly reference below, not current oil daily/weekly guidance. See the Sep 8 update for the current long-cycle view." : "下列为旧版月度参考，不再用于原油日周指引；当前长周期判断见9月8日更新。"
+                : en ? "Locked monthly record below · The Sep 8 update is shown separately above; earlier price thresholds keep their original deadlines." : "下列为已锁定月度原版 · 9月8日更新在上方单列，旧价位保留原截止时间。"}
               <a href="#september-three-market-review" className="ml-2 underline">{en ? "Read Sep 8 update" : "查看9月8日更新"}</a>
             </p> : null}
             <PlainLanguageSummary

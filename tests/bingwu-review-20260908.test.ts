@@ -73,4 +73,5 @@ test("member gates precede rendering and internal source metadata stays out of t
   }
   assert.doesNotMatch(readFileSync("components/member/SeptemberThreeMarketReview.tsx", "utf8"), /lib\/research|internalSourceRef|rawSource/);
   assert.match(readFileSync("components/member/MemberMonthlyPage.tsx", "utf8"), /data-original-monthly-record/);
+  assert.match(readFileSync("components/member/MemberMonthlyPage.tsx", "utf8"), /旧版月度参考，不再用于原油日周指引/);
 });
