@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Section } from "@/components/ui";
 import { MemberMonthlyPage } from "@/components/member/MemberMonthlyPage";
+import { SeptemberThreeMarketReview } from "@/components/member/SeptemberThreeMarketReview";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -42,5 +43,5 @@ export default async function MonthlyPage() {
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   const cycleResearchOverlays = getMemberCycleResearchOverlays();
-  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><MemberMonthlyPage cycleResearchOverlays={cycleResearchOverlays} /></Section></main>;
+  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><SeptemberThreeMarketReview en={en} nowMs={Date.now()} /><MemberMonthlyPage cycleResearchOverlays={cycleResearchOverlays} /></Section></main>;
 }

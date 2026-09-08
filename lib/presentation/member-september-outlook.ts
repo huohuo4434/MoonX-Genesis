@@ -1,115 +1,58 @@
-import { MEMBER_SEPTEMBER_ROTATION_REPORT_20260826 as record } from "../data/member-september-rotation-report-20260826";
+import { memberSectorOutlook as priorSector, memberSeptemberOutlook as priorMonth } from "./member-september-outlook-20260906";
 
-// Member-facing editorial copy only. Published records, scores and execution authority stay unchanged.
+// E2: forward editorial review only. E1 and all locked forecast/score records remain intact.
 export const memberSectorOutlook = {
-  reviewedAt: "2026-09-06",
-  title: "易老师9月判断：短线看修复，中下旬重防守",
-  boundary: "反弹仓按日内或2—3天复核；波段仓提前安排退出，不把短线多单拖成长线。",
-  methodNote: "以上是分周期应对，不代表AI已开仓；关键日需走势确认，共振指数不是胜率。",
-  rows: [
-    { asset: "半导体／SOXL／SNDK／MU", status: "防持续性不足", tone: "caution",
-      outlook: "阶段修复可参与，不能据此一直持多。",
-      rhythm: "9月8日复市先看承接，随后观察转强；14—20日防兑现。",
-      action: "回踩企稳再分批观察；冲高转弱保护利润，破位不硬扛。",
-      levels: ["复市观察 9月8—11日", "退出观察 9月14—20日", "重点检查 9月21日前"] },
-    { asset: "比特币／以太坊", status: "周内与阶段分开", tone: "caution",
-      outlook: "BTC周内偏多修复；ETH冲高后防回吐。不当长线续涨。",
-      rhythm: "9月9—11日观察转弱；月底至10月初防回落，10—11月再看机会。",
-      action: "冲高转弱再评估空头，未确认不抢跑；突破站稳则暂停抢空。" },
-    { asset: "黄金", status: "时间路径分歧", tone: "caution",
-      outlook: "阶段看温和回调，月内允许反弹；低点先后不确定。",
-      rhythm: "9月8—11日先看止跌，月底仍防回落；反弹起点待确认。",
-      action: "不按日期抄底或做空；反弹遇阻不追，破位先控风险。" },
-    { asset: "纳指／大型科技", status: "反弹注意兑现", tone: "caution",
-      outlook: "上半月看反弹，科技股分化，后劲可能不足。",
-      rhythm: "14—20日防兑现，21日前检查仓位；月底防事件风险。",
-      action: "反弹分段兑现，转弱缩减敞口；不一律按20日清仓或开空。" },
-    { asset: "苹果／腾讯", status: "分周期观察", tone: "caution",
-      outlook: "苹果看短线机会，腾讯看回落后的长线机会。",
-      rhythm: "苹果关注新品发布前；腾讯等回落企稳。",
-      action: "苹果反弹不追高；腾讯先等承接确认。" },
-    { asset: "原油／农业", status: "长周期观察", tone: "caution",
-      outlook: "仅看长周期机会，短期仍可能跟随市场下跌。",
-      rhythm: "关注运输风险、种植业、化肥与农药。",
-      action: "原油不做日周交易；农业先观察，不凭题材追高。" },
-    { asset: "科创50／美联储", status: "关注后劲与事件", tone: "caution",
-      outlook: "科创50有望缓慢走高，后劲有限；9月加息概率不高。",
-      rhythm: "9月7日后看科创修复；议息结果待公布。",
-      action: "反弹注意兑现，不把利率预判当成已公布结果。" },
-    { asset: "上证／恒生科技／标普500", status: "仅专题参考", tone: "caution",
-      outlook: "仅专题观察，不做日周预测。",
-      rhythm: "上证、恒科看有限修复；标普看反弹后兑现。",
-      action: "不追普涨，反弹先看压力。" },
-    { asset: "白银", status: "短线修复观察", tone: "caution",
-      outlook: "短线看修复，不与黄金绑定；不是整月单边上涨。",
-      rhythm: "9月8—11日观察回落后的承接与修复。",
-      action: "止跌再观察；突破回踩守住才跟随，失守则退出短线方案。" },
-    { asset: "特斯拉 TSLA", status: "周内先后不确定", tone: "caution",
-      outlook: "周内涨跌先后不清晰，长周期机会不等于开盘就涨。",
-      rhythm: "9月8—11日先确认承接，冲高后看能否守住。",
-      action: "不按日期抢买抢空；破位先控风险，回踩企稳再评估。" },
-  ],
-};
-
-const primaryCopy: Record<string, [string, string, string, string]> = {
-  "WTI-202609-THREE-MONTH": [record.primaryUpdate.items[2].conclusionZh, record.primaryUpdate.items[2].conclusionEn,
-    "仅作长周期趋势解读，不恢复原油日预测、周预测或历史验证统计。", "Long-cycle outlook only. Oil daily/weekly forecasts and historical-verification coverage remain retired."],
-  "BTC-2027-150K": ["2027年高点可能高于2026年，但目前不支持突破15万美元；这是门槛判断，不是精确最高价。", "The 2027 high may exceed 2026, but a break above USD 150k is not supported. This is a threshold assessment, not an exact high.", record.primaryUpdate.items[3].boundaryZh, record.primaryUpdate.items[3].boundaryEn],
-  "SPCX-20260915-QIMEN": ["截至9月15日，倾向跌破135美元的概率不高；9月7—15日向上动能偏强，关注148、153、158附近，冲高后再防回落。", "Through Sep 15, a break below USD 135 appears less likely. Watch stronger upside momentum on Sep 7-15 and areas near 148, 153 and 158 before a possible fade.", "信心低—中，低点判断尚不稳定；这些价位只供观察，不是正式入场点或自动交易指令。", "Low-medium confidence: the low remains uncertain. These are observation levels, not formal entries or automated-trading instructions."],
-};
-const assetCopy: Record<string, [string, string]> = {
-  SOXL: ["7—12日看高波动修复，持续性尚不确定。短线／趋势仓21日前检查退出；SNDK、MU强弱会分化。", "Watch volatile recovery Sep 7-12; persistence is uncertain. Review short-term/trend exits before Sep 21. SNDK and MU may diverge."],
-  GOLD: ["阶段看温和回调，月内可有修复；低点先后与月底反弹均不确定，不按日历抄底。", "The stage outlook remains a mild pullback with possible interim rebounds. The sequence of lows and a month-end recovery are uncertain; do not buy by date alone."],
-};
-const riskUsage: Record<string, [string, string]> = {
-  "GLOBAL-RISK-20260927": ["中下旬优先保护利润，预先考虑月底高波动。", "Prioritize profit protection later in the month and prepare for volatility."],
-  "BTC-20260908-1008-QIMEN": ["9月27日不是确定底部，共振指数维持4/5。", "Sep 27 is not a confirmed bottom. The consensus index remains 4/5."],
-  "TECH-20260908-1008-QIMEN": ["共振指数4/5，反弹持续性仍不确定，重视选股而非押注普涨。", "Consensus is 4/5. Recovery persistence remains uncertain; favor selection over assuming a broad rally."],
-  "GOLD-20260908-1008-QIMEN": ["阶段回调与局部反弹可以并存；时间路径有分歧，不能把原版指数理解为低点已确认。", "A stage pullback can include local rebounds. Timing is disputed; the original index does not confirm a low."],
-  "WTI-20260908-1008-QIMEN": ["长周期研究共振4/5，不恢复日周预测、历史验证或自动交易。", "Long-cycle research consensus is 4/5. Daily/weekly forecasts, verification and automated trading remain retired."],
-  "MONTH-WEEK-20260904": ["按持仓周期分别安排应对，不把短线修复当作整月单边趋势。", "Match the plan to the holding horizon; a short recovery does not establish a one-way monthly trend."],
-  "AGRICULTURE-20260904": ["农业仅作主题观察，原油仅作长周期专题；不新增自动交易品种。", "Agriculture is a watch theme and oil stays long-cycle research only. No new automated-trading instruments."],
-};
-const riskConclusion: Record<string, [string, string]> = {
-  "WTI-20260908-1008-QIMEN": ["运输受阻与地缘摩擦可能放大油价波动；9月观察缓慢上行，10月关注高位候选。", "Transport disruption and geopolitical friction may amplify oil volatility. Watch a gradual September rise and a candidate high in October."],
-  "MONTH-WEEK-20260904": ["半导体下周可能修复，但上涨持续性仍不确定；BTC可能继续宽幅震荡，黄金反弹起点尚不清晰。", "Semiconductors may recover next week, but persistence is uncertain. BTC may remain in wide ranges and gold's rebound timing remains unclear."],
-  "AGRICULTURE-20260904": ["长周期关注美国种植业、中国化肥与农药；这些板块也可能先随市场下跌、随后修复，不是绝对避险资产。", "Watch US crop production and Chinese fertilizers and crop protection over the longer term. These sectors may first fall with markets before recovering; they are not absolute hedges."],
-};
-const confidenceReasons: Record<string, [string, string]> = {
-  "BTC-SEPTEMBER-PATH": ["上旬仍有上冲空间，中下旬至10月初防转弱；9月9—11日只作转折观察，不是确定顶部。", "An early push remains possible; watch for weakness into late September and early October. Sep 9-11 is a turn-watch window, not a confirmed top."],
-  "TECH-SEPTEMBER-ROTATION": ["9月7日后相对转强，但成分股分化、上涨持续性不确定；反弹后更重视退出条件。", "Relative strength may emerge after Sep 7, but constituents diverge and persistence is uncertain. Prioritize exit conditions after rallies."],
-  "GOLD-SEPTEMBER-PATH": ["9月6日：阶段偏弱与月内修复可并存，但低点先后及月底方向存在分歧；不增加确定性。", "Sep 6: stage weakness can include rebounds, but the sequence of lows and late-month direction remain disputed. No increase in conviction."],
+  ...priorSector,
+  reviewedAt: "2026-09-08",
+  title: "易老师9月判断：纳指偏弱，BTC冲高防回吐",
+  rows: priorSector.rows.map((row) => {
+    if (row.asset === "比特币／以太坊") return { ...row,
+      outlook: "BTC 9月7—13日先涨后跌；月底前冲高仍可能，突破8.7万美元难度较大。ETH冲高防回吐。",
+      rhythm: "9—11日观察转弱，不是最终顶；8.7万观察截止9月30日。" };
+    if (row.asset === "纳指／大型科技") return { ...row, status: "纳指月度偏弱",
+      outlook: "纳指9月偏向逐步走低，反弹不等于月度转强；半导体与个股分开看。",
+      rhythm: "9月7—13日按下跌路径观察；月内允许反抽，不指定崩跌日。" };
+    if (row.asset === "原油／农业") return { ...row,
+      outlook: "WTI月内仍有上行动力；月底前98美元附近难持续突破。",
+      rhythm: "仅到9月30日的门槛观察；地缘与政策影响方向未定。" };
+    return row;
+  }),
 };
 
 export const memberSeptemberOutlook = {
-  version: record.version,
-  editorialVersion: "20260906-E1",
-  editorialUpdatedZh: "9月6日应对更新 · E1",
-  editorialUpdatedEn: "Execution review Sep 6 · E1",
-  titleZh: "易老师9月判断：先看修复，21日前重点检查科技仓位",
-  titleEn: "September outlook: recovery first, review technology exposure before Sep 21",
-  conclusionZh: "上半月看修复，中下旬保护利润。",
-  conclusionEn: "Watch early-month recovery; protect gains later in September.",
-  executionZh: ["半导体：8日复市先看承接，14—20日防兑现；不是每天上涨。", "BTC／ETH：9—11日观察转折，不是确定顶部；突破站稳不抢空。", "黄金：阶段偏弱，低点先后不确定；白银单独看短线修复。"],
-  executionEn: ["Semiconductors: assess demand from the Sep 8 reopening; protect gains Sep 14-20. Do not expect a rise every day.", "BTC/ETH: Sep 9-11 is a turn-watch window, not a confirmed top. Do not rush to short a sustained breakout.", "Gold: a softer stage with uncertain low timing. Assess silver's short-term recovery separately."],
-  eventNoteZh: "9月11日20:30（北京时间）CPI；9月15—16日（美东）议息。公布前后防跳空，不预设利好或利空。",
-  eventNoteEn: "CPI: Sep 11, 08:30 ET (20:30 Beijing). FOMC: Sep 15-16 ET. Prepare for gaps; the outcome is not known.",
-  assets: record.assets.map((asset) => ({ ...asset, conclusionZh: assetCopy[asset.symbol]?.[0] ?? asset.conclusionZh, conclusionEn: assetCopy[asset.symbol]?.[1] ?? asset.conclusionEn })),
-  primaryItems: record.primaryUpdate.items.map((item) => ({ id: item.id, scopeZh: item.scopeZh, scopeEn: item.scopeEn, confidenceZh: item.confidenceZh, confidenceEn: item.confidenceEn,
-    conclusionZh: primaryCopy[item.id]?.[0] ?? item.conclusionZh, conclusionEn: primaryCopy[item.id]?.[1] ?? item.conclusionEn,
-    boundaryZh: primaryCopy[item.id]?.[2] ?? item.boundaryZh, boundaryEn: primaryCopy[item.id]?.[3] ?? item.boundaryEn })),
-  riskWindow: record.qimenMonthlyUpdate.riskWindow,
-  riskItems: record.qimenMonthlyUpdate.items.map((item) => ({ id: item.id, scopeZh: item.scopeZh, scopeEn: item.scopeEn,
-    statusZh: item.relationship === "CONFLICTED" ? "持续性有分歧" : item.relationship === "PARTIAL" ? "仍需确认" : "关注风险窗口",
-    statusEn: item.relationship === "CONFLICTED" ? "Persistence uncertain" : item.relationship === "PARTIAL" ? "Confirmation needed" : "Watch risk window",
-    conclusionZh: riskConclusion[item.id]?.[0] ?? item.conclusionZh, conclusionEn: riskConclusion[item.id]?.[1] ?? item.conclusionEn,
-    usageZh: riskUsage[item.id]?.[0] ?? "等待走势确认，不按日期机械交易。", usageEn: riskUsage[item.id]?.[1] ?? "Wait for price confirmation; do not trade mechanically by date." })),
-  confidenceItems: record.confidenceCalibration.items.map((item) => ({ id: item.id, scopeZh: item.scopeZh, scopeEn: item.scopeEn, index: item.index, max: item.max,
-    reasonZh: confidenceReasons[item.id]?.[0] ?? "共振指数仅描述方法共振程度；具体方向、时间与幅度仍须分别确认。",
-    reasonEn: confidenceReasons[item.id]?.[1] ?? "The consensus index describes method alignment only; direction, timing and magnitude still require separate confirmation." })),
-  phases: record.phases.map((phase, index) => ({ ...phase,
-    ...(index === 1 ? { goldZh: "阶段偏弱，局部修复与低点先后待确认", goldEn: "Softer stage; interim rebounds and low timing need confirmation" } : {}),
-    ...(index === 2 ? { soxlZh: "高位候选；21日前检查退出，之后防回撤", soxlEn: "Candidate high zone; review exits before Sep 21, then pullback risk", goldZh: "反弹后仍防回落；月底方向分歧", goldEn: "Pullback risk after rebounds; late-month direction disputed", btcZh: "退守与高波动，等待走势确认", btcEn: "Defensive and volatile; await price confirmation" } : {}),
-    ...(index === 3 ? { btcZh: "该阶段暂无确定判断", btcEn: "No firm view for this phase", ethZh: "有限修复后等待下一阶段确认", ethEn: "Await confirmation after a limited repair" } : {}),
-  })),
+  ...priorMonth,
+  editorialVersion: "20260908-E2",
+  editorialUpdatedZh: "9月8日应对更新 · E2",
+  editorialUpdatedEn: "Outlook review Sep 8 · E2",
+  titleZh: "易老师9月判断：纳指偏弱，BTC冲高防回吐",
+  titleEn: "September outlook: softer Nasdaq, guard against BTC rally givebacks",
+  conclusionZh: "纳指月度偏弱；半导体分股看修复，BTC防冲高回吐。原油只看长周期。",
+  conclusionEn: "Nasdaq remains softer at the monthly horizon. Assess semiconductor recoveries individually and watch BTC giveback risk. Oil remains long-cycle research only.",
+  executionZh: ["纳指：月度逐步走低，反抽不等于转强；不推导所有科技股同跌。", "BTC：月底前突破8.7万美元难度较大，不等于一定涨到该价。", "半导体按个股确认修复；原油98美元是月底门槛观察，不是下单价。"],
+  executionEn: ["Nasdaq: gradual monthly weakness; a rebound is not a reversal, nor must every technology stock fall.", "BTC: a break above USD 87,000 before month-end looks difficult; reaching that level is not assured.", "Assess semiconductor recoveries stock by stock. Oil's USD 98 threshold is a month-end research reference, not an order price."],
 };
+
+export const memberSeptemberEditorialHistory = [priorMonth, memberSeptemberOutlook] as const;
+
+const englishSectorRows = [
+  ["Semiconductors / SOXL / SNDK / MU", "Persistence risk", "A stage recovery is possible, not an unconditional long hold.", "Assess demand from Sep 8; protect gains Sep 14–20.", "Wait for stable retests. Protect gains on weakness; do not hold through a structural break."],
+  ["Bitcoin / Ether", "Separate week and stage", "BTC's Sep 7–13 path is rally then fade. Further upside is possible, but a break above USD 87,000 before month-end looks difficult. Watch ETH givebacks.", "Sep 9–11 is a turn window, not a final top. The USD 87,000 view ends Sep 30.", "Wait for weakness before evaluating shorts; do not rush into a sustained breakout."],
+  ["Gold", "Timing uncertain", "A mild stage pullback can include rebounds; the sequence of lows is uncertain.", "Watch stabilization Sep 8–11 and later-month downside risk.", "Do not buy or short by date. Avoid chasing rejected rebounds; reassess breakdowns."],
+  ["Nasdaq / Large technology", "Softer monthly Nasdaq", "Nasdaq favors gradual September weakness. A rebound is not a monthly reversal; assess semiconductors and individual stocks separately.", "Sep 7–13 retains a bearish path. Rebounds remain possible; no crash date is specified.", "Protect gains and reduce risk on weakness, not a blanket Sep 20 liquidation or short."],
+  ["Apple / Tencent", "Separate horizons", "Apple: short-term opportunities. Tencent: longer-term opportunities after a pullback.", "Watch Apple ahead of its product event; wait for Tencent stabilization.", "Do not chase Apple rebounds; wait for demand confirmation in Tencent."],
+  ["Oil / Agriculture", "Long-cycle only", "WTI retains upside potential, but a sustained break through USD 98 before month-end looks difficult.", "Threshold research through Sep 30; geopolitical and policy effects remain uncertain.", "No oil daily/weekly trading. Agriculture remains a watch theme, not a reason to chase."],
+  ["STAR 50 / Federal Reserve", "Momentum and events", "STAR 50 may rise gradually with limited follow-through. A September rate hike is not the favored scenario.", "Watch recovery after Sep 7; await the actual policy decision.", "Protect rally gains. A rate forecast is not an announced result."],
+  ["Shanghai / Hang Seng TECH / S&P 500", "Thematic reference only", "Thematic research only; no daily or weekly forecasts.", "Watch limited recovery in Shanghai and Hang Seng TECH; S&P rebounds can face profit taking.", "Do not assume a broad rally. Check resistance on rebounds."],
+  ["Silver", "Short-term recovery watch", "Assess silver separately from gold; a short recovery is not a one-way monthly advance.", "Watch demand and repair after pullbacks Sep 8–11.", "Wait for stabilization and a successful breakout retest; abandon the short-term setup if it fails."],
+  ["Tesla TSLA", "Weekly sequence uncertain", "The sequence of weekly swings is unclear. A longer-term opportunity does not imply an immediate rise.", "Check demand Sep 8–11 and whether upside holds.", "Do not trade by date. Reassess breakdowns and wait for a stable retest."],
+] as const;
+
+export function getMemberSectorOutlook(en: boolean) {
+  if (!en) return memberSectorOutlook;
+  return { ...memberSectorOutlook,
+    title: memberSeptemberOutlook.titleEn,
+    boundary: "Review rebound positions intraday or every 2–3 days. Plan swing exits; do not turn a short-term long into a long-term hold.",
+    methodNote: "Research, not confirmation of AI positions. Timing needs price confirmation; consensus is not win rate.",
+    rows: englishSectorRows.map(([asset, status, outlook, rhythm, action]) => ({ asset, status, outlook, rhythm, action, tone: "caution" })),
+  };
+}

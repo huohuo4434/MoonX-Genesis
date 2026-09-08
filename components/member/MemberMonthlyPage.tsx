@@ -127,6 +127,10 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
               </div>
               <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{mooxDirectionArrow(item.direction)} {en ? mooxDirectionLabelEn(item.direction) : mooxDirectionLabelZh(item.direction)}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
             </div>
+            {cycleId === "2026-09" && ["BTC", "NDX"].includes(item.symbol) ? <p className="text-xs leading-6 text-amber-100/80" data-original-monthly-record>
+              {en ? "Locked monthly record below · The Sep 8 update is shown separately above; earlier price thresholds keep their original deadlines." : "下列为已锁定月度原版 · 9月8日更新在上方单列，旧价位保留原截止时间。"}
+              <a href="#september-three-market-review" className="ml-2 underline">{en ? "Read Sep 8 update" : "查看9月8日更新"}</a>
+            </p> : null}
             <PlainLanguageSummary
               direction={item.direction}
               period={`${item.periodStart} — ${item.periodEnd}`}

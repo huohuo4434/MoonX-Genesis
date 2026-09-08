@@ -10,13 +10,14 @@ import { SectorKeyDateOverview } from "@/components/conviction/SectorKeyDateOver
 import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
 import { GannPriorityReview } from "@/components/member/GannPriorityReview";
+import { SeptemberThreeMarketReview } from "@/components/member/SeptemberThreeMarketReview";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildDailySectorResonanceBoard } from "@/lib/data/conviction/daily-sector-resonance";
 import { buildSectorKeyDateWindows, selectCurrentAndNextSectorWeeks } from "@/lib/data/conviction/sector-key-date-overview";
 import { buildSectorResonanceBoard } from "@/lib/data/conviction/sector-resonance-board";
 import { buildMemberKeyDateRadar } from "@/lib/data/member-key-date-radar";
-import { memberSectorOutlook as crossCheck } from "@/lib/presentation/member-september-outlook";
+import { getMemberSectorOutlook } from "@/lib/presentation/member-september-outlook";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ export default async function MemberSectorResonancePage({
 }) {
   noStore();
   const params = searchParams ? await searchParams : {};
+  const en = (await getRequestLocale()) === "en";
+  const crossCheck = getMemberSectorOutlook(en);
   const gate = await getMemberDevicePageAccess();
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
     const en = (await getRequestLocale()) === "en";
@@ -94,6 +97,7 @@ export default async function MemberSectorResonancePage({
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
             <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
+            <SeptemberThreeMarketReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
             <GannPriorityReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} compact />
             <div className="grid gap-5 xl:grid-cols-2">
               {headlinePanels.map((panel) => <ConclusionFirstPanel
@@ -114,7 +118,7 @@ export default async function MemberSectorResonancePage({
               <header className="border-b border-white/[.06] px-5 py-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-amber-100/50">MR. YI · MARKET OUTLOOK</p>
                 <h2 className="mt-1.5 text-lg font-semibold text-white">{crossCheck.title}</h2>
-                <p className="mt-1 text-xs text-white/45">应对更新：{crossCheck.reviewedAt}</p>
+                <p className="mt-1 text-xs text-white/45">{en ? "Updated: " : "应对更新："}{crossCheck.reviewedAt}</p>
                 <p className="mt-2 text-xs leading-6 text-white/45">{crossCheck.boundary}</p>
               </header>
               <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
@@ -125,8 +129,8 @@ export default async function MemberSectorResonancePage({
                       <span className="rounded-full border border-amber-300/20 px-2.5 py-1 text-[10px] text-amber-100/70">{row.status}</span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-white/80">{row.outlook}</p>
-                    <p className="mt-2 text-xs leading-5 text-white/55"><b>时间：</b>{row.rhythm}</p>
-                    <p className="mt-2 text-xs leading-5 text-amber-100/75"><b>应对：</b>{row.action}</p>
+                    <p className="mt-2 text-xs leading-5 text-white/55"><b>{en ? "Timing: " : "时间："}</b>{row.rhythm}</p>
+                    <p className="mt-2 text-xs leading-5 text-amber-100/75"><b>{en ? "Response: " : "应对："}</b>{row.action}</p>
                   </article>
                 ))}
               </div>
