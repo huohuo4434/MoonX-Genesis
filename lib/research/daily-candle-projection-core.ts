@@ -3,7 +3,7 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "conditional-history-shape-v3-coverage";
+export const PROJECTION_ENGINE = "conditional-history-shape-v4-horizon";
 export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
@@ -11,6 +11,7 @@ export type CandleProjection = {
   windows: ForecastPath["windows"]; atr14: number; ema60: number | null;
   risk: "NEAR_RESISTANCE" | "BELOW_EMA60" | "NORMAL"; generatedAt: string;
   sourceHorizon?: ForecastPath['sourceHorizon'];
+  sourcePeriodStart?: string; sourcePeriodEnd?: string;
 };
 export type DailyProjectionData = KeyDateChartData & {
   checkedAt: string; expectedAsOf: string; projectionDate: string; engine: string;
@@ -124,6 +125,7 @@ export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[
           rangeLow: baselineClose * Math.exp(-spread), rangeHigh: baselineClose * Math.exp(spread) };
       });
       return { sourceId: path.id, sourceVersion: path.version, level: path.level, sourceHorizon: path.sourceHorizon, direction: path.direction,
+        sourcePeriodStart: path.periodStart, sourcePeriodEnd: path.periodEnd,
         dateBasis: whole.mode === "DATED" ? "EXPLICIT_WINDOW" as const : "MODEL_PHASE_ALLOCATION" as const,
         candles, windows: path.windows, ...metrics, risk, generatedAt: new Date(now).toISOString() };
     }).filter(p => p.candles.length > 0);

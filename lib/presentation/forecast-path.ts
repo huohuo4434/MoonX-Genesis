@@ -37,7 +37,8 @@ export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeri
 }
 
 const patterns: Record<OfficialDirection, number[]> = {
-  上涨: [0, 1], 下跌: [0, -1], 震荡: [0, .35, -.35, 0],
+  // Neutral sources specify no ordered turn; historical candle variation is separate.
+  上涨: [0, 1], 下跌: [0, -1], 震荡: [0, 0],
   震荡上涨: [0, .55, .25, 1], 震荡下跌: [0, -.55, -.25, -1],
   先涨后跌: [0, 1, 0], 先跌后涨: [0, -1, 0],
 };

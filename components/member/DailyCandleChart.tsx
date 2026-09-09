@@ -1,14 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import type { DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
+import type { CandleProjection, DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import { ResearchCandleTerminal } from "./ResearchCandleTerminal";
 
 const price = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
 const directions: Record<string, string> = { 上涨: "Rising", 下跌: "Falling", 震荡: "Range-bound", 震荡上涨: "Choppy rise", 震荡下跌: "Choppy decline", 先涨后跌: "Rise, then pull back", 先跌后涨: "Dip, then recover" };
+const sourcePeriod = (p: CandleProjection, en: boolean) => p.sourcePeriodStart && p.sourcePeriodEnd
+  ? `${p.sourcePeriodStart}—${p.sourcePeriodEnd}` : en ? 'Source period unavailable' : '原预测周期待核验';
+const horizonLabel = (p: CandleProjection | undefined, en: boolean) => {
+  if (p?.level === 'WEEK') return en ? 'Weekly direction' : '周度方向';
+  if (p?.sourceHorizon === 'STAGE') return en ? 'Stage background' : '阶段背景';
+  const days = p?.sourcePeriodStart && p.sourcePeriodEnd ? (Date.parse(p.sourcePeriodEnd) - Date.parse(p.sourcePeriodStart)) / 86_400_000 : null;
+  return days === null ? en ? 'Longer-term background' : '较长周期背景'
+    : days > 45 ? en ? 'Multi-month background' : '多月背景' : en ? 'Monthly background' : '月度背景';
+};
 
 export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: boolean }) {
-  const [level, setLevel] = useState<"MONTH" | "WEEK">(() => data.projections.some(p => p.level === 'MONTH') ? 'MONTH' : data.projections.some(p => p.level === 'WEEK') ? 'WEEK' : 'MONTH');
+  const [level, setLevel] = useState<"MONTH" | "WEEK">(() => data.projections.some(p => p.level === 'WEEK') ? 'WEEK' : 'MONTH');
   const [source, setSource] = useState("");
   const [band, setBand] = useState(false);
   const choices = data.projections.filter(p => p.level === level);
@@ -25,15 +34,21 @@ export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: 
   return <div className="mt-5 space-y-3" data-daily-candle-projection="v2">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex gap-2" role="group" aria-label={en ? "Forecast horizon" : "预测周期"}>
-        {(["MONTH", "WEEK"] as const).map(v => <button key={v} type="button" aria-pressed={level === v} onClick={() => { setLevel(v); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === v ? "border-cyan-300 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{v === "MONTH" ? data.projections.some(p => p.level === 'MONTH' && p.sourceHorizon === 'STAGE') ? en ? 'Stage forecast candles' : '阶段预测K线' : en ? "Monthly candles" : "月度预测K线" : en ? "Weekly candles" : "周度预测K线"}{!data.projections.some(p => p.level === v) ? en ? ' · unavailable' : ' · 暂无' : ''}</button>)}
+        {(["WEEK", "MONTH"] as const).map(v => <button key={v} type="button" aria-pressed={level === v} onClick={() => { setLevel(v); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === v ? "border-cyan-300 bg-cyan-400/15 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{v === "MONTH" ? data.projections.some(p => p.level === 'MONTH' && p.sourceHorizon === 'STAGE') ? en ? 'Stage forecast candles' : '阶段预测K线' : en ? "Longer-term background" : "较长周期背景" : en ? "Weekly candles" : "周度预测K线"}{!data.projections.some(p => p.level === v) ? en ? ' · unavailable' : ' · 暂无' : ''}</button>)}
       </div>
       <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={band} onChange={e => setBand(e.target.checked)} />{en ? "Volatility bounds (not probability)" : "波动边界（非概率区间）"}</label>
     </div>
-    {choices.length > 1 ? <select aria-label={en ? "Published period" : "正式预测周期"} className="rounded-lg bg-slate-900 p-2 text-sm" value={projection?.sourceId} onChange={e => setSource(e.target.value)}>{choices.map(p => <option key={p.sourceId} value={p.sourceId}>{p.level} · {p.candles[0]?.date}—{p.candles.at(-1)?.date} · V{p.sourceVersion}</option>)}</select> : null}
+    <div className="space-y-1 rounded-lg border border-slate-700 p-3 text-sm" aria-label={en ? 'Directions by source period' : '分周期正式方向'}>
+      {data.projections.map(p => <p key={p.sourceId}>{horizonLabel(p, en)} · {sourcePeriod(p, en)}：<strong>{en ? directions[p.direction] ?? p.direction : p.direction}</strong></p>)}
+      {data.projections.some(p => p.level === 'WEEK') && data.projections.some(p => p.level === 'MONTH') ? <p className="text-xs text-slate-400">{en ? 'Use the weekly direction for that week. A longer-term scenario does not replace it.' : '该周看周度方向；较长周期背景不替代本周判断。'}</p> : null}
+    </div>
+    {choices.length > 1 ? <select aria-label={en ? "Published period" : "正式预测周期"} className="rounded-lg bg-slate-900 p-2 text-sm" value={projection?.sourceId} onChange={e => setSource(e.target.value)}>{choices.map(p => <option key={p.sourceId} value={p.sourceId}>{horizonLabel(p, en)} · {sourcePeriod(p, en)} · V{p.sourceVersion}</option>)}</select> : null}
     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
       <span>{en ? "Last daily close" : "最新日K收盘"} <strong>{price(last.close)}</strong> · {last.date}</span>
-      {projection ? <strong className="text-cyan-200">{en ? directions[projection.direction] ?? projection.direction : projection.direction} · {projection.candles[0]?.date}—{projection.candles.at(-1)?.date}</strong> : null}
+      {projection ? <strong className="text-cyan-200" data-selected-forecast={projection.sourceId}>{horizonLabel(projection, en)}：{en ? directions[projection.direction] ?? projection.direction : projection.direction} · {sourcePeriod(projection, en)}</strong> : null}
     </div>
+    {projection ? <p className="text-xs text-slate-400">{en ? 'Plotted simulation dates (not the full source period)' : '图中模拟日期（不等于完整预测周期）'}：{projection.candles[0]?.date}—{projection.candles.at(-1)?.date}</p> : null}
+    {projection?.direction === '震荡' ? <p className="text-sm text-amber-200">{en ? 'Range-bound does not specify a dip-then-recovery sequence or a bottom date. Candle fluctuations are illustrative only.' : '震荡不代表先跌后涨，也不指定见底日期；蜡烛起伏仅为模拟。'}</p> : null}
     <p className="text-xs text-amber-200">{en ? "Future candles = one historical-shape simulation, not future quotes or validated daily targets." : "右侧是参考历史波动形态的未来模拟，不是真实报价；尚未验证准确率。"}</p>
     {data.stale ? <p className="rounded-lg border border-amber-400/30 p-3 text-sm text-amber-200">{en ? `Daily feed delayed: expected ${data.expectedAsOf}. Forecast withheld.` : `日K数据延迟：应更新至 ${data.expectedAsOf}，完整行情到达前暂停预测。`}</p> : !projection ? <p className="p-3 text-sm text-amber-200">{missingText}</p> : null}
     {data.assetId === 'spcx' ? <p className="text-xs text-amber-200">{en ? 'Mythos SPCX perpetual, quoted in USDC — not stock spot prices. Zero-volume candles may reflect order-book quotes, not trades.' : 'Mythos SPCX永续合约，USDC计价，并非股票现货报价；零成交量K线可能来自盘口报价，不代表实际成交。'}</p> : null}
