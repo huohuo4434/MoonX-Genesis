@@ -3,7 +3,7 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "conditional-history-shape-v4-horizon";
+export const PROJECTION_ENGINE = "conditional-history-shape-v4-horizon-sessions";
 export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
@@ -86,7 +86,17 @@ export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[
       const whole = forecastGeometry(path, path.periodStart);
       const geometry = whole.mode === "DATED" ? forecastGeometry(path, last.date) : whole;
       const span = Math.max(86_400_000, Date.parse(geometry.end) - Date.parse(geometry.start));
-      const progress = (date: string) => Math.max(0, Math.min(1, (Date.parse(date) - Date.parse(geometry.start)) / span));
+      // Undated phases belong to the original period's actual sessions, not weekends.
+      // Include elapsed sessions so refreshing midweek never restarts the first leg.
+      const periodSessions: string[] = [];
+      let fullCalendar = true;
+      if (whole.mode === 'SEQUENCE') for (let date = path.periodStart; date <= path.periodEnd; date = addChartDays(date, 1)) {
+        if (!chartCalendarSupported(data.assetId, date)) { fullCalendar = false; break; }
+        if (isChartTradingDay(data.assetId, date)) periodSessions.push(date);
+      }
+      const progress = (date: string) => whole.mode === 'SEQUENCE' && fullCalendar && periodSessions.length
+        ? periodSessions.filter(session => session <= date).length / periodSessions.length
+        : Math.max(0, Math.min(1, (Date.parse(date) - Date.parse(geometry.start)) / span));
       const baseline = interpolate(geometry.points, progress(last.date));
       const totalSessions = Math.min(30, Math.max(1, Math.round((Date.parse(path.periodEnd) - Date.parse(path.periodStart)) / 86_400_000)));
       // A transparent volatility scale, NOT a calibrated expected return.

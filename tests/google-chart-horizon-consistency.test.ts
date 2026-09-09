@@ -49,6 +49,17 @@ test('neutral direction has no manufactured central turn but retains valid varie
   assert.match(PROJECTION_ENGINE, /v4-horizon/);
 });
 
+test('holiday week completes the bearish phase on Friday, not the closed weekend', () => {
+  const week = data.projections.find(p => p.level === 'WEEK')!;
+  assert.deepEqual(week.candles.map(c => c.date), ['2026-09-09', '2026-09-10', '2026-09-11']);
+  assert.ok(week.candles.at(-1)!.baselineClose < bars.at(-1)!.close);
+  assert.ok(week.candles.at(-1)!.baselineClose < week.candles[0]!.baselineClose);
+  const nextDay = { ...quote, bars: [...bars, { ...bars.at(-1)!, date: '2026-09-09', timestamp: Date.parse('2026-09-09T00:00:00Z') }], asOf: '2026-09-09' };
+  const refreshed = projectDailyCandles(nextDay, paths.filter(p => p.level === 'WEEK'), Date.parse('2026-09-10T12:00:00Z'))[0]!;
+  assert.equal(refreshed.candles.at(-1)!.date, '2026-09-11');
+  assert.ok(refreshed.candles.at(-1)!.baselineClose < nextDay.bars.at(-1)!.close);
+});
+
 test('Chinese and English default to weekly even when monthly projection is first', () => {
   const monthlyFirst = { ...data, projections: [...data.projections].sort((a, b) => a.level.localeCompare(b.level)) };
   for (const en of [false, true]) {
