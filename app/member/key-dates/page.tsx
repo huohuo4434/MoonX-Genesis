@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { KeyDatePriceChart } from "@/components/member/KeyDatePriceChart";
 import { CryptoTechnicalReview } from "@/components/member/CryptoTechnicalReview";
+import { TechnicalReview20260909 } from "@/components/member/TechnicalReview20260909";
 import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
 import { chartWindow } from "@/lib/presentation/key-date-chart";
 import { forecastPaths } from "@/lib/presentation/forecast-path";
@@ -300,7 +301,8 @@ export default async function MemberKeyDatesPage() {
       </header>
 
       <KeyDatePriceChart windows={currentItems.map(chartWindow)} paths={forecastPaths(currentItems, keyDateChartForecasts(currentItems, Date.now()), asOfDate)} asOfDate={asOfDate} />
-      <CryptoTechnicalReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
+      <TechnicalReview20260909 en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
+      <details className="rounded-2xl border border-white/10 p-4"><summary className="cursor-pointer text-sm">{(await getRequestLocale()) === "en" ? "Earlier Sep 7 crypto reference (includes ETH)" : "此前9月7日加密参考（含ETH）"}</summary><CryptoTechnicalReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} /></details>
 
 
       <section className="rounded-3xl border border-rose-300/20 bg-rose-300/[0.045] p-5 sm:p-6" data-global-risk-window-20260927>

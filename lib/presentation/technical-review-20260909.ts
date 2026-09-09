@@ -1,0 +1,62 @@
+// Dated research references only. Never import into official-direction or execution code.
+export const technicalReview20260909 = {
+  version: "TECH-20260909-V1",
+  recordedAt: "2026-09-09T11:50:00.000Z",
+  reviewAfter: "2026-09-13T16:00:00.000Z",
+  status: "RESEARCH_ONLY",
+  officialDirectionMutation: false,
+  tradingAuthority: false,
+  confidenceDelta: 0,
+  retrospectiveScoreEligible: false,
+  title: { zh: "9月9日 · 压力到了怎么办", en: "Sep 9 · Trading around resistance" },
+  note: { zh: "9月8—9日美元报价参考，非实时价或下单信号。图表已核对原图，不代表已核验最新行情；文字点位尚需核对行情。", en: "USD references from Sep 8–9, not live quotes or order signals. Chart levels were checked against supplied images, not current market data; text-only levels still need quote verification." },
+  summary: { zh: "半导体仍有强势分支，但不宜把上涨预期当成追高理由；BTC仍可能冲高，越靠近压力越要防回吐。", en: "Some semiconductor names remain strong, but a bullish outlook is not a reason to chase. BTC can still push higher; resistance raises giveback risk." },
+  assets: [
+    { symbol: "BTC", basis: "chart", market: "BTCUSD · Bitstamp · 1D",
+      support: "78,928 → 74,201–74,937", resistance: "82,518 → 87,802 → 89,657",
+      action: { zh: "先看能否收复78,928，再看82,518能否突破并站稳；受阻不把下一档压力当成必达目标。", en: "First watch a reclaim of 78,928, then a sustained break of 82,518. On rejection, do not assume the next resistance must be reached." },
+      caution: { zh: "另一分析关注83,500，但未明确交易场所，单独保留、不合并成精确交易区。磨顶风险不等于9月10日必见顶。", en: "A separate analysis watches 83,500 without a specified venue; keep it separate, not an exact combined trading zone. Topping risk does not establish a Sep 10 top." } },
+    { symbol: "SNDK", basis: "text", market: "SNDK · USD",
+      support: "—", resistance: "1,840",
+      action: { zh: "重点看1,840附近能否突破并站稳；持续冲不过、出现放量回落时，先重评追涨风险。", en: "Watch whether price can break and hold around 1,840. Repeated rejection or a high-volume decline calls for reassessing chase risk." },
+      caution: { zh: "保留半导体转强预期，但不保证连续上涨。此价位仅来自文字，未提供可核对的闪迪截图；不能照搬为委托价。", en: "The semiconductor recovery view does not guarantee a continuous rise. This text-only level lacks a matching SNDK chart and is not an order price." } },
+    { symbol: "MU", basis: "chart-text", market: "MU · NASDAQ · 1D",
+      support: "896–901", resistance: "1,012",
+      action: { zh: "短线先看1,012能否收复；不能收复，反弹仍有压力。896—901是更大级别结构观察区。", en: "A reclaim of 1,012 is the near-term test; below it, rebounds face resistance. The 896–901 area is a larger swing-structure reference." },
+      caution: { zh: "两个价位对应不同周期；不能把896—901直接当成新短线仓的宽止损。", en: "These levels belong to different horizons. Do not turn 896–901 into an oversized stop for a new short-term trade." } },
+    { symbol: "ZEC", basis: "text", market: "ZEC · 4H / 1D",
+      support: "—", resistance: "—",
+      action: { zh: "高位不跌尚不能认定双顶；先等区间破位及反抽失败，不能只因涨多就猜顶做空。", en: "Holding a high range does not confirm a double top. Wait for a breakdown and failed retest rather than shorting solely because price has risen." },
+      caution: { zh: "也不因此追多。未核验资金流、持仓及逼空数据，不将潜在逼空当成确定收益。", en: "This is not a chase-long signal either. Flow, positioning and squeeze claims are unverified, not assured returns." } },
+    { symbol: "NBIS", basis: "text", market: "NBIS · USD",
+      support: "235.45", resistance: "253.17",
+      action: { zh: "突破253.17后站不稳，先防假突破；235.45能否承接是下一观察点。", en: "Failure to hold above 253.17 raises false-breakout risk. Watch demand around 235.45 next." },
+      caution: { zh: "文字参考；缺口上沿及当日低点未给清楚，不补造止损数字。", en: "Text-only references; the gap edge and session low were not specified clearly, so no stop is invented." } },
+    { symbol: "LITE", basis: "chart", market: "LITE · NASDAQ · 1D",
+      support: "974.11 → 934.36 → 816.42", resistance: "1,014.13",
+      action: { zh: "接近1,014.13先看突破质量；突破后回踩守住，比直接追高更值得观察。", en: "Assess breakout quality near 1,014.13. A successful retest is more informative than chasing the first push." },
+      caution: { zh: "816.42是较远历史区域，不是短线仓的默认止损。", en: "816.42 is a distant historical area, not a default short-term stop." } },
+    { symbol: "QQQ", basis: "chart", market: "QQQ · NASDAQ ETF · 1D",
+      support: "713.98 → 707.43 → 703.21", resistance: "725.76 → 731.48 → 748.36",
+      action: { zh: "按阶梯观察突破或受阻，不把局部反弹等同于月度趋势转多。", en: "Track each break or rejection in sequence; a local rebound does not establish a bullish monthly trend." },
+      caution: { zh: "这是QQQ价格，不是NDX指数点数；不套用到纳指或SOXL。", en: "These are QQQ prices, not NDX index points or SOXL levels." } },
+    { symbol: "PLTR", basis: "chart", market: "PLTR · NASDAQ · 1D",
+      support: "163.44 → 150.16 → 136.22", resistance: "172.77 → 183.15 → 187.53 → 200.53",
+      action: { zh: "先看163.44承接及软件板块能否企稳；反弹逐档看压力。", en: "Watch demand at 163.44 and stabilization in software; reassess at each resistance on a rebound." },
+      caution: { zh: "支撑被跌穿后不能仍称安全低吸位。", en: "A broken support is not automatically a safe dip-buying level." } },
+    { symbol: "CDNS", basis: "chart", market: "CDNS · NASDAQ · 1D",
+      support: "264.74", resistance: "287.03–290.65",
+      action: { zh: "原支撑287.03—290.65失守后转为收复观察区；264.74仍要等止跌确认。", en: "After losing 287.03–290.65, watch that area for a reclaim. Even 264.74 needs stabilization confirmation." },
+      caution: { zh: "跌得多不等于底部已经成立。", en: "A large decline does not establish a bottom." } },
+  ],
+  events: [
+    { zh: "ORCL：9月10日（周四）美股收盘后发布财报，不是周五。", en: "ORCL reports after the US close on Thursday, Sep 10, not Friday.", url: "https://investor.oracle.com/investor-news/news-details/2026/Oracle-Sets-the-Date-for-its-First-Quarter-Fiscal-Year-2027-Earnings-Announcement/default.aspx" },
+    { zh: "美联储：9月15—16日议息，不是9月7—13日这周。", en: "The FOMC meets Sep 15–16, not during the Sep 7–13 week.", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" },
+  ],
+} as const;
+
+export function technicalReviewState(nowMs: number): "upcoming" | "active" | "archive" {
+  if (!Number.isFinite(nowMs)) return "archive";
+  if (nowMs < Date.parse(technicalReview20260909.recordedAt)) return "upcoming";
+  return nowMs < Date.parse(technicalReview20260909.reviewAfter) ? "active" : "archive";
+}

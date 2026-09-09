@@ -9,6 +9,7 @@ import { SectorResonanceBoard } from "@/components/conviction/SectorResonanceBoa
 import { SectorKeyDateOverview } from "@/components/conviction/SectorKeyDateOverview";
 import { ConclusionFirstPanel, type ConclusionFirstFact } from "@/components/member/ConclusionFirstPanel";
 import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
+import { TechnicalReview20260909Link } from "@/components/member/TechnicalReview20260909";
 import { GannPriorityReview } from "@/components/member/GannPriorityReview";
 import { SeptemberThreeMarketReview } from "@/components/member/SeptemberThreeMarketReview";
 import { Section } from "@/components/ui";
@@ -97,6 +98,7 @@ export default async function MemberSectorResonancePage({
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
             <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
+            <TechnicalReview20260909Link en={en} nowMs={Date.now()} />
             <SeptemberThreeMarketReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
             <GannPriorityReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} compact />
             <div className="grid gap-5 xl:grid-cols-2">

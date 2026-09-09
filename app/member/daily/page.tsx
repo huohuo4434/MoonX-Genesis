@@ -8,6 +8,7 @@ import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummary";
 import { HorizonReadingNav } from "@/components/member/HorizonReadingNav";
+import { TechnicalReview20260909Link } from "@/components/member/TechnicalReview20260909";
 import { ConclusionFirstPanel, type ConclusionFirstFact, type ConclusionFirstTone } from "@/components/member/ConclusionFirstPanel";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
@@ -300,6 +301,7 @@ export default async function MemberDailyPage() {
                 actions={["先跌后涨：先等止跌；先涨后跌：先看上冲后转弱。", "确认条件缺失先等待；持仓按自己的止损与期限退出。"]}
               />
               <HorizonReadingNav active="DAY" />
+              <TechnicalReview20260909Link en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <StatusCard label="今日预测" value={todayLoadFailed ? "读取异常" : todayRows.length ? `已发布 ${todayRows.length} 条` : "等待发布"} note={todayRows[0]?.forecastForDate ? formatDateChina(todayRows[0].forecastForDate) : "系统会自动重试"} toneClass={todayLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : todayRows.length ? "border-emerald-400/20 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"} />
                 <StatusCard label="下一交易日（按市场）" value={tomorrowLoadFailed ? "读取异常" : tomorrowRows.length ? `已发布 ${tomorrowRows.length} 条` : "尚未发布"} note={tomorrowRows.length ? dailyBoardDateLabel(tomorrowRows) : "不会覆盖今日内容"} toneClass={tomorrowLoadFailed ? "border-rose-400/20 bg-rose-400/[0.05]" : tomorrowRows.length ? "border-sky-400/20 bg-sky-400/[0.05]" : "border-border/[0.1] bg-white/[0.025]"} />
