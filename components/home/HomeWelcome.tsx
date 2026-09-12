@@ -23,7 +23,7 @@ export function HomeWelcome({ locale, canViewDaily = false }: { locale: Locale; 
       <p className="mt-3 text-sm text-white/60">{en ? "Daily core coverage: Bitcoin · Ether · Nasdaq 100 · Gold · Silver" : "每日核心覆盖：比特币 · 以太坊 · 纳斯达克100 · 黄金 · 白银"}</p>
       <div className="mt-7 flex flex-wrap gap-3">
         <Link href={canViewDaily ? href("/member/daily") : register} className="inline-flex min-h-12 items-center rounded-full bg-violet-600 px-6 py-3 font-semibold text-white hover:bg-violet-500">{canViewDaily ? (en ? "Open today's research" : "查看今日研究") : (en ? "Create a free account" : "免费注册，先看今日观点")}</Link>
-        <Link href={href("/pricing")} className="inline-flex min-h-12 items-center rounded-full border border-white/25 px-6 py-3 text-white hover:bg-white/10">{en ? "Compare membership" : "看看会员多了什么"}</Link>
+        <Link href={href("/guide#free-example")} className="inline-flex min-h-12 items-center rounded-full border border-white/25 px-6 py-3 text-white hover:bg-white/10">{en ? "Try a free walkthrough" : "先看免费样例"}</Link>
       </div>
       <p className="mt-3 text-xs leading-5 text-white/60">{en ? "Free registration. No payment required. Today's basic view is available after 08:00 Beijing time (00:00 UTC)." : "注册免费，无需付款。北京时间08:00后可查看当日基础观点。"}</p>
     </section>

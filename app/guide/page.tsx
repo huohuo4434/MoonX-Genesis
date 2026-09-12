@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { TermHelp } from "@/components/education/TermHelp";
+import { FreeResearchExample } from "@/components/education/FreeResearchExample";
 import { englishPath } from "@/lib/i18n/config";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 
@@ -61,36 +62,42 @@ export default async function GuidePage() {
   return <main><Section spacing="lg"><div className="mx-auto w-full max-w-5xl space-y-8">
     <div className="max-w-3xl">
       <Badge variant="default">{en ? "Beginner Guide" : "新手指南"}</Badge>
-      <Heading as="h1" size="h2" className="mt-3">{en ? "Read the conclusion first" : "先看结论，再看位置"}</Heading>
-      <Text variant="body" color="secondary" className="mt-3 block">{en ? "Choose your timeframe. Check the price levels. Know when to step back." : "先选周期，再看位置，最后明确什么情况下不再做。"}</Text>
+      <Heading as="h1" size="h2" className="mt-3">{en ? "Try a complete research walkthrough" : "先读懂一份计划，再决定订阅"}</Heading>
+      <Text variant="body" color="secondary" className="mt-3 block">{en ? "Start with a fictional BTC example, then explore actual daily views and results. No account or payment is needed for this walkthrough." : "先用一个BTC教学例子，读懂周期、位置和应对，再去看今日真实观点与复盘。本页无需注册或付款。"}</Text>
     </div>
+
+    <FreeResearchExample locale={locale} />
 
     <Card padding="lg" className="border-primary/20 bg-primary/[0.025]">
       <Heading as="h2" size="h3">{en ? "Recommended reading order" : "推荐阅读顺序"}</Heading>
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         {[
-          { title: en ? "1. Review the record" : "1. 看预测回顾", body: en ? "Start with public results" : "先了解实际表现", path: "/verification" },
-          { title: en ? "2. Try daily views" : "2. 体验今日观点", body: en ? "Free after the daily release" : "每日开放后免费查看", path: "/member/daily" },
-          { title: en ? "3. Compare membership" : "3. 比较会员权益", body: en ? "Decide if you need more detail" : "按需要解锁详细研究", path: "/pricing" },
-          { title: en ? "4. Plan your week" : "4. 制定每周计划", body: en ? "Member outlook and risks" : "会员周度展望与风险", path: "/member/weekly" },
+          { title: en ? "1. Read today's view" : "1. 看今日观点", body: en ? "Basic views after the daily release" : "每日开放后查看基础观点", path: "/member/daily" },
+          { title: en ? "2. Check real results" : "2. 查真实复盘", body: en ? "Read misses as well as hits" : "命中与未命中都看", path: "/verification" },
+          { title: en ? "3. Start free" : "3. 免费注册", body: en ? "No purchase required" : "不用先购买会员", path: `/register?next=${encodeURIComponent(href("/member/daily"))}` },
+          { title: en ? "4. Decide on membership" : "4. 再决定订阅", body: en ? "Weekly/monthly research and detailed plans" : "需要周月研究与详细计划再订阅", path: "/pricing" },
         ].map(({ title, body, path }) => <Link key={path} href={href(path)} className="rounded-xl border border-border/[0.1] p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.02]"><Text variant="body-sm" weight="semibold">{title}</Text><Text variant="caption" color="secondary" className="mt-2 block">{body}</Text></Link>)}
       </div>
     </Card>
 
-    <div>
+    <details>
+      <summary className="cursor-pointer py-3 font-semibold">{en ? "Questions about timeframes and signals" : "周期、信心与执行：常见问题"}</summary>
       <Heading as="h2" size="h3">{en ? "Five essentials" : "五个核心问题"}</Heading>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {questions.map((item, index) => <Card key={item.title} padding="lg" className={index === questions.length - 1 ? "md:col-span-2" : undefined}><Text variant="body" weight="semibold">{item.title}</Text><Text variant="body-sm" color="secondary" className="mt-2 block">{item.body}</Text></Card>)}
       </div>
-    </div>
+    </details>
 
-    <div>
+    <details>
+      <summary className="cursor-pointer py-3 font-semibold">{en ? "Forecast terms explained" : "看不懂术语？展开解释"}</summary>
       <Heading as="h2" size="h3">{en ? "Terms on forecast cards" : "预测卡片怎么读"}</Heading>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {glossary.map(([term, explanation]) => <Card key={term} padding="md"><Text variant="body-sm" weight="semibold"><TermHelp explanation={explanation}>{term}</TermHelp></Text><Text variant="caption" color="secondary" className="mt-2 block">{explanation}</Text></Card>)}
       </div>
-    </div>
+    </details>
 
+    <details>
+      <summary className="cursor-pointer py-3 font-semibold">{en ? "Common mistakes" : "避免这三个误读"}</summary>
     <Card padding="lg">
       <Heading as="h2" size="h3">{en ? "Three mistakes to avoid" : "三个常见错误"}</Heading>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -105,6 +112,9 @@ export default async function GuidePage() {
         ]).map(([title, body]) => <div key={title} className="rounded-lg border border-border/[0.08] p-3"><Text variant="body-sm" weight="semibold">{title}</Text><Text variant="caption" color="secondary" className="mt-1 block">{body}</Text></div>)}
       </div>
     </Card>
+    </details>
+
+    <p className="text-sm leading-6 text-foreground-secondary">{en ? "Still unclear? Tell us which page you use, what helped, and what was confusing." : "还是看不懂？告诉我们：你常用哪一页、哪部分有帮助、哪句话不清楚。"} <Link className="underline underline-offset-4" href={href("/support")}>{en ? "Send feedback" : "反馈给我们"}</Link></p>
 
     <div className="flex flex-wrap gap-3"><Button asChild variant="primary"><Link href={href(`/register?next=${encodeURIComponent(href("/member/daily"))}`)}>{en ? "Create a free account" : "免费注册体验"}</Link></Button><Button asChild variant="outline"><Link href={href("/pricing")}>{en ? "Compare membership" : "比较会员权益"}</Link></Button></div>
     <Text variant="caption" color="tertiary">{en ? "Research and scenario analysis only. Not investment advice." : "所有内容仅供研究参考，不构成投资建议。"}</Text>
