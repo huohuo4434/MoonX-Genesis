@@ -77,7 +77,7 @@ test("critical admin pages guard before expensive data and public member preview
   for (const file of ["app/admin/page.tsx", "app/admin/site-health/page.tsx"]) {
     const source = read(file);
     const guard = source.indexOf("await requireAdminOrRedirect(");
-    const data = source.indexOf("await Promise.all(");
+    const data = source.search(/await Promise\.all(?:Settled)?\(/);
     assert.ok(guard >= 0 && data > guard, `${file} must guard before data loading`);
   }
   for (const file of [

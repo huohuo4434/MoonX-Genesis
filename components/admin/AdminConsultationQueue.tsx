@@ -1,17 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card, Text } from "@/components/ui";
 import { deriveLiuyaoStructure } from "@/lib/consultations/input-core";
 import type { ConsultationInput, LiuyaoInput } from "@/types/member-consultation";
-
-type Row = {
-  id: string;
-  kind: string;
-  status: string;
-  missing_fields: string[];
-  created_at: string;
-};
+import { readConsultationList, type ConsultationListRow as Row } from "@/lib/admin/consultation-list-client";
 
 type Detail = {
   request: {
@@ -140,15 +133,34 @@ export function AdminConsultationQueue() {
   const [detailData, setDetailData] = useState<Detail | null>(null);
   const [content, setContent] = useState("");
   const [message, setMessage] = useState("");
+  const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
 
-  async function load() {
-    const response = await fetch("/api/admin/consultations", { cache: "no-store" });
-    const json = await response.json();
-    if (response.ok) setRows(json.requests ?? []);
-    else setMessage(json.error ?? "问卦列表读取失败");
-  }
+  const load = useCallback(async (cancel?: AbortSignal) => {
+    setListState("loading");
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    cancel?.addEventListener("abort", abort, { once: true });
+    if (cancel?.aborted) controller.abort();
+    const timeout = setTimeout(abort, 15_000);
+    try {
+      const nextRows = await readConsultationList(controller.signal);
+      if (!cancel?.aborted) {
+        setRows(nextRows);
+        setListState("ready");
+      }
+    } catch {
+      if (!cancel?.aborted) setListState("error");
+    } finally {
+      clearTimeout(timeout);
+      cancel?.removeEventListener("abort", abort);
+    }
+  }, []);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
   async function loadDetail(id: string) {
     setSelected(id);
@@ -207,8 +219,11 @@ export function AdminConsultationQueue() {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.5fr)]">
+      {message ? <p role="status" className="text-sm xl:col-span-2">{message}</p> : null}
       <div className="space-y-2">
-        {rows.length ? rows.map((row) => (
+        {listState === "loading" ? <Card padding="md"><p role="status" className="text-sm">正在读取会员问卦……</p></Card>
+        : listState === "error" ? <Card padding="md"><p role="alert" className="text-sm">问卦列表读取失败，暂时无法确认是否有新问题。</p><Button className="mt-3" variant="outline" onClick={() => void load()}>重试读取</Button></Card>
+        : rows.length ? rows.map((row) => (
           <button key={row.id} className="block w-full text-left" onClick={() => void loadDetail(row.id)}>
             <Card padding="md" className={selected === row.id ? "border-amber-300/30 bg-amber-300/[0.04]" : ""}>
               <Text variant="body-sm" weight="semibold">{row.kind === "LIUYAO" ? "六爻问卦" : "八字咨询"} · {statusLabel(row.status)}</Text>
@@ -243,7 +258,6 @@ export function AdminConsultationQueue() {
             </div>
             {recoverable ? <Text variant="caption" color="secondary" className="mt-2 block">本申请之前自动处理失败；保存时会恢复原申请和原权益预留，不会重复扣除。</Text> : null}
             {!approvable ? <Text variant="caption" color="secondary" className="mt-2 block">先保存人工草稿，确认内容后再最终批准。</Text> : null}
-            {message ? <Text variant="caption" className="mt-2 block">{message}</Text> : null}
           </Card>
         </div>
       ) : null}

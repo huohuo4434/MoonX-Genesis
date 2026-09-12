@@ -1,17 +1,12 @@
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { LiuyaoAnnualCoverage2026 } from "@/components/admin/LiuyaoAnnualCoverage2026";
-import { PromotionReadinessPanel } from "@/components/admin/PromotionReadinessPanel";
-import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
+import { Card, Heading, Section, Text } from "@/components/ui";
 import { isActiveMember, isAdmin, listAllAuthUsers, requireAdminOrRedirect } from "@/lib/auth/permissions";
-import { getPublicVerificationSnapshot } from "@/lib/accuracy/public-verification-snapshot";
 import { isSandboxUser } from "@/lib/admin/sandbox-data";
 import { buildAdminCycleGapSummary, summarizeConsultationQueue } from "@/lib/admin/admin-home-operations";
 import { listAdminConsultations } from "@/lib/consultations/store";
-import { getKnowledgeGrowthStats } from "@/lib/teacher-learning-center/store";
 import { loadTodayForecastRows, loadTomorrowForecastRows } from "@/lib/prediction-access-server";
 import { getConvictionWeeklyFreshnessOverview } from "@/lib/data/conviction/admin-weekly-freshness";
-import { buildPromotionReadinessSummary } from "@/lib/admin/promotion-readiness";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,180 +14,90 @@ export const revalidate = 0;
 export default async function AdminHomePage() {
   await requireAdminOrRedirect("/admin");
   const now = new Date();
-  const [users, verificationSnapshot, tlcStats, todayRows, tomorrowRows, consultationQueue] = await Promise.all([
+  const [users, today, tomorrow, consultations] = await Promise.allSettled([
     listAllAuthUsers(),
-    getPublicVerificationSnapshot(),
-    getKnowledgeGrowthStats(),
     loadTodayForecastRows(now),
     loadTomorrowForecastRows(now),
-    listAdminConsultations()
-      .then((rows) => ({ available: true as const, summary: summarizeConsultationQueue(rows) }))
-      .catch(() => ({ available: false as const, summary: null })),
+    listAdminConsultations(),
   ]);
-  const dailyStats = verificationSnapshot.daily.stats;
-  const weeklyStats = verificationSnapshot.weekly.stats;
-  const convictionFreshness = getConvictionWeeklyFreshnessOverview(now);
+  const memberCount = users.status === "fulfilled"
+    ? users.value.filter((u) => !isSandboxUser(u) && isActiveMember(u) && !isAdmin(u)).length
+    : null;
+  const queue = consultations.status === "fulfilled" ? summarizeConsultationQueue(consultations.value) : null;
+  const freshness = getConvictionWeeklyFreshnessOverview(now);
   const cycleGaps = buildAdminCycleGapSummary(now);
-  const productionUsers = users.filter((u) => !isSandboxUser(u));
-  const memberCount = productionUsers.filter((u) => isActiveMember(u) && !isAdmin(u)).length;
-  const promotionReadiness = buildPromotionReadinessSummary({
-    todayPublished: todayRows.length,
-    tomorrowPublished: tomorrowRows.length,
-    focusCurrent: convictionFreshness.current,
-    focusTotal: convictionFreshness.total,
-    focusAffectedAssets: convictionFreshness.affectedAssets,
-    cycleGapCount: cycleGaps.taskCount,
-    cycleGapBlockingCount: cycleGaps.blockingTaskCount,
-    cycleGapActionCount: cycleGaps.actionTaskCount,
-    cycleGapPreparationCount: cycleGaps.preparationTaskCount,
-    consultationAvailable: consultationQueue.available,
-    pendingConsultations: consultationQueue.available ? consultationQueue.summary.total : 0,
-    failedConsultations: consultationQueue.available ? consultationQueue.summary.failed : 0,
+  const tasks: Array<{ label: string; href: string; urgent?: boolean }> = [];
+  if (users.status === "rejected") tasks.push({ label: "会员数据读取失败，请核对", href: "/admin/users", urgent: true });
+  if (today.status === "rejected") tasks.push({ label: "今日发布情况读取失败", href: "/admin/forecasts", urgent: true });
+  else if (!today.value.length) tasks.push({ label: "今日暂无正式观点，检查发布情况", href: "/admin/forecasts" });
+  if (tomorrow.status === "rejected") tasks.push({ label: "下一交易日发布情况读取失败", href: "/admin/forecasts", urgent: true });
+  else if (!tomorrow.value.length) tasks.push({ label: "下一交易日观点待准备", href: "/admin/forecasts" });
+  if (!queue) tasks.push({ label: "问卦队列读取失败，待回复数量未知", href: "/admin/consultations", urgent: true });
+  else if (queue.total > 0) tasks.push({
+    label: `会员问卦待处理 ${queue.total} 笔${queue.failed ? `（含异常 ${queue.failed} 笔）` : ""}`,
+    href: "/admin/consultations", urgent: queue.failed > 0,
   });
-
+  if (freshness.current < freshness.total) tasks.push({
+    label: `重点关注待更新 ${freshness.total - freshness.current} 项：${freshness.affectedAssets.join("、")}`,
+    href: "/admin/stocks",
+  });
+  const nearTermGaps = cycleGaps.blockingTaskCount + cycleGaps.actionTaskCount;
+  if (nearTermGaps) tasks.push({ label: `未来一周生效的周期资料待补 ${nearTermGaps} 项`, href: "/admin/weekly", urgent: cycleGaps.blockingTaskCount > 0 });
+  tasks.sort((a, b) => Number(Boolean(b.urgent)) - Number(Boolean(a.urgent)));
   const tiles = [
-    { label: "有效会员", value: String(memberCount) },
-    { label: "今日观点数", value: String(todayRows.length) },
-    { label: "下一交易日观点数", value: String(tomorrowRows.length) },
-    { label: "重点资产周度新鲜度", value: `${convictionFreshness.current}/${convictionFreshness.total}` },
-    { label: "日度复盘样本", value: String(dailyStats.verifiedCount) },
-    { label: "公开待验证", value: String(verificationSnapshot.pending.length + verificationSnapshot.weekly.stats.pending) },
-    { label: "周度加权命中率", value: weeklyStats.weightedAccuracyPct == null ? "暂无样本" : `${weeklyStats.weightedAccuracyPct.toFixed(1)}%` },
-    { label: "老师课程", value: `${tlcStats.lessonCount}节` },
-    { label: "老师规则", value: `${tlcStats.ruleCount}条` },
-    { label: "老师案例", value: `${tlcStats.caseCount}个` },
+    { label: "有效会员", value: memberCount, href: "/admin/users" },
+    { label: "今日观点", value: today.status === "fulfilled" ? today.value.length : null, href: "/admin/forecasts" },
+    { label: "下一交易日观点", value: tomorrow.status === "fulfilled" ? tomorrow.value.length : null, href: "/admin/forecasts" },
+    { label: "问卦待处理", value: queue?.total ?? null, href: "/admin/consultations" },
   ];
 
   return (
     <main>
       <Section spacing="lg">
         <AdminNav current="/admin" />
-        <Heading as="h1" size="h2">
-          管理后台
-        </Heading>
-
-        <PromotionReadinessPanel summary={promotionReadiness} />
-
-        <Card
-          padding="md"
-          className={`mt-4 border ${
-            consultationQueue.available && consultationQueue.summary.total > 0
-              ? "border-amber-500/40 bg-amber-500/10"
-              : "border-border/[0.08]"
-          }`}
-        >
-          <Text variant="body-sm" weight="semibold">
-            {consultationQueue.available
-              ? `会员问卦：${consultationQueue.summary.total}笔待处理`
-              : "会员问卦：暂时无法读取"}
-          </Text>
-          {consultationQueue.available ? (
-            <Text variant="caption" color="secondary" className="mt-1 block">
-              六爻 {consultationQueue.summary.liuyao}笔 · 八字 {consultationQueue.summary.bazi}笔 ·
-              待整理 {consultationQueue.summary.awaitingDraft}笔 · 待复核 {consultationQueue.summary.awaitingReview}笔 ·
-              待补资料 {consultationQueue.summary.needsInfo}笔
-              {consultationQueue.summary.failed > 0 ? ` · 异常 ${consultationQueue.summary.failed}笔` : ""}
-            </Text>
-          ) : (
-            <Text variant="caption" color="secondary" className="mt-1 block">
-              请进入问卦管理页检查数据库连接。
-            </Text>
-          )}
-          <Button asChild size="sm" className="mt-3 w-fit">
-            <Link href="/admin/consultations">查看会员问卦</Link>
-          </Button>
-        </Card>
-
-        <Card
-          padding="md"
-          className={`mt-4 border ${
-            cycleGaps.urgency === "BLOCKER"
-              ? "border-red-500/40 bg-red-500/10"
-              : cycleGaps.urgency === "ACTION"
-                ? "border-amber-300/35 bg-amber-300/[0.08]"
-                : cycleGaps.urgency === "PREPARATION"
-                  ? "border-cyan-300/25 bg-cyan-300/[0.05]"
-              : "border-emerald-400/30 bg-emerald-400/[0.06]"
-          }`}
-        >
-          <Text variant="body-sm" weight="semibold">
-            {cycleGaps.taskCount > 0
-              ? cycleGaps.urgency === "BLOCKER"
-                ? `卦象阻断：${cycleGaps.blockingTaskCount}项临近生效`
-                : cycleGaps.urgency === "ACTION"
-                  ? `卦象待办：${cycleGaps.actionTaskCount}项进入准备期`
-                  : `卦象准备：${cycleGaps.preparationTaskCount}项尚有提前量`
-              : "周期卦覆盖：已齐"}
-          </Text>
-          <Text variant="caption" color="secondary" className="mt-1 block">
-            周卦检查：{cycleGaps.weeklyStart}—{cycleGaps.weeklyEnd} · 月卦检查：{cycleGaps.monthlyLabel}
-          </Text>
-          {cycleGaps.items.length > 0 ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {cycleGaps.items.map((item) => {
-                const gaps = [
-                  item.weeklyMissing ? `缺 ${cycleGaps.weeklyStart}—${cycleGaps.weeklyEnd} 周卦` : null,
-                  item.monthlyState === "MISSING" ? `缺 ${cycleGaps.monthlyLabel} 月卦` : null,
-                  item.monthlyState === "INCOMPLETE" ? `${cycleGaps.monthlyLabel} 独立月卦证据不完整` : null,
-                ].filter(Boolean);
-                return (
-                  <div key={item.assetId} className="rounded-md border border-white/10 bg-black/10 p-3">
-                    <Text variant="body-sm" weight="semibold">{item.assetName}</Text>
-                    <Text variant="caption" color="secondary" className="mt-1 block">
-                      {gaps.join("；")}
-                    </Text>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <Text variant="caption" color="secondary" className="mt-2 block">
-              未来周卦和月卦已齐。
-            </Text>
-          )}
-          <Button asChild size="sm" className="mt-3 w-fit">
-            <Link href="/admin/weekly">
-              {cycleGaps.taskCount > 0 ? "补充周卦" : "查看周度研究"}
-            </Link>
-          </Button>
-        </Card>
-
-        <LiuyaoAnnualCoverage2026 compact />
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tiles.map((t) => (
-            <Card key={t.label} padding="md">
-              <Text variant="caption" color="tertiary">
-                {t.label}
-              </Text>
-              <Text variant="body" weight="semibold" className="mt-1">
-                {t.value}
-              </Text>
-            </Card>
-          ))}
-        </div>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          {(
-            [
-              ["/admin/forecasts", "今日／明日观点"],
-              ["/admin/forecast-control", "管理员走势总控"],
-              ["/admin/support-resistance", "支撑压力录入"],
-              ["/admin/stocks", "个股分析"],
-              ["/admin/users", "用户与会员"],
-              ["/admin/consultations", "会员问卦"],
-              ["/admin/live-trading", "AI实盘控制"],
-              ["/admin/security", "会员设备安全"],
-              ["/admin/payments", "支付记录"],
-              ["/admin/automation", "自动化状态"],
-              ["/admin/settings", "设置"],
-            ] as const
-          ).map(([href, label]) => (
-            <Link key={href} href={href}>
-              <Badge variant="outline">{label}</Badge>
+        <Heading as="h1" size="h2">管理后台</Heading>
+        <Text variant="caption" color="secondary" className="mt-2 block">
+          本次读取：{now.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}（北京时间）
+        </Text>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="关键数字">
+          {tiles.map((tile) => (
+            <Link key={tile.label} href={tile.href} prefetch={false}>
+              <Card padding="md" className="h-full hover:border-primary/40">
+                <Text variant="caption" color="secondary">{tile.label}</Text>
+                <Text variant="body" weight="semibold" className="mt-1 block">{tile.value ?? "读取失败"}</Text>
+              </Card>
             </Link>
           ))}
         </div>
+        <Card padding="md" className="mt-4">
+          <Heading as="h2" size="h3">待办事项 · {tasks.length}</Heading>
+          {tasks.length ? (
+            <ul className="mt-3 divide-y divide-border/20">
+              {tasks.map((task) => (
+                <li key={task.label}>
+                  <Link href={task.href} prefetch={false} className={`flex min-h-11 items-center justify-between gap-3 py-3 text-sm hover:underline ${task.urgent ? "text-red-400" : "text-foreground-secondary"}`}>
+                    <span>{task.label}</span><span className="shrink-0">处理 →</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : <Text variant="body-sm" color="secondary" className="mt-3 block">本页检查的内容与问卦队列暂无待办。</Text>}
+        </Card>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Link href="/admin/live-trading" prefetch={false}>
+            <Card padding="md"><Text weight="semibold">交易运行 →</Text><Text variant="caption" color="secondary" className="mt-1 block">查看实际开仓权限、持仓和停止原因。</Text></Card>
+          </Link>
+          <Link href="/admin/site-health" prefetch={false}>
+            <Card padding="md"><Text weight="semibold">系统健康 →</Text><Text variant="caption" color="secondary" className="mt-1 block">查看服务检查结果与异常。</Text></Card>
+          </Link>
+        </div>
+        {cycleGaps.preparationTaskCount > 0 ? (
+          <details className="mt-4 rounded-lg border border-border/20 p-4 text-sm text-foreground-secondary">
+            <summary className="cursor-pointer">后续准备 · {cycleGaps.preparationTaskCount} 项（距生效超过 7 天）</summary>
+            <p className="mt-3">检查范围：{cycleGaps.weeklyStart}—{cycleGaps.weeklyEnd}、{cycleGaps.monthlyLabel}。</p>
+            <Link className="mt-2 inline-flex min-h-11 items-center underline" href="/admin/weekly" prefetch={false}>查看周期资料</Link>
+          </details>
+        ) : null}
       </Section>
     </main>
   );

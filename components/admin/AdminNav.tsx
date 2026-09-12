@@ -10,23 +10,22 @@ type AdminLink = {
 
 const primaryLinks: AdminLink[] = [
   { href: "/admin", label: "概览" },
-  { href: "/admin/forecasts", label: "今日／明日" },
-  { href: "/admin/weekly", label: "周度行情" },
-  { href: "/admin/stocks", label: "重点关注" },
-  { href: "/admin/trading-terminal", label: "模拟交易" },
-  { href: "/admin/live-trading", label: "实盘开关与托管" },
-  { href: "/admin/forecast-control", label: "研究中心" },
+  { href: "/admin/forecasts", label: "内容发布" },
+  { href: "/admin/consultations", label: "会员问卦" },
   { href: "/admin/users", label: "用户与会员" },
-  { href: "/member/notes", label: "发随笔 / 会员回帖" },
-  { href: "/admin/automation", label: "自动化" },
-  { href: "/admin/site-health", label: "网站诊断" },
-  { href: "/admin/settings", label: "设置" },
+  { href: "/admin/payments", label: "收款记录" },
+  { href: "/member/notes", label: "随笔与回帖" },
+  { href: "/admin/live-trading", label: "实盘开关与托管" },
+  { href: "/admin/site-health", label: "系统健康" },
 ];
 
 const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "预测与交易",
     links: [
+      { href: "/admin/weekly", label: "周度行情" },
+      { href: "/admin/stocks", label: "重点关注" },
+      { href: "/admin/trading-terminal", label: "模拟交易" },
       { href: "/admin/trading-signals", label: "AI交易信号中心" },
       { href: "/admin/bitget-demo", label: "Bitget执行诊断" },
       { href: "/admin/market-prices", label: "行情录入" },
@@ -39,6 +38,7 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "研究资料",
     links: [
+      { href: "/admin/forecast-control", label: "研究中心" },
       { href: "/admin/research-ingest", label: "统一资料入口" },
       { href: "/admin/external-viewpoints", label: "外部观点库" },
       { href: "/admin/stone-intelligence", label: "Stone 重要消息" },
@@ -63,10 +63,10 @@ const moreGroups: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/member-videos", label: "会员视频" },
       { href: "/admin/security", label: "会员设备安全" },
       { href: "/admin/membership-events", label: "会员流水" },
-      { href: "/admin/payments", label: "支付记录" },
       { href: "/admin/referrals", label: "邀请管理" },
-      { href: "/admin/consultations", label: "会员咨询复核" },
-      { href: "/admin/social", label: "Social Content" },
+      { href: "/admin/social", label: "社交内容" },
+      { href: "/admin/automation", label: "自动化" },
+      { href: "/admin/settings", label: "设置" },
     ],
   },
 ];
@@ -85,6 +85,7 @@ function AdminLinkItem({
     <Link
       href={link.href}
       prefetch={false}
+      aria-current={active ? "page" : undefined}
       className={`relative min-h-11 rounded-md px-3 py-2 text-body-sm transition-colors ${
         active
           ? "bg-primary text-primary-foreground"
@@ -103,13 +104,6 @@ export function AdminNav({
   pendingCount?: number;
 }) {
   const [open, setOpen] = useState(false);
-  const moreActive = moreGroups.some((group) =>
-    group.links.some(
-      (link) =>
-        current === link.href ||
-        (link.href !== "/admin" && Boolean(current?.startsWith(`${link.href}/`)))
-    )
-  );
 
   return (
     <>
@@ -126,16 +120,11 @@ export function AdminNav({
 
         <nav
           id="admin-side-nav"
+          aria-label="管理员导航"
           className={`${open ? "flex" : "hidden"} flex-col gap-3 md:flex`}
         >
           <div className="flex flex-wrap gap-2">
-            {primaryLinks.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-border/70 bg-card/40 px-5 py-10 text-center">
-          <div className="text-base font-semibold text-foreground">暂无咨询申请</div>
-          <div className="mt-2 text-sm text-foreground-secondary">会员在「会员六爻/八字咨询」提交后会出现在这里。</div>
-        </div>
-      ) : null}
-{primaryLinks.map((link) => (
+            {primaryLinks.map((link) => (
               <AdminLinkItem
                 key={link.href}
                 link={link}
@@ -144,23 +133,17 @@ export function AdminNav({
             ))}
           </div>
 
-          <details
-            className="rounded-lg border border-border/[0.08] bg-card/30"
-            open={moreActive || undefined}
-          >
-            <summary className="cursor-pointer list-none px-3 py-3 text-body-sm text-foreground-secondary hover:text-foreground">
-              更多后台功能
-              <span className="ml-2 text-caption text-foreground-tertiary">
-                六爻资料、规则、会员运营等
-              </span>
-            </summary>
-            <div className="space-y-4 border-t border-border/[0.08] p-3">
-              {moreGroups.map((group) => (
-                <section key={group.label}>
-                  <p className="mb-2 text-caption font-medium text-foreground-tertiary">
-                    {group.label}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+          <div className="grid items-start gap-2 md:grid-cols-3">
+            {moreGroups.map((group) => (
+              <details
+                key={group.label}
+                className="rounded-lg border border-border/[0.08] bg-card/30"
+                open={group.links.some((link) => current === link.href || current?.startsWith(`${link.href}/`)) || undefined}
+              >
+                <summary className="cursor-pointer px-3 py-3 text-body-sm text-foreground-secondary hover:text-foreground">
+                  {group.label}
+                </summary>
+                <div className="flex flex-col gap-1 border-t border-border/[0.08] p-2">
                     {group.links.map((link) => (
                       <AdminLinkItem
                         key={link.href}
@@ -168,11 +151,10 @@ export function AdminNav({
                         current={current}
                       />
                     ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </details>
+                </div>
+              </details>
+            ))}
+          </div>
         </nav>
       </div>
     </>
