@@ -4,9 +4,23 @@ import { readFileSync } from "node:fs";
 import { readTradingSnapshot } from "../lib/presentation/read-trading-snapshot";
 import { memberDeskRefreshPresentation, startMemberDeskPolling } from "../lib/member-ai-desk-polling-core";
 import { conciseSnapshotFresh } from "../lib/presentation/concise-trade-plan";
+import { memberTradesToday } from "../lib/presentation/member-trade-day";
+import { assetNameEn } from "../lib/i18n/english-content";
 
 const source = (file: string) => readFileSync(file, "utf8");
 const valid = { settings: {}, runtime: {}, experiment: {}, stats: {}, planSummary: {}, ledgerSource: "BITGET_LIVE", publishedPlans: [], positions: [], recentTrades: [], strategies: [] };
+
+test("today's trade count uses Beijing date regardless of array order and missing is not zero", () => {
+  const now = Date.parse("2026-09-12T16:01:00Z"); // Sep 13 Beijing
+  const rows = [{ date: "2026-09-13", trades: 3 }, { date: "2026-09-12", trades: 7 }];
+  assert.equal(memberTradesToday(rows, now), 3);
+  assert.equal(memberTradesToday([...rows].reverse(), now), 3);
+  assert.equal(memberTradesToday(rows, Date.parse("2026-09-12T15:59:00Z")), 7);
+  assert.equal(memberTradesToday([], now), null);
+  assert.equal(memberTradesToday([{ date: "2026-09-12", trades: 7 }], now), null);
+  assert.equal(memberTradesToday(rows, NaN), null);
+  assert.equal(assetNameEn("国际银价"), "Silver");
+});
 
 test("snapshot reader only GETs the member endpoint and rejects malformed payloads and private errors", async t => {
   let payload: unknown = valid;

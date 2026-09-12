@@ -10,6 +10,7 @@ import { memberDeskRefreshPresentation, startMemberDeskPolling } from "@/lib/mem
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
 import { readTradingSnapshot } from "@/lib/presentation/read-trading-snapshot";
+import { memberTradesToday } from "@/lib/presentation/member-trade-day";
 import type { AiTradingDeskPosition, AiTradingDeskSnapshot, AiTradingDeskTrade } from "@/types/ai-trading-desk";
 
 function number(value: number | null | undefined, digits = 2): string {
@@ -50,9 +51,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
   const symbols = [...new Set([selectedSymbol, ...snapshot.publishedPlans.map(plan => plan.symbol), ...snapshot.positions.map(position => position.symbol)])].sort();
   const dailyRows = snapshot.experiment.dailyHistory ?? [];
-  const todayTrades = dailyRows.length
-    ? (dailyRows[dailyRows.length - 1]?.trades ?? 0)
-    : snapshot.planSummary.closedToday + snapshot.planSummary.submittedOrOpen;
+  const todayTrades = memberTradesToday(dailyRows, checkedAt);
   // Keep this as a named structural value rather than an inline object literal.
   // Current MOOX requires `quotes`; older compatible dashboards did not.
   // A named value satisfies both contracts while still supplying the current required field.
@@ -112,7 +111,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         {!stale ? <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Today PnL" : "今日盈亏"}</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(snapshot.experiment.dailyPnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(snapshot.experiment.dailyPnlUsdt, " USDT")}</Text></div>
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Total PnL" : "累计盈亏"}</Text><Text variant="body" weight="semibold" className={`mt-1 block ${(snapshot.experiment.pnlUsdt ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signed(snapshot.experiment.pnlUsdt, " USDT")}</Text></div>
-          <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Trades today" : "今日交易"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{todayTrades}</Text></div>
+          <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Trades today" : "今日交易"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{number(todayTrades, 0)}</Text></div>
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Open positions" : "当前持仓"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{snapshot.positions.length}</Text></div>
         </div> : null}
 

@@ -73,6 +73,7 @@ const ASSET_MAP: Record<string, string> = {
   "国际金价": "Gold",
   "黄金": "Gold",
   "白银": "Silver",
+  "国际银价": "Silver",
   "WTI原油": "WTI Crude Oil",
   "长鑫科技": "ChangXin Memory Technologies",
   "太空狗": "Asteroid",
