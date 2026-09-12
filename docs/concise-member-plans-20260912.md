@@ -22,6 +22,14 @@
 
 Revert this release commit and redeploy through the existing Git/Vercel integration. No database rollback, environment reset, forecast deletion or trading-state change is required.
 
+## Production follow-up: cache capacity
+
+- First UI deployment: `5413196`; public release validator passed at 2026-09-12T09:14:46Z.
+- Authenticated production acceptance found the pre-existing snapshot cache could not write a 4,715,495-byte entry (Next.js 2 MB item limit). The UI correctly withheld points while the read failed.
+- Follow-up stores the identical JSON snapshot as native async gzip/base64 inside the server cache, with a new isolated cache key. No history, forecast, risk, privacy, or execution fields are deleted. Fresh privacy settings are still read outside the cache on every request.
+- Cache transport is bounded to 1.9 MB encoded / 32 MB expanded; damaged or excessive data fails closed. No public HTTP caching, schema changes, new dependencies or new environment settings.
+- Added `tests/desk-cache-codec.test.ts`: a multi-megabyte snapshot round-trips exactly, stays below cache capacity, and damaged data rejects. Production read recovery still requires verification after the follow-up deployment.
+
 ## Boundaries
 
 This release does not establish Discord ingestion or prove a profitable strategy. Original free-form rule text is preserved; the interface labels are bilingual, but unstructured source text is not silently translated or reinterpreted. A missing plan remains waiting.

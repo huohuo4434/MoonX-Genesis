@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { applyAiDeskOperationalState } from "../lib/trading-signals/ai-desk-status";
 import { isUnifiedNewEntryBlockedForDisplay } from "../lib/presentation/bitget-live-status";
+import { encodeDeskCache, decodeDeskCache } from "../lib/presentation/desk-cache-codec";
 
 const source = (path: string) => readFileSync(path, "utf8");
 
@@ -94,6 +95,39 @@ function harness(fakeTimers = false) {
   return { now, state, runtime, settings, timers, sync: exports.syncMemberAiTradingDeskSnapshot,
     getSettings: exports.getMemberAiTradingDeskSettings, read: exports.getMemberAiTradingDeskSnapshot };
 }
+
+test("compressed trading cache preserves fields but reapplies fresh member privacy on cache hits", async () => {
+  const h = harness();
+  await h.sync(h.now);
+  let snapshotReads = 0;
+  const modules: Record<string, any> = {
+    "server-only": {},
+    "next/cache": { unstable_cache: (fn: () => Promise<string>, keys: string[], options: any) => {
+      assert.match(keys[0], /gzip-private/); assert.equal(options.revalidate, 15);
+      let packed: Promise<string> | undefined;
+      return () => packed ??= fn();
+    } },
+    "@/lib/trading-signals/member-ai-trading-desk": {
+      getMemberAiTradingDeskSnapshot: async () => { snapshotReads++; return h.read(); },
+      getMemberAiTradingDeskSettings: h.getSettings,
+    },
+    "@/lib/presentation/desk-cache-codec": { encodeDeskCache, decodeDeskCache },
+    "@/lib/trading-signals/ai-desk-status": { applyAiDeskOperationalState },
+  };
+  const exports: any = {};
+  runInNewContext(ts.transpileModule(source("lib/trading-signals/member-ai-trading-desk-cache.ts"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, { exports, require: (id: string) => { assert.ok(id in modules); return modules[id]; } });
+  const first = await exports.getCachedMemberAiTradingDeskSnapshot();
+  assert.equal(first.settings.enabled, true);
+  assert.equal(first.executionAllowed, false);
+  h.settings.enabled = false;
+  const hidden = await exports.getCachedMemberAiTradingDeskSnapshot();
+  assert.equal(snapshotReads, 1);
+  assert.equal(hidden.settings.enabled, false);
+  assert.equal(hidden.executionAllowed, false);
+  assert.deepEqual(hidden.publishedPlans, []);
+});
 
 test("parallel settings reads share only the pending SELECT; next request sees changed privacy", async () => {
   const h = harness(true);
