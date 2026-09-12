@@ -7,7 +7,7 @@ import { PlainLanguageSummary } from "@/components/education/PlainLanguageSummar
 import { MemberSeptemberRotationReport } from "@/components/member/MemberSeptemberRotationReport";
 import { listMonthlyMarketCycles, type MonthlyMarketCycle } from "@/lib/data/monthly-market-outlook";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
+import { directionEn } from "@/lib/i18n/english-content";
 import type { MemberCycleResearchOverlay } from "@/lib/research/cycle-research-member-overlay.server";
 
 function bars(values: { up: number; flat: number; down: number }, en: boolean) {
@@ -125,7 +125,7 @@ export function MemberMonthlyPage({ cycleResearchOverlays = [] }: { cycleResearc
                 <Heading as="h2" size="h3">{en ? item.assetNameEn : item.assetName} <span className="text-base font-normal text-foreground-tertiary">{item.symbol}</span></Heading>
                 <Text variant="caption" color="tertiary" className="mt-1 block">{en ? item.venueEn : item.venue} · {item.periodStart} {en ? "to" : "至"} {item.periodEnd}</Text>
               </div>
-              <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{mooxDirectionArrow(item.direction)} {en ? mooxDirectionLabelEn(item.direction) : mooxDirectionLabelZh(item.direction)}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
+              <div className="flex flex-wrap gap-2"><Badge variant={item.direction.includes("跌") || item.direction.includes("回落") ? "warning" : "outline"}>{en ? directionEn(item.direction) : item.direction}</Badge>{item.volatility === "HIGH" ? <Badge variant="outline">{en ? "High volatility" : "高波动"}</Badge> : null}</div>
             </div>
             {cycleId === "2026-09" && ["BTC", "NDX", "WTI"].includes(item.symbol) ? <p className="text-xs leading-6 text-amber-100/80" data-original-monthly-record>
               {item.symbol === "WTI"

@@ -24,8 +24,8 @@ test("weekly page puts the current version and revision chain before the long re
     "utf8",
   );
 
-  const glance = source.indexOf("本周一眼看懂");
-  const detailGrid = source.indexOf("九大核心市场");
+  const glance = source.indexOf("<WeeklyAtAGlance rows={rows}");
+  const detailGrid = source.indexOf("<PublishedCard key={slot.analysis.id}");
   assert.ok(glance >= 0);
   assert.ok(detailGrid > glance);
   assert.match(source, /版本变化/);

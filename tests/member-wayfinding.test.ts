@@ -17,9 +17,9 @@ test("bilingual shortcuts link to existing pages and preserve locale and researc
     assert.match(html, /<details/);
     assert.doesNotMatch(html, /<details[^>]*\bopen/);
     const links = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-    assert.equal(links.length, 15);
+    assert.equal(links.length, 16);
     for (const link of links) {
-      assert.ok(link.startsWith(locale === "en" ? "/en/member/" : "/member/"), link);
+      assert.match(link, locale === "en" ? /^\/en\/member(?:\/|#)/ : /^\/member(?:\/|#)/);
       const path = link.replace(/^\/en/, "").split(/[?#]/)[0];
       assert.ok(existsSync(`app${path}/page.tsx`), path);
     }

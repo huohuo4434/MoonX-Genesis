@@ -8,7 +8,7 @@ createServer((req, res) => {
   const now = Date.now(), from = new Date(now - 60_000).toISOString(), until = new Date(now + 3600_000).toISOString();
   const plan = { id:"fixture", planGroupId:"fixture", version:3, symbol:"BTCUSDT", strategyType:"SWING", executionMode:"BITGET_DEMO", status:"WATCHING", tier:"FORMAL", direction:"LONG", contentHash:"fixture-only", forecastId:"fixture", forecastVersion:"v1", forecastHorizon:"WEEK", publishedAt:from, updatedAt:from, forecastPublishedAt:from, forecastLockedAt:from, validFrom:from, expiresAt:until, forecastValidFrom:from, forecastValidUntil:until, triggerRule:"Wait for a closed candle above 102 / 等待收盘确认", invalidationRule:"Below 98", thesisSummary:"Fictional test only", entryZoneLow:100, entryZoneHigh:102, protectiveStop:98, target1:106, target2:110, target3:115 };
   const json = data => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(data)); };
-  if (url.pathname === "/api/member/ai-trading-desk") return json({ lastSyncedAt: new Date(now).toISOString(), syncStatus:"OK", settings:{enabled:true}, ledgerSource:"BITGET_DEMO", publishedPlans:[plan] });
+  if (url.pathname === "/api/member/ai-trading-desk") return json({ lastSyncedAt: new Date(now).toISOString(), syncStatus:"OK", settings:{enabled:true}, runtime:{paused:false}, experiment:{}, stats:{}, planSummary:{}, ledgerSource:"BITGET_DEMO", publishedPlans:[plan], positions:[], recentTrades:[], strategies:[], executionAllowed:false, serverHealthy:true });
   if (url.pathname === "/api/member/key-date-chart") {
     const assetId = url.searchParams.get("asset");
     if (assetId === "eth") { res.statusCode = 503; return json({error:"FIXTURE_FAILURE"}); }

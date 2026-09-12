@@ -2,23 +2,24 @@ import Link from "next/link";
 import { localizeHref, type Locale } from "@/lib/i18n/config";
 
 const quickLinks = [
-  ["/member/daily?research=1", "今日／明日", "Daily / next session"],
-  ["/member/weekly-report", "周度行情", "Weekly outlook"],
-  ["/member/sector-resonance?detail=1", "重点关注／板块", "Focus / sectors"],
-  ["/member/key-dates?research=1", "关键日", "Key dates"],
+  ["/member#price-time-chart", "K线与位置", "Candles & levels"],
+  ["/member/ai-trading", "AI执行与成绩", "AI execution & results"],
+  ["/member/weekly-review", "预测复盘", "Forecast review"],
   ["/member/notes", "易老师随笔", "Yi's notes"],
   ["/member/videos", "会员视频", "Member videos"],
+  ["/member/consultations", "会员问卦", "Consultations"],
 ] as const;
 
 const moreLinks = [
+  ["/member/daily?research=1", "今日／明日研究", "Session research"],
+  ["/member/weekly-report", "周度研究", "Weekly research"],
+  ["/member/sector-resonance?detail=1", "板块研究", "Sector research"],
+  ["/member/key-dates?research=1", "关键日研究", "Key-date research"],
   ["/member/monthly", "月度预测", "Monthly outlook"],
   ["/member/annual-outlook", "年度展望", "Annual outlook"],
   ["/member/gann", "江恩研究", "Gann research"],
   ["/member/btc-eth-cycle", "BTC／ETH周期", "BTC / ETH cycles"],
-  ["/member/weekly-review", "周度复盘", "Weekly review"],
   ["/member/daily-review", "日度复盘", "Daily review"],
-  ["/member/ai-trading", "AI执行状态", "AI execution"],
-  ["/member/consultations", "占卜／会员服务", "Consultations / services"],
   ["/member/updates", "版本公告", "Version updates"],
 ] as const;
 
@@ -37,11 +38,10 @@ export function MemberWayfinding({ locale, home = false }: { locale: Locale; hom
     <p className="mt-3 text-xs leading-5 text-slate-400">{en ? "Navigation has moved. Find the content directory and a short guide at the top of the member desk. Access still depends on your membership." : "入口重新整理了。会员频道顶部可找内容目录和简短说明；访问权限仍按会员权益执行。"}</p>
   </section>;
   return <section id="member-guide" data-member-wayfinding className="mb-6 scroll-mt-6 rounded-2xl border border-cyan-300/25 bg-cyan-400/[0.04] p-4 sm:p-5">
-    <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-cyan-100">{en ? "What changed · Where did everything go?" : "改版说明｜原来的内容在哪里？"}</h2><span className="text-xs text-slate-400">2026-09-12</span></div>
-    <p className="mt-2 text-sm leading-6 text-slate-300">{en ? "Start below with one asset and a timeframe. Forecasts, notes and videos have separate entries here; they were not removed by this navigation update." : "下方操作台先选标的、再看长中短线。原来的预测、随笔和视频从这里进入，并未因这次导航调整删除。"}</p>
+    <h2 className="font-semibold text-cyan-100">{en ? "Member workspace" : "会员工作台"}</h2>
     <nav aria-label={en ? "Member shortcuts" : "会员常用入口"} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{quickLinks.map(([path, zh, english]) => <Link prefetch={false} key={path} href={href(path)} className={linkClass}>{en ? english : zh}</Link>)}</nav>
     <details className="mt-3 rounded-xl border border-white/10 p-3">
-      <summary className="cursor-pointer text-sm font-medium text-cyan-100">{en ? "All tools & a 30-second guide" : "全部栏目与30秒使用说明（点此展开）"}</summary>
+      <summary className="cursor-pointer text-sm font-medium text-cyan-100">{en ? "Research archive & quick guide" : "研究栏目与使用说明（展开）"}</summary>
       <nav aria-label={en ? "All other member tools" : "其他会员栏目"} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{moreLinks.map(([path, zh, english]) => <Link prefetch={false} key={path} href={href(path)} className={linkClass}>{en ? english : zh}</Link>)}</nav>
       <ol className="mt-4 list-inside list-decimal space-y-2 text-sm leading-6 text-slate-300">
         <li>{en ? "Choose an asset, then your holding period: position, swing or intraday." : "先选标的，再选准备持有的周期：长线、中线或短线。"}</li>

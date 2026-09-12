@@ -9,7 +9,6 @@ import { assetVenue } from "@/lib/presentation/asset-catalog";
 import { Badge, Button, Card, Heading, Section, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { assetNameEn, directionEn, safeEnglish } from "@/lib/i18n/english-content";
-import { mooxDirectionArrow, mooxDirectionLabelEn, mooxDirectionLabelZh } from "@/lib/forecasts/moox-direction-doctrine";
 import type {
   WeeklyAnalysisMemberView,
   WeeklyAnalysisPublicSummary,
@@ -106,7 +105,7 @@ function WeeklyAtAGlance({ rows }: { rows: WeeklyMarketSlot[] }) {
                 <p className="font-semibold">{en ? assetNameEn(row.assetName) : row.assetName} <span className="font-mono text-caption font-normal text-foreground-tertiary">{row.displaySymbol ?? row.symbol}</span></p>
                 <p className="mt-1 font-mono text-caption text-foreground-tertiary">V{row.version} · {updateTime(row.updatedAt, en)}</p>
               </div>
-              <Badge variant="default">{mooxDirectionArrow(row.overallDirection)} {en ? mooxDirectionLabelEn(row.overallDirection) : mooxDirectionLabelZh(row.overallDirection)}</Badge>
+              <Badge variant="default">{en ? directionEn(row.overallDirection) : row.overallDirection}</Badge>
             </div>
             <p className="mt-3 text-body-sm leading-6 text-foreground-secondary">{en ? safeEnglish(row.headline) : row.headline}</p>
           </article>

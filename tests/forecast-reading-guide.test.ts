@@ -71,13 +71,13 @@ test("legacy invalidation wording cannot swallow the recorded price condition", 
 
 test("a successful HTTP refresh does not make an old snapshot current", () => {
   const nowMs = Date.parse("2026-09-04T04:00:00Z");
-  for (const lastSyncedAt of ["2026-08-27T00:38:00Z", null, "invalid", "2026-09-04T04:01:01Z", "2026-09-04T03:56:59.999Z"]) {
+  for (const lastSyncedAt of ["2026-08-27T00:38:00Z", null, "invalid", "2026-09-04T04:00:00.001Z", "2026-09-04T03:57:59.999Z"]) {
     const result = memberDeskRefreshPresentation("", false, { lastSyncedAt, nowMs });
     assert.equal(result.stale, true);
     assert.match(result.statusLabel!, /当前状态待核验/);
     assert.notEqual(result.serverLabel, "正常");
   }
-  for (const lastSyncedAt of ["2026-09-04T04:00:00Z", "2026-09-04T03:57:00Z"]) {
+  for (const lastSyncedAt of ["2026-09-04T04:00:00Z", "2026-09-04T03:58:00Z"]) {
     assert.equal(memberDeskRefreshPresentation("", false, { lastSyncedAt, nowMs }).stale, false);
   }
   assert.equal(memberDeskRefreshPresentation("", true, { lastSyncedAt: "2026-09-04T04:00:00Z", nowMs: NaN }).stale, true);
@@ -101,7 +101,7 @@ test("member pages wire forecast dates and stale-state suppression without order
   assert.match(read("components/member/MemberMonthlyPage.tsx"), /period=\{`\$\{item.periodStart\} — \$\{item.periodEnd\}`\}/);
   const desk = read("components/member/AiTradingDeskClient.tsx");
   assert.match(desk, /lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt/);
-  assert.match(desk, /!stale \? <AiTradeIntentBoard/);
+  assert.match(desk, /!stale \? <details[^]*?<AiTradeIntentBoard[^]*?<\/details> : null/);
   assert.match(desk, /data-stale-desk="1"/);
   assert.match(desk, /formatBeijingDeskTime\(snapshot.lastSyncedAt\)/);
   assert.doesNotMatch(desk, /lastSyncedAt \?\? snapshot.generatedAt/);

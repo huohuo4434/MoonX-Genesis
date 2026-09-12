@@ -9,6 +9,7 @@ import { formatBeijingDeskTime } from "@/lib/presentation/member-desk-time-core"
 import { memberDeskRefreshPresentation, startMemberDeskPolling } from "@/lib/member-ai-desk-polling-core";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
+import { readTradingSnapshot } from "@/lib/presentation/read-trading-snapshot";
 import type { AiTradingDeskPosition, AiTradingDeskSnapshot, AiTradingDeskTrade } from "@/types/ai-trading-desk";
 
 function number(value: number | null | undefined, digits = 2): string {
@@ -21,17 +22,6 @@ function signed(value: number | null | undefined, suffix = ""): string {
   return `${value > 0 ? "+" : ""}${number(value, 2)}${suffix}`;
 }
 
-async function readSnapshot(signal?: AbortSignal): Promise<AiTradingDeskSnapshot> {
-  const response = await fetch("/api/member/ai-trading-desk", {
-    cache: "no-store",
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  const json = (await response.json()) as AiTradingDeskSnapshot & { error?: string };
-  if (!response.ok || json.error) throw new Error(json.error || "读取失败");
-  return json;
-}
-
 function statusVariant(snapshot: AiTradingDeskSnapshot, refreshFailed = false) {
   if (refreshFailed) return "danger" as const;
   if (["LIVE_POSITION", "SIMULATION_POSITION", "WAITING_ENTRY"].includes(snapshot.operationalState)) return "success" as const;
@@ -40,17 +30,25 @@ function statusVariant(snapshot: AiTradingDeskSnapshot, refreshFailed = false) {
   return "danger" as const;
 }
 
+const STATE_EN: Record<AiTradingDeskSnapshot["operationalState"], string> = {
+  DATA_DISCONNECTED: "Data disconnected", CONNECTING: "Connecting", DATA_DELAYED: "Data delayed",
+  PLAN_ONLY: "Plans only", WAITING_ENTRY: "Waiting for entry", SIMULATION_POSITION: "Simulation positions",
+  LIVE_POSITION: "Live positions", PAUSED: "Paused", SERVICE_ERROR: "Service needs attention",
+};
+
 export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapshot }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState("");
+  const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
   const [checkedAt, setCheckedAt] = useState<number>(NaN);
-  const syncError = snapshot.syncStatus === "ERROR" || snapshot.syncStatus === "PARTIAL"
+  const syncError = snapshot.syncStatus !== "OK"
     ? snapshot.syncMessage || (en ? "Snapshot needs verification" : "快照待核验") : "";
   const refreshPresentation = memberDeskRefreshPresentation(error || syncError, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt });
   const stale = refreshPresentation.stale;
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
+  const symbols = [...new Set([selectedSymbol, ...snapshot.publishedPlans.map(plan => plan.symbol), ...snapshot.positions.map(position => position.symbol)])].sort();
   const dailyRows = snapshot.experiment.dailyHistory ?? [];
   const todayTrades = dailyRows.length
     ? (dailyRows[dailyRows.length - 1]?.trades ?? 0)
@@ -72,10 +70,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
     setCheckedAt(Date.now());
     const ageTimer = window.setInterval(() => setCheckedAt(Date.now()), 30_000);
     const stopPolling = startMemberDeskPolling({
-      read: readSnapshot,
+      read: readTradingSnapshot,
       onSnapshot: (next) => { setSnapshot(next); setError(""); },
       onError: (reason) => setError(reason instanceof Error ? reason.message : "刷新失败"),
-      intervalMs: 30_000,
+      intervalMs: 60_000,
+      shouldPoll: () => document.visibilityState === "visible",
       setIntervalFn: window.setInterval.bind(window),
       clearIntervalFn: window.clearInterval.bind(window),
     });
@@ -86,7 +85,6 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
   return (
     <div className="space-y-5">
-      <ConciseTradePlans initial={snapshot} blocked={stale} />
       <Card padding="lg" data-conclusion-first="1" className="border-primary/20 bg-gradient-to-r from-primary/[0.04] to-transparent">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -98,15 +96,15 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
             </div>
             <Text variant="body-sm" color="secondary" className="mt-2 block max-w-3xl">
               {en
-                ? "MOOX sets the weekly path first. The AI then chooses the entry, stop and targets from live technical structure. The formal live universe contains 18 exact Bitget instruments; all are scanned and ranked before execution."
-                : "先由MOOX研究锁定唯一方向，再由AI用实时技术结构寻找入场、止损和止盈位置。技术分析不参与多空方向投票。正式允许池共18个Bitget精确合约全部扫描，并在执行前统一排名。"}
+                ? "Check execution permission, positions and results first. A forecast supplies context; only a complete, confirmed plan can be considered for execution."
+                : "先看开仓权限、持仓和成绩。预测提供背景，点位与条件完整、确认后才考虑执行。"}
             </Text>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={statusVariant(snapshot, refreshPresentation.stale)}>
-              {refreshPresentation.statusLabel ?? snapshot.operationalStateLabel}
+              {refreshPresentation.statusLabel ?? (en ? STATE_EN[snapshot.operationalState] : snapshot.operationalStateLabel)}
             </Badge>
-            <Badge variant="outline">{en ? "Cadence caps: 5/day · 5/week · 5/month" : "节奏上限：短5/日 · 中5/周 · 长5/月"}</Badge>
+            <Badge variant="outline">{stale ? (en ? "New entries: unknown" : "新开仓：待核验") : snapshot.executionAllowed && snapshot.serverHealthy && !snapshot.runtime.paused ? (en ? "New entries: permitted, checks apply" : "新开仓：允许，需逐单检查") : (en ? "New entries: not confirmed" : "新开仓：未确认允许")}</Badge>
           </div>
         </div>
 
@@ -118,10 +116,10 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3"><Text variant="caption" color="tertiary">{en ? "Open positions" : "当前持仓"}</Text><Text variant="body" weight="semibold" className="mt-1 block">{snapshot.positions.length}</Text></div>
         </div> : null}
 
-        <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/10 p-3 text-xs text-white/55">
+        <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/10 p-3 text-xs text-white/55">
+          <summary className="cursor-pointer">{en ? "Data timestamp and diagnostics" : "数据时间与诊断"}</summary>
           <div className="flex flex-wrap gap-x-5 gap-y-1">
-            <span>{en ? "Display layer" : "展示层"}：MEMBER_FEED</span>
-            <span>{en ? "Data source" : "数据源"}：{live ? "LIVE_EXPERIMENT" : "PAPER"}</span>
+            <span>{en ? "Ledger" : "记录类型"}：{live ? (en ? "Live" : "实盘") : (en ? "Simulation" : "模拟")}</span>
             <span>{en ? "Last successful sync (Beijing)" : "最近成功同步（北京时间）"}：{formatBeijingDeskTime(snapshot.lastSyncedAt)}</span>
             <span>{en ? "Account equity and order sizes are private" : "账户总资产及真实持仓数量不公开"}</span>
             <span>{en ? "Quote age within snapshot" : "快照内行情延迟"}：{snapshot.runtime.quoteAgeSeconds == null ? "—" : `${snapshot.runtime.quoteAgeSeconds}s`}</span>
@@ -133,10 +131,18 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                 ? refreshPresentation.serverLabel
                 : snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}
             </span>
-            <span className={snapshot.syncStatus === "ERROR" || stale ? "text-red-300" : ""}>{stale ? refreshPresentation.statusLabel : snapshot.syncMessage}</span>
+            <span className={snapshot.syncStatus === "ERROR" || stale ? "text-red-300" : ""}>{stale ? refreshPresentation.statusLabel : en ? `Sync: ${snapshot.syncStatus}` : snapshot.syncMessage}</span>
           </div>
-        </div>
+        </details>
       </Card>
+
+      <label className="flex flex-wrap items-center gap-3 text-sm text-white/70">
+        {en ? "Plan asset" : "选择计划标的"}
+        <select aria-label={en ? "Plan asset" : "选择计划标的"} value={selectedSymbol} onChange={event => setSelectedSymbol(event.target.value)} className="rounded-lg border border-white/20 bg-[#0b1018] px-3 py-2 text-white">
+          {symbols.map(symbol => <option key={symbol} value={symbol}>{aiTradingAssetName(symbol, en)} · {symbol}</option>)}
+        </select>
+      </label>
+      <ConciseTradePlans initial={snapshot} blocked={stale} symbol={selectedSymbol} />
 
       {!stale ? <details className="rounded-xl border border-white/10 p-4"><summary className="cursor-pointer text-sm text-white/70">{en ? "Research candidates & full plan history" : "研究候选与完整计划记录"}</summary><AiTradeIntentBoard
         locale={en ? "en" : "zh"}
@@ -144,11 +150,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         dashboard={focusDashboard}
       /></details> : null}
 
-      <div className="rounded-xl border border-white/10 p-4 text-sm leading-6 text-foreground-secondary" data-trade-reading-guide="1">
-        <p className="font-semibold text-foreground">{en ? "Why a bullish forecast can still end in a stopped-out long" : "为什么预测看涨，多单仍可能止损？"}</p>
+      <details className="rounded-xl border border-white/10 p-4 text-sm leading-6 text-foreground-secondary" data-trade-reading-guide="1">
+        <summary className="cursor-pointer font-semibold text-foreground">{en ? "How to read forecasts versus trades" : "预测和实际交易怎么区分"}</summary>
         <p className="mt-2">{en ? "A forecast describes an asset over a dated period. A trade has its own entry, holding horizon and risk limit. A later rebound does not justify keeping a failed short-term trade open. Review the order record to determine whether an exit followed the plan." : "预测说的是某个标的在一段时间里的走势；每笔订单另有入场位置、持仓周期和风险上限。预计后面反弹，不等于短线失败后可以一直拿着。退出是否合理，要核对该笔订单记录，不能只看之后涨没涨。"}</p>
         <p className="mt-2">{en ? "Read in order: snapshot time → execution status → plan horizon and conditions → actual fills. A candidate or an armed plan is not an order; account and risk checks still apply." : "阅读顺序：快照时间 → 执行状态 → 计划周期与条件 → 实际成交。候选、已武装都不等于已经下单，仍需通过账户与风险检查。"}</p>
-      </div>
+      </details>
 
       <Card padding="lg" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -179,6 +185,8 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
       <details className="rounded-2xl border border-white/[0.08] bg-white/[0.015] px-4 py-4">
         <summary className="cursor-pointer font-medium text-white/75">{en ? "Performance & completed trades" : "成绩与已结束交易"}</summary>
         <div className="mt-4 space-y-4">
+          {snapshot.settings.showTradeHistory ? <p className="text-sm text-white/65">{en ? "Closed-trade sample" : "已结束交易样本"}：{snapshot.stats.closedTrades} · {en ? "Wins / losses" : "盈利／亏损"} {snapshot.stats.wins} / {snapshot.stats.losses} · {en ? "Win rate" : "胜率"} {snapshot.stats.winRatePct == null ? "—" : `${number(snapshot.stats.winRatePct)}%`}{snapshot.settings.showAbsolutePnl ? <> · {en ? "Closed net PnL" : "已结束净盈亏"} {signed(snapshot.stats.netProfitUsdt, " USDT")}</> : null}</p> : null}
+          <p className="text-xs text-white/50">{en ? "This ledger sample is not forecast accuracy or a future return. Missing amounts are unknown, not zero; live and simulation records remain separate." : "这是本账本的交易样本，不是预测命中率或未来收益。缺失金额表示未知，不是零；实盘与模拟分开看。"}</p>
           <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
             <table className="min-w-[650px] w-full text-left text-sm">
               <thead className="border-b border-white/[0.08] text-white/45"><tr><th className="px-3 py-3">{en ? "Date" : "日期"}</th><th className="px-3 py-3">{en ? "Opening" : "日初权益"}</th><th className="px-3 py-3">{en ? "Latest" : "最新权益"}</th><th className="px-3 py-3">PnL</th><th className="px-3 py-3">{en ? "Trades" : "交易"}</th></tr></thead>
@@ -200,12 +208,12 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Market" : "行情"}：{stale ? (en ? "unverified" : "待重新核验") : snapshot.quoteReady ? (en ? "ready" : "正常") : (en ? "delayed" : "延迟")}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Heartbeat" : "心跳"}：{formatBeijingDeskTime(snapshot.runtime.lastHeartbeatAt)}</div>
           <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Execution" : "执行"}：{stale ? (en ? "unverified" : "待重新核验") : snapshot.executionAllowed ? (en ? "allowed" : "已授权") : (en ? "blocked" : "未授权")}</div>
-          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Universe" : "候选池"}：{en ? "dynamic Top 10 from allow-list" : "允许池动态Top10"}</div>
+          <div className="rounded-lg border border-white/[0.07] p-3">{en ? "Holding window" : "持仓期限"}：{en ? "Per plan, not the chart timeframe" : "按每笔计划，不按图表周期"}</div>
         </div>
         <Text variant="caption" color="secondary" className="mt-3 block leading-5">
           {en
-            ? "Ultra-short setups are scanned every minute, targeting 1–5 qualified orders a day. The 30-minute structure supplies context, the five-minute chart identifies the setup, and a closed one-minute candle can trigger execution without creating or reversing the formal direction. Stale trades exit after 60 minutes and every ultra-short trade has a 90-minute hard time limit."
-            : "超短线每分钟扫描，日目标1—5笔；30分钟提供方向背景，5分钟识别结构，1分钟收盘负责最终触发，但不能创造或反转正式方向。持仓60分钟仍未推进0.25R就退出，90分钟无条件时间退出；计划锁、持仓冲突、亏损上限、保护单与数据新鲜度仍是硬闸门。"}
+            ? "Use each published plan's horizon, entry window, invalidation and protection levels. A risk limit or expired entry window must not be treated as permission to extend a trade."
+            : "按每笔已发布计划的周期、入场窗口、失效条件和保护位置执行。风险限制或入场期限到达，不意味着可以延长持仓。"}
         </Text>
       </details>
 

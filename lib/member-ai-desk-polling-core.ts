@@ -1,8 +1,11 @@
+import { conciseSnapshotFresh } from "@/lib/presentation/concise-trade-plan";
+
 export function startMemberDeskPolling<T>(input: {
   read: (signal: AbortSignal) => Promise<T>;
   onSnapshot: (snapshot: T) => void;
   onError: (error: unknown) => void;
   intervalMs: number;
+  shouldPoll?: () => boolean;
   setIntervalFn?: typeof setInterval;
   clearIntervalFn?: typeof clearInterval;
 }): () => void {
@@ -10,6 +13,7 @@ export function startMemberDeskPolling<T>(input: {
   let generation = 0;
   let controller: AbortController | null = null;
   const refresh = () => {
+    if (input.shouldPoll && !input.shouldPoll()) return;
     controller?.abort();
     controller = new AbortController();
     const currentGeneration = ++generation;
@@ -39,9 +43,8 @@ export function memberDeskRefreshPresentation(error: string, en: boolean, freshn
   serverLabel: string | null;
 } {
   if (!error && freshness) {
-    const synced = Date.parse(freshness.lastSyncedAt ?? "");
     // Display-only freshness; never grant or revoke execution permission.
-    if (!Number.isFinite(synced) || !Number.isFinite(freshness.nowMs) || freshness.nowMs - synced > 180_000 || synced - freshness.nowMs > 60_000) {
+    if (!conciseSnapshotFresh(freshness.lastSyncedAt, freshness.nowMs)) {
       return {
         stale: true,
         statusLabel: en ? "STALE SNAPSHOT · CURRENT STATE UNKNOWN" : "快照已过期 · 当前状态待核验",
