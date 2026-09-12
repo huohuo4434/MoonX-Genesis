@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberWayfinding } from "@/components/member/MemberWayfinding";
 import { localizeHref, type Locale } from "@/lib/i18n/config";
 
 /** Public product explanation; no forecast, price or performance claims are generated here. */
@@ -16,6 +17,7 @@ export function HomeWelcome({ locale, canViewDaily = false }: { locale: Locale; 
     ["短线", "现在能做，还是等？", "看价格确认和计划有效期。条件没到就等待，不强行找单。"],
   ];
   return <div data-public-welcome className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6 sm:py-14">
+    <MemberWayfinding locale={locale} home />
     <section className="grid gap-8 rounded-3xl border border-violet-300/20 bg-gradient-to-br from-violet-950/50 to-slate-950 p-6 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:items-center">
       <div>
       <p className="text-xs tracking-[0.2em] text-violet-200">MOOX INTELLIGENCE</p>

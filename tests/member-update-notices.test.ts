@@ -17,7 +17,7 @@ test("member update catalogue is newest-first, unique and routes to member pages
     assert.ok(note.highlights.length >= 3);
     assert.ok(note.routeChanges.length >= 1);
     assert.ok(note.preserved.length >= 1);
-    for (const route of note.routeChanges) assert.match(route.href, /^\/member\//);
+    for (const route of note.routeChanges) assert.match(route.href, /^\/member(?:[\/#?]|$)/);
   }
 });
 

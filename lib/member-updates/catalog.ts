@@ -18,6 +18,24 @@ export type MemberUpdateNote = {
 
 export const MEMBER_UPDATE_NOTES: readonly MemberUpdateNote[] = [
   {
+    version: "2026.09.12-navigation",
+    releasedAt: "2026-09-12",
+    title: "操作台集中看计划，原栏目从顶部直达",
+    summary: "会员首页集中展示单个标的的长中短线与K线。原来的预测、视频和随笔仍有入口；不用再翻到页底找研究档案。",
+    english: {
+      title: "A focused desk, with your existing content within reach",
+      summary: "Use the desk for one asset and three horizons. Forecasts, videos and notes are linked at the top, not hidden below the chart.",
+      highlights: ["Six visible content shortcuts.", "Expand all tools for monthly, annual, Gann and review pages.", "A short guide explains waiting plans and illustrative candles."],
+    },
+    highlights: ["首页分清免费体验、会员操作台和原栏目入口。", "会员顶部直接进入日报、周报、重点关注、关键日、随笔和视频。", "展开全部栏目，找月度、年度、江恩、复盘、AI执行和会员服务。", "计划仍在完善：显示等待或点位不全时，不作为入场依据。"],
+    routeChanges: [
+      { oldEntry: "分散的长中短线与K线", newEntry: "会员操作台", href: "/member", note: "先选标的，再看周期；有效计划完整时展示点位。" },
+      { oldEntry: "页底研究档案", newEntry: "顶部内容目录", href: "/member#member-guide", note: "六个常用入口直接展示，其余栏目点开目录即可找到。" },
+      { oldEntry: "会员视频、个人见解", newEntry: "会员视频／易老师随笔", href: "/member/videos", note: "视频与随笔保留各自页面，顶部均有入口。" },
+    ],
+    preserved: ["本次导航调整不删除预测页面、视频或随笔。", "不修改会员期限、历史预测和复盘记录。", "不改变自动交易开关、策略、仓位或风控。"],
+  },
+  {
     version: "V7.21.0",
     releasedAt: "2026-08-30",
     english: {

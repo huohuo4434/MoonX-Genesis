@@ -3,7 +3,7 @@ import test, { before } from "node:test";
 import { readFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { LATEST_MEMBER_UPDATE } from "../lib/member-updates/catalog";
+import { LATEST_MEMBER_UPDATE, MEMBER_UPDATE_NOTES } from "../lib/member-updates/catalog";
 import type { Locale } from "../lib/i18n/config";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
@@ -47,7 +47,8 @@ test("translated spotlight retains dates, per-asset confirmation and uncertainty
 });
 
 test("notice supports compact and full English without rewriting historical notes", () => {
-  const renderNotice = (compact: boolean) => renderToStaticMarkup(React.createElement(MemberUpdateNotice, { note: LATEST_MEMBER_UPDATE, compact, locale: "en" }));
+  const historicalNote = MEMBER_UPDATE_NOTES.find(note => note.version === "V7.21.0")!;
+  const renderNotice = (compact: boolean) => renderToStaticMarkup(React.createElement(MemberUpdateNotice, { note: historicalNote, compact, locale: "en" }));
   const full = renderNotice(false);
   const compact = renderNotice(true);
   assert.doesNotMatch(full, /[\u4e00-\u9fff]/);
@@ -58,7 +59,10 @@ test("notice supports compact and full English without rewriting historical note
   const fallback = renderToStaticMarkup(React.createElement(MemberUpdateNotice, { note: { ...LATEST_MEMBER_UPDATE, english: undefined }, locale: "en" }));
   assert.doesNotMatch(fallback, /[\u4e00-\u9fff]/);
   assert.match(fallback, /Member update/);
-  assert.match(LATEST_MEMBER_UPDATE.title, /会员频道导航/);
+  assert.match(historicalNote.title, /会员频道导航/);
+  const latest = renderToStaticMarkup(React.createElement(MemberUpdateNotice, { note: LATEST_MEMBER_UPDATE, locale: "en" }));
+  assert.doesNotMatch(latest, /[\u4e00-\u9fff]/);
+  assert.ok(latest.includes(LATEST_MEMBER_UPDATE.releasedAt));
 });
 
 test("page retains device authorization and heartbeat; presentation has no new data requests", () => {
@@ -67,7 +71,7 @@ test("page retains device authorization and heartbeat; presentation has no new d
   assert.match(page, /gate.status === "ALLOWED"/);
   assert.match(page, /active \? <MemberDeviceHeartbeat \/> : null/);
   assert.match(page, /getRequestLocale\(\)/);
-  assert.match(page, /MemberChannelContent locale=\{locale\} active=\{active\}/);
+  assert.match(page, /active \? <MemberOperationDesk \/> : <MemberChannelContent locale=\{locale\} active=\{false\}/);
   const content = readFileSync("components/member/MemberChannelContent.tsx", "utf8");
   assert.doesNotMatch(content, /useEffect|fetch\(|"use client"|lib\/auth|lib\/bitget|api\//);
   assert.match(content, /HorizonReadingNav en=\{en\}/);

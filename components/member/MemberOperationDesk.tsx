@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
-import { localizeHref } from "@/lib/i18n/config";
+import { MemberWayfinding } from "./MemberWayfinding";
 import type { DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import { ConciseTradePlans } from "./ConciseTradePlans";
 
@@ -48,6 +47,7 @@ export function MemberOperationDesk() {
   }, [asset, request]);
   const data = state?.asset === asset ? state.data : undefined;
   return <main className="mx-auto max-w-7xl px-4 py-8 text-slate-100" data-operation-desk="v1">
+    <MemberWayfinding locale={locale} />
     <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
       <div><h1 className="text-2xl font-semibold">{en ? "Trading plan" : "操作台"}</h1><p className="mt-1 text-sm text-slate-400">{en ? "One asset. Three horizons. Clear price levels." : "一个标的，长中短线，一张图看清位置。"}</p></div>
       <label className="flex items-center gap-3">{en ? "Asset" : "选择标的"}<select aria-label={en ? "Asset" : "选择标的"} value={asset} onChange={event => setAsset(event.target.value)} className="rounded-xl border border-cyan-300/40 bg-slate-950 p-3">{ASSETS.map(([id, label]) => <option key={id} value={id}>{en ? label.split(" / ")[0] : label}</option>)}</select></label>
@@ -58,14 +58,5 @@ export function MemberOperationDesk() {
       <p className="mt-2 text-xs text-amber-100">{en ? "Chart = reference market daily candles; plan = its named contract. Different venues and spot/futures prices are not interchangeable. A support/resistance line is not an order." : "图表为参考市场日K，计划以卡片所列合约为准；现货、期货及不同交易所价格不能混用。支撑压力线不是下单指令。"}</p>
       {data ? <DailyCandleChart key={asset} data={data} en={en} compact /> : <p role="status" className="py-10 text-slate-400">{state?.failed ? (en ? "Price feed unavailable. Retry; no substitute candles are shown." : "行情暂时不可用，请重试；不显示替代K线。") : (en ? "Loading closed daily candles…" : "读取已闭合日K…")}</p>}
     </section>
-    <nav aria-label={en ? "Member content" : "会员内容"} className="mt-6 flex flex-wrap gap-3 text-sm">{[
-      ["/member/notes", "随笔", "Notes"], ["/member/videos", "会员视频", "Videos"],
-      ["/member/weekly-review", "复盘", "Review"], ["/member/ai-trading", "AI执行状态", "AI execution"],
-      ["/member/consultations", "会员服务", "Services"],
-    ].map(([href, zh, english]) => <Link key={href} className="rounded-lg border border-white/15 px-4 py-2" href={localizeHref(href!, locale)}>{en ? english : zh}</Link>)}</nav>
-    <details className="mt-6 text-sm text-slate-400"><summary className="cursor-pointer">{en ? "Research archive" : "研究档案"}</summary><div className="mt-3 flex flex-wrap gap-4">{[
-      ["/member/daily?research=1", "每日记录", "Daily records"], ["/member/key-dates?research=1", "关键日记录", "Timing records"],
-      ["/member/sector-resonance?detail=1", "板块研究", "Sector research"], ["/member/weekly-report", "周期研究", "Cycle research"],
-    ].map(([href, zh, english]) => <Link key={href} href={localizeHref(href!, locale)}>{en ? english : zh}</Link>)}</div></details>
   </main>;
 }

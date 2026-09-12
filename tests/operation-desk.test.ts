@@ -17,9 +17,11 @@ test("member gates precede the compact desk; research remains reachable", () => 
     assert.match(source, route === "sector-resonance" ? /params.detail !== "1"/ : /research !== "1"/);
   }
   const source = read("components/member/MemberOperationDesk.tsx");
-  assert.match(source, /daily\?research=1/);
-  assert.match(source, /key-dates\?research=1/);
-  assert.match(source, /sector-resonance\?detail=1/);
+  assert.match(source, /<MemberWayfinding locale=\{locale\}/);
+  const navigation = read("components/member/MemberWayfinding.tsx");
+  assert.match(navigation, /daily\?research=1/);
+  assert.match(navigation, /key-dates\?research=1/);
+  assert.match(navigation, /sector-resonance\?detail=1/);
   assert.doesNotMatch(source, /method:\s*["']POST|api\/admin|placeOrder|submitOrder/);
 });
 test("selected asset never retains another asset's candles or plans", () => {
