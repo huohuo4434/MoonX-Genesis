@@ -5,7 +5,8 @@ import { getCachedMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/memb
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const maxDuration = 10;
+// Allow authentication plus the bounded cold DB read; never run the trader here.
+export const maxDuration = 20;
 
 export async function GET() {
   const gate = await requireMemberDeviceAccess();

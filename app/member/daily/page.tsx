@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -317,8 +318,13 @@ export default async function MemberDailyPage() {
               <Text variant="caption" color="secondary" className="mt-2 block">{octoberFlashCrashRisk.summaryZh} 该提醒只影响仓位与追涨纪律，不改变已锁定方向。</Text>
             </Card>
 
+            <ConciseTradePlans />
+            <details className="rounded-2xl border border-white/10 p-4"><summary className="cursor-pointer font-semibold">{(await getRequestLocale()) === "en" ? "Daily outlook & technical reference" : "今日方向与技术参考"}</summary>
             <ForecastBoard title="今日市场" forecasts={todayRows} technicalViews={technicalViews} loadFailed={todayLoadFailed} emptyMessage="今日预测尚未发布" />
+            </details>
+            <details className="rounded-2xl border border-white/10 p-4"><summary className="cursor-pointer font-semibold">{(await getRequestLocale()) === "en" ? "Next-session outlook" : "下一交易日展望"}</summary>
             <ForecastBoard title="下一交易日" forecasts={tomorrowRows} technicalViews={technicalViews} loadFailed={tomorrowLoadFailed} emptyMessage="下一交易日观点尚未发布" />
+            </details>
 
             <div className="flex flex-wrap gap-3">
               <Link href="/member/weekly" className="rounded-full border border-primary/25 px-4 py-2 text-body-sm text-primary">周走势</Link>

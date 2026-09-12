@@ -59,8 +59,11 @@ const DEFAULT_SETTINGS: AiTradingDeskSettings = {
 };
 
 let ensured = false;
-const MEMBER_DESK_READ_TIMEOUT_MS = 2_500;
+// A cold pooled database connection can exceed 2.5s. This is a bounded read
+// budget only; it does not extend any strategy, order or live authorization.
+const MEMBER_DESK_READ_TIMEOUT_MS = 6_000;
 let lastReadableSnapshot: AiTradingDeskSnapshot | null = null;
+let pendingDeskSettingsRead: Promise<DbDeskSettings[]> | null = null;
 
 async function withReadTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -152,7 +155,9 @@ export async function getMemberAiTradingDeskSettings(options: { strict?: boolean
     return { ...DEFAULT_SETTINGS, enabled: false };
   }
   try {
-    const rows = await withReadTimeout(
+    // Share only an in-flight SELECT. Never cache settled privacy settings:
+    // the next request must observe an administrator's display changes.
+    pendingDeskSettingsRead ??= withReadTimeout(
       prisma.$queryRawUnsafe<DbDeskSettings[]>(`
         SELECT enabled, show_current_positions, show_trade_history,
                show_absolute_pnl, history_limit, updated_at
@@ -161,7 +166,8 @@ export async function getMemberAiTradingDeskSettings(options: { strict?: boolean
         LIMIT 1
       `),
       "交易台设置"
-    );
+    ).finally(() => { pendingDeskSettingsRead = null; });
+    const rows = await pendingDeskSettingsRead;
     if (!rows[0] && options.strict) throw new Error("会员交易台设置缺失");
     return rows[0] ? mapSettings(rows[0]) : { ...DEFAULT_SETTINGS, enabled: false };
   } catch (error) {
@@ -606,7 +612,8 @@ export async function getMemberAiTradingDeskSnapshot(): Promise<AiTradingDeskSna
     return snapshot;
   } catch (error) {
     const settings = await settingsPromise;
-    const message = error instanceof Error ? error.message : "交易台读取失败";
+    const message = error instanceof Error && /读取超时$/.test(error.message)
+      ? "交易台快照读取超时" : "交易台数据暂时无法读取";
     console.warn("member AI trading desk snapshot read failed", error);
     if (lastReadableSnapshot) {
       return applyAiDeskOperationalState({

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KeyDatePriceChart } from "@/components/member/KeyDatePriceChart";
+import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
 import { CryptoTechnicalReview } from "@/components/member/CryptoTechnicalReview";
 import { TechnicalReview20260909 } from "@/components/member/TechnicalReview20260909";
 import { SemiconductorTimingAnswer } from "@/components/member/SemiconductorTimingAnswer";
@@ -283,6 +284,7 @@ export default async function MemberKeyDatesPage() {
 
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
+      <ConciseTradePlans />
       <BtcAnnualWindowAmendment en={(await getRequestLocale()) === "en"} />
       <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
       <header className="rounded-3xl border border-violet-300/15 bg-[radial-gradient(circle_at_88%_0%,rgba(124,92,255,.2),transparent_34%),linear-gradient(145deg,#11101b,#090a0e)] p-6 sm:p-8">

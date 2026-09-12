@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
+import { LinkedResearchDetails } from "@/components/member/LinkedResearchDetails";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -97,10 +99,13 @@ export default async function MemberSectorResonancePage({
       <main className="min-h-screen bg-[#07080a] text-white">
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1480px]">
+            <ConciseTradePlans />
+            <LinkedResearchDetails initiallyOpen={params.detail === "1"} title={en ? "Stage outlook & research updates" : "阶段观点与研究更新"}>
             <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />
             <TechnicalReview20260909Link en={en} nowMs={Date.now()} />
             <SeptemberThreeMarketReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
             <GannPriorityReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} compact />
+            </LinkedResearchDetails>
             <div className="grid gap-5 xl:grid-cols-2">
               {headlinePanels.map((panel) => <ConclusionFirstPanel
                 key={panel.title}

@@ -9,7 +9,7 @@ import { isUnifiedNewEntryBlockedForDisplay } from "../lib/presentation/bitget-l
 const source = (path: string) => readFileSync(path, "utf8");
 
 // Execute the real publisher with database/exchange boundaries replaced; never use credentials.
-function harness() {
+function harness(fakeTimers = false) {
   const now = new Date();
   const stamp = now.toISOString();
   const settings = { enabled: true, show_current_positions: true, show_trade_history: true,
@@ -21,11 +21,21 @@ function harness() {
     decisionStatsToday: {}, liveExperiment: { status: "ACTIVE", startedAt: stamp,
       endsAt: new Date(now.getTime() + 600_000).toISOString() } };
   const state = { payload: { old: true }, synced: now.getTime() - 60_000, error: null as string | null,
-    writes: [] as string[], settingsFail: false, positions: async () => [] as any[] };
+    writes: [] as string[], settingsFail: false, settingsQueries: 0,
+    settingsRead: null as null | (() => Promise<any[]>), snapshotFail: false, snapshotDelay: 0,
+    positions: async () => [] as any[] };
+  const timers: Array<{ callback: () => void; delay: number; cleared: boolean }> = [];
   const forbidden = () => { throw new Error("FORBIDDEN_TRADING_INITIALIZER"); };
   const db = {
     $queryRawUnsafe: async (sql: string) => {
+      if (sql.includes("FROM trade_member_ai_desk_snapshot")) {
+        if (state.snapshotFail) throw new Error("PRIVATE_DATABASE_HOST_AND_SQL");
+        if (state.snapshotDelay) await new Promise(resolve => setTimeout(resolve, state.snapshotDelay));
+        return [{ payload: state.payload, last_synced_at: new Date(state.synced), last_error: state.error }];
+      }
       assert.match(sql, /trade_member_ai_desk_settings/);
+      state.settingsQueries += 1;
+      if (state.settingsRead) return state.settingsRead();
       if (state.settingsFail) throw new Error("PRIVATE_SETTINGS_ERROR");
       return [settings];
     },
@@ -76,10 +86,61 @@ function harness() {
   const compiled = ts.transpileModule(source("lib/trading-signals/member-ai-trading-desk.ts"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  runInNewContext(compiled, { exports, Date, setTimeout, clearTimeout, console,
+  runInNewContext(compiled, { exports, Date,
+    setTimeout: fakeTimers ? (callback: () => void, delay: number) => { const timer = { callback, delay, cleared: false }; timers.push(timer); return timer; } : setTimeout,
+    clearTimeout: fakeTimers ? (timer: { cleared: boolean }) => { timer.cleared = true; } : clearTimeout,
+    console: { ...console, warn: () => undefined },
     require: (id: string) => { assert.ok(id in modules, `unreviewed dependency ${id}`); return modules[id]; } });
-  return { now, state, runtime, settings, sync: exports.syncMemberAiTradingDeskSnapshot };
+  return { now, state, runtime, settings, timers, sync: exports.syncMemberAiTradingDeskSnapshot,
+    getSettings: exports.getMemberAiTradingDeskSettings, read: exports.getMemberAiTradingDeskSnapshot };
 }
+
+test("parallel settings reads share only the pending SELECT; next request sees changed privacy", async () => {
+  const h = harness(true);
+  let release!: (rows: any[]) => void;
+  h.state.settingsRead = () => new Promise(resolve => { release = resolve; });
+  const first = h.getSettings(); const second = h.getSettings({ strict: true });
+  assert.equal(h.state.settingsQueries, 1);
+  assert.equal(h.timers[0]!.delay, 6000);
+  release([h.settings]);
+  assert.equal((await first).enabled, true); assert.equal((await second).enabled, true);
+  assert.equal(h.timers[0]!.cleared, true);
+  h.state.settingsRead = null; h.settings.enabled = false;
+  assert.equal((await h.getSettings()).enabled, false);
+  assert.equal(h.state.settingsQueries, 2);
+});
+
+test("shared timeout fails closed, strict callers reject, subsequent reads recover", async () => {
+  const h = harness(true);
+  h.state.settingsRead = () => new Promise(() => undefined);
+  const normal = h.getSettings();
+  const strict = assert.rejects(h.getSettings({ strict: true }), /读取超时/);
+  h.timers[0]!.callback();
+  assert.equal((await normal).enabled, false); await strict;
+  h.state.settingsRead = null;
+  assert.equal((await h.getSettings()).enabled, true);
+  assert.equal(h.state.settingsQueries, 2);
+});
+
+test("member read errors do not disclose database diagnostics", async () => {
+  const h = harness(); h.state.snapshotFail = true;
+  const result = await h.read();
+  assert.equal(result.syncStatus, "ERROR");
+  assert.equal(result.executionAllowed, false);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_DATABASE_HOST_AND_SQL/);
+  assert.match(result.syncMessage, /暂时无法读取/);
+});
+
+test("a three-second snapshot read succeeds beyond the former 2.5-second budget", async () => {
+  const h = harness();
+  const baseline = await h.sync(h.now);
+  h.state.snapshotDelay = 3000;
+  const result = await h.read();
+  assert.equal(result.lastSyncedAt, h.now.toISOString());
+  assert.equal(result.syncStatus, baseline.syncStatus);
+  assert.equal(result.settings.enabled, baseline.settings.enabled);
+  assert.equal(result.executionAllowed, false);
+});
 
 test("LIVE publisher reads only; account entry gate remains closed and actual stop is not invented", async () => {
   const h = harness();

@@ -8,6 +8,7 @@ import { assetDisplaySymbol } from "@/lib/presentation/asset-catalog";
 import { formatBeijingDeskTime } from "@/lib/presentation/member-desk-time-core";
 import { memberDeskRefreshPresentation, startMemberDeskPolling } from "@/lib/member-ai-desk-polling-core";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
+import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
 import type { AiTradingDeskPosition, AiTradingDeskSnapshot, AiTradingDeskTrade } from "@/types/ai-trading-desk";
 
 function number(value: number | null | undefined, digits = 2): string {
@@ -85,6 +86,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
 
   return (
     <div className="space-y-5">
+      <ConciseTradePlans initial={snapshot} blocked={stale} />
       <Card padding="lg" data-conclusion-first="1" className="border-primary/20 bg-gradient-to-r from-primary/[0.04] to-transparent">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -136,11 +138,11 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
         </div>
       </Card>
 
-      {!stale ? <AiTradeIntentBoard
+      {!stale ? <details className="rounded-xl border border-white/10 p-4"><summary className="cursor-pointer text-sm text-white/70">{en ? "Research candidates & full plan history" : "研究候选与完整计划记录"}</summary><AiTradeIntentBoard
         locale={en ? "en" : "zh"}
         showHistory
         dashboard={focusDashboard}
-      /> : null}
+      /></details> : null}
 
       <div className="rounded-xl border border-white/10 p-4 text-sm leading-6 text-foreground-secondary" data-trade-reading-guide="1">
         <p className="font-semibold text-foreground">{en ? "Why a bullish forecast can still end in a stopped-out long" : "为什么预测看涨，多单仍可能止损？"}</p>
