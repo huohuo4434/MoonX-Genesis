@@ -267,12 +267,16 @@ function AssetKeyDateGroup({ assetId, rows }: { assetId: string; rows: KeyDateRa
   </Card>;
 }
 
-export default async function MemberKeyDatesPage() {
+export default async function MemberKeyDatesPage({ searchParams }: { searchParams?: Promise<{ research?: string }> }) {
   noStore();
   const gate = await getMemberDevicePageAccess();
   if (gate.status === "LOGIN_REQUIRED") redirect(`/login?next=${path}`);
   if (gate.status === "MEMBERSHIP_REQUIRED") redirect("/pricing");
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
+  if ((await searchParams)?.research !== "1") {
+    const { MemberOperationDesk } = await import("@/components/member/MemberOperationDesk");
+    return <><MemberDeviceHeartbeat /><MemberOperationDesk /></>;
+  }
 
   const asOfDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const [gannSignals, gannForwardSnapshot] = await Promise.all([getVerifiedGannPredictionSignals(), getGannForwardVerificationSnapshot()]);

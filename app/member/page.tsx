@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MemberChannelContent } from "@/components/member/MemberChannelContent";
+import { MemberOperationDesk } from "@/components/member/MemberOperationDesk";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
@@ -24,6 +25,6 @@ export default async function MemberChannelPage() {
   const active = gate.status === "ALLOWED";
   return <>
     {active ? <MemberDeviceHeartbeat /> : null}
-    <MemberChannelContent locale={locale} active={active} />
+    {active ? <MemberOperationDesk /> : <MemberChannelContent locale={locale} active={false} />}
   </>;
 }

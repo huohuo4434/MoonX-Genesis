@@ -231,7 +231,7 @@ function StatusCard({ label, value, note, toneClass }: { label: string; value: s
   );
 }
 
-export default async function MemberDailyPage() {
+export default async function MemberDailyPage({ searchParams }: { searchParams?: Promise<{ research?: string }> }) {
   noStore();
   const gate = await getMemberDevicePageAccess();
   if (gate.status === "LOGIN_REQUIRED" || gate.status === "MEMBERSHIP_REQUIRED") {
@@ -249,6 +249,10 @@ export default async function MemberDailyPage() {
     /></Section></main>;
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
+  if ((await searchParams)?.research !== "1") {
+    const { MemberOperationDesk } = await import("@/components/member/MemberOperationDesk");
+    return <><MemberDeviceHeartbeat /><MemberOperationDesk /></>;
+  }
 
   const now = new Date();
   // The member gate above already proves authorization. Load the two source-locked

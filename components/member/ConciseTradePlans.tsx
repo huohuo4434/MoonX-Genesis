@@ -5,7 +5,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { concisePlanState, concisePrice, conciseSnapshotFresh, latestConcisePlans } from "@/lib/presentation/concise-trade-plan";
 import type { AiTradingDeskSnapshot } from "@/types/ai-trading-desk";
 
-const HORIZONS = [["INTRADAY", "短线", "Intraday"], ["SWING", "中线", "Swing"], ["POSITION", "长线", "Position"]] as const;
+const HORIZONS = [["POSITION", "长线", "Position"], ["SWING", "中线", "Swing"], ["INTRADAY", "短线", "Intraday"]] as const;
 const LABELS = {
   WAIT: ["等待：有效计划或点位尚未齐全", "Wait: no complete valid plan"],
   CONDITIONAL: ["等条件确认，不追价", "Wait for confirmation; do not chase"],
@@ -13,7 +13,7 @@ const LABELS = {
   POSITION: ["持仓管理，不是新买点", "Position management, not a new entry"],
 };
 
-export function ConciseTradePlans({ initial, blocked = false }: { initial?: AiTradingDeskSnapshot; blocked?: boolean }) {
+export function ConciseTradePlans({ initial, blocked = false, symbol }: { initial?: AiTradingDeskSnapshot; blocked?: boolean; symbol?: string }) {
   const { locale } = useLocale();
   const en = locale === "en";
   const [snapshot, setSnapshot] = useState<AiTradingDeskSnapshot | null>(initial ?? null);
@@ -43,7 +43,12 @@ export function ConciseTradePlans({ initial, blocked = false }: { initial?: AiTr
   const data = initial ?? snapshot;
   const fresh = !blocked && !error && data?.syncStatus === "OK" && conciseSnapshotFresh(data.lastSyncedAt, now);
   const plans = data?.settings.enabled ? latestConcisePlans(data.publishedPlans ?? [], data.ledgerSource) : [];
-  const visible = plans.filter((plan) => horizon === "ALL" || plan.strategyType === horizon);
+  const visible = plans.filter((plan) => (!symbol || plan.symbol === symbol) && (horizon === "ALL" || plan.strategyType === horizon));
+  const rows: Array<{ key: string; plan?: typeof plans[number]; label?: string }> = symbol
+    ? HORIZONS.filter(([key]) => horizon === "ALL" || key === horizon).flatMap<{ key: string; plan?: typeof plans[number]; label?: string }>(([key, zh, english]) => {
+      const found = visible.filter(plan => plan.strategyType === key);
+      return found.length ? found.map(plan => ({ key: plan.id, plan, label: en ? english : zh })) : [{ key, plan: undefined, label: en ? english : zh }];
+    }) : visible.map(plan => ({ key: plan.id, plan }));
   const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(en ? "en-GB" : "zh-CN", {
     timeZone: "Asia/Hong_Kong", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).format(new Date(value)) : "—";
@@ -60,8 +65,9 @@ export function ConciseTradePlans({ initial, blocked = false }: { initial?: AiTr
     </div>
     {!fresh && !busy ? <p role="status" className="mb-3 text-sm text-amber-200">{en ? "Waiting for a fresh, complete snapshot. Entry levels are hidden; refresh before acting." : "等待完整的新快照，暂不展示入场点位；请刷新后再核对。"}</p> : null}
     {data && !data.settings.enabled ? <p className="text-sm text-white/60">{en ? "Member plan display is unavailable." : "会员计划展示暂未开放。"}</p> : null}
-    <div className="space-y-3">
-      {visible.map((plan) => {
+    <div className={symbol && horizon === "ALL" ? "grid gap-3 lg:grid-cols-3" : "space-y-3"}>
+      {rows.map(({ key, plan, label }) => {
+        if (!plan) return <article key={key} className="rounded-xl border border-white/10 p-4"><h3 className="font-semibold">{label}</h3><p className="mt-2 text-sm text-white/60">{busy ? (en ? "Loading…" : "读取中…") : (en ? "Wait — no active plan. No entry, stop or target is implied." : "等待：暂无有效计划，不安排入场、止盈或止损点位。")}</p></article>;
         const state = fresh ? concisePlanState(plan, now) : "WAIT";
         const available = state !== "WAIT";
         const stopVerb = plan.direction === "LONG" ? (en ? "below" : "跌破") : (en ? "above" : "突破");

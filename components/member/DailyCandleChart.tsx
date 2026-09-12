@@ -16,7 +16,7 @@ const horizonLabel = (p: CandleProjection | undefined, en: boolean) => {
     : days > 45 ? en ? 'Multi-month background' : '多月背景' : en ? 'Monthly background' : '月度背景';
 };
 
-export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: boolean }) {
+export function DailyCandleChart({ data, en, compact = false }: { data: DailyProjectionData; en: boolean; compact?: boolean }) {
   const [level, setLevel] = useState<"MONTH" | "WEEK">(() => data.projections.some(p => p.level === 'WEEK') ? 'WEEK' : 'MONTH');
   const [source, setSource] = useState("");
   const [band, setBand] = useState(false);
@@ -31,6 +31,18 @@ export function DailyCandleChart({ data, en }: { data: DailyProjectionData; en: 
         : level === 'WEEK' ? en ? 'No independent weekly forecast. The monthly/stage chart remains available above.' : '暂无独立周预测，可切换上方月度／阶段图查看，不能把月卦冒充周卦。'
           : en ? 'No monthly/stage forecast. Check the weekly chart above.' : '暂无月度／阶段预测，可切换上方周度图查看。';
   const checkAt = new Date(data.checkedAt).toLocaleString(en ? "en-US" : "zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+  if (compact) return <div className="mt-4 space-y-3" data-compact-candles="true">
+    <div className="flex flex-wrap gap-2">{(["WEEK", "MONTH"] as const).map(value => <button key={value} type="button" aria-pressed={level === value} onClick={() => { setLevel(value); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === value ? "border-cyan-300 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{value === "WEEK" ? (en ? "Weekly outlook" : "本周走势") : (en ? "Longer-term outlook" : "较长周期走势")}</button>)}</div>
+    {choices.length > 1 ? <select aria-label={en ? "Forecast period" : "预测周期"} value={projection?.sourceId} onChange={e => setSource(e.target.value)} className="rounded-lg bg-slate-900 p-2">{choices.map(p => <option key={p.sourceId} value={p.sourceId}>{sourcePeriod(p, en)} · V{p.sourceVersion}</option>)}</select> : null}
+    <p className="text-sm"><strong>{data.stale || !projection ? (en ? "No current scenario" : "暂无有效走势推演") : (en ? directions[projection.direction] ?? projection.direction : projection.direction)}</strong>{projection && !data.stale ? ` · ${sourcePeriod(projection, en)}` : ""} · {en ? "Daily close" : "日收盘"} {price(last.close)} ({last.date})</p>
+    {data.stale ? <p className="text-sm text-amber-200">{en ? `Delayed feed; expected ${data.expectedAsOf}. Scenario withheld.` : `行情延迟，应更新至${data.expectedAsOf}；暂停推演。`}</p> : !projection ? <p className="text-sm text-amber-200">{missingText}</p> : null}
+    <p className="text-xs text-amber-100">{en ? "Left: real daily OHLC. Right: illustrative future scenario, not quotes or promised targets. Daily levels do not confirm an intraday entry." : "左侧真实日K，右侧未来情景模拟，不是真实报价或保证目标；日线位置不等于日内入场已确认。"}</p>
+    {projection?.risk !== "NORMAL" && projection && !data.stale ? <p className="text-sm text-amber-200">{projection.risk === "NEAR_RESISTANCE" ? (en ? "Near resistance: wait for a confirmed breakout." : "已接近日线压力，先看能否有效突破。") : (en ? "Below EMA60: recovery remains unconfirmed." : "仍在EMA60下方，修复尚未确认。")}</p> : null}
+    <ResearchCandleTerminal data={data} projection={data.stale ? undefined : projection} en={en} band={false} />
+    <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? "Daily OHLC table" : "逐日价格表"}</summary><div className="mt-2 max-h-64 overflow-auto"><table className="w-full text-right"><thead><tr>{[en ? "Type / Date" : "类型／日期", "O", "H", "L", "C"].map(label => <th scope="col" key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{[...data.bars.slice(-10).map(bar => ({ ...bar, simulated: false })), ...(data.stale ? [] : projection?.candles ?? []).map(bar => ({ ...bar, simulated: true }))].map(bar => <tr key={bar.date}><th scope="row" className="p-2">{bar.simulated ? (en ? "Sim" : "模拟") : (en ? "Real" : "真实")} {bar.date}</th>{[bar.open, bar.high, bar.low, bar.close].map((value, index) => <td key={index} className="p-2">{price(value)}</td>)}</tr>)}</tbody></table></div></details>
+    <p className="text-xs text-slate-400">{data.quoteSymbol} · {data.source} · {data.timeZone} · {en ? "Checked (UTC+8)" : "检查时间（北京）"} {checkAt}{data.assetId === "asteroid" ? (en ? " · USD token price, not market cap" : " · 美元单价，非市值") : ""}{data.assetId === "spcx" ? (en ? " · USDC perpetual, not stock" : " · USDC永续，非股票") : ""}</p>
+    {data.archiveStatus === "UNAVAILABLE" ? <p className="text-xs text-amber-200">{en ? "Not archived; not a saved forward sample." : "存档未成功，不计为已保存前瞻样本。"}</p> : null}
+  </div>;
   return <div className="mt-5 space-y-3" data-daily-candle-projection="v2">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex gap-2" role="group" aria-label={en ? "Forecast horizon" : "预测周期"}>

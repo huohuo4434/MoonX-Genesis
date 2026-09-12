@@ -66,79 +66,20 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 export const PUBLIC_MORE_NAV: NavItem[] = [];
 
 export const MEMBER_RESEARCH_NAV: NavItem[] = [
-  { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "易老师随笔", labelEn: "Yi's Notes", groupKey: "tools", groupZh: "交流与服务", groupEn: "Community" },
-  {
-    key: "memberNav.todayDecision",
-    href: NAV_ROUTES.memberDaily,
-    labelZh: "今日决策",
-    labelEn: "Today",
-    groupKey: "overview",
-    groupZh: "今天先看",
-    groupEn: "Start Here",
-  },
-  {
-    key: "memberNav.cycleForecast",
-    href: NAV_ROUTES.memberWeeklyReport,
-    labelZh: "周期预测",
-    labelEn: "Forecasts",
-    groupKey: "forecast",
-    groupZh: "研究中心",
-    groupEn: "Research",
-  },
-  {
-    key: "memberNav.keyDates",
-    href: NAV_ROUTES.memberKeyDates,
-    labelZh: "关键日",
-    labelEn: "Key Dates",
-    groupKey: "forecast",
-    groupZh: "研究中心",
-    groupEn: "Research",
-  },
-  {
-    key: "memberNav.focusResearch",
-    href: NAV_ROUTES.memberSectorResonance,
-    labelZh: "重点关注",
-    labelEn: "Focus",
-    groupKey: "forecast",
-    groupZh: "研究中心",
-    groupEn: "Research",
-  },
-  {
-    key: "memberNav.aiTrading",
-    href: NAV_ROUTES.aiTradingDesk,
-    labelZh: "AI交易",
-    labelEn: "AI Trading",
-    groupKey: "tools",
-    groupZh: "交易与服务",
-    groupEn: "Tools & Services",
-  },
-  {
-    key: "memberNav.review",
-    href: NAV_ROUTES.memberWeeklyReview,
-    labelZh: "复盘验证",
-    labelEn: "Review",
-    groupKey: "forecast",
-    groupZh: "研究中心",
-    groupEn: "Research",
-  },
-  {
-    key: "memberNav.services",
-    href: NAV_ROUTES.consultations,
-    labelZh: "会员服务",
-    labelEn: "Services",
-    groupKey: "tools",
-    groupZh: "交易与服务",
-    groupEn: "Tools & Services",
-  },
+  { key: "memberNav.operationDesk", href: NAV_ROUTES.memberChannel, labelZh: "操作台", labelEn: "Trade Plan", groupKey: "overview", groupZh: "交易", groupEn: "Trading" },
+  { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "随笔", labelEn: "Notes", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
+  { key: "memberNav.videos", href: NAV_ROUTES.memberVideos, labelZh: "会员视频", labelEn: "Videos", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
+  { key: "memberNav.review", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘", labelEn: "Review", groupKey: "forecast", groupZh: "交易", groupEn: "Trading" },
+  { key: "memberNav.services", href: NAV_ROUTES.consultations, labelZh: "会员服务", labelEn: "Services", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
 ];
 
 export const MEMBER_CHANNEL_NAV = MEMBER_RESEARCH_NAV;
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.home", href: NAV_ROUTES.home, labelZh: "首页", labelEn: "Home" },
-  { key: "memberNav.todayDecision", href: NAV_ROUTES.memberDaily, labelZh: "今日", labelEn: "Today" },
-  { key: "memberNav.focusResearch", href: NAV_ROUTES.memberSectorResonance, labelZh: "关注", labelEn: "Focus" },
-  { key: "memberNav.aiTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "交易", labelEn: "Trade" },
+  { key: "memberNav.operationDesk", href: NAV_ROUTES.memberChannel, labelZh: "操作台", labelEn: "Plan" },
+  { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "随笔", labelEn: "Notes" },
+  { key: "memberNav.review", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘", labelEn: "Review" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的", labelEn: "Account" },
 ];
 
@@ -157,16 +98,8 @@ export function buildPublicFooterColumns(_options?: {
     { key: "footer.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格", labelEn: "Pricing" },
     { key: "footer.memberChannel", href: NAV_ROUTES.memberChannel, labelZh: "会员频道", labelEn: "Member Channel" },
   ];
-  const member: NavItem[] = [
-    { key: "footer.memberNotes", href: NAV_ROUTES.memberNotes, labelZh: "易老师随笔", labelEn: "Yi's Notes" },
-    { key: "footer.memberToday", href: NAV_ROUTES.memberDaily, labelZh: "今日决策", labelEn: "Today" },
-    { key: "footer.memberForecast", href: NAV_ROUTES.memberWeeklyReport, labelZh: "周期预测", labelEn: "Forecasts" },
-    { key: "footer.memberKeyDates", href: NAV_ROUTES.memberKeyDates, labelZh: "关键日", labelEn: "Key Dates" },
-    { key: "footer.memberFocus", href: NAV_ROUTES.memberSectorResonance, labelZh: "重点关注", labelEn: "Focus" },
-    { key: "footer.memberTrading", href: NAV_ROUTES.aiTradingDesk, labelZh: "AI交易", labelEn: "AI Trading" },
-    { key: "footer.memberReview", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘验证", labelEn: "Review" },
+  const member: NavItem[] = [...MEMBER_RESEARCH_NAV,
     { key: "footer.memberUpdates", href: NAV_ROUTES.memberUpdates, labelZh: "版本公告", labelEn: "Updates" },
-    { key: "footer.memberServices", href: NAV_ROUTES.consultations, labelZh: "会员服务", labelEn: "Services" },
   ];
   const accountLegal: NavItem[] = [
     { key: "footer.contact", href: NAV_ROUTES.support, labelZh: "客服与帮助", labelEn: "Support" },

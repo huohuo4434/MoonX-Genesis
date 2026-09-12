@@ -67,6 +67,10 @@ export default async function MemberSectorResonancePage({
     return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   }
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  if (params.detail !== "1") {
+    const { MemberOperationDesk } = await import("@/components/member/MemberOperationDesk");
+    return <><MemberDeviceHeartbeat /><MemberOperationDesk /></>;
+  }
   const board = buildSectorResonanceBoard(today);
   const dailyBoard = buildDailySectorResonanceBoard(board);
   const selectedDailyWeek = dailyBoard.weeks.find((week) => week.start === params.week)
