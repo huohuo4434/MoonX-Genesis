@@ -184,7 +184,7 @@ async function HomeLandingData() {
   return (
     <>
       <span hidden data-home-dashboard />
-      <div className="mx-auto max-w-[1280px] px-4 pt-4 text-sm sm:px-6 lg:px-8"><Link className="inline-flex min-h-11 items-center text-violet-200 underline underline-offset-4" href="/guide#free-example">新来的？先看免费样例，读懂周期、价位和应对 →</Link></div>
+      <div className="mx-auto flex max-w-[1280px] flex-wrap gap-x-6 px-4 pt-4 text-sm sm:px-6 lg:px-8"><Link className="inline-flex min-h-11 items-center text-cyan-200 underline underline-offset-4" href="/free-picks">免费精选 · 每三天复核，合格才发布 →</Link><Link className="inline-flex min-h-11 items-center text-violet-200 underline underline-offset-4" href="/guide#free-example">新来的？先看免费样例，读懂周期、价位和应对 →</Link></div>
       <HomeMobileAppView
         canViewDaily={Boolean(todayPayload?.allowed)}
         accessMessage={todayAccessMessage}
