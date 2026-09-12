@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { HomeLandingBoard } from "@/components/home/HomeLandingBoard";
+import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -19,6 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function HomePage() {
-  return <HomeLandingBoard />;
+export default async function HomePage() {
+  return <><FedDecisionTeaser locale={await getRequestLocale()} /><HomeLandingBoard /></>;
 }

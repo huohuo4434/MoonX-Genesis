@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { MemberNotesClient } from "@/components/member/MemberNotesClient";
@@ -43,6 +44,7 @@ export default async function MemberNotesPage() {
   }
   return (
     <main>
+      <FedDecisionTeaser locale={locale} />
       {!previewOnly && <MemberDeviceHeartbeat />}
       <MemberNotesClient
         en={en}

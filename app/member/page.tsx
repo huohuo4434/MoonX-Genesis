@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 import { MemberChannelContent } from "@/components/member/MemberChannelContent";
 import { MemberOperationDesk } from "@/components/member/MemberOperationDesk";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -24,6 +25,7 @@ export default async function MemberChannelPage() {
   const [gate, locale] = await Promise.all([getMemberDevicePageAccess(), getRequestLocale()]);
   const active = gate.status === "ALLOWED";
   return <>
+    <FedDecisionTeaser locale={locale} />
     {active ? <MemberDeviceHeartbeat /> : null}
     {active ? <MemberOperationDesk /> : <MemberChannelContent locale={locale} active={false} />}
   </>;
