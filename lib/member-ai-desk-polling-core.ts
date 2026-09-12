@@ -37,11 +37,18 @@ export function startMemberDeskPolling<T>(input: {
   };
 }
 
-export function memberDeskRefreshPresentation(error: string, en: boolean, freshness?: { lastSyncedAt: string | null; nowMs: number }): {
+export function memberDeskRefreshPresentation(error: string, en: boolean, freshness?: { lastSyncedAt: string | null; nowMs: number; syncStatus?: string }): {
   stale: boolean;
   statusLabel: string | null;
   serverLabel: string | null;
 } {
+  if (!error && freshness?.syncStatus && freshness.syncStatus !== "OK") {
+    return {
+      stale: true,
+      statusLabel: en ? "SERVER DATA NOT READY" : "服务器数据未就绪",
+      serverLabel: en ? "market data or reconciliation needs attention" : "行情或对账数据需检查",
+    };
+  }
   if (!error && freshness) {
     // Display-only freshness; never grant or revoke execution permission.
     if (!conciseSnapshotFresh(freshness.lastSyncedAt, freshness.nowMs)) {

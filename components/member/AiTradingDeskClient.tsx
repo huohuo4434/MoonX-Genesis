@@ -44,9 +44,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
   const [error, setError] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
   const [checkedAt, setCheckedAt] = useState<number>(NaN);
-  const syncError = snapshot.syncStatus !== "OK"
-    ? snapshot.syncMessage || (en ? "Snapshot needs verification" : "快照待核验") : "";
-  const refreshPresentation = memberDeskRefreshPresentation(error || syncError, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt });
+  const refreshPresentation = memberDeskRefreshPresentation(error, en, { lastSyncedAt: snapshot.lastSyncedAt, nowMs: checkedAt, syncStatus: snapshot.syncStatus });
   const stale = refreshPresentation.stale;
   const live = snapshot.mode === "BITGET_LIVE_EXPERIMENT";
   const symbols = [...new Set([selectedSymbol, ...snapshot.publishedPlans.map(plan => plan.symbol), ...snapshot.positions.map(position => position.symbol)])].sort();
@@ -130,7 +128,7 @@ export function AiTradingDeskClient({ initial }: { initial: AiTradingDeskSnapsho
                 ? refreshPresentation.serverLabel
                 : snapshot.serverHealthy ? (en ? "healthy" : "正常") : (en ? "attention" : "需检查")}
             </span>
-            <span className={snapshot.syncStatus === "ERROR" || stale ? "text-red-300" : ""}>{stale ? refreshPresentation.statusLabel : en ? `Sync: ${snapshot.syncStatus}` : snapshot.syncMessage}</span>
+            <span className={snapshot.syncStatus === "ERROR" || stale ? "text-red-300" : ""}>{error || (stale && snapshot.syncStatus === "OK") ? refreshPresentation.statusLabel : en ? `Sync: ${snapshot.syncStatus}` : snapshot.syncMessage}</span>
           </div>
         </details>
       </Card>

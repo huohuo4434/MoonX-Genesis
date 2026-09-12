@@ -60,6 +60,13 @@ test("plan and execution pages use identical freshness including future and inva
   assert.equal(memberDeskRefreshPresentation("", true, { lastSyncedAt: null, nowMs: now }).stale, true);
 });
 
+test("HTTP success with server PARTIAL is not a client refresh failure or entry permission", () => {
+  const fresh = { lastSyncedAt: "2026-09-12T14:00:00Z", nowMs: Date.parse("2026-09-12T14:00:10Z"), syncStatus: "PARTIAL" };
+  assert.deepEqual(memberDeskRefreshPresentation("", false, fresh), { stale: true, statusLabel: "服务器数据未就绪", serverLabel: "行情或对账数据需检查" });
+  assert.equal(memberDeskRefreshPresentation("network error", true, fresh).statusLabel, "REFRESH FAILED · LAST SNAPSHOT");
+  for (const syncStatus of ["DISABLED", "ERROR"]) assert.equal(memberDeskRefreshPresentation("", true, { ...fresh, syncStatus }).stale, true);
+});
+
 test("hidden tabs do not poll and a visible next tick resumes reading", async () => {
   let visible = false, reads = 0;
   let tick = () => {};
@@ -80,7 +87,7 @@ test("member plan readers share bounded reads; connection tutorial is opt-in", (
   }
   const ai = source("components/member/AiTradingDeskClient.tsx");
   assert.match(ai, /symbol=\{selectedSymbol\}/);
-  assert.match(ai, /snapshot.syncStatus !== "OK"/);
+  assert.match(ai, /syncStatus: snapshot.syncStatus/);
   assert.ok(ai.indexOf('data-conclusion-first="1"') < ai.indexOf("<ConciseTradePlans"));
   assert.match(ai, /snapshot.settings.showTradeHistory \?/);
   assert.match(ai, /snapshot.settings.showAbsolutePnl \?/);
