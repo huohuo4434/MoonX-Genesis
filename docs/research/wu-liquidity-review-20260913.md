@@ -1,4 +1,10 @@
-# 吴昌燁 9月10日视频复核 / 2026-09-13 V1
+# 吴昌燁 9月10日视频复核 / 2026-09-13 V2
+
+## V2 correction — Fed emphasis
+
+User challenged the interpretation of the 03:34 subtitle after watching the video. Re-read the full 02:54–03:42 passage: debt service constrains hiking, inflation constrains easing; its main argument favors unchanged rates and is directionally aligned with the no-hike thesis. The supplied VTT at 03:34–03:36 literally contains “或者是有限度的加息”, but original audio has NOT been verified. Do not assert that the speaker audibly said this or classify the overall forecast as favoring a hike. V2 corrects both language versions. Consensus alignment is not an observed successful outcome or an independent additional forecast sample, so statistical confidence and locked forecasts remain unchanged.
+
+V1 is preserved at Git commit `24ddc6c`. The comparison below records that initial review, with its Fed interpretation superseded by this V2 correction.
 
 Source: https://www.youtube.com/watch?v=ghriN1BWfxc
 

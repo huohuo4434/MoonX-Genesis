@@ -10,7 +10,10 @@ test("dated source addendum cannot set direction, confidence or execution", () =
   assert.equal(review.executionImpact, "NONE");
   assert.equal(review.source.videoId, "ghriN1BWfxc");
   assert.equal(review.evidence.length, 5);
-  assert.match(review.evidence[2].finding, /有限度加息/);
+  assert.equal(review.supersedes, "wu-liquidity-20260913-v1");
+  assert.match(review.evidence[2].finding, /整体倾向维持利率/);
+  assert.match(review.evidence[2].finding, /原声尚未核听/);
+  assert.match(review.en.detail, /aligning with September's no-hike thesis/);
   assert.match(review.zh.summary, /9月28日/);
   assert.match(review.en.summary, /early November/);
   assert.equal(review.zh.rows.length, review.en.rows.length);
