@@ -6,6 +6,7 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 import { MemberWayfinding } from "./MemberWayfinding";
 import type { DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import { ConciseTradePlans } from "./ConciseTradePlans";
+import { TechnologyLiquidityRiskReview } from "@/components/research/TechnologyLiquidityRiskReview";
 
 const DailyCandleChart = dynamic(() => import("./DailyCandleChart").then(m => m.DailyCandleChart), { ssr: false });
 // These are related instruments, NOT interchangeable price feeds. Keep the exact
@@ -53,6 +54,7 @@ export function MemberOperationDesk() {
       <label className="flex items-center gap-3">{en ? "Asset" : "选择标的"}<select aria-label={en ? "Asset" : "选择标的"} value={asset} onChange={event => setAsset(event.target.value)} className="rounded-xl border border-cyan-300/40 bg-slate-950 p-3">{ASSETS.map(([id, label]) => <option key={id} value={id}>{en ? label.split(" / ")[0] : label}</option>)}</select></label>
     </div>
     <ConciseTradePlans symbol={selected[2]} />
+    <TechnologyLiquidityRiskReview en={en} />
     <section id="price-time-chart" className="rounded-2xl border border-white/10 bg-[#0b1018] p-4">
       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{selected[1].split(" / ")[0]} · {en ? "Candles & levels" : "K线与关键价位"}</h2><button type="button" onClick={() => setRequest(n => n + 1)} className="rounded-lg border border-white/20 px-3 py-2 text-sm">{en ? "Refresh chart" : "刷新图表"}</button></div>
       <p className="mt-2 text-xs text-amber-100">{en ? "Chart = reference market daily candles; plan = its named contract. Different venues and spot/futures prices are not interchangeable. A support/resistance line is not an order." : "图表为参考市场日K，计划以卡片所列合约为准；现货、期货及不同交易所价格不能混用。支撑压力线不是下单指令。"}</p>

@@ -9,6 +9,7 @@ import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
 import { getMemberWeeklyPagePayload } from "@/lib/data/weekly-analysis-access";
 import { assetNameEn, directionEn } from "@/lib/i18n/english-content";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { TechnologyLiquidityRiskReview } from "@/components/research/TechnologyLiquidityRiskReview";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -44,6 +45,7 @@ export default async function MemberWeeklyReportPage() {
         <p className="mt-3 text-sm text-foreground-secondary">{en ? "Research describes a dated path, not a holding period or an entry order. Use the workspace for current entry, stop, target and expiry conditions." : "周观点看节奏，不等于持仓一周。买卖、止盈止损和有效期，统一看工作台的当前计划。"}</p>
         <p className="mt-2 text-xs text-foreground-tertiary">{payload.summary.weekStart} — {payload.summary.weekEnd} · {en ? "Published" : "已发布"} {published.length}/{payload.summary.coverageCount}</p>
       </header>
+      <TechnologyLiquidityRiskReview en={en} />
       <div className="grid gap-3 md:grid-cols-2">
         {published.map(row => <Card key={row.id} padding="md">
           <div className="flex flex-wrap items-center justify-between gap-2">
