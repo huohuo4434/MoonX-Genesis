@@ -1,0 +1,2 @@
+# Native extension stays OUTSIDE Next.js and the trading runner.
+czsc==1.0.1

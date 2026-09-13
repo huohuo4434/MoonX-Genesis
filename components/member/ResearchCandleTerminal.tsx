@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { CandlestickSeries, HistogramSeries, LineSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers, type AutoscaleInfo, type IChartApi, type Time, type Logical } from "lightweight-charts";
 import type { DailyProjectionData, CandleProjection } from "@/lib/research/daily-candle-projection-core";
 import { chartLevelLadder } from "@/lib/presentation/key-date-chart";
+import { technicalChartContext } from "@/lib/research/technical-chart-context";
+import { czscInput, validateCzscSnapshot, type CzscSnapshot } from "@/lib/research/czsc-research-contract";
 
 const formatPrice = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
 
@@ -19,6 +21,14 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
   const [indicators, setIndicators] = useState(false);
   const [fault, setFault] = useState(false);
   const [allLevels, setAllLevels] = useState(true);
+  const [macd, setMacd] = useState(true);
+  const [czsc, setCzsc] = useState<{ key: string; report: CzscSnapshot } | null>(null);
+  const [researchError, setResearchError] = useState(false);
+  const technical = technicalChartContext(data.bars);
+  const researchInput = !data.stale && data.bars.length >= 20 ? czscInput(data) : null;
+  const researchKey = researchInput ? JSON.stringify(researchInput) : "";
+  // A refresh, correction, or symbol change hides an old local report immediately.
+  const overlay = czsc?.key === researchKey && researchKey ? czsc.report : null;
   const ladder = chartLevelLadder(data.bars);
   const future = projection?.candles ?? [];
   const selected = future.find(b => b.date === hoverDate) ?? data.bars.find(b => b.date === hoverDate) ?? future[0] ?? data.bars.at(-1)!;
@@ -83,6 +93,28 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
         });
         chart.addSeries(LineSeries, { color, lineWidth: 1, lastValueVisible: false, priceLineVisible: false, title: `EMA${period}` }).setData(points);
       }
+      if (macd) {
+        const points = technicalChartContext(data.bars).points.filter(p => p.date >= actualBars[0]!.date);
+        const histogram = chart.addSeries(HistogramSeries, { title: "MACD 2×(DIF−DEA)", priceLineVisible: false, lastValueVisible: false }, 1);
+        histogram.setData(points.map(p => ({ time: p.date as Time, value: p.histogram, color: p.histogram >= 0 ? "#26a69a" : "#ef5350" })));
+        histogram.createPriceLine({ price: 0, color: "#94a3b8", lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "0" });
+        for (const [key, color] of [["dif", "#fbbf24"], ["dea", "#a78bfa"]] as const) {
+          chart.addSeries(LineSeries, { title: key.toUpperCase(), color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false }, 1)
+            .setData(points.map(p => ({ time: p.date as Time, value: p[key] })));
+        }
+        chart.panes()[1]?.setHeight(135);
+      }
+      if (overlay) {
+        for (const s of overlay.strokes.filter(s => s.start >= actualBars[0]!.date)) {
+          chart.addSeries(LineSeries, { color: "#c4b5fd", lineWidth: 2, lastValueVisible: false, priceLineVisible: false })
+            .setData([{ time: s.start as Time, value: s.startPrice }, { time: s.end as Time, value: s.endPrice }]);
+        }
+        for (const z of overlay.zones.slice(-3).filter(z => z.end >= actualBars[0]!.date)) {
+          for (const value of [z.low, z.high]) chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1,
+            lineStyle: LineStyle.Dashed, lastValueVisible: false, priceLineVisible: false })
+            .setData([{ time: (z.start < actualBars[0]!.date ? actualBars[0]!.date : z.start) as Time, value }, { time: z.end as Time, value }]);
+        }
+      }
       if (band) for (const key of ["rangeLow", "rangeHigh"] as const) {
         chart.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 1, lineStyle: LineStyle.Dashed, lastValueVisible: false, priceLineVisible: false }).setData(modelBars.map(b => ({ time: b.date as Time, value: b[key] })));
       }
@@ -113,16 +145,24 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
     } catch { chart?.remove(); chart = null; api.current = null; setFault(true); }
     return () => { cancelAnimationFrame(frame); observer?.disconnect(); chart?.remove(); api.current = null; };
     // Hover must not recreate the chart or reset the user's zoom.
-  }, [data, projection, en, band, indicators, allLevels]);
+  }, [data, projection, en, band, indicators, allLevels, macd, overlay]);
 
   return <div className="overflow-hidden rounded-xl border border-slate-700 bg-[#0b1220]" data-candle-terminal="v2">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-xs">
       <strong className="text-base">{data.quoteSymbol} · 1D</strong>
       <span className="text-emerald-300">■ {en ? "Up" : "涨"}</span><span className="text-red-300">■ {en ? "Down" : "跌"}</span>
       <label><input type="checkbox" checked={indicators} onChange={e => setIndicators(e.target.checked)} /> EMA20 / EMA60</label>
+      <label><input type="checkbox" checked={macd} onChange={e => setMacd(e.target.checked)} /> MACD (12,26,9)</label>
       <label><input type="checkbox" checked={allLevels} onChange={e => setAllLevels(e.target.checked)} />{en ? "All levels (up to 5 per side)" : "全部层级（每侧最多5档）"}</label>
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 18), to: n + future.length + 2 }); }} className="rounded border border-slate-600 px-3 py-1">{en ? "Reset view" : "重置视图"}</button>
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: n - 2, to: n + future.length + 1 }); }} disabled={!future.length} className="rounded border border-slate-600 px-3 py-1 disabled:opacity-40">{en ? "Focus forecast" : "放大预测区"}</button>
+    </div>
+    <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-slate-700 px-4 py-2 text-xs text-slate-300" data-technical-context="v1">
+      <span>1D · {data.asOf}{data.stale ? en ? " · STALE" : " · 数据待更新" : ""}</span>
+      <span>EMA60: {technical.ema60 === null ? en ? "needs 60 closed bars" : "需60根闭合K线" : `${formatPrice(technical.ema60)} (${technical.ema60DistancePct! >= 0 ? "+" : ""}${technical.ema60DistancePct!.toFixed(1)}%)`}</span>
+      <span>{en ? "DIF / DEA: " : "DIF／DEA："}{technical.zeroAxis === "ABOVE" ? en ? "both above zero" : "均在零轴上方" : technical.zeroAxis === "BELOW" ? en ? "both below zero" : "均在零轴下方" : technical.zeroAxis === "CROSSING" ? en ? "around zero" : "零轴交界" : en ? "warming up" : "样本不足"}</span>
+      <span>{technical.side === "BULL" ? en ? "Bullish histogram · " : "多头柱 · " : technical.side === "BEAR" ? en ? "Bearish histogram · " : "空头柱 · " : ""}{technical.momentum === "EXPANDING" ? en ? "expanding" : "放大" : technical.momentum === "CONTRACTING" ? en ? "contracting" : "缩短" : technical.momentum === "FLIP" ? en ? "sign changed" : "刚换向" : technical.momentum === "FLAT" ? en ? "flat" : "持平" : en ? "unavailable" : "暂不可用"}</span>
+      <span className="text-slate-400">{en ? "Closed bars only; histogram contraction alone is not confirmed divergence." : "只用闭合K线；柱体缩短不等于背驰成立。"}</span>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-3 font-mono text-sm" aria-live="polite">
       <span className={isFuture ? "text-amber-200" : "text-cyan-200"}>{isFuture ? en ? "SIMULATION" : "模拟情景" : en ? "ACTUAL" : "真实行情"} {selected.date}</span>
@@ -134,6 +174,37 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       {fault ? <p role="alert" className="absolute inset-0 bg-slate-900 p-6 text-amber-200">{en ? "Chart could not load. Use the dated OHLC table below and refresh." : "图表加载失败，请先查看下方逐日价格表并刷新。"}</p> : null}
     </div>
     <div className="flex flex-wrap justify-between gap-2 px-4 py-2 text-xs text-slate-400"><span>{en ? "Drag / pinch to zoom · Volume is historical only" : "拖动查看／双指缩放 · 成交量仅为历史真实数据"}</span><a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">Charts by TradingView Lightweight Charts™</a></div>
+    <details className="border-t border-slate-700 p-4 text-sm" data-czsc-research="v1">
+      <summary className="cursor-pointer">{en ? "CZSC structure comparison · research tools" : "CZSC结构对照 · 研究工具"}</summary>
+      <p className="my-2 text-xs text-slate-400">{en ? "Export these closed candles, run the pinned CZSC offline worker, then load its JSON report here. Local overlay only; no server upload or orders. Matching symbol, dates and candle hash are required." : "导出当前闭合K线，经固定版本CZSC离线工具分析后，载入JSON报告画出笔与中枢。仅在当前浏览器叠加，不上传服务器、不下单；标的、日期和K线校验值必须一致。"}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" disabled={!researchInput} className="rounded border border-slate-600 px-3 py-1 disabled:opacity-40" onClick={() => {
+          if (!researchInput) return;
+          const url = URL.createObjectURL(new Blob([JSON.stringify(researchInput)], { type: "application/json" }));
+          const link = document.createElement("a"); link.href = url; link.download = `czsc-${data.assetId}-${data.asOf}.json`; link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }}>{en ? "Export candles" : "导出K线"}</button>
+        <label className="rounded border border-slate-600 px-3 py-1">{en ? "Load CZSC report" : "载入CZSC报告"}
+          <input type="file" accept="application/json,.json" disabled={!researchInput} className="ml-2 max-w-[220px] text-xs" onChange={async e => {
+            const file = e.target.files?.[0]; e.target.value = "";
+            if (!file) return;
+            setResearchError(false);
+            try {
+              if (file.size > 2_000_000) throw new Error("FILE_TOO_LARGE");
+              const report = await validateCzscSnapshot(JSON.parse(await file.text()), data);
+              setCzsc({ key: researchKey, report });
+            } catch { setCzsc(null); setResearchError(true); }
+          }} />
+        </label>
+        {overlay ? <button type="button" onClick={() => setCzsc(null)}>{en ? "Clear overlay" : "清除叠加"}</button> : null}
+      </div>
+      {researchError ? <p role="alert" className="mt-2 text-amber-200">{en ? "Report rejected: invalid format or different candles. Export and analyze the current dataset again." : "报告未通过校验：格式不符或不是当前这批K线。请重新导出并分析。"}</p> : null}
+      {overlay ? <div className="mt-3 space-y-2 text-xs text-slate-300">
+        <p>CZSC 1.0.1 · {en ? `Strokes: ${overlay.strokes.length} / centers: ${overlay.zones.length}; ${overlay.replay.revisions} structure retractions during replay.` : `${overlay.strokes.length}笔／${overlay.zones.length}个中枢；逐根回放中结构撤回${overlay.replay.revisions}次。`}</p>
+        <p>{en ? "Purple: strokes. Amber: centers. Endpoint date is NOT signal-availability date. This is structural replay, not a profit backtest." : "紫线为笔，橙线为中枢。拐点日期不等于信号可用日期；这是结构回放，未验证盈利。"}</p>
+        {overlay.strokes.slice(-3).map(s => <p key={s.end}>{s.start} → {s.end} · {en ? "Observed in replay: " : "回放可见日："}{s.observedOn}</p>)}
+      </div> : <p className="mt-2 text-xs text-slate-400">{en ? "CZSC overlay: no matching report loaded." : "CZSC叠加：尚未载入匹配报告。"}</p>}
+    </details>
     <div className="border-t border-slate-700 p-4" data-price-level-ladder="v1">
       <h3 className="font-semibold">{en ? "Support / resistance ladder" : "多级支撑／压力地图"}</h3>
       <p className="mt-1 text-xs text-slate-400">{en ? "R1 → R2 → R3 after a confirmed breakout; S1 → S2 → S3 after a breakdown. Levels are candidates, not automatic orders. Uncheck all levels for a closer 3-level view." : "突破站稳R1，再看R2、R3；跌破S1，再看S2、S3。位置是观察区，不是自动买卖点；取消全部层级可聚焦最近3档。"}</p>
