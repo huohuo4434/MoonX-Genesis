@@ -1,6 +1,9 @@
-// Immutable pre-meeting editorial record. Append a dated review; never overwrite v1.
+// Versioned pre-meeting editorial. Prior publications remain in the referenced Git commit.
 export const FED_SPECIAL = {
-  id: "fed-september-2026-v1",
+  id: "fed-september-2026-v2",
+  revision: 2,
+  previousVersion: { id: "fed-september-2026-v1", commit: "4ce6f184b80bcaeba49f75ab8113789a9d47f447" },
+  revisionReason: "Replace internal process wording with a chart-grounded Liu Yao and weekly Qimen explanation; HOLD call and scoring unchanged.",
   path: "/fed-september-2026",
   versionDate: "2026-09-13",
   decisionAt: "2026-09-16T18:00:00Z",

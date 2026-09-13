@@ -4,7 +4,22 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { FedDecisionTeaser, FedSpecialView } from "../components/research/FedSeptemberSpecial";
-import { canReadFedSpecial, fedSpecialPhase, judgeFedHold } from "../lib/research/fed-september-2026";
+import { FED_SPECIAL, canReadFedSpecial, fedSpecialPhase, judgeFedHold } from "../lib/research/fed-september-2026";
+
+test("v2 uses chart-grounded editorial voice in both languages and preserves the prior call", () => {
+  const zh = renderToStaticMarkup(<FedSpecialView en={false} canRead={true} />);
+  const en = renderToStaticMarkup(<FedSpecialView en={true} canRead={true} />);
+  assert.match(zh, /六爻与奇门同向/);
+  assert.match(zh, /未土发动化卯木，受回头克/);
+  assert.match(zh, /等待正式决议检验/);
+  assert.match(en, /Liu Yao and Qimen align/);
+  assert.match(en, /Wei Earth to Mao Wood/);
+  assert.doesNotMatch(zh + en, /用户提供|只作辅助|因果证据|supplied Liu Yao|Traditional divination is supplementary/);
+  assert.equal(FED_SPECIAL.call, "HOLD");
+  assert.equal(FED_SPECIAL.revision, 2);
+  assert.equal(FED_SPECIAL.previousVersion.commit, "4ce6f184b80bcaeba49f75ab8113789a9d47f447");
+  assert.equal(FED_SPECIAL.status, "AWAITING_OFFICIAL_RESULT");
+});
 
 test("ordinary free accounts unlock; anonymous accounts do not", () => {
   assert.equal(canReadFedSpecial({ authenticated: true }), true);

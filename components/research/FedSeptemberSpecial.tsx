@@ -17,7 +17,7 @@ const copy = {
     sections: [
       { title: "01 / 为什么仍把不变作为主情景", body: "加息压力与立即加息不是同一件事。BLS公布的8月整体CPI同比为3.4%，核心CPI同比从2.5%降至2.4%；汽油贡献了整体月度涨幅的三分之一以上。我们的解释是：能源冲击与基础通胀需要区分，美联储仍可能选择维持利率，同时用偏鹰沟通保留后续加息空间。这是对公开数据的研究假设，不是内部消息，也不是数据已经证明会暂停。" },
       { title: "02 / 最强反方，必须摆出来", body: "同一份BLS数据也显示核心CPI环比由0.2%升至0.3%，不能只挑同比回落的一面。能源冲击若扩散到通胀预期，或就业与通胀共同促使决策者立即收紧，加息25基点就可能兑现。上述市场快照明显不利于我们的主情景。逆向不等于正确；本专题不编造未经校准的高胜率。" },
-      { title: "03 / 研究方法与判断边界", body: "本次立场参考政策情景分析，以及用户提供的六爻、奇门研究资料；传统预测只作辅助，不是可验证的经济因果证据，也不能换算成统计概率。多位研究者同向，不代表彼此独立，更不代表结论一定正确。这里只讨论9月这次会议，不延伸成全年不会加息。" },
+      { title: "03 / 六爻与奇门同向：9月仍看不加息", body: "我们将六爻与奇门遁甲的研判相互参照，方向一致：9月这次议息，仍以维持利率不变为主。\n\n六爻重在爻气与生克，不只看卦名。8月31日的议息卦中，世爻为寅木、临朱雀，起卦时逢申月冲破；朱雀主消息与言论，这一取象提示加息声势虽强，却未必落实。再看代表政策文书的父母爻：未土发动化卯木，受回头克；结合亥卯未合木局克土的取象，关键落在“动而受制”。我们的解读是：有加息之声，但政策落地有阻。\n\n奇门周度研判同样倾向“不加不降”，与六爻判断相呼应。因此，我们不把鹰派表态直接等同于本次加息，继续维持9月利率不变的主判断，等待正式决议检验。" },
       { title: "04 / 不加息，不等于闭眼买", body: "情景一：维持不变、沟通偏温和，可能缓解部分收紧担忧；但BTC与科技股仍需确认反弹能否站稳。情景二：维持不变、沟通偏鹰，可能先反弹再回吐，也可能直接承压。情景三：实际加息，本专题的主判断失误，应重新评估，不用“已经计价”替错误开脱。黄金还受美元与实际利率影响，不能仅凭不加息就断言上涨。以上均为条件情景，不是买卖指令。" },
     ],
     rulesTitle: "05 / 结果怎么判，提前写清楚",
@@ -39,7 +39,7 @@ const copy = {
     sections: [
       { title: "01 / Why hold remains our base case", body: "Pressure to tighten is not an immediate decision to tighten. BLS reported August headline CPI at 3.4% year over year and core CPI slowing from 2.5% to 2.4%; gasoline contributed more than a third of the monthly headline rise. Our interpretation is that energy shocks and underlying inflation should be distinguished. The Fed could hold while preserving a later hike through hawkish guidance. This is a hypothesis based on public data, not inside information or proof of a pause." },
       { title: "02 / The strongest countercase", body: "The same BLS report shows monthly core CPI accelerating from 0.2% to 0.3%. We cannot cherry-pick the slower annual figure. Energy spillovers into inflation expectations, together with employment and inflation conditions, could prompt an immediate 25-basis-point hike. The cited market snapshot weighs against our base case. Being contrarian is not proof of an edge; we assign no uncalibrated high win probability." },
-      { title: "03 / Method and limits", body: "This editorial draws on policy scenarios and supplied Liu Yao / Qimen research. Traditional divination is supplementary: it is not verified economic causal evidence and cannot be converted into a statistical probability. Agreement among researchers is not necessarily independent confirmation. This call covers this September meeting only, not the rest of the year." },
+      { title: "03 / Liu Yao and Qimen align: our September hold call", body: "Our cross-reading of Liu Yao and weekly Qimen analysis points in the same direction: an unchanged target range at this September meeting remains our primary call.\n\nIn Liu Yao, we examine the lines' strength and interactions rather than relying on the hexagram's name. In the August 31 rate-decision chart, the self line is Yin Wood with Vermilion Bird, clashed by the Shen month at casting. Vermilion Bird represents messages and speech: we read this as strong hike rhetoric that may not become action. The parent line, representing policy documents, moves from Wei Earth to Mao Wood and is controlled by its transformed line. Together with the Hai–Mao–Wei Wood combination controlling Earth, the reading emphasizes movement meeting restraint. Our interpretation: pressure for a hike, but obstacles to implementation.\n\nThe weekly Qimen assessment also favors neither a hike nor a cut, echoing the Liu Yao reading. We therefore distinguish hawkish language from an actual September hike and retain our hold call, to be tested against the official decision." },
       { title: "04 / No hike is not an automatic buy signal", body: "Scenario 1: an unchanged range with softer guidance could ease some tightening fears; BTC and technology stocks still need sustained price confirmation. Scenario 2: an unchanged range with hawkish guidance could produce a fading bounce or continued weakness. Scenario 3: an actual hike makes our primary call wrong; 'already priced in' is not a reason to relabel it a success. Gold also responds to the dollar and real yields. These are conditional scenarios, not trading instructions." },
     ],
     rulesTitle: "05 / Judgment rules, written before the result",
@@ -73,13 +73,13 @@ export function FedSpecialView({ en, canRead, now = new Date() }: { en: boolean;
       <p className="text-sm text-amber-300">{c.badge}</p>
       <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">{c.title}</h1>
       <p className="mt-5 text-xl font-medium">{c.call}</p>
-      <p className="mt-3 text-sm text-muted-foreground">v1 · {FED_SPECIAL.versionDate} · {fedSpecialPhase(now) === "PRE_MEETING" ? c.status : c.review}</p>
+      <p className="mt-3 text-sm text-muted-foreground">v{FED_SPECIAL.revision} · {FED_SPECIAL.versionDate} · {fedSpecialPhase(now) === "PRE_MEETING" ? c.status : c.review}</p>
       <p className="mt-2 text-sm text-muted-foreground">{c.timing}</p>
     </header>
     <p className="mt-6 leading-7">{c.intro}</p>
     <p className="mt-4 rounded-xl border border-border p-4 text-sm leading-6 text-muted-foreground">{c.snapshot}</p>
     {canRead ? <article data-fed-full className="mt-8 space-y-7">
-      {c.sections.map(section => <section key={section.title}><h2 className="text-xl font-semibold">{section.title}</h2><p className="mt-3 leading-8 text-muted-foreground">{section.body}</p></section>)}
+      {c.sections.map(section => <section key={section.title}><h2 className="text-xl font-semibold">{section.title}</h2><p className="mt-3 whitespace-pre-line leading-8 text-muted-foreground">{section.body}</p></section>)}
       <section className="rounded-2xl border border-violet-400/30 bg-violet-500/5 p-5"><h2 className="text-xl font-semibold">{c.rulesTitle}</h2><ul className="mt-3 list-disc space-y-3 pl-5 leading-7">{c.rules.map(rule => <li key={rule}>{rule}</li>)}</ul></section>
     </article> : <section data-fed-gate className="mt-8 rounded-2xl border border-border p-6">
       <h2 className="text-xl font-semibold">{c.register}</h2><p className="mt-3 leading-7 text-muted-foreground">{c.outline}</p>
