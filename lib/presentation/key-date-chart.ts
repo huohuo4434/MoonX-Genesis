@@ -82,6 +82,8 @@ export function chartLevelLadder(bars: ChartBar[], referencePrice?: number) {
   const zones = swingClusters(bars, ["low", "high"]);
   return {
     supports: zones.filter(z => z.high < price).sort((a, b) => b.high - a.high).slice(0, 5),
-    resistances: zones.filter(z => z.low > price).sort((a, b) => a.low - b.low).slice(0, 5),
+    // A newer intraday anchor may be inside a daily resistance band. Keep that
+    // band visible until its upper edge is cleared, rather than skipping it.
+    resistances: zones.filter(z => referencePrice !== undefined ? z.high >= price : z.low > price).sort((a, b) => a.low - b.low).slice(0, 5),
   };
 }
