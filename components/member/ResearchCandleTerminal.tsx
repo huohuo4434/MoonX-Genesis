@@ -66,7 +66,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
           color: b.close >= b.open ? "#26a69a" : "#ef5350", borderColor: b.close >= b.open ? "#80cbc4" : "#ffab91", wickColor: b.close >= b.open ? "#80cbc4" : "#ffab91" }))]);
       const last = actualBars.at(-1)!;
       series.createPriceLine({ price: last.close, color: "#cbd5e1", lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: en ? "Last real close" : "真实收盘" });
-      const levels = chartLevelLadder(data.bars);
+      const levels = chartLevelLadder(data.bars, projection?.technical?.anchorPrice);
       const shown = [...levels.supports.slice(0, allLevels ? 5 : 3), ...levels.resistances.slice(0, allLevels ? 5 : 3)];
       series.applyOptions({ autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
         const info = original();

@@ -100,4 +100,6 @@ test('chart support/resistance labels use the current 4h anchor without rewritin
   assert.deepEqual(chartLevelLadder(bars, (band.low + band.high) / 2).resistances[0], band);
   const terminal = readFileSync('components/member/ResearchCandleTerminal.tsx', 'utf8');
   assert.match(terminal, /chartLevelLadder\(data.bars, projection\?\.technical\?\.anchorPrice\)/);
+  assert.equal(terminal.match(/chartLevelLadder\(data.bars, projection\?\.technical\?\.anchorPrice\)/g)?.length, 2);
+  assert.doesNotMatch(terminal, /chartLevelLadder\(data.bars\)/);
 });
