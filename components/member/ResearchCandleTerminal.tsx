@@ -29,7 +29,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
   const researchKey = researchInput ? JSON.stringify(researchInput) : "";
   // A refresh, correction, or symbol change hides an old local report immediately.
   const overlay = czsc?.key === researchKey && researchKey ? czsc.report : null;
-  const ladder = chartLevelLadder(data.bars);
+  const ladder = chartLevelLadder(data.bars, projection?.technical?.anchorPrice);
   const future = projection?.candles ?? [];
   const selected = future.find(b => b.date === hoverDate) ?? data.bars.find(b => b.date === hoverDate) ?? future[0] ?? data.bars.at(-1)!;
   const isFuture = future.some(b => b.date === selected.date);

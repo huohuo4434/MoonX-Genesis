@@ -62,11 +62,10 @@ export function projectTechnicalCandles(data: KeyDateChartData, sources: Forecas
   const fourHour = usable4h ? technicalFrame(closed4h, duration) : null;
   const anchorPrice = fourHour?.close ?? daily.close;
   const today = exchangeDate(now, data.timeZone);
-  const ladder = chartLevelLadder(data.bars);
-  // Reclassify the visible daily pivot ladder against the newer 4h anchor.
-  const zones = [...ladder.supports, ...ladder.resistances];
-  const support = zones.filter(z => z.high < anchorPrice).sort((a, b) => b.high - a.high)[0] ?? null;
-  const resistance = zones.filter(z => z.low > anchorPrice).sort((a, b) => a.low - b.low)[0] ?? null;
+  // Use the same reference for chart labels and scenario barriers, across all pivots.
+  const ladder = chartLevelLadder(data.bars, anchorPrice);
+  const support = ladder.supports[0] ?? null;
+  const resistance = ladder.resistances[0] ?? null;
   const nearResistance = !!resistance && resistance.low - anchorPrice <= metrics.atr14 * .5;
   const nearSupport = !!support && anchorPrice - support.high <= metrics.atr14 * .5;
   return (['WEEK', 'MONTH'] as const).flatMap(level => {

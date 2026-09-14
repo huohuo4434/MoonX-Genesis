@@ -77,8 +77,8 @@ export function chartZones(bars: ChartBar[]): { support: ChartZone | null; resis
 /** Display-only ladder from closed bars. Broken historical highs/lows change sides
  * relative to the last close, but remain candidates until a retest confirms them.
  * No extrapolated targets when price is outside the available history. */
-export function chartLevelLadder(bars: ChartBar[]) {
-  const price = bars.at(-1)?.close ?? 0;
+export function chartLevelLadder(bars: ChartBar[], referencePrice?: number) {
+  const price = referencePrice !== undefined && Number.isFinite(referencePrice) && referencePrice > 0 ? referencePrice : bars.at(-1)?.close ?? 0;
   const zones = swingClusters(bars, ["low", "high"]);
   return {
     supports: zones.filter(z => z.high < price).sort((a, b) => b.high - a.high).slice(0, 5),

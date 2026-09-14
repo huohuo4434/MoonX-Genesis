@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { projectTechnicalCandles, technicalFrame } from '../lib/research/technical-candle-outlook';
 import { parseClosedFourHour } from '../lib/market-data/chart-crypto-four-hour';
-import { chartZones, type KeyDateChartData } from '../lib/presentation/key-date-chart';
+import { chartZones, chartLevelLadder, type KeyDateChartData } from '../lib/presentation/key-date-chart';
 import type { ForecastPath } from '../lib/presentation/forecast-path';
 
 const now = Date.parse('2026-09-15T06:00:00Z');
@@ -84,4 +84,18 @@ test('member wiring uses technical engine without order APIs; archives include 4
   assert.match(ui, /300_000/);
   const route = readFileSync('app/api/member/key-date-chart/route.ts', 'utf8');
   assert.ok(route.indexOf('await requireMemberDeviceAccess') < route.indexOf('await getDailyProjection'));
+});
+
+test('chart support/resistance labels use the current 4h anchor without rewriting daily candles', () => {
+  const data = fixture();
+  const bars = data.bars.map((b, i) => ({ ...b, high: b.high + (i % 8 === 0 ? 20 : 0), low: b.low - (i % 7 === 0 ? 20 : 0) }));
+  const before = JSON.stringify(bars);
+  const reference = 650;
+  const levels = chartLevelLadder(bars, reference);
+  assert.ok(levels.supports.length > 0 && levels.resistances.length > 0);
+  assert.ok(levels.supports.every(z => z.high < reference));
+  assert.ok(levels.resistances.every(z => z.low > reference));
+  assert.equal(JSON.stringify(bars), before);
+  const terminal = readFileSync('components/member/ResearchCandleTerminal.tsx', 'utf8');
+  assert.match(terminal, /chartLevelLadder\(data.bars, projection\?\.technical\?\.anchorPrice\)/);
 });
