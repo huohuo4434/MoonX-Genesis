@@ -29,8 +29,10 @@ export function MemberOperationDesk() {
   const [state, setState] = useState<{ asset: string; data?: DailyProjectionData; failed?: boolean } | null>(null);
   const selected = ASSETS.find(([id]) => id === asset)!;
   useEffect(() => {
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") setRequest(n => n + 1); }, 300_000);
-    return () => window.clearInterval(timer);
+    const refresh = () => { if (document.visibilityState === "visible") setRequest(n => n + 1); };
+    const timer = window.setInterval(refresh, 300_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, []);
   useEffect(() => {
     const controller = new AbortController();

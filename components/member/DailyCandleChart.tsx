@@ -9,12 +9,32 @@ const directions: Record<string, string> = { 上涨: "Rising", 下跌: "Falling"
 const sourcePeriod = (p: CandleProjection, en: boolean) => p.sourcePeriodStart && p.sourcePeriodEnd
   ? `${p.sourcePeriodStart}—${p.sourcePeriodEnd}` : en ? 'Source period unavailable' : '原预测周期待核验';
 const horizonLabel = (p: CandleProjection | undefined, en: boolean) => {
+  if (p?.technical) return p.level === 'WEEK' ? (en ? 'Next 7 days · technical outlook' : '未来7天·技术推演') : (en ? 'Next 4 weeks · technical outlook' : '未来4周·技术推演');
   if (p?.level === 'WEEK') return en ? 'Weekly direction' : '周度方向';
   if (p?.sourceHorizon === 'STAGE') return en ? 'Stage background' : '阶段背景';
   const days = p?.sourcePeriodStart && p.sourcePeriodEnd ? (Date.parse(p.sourcePeriodEnd) - Date.parse(p.sourcePeriodStart)) / 86_400_000 : null;
   return days === null ? en ? 'Longer-term background' : '较长周期背景'
     : days > 45 ? en ? 'Multi-month background' : '多月背景' : en ? 'Monthly background' : '月度背景';
 };
+
+function TechnicalReadout({ projection, en }: { projection?: CandleProjection; en: boolean }) {
+  const t = projection?.technical;
+  if (!t) return null;
+  const zone = (z: typeof t.support) => z ? `${price(z.low)}${z.high !== z.low ? `–${price(z.high)}` : ''}` : (en ? 'No confirmed historical pivot' : '暂无可确认的历史位置');
+  return <div className="space-y-2 rounded-xl border border-cyan-400/25 bg-cyan-950/15 p-3 text-sm" data-technical-outlook="v5">
+    <p><strong>{en ? 'Technical analysis leads; timing windows assist.' : '技术走势主导，关键时间窗口辅助。'}</strong></p>
+    <p>{en ? 'Support / loss-of-support watch' : '支撑／失守观察'}：{zone(t.support)} · {en ? 'Resistance / breakout watch' : '压力／突破观察'}：{zone(t.resistance)}</p>
+    <p>{t.nearResistance ? (en ? 'Already near resistance: a rally is not a confirmed breakout. Wait for a close above and a successful retest.' : '已到压力附近：上涨不等于突破，先看收盘站上、回踩守住。')
+      : t.nearSupport ? (en ? 'Near support: a close below weakens the recovery case; do not assume a bottom.' : '接近支撑：收盘跌破则修复预期减弱，不直接认定见底。')
+        : (en ? 'Watch support hold and resistance break. A failed breakout or lost support requires reassessment.' : '看支撑能否守住、压力能否突破；冲高回落或支撑失守后重新评估。')}</p>
+    <p className="text-xs text-slate-300">{en ? 'Scenario anchor' : '推演起点'} {price(t.anchorPrice)} · {t.fourHour ? (en ? 'latest closed 4h candle' : '最新闭合4小时K线') : (en ? 'last daily close' : '最近日收盘')}
+      {t.fourHour ? ` · ${new Date(t.fourHour.through).toLocaleString(en ? 'en-US' : 'zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })} (UTC+8)` : ''}</p>
+    <p className="text-xs text-slate-400">{en ? 'Daily EMA60' : '日线EMA60'} {price(t.daily.ema60)} · MACD {t.daily.dif >= 0 ? (en ? 'DIF above zero' : 'DIF在零轴上') : (en ? 'DIF below zero' : 'DIF在零轴下')} · {t.daily.histogram >= 0 ? (en ? 'positive histogram' : '正动能柱') : (en ? 'negative histogram' : '负动能柱')}
+      {t.fourHour ? ` · 4h EMA60 ${price(t.fourHour.ema60)} · ${t.intradaySource}` : ''}</p>
+    {t.intradayStatus === 'UNAVAILABLE' ? <p className="text-xs text-amber-200">{en ? '4h update unavailable: daily-only scenario; the current intraday move is not confirmed here.' : '4小时更新暂不可用：当前仅按日线推演，尚未确认最新盘中变化。'}</p> : null}
+    <p className="text-xs text-slate-400">{en ? 'New forward scenario, not a revision of saved forecasts or an automatic order. Prices drive updates; a Fed hold or legislative progress does not guarantee a rally.' : '这是随行情更新的新推演，不修改历史预测，也不自动下单。不加息、法案进展都不等于价格必涨。'}</p>
+  </div>;
+}
 
 export function DailyCandleChart({ data, en, compact = false }: { data: DailyProjectionData; en: boolean; compact?: boolean }) {
   const [level, setLevel] = useState<"MONTH" | "WEEK">(() => data.projections.some(p => p.level === 'WEEK') ? 'WEEK' : 'MONTH');
@@ -24,23 +44,26 @@ export function DailyCandleChart({ data, en, compact = false }: { data: DailyPro
   const projection = choices.find(p => p.sourceId === source) ?? choices[0];
   const last = data.bars.at(-1)!;
   const missing = data.unavailable?.[level] ?? 'NO_SOURCE';
+  const minimumBars = data.engine.startsWith('technical-first') ? 65 : 20;
   const missingText = missing === 'INSUFFICIENT_BARS'
-    ? en ? `Only ${data.bars.length} closed candles or insufficient volatility history; at least 20 are needed.` : `闭合日K共${data.bars.length}根，尚不足20根或缺少有效波动样本，暂不推演。`
+    ? en ? `${data.bars.length} closed candles; at least ${minimumBars} valid candles are needed for this engine.` : `闭合日K共${data.bars.length}根，本引擎至少需要${minimumBars}根有效样本，暂不推演。`
     : missing === 'CALENDAR' ? en ? 'Trading calendar for this period is pending verification.' : '该周期交易日历尚待核验。'
       : missing === 'NO_FUTURE_SESSION' ? en ? 'This published period has no remaining verified session.' : '该预测周期已无剩余可推演交易日。'
         : level === 'WEEK' ? en ? 'No independent weekly forecast. The monthly/stage chart remains available above.' : '暂无独立周预测，可切换上方月度／阶段图查看，不能把月卦冒充周卦。'
           : en ? 'No monthly/stage forecast. Check the weekly chart above.' : '暂无月度／阶段预测，可切换上方周度图查看。';
   const checkAt = new Date(data.checkedAt).toLocaleString(en ? "en-US" : "zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
   if (compact) return <div className="mt-4 space-y-3" data-compact-candles="true">
-    <div className="flex flex-wrap gap-2">{(["WEEK", "MONTH"] as const).map(value => <button key={value} type="button" aria-pressed={level === value} onClick={() => { setLevel(value); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === value ? "border-cyan-300 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{value === "WEEK" ? (en ? "Weekly outlook" : "本周走势") : (en ? "Longer-term outlook" : "较长周期走势")}</button>)}</div>
+    <div className="flex flex-wrap gap-2">{(["WEEK", "MONTH"] as const).map(value => <button key={value} type="button" aria-pressed={level === value} onClick={() => { setLevel(value); setSource(""); }} className={`rounded-lg border px-4 py-2 text-sm ${level === value ? "border-cyan-300 text-cyan-100" : "border-slate-700 text-slate-400"}`}>{value === "WEEK" ? (en ? "Next 7 days" : "未来7天") : (en ? "Next 4 weeks" : "未来4周")}</button>)}</div>
     {choices.length > 1 ? <select aria-label={en ? "Forecast period" : "预测周期"} value={projection?.sourceId} onChange={e => setSource(e.target.value)} className="rounded-lg bg-slate-900 p-2">{choices.map(p => <option key={p.sourceId} value={p.sourceId}>{sourcePeriod(p, en)} · V{p.sourceVersion}</option>)}</select> : null}
     <p className="text-sm"><strong>{data.stale || !projection ? (en ? "No current scenario" : "暂无有效走势推演") : (en ? directions[projection.direction] ?? projection.direction : projection.direction)}</strong>{projection && !data.stale ? ` · ${sourcePeriod(projection, en)}` : ""} · {en ? "Daily close" : "日收盘"} {price(last.close)} ({last.date})</p>
     {data.stale ? <p className="text-sm text-amber-200">{en ? `Delayed feed; expected ${data.expectedAsOf}. Scenario withheld.` : `行情延迟，应更新至${data.expectedAsOf}；暂停推演。`}</p> : !projection ? <p className="text-sm text-amber-200">{missingText}</p> : null}
     <p className="text-xs text-amber-100">{en ? "Left: real daily OHLC. Right: illustrative future scenario, not quotes or promised targets. Daily levels do not confirm an intraday entry." : "左侧真实日K，右侧未来情景模拟，不是真实报价或保证目标；日线位置不等于日内入场已确认。"}</p>
+    {!data.stale ? <TechnicalReadout projection={projection} en={en} /> : null}
     {projection?.risk !== "NORMAL" && projection && !data.stale ? <p className="text-sm text-amber-200">{projection.risk === "NEAR_RESISTANCE" ? (en ? "Near resistance: wait for a confirmed breakout." : "已接近日线压力，先看能否有效突破。") : (en ? "Below EMA60: recovery remains unconfirmed." : "仍在EMA60下方，修复尚未确认。")}</p> : null}
     <ResearchCandleTerminal data={data} projection={data.stale ? undefined : projection} en={en} band={false} />
     <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? "Daily OHLC table" : "逐日价格表"}</summary><div className="mt-2 max-h-64 overflow-auto"><table className="w-full text-right"><thead><tr>{[en ? "Type / Date" : "类型／日期", "O", "H", "L", "C"].map(label => <th scope="col" key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{[...data.bars.slice(-10).map(bar => ({ ...bar, simulated: false })), ...(data.stale ? [] : projection?.candles ?? []).map(bar => ({ ...bar, simulated: true }))].map(bar => <tr key={bar.date}><th scope="row" className="p-2">{bar.simulated ? (en ? "Sim" : "模拟") : (en ? "Real" : "真实")} {bar.date}</th>{[bar.open, bar.high, bar.low, bar.close].map((value, index) => <td key={index} className="p-2">{price(value)}</td>)}</tr>)}</tbody></table></div></details>
     <p className="text-xs text-slate-400">{data.quoteSymbol} · {data.source} · {data.timeZone} · {en ? "Checked (UTC+8)" : "检查时间（北京）"} {checkAt}{data.assetId === "asteroid" ? (en ? " · USD token price, not market cap" : " · 美元单价，非市值") : ""}{data.assetId === "spcx" ? (en ? " · USDC perpetual, not stock" : " · USDC永续，非股票") : ""}</p>
+    <p className="text-xs text-slate-400">{en ? 'Refresh check every 5 minutes while visible. Crypto daily candles close at 08:00 UTC+8; closed 4h bars refresh the short-term scenario between daily closes.' : '页面可见时每5分钟检查，重新切回页面也会刷新。加密日K北京时间08:00收完，两次日收盘之间用已闭合4小时K更新短期推演。'}</p>
     {data.archiveStatus === "UNAVAILABLE" ? <p className="text-xs text-amber-200">{en ? "Not archived; not a saved forward sample." : "存档未成功，不计为已保存前瞻样本。"}</p> : null}
   </div>;
   return <div className="mt-5 space-y-3" data-daily-candle-projection="v2">
@@ -50,9 +73,10 @@ export function DailyCandleChart({ data, en, compact = false }: { data: DailyPro
       </div>
       <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={band} onChange={e => setBand(e.target.checked)} />{en ? "Volatility bounds (not probability)" : "波动边界（非概率区间）"}</label>
     </div>
-    <div className="space-y-1 rounded-lg border border-slate-700 p-3 text-sm" aria-label={en ? 'Directions by source period' : '分周期正式方向'}>
+    {!data.stale ? <TechnicalReadout projection={projection} en={en} /> : null}
+    <div className="space-y-1 rounded-lg border border-slate-700 p-3 text-sm" aria-label={en ? 'Outlooks by horizon' : '分周期走势'}>
       {data.projections.map(p => <p key={p.sourceId}>{horizonLabel(p, en)} · {sourcePeriod(p, en)}：<strong>{en ? directions[p.direction] ?? p.direction : p.direction}</strong></p>)}
-      {data.projections.some(p => p.level === 'WEEK') && data.projections.some(p => p.level === 'MONTH') ? <p className="text-xs text-slate-400">{en ? 'Use the weekly direction for that week. A longer-term scenario does not replace it.' : '该周看周度方向；较长周期背景不替代本周判断。'}</p> : null}
+      {data.projections.some(p => p.level === 'WEEK') && data.projections.some(p => p.level === 'MONTH') ? <p className="text-xs text-slate-400">{en ? 'Short-term moves and the longer-term trend can differ; check the selected horizon.' : '短期反弹与较长周期趋势可能不同，请按所选周期看。'}</p> : null}
     </div>
     {choices.length > 1 ? <select aria-label={en ? "Published period" : "正式预测周期"} className="rounded-lg bg-slate-900 p-2 text-sm" value={projection?.sourceId} onChange={e => setSource(e.target.value)}>{choices.map(p => <option key={p.sourceId} value={p.sourceId}>{horizonLabel(p, en)} · {sourcePeriod(p, en)} · V{p.sourceVersion}</option>)}</select> : null}
     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
@@ -67,13 +91,16 @@ export function DailyCandleChart({ data, en, compact = false }: { data: DailyPro
     {data.assetId === 'asteroid' ? <p className="text-xs text-slate-400">{en ? 'ASTEROID token price in USD, not market capitalization; Ethereum contract 0xf280…694126.' : '这里是ASTEROID代币美元单价，不是市值；以太坊合约0xf280…694126。'}</p> : null}
     {['gold','silver','wti-crude'].includes(data.assetId) ? <p className="text-xs text-slate-400">{en ? 'Continuous futures reference, not spot; rollover can affect prices. September settlement-day calendar verified; no separate Sep 7 daily forecast candle.' : '连续期货参考行情，并非现货；换月可能影响价格。已核验9月结算交易日日历，9月7日不单独绘制预测日K。'}</p> : null}
     {projection && projection.risk !== "NORMAL" ? <p className="text-sm text-amber-200">{projection.risk === "NEAR_RESISTANCE" ? en ? "Near daily resistance: upside scenario reduced. Watch the breakout." : "接近日线压力：上行幅度已收敛，先看突破能否站稳。" : en ? "Below daily EMA60: recovery unconfirmed; upside scenario reduced." : "处于日线EMA60下方：修复待确认，上行幅度已收敛。"}</p> : null}
-    <ResearchCandleTerminal data={data} projection={projection} en={en} band={band} />
+    <ResearchCandleTerminal data={data} projection={data.stale ? undefined : projection} en={en} band={band} />
     <p className="text-xs text-slate-400">{en ? "Daily data through" : "日K已更新至"} {data.asOf} · {en ? "Checked (Beijing)" : "检查时间（北京）"} {checkAt} · {data.source} · {data.timeZone}</p>
     {data.archiveStatus === "UNAVAILABLE" ? <p className="text-xs text-amber-200">{en ? "Archiving failed. Not a saved forward sample." : "版本存档未成功；当前测算不算已保存的前瞻样本。"}</p> : null}
     <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? "Daily OHLC prices" : "逐日开高低收价格表"}</summary>
       <div className="mt-3 max-h-64 overflow-auto"><table className="w-full text-right"><caption className="p-2 text-left">{en ? "Observed and simulated prices are labeled separately." : "真实行情与未来模拟分别标记"}</caption><thead><tr>{[en ? "Type / Date" : "类型／日期", "O", "H", "L", "C"].map(s => <th scope="col" key={s} className="p-2">{s}</th>)}</tr></thead><tbody>{[...data.bars.slice(-10).map(b => ({ ...b, future: false })), ...(projection?.candles ?? []).map(b => ({ ...b, future: true }))].map(b => <tr key={b.date} className="border-t border-slate-800"><th scope="row" className={`p-2 ${b.future ? "text-amber-200" : "text-cyan-200"}`}>{b.future ? en ? "Sim" : "模拟" : en ? "Real" : "真实"} {b.date}</th>{[b.open, b.high, b.low, b.close].map((n, i) => <td key={i} className="p-2">{price(n)}</td>)}</tr>)}</tbody></table></div>
     </details>
-    {projection ? <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? "Simulation assumptions & saved version" : "模拟假设与存档版本"}</summary>
+    {projection?.technical ? <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? 'Technical scenario methodology' : '技术推演与版本'}</summary>
+      <p>{en ? 'EMA trend, MACD and prior-range structure determine direction. Closed 4h data contributes 30% to the 7-day technical score and 10% to the 4-week score; these are heuristic weights, not probabilities. Explicit timing windows add at most 0.15 daily ATR locally and never set the overall direction. Candle shape is illustrative, not a calibrated price forecast.' : 'EMA趋势、MACD与前期区间结构决定主方向。4小时技术分占7天推演30%、4周推演10%，只是规则权重，不是概率。明确的关键窗口仅局部调整最多0.15日ATR，不决定整体方向。蜡烛形态为情景展示，不是经校准的价格预测。'}</p>
+      <p>{data.engine} · {projection.generatedAt}</p>
+    </details> : projection ? <details className="text-xs text-slate-400"><summary className="cursor-pointer">{en ? "Simulation assumptions & saved version" : "模拟假设与存档版本"}</summary>
       <p className="mt-3">{en ? "Direction and dated windows constrain the central ATR14 scenario. A consecutive closed historical sample supplies detrended fluctuations, body sizes and unequal wicks. Residual moves are capped at 0.75 ATR and pinned to zero at explicit dates and the endpoint. Stock gap assumptions are capped at 0.5 ATR; crypto opens connect to the previous simulated close. This single deterministic sample is not a calibrated probability distribution or a day-by-day buy/sell call. Future volume is not generated." : "周期方向、明确日期约束ATR14主路径；取已闭合历史连续样本，去掉其趋势后参考波动、实体和不等长影线。主路径偏移上限0.75 ATR，明确日期与终点偏移归零；股票跳空假设上限0.5 ATR，加密开盘衔接前一模拟收盘。只是一个可复现的形态样本，不是经过校准的概率预测或逐日买卖判断，不生成未来成交量。"}</p>
       <p className="mt-2">{projection.dateBasis === "MODEL_PHASE_ALLOCATION" ? en ? "Undated phases use the original period's verified trading sessions where fully available, not newly predicted turning dates." : "无明确日期的节奏在完整日历可核验时按原周期交易日分配，不冒充新增转折日。" : en ? "Explicit dates remain watch windows, not guaranteed turns." : "明确日期是观察窗口，不保证当日转折。"}</p>
       <p className="mt-2">ATR14 {price(projection.atr14)} · EMA60 {projection.ema60 ? price(projection.ema60) : "—"} · V{projection.sourceVersion} · {projection.generatedAt} · {data.engine} · {data.archiveStatus === "STORED" ? en ? "Archived" : "已存档" : en ? "Not archived" : "未存档"}</p>

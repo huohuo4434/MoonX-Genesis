@@ -8,6 +8,7 @@ import { forecastPaths, forecastGeometry } from '../lib/presentation/forecast-pa
 import { projectDailyCandles, PROJECTION_ENGINE, type DailyProjectionData } from '../lib/research/daily-candle-projection-core';
 import { chartZones } from '../lib/presentation/key-date-chart';
 import { addChartDays } from '../lib/presentation/chart-daily-session';
+import { projectTechnicalCandles } from '../lib/research/technical-candle-outlook';
 
 // tsx uses the repository's preserve JSX setting; provide the classic JSX runtime.
 Object.assign(globalThis, { React });
@@ -46,7 +47,7 @@ test('neutral direction has no manufactured central turn but retains valid varie
   assert.ok(candles.every(c => c.baselineClose === bars.at(-1)!.close));
   assert.ok(new Set(candles.map(c => c.close)).size > 1);
   assert.ok(candles.every(c => c.low <= Math.min(c.open, c.close) && c.high >= Math.max(c.open, c.close)));
-  assert.match(PROJECTION_ENGINE, /v4-horizon/);
+  assert.match(PROJECTION_ENGINE, /technical-first-v5/);
 });
 
 test('holiday week completes the bearish phase on Friday, not the closed weekend', () => {
@@ -80,4 +81,16 @@ test('long-only fallback labels neutral simulation; legacy archives do not inven
   const oldHtml = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: { ...data, projections: legacy }, en: true }));
   assert.match(oldHtml, /Source period unavailable/);
   assert.doesNotMatch(oldHtml, /Multi-month background/);
+});
+
+test('technical-first chart renders bilingual methodology without claiming a locked official direction', () => {
+  const technical = { ...data, projections: projectTechnicalCandles(quote, paths, now) };
+  for (const en of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: technical, en, compact: true }));
+    assert.match(html, /data-technical-outlook="v5"/);
+    assert.ok(html.includes(en ? 'Technical analysis leads' : '技术走势主导'));
+    assert.ok(html.includes(en ? 'Next 7 days' : '未来7天'));
+    assert.ok(html.includes(en ? 'not a revision of saved forecasts' : '不修改历史预测'));
+    assert.doesNotMatch(html, /分周期正式方向/);
+  }
 });

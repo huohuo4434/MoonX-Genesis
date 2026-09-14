@@ -6,7 +6,7 @@ import type { DailyProjectionData } from "./daily-candle-projection-core";
 export const PROJECTION_BUCKET = "moox-private-daily-charts";
 export function projectionArchiveId(data: DailyProjectionData) {
   const hash = createHash("sha256").update(JSON.stringify({ engine: data.engine, bars: data.bars,
-    sources: data.projections.map(p => [p.sourceId, p.sourceVersion, p.windows, p.direction]) })).digest("hex").slice(0, 24);
+    sources: data.projections.map(p => [p.sourceId, p.sourceVersion, p.windows, p.direction, p.technical ?? null]) })).digest("hex").slice(0, 24);
   return `${data.assetId}/${data.projectionDate}-${hash}.json`;
 }
 export async function ensureProjectionBucket() {

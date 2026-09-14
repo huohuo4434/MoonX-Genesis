@@ -7,7 +7,9 @@ import { chartZones } from "@/lib/presentation/key-date-chart";
 import { exchangeDate, expectedClosedSession, finalizedChartBars } from "@/lib/presentation/chart-daily-session";
 import { buildMemberKeyDateRadar, keyDateChartForecasts } from "@/lib/data/member-key-date-radar";
 import { forecastPaths } from "@/lib/presentation/forecast-path";
-import { projectDailyCandles, projectionCoverage, PROJECTION_ENGINE, type DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
+import { projectionCoverage, PROJECTION_ENGINE, type DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
+import { projectTechnicalCandles } from '@/lib/research/technical-candle-outlook';
+import { loadChartFourHour } from './chart-crypto-four-hour';
 
 export const KEY_DATE_SYMBOLS: Record<string, string> = {
   btc: "BTCUSDT", eth: "ETHUSDT", sol: "SOLUSDT", hype: "HYPEUSDT",
@@ -51,7 +53,9 @@ export async function loadKeyDateDaily(assetId: string, now = Date.now()): Promi
     source: crypto || special ? cryptoSource : quoteSymbol.endsWith("=F") ? "Yahoo Finance / continuous futures" : "Yahoo Finance",
     asOf: bars.at(-1)!.date, stale: bars.at(-1)!.date < expectedAsOf, checkedAt: new Date(now).toISOString(),
     expectedAsOf, projectionDate, engine: PROJECTION_ENGINE, projections: [], archiveStatus: "NOT_APPLICABLE", archiveId: null };
-  data.projections = projectDailyCandles(data, paths, now);
+  const intraday = crypto ? await loadChartFourHour(quoteSymbol, cryptoSource, now) : null;
+  data.projections = projectTechnicalCandles(data, paths, now, intraday);
   data.unavailable = projectionCoverage(data, paths, data.projections, now);
+  if (bars.length < 65) data.unavailable = { WEEK: 'INSUFFICIENT_BARS', MONTH: 'INSUFFICIENT_BARS' };
   return data;
 }

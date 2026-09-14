@@ -3,7 +3,7 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "conditional-history-shape-v4-horizon-sessions";
+export const PROJECTION_ENGINE = "technical-first-v5-closed-4h";
 export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
@@ -12,6 +12,7 @@ export type CandleProjection = {
   risk: "NEAR_RESISTANCE" | "BELOW_EMA60" | "NORMAL"; generatedAt: string;
   sourceHorizon?: ForecastPath['sourceHorizon'];
   sourcePeriodStart?: string; sourcePeriodEnd?: string;
+  technical?: import('./technical-candle-outlook').TechnicalOutlook;
 };
 export type DailyProjectionData = KeyDateChartData & {
   checkedAt: string; expectedAsOf: string; projectionDate: string; engine: string;
@@ -55,11 +56,11 @@ function interpolate(points: { x: number; value: number }[], x: number) {
  * not fitted/validated price predictions. No random candles, outcome scoring or trade signals.
  * Source direction is immutable. Date allocation without an explicit window is a model assumption.
  */
-export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[], now: number): CandleProjection[] {
+export function projectDailyCandles(data: KeyDateChartData, paths: ForecastPath[], now: number, anchorPrice?: number): CandleProjection[] {
   if (data.stale) return [];
   const metrics = dailyVolatility(data.bars);
   if (!metrics) return [];
-  const last = data.bars.at(-1)!;
+  const last = { ...data.bars.at(-1)!, ...(anchorPrice && Number.isFinite(anchorPrice) && anchorPrice > 0 ? { close: anchorPrice } : {}) };
   const today = exchangeDate(now, data.timeZone);
   const start = addChartDays(last.date, 1) > today ? addChartDays(last.date, 1) : today;
   const { support, resistance } = chartZones(data.bars);
