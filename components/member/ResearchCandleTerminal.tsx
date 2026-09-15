@@ -5,6 +5,7 @@ import { CandlestickSeries, HistogramSeries, LineSeries, ColorType, CrosshairMod
 import type { DailyProjectionData, CandleProjection } from "@/lib/research/daily-candle-projection-core";
 import { chartLevelLadder } from "@/lib/presentation/key-date-chart";
 import { technicalChartContext } from "@/lib/research/technical-chart-context";
+import { technicalReviewFor } from "@/lib/research/technical-review-levels";
 import { czscInput, validateCzscSnapshot, type CzscSnapshot } from "@/lib/research/czsc-research-contract";
 
 const formatPrice = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < .001 ? 10 : n < 1 ? 6 : 2 });
@@ -21,6 +22,15 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
   const [indicators, setIndicators] = useState(false);
   const [fault, setFault] = useState(false);
   const [allLevels, setAllLevels] = useState(true);
+  const [reviewVisible, setReviewVisible] = useState(true);
+  const [reviewNow, setReviewNow] = useState(() => Date.parse(data.checkedAt));
+  useEffect(() => {
+    setReviewNow(Date.now());
+    const timer = setInterval(() => setReviewNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, [data.checkedAt]);
+  const review = technicalReviewFor(data, reviewNow);
+  const reviewActive = reviewVisible && review?.status === 'ACTIVE';
   const [macd, setMacd] = useState(true);
   const [czsc, setCzsc] = useState<{ key: string; report: CzscSnapshot } | null>(null);
   const [researchError, setResearchError] = useState(false);
@@ -67,7 +77,9 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       const last = actualBars.at(-1)!;
       series.createPriceLine({ price: last.close, color: "#cbd5e1", lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: en ? "Last real close" : "真实收盘" });
       const levels = chartLevelLadder(data.bars, projection?.technical?.anchorPrice);
-      const shown = [...levels.supports.slice(0, allLevels ? 5 : 3), ...levels.resistances.slice(0, allLevels ? 5 : 3)];
+      // Live expiry is gated by reviewActive; avoid resetting zoom every clock tick.
+      const reviewZones = reviewActive ? technicalReviewFor(data, Date.parse(data.checkedAt))?.chartZones ?? [] : [];
+      const shown = reviewZones.length ? reviewZones : [...levels.supports.slice(0, allLevels ? 5 : 3), ...levels.resistances.slice(0, allLevels ? 5 : 3)];
       series.applyOptions({ autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
         const info = original();
         return info?.priceRange && shown.length ? { ...info, priceRange: {
@@ -75,7 +87,11 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
           maxValue: Math.max(info.priceRange.maxValue, ...shown.map(z => z.high)),
         } } : info;
       } });
-      for (const [zones, color, prefix] of [[levels.supports, "#38bdf8", "S"], [levels.resistances, "#fb7185", "R"]] as const) {
+      if (reviewZones.length) reviewZones.forEach((zone, index) => {
+        [...new Set([zone.low, zone.high])].forEach(value => series.createPriceLine({ price: value,
+          color: '#fbbf24', lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `T${index + 1}` }));
+      });
+      else for (const [zones, color, prefix] of [[levels.supports, "#38bdf8", "S"], [levels.resistances, "#fb7185", "R"]] as const) {
         zones.slice(0, allLevels ? 5 : 3).forEach((zone, index) => series.createPriceLine({
           price: (zone.high + zone.low) / 2, color,
           lineStyle: zone.touches >= 2 ? LineStyle.Dashed : LineStyle.Dotted,
@@ -145,7 +161,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
     } catch { chart?.remove(); chart = null; api.current = null; setFault(true); }
     return () => { cancelAnimationFrame(frame); observer?.disconnect(); chart?.remove(); api.current = null; };
     // Hover must not recreate the chart or reset the user's zoom.
-  }, [data, projection, en, band, indicators, allLevels, macd, overlay]);
+  }, [data, projection, en, band, indicators, allLevels, macd, overlay, reviewActive]);
 
   return <div className="overflow-hidden rounded-xl border border-slate-700 bg-[#0b1220]" data-candle-terminal="v2">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 px-4 py-3 text-xs">
@@ -154,9 +170,24 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       <label><input type="checkbox" checked={indicators} onChange={e => setIndicators(e.target.checked)} /> EMA20 / EMA60</label>
       <label><input type="checkbox" checked={macd} onChange={e => setMacd(e.target.checked)} /> MACD (12,26,9)</label>
       <label><input type="checkbox" checked={allLevels} onChange={e => setAllLevels(e.target.checked)} />{en ? "All levels (up to 5 per side)" : "全部层级（每侧最多5档）"}</label>
+      {review?.status === 'ACTIVE' ? <label><input type="checkbox" checked={reviewVisible} onChange={e => setReviewVisible(e.target.checked)} />{en ? '09/14 reviewed levels' : '09/14技术复核点位'}</label> : null}
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 18), to: n + future.length + 2 }); }} className="rounded border border-slate-600 px-3 py-1">{en ? "Reset view" : "重置视图"}</button>
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: n - 2, to: n + future.length + 1 }); }} disabled={!future.length} className="rounded border border-slate-600 px-3 py-1 disabled:opacity-40">{en ? "Focus forecast" : "放大预测区"}</button>
     </div>
+    {review ? <section className="space-y-2 border-b border-amber-400/30 bg-amber-950/15 p-4 text-sm" data-technical-review={review.id}>
+      <h3 className="font-semibold text-amber-200">{en ? '09/14 technical review · USD equity levels' : '09/14技术复核 · 美股美元点位'}</h3>
+      {review.status === 'ACTIVE' ? <>
+        <p>{en ? review.summary.en : review.summary.zh}</p>
+        <p className="text-xs text-amber-200">{review.condition === 'BELOW_WATCH' ? (en ? 'Latest daily close is below the key watch level: do not treat the old rebound case as intact.' : '最新日收盘已低于关键观察位：原反弹条件不能继续按有效处理。') : review.condition === 'AT_OBJECTIVE' ? (en ? 'Latest daily close has reached/passed the objective: reassess, do not chase the old target.' : '最新日收盘已到达或越过目标观察区：重新评估，不追旧目标。') : (en ? 'No live intraday entry confirmation. These are conditional watch levels.' : '尚未确认实时日内入场条件；这些是带条件的观察位置。')}</p>
+        <div className="flex flex-wrap gap-2">{review.zones.map((z, i) => <span key={z.low} className="rounded border border-amber-300/20 px-2 py-1">T{i + 1} · {en ? z.label.en : z.label.zh} {formatPrice(z.low)}{z.high !== z.low ? `–${formatPrice(z.high)}` : ''}</span>)}</div>
+        <p className="text-xs text-slate-400">{en ? 'Gold T-lines replace the automatic S/R lines while checked; uncheck to compare. The automatic ladder below is independent.' : '勾选时金色T线替代自动S/R线，取消勾选即可对照；下方自动支撑压力地图独立保留。'}</p>
+      </> : <p className="text-amber-200">{review.status === 'EXPIRED' ? (en ? 'This pre-decision review has expired. Dated evidence is retained; old levels are no longer plotted as current.' : '本期议息前技术参考已到复核时间，原记录保留，旧点位不再作为当前参考画线。') : review.status === 'BASIS_MISMATCH' ? (en ? 'Quote basis cannot be matched to the source session; reviewed price lines are withheld.' : '当前行情与原图报价口径无法匹配，暂不叠加复核点位。') : (en ? 'A fresh quote check is required; reviewed price lines are withheld.' : '等待新鲜行情校验，暂不叠加复核点位。')}</p>}
+      <details className="text-xs text-slate-400"><summary>{en ? 'Review source and validity' : '复核依据与有效期'}</summary>
+        <p>{en ? 'Meigu Dingfenghu, Sep 14 video transcript and charts; MOOX technical synthesis published Sep 15. Not an original pre-open call.' : '依据美股定风虎9月14日视频文字和截图，由MOOX于9月15日复核整理；不是本站事前盘前预测。'}</p>
+        <p>{en ? 'Reassess no later than Sep 17, 02:00 UTC+8. SNDK short-term exit logic follows the video; the LITE 800 close-based invalidation and MSFT retest conditions are MOOX additions, not quoted teacher stops.' : '最迟北京时间9月17日02:00重新评估。闪迪短线退出逻辑来自原文；LITE收盘800失效条件和微软回踩观察条件为MOOX补充，不冒充虎哥明确止损。'}</p>
+        <p>{en ? 'No change to saved forecasts, simulated candle direction or automatic execution. Slippage and gaps can exceed a watch level.' : '不改已存档预测、模拟K线方向或自动执行；跳空和滑点可能越过观察位。'}</p>
+      </details>
+    </section> : null}
     <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-slate-700 px-4 py-2 text-xs text-slate-300" data-technical-context="v1">
       <span>1D · {data.asOf}{data.stale ? en ? " · STALE" : " · 数据待更新" : ""}</span>
       <span>EMA60: {technical.ema60 === null ? en ? "needs 60 closed bars" : "需60根闭合K线" : `${formatPrice(technical.ema60)} (${technical.ema60DistancePct! >= 0 ? "+" : ""}${technical.ema60DistancePct!.toFixed(1)}%)`}</span>
