@@ -1,8 +1,8 @@
 {
-  "lastCheckedAt": "2026-09-12T12:57:09Z",
+  "lastCheckedAt": "2026-09-17T11:14:39Z",
   "checkNote": {
-    "zh": "栏目已开放，首条精选待发布。只发布可核验、条件完整的计划；不把支撑线直接当买点。",
-    "en": "The section is open; the first pick is pending. We publish only verifiable, complete plans, not support lines presented as buy signals."
+    "zh": "本轮未发布精选：所检查的交易计划数据仍待核验，未能确认完整的入场、止损、目标及扣除估算成本后的收益风险比。首条精选继续等待，不用图表支撑线补造交易计划。",
+    "en": "No pick published in this review: the checked trade-plan data still awaits verification. Complete entry, stop, targets and reward/risk after estimated costs could not be confirmed. The first pick remains pending; chart support levels will not be used to invent a trade plan."
   },
   "picks": [],
   "reviews": []
