@@ -1,4 +1,5 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { PublicNotes } from "@/components/member/PublicNotes";
 import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
@@ -31,19 +32,23 @@ export default async function MemberNotesPage() {
   const en = locale === "en";
   const path = en ? "/en/member/notes" : "/member/notes";
   if (!access.authenticated)
-    redirect(`${en ? "/en" : ""}/login?next=${encodeURIComponent(path)}`);
+    return <main><PublicNotes /><div className="mx-auto max-w-4xl px-4 pb-12 text-sm text-white/65">会员专享随笔与讨论需登录。<Link className="ml-2 underline" href={`${en ? "/en" : ""}/login?next=${encodeURIComponent(path)}`}>登录 / 注册</Link></div></main>;
   const previewOnly = !access.isActiveMember && !access.isAdmin;
   if (!previewOnly) {
     const gate = await getMemberDevicePageAccess({ failClosed: true });
     if (gate.status !== "ALLOWED")
       return (
-        <main className="mx-auto max-w-3xl px-4 py-10">
+        <main>
+          <PublicNotes />
+          <div className="mx-auto max-w-3xl px-4 py-10">
           <MemberDeviceGate decision={gate.device} nextPath={path} />
+          </div>
         </main>
       );
   }
   return (
     <main>
+      <PublicNotes />
       <FedDecisionTeaser locale={locale} />
       {!previewOnly && <MemberDeviceHeartbeat />}
       <MemberNotesClient

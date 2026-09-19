@@ -506,9 +506,9 @@ export function MemberNotesClient({
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
             MOOX · {en ? "Member posts" : "会员专栏"}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold">
-            {en ? "Teacher Yi's Notes" : "易老师随笔"}
-          </h1>
+          <h2 className="mt-2 text-3xl font-semibold">
+            {en ? "Member-only notes" : "会员专享随笔"}
+          </h2>
           <p className="mt-3 text-sm leading-6 text-white/60">
             {en
               ? "Personal observations, market thoughts and conversations with members."
@@ -534,7 +534,7 @@ export function MemberNotesClient({
         <div className="mb-6 rounded-xl border border-violet-300/20 bg-violet-500/10 p-4 text-sm text-violet-100">
           {en
             ? "You can preview every title and opening line. Upgrade to read full posts and join discussions."
-            : "你可以预览每篇标题和首行。升级高级会员，阅读全文并参与讨论。"}{" "}
+            : "以下会员专享随笔可预览标题和首行。升级高级会员可阅读全文并参与讨论；上方公开随笔不受此限制。"}{" "}
           <Link
             className="underline underline-offset-4"
             href={en ? "/en/pricing" : "/pricing"}
