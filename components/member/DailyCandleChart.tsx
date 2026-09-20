@@ -10,6 +10,7 @@ const sourcePeriod = (p: CandleProjection, en: boolean) => p.sourcePeriodStart &
   ? `${p.sourcePeriodStart}—${p.sourcePeriodEnd}` : en ? 'Source period unavailable' : '原预测周期待核验';
 const horizonLabel = (p: CandleProjection | undefined, en: boolean) => {
   if (p?.researchScenario && p.researchScenario.status !== 'WITHDRAWN') return en ? 'Consolidation, then pullback · conditional' : '高位整理后回调·条件情景';
+  if (p?.horizonContext) return en ? '4-week view · phased scenario' : '四周视图·分阶段情景';
   if (p?.technical) return p.level === 'WEEK' ? (en ? 'Next 7 days · technical outlook' : '未来7天·技术推演') : (en ? 'Next 4 weeks · technical outlook' : '未来4周·技术推演');
   if (p?.level === 'WEEK') return en ? 'Weekly direction' : '周度方向';
   if (p?.sourceHorizon === 'STAGE') return en ? 'Stage background' : '阶段背景';
@@ -22,9 +23,18 @@ function TechnicalReadout({ projection, en }: { projection?: CandleProjection; e
   const t = projection?.technical;
   if (!t) return null;
   const scenario = projection?.researchScenario;
+  const context = projection?.horizonContext;
   const zone = (z: typeof t.support) => z ? `${price(z.low)}${z.high !== z.low ? `–${price(z.high)}` : ''}` : (en ? 'No confirmed historical pivot' : '暂无可确认的历史位置');
   return <div className="space-y-2 rounded-xl border border-cyan-400/25 bg-cyan-950/15 p-3 text-sm" data-technical-outlook="v5">
-    <p><strong>{scenario && scenario.status !== 'WITHDRAWN' ? (en ? 'Consolidation, then pullback · conditional research scenario' : '高位整理后回调 · 条件研究情景') : (en ? 'Technical analysis leads; timing windows assist.' : '技术走势主导，关键时间窗口辅助。')}</strong></p>
+    <p><strong>{context ? (en ? 'Stage context + weekly phases + technical price structure' : '阶段背景＋周段节奏＋技术价格结构') : scenario && scenario.status !== 'WITHDRAWN' ? (en ? 'Consolidation, then pullback · conditional research scenario' : '高位整理后回调 · 条件研究情景') : (en ? 'Technical analysis leads; timing windows assist.' : '技术走势主导，关键时间窗口辅助。')}</strong></p>
+    {context ? <div className="space-y-2 text-cyan-100" data-horizon-context="v1">
+      <p>{en ? 'Published background' : '已发布阶段背景'}：{context.originalStart}—{context.originalEnd} · {en ? directions[projection!.direction] ?? projection!.direction : projection!.direction} · V{context.sourceVersion}。</p>
+      <p>{en ? 'Remaining phase sequence (not exact turning dates)' : '剩余阶段顺序（不是精确转折日）'}：</p>
+      {context.phases.map(p => <p key={`${p.sourceId}:${p.start}`} className="text-xs">{p.start}—{p.end}：{en ? directions[p.direction] ?? p.direction : p.direction} · V{p.version}</p>)}
+      {context.partial ? <p className="text-amber-200">{en ? `Source coverage ends ${context.coverageEnd}; no invented candles through ${context.requestedEnd}. Await new evidence. The separate technical baseline is not a published stage forecast.` : `资料仅覆盖至${context.coverageEnd}，不补画到${context.requestedEnd}；后段待新资料。另选的技术基线不代表老师已发布的阶段预测。`}</p> : null}
+      <p className="text-xs">{en ? 'Independent momentum baseline' : '独立技术动量基线'}：{en ? directions[context.technicalDirection] ?? context.technicalDirection : context.technicalDirection}。{en ? 'Differences are retained, not averaged away. Prices and ATR set the illustrative scale; no source supplies these daily target prices.' : '分歧保留，不用短期评分抹掉较长周期背景。价格与ATR决定示意幅度，图中逐日价位并不是原文给出的目标。'}</p>
+      <p className="text-xs">{en ? 'A support break and failed retest are needed to confirm a pullback; a resistance break and successful retest challenge it. A recovery is not automatically a trend reversal. Intraphase candle timing is a model allocation, not a new forecast or order.' : '回调须看支撑失守及反抽受限，压力突破并回踩站稳则挑战回调情景；反弹也不直接等于趋势反转。段内蜡烛时间为模型分配，不是新增预测或下单指令。'}</p>
+    </div> : null}
     {scenario ? <div className="space-y-2 text-amber-100" data-btc-pullback-scenario={scenario.status}>
       <p>{scenario.status === 'WITHDRAWN'
         ? (en ? 'The September 20 pullback path is withdrawn: price crossed 82,300 or reached 74,967.97. The chart now shows the technical baseline; fresh review is required.' : '9月20日回调路径已停用：价格越过82,300或到达74,967.97边界。当前图恢复技术基线，需重新评估，不继续硬画回调。')

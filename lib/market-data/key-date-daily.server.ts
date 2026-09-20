@@ -5,8 +5,7 @@ import { isChartChinaEquity } from '@/lib/presentation/chart-market-calendar';
 import { parseYahooChanCandles } from "./chan-market-data-core";
 import { chartZones } from "@/lib/presentation/key-date-chart";
 import { exchangeDate, expectedClosedSession, finalizedChartBars } from "@/lib/presentation/chart-daily-session";
-import { buildMemberKeyDateRadar, keyDateChartForecasts } from "@/lib/data/member-key-date-radar";
-import { forecastPaths } from "@/lib/presentation/forecast-path";
+import { horizonForecastPaths } from '@/lib/research/horizon-forecast-paths';
 import { projectionCoverage, PROJECTION_ENGINE, type DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
 import { projectTechnicalCandles } from '@/lib/research/technical-candle-outlook';
 import { loadChartFourHour } from './chart-crypto-four-hour';
@@ -47,8 +46,7 @@ export async function loadKeyDateDaily(assetId: string, now = Date.now()): Promi
   if (!bars.length) throw new Error("MARKET_DATA_UNAVAILABLE");
   const expectedAsOf = expectedClosedSession(assetId, timeZone, now);
   const projectionDate = exchangeDate(now, timeZone);
-  const items = buildMemberKeyDateRadar(projectionDate);
-  const paths = forecastPaths(items, keyDateChartForecasts(items, now), projectionDate);
+  const paths = horizonForecastPaths(projectionDate, now);
   const data: DailyProjectionData = { assetId, quoteSymbol, timeZone, bars, ...chartZones(bars),
     source: crypto || special ? cryptoSource : quoteSymbol.endsWith("=F") ? "Yahoo Finance / continuous futures" : "Yahoo Finance",
     asOf: bars.at(-1)!.date, stale: bars.at(-1)!.date < expectedAsOf, checkedAt: new Date(now).toISOString(),

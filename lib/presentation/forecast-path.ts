@@ -9,6 +9,7 @@ export type ForecastPath = {
   periodStart: string; periodEnd: string; lockedAt: string; version: number;
   windows: ChartWindow[];
   sourceHorizon?: 'MONTH' | 'WEEK' | 'STAGE';
+  phases?: { periodStart: string; periodEnd: string; direction: OfficialDirection }[];
 };
 /** The chart does not create or publish a forecast. Unknown/discordant inputs have no curve. */
 export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeriodForecast[], asOfDate: string): ForecastPath[] {
@@ -31,7 +32,19 @@ export function forecastPaths(items: KeyDateRadarItem[], records: ConvictionPeri
     // Retain passed explicit anchors: a past high must not become another future high on refresh.
     const windows = explicitWindows.length ? explicitWindows : matching.map(chartWindow);
     paths.push({ id: row.id, assetId: row.assetId, level, sourceHorizon: sourceHorizon!, direction, periodStart: row.periodStart,
-      periodEnd: row.periodEnd, lockedAt: row.lockedAt, version: row.version, windows });
+      periodEnd: row.periodEnd, lockedAt: row.lockedAt, version: row.version, windows,
+      phases: (row.calendarMonthPath ?? []).flatMap(phase => {
+        if (!(ALLOWED_FORMAL_DIRECTIONS as readonly string[]).includes(phase.direction)) return [];
+        const month = /^\d{4}-\d{2}$/.test(phase.period);
+        if (month && (!Number.isFinite(Date.parse(`${phase.period}-01`)) || new Date(`${phase.period}-01`).toISOString().slice(0, 7) !== phase.period)) return [];
+        const [periodStart, periodEnd] = month
+          ? [`${phase.period}-01`, new Date(Date.parse(`${phase.period}-01T00:00:00Z`) + 32 * 86400000).toISOString().slice(0, 7) + '-01']
+          : phase.period.split('/');
+        const end = month ? new Date(Date.parse(periodEnd!) - 86400000).toISOString().slice(0, 10) : periodEnd;
+        const valid = (date?: string) => !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
+        return valid(periodStart) && valid(end) && periodStart! <= end!
+          ? [{ periodStart: periodStart!, periodEnd: end!, direction: normalizeOfficialDirection(phase.direction) }] : [];
+      }) });
   }
   return [...new Map(paths.map(path => [`${path.level}:${path.id}`, path])).values()];
 }
