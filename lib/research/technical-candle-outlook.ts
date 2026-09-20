@@ -6,6 +6,7 @@ import { chartCalendarSupported, isChartTradingDay } from '@/lib/presentation/ch
 import type { ForecastPath } from '@/lib/presentation/forecast-path';
 import type { ChanCandle } from '@/types/chan-execution';
 import { dailyVolatility, projectDailyCandles, type CandleProjection } from './daily-candle-projection-core';
+import { withBtcFourWeekScenario } from './btc-four-week-scenario';
 
 export type IntradayContext = { source: string; candles: ChanCandle[] };
 type TechnicalFrame = { score: number; close: number; ema20: number; ema60: number; dif: number; dea: number; histogram: number; histogramChange: number; through: string };
@@ -68,7 +69,7 @@ export function projectTechnicalCandles(data: KeyDateChartData, sources: Forecas
   const resistance = ladder.resistances[0] ?? null;
   const nearResistance = !!resistance && resistance.low - anchorPrice <= metrics.atr14 * .5;
   const nearSupport = !!support && anchorPrice - support.high <= metrics.atr14 * .5;
-  return (['WEEK', 'MONTH'] as const).flatMap(level => {
+  const rows = (['WEEK', 'MONTH'] as const).flatMap(level => {
     const end = addChartDays(today, level === 'WEEK' ? 6 : 27);
     const eligible = sources.filter(s => s.assetId === data.assetId && Date.parse(s.lockedAt) <= now && s.periodStart <= end && s.periodEnd >= today);
     const windows = [...new Map(eligible.flatMap(s => s.windows.filter(w => w.assetId === data.assetId && w.evidence === 'EXPLICIT'
@@ -108,4 +109,5 @@ export function projectTechnicalCandles(data: KeyDateChartData, sources: Forecas
     });
     return [{ ...row, candles, windows, technical, risk: nearResistance ? 'NEAR_RESISTANCE' as const : anchorPrice < daily.ema60 ? 'BELOW_EMA60' as const : 'NORMAL' as const }];
   });
+  return withBtcFourWeekScenario(data, rows, now);
 }

@@ -3,7 +3,7 @@ import { chartZones, type ChartBar, type KeyDateChartData } from "@/lib/presenta
 import { addChartDays, exchangeDate } from "@/lib/presentation/chart-daily-session";
 import { isChartTradingDay, chartCalendarSupported } from "@/lib/presentation/chart-market-calendar";
 
-export const PROJECTION_ENGINE = "technical-first-v5-closed-4h";
+export const PROJECTION_ENGINE = "technical-first-v6-btc-conditional-20260920";
 export type ScenarioCandle = Omit<ChartBar, "volume"> & { volume: null; rangeLow: number; rangeHigh: number; baselineClose: number; morphologyDate: string };
 export type CandleProjection = {
   sourceId: string; sourceVersion: number; level: "MONTH" | "WEEK"; direction: string;
@@ -13,6 +13,7 @@ export type CandleProjection = {
   sourceHorizon?: ForecastPath['sourceHorizon'];
   sourcePeriodStart?: string; sourcePeriodEnd?: string;
   technical?: import('./technical-candle-outlook').TechnicalOutlook;
+  researchScenario?: import('./btc-four-week-scenario').ResearchScenario;
 };
 export type DailyProjectionData = KeyDateChartData & {
   checkedAt: string; expectedAsOf: string; projectionDate: string; engine: string;
