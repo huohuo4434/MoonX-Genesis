@@ -48,9 +48,8 @@ test('no backdating, wrong instruments, stale data or perpetual rolling phase', 
   assert.deepEqual(projectTechnicalCandles({ ...fixture(), stale: true }, [], now), []);
   const later = projectTechnicalCandles(fixture('2026-10-04', 78000), [], Date.parse('2026-10-05T12:00:00Z'));
   const scenario = later.find(p => p.researchScenario)!;
-  assert.equal(scenario.researchScenario!.status, 'SUPPORT_LOST');
-  assert.equal(scenario.candles.at(-1)!.date, '2026-10-17');
-  assert.ok(scenario.candles.every(c => c.baselineClose <= 78000));
+  assert.equal(scenario.researchScenario!.status, 'WITHDRAWN');
+  assert.equal(scenario.researchScenario!.revision, 'BTC_BREAKOUT_20260921_V2');
   assert.ok(projectTechnicalCandles(fixture('2026-10-17'), [], Date.parse('2026-10-18T12:00:00Z')).every(p => !p.researchScenario));
 });
 test('boundary crossings withdraw synthetic bearish path, including a prior post-publication daily breach', () => {
@@ -71,4 +70,16 @@ test('member display explains assumptions and withdrawal; helper cannot submit t
   assert.match(ui, /支撑失守尚未确认/);
   const helper = readFileSync('lib/research/btc-four-week-scenario.ts', 'utf8');
   assert.doesNotMatch(helper, /bitget|placeOrder|trading-signals|fetch\(/);
+});
+
+test('September 21 revision permanently retires V1 without inventing a bullish candle path', () => {
+  const data = fixture('2026-09-20', 81000);
+  const before = projectTechnicalCandles(data, [], Date.parse('2026-09-21T09:59:59Z'));
+  assert.equal(before.find(p => p.researchScenario)?.researchScenario?.status, 'CONDITIONAL');
+  const after = projectTechnicalCandles(data, [], Date.parse('2026-09-21T10:00:00Z'));
+  assert.equal(after.length, 2);
+  assert.equal(after[1]!.researchScenario?.revision, 'BTC_BREAKOUT_20260921_V2');
+  assert.equal(after[1]!.researchScenario?.status, 'WITHDRAWN');
+  assert.deepEqual(after[1]!.candles, before.filter(p => p.level === 'MONTH')[1]!.candles);
+  assert.match(readFileSync('components/member/DailyCandleChart.tsx', 'utf8'), /data-btc-breakout-review/);
 });

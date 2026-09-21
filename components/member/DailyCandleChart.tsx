@@ -37,8 +37,14 @@ function TechnicalReadout({ projection, en }: { projection?: CandleProjection; e
       <p className="text-xs">{en ? 'A support break and failed retest are needed to confirm a pullback; a resistance break and successful retest challenge it. A recovery is not automatically a trend reversal. Intraphase candle timing is a model allocation, not a new forecast or order.' : '回调须看支撑失守及反抽受限，压力突破并回踩站稳则挑战回调情景；反弹也不直接等于趋势反转。段内蜡烛时间为模型分配，不是新增预测或下单指令。'}</p>
     </div> : null}
     {scenario ? <div className="space-y-2 text-amber-100" data-btc-pullback-scenario={scenario.status}>
+      {scenario.revision ? <div data-btc-breakout-review="20260921-v2" className="space-y-2">
+        <p><strong>{en ? 'September 21 · V2 breakout review (research only)' : '9月21日 · V2 突破后修订（仅研究）'}</strong></p>
+        <p>{en ? 'The old fixed four-week decline is retired. Near-term strength is conditional on closes above 83,000 and a successful retest on the same BTCUSDT spot market. 87,000 is a user-proposed watch level, not a confirmed technical target or guaranteed top.' : '原四周固定回落路线停用。短线偏强以BTCUSDT现货收盘站稳83,000、回踩守住为确认条件；87,000是用户提出的观察目标，并非已验证的技术目标，也不是保证到达的顶部。'}</p>
+        <p>{en ? 'Four weeks: retain upside while the breakout holds; reassess a pullback only after a support break and failed retest. The chart remains a data-driven technical baseline, not a forced path to 87,000. The September annual-high hypothesis is unverified; the September 10 window is not credited as a confirmed major top.' : '未来四周：突破结构保持则允许继续走高；支撑失守且反抽失败，再评估回调。K线保留数据驱动的技术基线，不强画必到87,000的路线。九月年内高点仍待验证，9月10日窗口不计作已确认的大顶命中。'}</p>
+        <p className="text-xs">{en ? 'Effective September 21, 18:00 UTC+8. Historical locked forecasts remain unchanged. No orders or trading authority are changed.' : '修订生效：9月21日18:00（北京时间）。历史锁定预测保留，不改变下单指令或交易权限。'}</p>
+      </div> : null}
       <p>{scenario.status === 'WITHDRAWN'
-        ? (en ? 'The September 20 pullback path is withdrawn: price crossed 82,300 or reached 74,967.97. The chart now shows the technical baseline; fresh review is required.' : '9月20日回调路径已停用：价格越过82,300或到达74,967.97边界。当前图恢复技术基线，需重新评估，不继续硬画回调。')
+        ? (scenario.revision ? (en ? 'September 20 V1 is preserved for review, not reused as the current path.' : '9月20日V1保留用于复盘，不再作为当前路径复用。') : (en ? 'The September 20 pullback path is withdrawn: price crossed 82,300 or reached 74,967.97. The chart now shows the technical baseline; fresh review is required.' : '9月20日回调路径已停用：价格越过82,300或到达74,967.97边界。当前图恢复技术基线，需重新评估，不继续硬画回调。'))
         : (en ? 'September 20 review: first consolidate near resistance, then test lower supports if the rally fails. This is a user-requested hypothesis, not a confirmed reversal or a new teacher forecast.' : '9月20日修订：先在压力附近整理，反弹失败后再检验下方支撑。这是用户指定的研究假设，不是已经确认的反转，也不是老师新增的预测。')}</p>
       {scenario.status !== 'WITHDRAWN' ? <>
         <p>{en ? 'Reference levels (BTCUSDT spot, Sep 20): resistance 81,273–81,479 / 82,300; loss-of-support watch 79,500; lower references 76,888 / 76,047–76,264 / 74,968.' : '9月20日参考位（BTCUSDT现货）：压力81,273—81,479／82,300；失守观察79,500；下方依次观察76,888／76,047—76,264／74,968。'}</p>

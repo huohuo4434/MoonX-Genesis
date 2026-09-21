@@ -21,7 +21,13 @@ export type ResearchScenario = {
   authority: 'RESEARCH_ONLY'; kind: 'BTC_PULLBACK_20260920';
   status: 'CONDITIONAL' | 'SUPPORT_LOST' | 'WITHDRAWN';
   reason: 'USER_REQUEST_20260920'; referenceDate: '2026-09-20';
+  revision?: 'BTC_BREAKOUT_20260921_V2';
 };
+
+// Prospective editorial withdrawal, not a rewrite of the September 20 source.
+// The user reported BTCUSDT above 83,000; do not revive the old path if price
+// later falls back below its invalidation level. New candles remain data-driven.
+export const BTC_BREAKOUT_REVIEW_AT = '2026-09-21T10:00:00Z';
 
 /** Insert the explicitly labelled hypothesis before the unchanged technical
  * baseline. Fixed expiry and absolute phases prevent a perpetual rolling top.
@@ -36,12 +42,14 @@ export function withBtcFourWeekScenario(data: KeyDateChartData, rows: CandleProj
   if (!base?.technical || !base.candles.length) return rows;
   const anchor = base.technical.anchorPrice;
   const closedAfterPublication = data.bars.filter(b => b.timestamp + 86400000 > Date.parse(spec.publishedAfter));
-  const withdrawn = anchor >= spec.invalidation || anchor <= spec.exhausted
+  const revised = now >= Date.parse(BTC_BREAKOUT_REVIEW_AT);
+  const withdrawn = revised || anchor >= spec.invalidation || anchor <= spec.exhausted
     || closedAfterPublication.some(b => b.close >= spec.invalidation || b.close <= spec.exhausted);
   const researchScenario: ResearchScenario = {
     authority: 'RESEARCH_ONLY', kind: 'BTC_PULLBACK_20260920',
     status: withdrawn ? 'WITHDRAWN' : data.bars.at(-1)!.close < spec.trigger ? 'SUPPORT_LOST' : 'CONDITIONAL',
     reason: 'USER_REQUEST_20260920', referenceDate: '2026-09-20',
+    ...(revised ? { revision: 'BTC_BREAKOUT_20260921_V2' as const } : {}),
   };
   if (withdrawn) return rows.map(p => p === base ? { ...p, sourceId: `${p.sourceId}:${spec.id}:withdrawn`, researchScenario } : p);
   const startTime = Date.parse(`${today}T00:00:00Z`);
