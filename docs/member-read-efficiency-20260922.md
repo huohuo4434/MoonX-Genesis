@@ -26,4 +26,14 @@
 
 Local gates passed: 47 targeted tests plus the added actual-handler test (48 distinct cases); final limiter/diagnostic suite 6/6. TypeScript and Next.js 15.5.22 production build passed. Existing unrelated unused-variable lint warnings remain. Impact audit: HIGH (auth path), 6 files, zero blockers. Independent reviewer passed the implementation and the final test delta. Code-review-graph is not installed in the current Python runtime or tool inventory.
 
-Production deployment and acceptance pending; no intermittent-timeout resolution is claimed.
+## Production acceptance
+
+- Commit `7f5717bcf15a9b6037b495bafc429473aaaa41bc`, Vercel deployment `dpl_2b5FrKYT6jzNLs7dziiGqLUNDjK7`, Ready, build 2m47s; production domain `mooxintel.com` verified on the deployment detail page.
+- Full final targeted run: 48/48 pass.
+- At `2026-09-22T15:34:21.864Z`, release validator passed home, pricing, login, anonymous member gate and auth health; printed `UPGRADE VALIDATION PASSED`. Optional report storage remained false (no local secret export).
+- Additional anonymous GET `/api/member/ai-trading-desk`: 401, no positions or published plans leaked.
+- Authenticated member page initially displayed stale 23:14 snapshot and correctly withheld entry levels. This exposed an ongoing intermittent publisher problem rather than a frontend success claim.
+- The new deployment's scheduled publisher at Beijing 23:36:17 returned 200; subsequent authenticated page reload showed snapshot 23:36 and conditional plan content. The chart also loaded; captured browser warning/error log was empty.
+- New-deployment log sample through 23:37 showed zero warning/error/fatal entries, with successful desk API, key-date chart and publisher requests. The deliberate anonymous 401 is expected.
+- This short window does not establish the intermittent publisher problem is solved. The earlier db00fb7 23:16 failure remains unresolved; neither authentication deduplication nor subsequent successful publication proves its root cause.
+- No quantitative latency/cost savings claim, no paid add-on, no new automation, and no change to execution authority.
