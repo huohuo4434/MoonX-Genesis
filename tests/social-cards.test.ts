@@ -28,13 +28,12 @@ test("social share helpers build public marketing links", () => {
   assert.match(tg, /t\.me\/share\/url/);
 });
 
-test("vercel cron schedules Beijing 00:10 social card generation", () => {
+test("cost reduction leaves social card generation unscheduled", () => {
   const raw = JSON.parse(readFileSync(resolve(process.cwd(), "vercel.json"), "utf8")) as {
     crons: Array<{ path: string; schedule: string }>;
   };
   const hit = raw.crons.find((c) => c.path === "/api/cron/generate-social-cards");
-  assert.ok(hit);
-  assert.equal(hit?.schedule, "10 16 * * *");
+  assert.equal(hit, undefined);
 });
 
 test("social card image route and admin page exist", () => {

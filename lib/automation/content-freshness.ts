@@ -3,9 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { buildSiteHealthReport } from "@/lib/admin/site-health";
 import { getPublicAccuracyHistory } from "@/lib/accuracy/get-public-history";
-import { getXIntelligenceSnapshot } from "@/lib/trading-signals/x-intelligence-summary";
-import { ensureExternalAnalystTables, refreshExternalAnalystSignals } from "@/lib/trading-signals/external-analyst-signals";
-import { generateAndStoreXScanReport } from "@/lib/trading-signals/x-scan-report";
+import { ensureExternalAnalystTables } from "@/lib/trading-signals/external-analyst-signals";
 import { runDailyForecastPipeline } from "@/lib/forecasts/daily-pipeline";
 import { runDailyVerification } from "@/lib/verification/run-daily";
 import { runFocusWeekRouteHandler } from "@/lib/data/conviction/focus-week-route-handler";
@@ -17,7 +15,7 @@ import { runGannForwardVerificationCycle } from "@/lib/research/gann-forward-ver
 import type { ContentFreshnessItem, ContentFreshnessPolicy, ContentFreshnessReport } from "@/types/content-freshness";
 
 export const CONTENT_FRESHNESS_POLICIES: readonly ContentFreshnessPolicy[] = [
-  { key: "x", label: "X博主扫描与观点矩阵", scheduleZh: "每15分钟", hardDeadlineZh: "心跳超过45分钟即异常", repairMode: "AUTO", noteZh: "自动重跑采集汇总与X扫描报告；不会自动批准任何观点。" },
+  { key: "x", label: "X博主扫描与观点矩阵", scheduleZh: "已停止自动监测", hardDeadlineZh: "成本精简：不再检查采集心跳", repairMode: "CHECK_ONLY", noteZh: "按用户要求停用博主自动扫描和补跑；保留历史数据，不代表数据仍新鲜。" },
   { key: "today", label: "首页／会员日报·今日预测", scheduleZh: "每3小时滚动生成；每15分钟自检缺失并补跑", hardDeadlineZh: "北京时间07:45前应具备当日可交易市场覆盖", repairMode: "AUTO", noteZh: "只从已锁定研究生成，不伪造周/月卦。" },
   { key: "tomorrow", label: "下一交易日预测", scheduleZh: "每3小时滚动生成；每15分钟自检缺失并补跑", hardDeadlineZh: "北京时间19:30后应具备下一交易日覆盖", repairMode: "AUTO", noteZh: "自检发现缺项后重跑日预测流水线。" },
   { key: "verification", label: "首页预测回顾／历史验证", scheduleZh: "每小时验证已收盘市场；每15分钟自检补偿", hardDeadlineZh: "收盘后进入可验证状态即更新", repairMode: "AUTO", noteZh: "首页直接读取公开验证库；不再靠静态回顾卡。" },
@@ -76,10 +74,9 @@ async function readFocusRuntimeDailyCoverage(asOfDate: string): Promise<{ ready:
 }
 
 async function evaluate(now: Date): Promise<ContentFreshnessReport> {
-  const [site, history, x] = await Promise.all([
+  const [site, history] = await Promise.all([
     buildSiteHealthReport(now),
     getPublicAccuracyHistory(now).catch(() => null),
-    getXIntelligenceSnapshot({ force: true, now }).catch(() => null),
   ]);
   const [focusRuntime, integrity] = await Promise.all([
     readFocusRuntimeDailyCoverage(site.beijingDate),
@@ -99,12 +96,12 @@ async function evaluate(now: Date): Promise<ContentFreshnessReport> {
   const xItem: ContentFreshnessItem = {
     key: "x",
     label: "X博主扫描与观点矩阵",
-    status: !x ? "MISSING" : x.collector.status === "HEALTHY" ? "OK" : x.collector.status === "STALE" || x.collector.status === "ERROR" ? "STALE" : "ATTENTION",
-    detailZh: x ? `${x.collector.message} 24小时有效线索 ${x.aggregate.parsedPosts24h} 条。` : "X采集状态不可读取。",
-    ready: x?.aggregate.parsedPosts24h ?? 0,
+    status: "ATTENTION",
+    detailZh: "已按用户要求停止博主自动监测及补跑。历史观点不代表当前有效信息。",
+    ready: null,
     expected: null,
-    lastUpdatedAt: x?.collector.lastCheckedAt ?? null,
-    repairable: true,
+    lastUpdatedAt: null,
+    repairable: false,
   };
   const latestDate = history?.latestVisibleDate ?? null;
   const verificationStale = !latestDate || daysBetween(site.beijingDate, latestDate) > 4;
@@ -135,7 +132,7 @@ async function evaluate(now: Date): Promise<ContentFreshnessReport> {
     version: 1,
     generatedAt: now.toISOString(),
     beijingDate: site.beijingDate,
-    status: items.some((item) => item.status !== "OK") ? "ATTENTION" : "OK",
+    status: items.some((item) => item.key !== "x" && item.status !== "OK") ? "ATTENTION" : "OK",
     items,
     policies: CONTENT_FRESHNESS_POLICIES,
     repairs: [],
@@ -184,16 +181,7 @@ export async function runContentFreshnessSelfCheck(options: { repair?: boolean; 
     } catch (error) {
       repairs.push({ key: "gann", ok: false, actionZh: "锁定并复核江恩前瞻样本", detailZh: error instanceof Error ? error.message : String(error) });
     }
-    const x = byKey.get("x");
-    if (x && x.status !== "OK") {
-      try {
-        const refresh = await refreshExternalAnalystSignals(now, { force: true });
-        await generateAndStoreXScanReport(now);
-        repairs.push({ key: "x", ok: refresh.errors.length === 0, actionZh: "重跑X采集汇总与扫描报告", detailZh: refresh.message });
-      } catch (error) {
-        repairs.push({ key: "x", ok: false, actionZh: "重跑X采集汇总与扫描报告", detailZh: error instanceof Error ? error.message : String(error) });
-      }
-    }
+    // Cost-reduction policy: never restart retired blogger scans as freshness repair.
     const today = byKey.get("today");
     const tomorrow = byKey.get("tomorrow");
     if ((today && today.status !== "OK") || (tomorrow && tomorrow.status !== "OK")) {

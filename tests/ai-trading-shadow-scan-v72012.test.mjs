@@ -24,14 +24,14 @@ test("shadow scan refreshes candidates but every new-exposure path remains fence
   assert.match(strategy, /if \(evaluation\.ready && status === "READY"\)/);
 });
 
-test("custody and research collection have independent authenticated schedules", () => {
+test("custody remains independent when optional research scheduling is stopped", () => {
   const custody = read("app/api/cron/live-trading-custodian/route.ts");
   const ensemble = read("app/api/cron/strategy-ensemble/route.ts");
   const vercel = JSON.parse(read("vercel.json"));
   assert.doesNotMatch(custody, /buildStrategyEnsembleSnapshot|persistStrategyEnsembleSnapshot/);
   assert.match(ensemble, /CRON_SECRET/);
   assert.match(ensemble, /execution: "RESEARCH_ONLY"/);
-  assert.equal(vercel.crons.find((item) => item.path === "/api/cron/strategy-ensemble")?.schedule, "*/15 * * * *");
+  assert.equal(vercel.crons.find((item) => item.path === "/api/cron/strategy-ensemble"), undefined);
 });
 
 test("ensemble market reads are bounded-concurrent instead of serial", () => {

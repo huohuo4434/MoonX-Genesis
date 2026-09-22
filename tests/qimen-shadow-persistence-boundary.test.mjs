@@ -129,8 +129,7 @@ test("cron automation is header-authenticated, bounded, append-only and isolated
   assert.doesNotMatch(`${route}\n${automation}\n${core}\n${pairer}\n${pairCore}`, /lib\/bitget|placeOrder|submitOrder|newEntriesEnabled|liveExecution|paptrading/);
   assert.match(automation, /mayTrade: false/);
   assert.match(automation, /mayChangeForecast: false/);
-  assert.match(vercel, /"path": "\/api\/cron\/qimen-shadow"/);
-  assert.match(vercel, /"schedule": "\*\/5 \* \* \* \*"/);
+  assert.doesNotMatch(vercel, /"path": "\/api\/cron\/qimen-shadow"/);
 });
 
 test("admin page is protected and discloses research-only authority", () => {

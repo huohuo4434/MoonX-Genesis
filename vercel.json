@@ -41,14 +41,6 @@
       "schedule": "35 */2 * * *"
     },
     {
-      "path": "/api/cron/generate-social-cards",
-      "schedule": "10 16 * * *"
-    },
-    {
-      "path": "/api/cron/process-lessons",
-      "schedule": "20 */2 * * *"
-    },
-    {
       "path": "/api/cron/prediction-auto-trader",
       "schedule": "* * * * *"
     },
@@ -57,20 +49,8 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/vibe-refresh",
-      "schedule": "30 10 * * 1-5"
-    },
-    {
-      "path": "/api/cron/external-analysts",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/bitget-runtime-health",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/x-intelligence-report",
-      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/crypto-beijing-reverify",
@@ -82,14 +62,6 @@
     },
     {
       "path": "/api/cron/live-trading-custodian",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/strategy-ensemble",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/qimen-shadow",
       "schedule": "*/5 * * * *"
     }
   ]

@@ -121,12 +121,9 @@ test("opportunity scheduling stays read-only and fails closed to fair rotation w
   assert.match(commissioningPlans, /execution_mode = 'BITGET_LIVE'[\s\S]{0,160}strategy_type = 'SWING'[\s\S]{0,160}forecast_horizon = 'WEEK'/);
 });
 
-test("runtime routes reserve finalization time while analysts run on an independent cron", () => {
+test("runtime routes reserve finalization time while optional analysts remain unscheduled", () => {
   assert.doesNotMatch(predictionCron, /refreshExternalAnalystSignals/);
-  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/external-analysts"), {
-    path: "/api/cron/external-analysts",
-    schedule: "*/15 * * * *",
-  });
+  assert.equal(vercel.crons.find((row) => row.path === "/api/cron/external-analysts"), undefined);
   assert.match(predictionCron, /Date\.now\(\) \+ 285_000/);
   assert.match(adminRuntimeRoute, /export const maxDuration = 300/);
   assert.match(adminRuntimeRoute, /Date\.now\(\) \+ 285_000/);

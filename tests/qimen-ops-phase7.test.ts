@@ -166,14 +166,14 @@ test("method progress uses the strictest of observation, days and entered gates"
   assert.equal(row?.mayEnableLive, false);
 });
 
-test("lesson processing runs every two hours with one bounded daily catch-up", () => {
+test("manual lesson processing retains bounded profiles without a production schedule", () => {
   const compensation = resolveLessonProcessingProfile(new Date("2026-08-31T14:20:00.000Z"));
   const catchUp = resolveLessonProcessingProfile(new Date("2026-08-31T16:20:00.000Z"));
   assert.equal(compensation.mode, "TWO_HOUR_COMPENSATION");
   assert.equal(compensation.masterPendingLimit, 2);
   assert.equal(catchUp.mode, "DAILY_CATCH_UP");
   assert.ok(catchUp.masterPendingLimit > compensation.masterPendingLimit);
-  assert.equal(JSON.parse(source("vercel.json")).crons.find((row: { path: string }) => row.path === "/api/cron/process-lessons")?.schedule, "20 */2 * * *");
+  assert.equal(JSON.parse(source("vercel.json")).crons.find((row: { path: string }) => row.path === "/api/cron/process-lessons"), undefined);
 });
 
 test("uploads advance immediately and cron retains authorization and deadline", () => {
