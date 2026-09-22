@@ -76,6 +76,7 @@ function harness(fakeTimers = false) {
     } },
     "@/lib/trading-signals/ai-trade-plans": { getAiTradePlanDashboard: async (_: Date, options: any) => {
       assert.equal(options.readOnly, true); assert.equal(options.strict, true);
+      assert.equal(options.includeEvents, false);
       return { plans: [], decisions: [], quotes: [] };
     } },
     "@/lib/trading-signals/ai-desk-status": { applyAiDeskOperationalState },

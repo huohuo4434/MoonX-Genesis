@@ -1684,7 +1684,7 @@ async function getRuntimeMarketQuotes(now: Date, strict = false): Promise<AiTrad
 
 export async function getPublishedAiTradePlans(
   limit = 30,
-  options: { readOnly?: boolean; strict?: boolean } = {}
+  options: { readOnly?: boolean; strict?: boolean; includeEvents?: boolean } = {}
 ): Promise<AiTradePlan[]> {
   if (!prisma || (!options.readOnly && !(await ensureAiTradePlanTables()))) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
@@ -1693,7 +1693,9 @@ export async function getPublishedAiTradePlans(
      ORDER BY published_at DESC, version DESC
      LIMIT ${safeLimit}`
   ).catch((error) => { if (options.strict) throw error; return [] as PlanRow[]; });
-  const events = await loadEvents(rows.map((row: PlanRow) => row.id)).catch((error) => {
+  // Summary consumers do not render the audit timeline. Skip its database read,
+  // not just serialization; admin/default consumers retain the complete history.
+  const events = options.includeEvents === false ? new Map<string, AiTradePlanEvent[]>() : await loadEvents(rows.map((row: PlanRow) => row.id)).catch((error) => {
     if (options.strict) throw error;
     return new Map<string, AiTradePlanEvent[]>();
   });
@@ -1740,7 +1742,7 @@ export async function getLiveScanOpportunityHints(): Promise<LiveScanOpportunity
 
 export async function getAiTradePlanDashboard(
   now = new Date(),
-  options: { readOnly?: boolean; strict?: boolean } = {}
+  options: { readOnly?: boolean; strict?: boolean; includeEvents?: boolean } = {}
 ): Promise<AiTradePlanDashboard> {
   const policy = aiTradePlanDashboardReadPolicy(Boolean(options.readOnly));
   const databaseReady = policy.ensureSchema ? await ensureAiTradePlanTables() : Boolean(prisma);

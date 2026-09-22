@@ -41,7 +41,7 @@ export async function loadCurrentMemberTradingPlan(input: {
   const registry = await loadMemberTradingInstruments(now);
   const executionInstrument = registry.instruments.find((row) => row.canonicalSymbol === symbol);
   if (!executionInstrument) return null;
-  const plans = await getPublishedAiTradePlans(100, { readOnly: true });
+  const plans = await getPublishedAiTradePlans(100, { readOnly: true, includeEvents: false });
   const sourcePlan = latestPlan(plans, symbol, now.getTime());
   if (!sourcePlan) return null;
 

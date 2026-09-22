@@ -393,7 +393,7 @@ export async function buildMemberAiTradingDeskSnapshot(
       getBitgetDemoDashboard(), getBitgetRuntimeState(now),
     ]).then(([dashboard, runtime]) => ({ ...dashboard, runtime })),
     getThreeHorizonPublicStrategies(now, { readOnly: true }),
-    getAiTradePlanDashboard(now, { readOnly: true, strict: true }),
+    getAiTradePlanDashboard(now, { readOnly: true, strict: true, includeEvents: false }),
   ]);
   const runtime = legacyBitget.runtime;
   const reportReadFailed = (runtime.lastReport?.market as { ok?: boolean } | undefined)?.ok === false
