@@ -58,3 +58,15 @@ Before optimization the stored member snapshot (last_synced_at 2026-09-22T19:16:
 ## Path to removing subscriptions
 
 Reduce repeated reads first and measure the resulting daily egress. Database still requires backup-verified archive/migration before a safe free-tier downgrade. If workloads remain above free limits, use the existing VPS with free software rather than deleting records or forcing an unsafe downgrade; self-hosting has backup/operations responsibilities and does not mean zero total costs. No subscription cancellation is scheduled by this report.
+
+## Production follow-up — September 23, 03:27 Beijing
+
+- Released commit `3803d43dbd9a05a7fd023288041fa4d40e5d0946` through configured GitHub main -> Vercel.
+- Deployment `6mSJx2A7nMG3bEgQ3fnymrv9u6f8`, URL https://moon-x-genesis-5etk4uwel-huohuo2.vercel.app, production Ready, duration 2m 56s.
+- Read-only release validator at 2026-09-22T19:23:45.040Z: home, pricing, login, anonymous member gate and auth health all HTTP 200 and passed; `UPGRADE VALIDATION PASSED`. No optional health report uploaded (local secrets unavailable).
+- Logged-in member page renders, chart loaded and current research content available. No test payments or new membership changes performed.
+- Runtime acceptance is PARTIAL: member snapshot cron at 03:24 and 03:26 returned HTTP 503 with `LIVE_STATE_READ_TIMEOUT` (5593/5401 ms). Logs contained 2 warnings, 0 Error-level and 0 Fatal-level entries in the inspected short window; the HTTP failures are real despite those level counts.
+- Last checked stored snapshot was still pre-release, 03:20 Beijing, 4,596,934 JSON-text bytes and 13,420 embedded events. The post-release snapshot size reduction is NOT verified yet. Do not quote a realized egress or bill reduction.
+- Other org project `huohuo4434's Project` is already paused. Provider states paused data is safe and inaccessible and compute billing resumes only when resumed; left it paused.
+- User was asked to confirm copying the website database (member account records, orders, forecasts, trading audit) to their existing VPS for isolated backup/restore testing. No such transfer, database purge, production cutover, or subscription change has been performed.
+- This acceptance addendum is retained locally rather than triggering a second documentation-only production build.
