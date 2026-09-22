@@ -52,12 +52,12 @@ export function NavbarSession({
       : adminEnabled
         ? en ? "Admin sign in" : "管理员登录"
         : t("nav.signIn");
-    return <Button variant="ghost" size="sm" asChild><Link href={href("/login")}>{label}</Link></Button>;
+    return <Button variant="ghost" size="sm" asChild><Link prefetch={false} href={href("/login")}>{label}</Link></Button>;
   }
 
   return <>
-    {publicSignupEnabled ? <Button variant="ghost" size="sm" asChild><Link href={href("/account")}>{session.email.split("@")[0]}</Link></Button> : null}
-    {adminEnabled && session.isAdmin ? <Button variant="ghost" size="sm" asChild><Link href="/admin">{en ? "Admin" : "管理"}</Link></Button> : null}
+    {publicSignupEnabled ? <Button variant="ghost" size="sm" asChild><Link prefetch={false} href={href("/account")}>{session.email.split("@")[0]}</Link></Button> : null}
+    {adminEnabled && session.isAdmin ? <Button variant="ghost" size="sm" asChild><Link prefetch={false} href="/admin">{en ? "Admin" : "管理"}</Link></Button> : null}
     <Button variant="outline" size="sm" onClick={signOut}>{en ? "Sign out" : "退出"}</Button>
   </>;
 }

@@ -62,6 +62,7 @@ export function Navbar({
   );
   const mobileLinks = (links: NavItem[]) => links.map((link) => (
     <Link
+      prefetch={false}
       key={link.key}
       href={href(link.href)}
       onClick={() => setIsMenuOpen(false)}
@@ -81,6 +82,7 @@ export function Navbar({
       <Container size="full" className="px-3 sm:px-4 lg:px-5 xl:px-6">
         <div className="flex h-header items-center gap-2">
           <Link
+            prefetch={false}
             href={href("/")}
             className="flex shrink-0 items-center gap-2 rounded-sm text-[15px] font-semibold text-foreground focus-ring xl:text-body"
           >
@@ -93,6 +95,7 @@ export function Navbar({
           <nav aria-label="Primary" className="ml-3 hidden min-w-0 flex-1 items-center justify-start gap-0 xl:flex 2xl:ml-5">
             {primaryNav.map((link) => (
               <Link
+                prefetch={false}
                 key={link.key}
                 href={href(link.href)}
                           className="whitespace-nowrap rounded-md px-2.5 py-2 text-[13px] leading-5 text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground focus-ring 2xl:px-3 2xl:text-body-sm"
@@ -117,8 +120,6 @@ export function Navbar({
                           {group.links.map((link) => (
                             <DropdownItem
                               key={link.key}
-                              onMouseEnter={() => router.prefetch(href(link.href))}
-                              onFocus={() => router.prefetch(href(link.href))}
                               onSelect={() => router.push(href(link.href))}
                               className="min-h-10 justify-between"
                             >
@@ -144,7 +145,7 @@ export function Navbar({
                 </DropdownTrigger>
                 <DropdownContent align="end">
                   {moreNav.map((link) => (
-                    <DropdownItem key={link.key} onMouseEnter={() => router.prefetch(href(link.href))} onFocus={() => router.prefetch(href(link.href))} onSelect={() => router.push(href(link.href))}>
+                    <DropdownItem key={link.key} onSelect={() => router.push(href(link.href))}>
                       {label(link)}
                     </DropdownItem>
                   ))}
