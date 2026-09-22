@@ -38,3 +38,45 @@ The Vercel connector 403 was avoided using the user's authorized browser session
 VPS migration remains blocked on normal provider access and unavailable write-only production configuration. See the migration assessment. No secrets were revealed, rotated or exported.
 
 Run `node --test tests/cost-reduction-scheduling-20260922.test.mjs`, targeted existing tests, TypeScript, production build, impact audit, then the production release validator. Deploy through the existing GitHub/Vercel route. Roll back only this commit if needed; no database rollback. A rollback restores old schedules, so reapply the cancellation configuration before resuming normal operations. Do not re-enable the VPS collector without renewed user authorization.
+
+## Second pass — September 22, 22:45 UTC+8
+
+Scope: two reversible Vercel dashboard settings and this local audit record. No application/API code, database, environment values, trading switches, schedules or membership permissions changed. No new deployment was triggered solely for this document.
+
+### Executed and verified
+
+- Disabled team Observability Plus. UI confirmed `Observability Plus has been disabled` and the billing switch became unchecked. Basic included metrics/logging remain; advanced metrics and their extended retention are no longer available. Collection during the disabled interval cannot be recovered by re-enabling. Existing usage charges are not refunded. Rollback: re-enable the add-on only with renewed authority to incur its charges.
+- Changed project Ignored Build Step from Automatic to `Only build production`. Saved rule: `if [ "$VERCEL_ENV" == "production" ]; then exit 1; else exit 0; fi`. Navigated away/back and expanded Project Settings to verify the persisted value. Subsequent non-production Git builds are skipped; production builds remain permitted. No claim of a real preview push test. Restore Automatic before a future workflow requires online preview validation.
+- Public read-only validation at `2026-09-22T14:45:16.911Z` passed all five checks and printed `UPGRADE VALIDATION PASSED`; `stored:false`. This is not an authenticated member/payment/price-freshness test.
+
+### Current billing evidence, not a savings projection
+
+Current-cycle Vercel usage breakdown (dashboard warns of up to one hour lag):
+
+| Item | Usage charge (USD) |
+| --- | ---: |
+| Fluid provisioned memory | 12.14 |
+| Fluid active CPU | 2.59 |
+| Function invocations | 0.23 |
+| Origin transfer | 0.21 |
+| Edge request additional CPU | 0.01 |
+| Observability events | 3.16 |
+| Build CPU minutes | 4.75 |
+| Infrastructure subtotal (dashboard) | 23.08 |
+
+Displayed rounded line items can differ from the subtotal by a cent. Infrastructure credit -20.00 plus Pro license 20.00 gives the displayed total 23.08. These are incurred cycle-to-date amounts, not additional amounts to add again to the invoice or expected monthly savings. Observability showed 2.63M current-cycle billed events; its project configuration showed 3,573,431 events across the last 30 days, a different window.
+
+### Already economical or absent
+
+- Build machine Basic (2 vCPU / 8 GB); on-demand concurrent builds disabled.
+- Fluid Compute enabled; function Standard (1 vCPU / 2 GB), not Performance. Left unchanged; reducing resources without runtime measurement could increase duration or cause failures.
+- Speed Insights Plus, Web Analytics Plus, Flags unlimited overrides, preview suffix, HIPAA, SAML disabled. Paid password protection Manage(0). No log drains to remove.
+- AI credit auto-reload off; Vercel Agent usage billing not enabled.
+- Integrations dashboard: `No Integrations Installed`. This is not evidence that directly contracted external services are free.
+
+### Remaining work / do not claim minimum cost achieved
+
+- Pro subscription remains active through the displayed October 1 boundary; VPS migration and cutover have not passed acceptance.
+- Supabase remains on sign-in. Its subscription, database resource usage and current migration configuration cannot be verified until the user signs into the original account. Payment/email/AI provider billing outside Vercel also remains unverified. No credentials requested in chat.
+- Remaining scheduled jobs were inspected for dependencies. Member AI desk snapshots become stale after three minutes, and payment/trading safety jobs have timeliness requirements. Cadences were not blindly reduced. Historical crypto re-verification and forecast/review preparation remain candidates for a separately tested functional reduction, not claimed cancelled.
+- Full cost minimization is incomplete. No new recurring automation, purchases, provider grants, secret export or credential rotation was introduced.
