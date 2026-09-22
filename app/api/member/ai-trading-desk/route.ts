@@ -16,7 +16,7 @@ export async function GET() {
       { status: gate.status === "LOGIN_REQUIRED" ? 401 : 403 }
     );
   }
-  const rate = await checkMemberApiRateLimit({ scope: "ai-trading-desk" });
+  const rate = await checkMemberApiRateLimit({ scope: "ai-trading-desk" }, gate.access);
   if (!rate.ok) return NextResponse.json({ error: "请求过于频繁" }, { status: 429 });
   try {
     return NextResponse.json(await getCachedMemberAiTradingDeskSnapshot(), {
@@ -25,9 +25,9 @@ export async function GET() {
         "X-MOOX-Desk-Mode": "snapshot-only",
       },
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "读取失败" },
+      { error: "交易台数据暂时无法读取，请稍后重试" },
       { status: 500, headers: { "Cache-Control": "private, no-store" } }
     );
   }

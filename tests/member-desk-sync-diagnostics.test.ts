@@ -12,6 +12,11 @@ test("snapshot diagnostics identify bounded failures without echoing sensitive p
   assert.equal(classifyMemberDeskSyncError(new Error("api-key=secret")), "UNKNOWN");
   assert.equal(classifyMemberDeskSyncError({ message: "secret", code: "P2024" }), "UNKNOWN");
   assert.equal(classifyMemberDeskSyncError(null), "UNKNOWN");
+  assert.equal(classifyMemberDeskSyncError(new Error("数据库快照读取超过4秒")), "LIVE_STATE_READ_TIMEOUT");
+  assert.equal(classifyMemberDeskSyncError(new Error("实盘实验快照缺失")), "LIVE_EXPERIMENT_MISSING");
+  assert.equal(classifyMemberDeskSyncError(new Error("数据库没有返回实盘状态快照")), "LIVE_STATE_MISSING");
+  assert.equal(classifyMemberDeskSyncError(new Error("计划数据库未连接")), "PLAN_DATABASE_UNAVAILABLE");
+  assert.equal(classifyMemberDeskSyncError(Object.assign(new Error("private SQL and connection details"), { code: "P2010" })), "DATABASE_QUERY_FAILED");
 });
 
 test("cron diagnostics keep authorization, snapshot-only behavior and generic failure response", () => {

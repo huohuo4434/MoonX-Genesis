@@ -5,6 +5,10 @@ export function classifyMemberDeskSyncError(error: unknown): string {
     case "交易台设置读取超时": return "SETTINGS_READ_TIMEOUT";
     case "交易台快照读取超时": return "SNAPSHOT_READ_TIMEOUT";
     case "会员交易台设置缺失": return "SETTINGS_MISSING";
+    case "数据库快照读取超过4秒": return "LIVE_STATE_READ_TIMEOUT";
+    case "数据库没有返回实盘状态快照": return "LIVE_STATE_MISSING";
+    case "实盘实验快照缺失": return "LIVE_EXPERIMENT_MISSING";
+    case "计划数据库未连接": return "PLAN_DATABASE_UNAVAILABLE";
     case "交易数据库未连接":
     case "交易数据库未连接。": return "DATABASE_UNAVAILABLE";
     case "快照读取超过发布预算。": return "PUBLISH_BUDGET_EXCEEDED";
@@ -12,6 +16,7 @@ export function classifyMemberDeskSyncError(error: unknown): string {
   }
   const code = "code" in error ? error.code : undefined;
   if (code === "P1001" || code === "P1002" || code === "P2024") return "DATABASE_CONNECTION_OR_POOL";
+  if (code === "P2010") return "DATABASE_QUERY_FAILED";
   if (error.name === "AbortError" || error.name === "TimeoutError") return "UPSTREAM_ABORT_OR_TIMEOUT";
   return "UNKNOWN";
 }
