@@ -7,15 +7,8 @@ export const maxDuration = 60;
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    return request.headers.get("authorization") === `Bearer ${secret}`;
-  }
-  if (process.env.VERCEL === "1") {
-    // Vercel documents this user-agent for scheduled invocations. This keeps
-    // idempotent verification alive when CRON_SECRET was not configured yet.
-    return request.headers.get("user-agent")?.includes("vercel-cron/1.0") ?? false;
-  }
-  return true;
+  if (!secret?.trim()) return false;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 function errorMessage(reason: unknown): string {

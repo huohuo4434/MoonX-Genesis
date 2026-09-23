@@ -3,12 +3,7 @@ import { runMoonxCycle } from "@/lib/automation/cycle";
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // Allow Vercel cron without secret only if not configured — still require header when set.
-    const auth = request.headers.get("authorization");
-    if (!auth) return process.env.VERCEL !== "1";
-    return false;
-  }
+  if (!secret?.trim()) return false;
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 

@@ -6,7 +6,7 @@ export const maxDuration = 300;
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return process.env.VERCEL !== "1";
+  if (!secret) return false;
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 

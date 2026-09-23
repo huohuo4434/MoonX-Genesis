@@ -3,7 +3,7 @@ import { runWeeklyVerification } from "@/lib/verification/run-weekly";
 
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.VERCEL !== "1";
+  if (!secret?.trim()) return false;
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 

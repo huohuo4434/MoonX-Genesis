@@ -49,3 +49,25 @@ production cron configuration and run the read-only release validator. Report
 Rollback only this release and redeploy; no database rollback is needed. A
 rollback restores the eight removed schedules, so it must be a deliberate action,
 not an automatic repair. No fixed-dollar savings or VPS migration is claimed.
+
+## First-stage production acceptance
+
+- Commit `fa0c779eaf6a60c116063c935e1f32cfa0237596` pushed through the existing
+  GitHub main -> Vercel production workflow.
+- Deployment `DyhCCUK663JRi5UUf2sTmvia9Q85`: Ready, 2m45s,
+  production domain mooxintel.com assigned at approximately 20:54 Beijing.
+- Fresh reload of the production Cron Jobs settings confirmed exactly the eight
+  retained schedules; the eight retired research schedules are absent. Global
+  scheduling remains enabled. No task was manually run.
+- Five targeted scheduling tests, TypeScript and production build passed. Six
+  existing lint warnings remain. Full impact audit: three files, LOW, zero blockers.
+- Production read-only validator at `2026-09-23T12:54:31.150Z` passed home, pricing,
+  login, anonymous member gate and public auth health; printed
+  `UPGRADE VALIDATION PASSED`. Report `stored:false`; no upload was made.
+- These checks do not assert authenticated payment, exchange health, price
+  freshness, member snapshot recovery or complete absence of runtime errors.
+- VPS read-only recheck: 3356 MiB available RAM, 35 GiB disk free; no node/nginx/
+  psql/docker on PATH. No software installed, ports opened or credentials moved.
+- Database backup/restore, simplified UI, migration, archiving and both paid-plan
+  cancellations remain incomplete. This acceptance note is local only to avoid a
+  documentation-only paid build.
