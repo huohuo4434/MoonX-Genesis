@@ -7,6 +7,7 @@ import { createAutoPaymentOrder } from "@/lib/payments/auto-payment-orders";
 import { getFounderDiscountQuote } from "@/lib/payments/founder-discount-server";
 import { chainTokenMeta, getPaymentConfig } from "@/lib/payments/config";
 import { getPaymentReadiness } from "@/lib/payments/readiness";
+import { MANUAL_PAYMENT_MODE, manualPaymentNotice } from "@/lib/operations/lean-policy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
   }
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  if (MANUAL_PAYMENT_MODE) return NextResponse.json(manualPaymentNotice(), { status: 409 });
 
   let body: z.infer<typeof schema>;
   try {

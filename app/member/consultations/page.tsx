@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { MemberConsultationClient } from "@/components/member/MemberConsultationClient";
+import { ConsultationsPausedNotice } from "@/components/member/ConsultationsPausedNotice";
+import { CONSULTATIONS_PAUSED } from "@/lib/operations/lean-policy";
 import { MemberUpdateNotice } from "@/components/member/MemberUpdateNotice";
 import { Section } from "@/components/ui";
 import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
@@ -56,7 +58,7 @@ export default async function MemberConsultationsPage() {
           <div className="mb-6">
             <MemberUpdateNotice note={LATEST_MEMBER_UPDATE} compact />
           </div>
-          <MemberConsultationClient />
+          {CONSULTATIONS_PAUSED ? <ConsultationsPausedNotice /> : <MemberConsultationClient />}
         </Section>
       </main>
     </>

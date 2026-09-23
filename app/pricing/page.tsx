@@ -15,8 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
     basePath: "/pricing",
     titleZh: "MOOX会员价格",
     titleEn: "MOOX Membership Pricing",
-    descriptionZh: "MOOX会员方案、创始会员连续续订优惠与USDT自动付款说明。",
-    descriptionEn: "Compare free and member access, founding-member discounts and automatic USDT payment instructions.",
+    descriptionZh: "MOOX会员方案与USDT人工核验付款说明，付款后联系电报 @jackuwin。",
+    descriptionEn: "MOOX membership and manually verified USDT payments. Contact @jackuwin on Telegram after payment.",
   });
 }
 

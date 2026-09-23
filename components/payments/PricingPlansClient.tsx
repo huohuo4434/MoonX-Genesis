@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Badge, Button, Card, Text } from "@/components/ui";
 import { useLocale } from "@/lib/i18n/LocaleProvider";
 import {
@@ -17,46 +16,9 @@ import {
 } from "@/lib/payments/founder-discount-shared";
 import type { MembershipPlan } from "@/types/membership";
 
-function CopyAddress({ label, address }: { label: string; address: string }) {
-  const [copied, setCopied] = useState(false);
-  const { locale } = useLocale();
-  const english = locale === "en";
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border/[0.08] bg-muted/20 p-3">
-      <Text variant="body-sm" weight="semibold" className="block">
-        {label}
-      </Text>
-      <p className="text-caption text-foreground-tertiary">
-        {english ? "Receiving address" : "收款地址"}
-      </p>
-      <p className="break-all font-mono text-caption text-foreground-secondary">{address}</p>
-      <div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(address);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1500);
-            } catch {
-              setCopied(false);
-            }
-          }}
-        >
-          {copied ? (english ? "Copied" : "已复制") : english ? "Copy address" : "复制地址"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function PricingPlansClient({
   plans,
   supportEmail,
-  trc20Address,
-  bep20Address,
   isLoggedIn,
   founderQuote,
 }: {
@@ -90,16 +52,16 @@ export function PricingPlansClient({
           </div>
           <Text variant="body-sm" color="secondary" className="mt-2 block">
             {english
-              ? "This price applies while your membership is renewed without interruption. Once the membership expires before a renewal order is submitted, the founding discount is permanently forfeited."
-              : "该价格仅在会员连续续订时有效。必须在会员到期前提交续费订单；一旦中断，创始会员折扣永久失效。"}
+              ? "This is a reference quote based on existing records. Contact support before expiry to verify renewal eligibility and the final amount; manual checkout does not reserve an online renewal order."
+              : "这里是依据既有记录计算的参考报价。请在会员到期前联系客服核对续费资格及最终应付金额；人工付款页不会预留线上续费订单。"}
           </Text>
         </Card>
       ) : founderQuote.status === "forfeited" ? (
         <Card padding="md" className="border-amber-400/25 bg-amber-400/[0.04]">
           <Text variant="body-sm" color="secondary">
             {english
-              ? "Your founding discount has ended because the previous membership expired before a renewal order was submitted. Standard prices now apply."
-              : "你的上一期会员到期前未提交续费订单，创始会员连续续订优惠已失效，当前按标准价格结算。"}
+              ? "Existing system records flag a continuity gap. Manual renewals do not create an online order, so ask support to verify payment timing and eligibility before transferring. The displayed price is only a reference."
+              : "既有系统记录提示续费连续性待核查。人工付款不会生成线上订单，请先联系客服核对付款时间与优惠资格，再确认金额转账；页面价格仅作参考。"}
           </Text>
         </Card>
       ) : null}
@@ -180,8 +142,7 @@ export function PricingPlansClient({
         <Text variant="body-sm" weight="semibold" className="block">
           {english ? "Payment instructions" : "付款说明"}
         </Text>
-        <CopyAddress label="USDT-TRC20" address={trc20Address} />
-        <CopyAddress label="USDT-BEP20" address={bep20Address} />
+        <Text variant="body-sm" color="secondary">{english ? "Open checkout to see the network currently enabled and its receiving address. Confirm your plan with support before paying." : "请先进入套餐付款页，查看当前支持的网络及对应收款地址，转账前向客服确认套餐。"}</Text>
         <div className="flex flex-col gap-2">
           <Text variant="body-sm" weight="semibold" className="block">
             {english ? "Steps" : "付款步骤"}
@@ -190,14 +151,14 @@ export function PricingPlansClient({
             ? [
                 "1. Choose a membership plan",
                 "2. Transfer the exact USDT amount on the selected network",
-                "3. Submit the transaction hash",
-                "4. Membership activates automatically after on-chain confirmation",
+                "3. Send registered email, plan, network and TXID to Telegram @jackuwin",
+                "4. An administrator verifies receipt and activates membership manually",
               ]
             : [
                 "1. 选择会员套餐",
                 "2. 使用对应网络转账准确金额的USDT",
-                "3. 提交交易哈希",
-                "4. 链上确认后自动开通会员（正常付款无需人工审核）",
+                "3. 将注册邮箱、套餐、网络和 TXID 发给电报 @jackuwin",
+                "4. 管理员核实到账后人工开通会员",
               ]
           ).map((line) => (
             <p key={line} className="text-body-sm text-foreground-secondary">

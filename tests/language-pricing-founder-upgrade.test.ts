@@ -43,9 +43,9 @@ test("first ten and members 11 through 50 are presented with continuity rules", 
   const pricing = read("components/payments/PricingPageContent.tsx");
   assert.match(pricing, /前10名付费会员/);
   assert.match(pricing, /第11至50名付费会员/);
-  assert.match(pricing, /到期前提交续费订单/);
-  assert.match(pricing, /一旦中断.*永久失效/);
-  assert.match(pricing, /not transferable or stackable/i);
+  assert.match(pricing, /到期前联系客服确认连续续费资格/);
+  assert.match(pricing, /不预留续费订单、不自动分配创始名额/);
+  assert.match(pricing, /non-transferable and non-stackable/i);
 });
 
 test("payment orders snapshot list price, discount and founder rank", () => {

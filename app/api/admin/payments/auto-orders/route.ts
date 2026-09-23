@@ -13,6 +13,7 @@ import { finalizeAutoPaymentMembership } from "@/lib/payments/finalize-auto-paym
 import { processAutoPaymentOrder } from "@/lib/payments/process-auto-payment";
 import { activateGoodwillUnderpayment } from "@/lib/payments/manual-goodwill-underpayment";
 import { deliverPaidOrderConsultationQuota } from "@/lib/consultations/quota-delivery";
+import { MANUAL_PAYMENT_MODE, manualPaymentNotice } from "@/lib/operations/lean-policy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
   if (!adminUser) return NextResponse.json({ error: "无权限" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "请求内容无效" }, { status: 400 });
+  if (MANUAL_PAYMENT_MODE && ["retry", "activate_goodwill_underpayment"].includes(parsed.data.action)) {
+    return NextResponse.json(manualPaymentNotice(), { status: 409 });
+  }
 
   const order = await getAutoPaymentOrderById(parsed.data.orderId);
   if (!order) return NextResponse.json({ error: "自动付款订单不存在" }, { status: 404 });

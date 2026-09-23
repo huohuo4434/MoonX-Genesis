@@ -34,6 +34,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { formatDateTimeChina } from "@/lib/utils/datetime";
 import { getFounderDiscountQuote } from "@/lib/payments/founder-discount-server";
 import { discountedPrice } from "@/lib/payments/founder-discount-shared";
+import { MANUAL_PAYMENT_MODE, manualPaymentNotice } from "@/lib/operations/lean-policy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -97,6 +98,7 @@ function mapNotifyStatus(
 export async function POST(request: NextRequest) {
   const user = await resolveRequestUser(request);
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  if (MANUAL_PAYMENT_MODE) return NextResponse.json(manualPaymentNotice(), { status: 409 });
 
   let body: z.infer<typeof submitSchema>;
   try {

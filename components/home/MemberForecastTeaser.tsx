@@ -12,7 +12,7 @@ export function MemberForecastTeaser() {
           subtitle="会员下一交易日预测功能筹备中，暂不开放。"
         />
         <Text variant="caption" color="tertiary">
-          支付与会员自动开通功能验收完成后将恢复。
+          具体开放状态以会员页面为准；付款现采用人工核验。
         </Text>
       </div>
     </section>

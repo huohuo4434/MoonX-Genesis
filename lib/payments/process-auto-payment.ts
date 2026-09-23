@@ -1,4 +1,5 @@
 import "server-only";
+import { MANUAL_PAYMENT_MODE, manualPaymentNotice } from "@/lib/operations/lean-policy";
 
 import { notifyAdminAutoPayment } from "@/lib/payments/admin-payment-notifications";
 import {
@@ -95,6 +96,7 @@ async function safeAdminNotice(
 }
 
 export async function processAutoPaymentOrder(orderId: string): Promise<AutoPaymentProcessResult> {
+  if (MANUAL_PAYMENT_MODE) return { orderId, status: "manual_review", activated: false, message: manualPaymentNotice().message };
   let current = await getAutoPaymentOrderById(orderId);
   if (!current) return { orderId, status: "rejected", activated: false, message: "订单不存在" };
   if (current.status === "paid" || current.status === "overpaid") {
@@ -226,6 +228,7 @@ export async function reconcileAutoPayments(limit = 20): Promise<{
   exceptions: number;
   results: AutoPaymentProcessResult[];
 }> {
+  if (MANUAL_PAYMENT_MODE) return { checked: 0, activated: 0, pending: 0, exceptions: 0, results: [] };
   const orders = await listOrdersReadyForVerification(limit);
   const results: AutoPaymentProcessResult[] = [];
   for (const order of orders) {

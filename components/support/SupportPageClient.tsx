@@ -6,14 +6,14 @@ import { useLocale } from "@/lib/i18n/LocaleProvider";
 const FAQ_ZH = [
   ["预测什么时候更新？", "日度、下一交易日、周度和月度页面会分别标明目标时段、发布时间及数据状态。休市市场不生成虚假的当日验证。"],
   ["为什么方向明确了还会显示等待？", "MOOX方向先由玄学确定；等待只代表技术入场位置还没到。方向和执行是两层，不用技术条件反向修改方向。"],
-  ["USDT付款后多久开通？", "生成订单并提交交易哈希后，系统立即核验，并系统会自动重试发送。链上确认后自动开通；通常无需人工审核。"],
+  ["USDT付款后多久开通？", "现在采用人工核验。付款后请联系 Telegram @jackuwin，提供注册邮箱、套餐、网络及 TXID；管理员核实实际到账后开通，不承诺即时完成。旧订单已付款的不要重复付款。"],
   ["历史准确率如何计算？", "只统计已到验证截止时间、取得真实行情且结论已锁定的记录；同时展示样本量、完整命中、部分命中、未命中和不可验证。"],
 ] as const;
 
 const FAQ_EN = [
   ["When are forecasts updated?", "Daily, next-session, weekly and monthly pages show their target window, publication time and data status. Closed markets are not given fake same-day verification records."],
   ["Why does a forecast say wait or confirmation required?", "A directional view is not an immediate trade. A simulated plan appears only when price, structure and invalidation conditions are complete."],
-  ["How long does USDT activation take?", "After the transaction hash is submitted, verification starts immediately and Vercel retries every minute. Confirmed payments activate automatically; manual review is only for exceptions."],
+  ["How long does USDT activation take?", "Payments are reviewed manually. After paying, send your registered email, plan, network and TXID to @jackuwin on Telegram. An administrator verifies receipt before activation; this is not instant. Do not pay again for an old paid order."],
   ["How is historical accuracy calculated?", "Only locked records whose verification window has ended and whose real market data is available are counted. Sample size, full hits, partial hits, misses and unverifiable records remain visible."],
 ] as const;
 

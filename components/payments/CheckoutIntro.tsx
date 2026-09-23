@@ -8,11 +8,11 @@ export function CheckoutIntro() {
   const en = locale === "en";
   return (
     <>
-      <Heading as="h1" size="h2">{en ? "Automatic membership checkout" : "会员自动结账"}</Heading>
+      <Heading as="h1" size="h2">{en ? "Membership payment · Manual review" : "会员付款 · 人工核验"}</Heading>
       <Text variant="body-sm" color="secondary">
         {en
-          ? "Generate an order, transfer the exact amount and submit the transaction hash. Confirmed payments activate membership automatically."
-          : "生成订单后按精确金额转账并提交交易哈希，链上确认后自动开通会员。"}
+          ? "After payment, contact our official Telegram support. Membership is activated by an administrator after receipt is verified."
+          : "付款后请联系官方电报客服，由管理员核实到账后开通会员。"}
       </Text>
     </>
   );

@@ -55,7 +55,7 @@ export default async function AccountOrdersPage() {
       <Section spacing="lg">
         <Heading as="h1" size="h2">我的订单</Heading>
         <Text variant="body-sm" color="secondary" className="mt-2">
-          新订单由系统自动核验并开通；只有错链、错币、少付等异常情况需要人工处理。
+          支付现已改为人工核验。付款后联系 Telegram @jackuwin，并提供注册邮箱、套餐、网络及 TXID。此页保留历史订单；新付款由客服人工核验，不会自动生成订单或自动开通。旧订单已付款的请勿重复付款，开通后在“我的账户”核对有效期。
         </Text>
         <div className="mt-6 flex flex-col gap-3">
           {autoOrders.map((item) => (

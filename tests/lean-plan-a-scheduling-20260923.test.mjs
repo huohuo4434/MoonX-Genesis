@@ -6,7 +6,6 @@ const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url
 const retained = {
   '/api/cron/daily-candle-projections': '25 * * * *',
   '/api/cron/member-ai-desk-sync': '*/2 * * * *',
-  '/api/cron/reconcile-payments': '* * * * *',
   '/api/cron/expire-memberships': '0 3 * * *',
   '/api/cron/prediction-auto-trader': '* * * * *',
   '/api/cron/trading-watchdog': '*/5 * * * *',
@@ -14,9 +13,10 @@ const retained = {
   '/api/cron/live-trading-custodian': '*/5 * * * *',
 };
 
-test('plan A first stage keeps exactly the existing price, payment, membership and trading schedules', () => {
+test('lean manual-payment stage keeps existing price, membership and trading schedules', () => {
   assert.equal(config.crons.length, Object.keys(retained).length);
   assert.deepEqual(Object.fromEntries(config.crons.map(({ path, schedule }) => [path, schedule])), retained);
+  assert.equal(config.crons.some(({ path }) => path === '/api/cron/reconcile-payments'), false);
 });
 
 test('standalone automatic research and verification jobs are no longer scheduled', () => {

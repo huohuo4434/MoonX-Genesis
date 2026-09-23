@@ -1,4 +1,5 @@
 import "server-only";
+import { MANUAL_PAYMENT_MODE } from "@/lib/operations/lean-policy";
 
 import { getPaymentConfig } from "@/lib/payments/config";
 import { OFFICIAL_PLAN_PRICES } from "@/lib/payments/plan-display";
@@ -14,6 +15,12 @@ export interface PaymentReadiness {
 /** Automatic on-chain USDT payment readiness. */
 export async function getPaymentReadiness(): Promise<PaymentReadiness> {
   const cfg = getPaymentConfig();
+  if (MANUAL_PAYMENT_MODE) return {
+    trc20Open: Boolean(cfg.trc20Address),
+    bep20Open: cfg.bep20Enabled && Boolean(cfg.bep20Address),
+    autoVerificationReady: false,
+    reasons: ["人工核验模式：付款后联系 Telegram @jackuwin，无需自动查账密钥。"],
+  };
   const reasons: string[] = [];
   const hasSupabase = Boolean(getAdminClient());
   const hasCronSecret = Boolean(process.env.CRON_SECRET);

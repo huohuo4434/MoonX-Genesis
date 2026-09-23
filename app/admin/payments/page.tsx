@@ -3,7 +3,8 @@ import { AdminAutoPaymentActions } from "@/components/admin/AdminAutoPaymentActi
 import { AdminGoodwillUnderpaymentTool } from "@/components/admin/AdminGoodwillUnderpaymentTool";
 import { AdminPaymentApproveActions } from "@/components/admin/AdminPaymentApproveActions";
 import { Badge, Card, Heading, Section, Text } from "@/components/ui";
-import { isPaymentEmailConfigured, isPaymentEmailProductionReady, paymentNotifyTo } from "@/lib/email/notifications";
+import { isPaymentEmailConfigured, isPaymentEmailProductionReady } from "@/lib/email/notifications";
+import { MANUAL_PAYMENT_MODE } from "@/lib/operations/lean-policy";
 import {
   getAutoPaymentUserEmailMap,
   isAutoPaymentMembershipActivated,
@@ -28,7 +29,7 @@ function automaticStatusBadge(order: AutoPaymentOrder) {
   if (order.metadata.membershipGranted) return <Badge variant="warning">会员已开通，审计待补</Badge>;
   const status = order.status;
   if (status === "paid" || status === "overpaid") return <Badge variant="success">已全额开通</Badge>;
-  if (status === "pending" || status === "verifying") return <Badge variant="warning">自动核验中</Badge>;
+  if (status === "pending" || status === "verifying") return <Badge variant="warning">历史待处理（自动核验已停）</Badge>;
   if (status === "underpaid") return <Badge variant="danger">金额不足</Badge>;
   if (status === "manual_review") return <Badge variant="danger">人工复核</Badge>;
   if (status === "rejected") return <Badge variant="danger">核验未通过</Badge>;
@@ -53,8 +54,8 @@ export default async function AdminPaymentsPage() {
   function renderAutoOrder(order: AutoPaymentOrder) {
     const buyerEmail = order.metadata.buyerEmail ?? emailMap.get(order.userId) ?? "未读取到邮箱";
     const paid = isAutoPaymentMembershipActivated(order);
-    const canRetry = Boolean(order.txHash) && !paid;
-    const canActivate = Boolean(order.txHash) && !paid;
+    const canRetry = !MANUAL_PAYMENT_MODE && Boolean(order.txHash) && !paid;
+    const canActivate = Boolean(order.txHash) && !paid && order.paidAmount != null && order.paidAmount >= order.expectedAmount;
     return (
       <Card key={order.id} padding="md" className="overflow-hidden border border-white/[0.08]">
         <div className="flex flex-wrap items-center gap-2">
@@ -120,21 +121,21 @@ export default async function AdminPaymentsPage() {
     <main>
       <Section spacing="lg">
         <AdminNav current="/admin/payments" pendingCount={paymentQueue.pendingCount} />
-        <Heading as="h1" size="h2">付款与自动开通</Heading>
+        <Heading as="h1" size="h2">人工付款与历史订单</Heading>
 
         <Card padding="md" className="mt-4 space-y-1 border border-cyan-500/20 bg-cyan-500/[0.04]">
-          <Text variant="body-sm" weight="semibold">自动付款可靠性状态</Text>
+          <Text variant="body-sm" weight="semibold">人工核验模式 · Telegram @jackuwin</Text>
           <Text variant="caption" color="tertiary" className="block">
-            用户提交哈希后会立即发邮件至 {paymentNotifyTo()}，随后自动核验、自动开通；失败订单会保留在本页供重试或手动开通。
+            新付款通过电报联系，不自动创建订单、查账或开通。先在钱包或官方区块浏览器核实网络、代币合约、收款地址、实际金额和确认状态，再查历史订单及会员审计，确保未重复开通。
           </Text>
           <Text variant="caption" color="tertiary" className="block">
-            交易所若把订单尾差四舍五入到套餐实付价，系统现在仍可识别；合法多付不会再被拒绝。
+            新人工付款使用用户管理中的人工开通／续期入口，原因记录网络、TXID、实收金额和日期；结果不确定时核查后保留同一原因重试。人工调整不算自动订单收入，不自动分配创始资格或邀请奖励；相关权益请按既有规则逐项核对。旧订单保留，不要求用户重复付款。
           </Text>
         </Card>
 
         {!emailConfigured ? (
           <Card padding="md" className="mt-4 border border-amber-500/40 bg-amber-500/10">
-            <Text variant="body-sm">邮件通知尚未配置。请在Vercel设置 RESEND_API_KEY、PAYMENT_EMAIL_FROM、PAYMENT_NOTIFICATION_EMAIL；后台订单和自动开通仍继续工作。</Text>
+            <Text variant="body-sm">邮件通知未配置。人工付款不依赖邮件服务，请通过电报确认处理结果；历史订单继续保留。</Text>
           </Card>
         ) : null}
         {emailConfigured && !emailProductionReady ? (
@@ -148,20 +149,20 @@ export default async function AdminPaymentsPage() {
           <Text variant="caption" color="tertiary" className="block break-all">BEP20：{cfg.bep20Address}</Text>
         </Card>
 
-        <Card padding="md" className="mb-8 space-y-3 border border-amber-400/25 bg-amber-400/[0.04]">
+        {!MANUAL_PAYMENT_MODE ? <Card padding="md" className="mb-8 space-y-3 border border-amber-400/25 bg-amber-400/[0.04]">
           <Text variant="body" weight="semibold">少付手续费客服特批</Text>
           <Text variant="caption" color="tertiary" className="block">
             独立处理已过期、尚未绑定哈希或未出现在当前异常列表的订单。这里只提交复核请求；服务端仍会权威核验收款地址、USDT 合约、原订单时间窗、唯一尾号和真实到账金额。
           </Text>
           <AdminGoodwillUnderpaymentTool />
-        </Card>
+        </Card> : null}
 
         <Heading as="h2" size="h3">自动订单·需要处理（{autoAttention.length}）</Heading>
         <div className="mt-3 flex flex-col gap-3">
           {autoAttention.length ? autoAttention.map(renderAutoOrder) : <Text variant="body-sm" color="secondary">当前没有异常自动付款。</Text>}
         </div>
 
-        <Heading as="h2" size="h3" className="mt-8">自动订单·核验中（{autoProcessing.length}）</Heading>
+        <Heading as="h2" size="h3" className="mt-8">历史自动订单·待人工核查（{autoProcessing.length}）</Heading>
         <div className="mt-3 flex flex-col gap-3">
           {autoProcessing.length ? autoProcessing.map(renderAutoOrder) : <Text variant="body-sm" color="secondary">当前没有核验中的订单。</Text>}
         </div>
@@ -172,7 +173,7 @@ export default async function AdminPaymentsPage() {
         </div>
 
         <Heading as="h2" size="h3" className="mt-10">旧版人工付款队列</Heading>
-        <Text variant="body-sm" color="secondary" className="mt-2">保留旧流程用于兼容历史订单；新订单优先查看上方自动订单。</Text>
+        <Text variant="body-sm" color="secondary" className="mt-2">仅兼容历史订单；新人工付款不进入自动订单队列。处理前务必比对实际到账和会员审计记录。</Text>
 
         <Heading as="h3" size="h3" className="mt-6">待审核（{legacyPending.length}）</Heading>
         <div className="mt-3 flex flex-col gap-3">

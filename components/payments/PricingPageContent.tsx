@@ -21,7 +21,7 @@ const BENEFITS = [
   ["多方观点涨跌矩阵", "近10天摘要", "同向、分歧与来源代号", "Multi-source direction matrix", "10-day summary", "Alignment, disagreement and source aliases"],
   ["重点资产完整研究", "摘要", "完整展示", "Focused-asset research", "Summary", "Full access"],
   ["策略中心与AI交易试运行", "公开摘要", "计划、理由、进出场与记录", "Strategy Center and AI trading trial", "Public summary", "Plans, rationale, levels and records"],
-  ["六爻 / 八字咨询权益", "—", "月度1次、季度3次、年度12次", "Liuyao / Bazi consultations", "—", "1 monthly, 3 quarterly, 12 yearly"],
+  ["六爻 / 八字咨询", "暂停新申请", "既有权益请联系客服核查", "Liuyao / Bazi consultations", "New requests paused", "Contact support about existing benefits"],
 ] as const;
 
 const MEMBER_MODULES = [
@@ -201,8 +201,8 @@ export function PricingPageContent({
           </div>
           <Text variant="caption" color="tertiary" className="mt-3 block">
             {en
-              ? "Eligibility is attached to one account and is not transferable or stackable. A renewal order must be submitted before the current membership expires; once interrupted, the founding discount is permanently forfeited. Test or rejected orders do not qualify."
-              : "资格仅限本人账户，不可转让、不可与其他折扣叠加。必须在当前会员到期前提交续费订单；一旦中断，创始会员折扣永久失效。测试订单和审核拒绝订单不计入名额。"}
+              ? "Existing founding benefits are retained for manual eligibility review. Contact support before expiry to confirm continuity, rank and final price. This contact-only checkout does not reserve a renewal order or automatically assign a founding rank. Benefits remain account-bound, non-transferable and non-stackable."
+              : "既有创始会员权益保留，由客服人工核查。请在到期前联系客服确认连续续费资格、名次及最终价格；本付款页不预留续费订单、不自动分配创始名额。资格仍仅限本人账户，不可转让、不可叠加。"}
           </Text>
         </Card>
 
@@ -274,8 +274,8 @@ export function PricingPageContent({
           <Text variant="body" weight="semibold">{en ? "Order status" : "订单状态说明"}</Text>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-body-sm text-foreground-secondary">
             {(en
-              ? ["Order created", "Transfer submitted", "On-chain verification", "Activated", "Notification sent"]
-              : ["生成订单", "提交转账", "链上自动核验", "自动开通", "通知已送达"]
+              ? ["Confirm plan", "Transfer", "Contact Telegram support", "Manual receipt verification", "Administrator activation"]
+              : ["确认套餐", "转账付款", "联系电报客服", "人工核实到账", "管理员开通"]
             ).map((item, index, array) => (
               <span key={item} className="contents">
                 <span>{item}</span>{index < array.length - 1 ? <span aria-hidden>→</span> : null}
@@ -284,8 +284,8 @@ export function PricingPageContent({
           </div>
           <Text variant="caption" color="tertiary" className="mt-3 block">
             {en
-              ? "Submitting a transaction hash starts automatic verification. Membership activates only after the configured token, network, recipient, amount and confirmations all match."
-              : "提交交易哈希后系统自动核验；只有代币合约、网络、收款地址、精确金额及链上确认数全部匹配，会员才会自动开通。"}
+              ? "After paying, send your registered email, plan, network and TXID to @jackuwin on Telegram. Opening Telegram does not activate membership. Support must verify actual receipt. Existing orders remain available; do not pay again for an old paid order."
+              : "付款后，将注册邮箱、套餐、付款网络和 TXID 发给 Telegram @jackuwin。打开电报不会开通会员，须由管理员核实实际到账。历史订单保留，旧订单已付款的请勿重复付款。"}
           </Text>
         </Card>
 
@@ -295,8 +295,8 @@ export function PricingPageContent({
               <Text variant="body" weight="semibold">{en ? "Referral rewards" : "邀请奖励"}</Text>
               <Text variant="body-sm" color="secondary" className="mt-2 block">
                 {en
-                  ? "Successful referrals continue to receive the existing reward days. Referral rewards do not change the founding discount tier."
-                  : "邀请成功后继续按现有规则获得奖励天数；邀请奖励不会改变创始会员折扣档位。"}
+                  ? "Eligible referral benefits remain subject to the existing rules. With manual payment, contact support to verify the qualifying receipt and any reward; clicking a contact link does not award days."
+                  : "符合条件的邀请权益仍按既有规则核查。人工付款后请联系客服核对有效到账及奖励记录；点击联系入口不会自动发放天数。"}
               </Text>
             </div>
             <Button asChild size="sm"><Link href={referralHref}>{en ? "Open referral page" : "进入邀请页面"}</Link></Button>
@@ -306,7 +306,7 @@ export function PricingPageContent({
         <Card padding="lg" className="w-full max-w-4xl border-primary/20 bg-primary/[0.025]">
           <Text variant="body" weight="semibold">{en ? "Start here after activation" : "开通后按这个顺序看"}</Text>
           <Text variant="body-sm" color="secondary" className="mt-2 block">
-            {en ? "Membership activation is automatic after all on-chain checks pass. Use these links instead of searching through every page." : "链上核验全部通过后会自动开通会员；不需要把全站从头看一遍，按下面顺序使用即可。"}
+            {en ? "After support confirms activation, check your membership expiry in My Account, then use these research links." : "客服确认开通后，先在“我的账户”核对会员有效期，再按下面顺序阅读。"}
           </Text>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {[
