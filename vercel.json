@@ -17,30 +17,6 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/generate-daily-forecasts",
-      "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/cron/moonx-cycle",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/sync-verification",
-      "schedule": "*/5 12 * * *"
-    },
-    {
-      "path": "/api/cron/verify-daily",
-      "schedule": "10 * * * *"
-    },
-    {
-      "path": "/api/cron/verify-weekly",
-      "schedule": "15 16 * * 0"
-    },
-    {
-      "path": "/api/cron/prepare-focus-week",
-      "schedule": "35 */2 * * *"
-    },
-    {
       "path": "/api/cron/prediction-auto-trader",
       "schedule": "* * * * *"
     },
@@ -51,14 +27,6 @@
     {
       "path": "/api/cron/bitget-runtime-health",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/crypto-beijing-reverify",
-      "schedule": "17 * * * *"
-    },
-    {
-      "path": "/api/cron/watchlist-weekly-daily",
-      "schedule": "0 12 * * 6"
     },
     {
       "path": "/api/cron/live-trading-custodian",
