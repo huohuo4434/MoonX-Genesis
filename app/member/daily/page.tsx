@@ -1,5 +1,6 @@
 // MOOX_MEMBER_DAILY_TERMINAL_V720114
 import type { Metadata } from "next";
+import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
@@ -251,7 +252,7 @@ export default async function MemberDailyPage({ searchParams }: { searchParams?:
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   if ((await searchParams)?.research !== "1") {
     const { MemberOperationDesk } = await import("@/components/member/MemberOperationDesk");
-    return <><MemberDeviceHeartbeat /><MemberOperationDesk /></>;
+    return <><MemberDeviceHeartbeat /><UsEquityXuReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} /><MemberOperationDesk /></>;
   }
 
   const now = new Date();
@@ -286,6 +287,7 @@ export default async function MemberDailyPage({ searchParams }: { searchParams?:
   return (
     <>
       <MemberDeviceHeartbeat />
+      <UsEquityXuReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
       <main className="min-h-screen bg-[#07080b]">
         <Section spacing="lg">
           <div className="mx-auto w-full max-w-[1240px] space-y-8">

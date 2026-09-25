@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
 import Link from "next/link";
 import { KeyDatePriceChart } from "@/components/member/KeyDatePriceChart";
 import { ConciseTradePlans } from "@/components/member/ConciseTradePlans";
@@ -275,7 +276,7 @@ export default async function MemberKeyDatesPage({ searchParams }: { searchParam
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   if ((await searchParams)?.research !== "1") {
     const { MemberOperationDesk } = await import("@/components/member/MemberOperationDesk");
-    return <><MemberDeviceHeartbeat /><MemberOperationDesk /></>;
+    return <><MemberDeviceHeartbeat /><UsEquityXuReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} /><MemberOperationDesk /></>;
   }
 
   const asOfDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -288,6 +289,7 @@ export default async function MemberKeyDatesPage({ searchParams }: { searchParam
 
   return (
     <><MemberDeviceHeartbeat /><main><Section spacing="lg"><div className="mx-auto w-full max-w-7xl space-y-10">
+      <UsEquityXuReview en={(await getRequestLocale()) === "en"} nowMs={Date.now()} />
       <ConciseTradePlans />
       <BtcAnnualWindowAmendment en={(await getRequestLocale()) === "en"} />
       <SemiconductorTimingAnswer en={(await getRequestLocale()) === "en"} />

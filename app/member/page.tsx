@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
 import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 import { MemberChannelContent } from "@/components/member/MemberChannelContent";
 import { MemberOperationDesk } from "@/components/member/MemberOperationDesk";
@@ -27,6 +28,7 @@ export default async function MemberChannelPage() {
   return <>
     <FedDecisionTeaser locale={locale} />
     {active ? <MemberDeviceHeartbeat /> : null}
+    {active ? <UsEquityXuReview en={locale === "en"} compact nowMs={Date.now()} /> : null}
     {active ? <MemberOperationDesk /> : <MemberChannelContent locale={locale} active={false} />}
   </>;
 }
