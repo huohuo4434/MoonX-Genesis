@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BtcAnnualReview20260927 } from "@/components/research/BtcAnnualReview20260927";
 import { unstable_noStore as noStore } from "next/cache";
 import { PublicFeaturePreview } from "@/components/access/PublicFeaturePreview";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
@@ -48,6 +49,7 @@ export default async function MemberAnnualOutlookPage() {
   const en = (await getRequestLocale()) === "en";
   const btc2027 = MEMBER_SEPTEMBER_ROTATION_REPORT_20260826.primaryUpdate.items.find((item) => item.id === "BTC-2027-150K")!;
   return <><MemberDeviceHeartbeat /><main className="min-h-screen bg-[#07080a] text-white"><Section spacing="lg"><div className="mx-auto w-full max-w-[1480px] space-y-5">
+    <BtcAnnualReview20260927 en={en} nowMs={Date.now()} />
     <Card padding="lg" className="border-amber-300/25 bg-amber-300/[0.05]" data-btc-2027-primary-update>
       <div className="flex flex-wrap gap-2"><Badge variant="warning">{en ? "New long-horizon primary reading" : "新增长周期六爻主判"}</Badge><Badge variant="outline">{en ? btc2027.confidenceEn : btc2027.confidenceZh}</Badge></div>
       <Heading as="h2" size="h3" className="mt-4">{en ? btc2027.scopeEn : btc2027.scopeZh}</Heading>

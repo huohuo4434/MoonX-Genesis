@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BtcAnnualReview20260927 } from "@/components/research/BtcAnnualReview20260927";
 import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
 import { Section } from "@/components/ui";
@@ -45,5 +46,5 @@ export default async function MonthlyPage() {
   }
   if (gate.status === "DEVICE_REQUIRED") return <main><Section spacing="lg"><MemberDeviceGate decision={gate.device} nextPath={path} /></Section></main>;
   const cycleResearchOverlays = getMemberCycleResearchOverlays();
-  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><UsEquityXuReview en={en} nowMs={Date.now()} /><TechnologyLiquidityRiskReview en={en} /><SeptemberThreeMarketReview en={en} nowMs={Date.now()} /><MemberMonthlyPage cycleResearchOverlays={cycleResearchOverlays} /></Section></main>;
+  return <main><Section spacing="lg"><MemberDeviceHeartbeat /><BtcAnnualReview20260927 en={en} nowMs={Date.now()} /><UsEquityXuReview en={en} nowMs={Date.now()} /><TechnologyLiquidityRiskReview en={en} /><SeptemberThreeMarketReview en={en} nowMs={Date.now()} /><MemberMonthlyPage cycleResearchOverlays={cycleResearchOverlays} /></Section></main>;
 }

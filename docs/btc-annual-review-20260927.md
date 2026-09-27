@@ -1,0 +1,11 @@
+# BTC annual source re-review — 2026-09-27 V1
+
+User requests Bingwu annual reading as primary long-horizon BTC context; ETH/other crypto reference only. Transcript fully read; supplied photo corroborates September / January 2027 high windows and March/May/June low candidates. No full transcript or personal photograph published.
+
+Source title: 比特幣2026年走勢預測，流年卦解析. Transcript SHA256: 5006849FE5C7F04D889B355CB33DD22893C517278A8CAEA570B90632877BBC6F. Photo SHA256: 9F4526E9273C65A0E0CA691277CD1D63C213600F879EDAE3BB1E028DC51F734D. Same transcript hash as Sep 5 correction: re-review, not a newly issued teacher forecast. Recording date Jan 5, 2026 is transcript self-report; upload date unverified. No hit-rate validation performed.
+
+Source: weaker annual regime than 2025; July/August gradual strength; two unranked high candidates September 2026 and January 2027. Source acknowledges prior low-point misses. No exact Oct–Dec monthly directions, levels or precise solar-term boundaries. User pullback scenario is visibly separated; no price-path chart or fabricated probabilities. September elapsed prices cannot score as prospective wins. ETH/other assets inherit context, not official directions or targets.
+
+Scope: new server-only research data/component, gated member home/monthly/annual-outlook, targeted tests and this document. No API, database, env, cron, dependency, historical record or trading modifications. Existing locked forecasts and Sep 5 edition retained. Rollback: revert this release commit. No code-review-graph tool available in this session. Impact audit ran before editing with zero blockers. Production requires tests/typecheck/build, deployment verification and UPGRADE VALIDATION PASSED plus authenticated member checks.
+
+Local checks: 16 tests passed across the new edition, Sep 5 annual correction and Sep 25 US equity edition; TypeScript passed; production build passed (65 static pages, six existing unrelated lint warnings); diff whitespace check passed; impact audit seven files, zero blockers. React review: no new client component, serialized research payload, external fetch, dependency or effect; all three render sites retain membership/device gates. This is not yet production acceptance.

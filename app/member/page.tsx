@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BtcAnnualReview20260927 } from "@/components/research/BtcAnnualReview20260927";
 import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
 import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
 import { MemberChannelContent } from "@/components/member/MemberChannelContent";
@@ -28,6 +29,7 @@ export default async function MemberChannelPage() {
   return <>
     <FedDecisionTeaser locale={locale} />
     {active ? <MemberDeviceHeartbeat /> : null}
+    {active ? <BtcAnnualReview20260927 en={locale === "en"} compact nowMs={Date.now()} /> : null}
     {active ? <UsEquityXuReview en={locale === "en"} compact nowMs={Date.now()} /> : null}
     {active ? <MemberOperationDesk /> : <MemberChannelContent locale={locale} active={false} />}
   </>;
