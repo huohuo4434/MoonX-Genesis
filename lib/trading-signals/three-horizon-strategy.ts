@@ -3971,8 +3971,15 @@ async function buildStrategyStats(
 ): Promise<ThreeHorizonStrategyStats[]> {
   if (!prisma) return [];
   const start = beijingStartOfDay(now);
-  const allRows = await prisma.$queryRawUnsafe<DecisionRow[]>(`
-    SELECT * FROM trade_three_horizon_decisions
+  // Statistics do not consume full research snapshots/conditions. Preserve the
+  // exact 2,000-row window while avoiding repeatedly transferring those payloads.
+  const allRows = await prisma.$queryRawUnsafe<Pick<DecisionRow,
+    "strategy_type" | "created_at" | "status" | "realized_pnl_usdt" |
+    "risk_amount_usdt" | "run_id" | "bitget_order_id" | "rejection_code"
+  >[]>(`
+    SELECT strategy_type, created_at, status, realized_pnl_usdt,
+           risk_amount_usdt, run_id, bitget_order_id, rejection_code
+    FROM trade_three_horizon_decisions
     ORDER BY created_at DESC
     LIMIT 2000
   `);
