@@ -35,7 +35,7 @@ export default async function MemberStockPicksPage() {
       eyebrow={en ? "Stock research · Public preview" : "股票研究 · 公开预览"}
       title={en ? "Read the yearly regime before the weekly trade" : "先看全年路线，再看本周阶段"}
       description={en ? "Each asset aligns its yearly regime, monthly path, weekly route, projected candles and daily technical confirmation. Missing evidence remains blank." : "每个标的按年度路线、整月阶段、本周路径、模拟K线和日内技术确认排列；证据不足就留空。"}
-      solves={en ? ["Locate the current stage", "Compare year, month and week", "Separate forecast candles from actual prices"] : ["判断当前走到哪一段", "对照年、月、周是否同向", "区分预测K线与实际价格"]}
+      solves={en ? ["Locate the current stage", "Compare year, month and week", "Separate source-backed research from observed prices"] : ["判断当前走到哪一段", "对照年、月、周是否同向", "区分有来源的研究与真实行情"]}
       memberBenefits={en ? ["Yearly, monthly and weekly route", "Projected candles with date and price axes", "4H structure and invalidation", "Preserved verification history"] : ["年、月、周路线", "带日期和价格轴的模拟K线", "4H结构与失效条件", "保留历史验证结果"]}
       exampleTitle={en ? "Stock research card" : "股票研究卡"}
       exampleLines={en ? ["Year: rally then fade", "Monthly: early rally", "Weekly: range-up", "Daily: wait for 4H confirmation"] : ["全年：先涨后跌", "整月：上行前段", "本周：震荡上涨", "日内：等待4H确认"]}

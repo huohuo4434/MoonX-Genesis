@@ -46,7 +46,7 @@ export function MemberWayfinding({ locale, home = false }: { locale: Locale; hom
       <ol className="mt-4 list-inside list-decimal space-y-2 text-sm leading-6 text-slate-300">
         <li>{en ? "Choose an asset, then your holding period: position, swing or intraday." : "先选标的，再选准备持有的周期：长线、中线或短线。"}</li>
         <li>{en ? "Read entry conditions, stop, targets and expiry together. Check price levels against the named instrument." : "把参与条件、止损、目标、有效期一起看；点位以计划标明的交易品种为准。"}</li>
-        <li>{en ? "A waiting or incomplete plan is not an entry signal. Future candles are scenarios, not actual prices." : "显示等待或点位不全，就不是可用入场信号。未来K线是情景示意，不是真实报价。"}</li>
+        <li>{en ? "A waiting or incomplete plan is not an entry signal. Charts show observed prices; research is separate and retains its original period." : "显示等待或点位不全，就不是可用入场信号。图表只展示真实行情，研究另列并保留原周期。"}</li>
       </ol>
       <p className="mt-3 text-xs leading-5 text-slate-400">{en ? "This update changes navigation, not your membership term, locked forecast history or trading permissions. Some older pages remain research references; check dates before using them." : "本次只调整入口，不改变会员期限、已锁定预测历史或交易权限。旧页面包含研究参考，请先核对日期。"}</p>
     </details>

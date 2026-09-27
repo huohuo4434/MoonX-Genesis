@@ -62,8 +62,8 @@ export function KeyDatePriceChart({ windows, asOfDate: initialDate }: { windows:
   const atResistance = data?.resistance && bars.length && data.resistance.low - bars.at(-1)!.close <= bars.at(-1)!.close * 0.015;
   return <section id="price-time-chart" className="rounded-3xl border border-cyan-300/20 bg-[#0b1018] p-4 sm:p-6 text-slate-100" data-key-date-chart="v3">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><h2 className="text-xl font-semibold">{en ? "Daily candle forecast · dates & prices" : "未来日K预测 · 日期与价格"}</h2>
-        <p className="mt-1 text-sm text-slate-400">{en ? "Actual daily candles on the left · conditional forecast candles on the right · updated after daily closes" : "左侧真实日K · 右侧未来日K情景推演 · 收盘后自动更新"}</p></div>
+      <div><h2 className="text-xl font-semibold">{en ? "Observed daily candles & source-backed research" : "真实日K与有来源的研究"}</h2>
+        <p className="mt-1 text-sm text-slate-400">{en ? "Observed market candles · original research periods and versions · no invented future prices" : "真实市场日K · 保留研究原周期和版本 · 不编造未来价格"}</p></div>
       <div className="flex items-center gap-2"><label className="sr-only" htmlFor="chart-asset">{en ? "Asset" : "标的"}</label>
         <select id="chart-asset" value={asset} onChange={e => setAsset(e.target.value)} className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
           {assets.map(([id, symbol]) => <option key={id} value={id}>{symbol}</option>)}

@@ -9,6 +9,7 @@ User approved removing unsupported future price simulation, retaining observed m
 - `components/member/DailyCandleChart.tsx`: both layouts and locales use actual OHLC only, even with old payloads. Latest editorial context is separate from old locked records; missing sources fail closed.
 - `components/member/ResearchCandleTerminal.tsx`: actual-only accessible label; hide unavailable simulation focus control.
 - Relevant tests and this record only. No database/schema/environment/auth/payment/order/cron configuration changes. Member API authorization unchanged.
+- Live acceptance found retired simulation wording in `KeyDatePriceChart`, `MemberWayfinding` and the stock-picks help text. A scoped follow-up updates those labels only, with a regression test; the full chart already uses the same actual-only component.
 
 ## Integrity
 No replacement synthetic bearish path, fabricated targets, probability or daily turning dates. Annual background is not weekly authority. ETH/SOL/HYPE do not inherit BTC targets. Existing predictions and failed samples are not edited. An empty projections list takes the existing no-archive-write branch; no historical archive is removed.

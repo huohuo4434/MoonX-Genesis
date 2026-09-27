@@ -69,3 +69,10 @@ test('production loader cannot synthesize prices; membership gate and immutable 
   assert(route.indexOf('await requireMemberDeviceAccess') < route.indexOf('await getDailyProjection'));
   assert.match(read('lib/research/daily-candle-projection-storage.server.ts'), /if \(data.stale \|\| !data.projections.length\) return data/);
 });
+test('chart entry points no longer advertise retired future candles', () => {
+  const wrapper = readFileSync('components/member/KeyDatePriceChart.tsx', 'utf8');
+  assert.match(wrapper, /真实日K与有来源的研究/);
+  assert.doesNotMatch(wrapper, /Daily candle forecast|未来日K预测|conditional forecast candles|未来日K情景推演/);
+  assert.doesNotMatch(readFileSync('components/member/MemberWayfinding.tsx', 'utf8'), /Future candles are|未来K线是/);
+  assert.doesNotMatch(readFileSync('app/member/stock-picks/page.tsx', 'utf8'), /Separate forecast candles|区分预测K线/);
+});
