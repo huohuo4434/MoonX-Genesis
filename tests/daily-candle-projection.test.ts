@@ -133,10 +133,10 @@ test("cron, private archive and UI freshness have independent fail-closed wiring
   assert.match(ui, /visibilitychange/);
   assert.match(ui, /data\?\.projectionDate/);
   const chart = readFileSync("components/member/DailyCandleChart.tsx", "utf8");
-  assert.match(chart, /股票跳空假设上限0.5 ATR/);
-  assert.match(chart, /MODEL_PHASE_ALLOCATION/);
-  assert.match(chart, /尚未验证准确率/);
-  assert.match(chart, /data.archiveStatus === "UNAVAILABLE"/);
+  assert.match(chart, /已撤下无依据的未来价格模拟/);
+  assert.match(chart, /不沿用旧价格模拟/);
+  assert.match(chart, /不生成概率或胜率/);
+  assert.doesNotMatch(chart, /projection=|projection\.candles/);
 });
 
 test("history-shaped simulation varies bodies and wicks without random data or direction overwrite", () => {

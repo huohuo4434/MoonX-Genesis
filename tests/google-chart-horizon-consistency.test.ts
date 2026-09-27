@@ -9,6 +9,7 @@ import { projectDailyCandles, PROJECTION_ENGINE, type DailyProjectionData } from
 import { chartZones } from '../lib/presentation/key-date-chart';
 import { addChartDays } from '../lib/presentation/chart-daily-session';
 import { projectTechnicalCandles } from '../lib/research/technical-candle-outlook';
+import { buildSourceResearch } from '../lib/research/source-research-view';
 
 // tsx uses the repository's preserve JSX setting; provide the classic JSX runtime.
 Object.assign(globalThis, { React });
@@ -47,7 +48,7 @@ test('neutral direction has no manufactured central turn but retains valid varie
   assert.ok(candles.every(c => c.baselineClose === bars.at(-1)!.close));
   assert.ok(new Set(candles.map(c => c.close)).size > 1);
   assert.ok(candles.every(c => c.low <= Math.min(c.open, c.close) && c.high >= Math.max(c.open, c.close)));
-  assert.match(PROJECTION_ENGINE, /technical-first-v5/);
+  assert.match(PROJECTION_ENGINE, /source-research-only/);
 });
 
 test('holiday week completes the bearish phase on Friday, not the closed weekend', () => {
@@ -61,36 +62,36 @@ test('holiday week completes the bearish phase on Friday, not the closed weekend
   assert.ok(refreshed.candles.at(-1)!.baselineClose < nextDay.bars.at(-1)!.close);
 });
 
-test('Chinese and English default to weekly even when monthly projection is first', () => {
-  const monthlyFirst = { ...data, projections: [...data.projections].sort((a, b) => a.level.localeCompare(b.level)) };
+test('Chinese and English keep original weekly and multi-month sources without plotted price dates', () => {
+  const monthlyFirst = { ...data, research: buildSourceResearch('googl', paths, '2026-09-09', now), projections: [...data.projections].sort((a, b) => a.level.localeCompare(b.level)) };
   for (const en of [false, true]) {
     const html = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: monthlyFirst, en }));
-    assert.match(html, /data-selected-forecast="GOOGL-W5-20260907-V1"/);
+    assert.match(html, /data-source-research="source-research-only-20260927"/);
     assert.match(html, /2026-09-07—2026-09-13/);
     assert.match(html, /2026-09-01—2026-11-30/);
-    assert.ok(html.includes(en ? 'Multi-month background' : '多月背景'));
-    assert.ok(html.includes(en ? 'Plotted simulation dates' : '图中模拟日期'));
+    assert.ok(html.includes(en ? 'Monthly / multi-month background' : '月度／多月背景'));
+    assert.ok(!html.includes(en ? 'Plotted simulation dates' : '图中模拟日期'));
   }
 });
 
-test('long-only fallback labels neutral simulation; legacy archives do not invent source dates', () => {
+test('legacy archives cannot act as published sources or invent source dates', () => {
   const projections = data.projections.filter(p => p.level === 'MONTH');
   const html = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: { ...data, projections }, en: false }));
-  assert.match(html, /震荡不代表先跌后涨/);
+  assert.match(html, /研究来源待核验/);
   const legacy = projections.map(p => ({ ...p, sourcePeriodStart: undefined, sourcePeriodEnd: undefined }));
   const oldHtml = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: { ...data, projections: legacy }, en: true }));
-  assert.match(oldHtml, /Source period unavailable/);
+  assert.match(oldHtml, /Source data is not verified/);
   assert.doesNotMatch(oldHtml, /Multi-month background/);
 });
 
-test('technical-first chart renders bilingual methodology without claiming a locked official direction', () => {
+test('old technical payloads cannot revive forecasts in either language', () => {
   const technical = { ...data, projections: projectTechnicalCandles(quote, paths, now) };
   for (const en of [false, true]) {
     const html = renderToStaticMarkup(React.createElement(DailyCandleChart, { data: technical, en, compact: true }));
-    assert.match(html, /data-technical-outlook="v5"/);
-    assert.ok(html.includes(en ? 'Technical analysis leads' : '技术走势主导'));
-    assert.ok(html.includes(en ? 'Next 7 days' : '未来7天'));
-    assert.ok(html.includes(en ? 'not a revision of saved forecasts' : '不修改历史预测'));
+    assert.doesNotMatch(html, /data-technical-outlook="v5"/);
+    assert.ok(!html.includes(en ? 'Technical analysis leads' : '技术走势主导'));
+    assert.ok(html.includes(en ? 'Next 7 days' : '近7天'));
+    assert.ok(html.includes(en ? 'old price simulations will not be reused' : '不沿用旧价格模拟'));
     assert.doesNotMatch(html, /分周期正式方向/);
   }
 });

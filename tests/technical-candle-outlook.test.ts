@@ -72,9 +72,10 @@ test('timing evidence remains traceable, bounded and cannot invert the technical
     assert.equal(row.volume, null);
   }
 });
-test('member wiring uses technical engine without order APIs; archives include 4h inputs', () => {
+test('member wiring retires technical generator; old archives keep 4h inputs unchanged', () => {
   const loader = readFileSync('lib/market-data/key-date-daily.server.ts', 'utf8');
-  assert.match(loader, /projectTechnicalCandles\(data, paths, now, intraday\)/);
+  assert.doesNotMatch(loader, /projectTechnicalCandles|loadChartFourHour/);
+  assert.match(loader, /buildSourceResearch\(assetId, paths/);
   assert.doesNotMatch(loader, /bitget|placeOrder|trading-signals/);
   const storage = readFileSync('lib/research/daily-candle-projection-storage.server.ts', 'utf8');
   assert.match(storage, /p.technical \?\? null/);

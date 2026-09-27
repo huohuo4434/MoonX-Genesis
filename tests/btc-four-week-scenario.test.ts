@@ -63,11 +63,11 @@ test('boundary crossings withdraw synthetic bearish path, including a prior post
   Object.assign(data.bars.at(-2)!, { open: 82400, close: 82500, high: 83000, low: 82000 });
   assert.equal(projectTechnicalCandles(data, [], Date.parse('2026-09-24T12:00:00Z'))[1]!.researchScenario!.status, 'WITHDRAWN');
 });
-test('member display explains assumptions and withdrawal; helper cannot submit trades', () => {
+test('member display no longer offers retired scenarios; historical helper cannot submit trades', () => {
   const ui = readFileSync('components/member/DailyCandleChart.tsx', 'utf8');
-  assert.match(ui, /data-btc-pullback-scenario/);
-  assert.match(ui, /高位整理后回调/);
-  assert.match(ui, /支撑失守尚未确认/);
+  assert.doesNotMatch(ui, /data-btc-pullback-scenario|data-btc-breakout-review/);
+  assert.match(ui, /不沿用旧价格模拟/);
+  assert.match(ui, /不改写已锁定研究/);
   const helper = readFileSync('lib/research/btc-four-week-scenario.ts', 'utf8');
   assert.doesNotMatch(helper, /bitget|placeOrder|trading-signals|fetch\(/);
 });
@@ -81,5 +81,5 @@ test('September 21 revision permanently retires V1 without inventing a bullish c
   assert.equal(after[1]!.researchScenario?.revision, 'BTC_BREAKOUT_20260921_V2');
   assert.equal(after[1]!.researchScenario?.status, 'WITHDRAWN');
   assert.deepEqual(after[1]!.candles, before.filter(p => p.level === 'MONTH')[1]!.candles);
-  assert.match(readFileSync('components/member/DailyCandleChart.tsx', 'utf8'), /data-btc-breakout-review/);
+  assert.doesNotMatch(readFileSync('components/member/DailyCandleChart.tsx', 'utf8'), /data-btc-breakout-review/);
 });

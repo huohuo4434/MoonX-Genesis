@@ -172,7 +172,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       <label><input type="checkbox" checked={allLevels} onChange={e => setAllLevels(e.target.checked)} />{en ? "All levels (up to 5 per side)" : "全部层级（每侧最多5档）"}</label>
       {review?.status === 'ACTIVE' ? <label><input type="checkbox" checked={reviewVisible} onChange={e => setReviewVisible(e.target.checked)} />{en ? '09/14 reviewed levels' : '09/14技术复核点位'}</label> : null}
       <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 18), to: n + future.length + 2 }); }} className="rounded border border-slate-600 px-3 py-1">{en ? "Reset view" : "重置视图"}</button>
-      <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: n - 2, to: n + future.length + 1 }); }} disabled={!future.length} className="rounded border border-slate-600 px-3 py-1 disabled:opacity-40">{en ? "Focus forecast" : "放大预测区"}</button>
+      {future.length ? <button type="button" onClick={() => { const n = data.bars.slice(-70).length; api.current?.timeScale().setVisibleLogicalRange({ from: n - 2, to: n + future.length + 1 }); }} className="rounded border border-slate-600 px-3 py-1">{en ? "Focus forecast" : "放大预测区"}</button> : null}
     </div>
     {review ? <section className="space-y-2 border-b border-amber-400/30 bg-amber-950/15 p-4 text-sm" data-technical-review={review.id}>
       <h3 className="font-semibold text-amber-200">{en ? '09/14 technical review · USD equity levels' : '09/14技术复核 · 美股美元点位'}</h3>
@@ -200,7 +200,7 @@ export function ResearchCandleTerminal({ data, projection, en, band }: {
       {[ [en ? "O" : "开", selected.open], [en ? "H" : "高", selected.high], [en ? "L" : "低", selected.low], [en ? "C" : "收", selected.close] ].map(([label, value]) => <span key={label}>{label} <strong>{formatPrice(Number(value))}</strong></span>)}
     </div>
     <div className="relative" style={{ minHeight: 560 }}>
-      <div ref={container} style={{ height: 560 }} role="img" aria-label={en ? "Interactive actual and simulated OHLC chart. Drag or pinch to zoom. Daily prices available in table below." : "可缩放真实与模拟K线图，日期开高低收可在下方表格读取。"} />
+      <div ref={container} style={{ height: 560 }} role="img" aria-label={future.length ? (en ? "Interactive actual and simulated OHLC chart." : "真实与模拟K线图。") : (en ? "Observed OHLC chart only; no future price candles. Historical prices available below." : "仅真实行情K线图，无未来价格K线；历史开高低收可在下方表格读取。")} />
       {future.length ? <div ref={divider} style={{ display: "none", pointerEvents: "none", position: "absolute", zIndex: 3, top: 0, bottom: 28, right: 92, borderLeft: "2px dashed #fbbf24", background: "rgba(251,191,36,.045)" }}><span style={{ position: "absolute", top: 5, left: 6, whiteSpace: "nowrap", background: "#322b1b" }} className="rounded px-2 py-1 text-xs text-amber-200">{en ? "SIMULATED · NOT ACTUAL" : "未来模拟区 · 非真实行情"}</span></div> : null}
       {fault ? <p role="alert" className="absolute inset-0 bg-slate-900 p-6 text-amber-200">{en ? "Chart could not load. Use the dated OHLC table below and refresh." : "图表加载失败，请先查看下方逐日价格表并刷新。"}</p> : null}
     </div>

@@ -51,7 +51,7 @@ test('missing horizon is distinguished from missing price history and UI explain
   assert.deepEqual(projectionCoverage(data, [], [], Date.parse('2026-09-06T12:00:00Z')), {MONTH:'NO_SOURCE',WEEK:'NO_SOURCE'});
   const ui = readFileSync('components/member/DailyCandleChart.tsx','utf8');
   assert.doesNotMatch(ui, /该周期暂无可用正式预测、已核验交易日历或充足闭合K线/);
-  assert.match(ui, /阶段预测K线/);
+  assert.match(ui, /阶段方向/);
   assert.match(ui, /零成交量K线可能来自盘口报价/);
   const loader = readFileSync('lib/market-data/key-date-daily.server.ts','utf8');
   for (const value of ['spcx: SPCX_ORDERLY_SYMBOL','asteroid: ASTEROID_TOKEN',"cxmt: '688825.SS'"]) assert.ok(loader.includes(value));

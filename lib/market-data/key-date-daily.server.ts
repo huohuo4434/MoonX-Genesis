@@ -6,9 +6,9 @@ import { parseYahooChanCandles } from "./chan-market-data-core";
 import { chartZones } from "@/lib/presentation/key-date-chart";
 import { exchangeDate, expectedClosedSession, finalizedChartBars } from "@/lib/presentation/chart-daily-session";
 import { horizonForecastPaths } from '@/lib/research/horizon-forecast-paths';
-import { projectionCoverage, PROJECTION_ENGINE, type DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
-import { projectTechnicalCandles } from '@/lib/research/technical-candle-outlook';
-import { loadChartFourHour } from './chart-crypto-four-hour';
+import { PROJECTION_ENGINE, type DailyProjectionData } from "@/lib/research/daily-candle-projection-core";
+import { buildSourceResearch } from '@/lib/research/source-research-view';
+import { BTC_ANNUAL_MONTHS, BTC_ANNUAL_REVIEW_VERSION, btcAnnualReviewArchived } from '@/lib/research/btc-annual-review-20260927.server';
 
 export const KEY_DATE_SYMBOLS: Record<string, string> = {
   btc: "BTCUSDT", eth: "ETHUSDT", sol: "SOLUSDT", hype: "HYPEUSDT",
@@ -51,9 +51,12 @@ export async function loadKeyDateDaily(assetId: string, now = Date.now()): Promi
     source: crypto || special ? cryptoSource : quoteSymbol.endsWith("=F") ? "Yahoo Finance / continuous futures" : "Yahoo Finance",
     asOf: bars.at(-1)!.date, stale: bars.at(-1)!.date < expectedAsOf, checkedAt: new Date(now).toISOString(),
     expectedAsOf, projectionDate, engine: PROJECTION_ENGINE, projections: [], archiveStatus: "NOT_APPLICABLE", archiveId: null };
-  const intraday = crypto ? await loadChartFourHour(quoteSymbol, cryptoSource, now) : null;
-  data.projections = projectTechnicalCandles(data, paths, now, intraday);
-  data.unavailable = projectionCoverage(data, paths, data.projections, now);
-  if (bars.length < 65) data.unavailable = { WEEK: 'INSUFFICIENT_BARS', MONTH: 'INSUFFICIENT_BARS' };
+  // No synthetic OHLC. Empty projections also bypass archive writes.
+  data.research = buildSourceResearch(assetId, paths, projectionDate, now);
+  // Current editorial context is separate from immutable older locked records.
+  if (assetId === 'btc' && projectionDate >= '2026-09-27' && !btcAnnualReviewArchived(now)) {
+    data.editorialContext = { version: BTC_ANNUAL_REVIEW_VERSION, reviewDate: '2026-09-27',
+      months: BTC_ANNUAL_MONTHS.map(row => ({ ...row })) };
+  }
   return data;
 }

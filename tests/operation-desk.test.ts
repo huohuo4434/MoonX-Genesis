@@ -31,11 +31,11 @@ test("selected asset never retains another asset's candles or plans", () => {
   assert.match(source, /controller.abort\(\)/);
   assert.match(read("components/member/ConciseTradePlans.tsx"), /!symbol \|\| plan.symbol === symbol/);
 });
-test("compact candles keep quote basis, staleness and simulated labels", () => {
+test("compact candles keep quote basis and staleness without synthetic prices", () => {
   const source = read("components/member/DailyCandleChart.tsx");
-  assert.match(source, /projection=\{data.stale \? undefined : projection\}/);
+  assert.match(source, /<ResearchCandleTerminal data=\{data\} en=\{en\} band=\{false\}/);
   assert.match(source, /data.quoteSymbol/);
   assert.match(source, /data.source/);
-  assert.match(source, /右侧未来情景模拟/);
+  assert.match(source, /已撤下无依据的未来价格模拟/);
   assert.match(source, /日线位置不等于日内入场已确认/);
 });
