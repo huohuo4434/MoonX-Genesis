@@ -15,7 +15,9 @@ const PRIVATE_KEY_PATTERN=/^(?:post(?:id|url|text|.*excerpt)|raw(?:post|text|.*e
 const PRIVATE_TOKENS=/@[A-Za-z0-9_]+|\b(?:MAT78704|BTCTW0|BTCKIK|Stone|NANA|WOLF|GAOSHAN)\b|teacher[- ]method review|teacher(?:'s|[- ](?:supplied|claim|method|material|notes?|prediction|rules?))?|external analyst|public analyst|老师提供|老师法(?:复核(?:后|版)?)?|老师笔记(?:复核版)?|外部同周期六爻|(?<!易)老师|乔乔|狼叔|高山说缠论|MOOX验证某人/gi;
 
 const interpretationLabel=(locale:Locale)=>locale==="en"?PUBLIC_INTERPRETATION_LABEL_EN:PUBLIC_INTERPRETATION_LABEL_ZH;
-export function publicAttributionText(value:string,locale:Locale="zh"){return value.replace(/\bTEACHER_/g,"SOURCE_").replace(PRIVATE_TOKENS,interpretationLabel(locale)).replace(/\s{2,}/g," ").trim();}
+// Name redaction is presentation-only; never alter internal evidence or calendrical 丙午年.
+const ANNUAL_SOURCE_NAME=/丙午(?:老师|老師)|\bBing\s*Wu(?:['’]s)?\b/gi;
+export function publicAttributionText(value:string,locale:Locale="zh"){return value.replace(ANNUAL_SOURCE_NAME,locale==="en"?"reference material":"参考资料").replace(/\bTEACHER_/g,"SOURCE_").replace(PRIVATE_TOKENS,interpretationLabel(locale)).replace(/\s{2,}/g," ").trim();}
 function childLocale(key:string,fallback:Locale):Locale{return /(?:en|english)$/i.test(key)?"en":/(?:zh|zhcn|chinese)$/i.test(key)?"zh":fallback;}
 function sourceLabel(key:string,locale:Locale){if(/en$/i.test(key))return PUBLIC_INTERPRETATION_LABEL_EN;if(/zh/i.test(key))return PUBLIC_INTERPRETATION_LABEL_ZH;return interpretationLabel(locale);}
 

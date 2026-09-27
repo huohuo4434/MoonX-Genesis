@@ -115,7 +115,7 @@ test("real founder and weekly packs are fully presentation-safe before member re
     assert.ok(!en.toLowerCase().includes(phrase.toLowerCase()),phrase);
   }
   assert.match(read("components/member/MemberFounderCyclePage.tsx"),/projectPublicAttribution\(rawPack,\s*\{\s*locale\s*\}\)/);
-  assert.match(read("app/member/weekly/page.tsx"),/projectPublicAttribution\(await buildWeeklyAlphaIssue/);
+  assert.match(read("app/member/weekly/page.tsx"),/projectPublicAttribution\(await getMemberWeeklyPagePayload\(\),\s*\{locale\}\)/);
 });
 
 test("alpha report projection sanitizes every nested display string",()=>{
