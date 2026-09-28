@@ -1,18 +1,23 @@
 import Image from "next/image";
 import { publicNotes } from "@/content/public-notes/market-tao-20260919";
 import { CryptoRiskNote20260925 } from "./CryptoRiskNote20260925";
+import { MstrPathNote20260928 } from "./MstrPathNote20260928";
+import { getRequestLocale } from "@/lib/i18n/server";
 
-export function PublicNotes() {
+export async function PublicNotes() {
+  const en = (await getRequestLocale()) === "en";
   return (
     <section className="mx-auto max-w-4xl px-4 py-10" aria-labelledby="public-notes-heading">
-      <p className="text-xs tracking-widest text-emerald-400">MOOX · 公开研究</p>
-      <h1 id="public-notes-heading" className="mt-2 text-3xl font-semibold">易老师随笔</h1>
-      <p className="mt-3 text-sm leading-7 text-white/65">这里的公开图文无需付费或登录，包含作者最新随笔及 MarketTao 原帖的中文整理。每篇保留自己的日期、来源与条件，不是实时行情，也不会自动覆盖正式预测或触发交易。</p>
-      <nav aria-label="公开随笔目录" className="mt-5 flex flex-wrap gap-2">
+      <p className="text-xs tracking-widest text-emerald-400">{en ? "MOOX · Public research" : "MOOX · 公开研究"}</p>
+      <h1 id="public-notes-heading" className="mt-2 text-3xl font-semibold">{en ? "Teacher Yi’s Notes" : "易老师随笔"}</h1>
+      <p className="mt-3 text-sm leading-7 text-white/65">{en ? "Public notes and original charts require no payment or sign-in. Each retains its date, sources and conditions; these are not live quotes and do not overwrite official forecasts or trigger trades. The new MSTR note is available in English; older Chinese archive entries remain unchanged below." : "这里的公开图文无需付费或登录，包含作者最新随笔及 MarketTao 原帖的中文整理。每篇保留自己的日期、来源与条件，不是实时行情，也不会自动覆盖正式预测或触发交易。"}</p>
+      <nav aria-label={en ? "Public notes index" : "公开随笔目录"} className="mt-5 flex flex-wrap gap-2">
+        <a href="#note-mstr-path-20260928" className="rounded-full border border-emerald-400/40 px-3 py-2 text-sm text-emerald-200 hover:border-emerald-400">{en ? "9/28 MSTR · $101 / $137 scenario" : "9/28 MSTR · 101 / 137 路径"}</a>
         <a href="#note-btc-eth-risk-20260925" className="rounded-full border border-emerald-400/40 px-3 py-2 text-sm text-emerald-200 hover:border-emerald-400">9/25 BTC · ETH 风险观察</a>
         {publicNotes.map(note => <a key={note.id} href={`#note-${note.id}`} className="rounded-full border border-white/15 px-3 py-2 text-sm hover:border-emerald-400">{note.asset}</a>)}
       </nav>
       <div className="mt-8 space-y-6">
+        <MstrPathNote20260928 en={en} />
         <CryptoRiskNote20260925 />
         {publicNotes.map(note => (
           <article id={`note-${note.id}`} key={note.id} className="scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
