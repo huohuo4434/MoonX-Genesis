@@ -1,4 +1,5 @@
 import "server-only";
+import { assertTradingWriteAllowed } from "@/lib/trading-retirement";
 
 import { createHmac } from "crypto";
 import type { TradeSignalRecord } from "@/types/trading-signal";
@@ -18,6 +19,7 @@ function orderSide(signal: TradeSignalRecord): "buy" | "sell" {
 }
 
 export async function sendGenericPaperWebhook(signal: TradeSignalRecord): Promise<PaperExecutionResult> {
+  assertTradingWriteAllowed("POST");
   const url = process.env.MOONX_EXECUTION_WEBHOOK_URL?.trim();
   if (!url) throw new Error("未配置 MOONX_EXECUTION_WEBHOOK_URL");
   const secret = process.env.MOONX_EXECUTION_WEBHOOK_SECRET?.trim() ?? "";
@@ -49,6 +51,7 @@ export async function sendGenericPaperWebhook(signal: TradeSignalRecord): Promis
 }
 
 export async function submitAlpacaPaperOrder(signal: TradeSignalRecord): Promise<PaperExecutionResult> {
+  assertTradingWriteAllowed("POST");
   const key = process.env.ALPACA_PAPER_API_KEY?.trim();
   const secret = process.env.ALPACA_PAPER_SECRET_KEY?.trim();
   if (!key || !secret) throw new Error("未配置 Alpaca Paper API Key");
@@ -93,6 +96,7 @@ function okxSignature(timestamp: string, method: string, path: string, body: str
 }
 
 export async function submitOkxDemoOrder(signal: TradeSignalRecord): Promise<PaperExecutionResult> {
+  assertTradingWriteAllowed("POST");
   const apiKey = process.env.OKX_DEMO_API_KEY?.trim();
   const secret = process.env.OKX_DEMO_SECRET_KEY?.trim();
   const passphrase = process.env.OKX_DEMO_PASSPHRASE?.trim();

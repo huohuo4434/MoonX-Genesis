@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { prisma } from "@/lib/prisma";
 import { isUnifiedLiveAdmin, resolveUnifiedLiveActor } from "@/lib/trading-signals/unified-live-auth";
 import { isUnifiedLiveActiveExecutionEnabled, readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
@@ -59,6 +60,10 @@ async function readRestoreReadiness(status: {
 
 export async function GET(request: NextRequest) {
   if (!(await requireAdmin(request))) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({
+    tradingRetired: true, migrationRequired: false, account: { mode: "PAUSED", newEntriesEnabled: false, positionManagementEnabled: false },
+    audit: null, restoreBlockers: [{ code: "AUTOMATED_TRADING_RETIRED", message: "已按站主要求停用自动交易及托管；此页不再自动读取交易所。历史数据保留。" }],
+  }, { headers: { "Cache-Control": "no-store" } });
   const status = await inspectUnifiedLiveCustody("official");
   const restoreBlockers = buildUnifiedLiveRestoreBlockers(await readRestoreReadiness(status));
   const controlHistory = presentLiveControlHistory(status.account
@@ -71,6 +76,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const actor = await requireAdmin(request);
   if (!actor) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ error: "AUTOMATED_TRADING_RETIRED" }, { status: 409 });
   const payload = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const action = String(payload?.action ?? "").toUpperCase();
   if (action === "RUN_AUDIT") {

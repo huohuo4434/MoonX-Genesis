@@ -1,4 +1,5 @@
 import type { UnifiedLiveHorizon, UnifiedLiveMode } from "@/types/unified-live-trading";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { STRATEGY_HOLDING_CAP_MINUTES } from "@/lib/trading-signals/strategy-horizon-policy-core";
 
 export const UNIFIED_LIVE_HORIZON_LIMITS: Record<UnifiedLiveHorizon, number> = {
@@ -33,6 +34,11 @@ export function readUnifiedLiveMode(value = process.env.MOOX_UNIFIED_LIVE_MODE):
 }
 
 export function readUnifiedLiveRuntimeConfig() {
+  if (AUTOMATED_TRADING_RETIRED) return {
+    mode: "PAUSED" as const, allowLiveSwitch: false, allowNewEntriesByEnv: false,
+    positionManagementEnabled: false, controlSource: "OWNER_RETIREMENT" as const,
+    isolatedOnly: true as const, maxLeverage: 10 as const,
+  };
   const authoritative = readAuthoritativeTradingControlMode();
   if (authoritative.configured) {
     return {
@@ -64,6 +70,7 @@ export function readUnifiedLiveRuntimeConfig() {
 }
 
 export function isUnifiedLiveActiveExecutionEnabled(): boolean {
+  if (AUTOMATED_TRADING_RETIRED) return false;
   const authoritative = readAuthoritativeTradingControlMode();
   return authoritative.configured
     ? authoritative.mode === "LIVE"

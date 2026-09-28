@@ -1,4 +1,5 @@
 import { auditUnifiedLiveCustody } from "@/lib/trading-signals/unified-live-custody-core";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { readUnifiedLiveExchangeSnapshot } from "@/lib/trading-signals/unified-live-exchange-adapter";
 import { readUnifiedLiveRuntimeConfig } from "@/lib/trading-signals/unified-live-config";
 import {
@@ -69,6 +70,11 @@ export async function runUnifiedLiveCustodyCycle(input: {
   trigger: string;
   ownerKey?: string;
 }) {
+  if (AUTOMATED_TRADING_RETIRED) return {
+    ok: true, migrationRequired: false, trigger: input.trigger, mode: "PAUSED",
+    newOrdersPlaced: 0, positionManagementContinues: false, audit: null,
+    skipped: "AUTOMATED_TRADING_RETIRED",
+  };
   const ownerKey = input.ownerKey ?? "official";
   const ensured = await ensureUnifiedLiveAccount({ ownerKey, accountScope: ownerKey === "official" ? "OFFICIAL" : "MEMBER" });
   if (!ensured.ok) {

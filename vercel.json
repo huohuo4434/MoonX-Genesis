@@ -5,28 +5,8 @@
       "schedule": "25 * * * *"
     },
     {
-      "path": "/api/cron/member-ai-desk-sync",
-      "schedule": "*/2 * * * *"
-    },
-    {
       "path": "/api/cron/expire-memberships",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/prediction-auto-trader",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/trading-watchdog",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/bitget-runtime-health",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/live-trading-custodian",
-      "schedule": "*/5 * * * *"
     }
   ]
 }

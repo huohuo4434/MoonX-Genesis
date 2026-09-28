@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { runTradingReliabilityWatchdog } from "@/lib/trading-signals/trading-reliability";
 import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
   if (!authorizeCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ ok: true, skipped: "AUTOMATED_TRADING_RETIRED" });
   await runUnifiedLiveCustodyCycle({
     trigger: "TRADING_WATCHDOG:GET",
     ownerKey: "official",

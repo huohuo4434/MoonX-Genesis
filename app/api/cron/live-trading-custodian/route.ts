@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { runUnifiedLiveCustodyCycle } from "@/lib/trading-signals/unified-live-runtime";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ function authorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ ok: true, skipped: "AUTOMATED_TRADING_RETIRED" });
   const custody = await runUnifiedLiveCustodyCycle({ trigger: "CRON_CUSTODIAN", ownerKey: "official" });
   return NextResponse.json({ custody, newOrdersPlaced: 0, execution: "CUSTODY_ONLY" });
 }

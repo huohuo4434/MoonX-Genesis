@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { getBitgetDemoEnvironment } from "@/lib/bitget/demo-client";
 import { syncMemberAiTradingDeskSnapshot } from "@/lib/trading-signals/member-ai-trading-desk";
 import { classifyMemberDeskSyncError } from "@/lib/diagnostics/member-desk-sync-error";
@@ -12,6 +13,7 @@ export async function GET(request: NextRequest) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ ok: true, skipped: "AUTOMATED_TRADING_RETIRED" });
   if (getBitgetDemoEnvironment().mode !== "LIVE_EXPERIMENT") {
     return NextResponse.json({ ok: true, skipped: "LIVE_SNAPSHOT_ONLY" });
   }

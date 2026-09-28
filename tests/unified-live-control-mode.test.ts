@@ -31,27 +31,27 @@ function withEnvironment(values: Partial<Record<(typeof CONTROL_KEYS)[number], s
   }
 }
 
-test("single LIVE control authorizes entries and position management", () => {
+test("legacy LIVE value remains readable but retirement overrides execution", () => {
   withEnvironment({ MOOX_TRADING_CONTROL_MODE: "LIVE" }, () => {
     assert.deepEqual(readAuthoritativeTradingControlMode(), { configured: true, mode: "LIVE" });
     assert.deepEqual(readUnifiedLiveRuntimeConfig(), {
-      mode: "LIVE",
-      allowLiveSwitch: true,
-      allowNewEntriesByEnv: true,
-      positionManagementEnabled: true,
-      controlSource: "MOOX_TRADING_CONTROL_MODE",
+      mode: "PAUSED",
+      allowLiveSwitch: false,
+      allowNewEntriesByEnv: false,
+      positionManagementEnabled: false,
+      controlSource: "OWNER_RETIREMENT",
       isolatedOnly: true,
       maxLeverage: 10,
     });
-    assert.equal(isUnifiedLiveActiveExecutionEnabled(), true);
+    assert.equal(isUnifiedLiveActiveExecutionEnabled(), false);
   });
 });
 
-test("MANAGE_ONLY keeps management on while preventing new exposure", () => {
+test("retirement also overrides legacy MANAGE_ONLY", () => {
   withEnvironment({ MOOX_TRADING_CONTROL_MODE: "MANAGE_ONLY" }, () => {
     const config = readUnifiedLiveRuntimeConfig();
     assert.equal(config.allowNewEntriesByEnv, false);
-    assert.equal(config.positionManagementEnabled, true);
+    assert.equal(config.positionManagementEnabled, false);
     assert.equal(isUnifiedLiveActiveExecutionEnabled(), false);
   });
 });
@@ -80,7 +80,7 @@ test("legacy controls remain a fail-closed migration fallback", () => {
     MOOX_UNIFIED_LIVE_POSITION_MANAGEMENT: "true",
   }, () => {
     const config = readUnifiedLiveRuntimeConfig();
-    assert.equal(config.mode, "LIVE");
-    assert.equal(config.controlSource, "LEGACY_ENV_COMPATIBILITY");
+    assert.equal(config.mode, "PAUSED");
+    assert.equal(config.controlSource, "OWNER_RETIREMENT");
   });
 });

@@ -751,7 +751,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
     "allowedSymbols: environment.liveAllowedSymbols",
   ]);
   assert.doesNotMatch(strategy, /allowedSymbols:\s*eligibleLiveSymbols/);
-  assert.deepEqual(vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader")?.schedule, "* * * * *");
+  assert.equal(vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader"), undefined);
   assert.match(strategy, /const maxNewSymbols = options\.maxNewSymbols != null && Number\.isFinite\(options\.maxNewSymbols\)/);
   assert.doesNotMatch(strategy, /const maxNewSymbols = liveExperimentMode[\s\S]{0,80}Number\.POSITIVE_INFINITY/);
   assert.match(strategy, /const liveScanRound = await beginLiveScanRound\([\s\S]{0,500}manage: \(\) => manageActiveDecisions\(now\)/);
@@ -796,7 +796,7 @@ test("live cron keeps a bounded rotating batch and finalization reserve", () => 
   ]);
   assert.deepEqual(
     vercel.crons.find((row) => row.path === "/api/cron/prediction-auto-trader"),
-    { path: "/api/cron/prediction-auto-trader", schedule: "* * * * *" }
+    undefined
   );
 });
 
@@ -817,9 +817,9 @@ test("孤儿仓位不自动全部平仓", () => {
   assert.doesNotMatch(adminRoute + adminClient, /closeAll|liquidateAll|emergencyCloseAll/i);
 });
 
-test("独立看门狗Cron每五分钟运行并校验密钥", () => {
+test("交易退役后看门狗不再调度，保留接口鉴权", () => {
   const cron = vercel.crons.find((row) => row.path === "/api/cron/trading-watchdog");
-  assert.deepEqual(cron, { path: "/api/cron/trading-watchdog", schedule: "*/5 * * * *" });
+  assert.equal(cron, undefined);
   all(watchdog, ["CRON_SECRET", "Bearer ${secret}", "runTradingReliabilityWatchdog"]);
 });
 

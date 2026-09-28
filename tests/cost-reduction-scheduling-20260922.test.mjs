@@ -11,16 +11,10 @@ test('retired optional monitoring has no production schedule', () => {
   }
 });
 
-test('price, payment, membership and trading safety cadence is preserved', () => {
+test('price and membership cadence is preserved after payment and trading retirement', () => {
   for (const [name, schedule] of Object.entries({
     'daily-candle-projections': '25 * * * *',
-    'member-ai-desk-sync': '*/2 * * * *',
-    'reconcile-payments': '* * * * *',
     'expire-memberships': '0 3 * * *',
-    'prediction-auto-trader': '* * * * *',
-    'trading-watchdog': '*/5 * * * *',
-    'bitget-runtime-health': '* * * * *',
-    'live-trading-custodian': '*/5 * * * *',
   })) assert.equal(schedules.get(`/api/cron/${name}`), schedule, name);
   assert.equal(schedules.size, config.crons.length);
 });

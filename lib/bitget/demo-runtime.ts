@@ -1,4 +1,5 @@
 import "server-only";
+import { assertTradingWriteAllowed } from "@/lib/trading-retirement";
 
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -927,6 +928,7 @@ export async function runBitgetDemoServerRuntime(
   source: BitgetRuntimeSource = "CRON",
   options: { absoluteDeadlineAt?: Date; forceManageOnly?: boolean; forceManageOnlyReason?: string } = {}
 ): Promise<BitgetRuntimeRunReport> {
+  assertTradingWriteAllowed("POST");
   const runtimeTiming = captureWallClockRunTiming({ businessNow: now });
   if (!(await ensureBitgetRuntimeTables()) || !prisma) {
     throw new Error("交易数据库未连接");

@@ -1,4 +1,5 @@
 import "server-only";
+import { AUTOMATED_TRADING_RETIRED, assertTradingWriteAllowed } from "@/lib/trading-retirement";
 import { evaluateLiveDuration } from "./live-duration-core";
 import { assertEmptyExchangePayloads, assertCurrentEntryEpoch, continuousPayloadShape } from "./live-continuous-transition-core";
 import { confirmEmptyUtaPositionSnapshot } from "./continuous-position-snapshot";
@@ -400,12 +401,12 @@ export function getBitgetDemoEnvironment(): BitgetDemoEnvironment {
   return {
     mode: env.mode,
     configured,
-    executionAllowed: live
+    executionAllowed: AUTOMATED_TRADING_RETIRED ? false : live
       ? (authoritativeControl.configured
           ? unifiedRuntime.positionManagementEnabled
           : process.env.BITGET_LIVE_EXECUTION_ALLOWED?.toLowerCase() === "true") && liveConfirmationAccepted
       : process.env.BITGET_DEMO_EXECUTION_ALLOWED?.toLowerCase() === "true",
-    testOrderAllowed: !live && process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
+    testOrderAllowed: !AUTOMATED_TRADING_RETIRED && !live && process.env.BITGET_DEMO_TEST_ORDER_ALLOWED?.toLowerCase() === "true",
     apiKeyMasked: env.apiKey
       ? `${env.apiKey.slice(0, 4)}••••${env.apiKey.slice(-4)}`
       : "未配置",
@@ -720,6 +721,7 @@ async function signedRequestOnce<T>(input: {
   body?: Record<string, unknown>;
   onDispatch?: () => void;
 }): Promise<T> {
+  assertTradingWriteAllowed(input.method);
   const env = credentials();
   if (!env.apiKey || !env.secretKey || !env.passphrase) {
     throw new Error(env.mode === "LIVE_EXPERIMENT" ? "Bitget实盘环境变量尚未配置完整" : "Bitget Demo环境变量尚未配置完整");

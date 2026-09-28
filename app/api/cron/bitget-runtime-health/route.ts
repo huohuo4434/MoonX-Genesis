@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { refreshBitgetRuntimeHealthOnly } from "@/lib/bitget/demo-runtime";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
   try {
+    if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ ok: true, skipped: "AUTOMATED_TRADING_RETIRED" });
     const state = await refreshBitgetRuntimeHealthOnly(new Date(), "CRON");
     return NextResponse.json({
       ok: true,

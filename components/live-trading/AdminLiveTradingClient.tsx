@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import LiveConfigurationDraftClient from "./LiveConfigurationDraftClient";
 import { CONTINUOUS_CONFIRMATION } from "@/lib/bitget/live-continuous-transition-core";
 import type { LiveRenewalPreview } from "@/lib/trading-signals/live-renewal-preview-core";
@@ -110,6 +111,7 @@ export default function AdminLiveTradingClient() {
   }, []);
 
   useEffect(() => {
+    if (AUTOMATED_TRADING_RETIRED) return;
     void load().then((ok) => {
       if (ok !== null && !inFlight.current) setMessage(ok ? "状态已读取。" : "状态读取失败，请刷新页面；当前开关状态未知。");
     });
@@ -203,6 +205,15 @@ export default function AdminLiveTradingClient() {
     }
   };
 
+  if (AUTOMATED_TRADING_RETIRED) return (
+    <main className="mx-auto max-w-3xl px-4 py-10 text-white">
+      <h1 className="text-3xl font-semibold">AI自动交易已停用</h1>
+      <p className="mt-4 leading-8">已按站主要求取消自动开仓、自动平仓、保护单修改和交易托管。历史记录保留，网站、会员图文与行情展示继续提供。</p>
+      <p className="mt-4 text-slate-300">2026年9月28日，站主确认交易所持仓及各类委托全部为0后停用。此处是部署级停用状态，不是实时交易所持仓证明；此后自行交易需自行管理风险。</p>
+      <p className="mt-4">旧开关和环境变量不能重新启用交易。恢复必须重新授权并经过代码审查。</p>
+      <a className="mt-6 inline-block underline" href="/member/notes">进入图文随笔</a>
+    </main>
+  );
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 text-white">
       <section className="rounded-3xl border border-white/10 bg-slate-950/80 p-6">

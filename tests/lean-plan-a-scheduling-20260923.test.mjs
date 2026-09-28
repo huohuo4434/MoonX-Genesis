@@ -5,15 +5,10 @@ import { readFileSync } from 'node:fs';
 const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 const retained = {
   '/api/cron/daily-candle-projections': '25 * * * *',
-  '/api/cron/member-ai-desk-sync': '*/2 * * * *',
   '/api/cron/expire-memberships': '0 3 * * *',
-  '/api/cron/prediction-auto-trader': '* * * * *',
-  '/api/cron/trading-watchdog': '*/5 * * * *',
-  '/api/cron/bitget-runtime-health': '* * * * *',
-  '/api/cron/live-trading-custodian': '*/5 * * * *',
 };
 
-test('lean manual-payment stage keeps existing price, membership and trading schedules', () => {
+test('owner retirement keeps only research-price refresh and membership schedules', () => {
   assert.equal(config.crons.length, Object.keys(retained).length);
   assert.deepEqual(Object.fromEntries(config.crons.map(({ path, schedule }) => [path, schedule])), retained);
   assert.equal(config.crons.some(({ path }) => path === '/api/cron/reconcile-payments'), false);

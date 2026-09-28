@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTOMATED_TRADING_RETIRED } from "@/lib/trading-retirement";
 import { runBitgetDemoServerRuntime } from "@/lib/bitget/demo-runtime";
 import { evaluateUnifiedLiveNewEntryGate } from "@/lib/trading-signals/unified-live-entry-gate";
 import { isUnifiedLiveActiveExecutionEnabled } from "@/lib/trading-signals/unified-live-config";
@@ -17,6 +18,7 @@ function authorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (AUTOMATED_TRADING_RETIRED) return NextResponse.json({ ok: true, skipped: "AUTOMATED_TRADING_RETIRED" });
 
   const now = new Date();
   const unifiedGate = await evaluateUnifiedLiveNewEntryGate("official").catch(() => ({
