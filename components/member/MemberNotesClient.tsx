@@ -500,7 +500,7 @@ export function MemberNotesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 text-white sm:px-6 sm:py-12">
+    <section id="member-posts" aria-label={en ? "Member journal" : "会员专栏"} className="mx-auto max-w-4xl scroll-mt-24 px-4 py-8 text-white sm:px-6 sm:py-12">
       <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
@@ -521,7 +521,7 @@ export function MemberNotesClient({
             onClick={() => setEditing(null)}
             disabled={editing !== undefined}
           >
-            {en ? "+ New post" : "＋ 发随笔"}
+            {en ? "+ Write a post" : "＋ 发布新观点"}
           </button>
         )}
       </header>
@@ -534,7 +534,7 @@ export function MemberNotesClient({
         <div className="mb-6 rounded-xl border border-violet-300/20 bg-violet-500/10 p-4 text-sm text-violet-100">
           {en
             ? "You can preview every title and opening line. Upgrade to read full posts and join discussions."
-            : "以下会员专享随笔可预览标题和首行。升级高级会员可阅读全文并参与讨论；上方公开随笔不受此限制。"}{" "}
+            : "以下会员专享随笔可预览标题和首行。升级高级会员可阅读全文并参与讨论；下方公开随笔不受此限制。"}{" "}
           <Link
             className="underline underline-offset-4"
             href={en ? "/en/pricing" : "/pricing"}
@@ -616,7 +616,7 @@ export function MemberNotesClient({
             {isAdmin
               ? en
                 ? "Use New post to share your first observation."
-                : "点击「发随笔」，发布你的第一篇个人见解。"
+                : "点击「发布新观点」，写下你的个人见解，也可以先保存为草稿。"
               : en
                 ? "New observations will appear here when published."
                 : "易老师发布新见解后，会在这里与你见面。"}
@@ -741,6 +741,6 @@ export function MemberNotesClient({
           {en ? "Older posts" : "更早的随笔"}
         </button>
       )}
-    </div>
+    </section>
   );
 }

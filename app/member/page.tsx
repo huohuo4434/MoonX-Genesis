@@ -1,36 +1,11 @@
-import type { Metadata } from "next";
-import { BtcAnnualReview20260927 } from "@/components/research/BtcAnnualReview20260927";
-import { UsEquityXuReview } from "@/components/member/UsEquityXuReview";
-import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
-import { MemberChannelContent } from "@/components/member/MemberChannelContent";
-import { MemberOperationDesk } from "@/components/member/MemberOperationDesk";
-import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
-import { getMemberDevicePageAccess } from "@/lib/auth/member-device-guard";
-import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
+import { redirect } from "next/navigation";
+import { getRequestLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = await getRequestLocale();
-  return buildLocalizedPageMetadata({
-    locale,
-    basePath: "/member",
-    titleZh: "会员频道 | MOOX Intelligence",
-    titleEn: "Member Channel | MOOX Intelligence",
-    descriptionZh: "从今日决策、周期预测、重点关注到AI交易和复盘验证的统一会员决策台。",
-    descriptionEn: "A focused member decision desk for today's plan, multi-horizon forecasts, priority assets, AI trading and reviews.",
-  });
-}
-
+// Access is checked by the destination page and its API, not by navigation.
 export default async function MemberChannelPage() {
-  const [gate, locale] = await Promise.all([getMemberDevicePageAccess(), getRequestLocale()]);
-  const active = gate.status === "ALLOWED";
-  return <>
-    <FedDecisionTeaser locale={locale} />
-    {active ? <MemberDeviceHeartbeat /> : null}
-    {active ? <BtcAnnualReview20260927 en={locale === "en"} compact nowMs={Date.now()} /> : null}
-    {active ? <UsEquityXuReview en={locale === "en"} compact nowMs={Date.now()} /> : null}
-    {active ? <MemberOperationDesk /> : <MemberChannelContent locale={locale} active={false} />}
-  </>;
+  const en = (await getRequestLocale()) === "en";
+  redirect(`${en ? "/en" : ""}/member/notes#member-posts`);
 }

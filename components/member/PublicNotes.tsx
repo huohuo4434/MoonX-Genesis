@@ -9,7 +9,7 @@ export async function PublicNotes() {
   return (
     <section className="mx-auto max-w-4xl px-4 py-10" aria-labelledby="public-notes-heading">
       <p className="text-xs tracking-widest text-emerald-400">{en ? "MOOX · Public research" : "MOOX · 公开研究"}</p>
-      <h1 id="public-notes-heading" className="mt-2 text-3xl font-semibold">{en ? "Teacher Yi’s Notes" : "易老师随笔"}</h1>
+      <h2 id="public-notes-heading" className="mt-2 text-3xl font-semibold">{en ? "Public posts · Full archive" : "公开观点 · 全文归档"}</h2>
       <p className="mt-3 text-sm leading-7 text-white/65">{en ? "Public notes and original charts require no payment or sign-in. Each retains its date, sources and conditions; these are not live quotes and do not overwrite official forecasts or trigger trades. The new MSTR note is available in English; older Chinese archive entries remain unchanged below." : "这里的公开图文无需付费或登录，包含作者最新随笔及 MarketTao 原帖的中文整理。每篇保留自己的日期、来源与条件，不是实时行情，也不会自动覆盖正式预测或触发交易。"}</p>
       <nav aria-label={en ? "Public notes index" : "公开随笔目录"} className="mt-5 flex flex-wrap gap-2">
         <a href="#note-mstr-path-20260928" className="rounded-full border border-emerald-400/40 px-3 py-2 text-sm text-emerald-200 hover:border-emerald-400">{en ? "9/28 MSTR · $101 / $137 scenario" : "9/28 MSTR · 101 / 137 路径"}</a>

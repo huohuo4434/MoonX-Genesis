@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PublicNotes } from "@/components/member/PublicNotes";
-import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
+import { CreatorProfile } from "@/components/community/CreatorProfile";
 import { MemberDeviceGate } from "@/components/access/MemberDeviceGate";
 import { MemberDeviceHeartbeat } from "@/components/access/MemberDeviceHeartbeat";
 import { MemberNotesClient } from "@/components/member/MemberNotesClient";
@@ -32,30 +32,31 @@ export default async function MemberNotesPage() {
   const en = locale === "en";
   const path = en ? "/en/member/notes" : "/member/notes";
   if (!access.authenticated)
-    return <main><PublicNotes /><div className="mx-auto max-w-4xl px-4 pb-12 text-sm text-white/65">会员专享随笔与讨论需登录。<Link className="ml-2 underline" href={`${en ? "/en" : ""}/login?next=${encodeURIComponent(path)}`}>登录 / 注册</Link></div></main>;
+    return <main><CreatorProfile en={en} compact /><section id="member-posts" className="mx-auto max-w-4xl scroll-mt-24 px-5 py-10 text-sm text-white/65"><h2 className="mb-3 text-xl font-semibold text-white">{en ? "Member journal" : "会员专栏"}</h2>{en ? "Sign in to access member posts and discussions. Public posts below are free to read." : "登录后可进入会员随笔与讨论。下方公开观点无需登录即可阅读。"}<Link className="ml-2 inline-block py-3 text-emerald-300 underline" href={`${en ? "/en" : ""}/login?next=${encodeURIComponent(path)}`}>{en ? "Sign in / Register" : "登录 / 注册"}</Link></section><PublicNotes /></main>;
   const previewOnly = !access.isActiveMember && !access.isAdmin;
   if (!previewOnly) {
     const gate = await getMemberDevicePageAccess({ failClosed: true });
     if (gate.status !== "ALLOWED")
       return (
         <main>
-          <PublicNotes />
-          <div className="mx-auto max-w-3xl px-4 py-10">
+          <CreatorProfile en={en} compact />
+          <div id="member-posts" className="mx-auto max-w-3xl scroll-mt-24 px-4 py-10">
           <MemberDeviceGate decision={gate.device} nextPath={path} />
           </div>
+          <PublicNotes />
         </main>
       );
   }
   return (
     <main>
-      <PublicNotes />
-      <FedDecisionTeaser locale={locale} />
+      <CreatorProfile en={en} compact />
       {!previewOnly && <MemberDeviceHeartbeat />}
       <MemberNotesClient
         en={en}
         isAdmin={access.isAdmin}
         previewOnly={previewOnly}
       />
+      <PublicNotes />
     </main>
   );
 }

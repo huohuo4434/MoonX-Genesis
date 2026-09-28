@@ -57,7 +57,7 @@ export const NAV_ROUTES = {
 } as const;
 
 export const PUBLIC_PRIMARY_NAV: NavItem[] = [
-  { key: "nav.home", href: NAV_ROUTES.home, labelZh: "首页", labelEn: "Home" },
+  { key: "nav.home", href: NAV_ROUTES.home, labelZh: "观点首页", labelEn: "Journal" },
   { key: "nav.guide", href: NAV_ROUTES.guide, labelZh: "新手指南", labelEn: "Guide" },
   { key: "nav.verification", href: NAV_ROUTES.verification, labelZh: "历史验证", labelEn: "Verification" },
   { key: "nav.pricing", href: NAV_ROUTES.pricing, labelZh: "会员价格", labelEn: "Pricing" },
@@ -66,10 +66,10 @@ export const PUBLIC_PRIMARY_NAV: NavItem[] = [
 export const PUBLIC_MORE_NAV: NavItem[] = [];
 
 export const MEMBER_RESEARCH_NAV: NavItem[] = [
-  { key: "memberNav.operationDesk", href: NAV_ROUTES.memberChannel, labelZh: "操作台", labelEn: "Trade Plan", groupKey: "overview", groupZh: "交易", groupEn: "Trading" },
+  { key: "memberNav.channel", href: NAV_ROUTES.memberChannel, labelZh: "会员专栏", labelEn: "Member journal", groupKey: "overview", groupZh: "观点", groupEn: "Journal" },
   { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "随笔", labelEn: "Notes", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
   { key: "memberNav.videos", href: NAV_ROUTES.memberVideos, labelZh: "会员视频", labelEn: "Videos", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
-  { key: "memberNav.review", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘", labelEn: "Review", groupKey: "forecast", groupZh: "交易", groupEn: "Trading" },
+  { key: "memberNav.review", href: NAV_ROUTES.memberWeeklyReview, labelZh: "历史复盘", labelEn: "Reviews", groupKey: "forecast", groupZh: "历史研究", groupEn: "Archive" },
   { key: "memberNav.services", href: NAV_ROUTES.consultations, labelZh: "会员服务", labelEn: "Services", groupKey: "tools", groupZh: "内容与服务", groupEn: "Content & Services" },
 ];
 
@@ -77,7 +77,7 @@ export const MEMBER_CHANNEL_NAV = MEMBER_RESEARCH_NAV;
 
 export const MOBILE_BOTTOM_NAV: NavItem[] = [
   { key: "nav.home", href: NAV_ROUTES.home, labelZh: "首页", labelEn: "Home" },
-  { key: "memberNav.operationDesk", href: NAV_ROUTES.memberChannel, labelZh: "操作台", labelEn: "Plan" },
+  { key: "memberNav.channel", href: NAV_ROUTES.memberChannel, labelZh: "会员专栏", labelEn: "Members" },
   { key: "memberNav.notes", href: NAV_ROUTES.memberNotes, labelZh: "随笔", labelEn: "Notes" },
   { key: "memberNav.review", href: NAV_ROUTES.memberWeeklyReview, labelZh: "复盘", labelEn: "Review" },
   { key: "nav.account", href: NAV_ROUTES.account, labelZh: "我的", labelEn: "Account" },

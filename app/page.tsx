@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 import { buildLocalizedPageMetadata, getRequestLocale } from "@/lib/i18n/server";
-import { HomeLandingBoard } from "@/components/home/HomeLandingBoard";
-import { FedDecisionTeaser } from "@/components/research/FedSeptemberSpecial";
+import { CreatorHome } from "@/components/community/CreatorHome";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   return buildLocalizedPageMetadata({
     locale,
     basePath: "/",
-    titleZh: "MOOX Intelligence",
-    titleEn: "MOOX Intelligence | Direction First, Confirmation Before Entry",
+    titleZh: "易老师观点 | MOOX",
+    titleEn: "Teacher Yi’s Journal | MOOX",
     descriptionZh:
-      "了解比特币、以太坊、纳斯达克100、黄金和白银的市场研究。免费体验今日基础观点，会员解锁周月展望、关键日期与技术价位。",
+      "易老师不定期分享市场观点、图文分析与复盘。公开观点免费阅读，会员随笔保留专属讨论。",
     descriptionEn:
-      "Market research for Bitcoin, Ether, Nasdaq 100, gold and silver. Start with free daily views; explore membership for weekly and monthly outlooks, key dates and technical levels.",
+      "Independent market observations, charts and reviews by Teacher Yi. Read public posts and explore the member journal.",
   });
 }
 
@@ -21,5 +20,5 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  return <><FedDecisionTeaser locale={await getRequestLocale()} /><HomeLandingBoard /></>;
+  return <CreatorHome en={(await getRequestLocale()) === "en"} />;
 }
