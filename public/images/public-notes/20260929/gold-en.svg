@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="800" viewBox="0 0 1240 800" role="img" aria-labelledby="title desc"><title id="title">Spot gold XAU/USD illustrative future candles</title><desc id="desc">Filled candles: observed completed daily bars. Hollow candles: manually constructed scenarios, not predictions of daily OHLC. Dashed alternatives have no assigned probability.</desc><rect width="1240" height="800" fill="#0b1220"/><g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="48" y="48" font-size="27" fill="#f0f5fc" text-anchor="start">Spot gold XAU/USD · Two-week scenarios</text>
+<text x="48" y="82" font-size="16" fill="#b7c5d8" text-anchor="start">Teacher Yi · Research only · Review cutoff: Sep 29, 2026, 20:20 Beijing</text>
+<rect x="48" y="101" width="1144" height="43" rx="6" fill="#382c18"/>
+<text x="64" y="129" font-size="20" fill="#ffd48a" text-anchor="start">SIMULATION — hollow future candles and exact turning dates are illustrative, NOT price forecasts</text>
+<rect x="541.3333333333333" y="185" width="578.6666666666667" height="405" fill="#fbbf24" opacity="0.055"/>
+<path d="M100 590H1120" stroke="#243247"/>
+<text x="86" y="595" font-size="15" fill="#aebed3" text-anchor="end">3,852</text>
+<path d="M100 509.0000000000001H1120" stroke="#243247"/>
+<text x="86" y="514.0000000000001" font-size="15" fill="#aebed3" text-anchor="end">3,967</text>
+<path d="M100 427.99999999999994H1120" stroke="#243247"/>
+<text x="86" y="432.99999999999994" font-size="15" fill="#aebed3" text-anchor="end">4,082</text>
+<path d="M100 346.9999999999998H1120" stroke="#243247"/>
+<text x="86" y="351.9999999999998" font-size="15" fill="#aebed3" text-anchor="end">4,197</text>
+<path d="M100 265.9999999999999H1120" stroke="#243247"/>
+<text x="86" y="270.9999999999999" font-size="15" fill="#aebed3" text-anchor="end">4,311</text>
+<path d="M100 185H1120" stroke="#243247"/>
+<text x="86" y="190" font-size="15" fill="#aebed3" text-anchor="end">4,426</text>
+<path d="M100 556.2500000000001H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 415.1104286461056H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 309.2557501306847H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 273.9708572922111H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<g data-kind="observed" data-date="2026-09-22"><title>2026-09-22 · observed daily OHLC · O 4343.57 H 4378.25 L 4291.42 C 4355.48</title><path d="M100 218.7499999999999V280.0257449032932" stroke="#35d9b4" stroke-width="2"/><rect x="92" y="234.81874019864108" width="16" height="8.404861474124289" fill="#35d9b4" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-23"><title>2026-09-23 · observed daily OHLC · O 4357.02 H 4371.45 L 4274.73 C 4287.51</title><path d="M156.66666666666666 223.54874542603244V291.80384213277597" stroke="#fb7185" stroke-width="2"/><rect x="148.66666666666666" y="233.7319654992155" width="16" height="49.05305802404615" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-24"><title>2026-09-24 · observed daily OHLC · O 4287.38 H 4304.95 L 4244.63 C 4278.52</title><path d="M213.33333333333331 270.47765290120236V313.04534762153673" stroke="#fb7185" stroke-width="2"/><rect x="205.33333333333331" y="282.8767642446418" width="16" height="6.252483010977301" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-25"><title>2026-09-25 · observed daily OHLC · O 4279.12 H 4316.81 L 4254.45 C 4287.25</title><path d="M270 262.108076319916V306.11539466806073" stroke="#35d9b4" stroke-width="2"/><rect x="262" y="282.9685049660219" width="16" height="5.737323575535925" fill="#35d9b4" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-28"><title>2026-09-28 · observed daily OHLC · O 4277.9 H 4280.56 L 4110.95 C 4127.38</title><path d="M440 287.68962362780934V407.38303711448003" stroke="#fb7185" stroke-width="2"/><rect x="432" y="289.5667799268167" width="16" height="106.22164140094065" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-09-30"><title>2026-09-30 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4127.38 H 4133.38 L 4114 C 4120</title><path d="M553.3333333333333 391.55423418714054V405.230658651333" stroke="#fb7185" stroke-width="2"/><rect x="545.3333333333333" y="395.78842132775736" width="16" height="5.2080501829588" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-01"><title>2026-10-01 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4120 H 4178.8 L 4111.2 C 4170</title><path d="M610 359.50143753267105V407.20661265028764" stroke="#35d9b4" stroke-width="2"/><rect x="602" y="365.7115786722426" width="16" height="35.28489283847358" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-02"><title>2026-10-02 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4170 H 4176 L 4124 C 4130</title><path d="M666.6666666666667 361.4773915316257V398.17368008363826" stroke="#fb7185" stroke-width="2"/><rect x="658.6666666666667" y="365.7115786722426" width="16" height="28.227914270778854" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-05"><title>2026-10-05 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4130 H 4198.8 L 4121.2 C 4190</title><path d="M836.6666666666666 345.3874803972816V400.1496340825929" stroke="#35d9b4" stroke-width="2"/><rect x="828.6666666666666" y="351.5976215368531" width="16" height="42.34187140616831" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-06"><title>2026-10-06 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4190 H 4196 L 4144 C 4150</title><path d="M893.3333333333334 347.36343439623624V384.0597229482488" stroke="#fb7185" stroke-width="2"/><rect x="885.3333333333334" y="351.5976215368531" width="16" height="28.22791427077891" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-07"><title>2026-10-07 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4150 H 4218.8 L 4141.2 C 4210</title><path d="M950 331.27352326189214V386.03567694720346" stroke="#35d9b4" stroke-width="2"/><rect x="942" y="337.48366440146367" width="16" height="42.341871406168366" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-08"><title>2026-10-08 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4210 H 4216 L 4174 C 4180</title><path d="M1006.6666666666666 333.2494772608468V362.8887872451646" stroke="#fb7185" stroke-width="2"/><rect x="998.6666666666666" y="337.48366440146367" width="16" height="21.170935703084183" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-09"><title>2026-10-09 · ILLUSTRATIVE / NOT FORECAST OHLC · O 4180 H 4258.8 L 4171.2 C 4250</title><path d="M1063.3333333333333 303.0456089911132V364.8647412441193" stroke="#35d9b4" stroke-width="2"/><rect x="1055.3333333333333" y="309.2557501306847" width="16" height="49.39884997386315" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<path d="M440 395.78842132775736 L836.6666666666666 476.01921066387877 L1063.3333333333333 556.2500000000001" fill="none" stroke="#e7b36a" stroke-width="2.5" stroke-dasharray="7 6"/>
+<path d="M440 395.78842132775736 L836.6666666666666 334.87963930998393 L1063.3333333333333 273.9708572922111" fill="none" stroke="#8baaff" stroke-width="2.5" stroke-dasharray="7 6"/>
+<path d="M541.3333333333333 185V590" stroke="#f4bc65" stroke-dasharray="6 5"/>
+<text x="100" y="169" font-size="16" fill="#dde7f7" text-anchor="start">OBSERVED / completed daily bars</text>
+<text x="553.3333333333333" y="169" font-size="16" fill="#ffd48a" text-anchor="start">ILLUSTRATIVE / from Sep 30</text>
+<text x="100" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/22</text>
+<text x="440" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/28</text>
+<text x="553.3333333333333" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/30</text>
+<text x="836.6666666666666" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">10/05</text>
+<text x="1120" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">10/10</text>
+<text x="100" y="150" font-size="14" fill="#b7c5d8" text-anchor="start">USD/oz</text>
+<text x="610" y="650" font-size="16" fill="#b7c5d8" text-anchor="middle">This week: through Oct 3  |  Next week: Oct 5–10  |  calendar spacing</text>
+<text x="48" y="690" font-size="17" fill="#d8e4f5" text-anchor="start">Filled: history · Hollow: central illustration</text>
+<path d="M640 684h40" stroke="#e7b36a" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="690" y="690" font-size="17" fill="#e7b36a" text-anchor="start">Weaker</text>
+<path d="M895 684h40" stroke="#8baaff" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="945" y="690" font-size="17" fill="#8baaff" text-anchor="start">Stronger</text>
+<text x="48" y="724" font-size="18" fill="#f2c888" text-anchor="start">Reference levels: 3,900 / 4,100 / 4,250 / 4,300</text>
+<text x="48" y="762" font-size="16" fill="#b7c5d8" text-anchor="start">No probability assigned. Not live quotes, guaranteed targets or trading instructions. Source and conditions in article.</text>
+</g></svg>

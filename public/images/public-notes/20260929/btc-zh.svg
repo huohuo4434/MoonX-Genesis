@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="800" viewBox="0 0 1240 800" role="img" aria-labelledby="title desc"><title id="title">比特币 BTC 未来模拟K线</title><desc id="desc">实心为已收盘历史日K，空心为人工构造的未来情景，不是精确每日四价预测；虚线路径未赋予概率。</desc><rect width="1240" height="800" fill="#0b1220"/><g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="48" y="48" font-size="27" fill="#f0f5fc" text-anchor="start">比特币 BTC · 两周条件模拟</text>
+<text x="48" y="82" font-size="16" fill="#b7c5d8" text-anchor="start">易老师 · 研究随笔 · 资料核验截止：2026-09-29 20:20 北京时间</text>
+<rect x="48" y="101" width="1144" height="43" rx="6" fill="#382c18"/>
+<text x="64" y="129" font-size="20" fill="#ffd48a" text-anchor="start">模拟示意 — 空心未来蜡烛及转折日期均为人工构造，不是精确价格预测</text>
+<rect x="508" y="185" width="612" height="405" fill="#fbbf24" opacity="0.055"/>
+<path d="M100 590H1120" stroke="#243247"/>
+<text x="86" y="595" font-size="15" fill="#aebed3" text-anchor="end">77,060</text>
+<path d="M100 509H1120" stroke="#243247"/>
+<text x="86" y="514" font-size="15" fill="#aebed3" text-anchor="end">79,316</text>
+<path d="M100 428H1120" stroke="#243247"/>
+<text x="86" y="433" font-size="15" fill="#aebed3" text-anchor="end">81,572</text>
+<path d="M100 347H1120" stroke="#243247"/>
+<text x="86" y="352" font-size="15" fill="#aebed3" text-anchor="end">83,828</text>
+<path d="M100 266H1120" stroke="#243247"/>
+<text x="86" y="271" font-size="15" fill="#aebed3" text-anchor="end">86,084</text>
+<path d="M100 185H1120" stroke="#243247"/>
+<text x="86" y="190" font-size="15" fill="#aebed3" text-anchor="end">88,340</text>
+<path d="M100 556.25H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 412.6329787234042H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 294.1489361702127H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<path d="M100 218.75H1120" stroke="#70839f" stroke-dasharray="4 6" opacity="0.55"/>
+<g data-kind="observed" data-date="2026-09-23"><title>2026-09-23 · 历史日线四价 · O 86204.6 H 87270 L 83546.3 C 84394.4</title><path d="M100 223.41755319148933V357.11422872340415" stroke="#fb7185" stroke-width="2"/><rect x="92" y="261.6699468085104" width="16" height="64.99388297872383" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-24"><title>2026-09-24 · 历史日线四价 · O 84394.4 H 84894.4 L 82957 C 84405.2</title><path d="M160 308.7117021276598V378.27260638297867" stroke="#35d9b4" stroke-width="2"/><rect x="152" y="326.27606382978735" width="16" height="2" fill="#35d9b4" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-25"><title>2026-09-25 · 历史日线四价 · O 84405.2 H 85245.4 L 83199.5 C 84097.5</title><path d="M220 296.10930851063847V369.5658244680851" stroke="#fb7185" stroke-width="2"/><rect x="212" y="326.27606382978735" width="16" height="11.047739361701986" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-26"><title>2026-09-26 · 历史日线四价 · O 84097.6 H 84450.9 L 83796.3 C 84450.9</title><path d="M280 324.63523936170236V348.13816489361693" stroke="#35d9b4" stroke-width="2"/><rect x="272" y="324.63523936170236" width="16" height="12.68497340425489" fill="#35d9b4" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-27"><title>2026-09-27 · 历史日线四价 · O 84427.2 H 85128.7 L 84141.3 C 84456.2</title><path d="M340 300.29933510638307V335.75119680851054" stroke="#35d9b4" stroke-width="2"/><rect x="332" y="324.44494680851074" width="16" height="2" fill="#35d9b4" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="observed" data-date="2026-09-28"><title>2026-09-28 · 历史日线四价 · O 84466.4 H 84992.4 L 82600.3 C 83507</title><path d="M400 305.1930851063832V391.07965425531904" stroke="#fb7185" stroke-width="2"/><rect x="392" y="324.0787234042555" width="16" height="34.44654255319125" fill="#fb7185" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-09-30"><title>2026-09-30 · 模拟四价，非精确预测 · O 83507 H 83648 L 82759 C 82900</title><path d="M520 353.4627659574468V385.3816489361702" stroke="#fb7185" stroke-width="2"/><rect x="512" y="358.5252659574468" width="16" height="21.793882978723445" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-01"><title>2026-10-01 · 模拟四价，非精确预测 · O 82900 H 83706.8 L 82693.2 C 83500</title><path d="M580 351.3515957446807V387.7441489361703" stroke="#35d9b4" stroke-width="2"/><rect x="572" y="358.7765957446809" width="16" height="21.542553191489333" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-02"><title>2026-10-02 · 模拟四价，非精确预测 · O 83500 H 83641 L 81859 C 82000</title><path d="M640 353.7140957446809V417.6954787234042" stroke="#fb7185" stroke-width="2"/><rect x="632" y="358.7765957446809" width="16" height="53.85638297872333" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-03"><title>2026-10-03 · 模拟四价，非精确预测 · O 82000 H 82606.8 L 81793.2 C 82400</title><path d="M700 390.8462765957446V420.0579787234044" stroke="#35d9b4" stroke-width="2"/><rect x="692" y="398.27127659574467" width="16" height="14.361702127659555" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-04"><title>2026-10-04 · 模拟四价，非精确预测 · O 82400 H 82541 L 81659 C 81800</title><path d="M760 393.20877659574467V424.876329787234" stroke="#fb7185" stroke-width="2"/><rect x="752" y="398.27127659574467" width="16" height="21.542553191489333" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-05"><title>2026-10-05 · 模拟四价，非精确预测 · O 81800 H 82006.8 L 80893.2 C 81100</title><path d="M820 412.38882978723393V452.3718085106384" stroke="#fb7185" stroke-width="2"/><rect x="812" y="419.813829787234" width="16" height="25.13297872340428" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-06"><title>2026-10-06 · 模拟四价，非精确预测 · O 81100 H 82341 L 80959 C 82200</title><path d="M880 400.38962765957444V450.00930851063833" stroke="#35d9b4" stroke-width="2"/><rect x="872" y="405.45212765957444" width="16" height="39.49468085106383" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-07"><title>2026-10-07 · 模拟四价，非精确预测 · O 82200 H 83406.8 L 81993.2 C 83200</title><path d="M940 362.12287234042543V412.87712765957457" stroke="#35d9b4" stroke-width="2"/><rect x="932" y="369.54787234042556" width="16" height="35.90425531914889" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-08"><title>2026-10-08 · 模拟四价，非精确预测 · O 83200 H 83341 L 82359 C 82500</title><path d="M1000 364.48537234042556V399.7433510638298" stroke="#fb7185" stroke-width="2"/><rect x="992" y="369.54787234042556" width="16" height="25.13297872340422" fill="#0b1220" stroke="#fb7185" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-09"><title>2026-10-09 · 模拟四价，非精确预测 · O 82500 H 84406.8 L 82293.2 C 84200</title><path d="M1060 326.2186170212765V402.1058510638299" stroke="#35d9b4" stroke-width="2"/><rect x="1052" y="333.6436170212766" width="16" height="61.037234042553166" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<g data-kind="synthetic" data-date="2026-10-10"><title>2026-10-10 · 模拟四价，非精确预测 · O 84200 H 84941 L 84059 C 84800</title><path d="M1120 307.0385638297872V338.70611702127655" stroke="#35d9b4" stroke-width="2"/><rect x="1112" y="312.1010638297872" width="16" height="21.54255319148939" fill="#0b1220" stroke="#35d9b4" stroke-width="2"/></g>
+<path d="M400 358.5252659574468 L820 457.38763297872345 L1120 556.25" fill="none" stroke="#e7b36a" stroke-width="2.5" stroke-dasharray="7 6"/>
+<path d="M400 358.5252659574468 L820 288.6376329787234 L1120 218.75" fill="none" stroke="#8baaff" stroke-width="2.5" stroke-dasharray="7 6"/>
+<path d="M508 185V590" stroke="#f4bc65" stroke-dasharray="6 5"/>
+<text x="100" y="169" font-size="16" fill="#dde7f7" text-anchor="start">真实历史 / 已收盘日K</text>
+<text x="520" y="169" font-size="16" fill="#ffd48a" text-anchor="start">未来情景 / 从9月30日起</text>
+<text x="100" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/23</text>
+<text x="400" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/28</text>
+<text x="520" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">09/30</text>
+<text x="820" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">10/05</text>
+<text x="1120" y="619" font-size="16" fill="#c0cee0" text-anchor="middle">10/10</text>
+<text x="100" y="150" font-size="14" fill="#b7c5d8" text-anchor="start">USD</text>
+<text x="610" y="650" font-size="16" fill="#b7c5d8" text-anchor="middle">本周：截至10月3日  |  下周：10月5—10日  |  按自然日期间距</text>
+<text x="48" y="690" font-size="17" fill="#d8e4f5" text-anchor="start">实心：历史  ·  空心：试支撑／修复示意</text>
+<path d="M640 684h40" stroke="#e7b36a" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="690" y="690" font-size="17" fill="#e7b36a" text-anchor="start">转弱分支</text>
+<path d="M895 684h40" stroke="#8baaff" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="945" y="690" font-size="17" fill="#8baaff" text-anchor="start">转强分支</text>
+<text x="48" y="724" font-size="18" fill="#f2c888" text-anchor="start">观察价位：78,000 / 82,000 / 85,300 / 87,400</text>
+<text x="48" y="762" font-size="16" fill="#b7c5d8" text-anchor="start">没有赋予命中概率；非实时行情、保证目标或交易指令。来源与确认条件见正文。</text>
+</g></svg>

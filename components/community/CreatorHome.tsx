@@ -3,13 +3,16 @@ import Link from "next/link";
 import { publicNotes } from "@/content/public-notes/market-tao-20260919";
 import { mstrPathNote } from "@/content/public-notes/mstr-path-20260928";
 import { cryptoRiskNote } from "@/content/public-notes/crypto-risk-20260925";
+import { twoWeekNote } from "@/content/public-notes/two-week-scenarios-20260929";
 import { CreatorProfile } from "./CreatorProfile";
 
 export function CreatorHome({ en }: { en: boolean }) {
   const prefix = en ? "/en" : "";
   const mstr = en ? mstrPathNote.en : mstrPathNote.zh;
+  const scenarios = en ? twoWeekNote.en : twoWeekNote.zh;
   // Summaries come from dated publications, never generated prices or synthetic activity.
   const posts = [
+    { id: twoWeekNote.id, date: twoWeekNote.date, title: scenarios.title, summary: scenarios.summary, image: `/images/public-notes/20260929/btc-${en ? "en" : "zh"}.svg`, original: false, chineseOnly: false, asset: en ? "BTC · ETH · Equities · Gold | ILLUSTRATIVE" : "BTC · ETH · 股指 · 黄金 | 模拟示意" },
     { id: mstrPathNote.id, date: mstrPathNote.date, title: mstr.title, summary: mstr.summary, image: mstrPathNote.images[1].path, original: true, chineseOnly: false, asset: "MSTR" },
     { id: cryptoRiskNote.id, date: cryptoRiskNote.date, title: cryptoRiskNote.title, summary: cryptoRiskNote.summary, image: "", original: true, chineseOnly: true, asset: "BTC · ETH" },
     ...publicNotes.map(note => ({ ...note, image: note.image ? `/images/public-notes/20260919/${note.image}-zh.webp` : "", original: false, chineseOnly: true })),
