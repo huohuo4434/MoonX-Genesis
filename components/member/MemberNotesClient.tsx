@@ -347,10 +347,10 @@ function Composer({
         {initial
           ? en
             ? "Edit post"
-            : "编辑随笔"
+            : "编辑观点"
           : en
             ? "Write a post"
-            : "发布新随笔"}
+            : "发布新观点"}
       </h2>
       <fieldset disabled={busy} className="space-y-4">
         <label className="block text-sm">
@@ -500,14 +500,14 @@ export function MemberNotesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
   return (
-    <section id="member-posts" aria-label={en ? "Member journal" : "会员专栏"} className="mx-auto max-w-4xl scroll-mt-24 px-4 py-8 text-white sm:px-6 sm:py-12">
+    <section id="member-posts" aria-label={en ? "Member views" : "会员专栏"} className="mx-auto max-w-4xl scroll-mt-24 px-4 py-8 text-white sm:px-6 sm:py-12">
       <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
             MOOX · {en ? "Member posts" : "会员专栏"}
           </p>
           <h2 className="mt-2 text-3xl font-semibold">
-            {en ? "Member-only notes" : "会员专享随笔"}
+            {en ? "Member-only views" : "会员专享观点"}
           </h2>
           <p className="mt-3 text-sm leading-6 text-white/60">
             {en
@@ -534,7 +534,7 @@ export function MemberNotesClient({
         <div className="mb-6 rounded-xl border border-violet-300/20 bg-violet-500/10 p-4 text-sm text-violet-100">
           {en
             ? "You can preview every title and opening line. Upgrade to read full posts and join discussions."
-            : "以下会员专享随笔可预览标题和首行。升级高级会员可阅读全文并参与讨论；下方公开随笔不受此限制。"}{" "}
+            : "以下会员专享观点可预览标题和首行。升级高级会员可阅读全文并参与讨论；下方公开观点不受此限制。"}{" "}
           <Link
             className="underline underline-offset-4"
             href={en ? "/en/pricing" : "/pricing"}
@@ -610,7 +610,7 @@ export function MemberNotesClient({
       {!busy && !error && posts.length === 0 && (
         <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
           <h2 className="text-lg">
-            {en ? "No posts here yet" : "这里还没有随笔"}
+            {en ? "No posts here yet" : "这里还没有观点"}
           </h2>
           <p className="mt-3 text-sm text-white/50">
             {isAdmin
@@ -706,7 +706,7 @@ export function MemberNotesClient({
                         !window.confirm(
                           en
                             ? "Withdraw this post? It can be restored from Archived."
-                            : "撤回这篇随笔？之后可从「已撤回」恢复。",
+                            : "撤回这篇观点？之后可从「已撤回」恢复。",
                         )
                       )
                         return;
@@ -738,7 +738,7 @@ export function MemberNotesClient({
           disabled={busy}
           onClick={() => void load(true)}
         >
-          {en ? "Older posts" : "更早的随笔"}
+          {en ? "Older posts" : "更早的观点"}
         </button>
       )}
     </section>

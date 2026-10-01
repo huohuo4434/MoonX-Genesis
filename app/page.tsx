@@ -8,11 +8,11 @@ export async function generateMetadata(): Promise<Metadata> {
     locale,
     basePath: "/",
     titleZh: "易老师观点 | MOOX",
-    titleEn: "Teacher Yi’s Journal | MOOX",
+    titleEn: "Teacher Yi’s Views | MOOX",
     descriptionZh:
-      "易老师不定期分享市场观点、图文分析与复盘。公开观点免费阅读，会员随笔保留专属讨论。",
+      "易老师不定期分享市场观点、图文分析与复盘。公开观点免费阅读，会员观点保留专属讨论。",
     descriptionEn:
-      "Independent market observations, charts and reviews by Teacher Yi. Read public posts and explore the member journal.",
+      "Independent market observations, charts and reviews by Teacher Yi. Read public posts and explore the member views.",
   });
 }
 

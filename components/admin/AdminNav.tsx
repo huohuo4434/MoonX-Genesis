@@ -14,7 +14,7 @@ const primaryLinks: AdminLink[] = [
   { href: "/admin/consultations", label: "会员问卦" },
   { href: "/admin/users", label: "用户与会员" },
   { href: "/admin/payments", label: "收款记录" },
-  { href: "/member/notes", label: "随笔与回帖" },
+  { href: "/member/notes", label: "观点与回帖" },
   { href: "/admin/live-trading", label: "实盘开关与托管" },
   { href: "/admin/site-health", label: "系统健康" },
 ];

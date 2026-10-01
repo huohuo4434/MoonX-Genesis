@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="800" viewBox="0 0 1240 800" role="img" aria-labelledby="title desc"><title id="title">MSTR · 未来四周回调情景</title><desc id="desc">人工构造示意，非实际价格、指标读数或精确未来四价。</desc><rect width="1240" height="800" fill="#0b1220"/><g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="48" y="54" font-size="30" fill="#edf6ff" text-anchor="start">MSTR · 未来四周回调情景</text>
+<text x="48" y="92" font-size="20" fill="#c4d2e5" text-anchor="start">易老师观点 · 2026年10月1日 · 个人研究</text>
+<rect x="48" y="114" width="1144" height="48" rx="8" fill="#382c18"/>
+<text x="65" y="146" font-size="23" fill="#ffd48a" text-anchor="start">模拟示意 — 不代表实时数据、精确目标价或转折日期</text>
+<text x="48" y="206" font-size="20" fill="#c4d2e5" text-anchor="start">纵轴只表示示意位置，不表示价格或涨跌百分比</text>
+<rect x="145" y="232" width="1025" height="385" fill="#fbbf24" opacity=".045"/>
+<path d="M145 520H1170" stroke="#29374b" stroke-dasharray="0"/>
+<path d="M145 450H1170" stroke="#29374b" stroke-dasharray="0"/>
+<path d="M145 345H1170" stroke="#29374b" stroke-dasharray="7 6"/>
+<path d="M145 240H1170" stroke="#29374b" stroke-dasharray="0"/>
+<text x="133" y="246" font-size="19" fill="#9cacc2" text-anchor="end">偏高</text>
+<text x="133" y="351" font-size="17" fill="#d4e3f5" text-anchor="end">参考位置</text>
+<text x="133" y="526" font-size="19" fill="#9cacc2" text-anchor="end">偏低</text>
+<g data-kind="synthetic" data-week="1"><path d="M220 310V408" stroke="#fb7185" stroke-width="3"/><rect x="195" y="345" width="50" height="35" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="220" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">第1周</text>
+<g data-kind="synthetic" data-week="2"><path d="M445 359V485" stroke="#fb7185" stroke-width="3"/><rect x="420" y="380" width="50" height="77" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="445" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">第2周</text>
+<g data-kind="synthetic" data-week="3"><path d="M670 373V471" stroke="#35d9b4" stroke-width="3"/><rect x="645" y="401" width="50" height="56" fill="#0b1220" stroke="#35d9b4" stroke-width="3"/></g>
+<text x="670" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">第3周</text>
+<g data-kind="synthetic" data-week="4"><path d="M895 380V541" stroke="#fb7185" stroke-width="3"/><rect x="870" y="401" width="50" height="105" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="895" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">第4周</text>
+<path d="M220 345L445 324L670 282L895 226" fill="none" stroke="#8baaff" stroke-width="3" stroke-dasharray="8 7"/>
+<path d="M220 345L445 450L670 513L895 583" fill="none" stroke="#e7b36a" stroke-width="3" stroke-dasharray="8 7"/>
+<text x="48" y="699" font-size="21" fill="#c4d2e5" text-anchor="start">空心蜡烛：主要情景 · 回落试支撑 → 反抽 → 再次检验支撑</text>
+<text x="48" y="736" font-size="20" fill="#c4d2e5" text-anchor="start">蓝虚线：有效突破，修正偏空观点  ·  金虚线：结构继续转弱，调整延长</text>
+<text x="48" y="775" font-size="18" fill="#c4d2e5" text-anchor="start">每根均为人工周度形状，不是未来周线四价预测；按条件逐周复核。</text>
+</g></svg>

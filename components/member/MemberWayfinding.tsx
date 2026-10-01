@@ -5,7 +5,7 @@ const quickLinks = [
   ["/member#price-time-chart", "K线与位置", "Candles & levels"],
   ["/member/ai-trading", "AI执行与成绩", "AI execution & results"],
   ["/member/weekly-review", "预测复盘", "Forecast review"],
-  ["/member/notes", "易老师随笔", "Yi's notes"],
+  ["/member/notes", "易老师观点", "Yi’s views"],
   ["/member/videos", "会员视频", "Member videos"],
   ["/member/consultations", "会员问卦", "Consultations"],
 ] as const;

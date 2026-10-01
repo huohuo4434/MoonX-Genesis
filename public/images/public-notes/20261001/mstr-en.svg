@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="800" viewBox="0 0 1240 800" role="img" aria-labelledby="title desc"><title id="title">MSTR · Four-week corrective scenario</title><desc id="desc">Manually constructed schematic, not observed prices, indicator values or future OHLC.</desc><rect width="1240" height="800" fill="#0b1220"/><g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="48" y="54" font-size="30" fill="#edf6ff" text-anchor="start">MSTR · Four-week corrective scenario</text>
+<text x="48" y="92" font-size="20" fill="#c4d2e5" text-anchor="start">Teacher Yi’s Views · October 1, 2026 · RESEARCH ONLY</text>
+<rect x="48" y="114" width="1144" height="48" rx="8" fill="#382c18"/>
+<text x="65" y="146" font-size="23" fill="#ffd48a" text-anchor="start">SCHEMATIC — no live data, exact targets or turning dates</text>
+<text x="48" y="206" font-size="20" fill="#c4d2e5" text-anchor="start">Relative position only — NOT price or percentage return</text>
+<rect x="145" y="232" width="1025" height="385" fill="#fbbf24" opacity=".045"/>
+<path d="M145 520H1170" stroke="#29374b" stroke-dasharray="0"/>
+<path d="M145 450H1170" stroke="#29374b" stroke-dasharray="0"/>
+<path d="M145 345H1170" stroke="#29374b" stroke-dasharray="7 6"/>
+<path d="M145 240H1170" stroke="#29374b" stroke-dasharray="0"/>
+<text x="133" y="246" font-size="19" fill="#9cacc2" text-anchor="end">Higher</text>
+<text x="133" y="351" font-size="17" fill="#d4e3f5" text-anchor="end">Reference</text>
+<text x="133" y="526" font-size="19" fill="#9cacc2" text-anchor="end">Lower</text>
+<g data-kind="synthetic" data-week="1"><path d="M220 310V408" stroke="#fb7185" stroke-width="3"/><rect x="195" y="345" width="50" height="35" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="220" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">Week 1</text>
+<g data-kind="synthetic" data-week="2"><path d="M445 359V485" stroke="#fb7185" stroke-width="3"/><rect x="420" y="380" width="50" height="77" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="445" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">Week 2</text>
+<g data-kind="synthetic" data-week="3"><path d="M670 373V471" stroke="#35d9b4" stroke-width="3"/><rect x="645" y="401" width="50" height="56" fill="#0b1220" stroke="#35d9b4" stroke-width="3"/></g>
+<text x="670" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">Week 3</text>
+<g data-kind="synthetic" data-week="4"><path d="M895 380V541" stroke="#fb7185" stroke-width="3"/><rect x="870" y="401" width="50" height="105" fill="#0b1220" stroke="#fb7185" stroke-width="3"/></g>
+<text x="895" y="650" font-size="23" fill="#d5e0ef" text-anchor="middle">Week 4</text>
+<path d="M220 345L445 324L670 282L895 226" fill="none" stroke="#8baaff" stroke-width="3" stroke-dasharray="8 7"/>
+<path d="M220 345L445 450L670 513L895 583" fill="none" stroke="#e7b36a" stroke-width="3" stroke-dasharray="8 7"/>
+<text x="48" y="699" font-size="21" fill="#c4d2e5" text-anchor="start">Hollow candles: base case · Pullback → bounce → renewed support test</text>
+<text x="48" y="736" font-size="20" fill="#c4d2e5" text-anchor="start">Blue dashed: sustained breakout revises the view · Gold dashed: weakness extends</text>
+<text x="48" y="775" font-size="18" fill="#c4d2e5" text-anchor="start">Synthetic weekly shapes, not predicted weekly OHLC. Review conditions each week.</text>
+</g></svg>
